@@ -424,7 +424,7 @@
     "again": "Relancer l’analyse",
     "detector_unavailable": "Installez un détecteur de recadrage pour trouver d’autres oiseaux.",
     "reviewed_other_frame": "Les oiseaux vérifiés sur une autre image sont conservés. Cette image ne peut pas les remplacer.",
-    "scene_unavailable": "L’image entière correspondant à cette photo n’est pas disponible.",
+    "scene_unavailable": "Impossible de chercher d’autres oiseaux \u0001 l’image entière derrière cette photo n’a pas été conservée.",
     "other_running": "Une autre image de cette capture est en cours d’analyse. Réessayez lorsqu’elle sera terminée.",
     "media_changed": "L’image a changé pendant l’analyse. Réessayez sur l’image actuelle.",
     "interrupted": "L’analyse a été interrompue. Vous pouvez réessayer.",
@@ -495,5 +495,11 @@
   "domestic_bird_declared": "C’est un oiseau de type {bird}, un oiseau domestique que vous élevez. Déplacez-le dans Jardin pour l’enregistrer comme animal du jardin. Cette fiche d’oiseau est masquée, pas supprimée.",
   "move_to_garden": "Déplacer dans Jardin",
   "range_fallback": "Filtre d'aire : le modèle a d'abord proposé {original} ({score} %), jamais signalé par eBird dans {region}, sa réponse suivante dans l'aire a donc été gardée.",
-  "audio_context_all": "Tous les chants entendus autour de cette visite"
+  "audio_context_all": "Tous les chants entendus autour de cette visite",
+  "record_label": "Fiche de détection",
+  "more_actions": "Autres actions",
+  "reference_read_more_on": "Lire la suite sur {source}",
+  "reference_read_more": "Lire la suite",
+  "reference_source": "Source \u0001 {source}",
+  "reference_conservation": "Statut de conservation \u0001 {status}"
 }

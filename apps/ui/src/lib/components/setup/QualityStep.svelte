@@ -4,6 +4,7 @@
     import { fetchSettings, updateSettings } from '../../api/settings';
     import { setupWizardStore } from '../../stores/setup_wizard.svelte';
     import WizardStepLayout from './WizardStepLayout.svelte';
+    import { loadBlockedReason } from './continue-blocked';
     import WizardLoadState, { type WizardLoadStatus } from './WizardLoadState.svelte';
 
     let hqSnapshots = $state(true);
@@ -48,6 +49,7 @@
     })}
     showSkip
     canContinue={loadState === 'ready'}
+    blockedReason={loadBlockedReason(loadState, $_)}
     {busy}
     onContinue={save}
 >

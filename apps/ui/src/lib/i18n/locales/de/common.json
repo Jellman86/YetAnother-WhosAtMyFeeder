@@ -67,5 +67,10 @@
   "checks_passed": "Alle {total} Prüfungen bestanden.",
   "check_passed": "Die Prüfung wurde bestanden.",
   "map_your_location": "Ihr Standort",
-  "map_sighting": "Ort der Sichtung"
+  "map_sighting": "Ort der Sichtung",
+  "test_again": "Erneut testen",
+  "diagnostic_state_passed": "Bestanden",
+  "diagnostic_state_failed": "Fehlgeschlagen",
+  "diagnostic_state_warning": "Bestanden mit Warnung",
+  "diagnostic_state_skipped": "Nicht ausgeführt"
 }

@@ -58,7 +58,6 @@
   "window_label": "Oggi",
   "count_events": "{count, plural, one {evento} other {eventi}}",
   "count_unread": "non letti",
-  "owner_only": "Lo vedi solo tu",
   "empty_title": "Non è ancora successo nulla",
   "empty_body": "Le visite compaiono qui appena il classificatore le nomina, e le attività in background mentre sono in corso. Prima le più recenti.",
   "empty_action": "Apri il diario di campo",
@@ -69,5 +68,6 @@
   "bell_unread": "{title}, {count} non letti",
   "filter_group": "Filtra notifiche",
   "count_unread_unit": "{count, plural, one {non letta} other {non lette}}",
-  "cleared": "{count, plural, one {# notifica cancellata.} other {# notifiche cancellate.}}"
+  "cleared": "{count, plural, one {# notifica cancellata.} other {# notifiche cancellate.}}",
+  "owner_only_note": "Le attività in background e gli eventi di stato e di sistema sono mostrati solo a te, non ai visitatori."
 }

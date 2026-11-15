@@ -25,5 +25,8 @@
   "copy_diagnostics_bundle": "Copier le lot de diagnostics",
   "no_local_visits_title": "Aucune visite à votre mangeoire pour l'instant",
   "no_local_visits_body": "Vos caméras n'ont pas encore enregistré cet oiseau. Tout ce qui suit provient de sources de référence publiques.",
-  "reclassify_clip": "Reclasser à partir du clip"
+  "reclassify_clip": "Reclasser à partir du clip",
+  "detections_all_time": "Détections, depuis le début",
+  "detections_shared": "Détections, historique partagé",
+  "detections_note": "Chaque image identifiée compte une fois. Une visite peut contenir plusieurs images, les nombres de visites du classement sont donc plus faibles."
 }

@@ -586,7 +586,13 @@
                         </div>
                         <dl class="grid grid-cols-2 overflow-hidden border-y border-slate-200 dark:border-slate-700 sm:grid-cols-4">
                             <div class="border-b border-r border-slate-200 px-3 py-4 dark:border-slate-700 sm:border-b-0 sm:px-4">
-                                <dt class="text-xs font-medium text-slate-600 dark:text-slate-400">{$_('common.detections')}</dt>
+                                <!-- The unit and the window are both named: this is every identified frame, not the
+                                     Leaderboard's visits in a chosen period, and a guest sees only the shared history. -->
+                                <dt class="text-xs font-medium text-slate-600 dark:text-slate-400" data-species-detections-label>
+                                    {authStore.isGuest
+                                        ? $_('species_detail.detections_shared', { default: 'Detections, shared history' })
+                                        : $_('species_detail.detections_all_time', { default: 'Detections, all time' })}
+                                </dt>
                                 <dd class="mt-1 text-2xl font-bold tracking-tight text-brand-700 dark:text-brand-300">{stats.total_sightings}</dd>
                             </div>
                             <div class="border-b border-slate-200 px-3 py-4 dark:border-slate-700 sm:border-b-0 sm:border-r sm:px-4">
@@ -602,6 +608,9 @@
                                 <dd class="mt-1 text-sm font-semibold text-slate-800 dark:text-slate-100">{formatDate(stats.last_seen)}</dd>
                             </div>
                         </dl>
+                        <p class="mt-2 text-xs text-slate-600 dark:text-slate-400" data-species-detections-note>
+                            {$_('species_detail.detections_note', { default: 'Every identified frame counts once. One visit can hold several frames, so the Leaderboard’s visit counts are lower.' })}
+                        </p>
                     </section>
 
                     {#if stats.recent_sightings.length > 0}

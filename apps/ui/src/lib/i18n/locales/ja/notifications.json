@@ -58,7 +58,6 @@
   "window_label": "今日",
   "count_events": "{count, plural, other {件}}",
   "count_unread": "未読",
-  "owner_only": "あなたにのみ表示",
   "empty_title": "まだ何も起きていません",
   "empty_body": "分類器が名前を付けた訪問と、実行中のバックグラウンド処理が、新しいものから順にここに表示されます。",
   "empty_action": "フィールドログを開く",
@@ -69,5 +68,6 @@
   "bell_unread": "{title}、未読 {count} 件",
   "filter_group": "通知を絞り込む",
   "count_unread_unit": "{count, plural, other {未読}}",
-  "cleared": "{count, plural, other {# 件の通知を消去しました。}}"
+  "cleared": "{count, plural, other {# 件の通知を消去しました。}}",
+  "owner_only_note": "バックグラウンドの処理、状態やシステムのイベントはあなたにだけ表示され、訪問者には表示されません。"
 }

@@ -1,9 +1,10 @@
 {
   "did_you_know": "¿Sabías que?",
+  "another_fact": "Mostrar otro dato",
   "bird_facts": [
     "Los colibríes pueden mantenerse suspendidos de forma sostenida en aire quieto y volar hacia atrás",
     "Los cuervos americanos recordaron durante años las caras usadas como máscara por sus captores",
-    "El charrán ártico migra más de 44,000 millas anuales - la migración más larga de cualquier ave",
+    "El charrán ártico migra más de 44,000 millas anuales, la migración más larga de cualquier ave",
     "Los búhos no pueden mover sus globos oculares, por eso pueden girar la cabeza hasta 270 grados",
     "El halcón peregrino puede lanzarse en picada a velocidades superiores a 240 mph, convirtiéndolo en el animal más rápido de la Tierra",
     "Los cuervos pueden imitar el habla humana y muchos sonidos de su entorno",
@@ -16,7 +17,6 @@
     "El albatros viajero tiene la envergadura más grande de cualquier ave viva, hasta 11.8 pies",
     "El cráneo del pájaro carpintero actúa como un martillo rígido, no como un amortiguador; las cargas cerebrales medidas quedaron bajo los umbrales estimados de conmoción",
     "Los vencejos comunes pueden permanecer en el aire unos diez meses entre temporadas de cría",
-    "Las aves no son reales - son drones de vigilancia del gobierno (supuestamente)",
     "Los gansos no tienen dientes; los bordes dentados del pico y las papilas de la lengua orientadas hacia atrás les ayudan a sujetar el alimento",
     "Más vale pájaro en mano que ciento volando, pero significativamente más sucio",
     "Los pingüinos son simplemente pollos formales vestidos para una gala",
@@ -31,6 +31,5 @@
     "Los petirrojos europeos muestran su pecho anaranjado en despliegues territoriales frente a sus rivales",
     "Las aves tienen un tercer párpado translúcido que recorre el ojo de lado, distribuye las lágrimas y lo protege",
     "Todo lo que hay en tu comedero ha decidido en silencio que tú eres el personal"
-  ],
-  "built_with_ai": "Creado con ayuda de IA, y con mucho ensayo y error"
+  ]
 }

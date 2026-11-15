@@ -67,5 +67,10 @@
   "checks_passed": "Todas as {total} verificações passaram.",
   "check_passed": "A verificação passou.",
   "map_your_location": "A sua localização",
-  "map_sighting": "Local do avistamento"
+  "map_sighting": "Local do avistamento",
+  "test_again": "Testar novamente",
+  "diagnostic_state_passed": "Passou",
+  "diagnostic_state_failed": "Falhou",
+  "diagnostic_state_warning": "Passou com um aviso",
+  "diagnostic_state_skipped": "Não executado"
 }

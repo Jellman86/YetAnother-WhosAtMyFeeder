@@ -67,5 +67,10 @@
   "checks_passed": "Les {total} vérifications ont réussi.",
   "check_passed": "La vérification a réussi.",
   "map_your_location": "Votre position",
-  "map_sighting": "Lieu de l’observation"
+  "map_sighting": "Lieu de l’observation",
+  "test_again": "Tester à nouveau",
+  "diagnostic_state_passed": "Réussi",
+  "diagnostic_state_failed": "Échec",
+  "diagnostic_state_warning": "Réussi avec un avertissement",
+  "diagnostic_state_skipped": "Non exécuté"
 }

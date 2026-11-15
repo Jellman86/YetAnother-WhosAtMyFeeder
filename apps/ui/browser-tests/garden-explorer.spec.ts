@@ -409,7 +409,8 @@ test('the record has read-only technical evidence and suggestions follow Detecti
     await expect(dialog.locator('select')).toHaveCount(0);
     await expect(dialog.locator('[data-garden-capture-model]')).toHaveCount(0);
     await expect(dialog.locator('[data-garden-capture-details]')).toContainText(garden[0].id);
-    await expect(dialog.locator('[data-garden-capture-details]')).toContainText('yawamf garden show');
+    // A plain panel: the identifier and the evidence, with no imitation command line.
+    await expect(dialog.locator('[data-garden-capture-details]')).not.toContainText('yawamf');
     await dialog.getByRole('button', { name: 'Suggest species', exact: true }).click();
     expect(request).toEqual({ variant: '4.0.3b', provider: 'intel_npu' });
 });

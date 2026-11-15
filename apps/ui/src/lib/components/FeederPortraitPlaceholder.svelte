@@ -10,9 +10,11 @@
         failed?: boolean;
         /** The install count is known, so the portrait will close with its line. */
         withCommunity?: boolean;
+        /** Whether this feeder's portrait had a picture last time: the shape held is the shape expected. */
+        withPicture?: boolean;
     }
 
-    let { failed = false, withCommunity = false }: Props = $props();
+    let { failed = false, withCommunity = false, withPicture = true }: Props = $props();
 
     const bar = 'block rounded-sm bg-slate-200/80 animate-pulse motion-reduce:animate-none dark:bg-slate-700/60';
 </script>
@@ -22,13 +24,15 @@
         {$_('about.portrait.unavailable', { default: "This feeder's facts could not be loaded." })}
     </p>
 {:else}
-    <div class="grid gap-5 md:grid-cols-2 md:items-center" aria-busy="true" data-feeder-portrait-loading>
+    <div class="grid gap-5 {withPicture ? 'md:grid-cols-2 md:items-center' : ''}" aria-busy="true" data-feeder-portrait-loading>
         <p role="status" class="sr-only">{$_('about.portrait.loading', { default: "Loading this feeder's facts…" })}</p>
-        <div class="aspect-video w-full rounded-2xl bg-slate-200/80 animate-pulse motion-reduce:animate-none dark:bg-slate-800" aria-hidden="true" data-loading-placeholder></div>
+        {#if withPicture}
+            <div class="aspect-video w-full rounded-2xl bg-slate-200/80 animate-pulse motion-reduce:animate-none dark:bg-slate-800" aria-hidden="true" data-loading-placeholder></div>
+        {/if}
         <div class="min-w-0 space-y-4" aria-hidden="true">
             <!-- One line of the heading, at its line height. -->
             <span class="flex h-7 items-center"><span class="{bar} h-5 w-3/4" data-loading-placeholder></span></span>
-            <div class="grid grid-cols-2 gap-x-6 gap-y-4">
+            <div class="grid grid-cols-2 gap-x-6 gap-y-4 {withPicture ? '' : 'sm:grid-cols-4'}">
                 {#each ['w-16', 'w-12'] as width (width)}
                     <div>
                         <span class="flex h-8 items-center"><span class="{bar} h-6 {width}" data-loading-placeholder></span></span>

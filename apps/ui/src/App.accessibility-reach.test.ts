@@ -49,7 +49,7 @@ describe('accessibility choices reaching a public visitor', () => {
     });
 
     it('reaches the scripts that gate their own motion', () => {
-        // The footer has nothing left to gate: its fact is chosen once and never turns over by itself.
+        // The footer has nothing left to gate: it carries the version, the licence and the links only.
         expect(footerSource).not.toMatch(/setInterval|setTimeout|transition-opacity/);
         expect(wallSource).toContain("classList.contains('reduced-motion')");
     });

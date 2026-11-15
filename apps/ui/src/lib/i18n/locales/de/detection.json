@@ -424,7 +424,7 @@
     "again": "Erneut scannen",
     "detector_unavailable": "Installiere einen Ausschnittdetektor, um weitere Vögel zu finden.",
     "reviewed_other_frame": "Auf einem anderen Bild überprüfte Vögel bleiben erhalten. Dieses Bild kann sie nicht ersetzen.",
-    "scene_unavailable": "Das vollständige Bild zu diesem Foto ist nicht verfügbar.",
+    "scene_unavailable": "Nach weiteren Vögeln kann nicht gesucht werden: Das ganze Bild hinter diesem Foto wurde nicht aufbewahrt.",
     "other_running": "Ein anderes Bild dieser Aufnahme wird gescannt. Versuche es danach erneut.",
     "media_changed": "Das Bild hat sich während des Scans geändert. Versuche es mit dem aktuellen Bild erneut.",
     "interrupted": "Der Scan wurde unterbrochen. Du kannst es erneut versuchen.",
@@ -495,5 +495,11 @@
   "domestic_bird_declared": "Das ist ein Vogel der Art {bird}, ein gehaltener Hausvogel. Verschiebe ihn in den Garten, um ihn als Gartentier zu erfassen. Dieser Vogeleintrag wird ausgeblendet, nicht gelöscht.",
   "move_to_garden": "In den Garten verschieben",
   "range_fallback": "Verbreitungsfilter: Das Modell sagte zuerst {original} ({score} %), was eBird in {region} nie erfasst hat; daher wurde seine nächste Antwort im Verbreitungsgebiet behalten.",
-  "audio_context_all": "Alle Rufe rund um diesen Besuch"
+  "audio_context_all": "Alle Rufe rund um diesen Besuch",
+  "record_label": "Erkennungsdatensatz",
+  "more_actions": "Weitere Aktionen",
+  "reference_read_more_on": "Mehr lesen bei {source}",
+  "reference_read_more": "Mehr lesen",
+  "reference_source": "Quelle: {source}",
+  "reference_conservation": "Schutzstatus: {status}"
 }

@@ -27,7 +27,7 @@ test('owners reach support from Notifications and export fresh server evidence',
         return route.fulfill({ json: {} });
     });
     await page.goto('/browser-tests/support.html');
-    await page.getByRole('button', { name: 'Open Health', exact: true }).click();
+    await page.getByRole('link', { name: 'Open Health', exact: true }).click();
     await expect(page.getByLabel('Current route')).toHaveText('/system-health');
     const exportPanel = page.locator('[data-diagnostics-export]');
     await exportPanel.locator('summary').click();
@@ -67,9 +67,9 @@ test('owners reach support from Notifications and export fresh server evidence',
 test('guests cannot follow the owner support shortcut', async ({ page }) => {
     await page.route(url => url.pathname.startsWith('/api/'), route => route.fulfill({ json: { items: [] } }));
     await page.goto('/browser-tests/support.html');
-    await expect(page.getByRole('button', { name: 'Open Health', exact: true })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Open Health', exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Become guest' }).click();
-    await expect(page.getByRole('button', { name: 'Open Health', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: 'Open Health', exact: true })).toHaveCount(0);
 });
 
 
@@ -89,7 +89,7 @@ for (const percent of [null, 0]) {
             return route.fulfill({ json: { items: [] } });
         });
         await page.goto('/browser-tests/support.html');
-        await page.getByRole('button', { name: 'Open Health', exact: true }).click();
+        await page.getByRole('link', { name: 'Open Health', exact: true }).click();
         const now = page.locator('[data-system-health-now]');
         if (percent === null) {
             await expect(now.getByText('Not measured', { exact: true })).toBeVisible();

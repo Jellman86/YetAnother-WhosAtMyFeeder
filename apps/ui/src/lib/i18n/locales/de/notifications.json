@@ -58,7 +58,6 @@
   "window_label": "Heute",
   "count_events": "{count, plural, one {Ereignis} other {Ereignisse}}",
   "count_unread": "ungelesen",
-  "owner_only": "Nur für dich sichtbar",
   "empty_title": "Bisher ist nichts passiert",
   "empty_body": "Besuche erscheinen hier, sobald der Klassifikator sie benennt, und Hintergrundarbeiten während sie laufen. Neueste zuerst.",
   "empty_action": "Feldprotokoll öffnen",
@@ -69,5 +68,6 @@
   "bell_unread": "{title}, {count} ungelesen",
   "filter_group": "Benachrichtigungen filtern",
   "count_unread_unit": "{count, plural, one {ungelesen} other {ungelesen}}",
-  "cleared": "{count, plural, one {# Benachrichtigung gelöscht.} other {# Benachrichtigungen gelöscht.}}"
+  "cleared": "{count, plural, one {# Benachrichtigung gelöscht.} other {# Benachrichtigungen gelöscht.}}",
+  "owner_only_note": "Hintergrundaufgaben sowie Zustands- und Systemereignisse werden nur dir angezeigt, nicht Besuchern."
 }

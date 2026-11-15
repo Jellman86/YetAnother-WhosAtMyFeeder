@@ -26,7 +26,6 @@
     "mqtt_username": "Nome utente",
     "mqtt_password": "Parola d’accesso",
     "mqtt_password_saved": "La password salvata verrà mantenuta finché non ne inserisci una nuova.",
-    "continue_hint": "Le impostazioni sono salvate. Puoi continuare e correggere la connessione in seguito, ma i rilevamenti non arriveranno finché Frigate non sarà raggiungibile.",
     "description": "YA-WAMF legge i rilevamenti da Frigate tramite MQTT e scarica le istantanee dalla sua API. Indica gli indirizzi di entrambi, poi esegui il test.",
     "frigate_auth_hint": "Se il tuo Frigate richiede l’accesso, imposta FRIGATE_AUTH_TOKEN nell’ambiente con cui si avvia YA-WAMF, riavvialo e prova di nuovo.",
     "frigate_auth_link": "Variabili d’ambiente",
@@ -36,7 +35,12 @@
     "mqtt_port": "Porta",
     "mqtt_server": "Broker MQTT",
     "save_test": "Salva e testa la connessione",
-    "frigate_ok": "Connesso a Frigate {version}"
+    "frigate_ok": "Connesso a Frigate {version}",
+    "blocked": "Salva e prova la connessione per continuare, oppure scegli «Configura più tardi».",
+    "later": "Configura più tardi",
+    "later_note": "Non hai Frigate o il broker a portata di mano? Scegli «Configura più tardi». Finché entrambi non sono collegati in Impostazioni → Connessione, non arrivano visite, non si possono recuperare foto o clip e il passaggio delle telecamere non può elencare le tue telecamere.",
+    "check_frigate": "API di Frigate",
+    "check_mqtt": "Broker MQTT"
   },
   "cameras": {
     "title": "Telecamere e rilevamento",
@@ -54,7 +58,7 @@
   },
   "model": {
     "title": "Modello di classificazione e hardware",
-    "description": "YA-WAMF include un’alternativa leggera per CPU. Scegli un modello, scaricalo qui se necessario, quindi convalida il percorso esatto dell’immagine e dell’hardware prima di continuare.",
+    "description": "YA-WAMF include un piccolo modello che funziona su qualsiasi CPU. Scegli quello o uno più grande, scaricalo qui se serve, poi verifica che funzioni su questa macchina prima di continuare.",
     "download_required": "Scarica e verifica qui questo modello prima di convalidarlo su questo hardware.",
     "download_timeout": "Il download sta richiedendo più tempo del previsto. Controlla la connessione e riprova.",
     "validation_timeout": "La convalida hardware ha superato 30 minuti. Potrebbe essere ancora in corso in Diagnostica; controllane lo stato prima di avviare un’altra esecuzione.",
@@ -92,7 +96,13 @@
     "readiness_retry": "La verifica è terminata, ma non è stato possibile aggiornare lo stato del modello. Nuovo tentativo in corso; puoi uscire e tornare più tardi.",
     "best_provider": "Miglior provider verificato: {provider}, {ms} ms per immagine",
     "best_provider_without_timing": "Miglior provider verificato: {provider}",
-    "failed_providers": "Non riusciti: {providers}"
+    "failed_providers": "Non riusciti: {providers}",
+    "blocked_downloading": "Potrai continuare al termine del download.",
+    "blocked_no_model": "Scegli un modello per continuare, oppure salta questo passaggio per mantenere il modello in uso ora.",
+    "blocked_download": "Scarica questo modello per continuare, oppure salta questo passaggio per mantenere il modello in uso ora.",
+    "blocked_check": "Verifica questo modello su questo hardware per continuare, oppure salta questo passaggio per mantenere il modello in uso ora.",
+    "blocked_location": "Inserisci latitudine e longitudine della mangiatoia per continuare, oppure lascia entrambe vuote.",
+    "blocked_provider": "Questo host non dispone del dispositivo scelto. Scegline un altro, o Automatico, per continuare."
   },
   "quality": {
     "title": "Migliori istantanee disponibili",
@@ -118,7 +128,6 @@
     "enable_help": "I rilevamenti vengono aggiornati solo se la classificazione migliora; audio e meteo salvati restano intatti.",
     "range": "Intervallo cronologia",
     "import_continue": "Importa e continua",
-    "continue_without": "Continua senza importare",
     "job_title": "Importazione cronologia",
     "job_starting": "Analisi della cronologia Frigate",
     "audio_note": "La cronologia Frigate ripristina rilevamenti visivi e istantanee, ma non può ricreare l’audio BirdNET-Go non salvato."
@@ -175,10 +184,11 @@
     "cover_cameras": "Scegli le telecamere",
     "cover_connect": "Collega Frigate e MQTT",
     "cover_integrations": "Attiva le integrazioni",
-    "cover_model": "Convalida il modello sul tuo hardware",
-    "description": "Mettiamo online la tua mangiatoia. Bastano pochi minuti, le scelte facoltative si possono saltare e puoi rieseguire la procedura in qualsiasi momento dalla navigazione delle Impostazioni.",
+    "cover_model": "Verificare che il modello funzioni su questa macchina",
+    "description": "Bastano pochi minuti. Le scelte facoltative si possono saltare e puoi ripetere la configurazione in qualsiasi momento dalle Impostazioni.",
     "start": "Inizia",
-    "title": "Benvenuto in YA-WAMF"
+    "title": "Configura YA-WAMF",
+    "covers": "La configurazione ti chiederà di:"
   },
   "working": "In corso…",
   "skip_step": "Salta passaggio",
@@ -192,8 +202,15 @@
     "model": "Modello",
     "quality": "Istantanee",
     "integrations": "Integrazioni",
-    "history": "Cronologia",
-    "telemetry": "Statistiche d’uso",
+    "history": "Extra",
     "review": "Riepilogo"
+  },
+  "blocked": {
+    "loading": "Potrai continuare quando le impostazioni attuali saranno caricate.",
+    "load_failed": "Non è stato possibile caricare le impostazioni attuali, quindi qui non si può salvare nulla. Usa «Riprova a caricare le impostazioni» qui sopra."
+  },
+  "extras": {
+    "title": "Extra facoltativi",
+    "description": "Due scelte prima di finire. Entrambe sono disattivate finché non le attivi, ed entrambe si possono cambiare in seguito nelle Impostazioni."
   }
 }

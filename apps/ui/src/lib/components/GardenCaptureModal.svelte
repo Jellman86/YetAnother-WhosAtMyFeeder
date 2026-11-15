@@ -806,47 +806,47 @@
                 {/if}
 
                 <!-- The saved run and capture evidence, read-only and closed by default. -->
-                <RecordTechnicalDetails title={$_('garden.explorer.details', { default: 'Details' })} command="yawamf garden show" identifier={capture.id} data-garden-capture-details>
+                <RecordTechnicalDetails title={$_('garden.explorer.details', { default: 'Details' })} identifier={capture.id} data-garden-capture-details>
                     <dl class="mt-3 space-y-2">
                         {#each [['camera', capture.camera], ['source', capture.source_kind ?? 'frigate_event'], ['observed_at', capture.observed_at], ['kept_media', keptMedia]] as [key, value] (key)}
-                            <div class="flex flex-wrap justify-between gap-x-3 gap-y-1"><dt class="text-slate-400">{key}</dt><dd class="min-w-0 max-w-full break-all">{value}</dd></div>
+                            <div class="flex flex-wrap justify-between gap-x-3 gap-y-1"><dt class="text-slate-600 dark:text-slate-400">{key}</dt><dd class="min-w-0 max-w-full break-all">{value}</dd></div>
                         {/each}
                     </dl>
                     {#if capture.identification}
                         {@const evidence = capture.identification}
-                        <dl class="mt-3 space-y-2 border-t border-slate-700 pt-3" data-garden-capture-identification>
-                            <div class="flex flex-wrap justify-between gap-x-3 gap-y-1"><dt class="text-slate-400">model</dt><dd class="min-w-0 max-w-full break-all">SpeciesNet {evidence.variant} · {evidence.devices.join(', ')}</dd></div>
+                        <dl class="mt-3 space-y-2 border-t border-line-soft pt-3" data-garden-capture-identification>
+                            <div class="flex flex-wrap justify-between gap-x-3 gap-y-1"><dt class="text-slate-600 dark:text-slate-400">model</dt><dd class="min-w-0 max-w-full break-all">SpeciesNet {evidence.variant} · {evidence.devices.join(', ')}</dd></div>
                             {#each [['model_species', evidence.name ?? ''], ['model_score', evidence.score == null ? '' : `${Math.round(evidence.score * 100)}%`], ['country', evidence.country], ['input_kind', evidence.input_kind], ['identified_at', evidence.identified_at], ['model_sha256', evidence.model_sha256], ['package_sha256', evidence.package_sha256], ['image_sha256', evidence.image_sha256]] as [key, value] (key)}
-                                {#if value}<div class="flex flex-wrap justify-between gap-x-3 gap-y-1"><dt class="text-slate-400">{key}</dt><dd class="min-w-0 max-w-full break-all">{value}</dd></div>{/if}
+                                {#if value}<div class="flex flex-wrap justify-between gap-x-3 gap-y-1"><dt class="text-slate-600 dark:text-slate-400">{key}</dt><dd class="min-w-0 max-w-full break-all">{value}</dd></div>{/if}
                             {/each}
                         </dl>
                     {/if}
                     {#if capture.domestic_route}
                         {@const route = capture.domestic_route}
-                        <dl class="mt-3 space-y-2 border-t border-slate-700 pt-3" data-garden-domestic-route>
+                        <dl class="mt-3 space-y-2 border-t border-line-soft pt-3" data-garden-domestic-route>
                             {#each [['domestic_bird', route.domestic_bird], ['origin', route.origin], ['source_label', route.source_label], ['source_scientific_name', route.source_scientific_name ?? ''], ['source_score', route.source_score == null ? '' : `${Math.round(route.source_score * 100)}%`], ['source_model', route.source_model ?? ''], ['detection_id', route.detection_id == null ? '' : String(route.detection_id)], ['routed_at', route.routed_at]] as [key, value] (key)}
-                                {#if value}<div class="flex flex-wrap justify-between gap-x-3 gap-y-1"><dt class="text-slate-400">{key}</dt><dd class="min-w-0 max-w-full break-all">{value}</dd></div>{/if}
+                                {#if value}<div class="flex flex-wrap justify-between gap-x-3 gap-y-1"><dt class="text-slate-600 dark:text-slate-400">{key}</dt><dd class="min-w-0 max-w-full break-all">{value}</dd></div>{/if}
                             {/each}
                         </dl>
                     {/if}
                     {#if capture.owner_identification}
-                        <dl class="mt-3 space-y-2 border-t border-slate-700 pt-3" data-garden-owner-identity>
+                        <dl class="mt-3 space-y-2 border-t border-line-soft pt-3" data-garden-owner-identity>
                             {#each [['owner_species', capture.owner_identification.name], ['owner_species_id', String(capture.owner_identification.species_id)], ['owner_changed_at', capture.owner_identification.changed_at]] as [key, value] (key)}
-                                <div class="flex flex-wrap justify-between gap-x-3 gap-y-1"><dt class="text-slate-400">{key}</dt><dd class="min-w-0 max-w-full break-all">{value}</dd></div>
+                                <div class="flex flex-wrap justify-between gap-x-3 gap-y-1"><dt class="text-slate-600 dark:text-slate-400">{key}</dt><dd class="min-w-0 max-w-full break-all">{value}</dd></div>
                             {/each}
                         </dl>
                     {/if}
                     {#if capture.motion_source}
                         {@const motion = capture.motion_source}
-                        <dl class="mt-3 space-y-2 border-t border-slate-700 pt-3">
+                        <dl class="mt-3 space-y-2 border-t border-line-soft pt-3">
                             {#each [['clip_window', `${motion.clip_start} – ${motion.clip_end}`], ['frame_index', String(motion.frame_index)], ['box_xywh', JSON.stringify(motion.box_xywh)], ['detector_sha256', motion.detector_sha256], ['source_image_sha256', motion.image_sha256]] as [key, value] (key)}
-                                <div class="flex flex-wrap justify-between gap-x-3 gap-y-1"><dt class="text-slate-400">{key}</dt><dd class="min-w-0 max-w-full break-all">{value}</dd></div>
+                                <div class="flex flex-wrap justify-between gap-x-3 gap-y-1"><dt class="text-slate-600 dark:text-slate-400">{key}</dt><dd class="min-w-0 max-w-full break-all">{value}</dd></div>
                             {/each}
                         </dl>
                     {/if}
                     {#if capture.automatic_check && capture.status === 'confirmed'}
-                        <div class="mt-3 border-t border-slate-700 pt-3">
-                            <GardenAutomaticAssessment assessment={capture.automatic_check} overridden={capture.automatic_check_overridden} named={view.nameState === 'automatic'} terminal />
+                        <div class="mt-3 border-t border-line-soft pt-3">
+                            <GardenAutomaticAssessment assessment={capture.automatic_check} overridden={capture.automatic_check_overridden} named={view.nameState === 'automatic'} />
                         </div>
                     {/if}
                 </RecordTechnicalDetails>

@@ -31,13 +31,8 @@
     "notify": "通知",
     "browser": "ブラウザ",
     "unknown": "不明",
-    "online": "オンライン",
     "degraded": "要確認",
     "loaded": "読み込み済み",
-    "enabled": "有効",
-    "off": "オフ",
-    "streaming": "配信中",
-    "offline": "オフライン",
     "cameras_count": "カメラ {total} 台中 {online} 台がオンライン",
     "mqtt_detail": "frigate/events",
     "audio_detail": "BirdNET-Go との照合",
@@ -45,15 +40,12 @@
     "notify_on": "1 つ以上のチャンネルを設定済み",
     "notify_off": "未設定",
     "browser_detail": "SSE によるライブ更新",
-    "legend_local": "自分のハードウェアで動作",
-    "legend_optional": "任意",
-    "legend_external": "ブローカーとブラウザ",
     "legend_note": "下に挙げた通信以外、ネットワークの外には何も出ません。",
     "not_checked": "未確認",
     "no_reading": "ここからは取得できません",
     "owner_only": "オーナーのみ",
     "owner_only_detail": "オーナーにのみ表示される情報",
-    "standby": "最初の検出時に読み込み"
+    "standby": "まだ読み込まれていません"
   },
   "storage": {
     "title": "保存される内容",
@@ -82,7 +74,6 @@
   },
   "instance": {
     "title": "このインスタンス",
-    "acceleration": "アクセラレーション",
     "for_issue": "不具合報告用",
     "copy": "コピー",
     "copied": "コピーしました",
@@ -106,7 +97,13 @@
     "history_loading": "稼働状況を読み込んでいます…",
     "history_unavailable": "稼働状況を取得できませんでした。",
     "availability_partial": "記録された {hours} 時間のうち {percent}% 稼働",
-    "no_gaps_since": "{when} の記録開始以降、途切れはありません。"
+    "no_gaps_since": "{when} の記録開始以降、途切れはありません。",
+    "runtime": "鳥の識別に使用中",
+    "runtime_on": "{runtime}（{device}）",
+    "runtime_unread": "まだ読み取れていません。モデルの読み込みが終わると表示されます。",
+    "uptime_unmeasured": "バックエンドから起動時刻が報告されませんでした。",
+    "availability_heading": "稼働率（過去{hours}時間）",
+    "uptime_unmeasured_value": "未計測"
   },
   "close": {
     "title": "データ、プライバシー、クレジット"
@@ -114,11 +111,10 @@
   "reference_thanks": "参考資料と謝辞",
   "thanks_to": "謝辞",
   "portrait": {
-    "since": "{date} から観察中。",
-    "shared_today": "今日のこの給餌台。",
-    "shared_days": "この給餌台の過去 {days} 日間。",
+    "since": "{date} から観察中",
+    "shared_today": "今日のこの給餌台",
+    "shared_days": "この給餌台の過去 {days} 日間",
     "empty": "まだ訪問は記録されていません。鳥が来ると埋まっていきます。",
-    "no_latest": "最近の訪問の画像はまだありません。",
     "visits": "回の訪問",
     "species": "種",
     "busiest_day": "最も賑わった日",

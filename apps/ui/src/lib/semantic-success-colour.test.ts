@@ -37,8 +37,8 @@ describe('success is a semantic colour, not the brand accent', () => {
     });
 
     it('paints successful setup checks green', () => {
-        expect(connectionStepSource).toMatch(/result\?\.ok \? 'bg-success-/);
-        expect(connectionStepSource).not.toMatch(/result\?\.ok \? 'bg-accent-/);
+        expect(connectionStepSource).toMatch(/row\.ok \? 'bg-success-600'/);
+        expect(connectionStepSource).not.toMatch(/row\.ok \? 'bg-accent-/);
         expect(modelStepSource).toMatch(/rowOk\(m\) \? 'bg-success-/);
         expect(modelStepSource).not.toMatch(/rowOk\(m\) \? 'bg-accent-/);
         expect(reviewStepSource).toMatch(/ok: 'bg-success-/);

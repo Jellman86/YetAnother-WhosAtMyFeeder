@@ -63,7 +63,7 @@ these rules before.
   control): two opaque pixels of `--focus`, which is 3:1 or better against everything it can sit
   beside. Never a translucent ring (`ring-brand-500/50` measured 1.6:1 on white) and never a raw
   brand step, because teal and blue pass at different steps. A control over a photograph or on a
-  ground that stays dark in the light theme (the video player, the record terminal) uses
+  ground that stays dark in the light theme (the video player) uses
   `focus-ring-on-dark`, `btn-on-dark` or `input-on-dark`.
 - **Muted text is `text-slate-600 dark:text-slate-400`.** Slate 500 passes on pure white only: on
   a tinted row or the page ground it is 4.3 to 4.4:1. Slate 400 and lighter are for decoration

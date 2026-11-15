@@ -31,13 +31,8 @@
     "notify": "Notificações",
     "browser": "O seu navegador",
     "unknown": "Desconhecido",
-    "online": "Online",
     "degraded": "Verificar",
     "loaded": "Carregado",
-    "enabled": "Ativo",
-    "off": "Desligado",
-    "streaming": "A transmitir",
-    "offline": "Offline",
     "cameras_count": "{online} de {total} câmeras online",
     "mqtt_detail": "frigate/events",
     "audio_detail": "Correlação com BirdNET-Go",
@@ -45,15 +40,12 @@
     "notify_on": "pelo menos um canal configurado",
     "notify_off": "nada configurado",
     "browser_detail": "atualizações em direto por SSE",
-    "legend_local": "corre no seu hardware",
-    "legend_optional": "opcional",
-    "legend_external": "o seu broker e navegador",
     "legend_note": "Nada sai da sua rede além das chamadas listadas abaixo.",
     "not_checked": "Não verificado",
     "no_reading": "sem leitura a partir daqui",
     "owner_only": "Apenas proprietário",
     "owner_only_detail": "leitura visível ao proprietário",
-    "standby": "Carrega na primeira deteção"
+    "standby": "Ainda não carregado"
   },
   "storage": {
     "title": "O que é armazenado",
@@ -82,7 +74,6 @@
   },
   "instance": {
     "title": "Esta instância",
-    "acceleration": "Aceleração",
     "for_issue": "Para reportar um problema",
     "copy": "Copiar",
     "copied": "Copiado",
@@ -106,7 +97,13 @@
     "history_loading": "Carregando disponibilidade…",
     "history_unavailable": "Não foi possível consultar a disponibilidade.",
     "availability_partial": "{percent}% ativo nas {hours} h registradas",
-    "no_gaps_since": "Sem interrupções desde que o registro começou às {when}."
+    "no_gaps_since": "Sem interrupções desde que o registro começou às {when}.",
+    "runtime": "A identificar aves com",
+    "runtime_on": "{runtime} em {device}",
+    "runtime_unread": "Ainda não foi lido. O modelo indica isto depois de carregar.",
+    "uptime_unmeasured": "O backend não indicou quando arrancou.",
+    "availability_heading": "Disponibilidade, últimas {hours} horas",
+    "uptime_unmeasured_value": "Não medido"
   },
   "close": {
     "title": "Dados, privacidade e créditos"
@@ -114,11 +111,10 @@
   "reference_thanks": "Referências e agradecimentos",
   "thanks_to": "Obrigado a",
   "portrait": {
-    "since": "Observando desde {date}.",
-    "shared_today": "Hoje neste comedouro.",
-    "shared_days": "Os últimos {days} dias neste comedouro.",
+    "since": "Observando desde {date}",
+    "shared_today": "Hoje neste comedouro",
+    "shared_days": "Os últimos {days} dias neste comedouro",
     "empty": "Ainda não há visitas registradas. Isto se preenche conforme as aves chegam.",
-    "no_latest": "Ainda não há imagem de uma visita recente.",
     "visits": "visitas",
     "species": "espécies",
     "busiest_day": "Dia mais movimentado",

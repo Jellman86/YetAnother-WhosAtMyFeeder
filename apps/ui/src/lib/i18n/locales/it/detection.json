@@ -424,7 +424,7 @@
     "again": "Analizza di nuovo",
     "detector_unavailable": "Installa un rilevatore per i ritagli per trovare altri uccelli.",
     "reviewed_other_frame": "Gli uccelli verificati in un altro fotogramma vengono conservati. Questo fotogramma non può sostituirli.",
-    "scene_unavailable": "Il fotogramma intero di questa fotografia non è disponibile.",
+    "scene_unavailable": "Non è possibile cercare altri uccelli: il fotogramma intero di questa fotografia non è stato conservato.",
     "other_running": "Un altro fotogramma di questa acquisizione è in analisi. Riprova al termine.",
     "media_changed": "Il fotogramma è cambiato durante l’analisi. Riprova con quello attuale.",
     "interrupted": "L’analisi è stata interrotta. Puoi riprovare.",
@@ -495,5 +495,11 @@
   "domestic_bird_declared": "È un uccello di tipo {bird}, un uccello domestico che allevi. Spostalo in Giardino per registrarlo come animale del giardino. Questa scheda viene nascosta, non eliminata.",
   "move_to_garden": "Sposta in Giardino",
   "range_fallback": "Filtro di areale: il modello aveva detto prima {original} ({score}%), mai registrato da eBird in {region}, quindi è stata tenuta la sua risposta successiva nell'areale.",
-  "audio_context_all": "Tutti i richiami sentiti attorno a questa visita"
+  "audio_context_all": "Tutti i richiami sentiti attorno a questa visita",
+  "record_label": "Scheda del rilevamento",
+  "more_actions": "Altre azioni",
+  "reference_read_more_on": "Continua a leggere su {source}",
+  "reference_read_more": "Continua a leggere",
+  "reference_source": "Fonte: {source}",
+  "reference_conservation": "Stato di conservazione: {status}"
 }

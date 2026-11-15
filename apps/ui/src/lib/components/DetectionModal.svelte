@@ -90,7 +90,6 @@
     } from '../utils/weather-units';
     import { formatIlluminance } from '../utils/illuminance';
     import { getVideoFailureInsight, hasFrigateMediaIssue } from '../utils/frigate-errors';
-    import { classifyInferenceProvider } from '../utils/inference-provider';
     import { isVideoPromotionGated } from '../video-promotion-gate';
     import { applyManualTagResult } from '../utils/manual-tag';
     import { findMatchingFullFrameCandidate, findScanFrameCandidate, sameFrameCropCandidates } from '../utils/detection-evidence';
@@ -245,6 +244,7 @@
     let ebirdNearbyError = $state<string | null>(null);
     let lastEnrichmentKey = $state<string | null>(null);
     let commonNameEditorOpen = $state(false);
+    let moreActionsOpen = $state(false);
     let commonNameOverride = $state<string | null>(null);
     let commonNameOverrideInput = $state('');
     let commonNameOverrideSaving = $state(false);
@@ -636,12 +636,6 @@
     let awaitingReclassifyOverlay = $state(false);
     let videoAnalysisStatus = $derived(detection.video_classification_status ?? null);
     let videoAnalysisActive = $derived(videoAnalysisStatus === 'processing' || videoAnalysisStatus === 'pending');
-    let completedVideoInferenceBadge = $derived(
-        classifyInferenceProvider(
-            detection.video_classification_provider ?? null,
-            detection.video_classification_backend ?? null
-        )
-    );
 
     // Naming logic
     const showCommon = $derived(settingsStore.settings?.display_common_names ?? authStore.displayCommonNames ?? true);
@@ -2027,7 +2021,7 @@
     }
 
     :global(.ai-markdown-surface li::marker) {
-        color: rgba(13, 148, 136, 0.55);
+        color: rgb(var(--brand-600) / 0.55);
     }
 
     :global(.dark .ai-markdown-surface li::marker),
@@ -2051,12 +2045,12 @@
     }
 
     :global(.ai-markdown-surface em) {
-        color: rgba(30, 41, 59, 0.8);
+        color: color-mix(in srgb, var(--color-slate-800) 80%, transparent);
     }
 
     :global(.dark .ai-markdown-surface em),
     :global([data-theme='dark'] .ai-markdown-surface em) {
-        color: rgba(226, 232, 240, 0.82);
+        color: color-mix(in srgb, var(--color-slate-200) 82%, transparent);
     }
 
     :global(.ai-markdown-surface code) {
@@ -2085,7 +2079,7 @@
 
     :global(.dark .ai-markdown-surface pre),
     :global([data-theme='dark'] .ai-markdown-surface pre) {
-        background: rgba(15, 23, 42, 0.6);
+        background: color-mix(in srgb, var(--color-slate-900) 60%, transparent);
         border-color: rgb(var(--brand-400) / 0.2);
     }
 
@@ -2130,12 +2124,12 @@
         border: none;
         height: 1px;
         margin: 0.6rem 0 0.8rem;
-        background: rgba(148, 163, 184, 0.35);
+        background: color-mix(in srgb, var(--color-slate-400) 35%, transparent);
     }
 
     :global(.dark .ai-markdown-surface hr),
     :global([data-theme='dark'] .ai-markdown-surface hr) {
-        background: rgba(71, 85, 105, 0.5);
+        background: color-mix(in srgb, var(--color-slate-600) 50%, transparent);
     }
 
     :global(.ai-markdown-surface table) {
@@ -2148,7 +2142,7 @@
     :global(.ai-markdown-surface th),
     :global(.ai-markdown-surface td) {
         padding: 0.35rem 0.5rem;
-        border-bottom: 1px solid rgba(148, 163, 184, 0.25);
+        border-bottom: 1px solid color-mix(in srgb, var(--color-slate-400) 25%, transparent);
         text-align: left;
     }
 
@@ -2156,7 +2150,7 @@
     :global(.dark .ai-markdown-surface td),
     :global([data-theme='dark'] .ai-markdown-surface th),
     :global([data-theme='dark'] .ai-markdown-surface td) {
-        border-bottom-color: rgba(71, 85, 105, 0.45);
+        border-bottom-color: color-mix(in srgb, var(--color-slate-600) 45%, transparent);
     }
 
     :global(.ai-markdown-surface th) {
@@ -2183,14 +2177,14 @@
         padding: 0.75rem 0.9rem;
         border-radius: 1rem;
         border: 1px solid transparent;
-        background: rgba(241, 245, 249, 0.9);
+        background: color-mix(in srgb, var(--color-slate-100) 90%, transparent);
         color: rgb(30 41 59);
-        box-shadow: 0 8px 16px rgba(15, 23, 42, 0.08);
+        box-shadow: 0 8px 16px color-mix(in srgb, var(--color-slate-900) 8%, transparent);
     }
 
     :global(.dark) .ai-bubble,
     :global([data-theme='dark']) .ai-bubble {
-        background: rgba(15, 23, 42, 0.72);
+        background: color-mix(in srgb, var(--color-slate-900) 72%, transparent);
         color: rgb(241 245 249);
     }
 
@@ -2215,20 +2209,20 @@
     }
 
     :global(.theme-bluetit:not(.dark)) .ai-bubble--assistant {
-        border-color: rgba(37, 99, 235, 0.35);
+        border-color: rgb(var(--brand-600) / 0.35);
     }
     :global(.theme-bluetit.dark) .ai-bubble--assistant {
-        border-color: rgba(96, 165, 250, 0.40);
+        border-color: rgb(var(--brand-400) / 0.40);
     }
 
     .ai-bubble--user {
-        border-color: rgba(148, 163, 184, 0.3);
-        background: rgba(226, 232, 240, 0.7);
+        border-color: color-mix(in srgb, var(--color-slate-400) 30%, transparent);
+        background: color-mix(in srgb, var(--color-slate-200) 70%, transparent);
     }
 
     :global(.dark) .ai-bubble--user,
     :global([data-theme='dark']) .ai-bubble--user {
-        background: rgba(30, 41, 59, 0.8);
+        background: color-mix(in srgb, var(--color-slate-800) 80%, transparent);
     }
 
     .ai-bubble__role {
@@ -2280,16 +2274,16 @@
     .ai-thread {
         border-radius: 1.25rem;
         padding: 0.9rem;
-        border: 1px solid rgba(148, 163, 184, 0.16);
-        background: rgba(248, 250, 252, 0.6);
-        box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
+        border: 1px solid color-mix(in srgb, var(--color-slate-400) 16%, transparent);
+        background: color-mix(in srgb, var(--color-slate-50) 60%, transparent);
+        box-shadow: 0 8px 18px color-mix(in srgb, var(--color-slate-900) 6%, transparent);
     }
 
     :global(.dark) .ai-thread,
     :global([data-theme='dark']) .ai-thread {
         border-color: rgb(var(--brand-400) / 0.18);
-        background: rgba(2, 6, 23, 0.22);
-        box-shadow: 0 10px 22px rgba(2, 6, 23, 0.28);
+        background: color-mix(in srgb, var(--color-slate-950) 22%, transparent);
+        box-shadow: 0 10px 22px color-mix(in srgb, var(--color-slate-950) 28%, transparent);
     }
 </style>
 
@@ -2332,7 +2326,11 @@
             <ReclassificationOverlay progress={reclassifyProgress} />
         {/if}
 
-        <DialogCloseButton tone="media" class="absolute top-4 right-4 z-40" onclick={onClose} data-detection-modal-close />
+        <!-- A strip of its own for the one close button, so nothing scrolls underneath it. -->
+        <div class="flex shrink-0 items-center justify-between gap-3 border-b border-line-soft py-1 pl-5 pr-2 sm:pl-6" data-detection-modal-header>
+            <p class="min-w-0 text-xs font-semibold text-slate-600 wrap-anywhere dark:text-slate-400">{$_('detection.record_label', { default: 'Detection record' })}</p>
+            <DialogCloseButton onclick={onClose} data-detection-modal-close />
+        </div>
 
         <div class="flex-1 overflow-y-auto flex flex-col lg:overflow-hidden lg:grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
                 <div class="flex min-h-0 shrink-0 flex-col bg-slate-950 lg:shrink lg:overflow-y-auto lg:border-r lg:border-slate-200/70 dark:lg:border-slate-700/60">
@@ -2462,28 +2460,6 @@
                                                     </svg>
                                                 {/if}
                                             </button>
-                                            {#if detection.is_favorite && archiveLabel}
-                                                <span
-                                                    class="inline-flex min-h-8 items-center gap-2 rounded-full border border-white/20 bg-black/45 px-3 text-2xs font-semibold text-white/90 backdrop-blur-xs"
-                                                    data-detection-archive-state={archiveState}
-                                                    aria-live="polite"
-                                                >
-                                                    {#if archiveState === 'pending'}
-                                                        <span class="inline-block h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden="true"></span>
-                                                    {/if}
-                                                    {archiveLabel}
-                                                    {#if archiveState === 'failed' && hasOwnerDetectionActions}
-                                                        <button
-                                                            type="button"
-                                                            class="rounded-full border border-white/30 px-2 py-0.5 text-2xs font-bold text-white hover:bg-white/15 disabled:opacity-60 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-white"
-                                                            disabled={archiveRetrying}
-                                                            onclick={(e) => { e.stopPropagation(); void handleArchiveRetry(); }}
-                                                        >
-                                                            {$_('detection.archive_retry', { default: 'Try again' })}
-                                                        </button>
-                                                    {/if}
-                                                </span>
-                                            {/if}
                                         {/if}
                                         {#if canPlayVideo}
                                             <button
@@ -2597,32 +2573,7 @@
                         </div>
                 </div>
 
-            <div class="flex min-w-0 flex-1 flex-col gap-5 wrap-break-word lg:overflow-y-auto p-5 sm:p-6 {showTagDropdown ? 'blur-xs pointer-events-none select-none' : ''}">
-            <!-- Detection ID -->
-            <!-- The disclosure is the window chrome: clicking the title bar opens the terminal.
-                 Dark in both themes on purpose, because that is what a terminal is. -->
-            <RecordTechnicalDetails title={$_('detection.id')} command="yawamf event show" identifier={detection.frigate_event} data-detection-technical-identity>
-                    {#if frigateEventUrl}
-                        <p class="mt-1">
-                            <a
-                                href={frigateEventUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                class="text-slate-400 underline decoration-dotted underline-offset-2 transition-colors hover:text-slate-200 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus"
-                                data-frigate-event-link
-                            >
-                                {$_('detection.open_in_frigate', { default: 'Open in Frigate' })} &nearr;
-                            </a>
-                        </p>
-                    {:else if hasOwnerDetectionActions && !isManualObservation && missingEventMetadataGone}
-                        <p class="mt-1 text-slate-400" data-frigate-event-gone>
-                            {$_('detection.open_in_frigate_gone', { default: 'No longer in Frigate' })}
-                        </p>
-                    {/if}
-                    {#if hasOwnerDetectionActions && !isManualObservation}
-                        <RangeFallbackNote eventId={detection.frigate_event} />
-                    {/if}
-            </RecordTechnicalDetails>
+            <div data-detection-details-column class="flex min-w-0 flex-1 flex-col gap-5 wrap-break-word lg:overflow-y-auto p-5 sm:p-6 {showTagDropdown ? 'blur-xs pointer-events-none select-none' : ''}">
             {#if isManualObservation && detection.observation_notes}
                 <div class="border-l-2 border-brand-300 pl-3 dark:border-brand-700">
                     <div class="text-3xs font-bold text-slate-600 dark:text-slate-400">{$_('detection.observation_notes', { default: 'Observation notes' })}</div>
@@ -2699,6 +2650,16 @@
                         {#if subName && subName !== primaryName}
                             <p class="text-xs italic text-slate-600 dark:text-slate-400">{subName}</p>
                         {/if}
+                        <!-- Reads as a link beside the name it is about, not as a button competing with the decisions. -->
+                        <button
+                            type="button"
+                            onclick={handleSpeciesInfo}
+                            class="inline-flex min-h-11 items-center gap-1 rounded-sm text-xs font-semibold text-brand-700 underline underline-offset-2 hover:text-brand-800 focus-ring dark:text-brand-300 dark:hover:text-brand-200"
+                            data-detection-species-details
+                        >
+                            {$_('actions.species_info')}
+                            <svg class="h-3 w-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14m-6-6 6 6-6 6" /></svg>
+                        </button>
                     </div>
                 </div>
 
@@ -2725,6 +2686,166 @@
                     </div>
                 {/if}
             </div>
+
+            <!-- One decision and its alternative sit directly under the identification. Everything
+                 else an owner can do waits behind More actions, so two buttons never compete with six. -->
+            {#if hasOwnerDetectionActions}
+                <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-start" data-detection-identification-actions>
+                    {#if !detection.manual_tagged && !isUnknownSpecies}
+                        <!-- Takes its label's width, so the label only wraps when it is longer than the row. -->
+                        <button
+                            type="button"
+                            onclick={() => handleManualTag({
+                                id: detection.display_name,
+                                display_name: detection.display_name,
+                                scientific_name: detection.scientific_name ?? null,
+                                common_name: detection.common_name ?? null
+                            } as SearchResult)}
+                            disabled={updatingTag}
+                            class="btn btn-primary min-h-11 w-full min-w-0 max-w-full px-4 text-sm sm:w-auto sm:flex-none"
+                            data-detection-confirm
+                        >
+                            <span class="min-w-0 wrap-anywhere">
+                                {updatingTag
+                                    ? $_('common.saving')
+                                    : $_('actions.confirm_species', {
+                                        values: { species: primaryName },
+                                        default: 'Confirm {species}'
+                                    })}
+                            </span>
+                        </button>
+                    {/if}
+
+                    <button
+                        type="button"
+                        onclick={() => showTagDropdown = !showTagDropdown}
+                        disabled={updatingTag}
+                        class="btn btn-secondary min-h-11 w-full min-w-0 max-w-full px-4 text-sm sm:w-auto sm:flex-none"
+                        data-detection-pick
+                    >
+                        <span class="min-w-0 wrap-anywhere">
+                            {updatingTag
+                                ? $_('common.saving')
+                                : $_('actions.pick_species', { default: 'Pick a different species' })}
+                        </span>
+                    </button>
+
+                    <button
+                        type="button"
+                        onclick={() => { moreActionsOpen = !moreActionsOpen; }}
+                        aria-expanded={moreActionsOpen}
+                        aria-controls="detection-more-actions"
+                        class="btn btn-ghost min-h-11 w-full min-w-0 max-w-full gap-1.5 px-3 text-sm sm:w-auto sm:flex-none"
+                        data-detection-more-actions
+                    >
+                        <span class="min-w-0 wrap-anywhere">{$_('detection.more_actions', { default: 'More actions' })}</span>
+                        <svg class="h-3.5 w-3.5 shrink-0 motion-safe:transition-transform {moreActionsOpen ? 'rotate-180' : ''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m6 9 6 6 6-6" />
+                        </svg>
+                    </button>
+                </div>
+                {#if moreActionsOpen}
+                    <!-- A plain list directly under its trigger: each row is one action, named by its effect. -->
+                    <!-- shrink-0: it clips its rows to its rounded corners, and a clipped box in this scrolling
+                         column would otherwise be squashed and cut its last rows off. -->
+                    <ul id="detection-more-actions" class="card-base shrink-0 divide-y divide-line-soft overflow-hidden" data-detection-more-actions-panel>
+                        {#if hasFrameSource}
+                            <li>
+                                <button type="button" onclick={handleReclassifyClick} class="btn btn-ghost min-h-11 w-full justify-start rounded-none px-3 text-sm" title={$_('actions.reclassify')} data-detection-score-again>
+                                    <span class="min-w-0 text-left wrap-anywhere">{$_('detection.score_again', { default: 'Score again' })}</span>
+                                </button>
+                            </li>
+                        {/if}
+                        {#if detection.scientific_name}
+                            <li>
+                                <button
+                                    type="button"
+                                    onclick={() => {
+                                        commonNameOverrideInput = commonNameOverride ?? detection.common_name ?? '';
+                                        commonNameEditorOpen = !commonNameEditorOpen;
+                                    }}
+                                    aria-expanded={commonNameEditorOpen}
+                                    class="btn btn-ghost min-h-11 w-full justify-start rounded-none px-3 text-sm"
+                                >
+                                    <span class="min-w-0 text-left wrap-anywhere">{$_('detection.common_name_override_edit', { default: 'Change the common name' })}</span>
+                                </button>
+                                {#if commonNameEditorOpen}
+                                    <div class="flex flex-col gap-2 px-3 pb-3 sm:flex-row">
+                                        <input
+                                            type="text"
+                                            maxlength="120"
+                                            bind:value={commonNameOverrideInput}
+                                            disabled={commonNameOverrideSaving}
+                                            aria-label={$_('detection.common_name_override', { default: 'Common name' })}
+                                            class="input-base min-w-0 flex-1"
+                                        />
+                                        <button
+                                            type="button"
+                                            onclick={saveCommonNameOverride}
+                                            disabled={!commonNameOverrideInput.trim() || commonNameOverrideSaving}
+                                            class="btn btn-primary min-h-11 px-3 text-xs"
+                                        >
+                                            {commonNameOverrideSaving ? $_('common.saving') : $_('common.save')}
+                                        </button>
+                                        {#if commonNameOverride}
+                                            <button
+                                                type="button"
+                                                onclick={resetCommonNameOverride}
+                                                disabled={commonNameOverrideSaving}
+                                                class="btn btn-secondary min-h-11 px-3 text-xs"
+                                            >
+                                                {$_('detection.common_name_override_reset', { default: 'Use provider name' })}
+                                            </button>
+                                        {/if}
+                                    </div>
+                                {/if}
+                            </li>
+                        {/if}
+                        <li>
+                            <!-- Hide is the reversible one, and its name says which way it will go. -->
+                            <button
+                                type="button"
+                                onclick={handleHide}
+                                class="btn btn-ghost min-h-11 w-full justify-start rounded-none px-3 text-sm"
+                                title={hideActionLabel}
+                                aria-label={hideActionLabel}
+                                aria-pressed={detection.is_hidden}
+                                data-detection-hide
+                            >
+                                <span class="min-w-0 text-left hyphens-auto wrap-anywhere">{detection.is_hidden ? $_('actions.unhide', { default: 'Unhide' }) : $_('common.hide', { default: 'Hide' })}</span>
+                            </button>
+                        </li>
+                        <li>
+                            <!-- The only red control here. Its words say the visit goes for good. -->
+                            <button
+                                type="button"
+                                onclick={handleDelete}
+                                class="btn btn-ghost min-h-11 w-full justify-start rounded-none px-3 text-sm text-red-700 hover:bg-red-50/80 hover:text-red-800 dark:text-red-300 dark:hover:bg-red-950/40 dark:hover:text-red-200"
+                                data-detection-delete
+                            >
+                                <!-- The words on the row are its whole name, so what is read aloud is what is seen. -->
+                                <span class="min-w-0 text-left hyphens-auto wrap-anywhere">{$_('actions.delete_detection')}</span>
+                            </button>
+                        </li>
+                    </ul>
+                {/if}
+            {/if}
+
+            {#if domesticMatch?.declared}
+                <div class="card-base space-y-2 p-3 text-sm text-slate-700 dark:text-slate-200" data-detection-domestic-bird>
+                    <p>
+                        {$_('detection.domestic_bird_declared', {
+                            default: 'This is a {bird}, a domestic bird you keep. Move it to Garden to record it as a Garden animal. This bird record is hidden, not deleted.',
+                            values: { bird: domesticBirdName(domesticMatch.key, (id, options) => $_(id, options)) }
+                        })}
+                    </p>
+                    <button type="button" class="btn btn-secondary min-h-11 px-4 text-sm" disabled={movingToGarden} onclick={handleMoveToGarden} data-detection-move-to-garden>
+                        {movingToGarden ? $_('common.saving') : $_('detection.move_to_garden', { default: 'Move to Garden' })}
+                    </button>
+                </div>
+            {:else if domesticMatch}
+                <GardenDomesticSuggestion bird={domesticMatch.key} />
+            {/if}
 
             <!-- Snapshot fallback notice: video analysis failed, result came from a single frame -->
             <!-- Consolidated video-status notice. Single survivor for the three
@@ -2793,7 +2914,8 @@
                             {completedClassificationTitle}
                         </p>
                         {#if detection.video_classification_score}
-                            <span class="px-2 py-0.5 bg-slate-700 text-white text-3xs font-bold rounded-sm dark:bg-slate-600">
+                            <!-- Plain figures like the identification's own score, so it is never the louder of the two. -->
+                            <span class="text-xs font-semibold tabular-nums text-slate-700 dark:text-slate-200">
                                 {$_('detection.video_analysis.match', { values: { score: (detection.video_classification_score * 100).toFixed(0) } })}
                             </span>
                         {/if}
@@ -2808,50 +2930,10 @@
                             {$_('detection.video_analysis.blocked_label', { default: 'Matched a blocked species: not applied' })}
                         </p>
                     {/if}
-                    <div class="flex flex-wrap items-center gap-2 mt-1">
-                        <p class="text-3xs text-slate-600 dark:text-slate-400 italic leading-tight">
-                            {completedClassificationDescription}
-                        </p>
-                        {#if classificationInputLabel}
-                            <span class="rounded-sm border border-slate-200/70 bg-white/60 px-1.5 py-0.5 text-3xs font-semibold text-slate-600 dark:border-slate-600/60 dark:bg-slate-900/40 dark:text-slate-300">
-                                {classificationInputLabel}
-                            </span>
-                        {/if}
-                        {#if completedVideoInferenceBadge.kind}
-                            <div class="flex items-center gap-1.5 px-1.5 py-0.5 rounded-sm border border-slate-200/70 dark:border-slate-600/60 bg-white/60 dark:bg-slate-900/40">
-                                {#if completedVideoInferenceBadge.kind === 'gpu'}
-                                    <svg class="h-3 w-3 text-slate-500 dark:text-slate-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                                        <path d="M10 2.5 16.5 9 10 15.5 3.5 9 10 2.5Zm0 2.12L5.62 9 10 13.38 14.38 9 10 4.62Z" />
-                                    </svg>
-                                    <span class="text-3xs font-bold text-slate-600 dark:text-slate-300" title={detection.video_classification_provider ?? undefined}>
-                                        {completedVideoInferenceBadge.label}
-                                    </span>
-                                {:else}
-                                    <svg class="h-3 w-3 text-slate-500 dark:text-slate-400" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
-                                        <rect x="4.5" y="5.5" width="11" height="9" rx="1.5" />
-                                        <path d="M8 2.75v2M12 2.75v2M8 15.25v2M12 15.25v2M2.75 8h2M2.75 12h2M15.25 8h2M15.25 12h2" stroke-linecap="round" />
-                                    </svg>
-                                    <span class="text-3xs font-bold text-slate-600 dark:text-slate-300" title={detection.video_classification_provider ?? detection.video_classification_backend ?? undefined}>
-                                        {completedVideoInferenceBadge.label}
-                                    </span>
-                                {/if}
-                            </div>
-                        {/if}
-                        {#if detection.video_classification_model_name}
-                            <div class="flex items-center gap-1.5 px-1.5 py-0.5 rounded-sm border border-slate-200/70 dark:border-slate-600/60 bg-white/60 dark:bg-slate-900/40">
-                                <svg class="h-3 w-3 text-slate-600 dark:text-slate-300" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
-                                    <path d="M4.5 5.75 10 2.75l5.5 3v8.5L10 17.25l-5.5-3v-8.5Z" />
-                                    <path d="M10 2.75v14.5M4.5 5.75 10 9l5.5-3.25" stroke-linecap="round" stroke-linejoin="round" />
-                                </svg>
-                                <span
-                                    class="text-3xs font-bold text-slate-600 dark:text-slate-200 tracking-wide"
-                                    title={detection.video_classification_model_id ?? detection.video_classification_model_name}
-                                >
-                                    {detection.video_classification_model_name}
-                                </span>
-                            </div>
-                        {/if}
-                    </div>
+                    <!-- What ran it and on which device is diagnostics, not record content. -->
+                    <p class="mt-1 text-xs text-slate-600 dark:text-slate-400">
+                        {completedClassificationDescription}{#if classificationInputLabel}{' '}&middot; {classificationInputLabel}{/if}
+                    </p>
                 </div>
             {/if}
             {#if videoAnalysisActive && !reclassifyProgress}
@@ -2935,6 +3017,21 @@
                 </div>
                 {/if}
             </dl>
+
+            {#if detection.is_favorite && archiveLabel}
+                <!-- A status of the record, so it is said here in words and never drawn over the photograph. -->
+                <p class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-700 dark:text-slate-200" data-detection-archive-state={archiveState} aria-live="polite">
+                    {#if archiveState === 'pending'}
+                        <span class="inline-block h-3 w-3 rounded-full border-2 border-current border-t-transparent motion-safe:animate-spin" aria-hidden="true"></span>
+                    {/if}
+                    <span>{archiveLabel}</span>
+                    {#if archiveState === 'failed' && hasOwnerDetectionActions}
+                        <button type="button" class="btn btn-ghost min-h-11 px-2 text-xs" disabled={archiveRetrying} onclick={() => { void handleArchiveRetry(); }}>
+                            {$_('detection.archive_retry', { default: 'Try again' })}
+                        </button>
+                    {/if}
+                </p>
+            {/if}
 
             {#if videoStatusNoticeVisible}
                 <div
@@ -3266,77 +3363,55 @@
                         })}
                     </h4>
 
-                <div class="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div class="space-y-4">
                     {#if enrichmentSummaryProvider !== 'disabled'}
-                        <div class="group relative overflow-hidden rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/50 dark:bg-slate-900/30 p-5 hover:bg-white/80 dark:hover:bg-slate-900/50 transition-all duration-300">
-                            <div class="relative flex flex-wrap items-center justify-end gap-3 mb-3">
-                                {#if speciesInfo}
-                                    {@const summaryLabel = speciesInfo.summary_source || speciesInfo.source || 'Source'}
-                                    {#if speciesInfo.summary_source_url}
+                        <!-- A few lines to recognise the bird by, and a link for the rest: the full
+                             article belongs at its source, not in the record. -->
+                        <div data-detection-reference-summary>
+                            {#if speciesInfoLoading}
+                                <div class="flex flex-col gap-2" role="status" aria-label={$_('common.loading', { default: 'Loading' })}>
+                                    <div class="h-3 w-3/4 rounded-sm bg-slate-200 motion-safe:animate-pulse dark:bg-slate-700"></div>
+                                    <div class="h-3 w-full rounded-sm bg-slate-200 motion-safe:animate-pulse dark:bg-slate-700"></div>
+                                    <div class="h-3 w-5/6 rounded-sm bg-slate-200 motion-safe:animate-pulse dark:bg-slate-700"></div>
+                                </div>
+                            {:else if speciesInfoError}
+                                <p class="text-xs text-slate-600 dark:text-slate-400" role="status">{speciesInfoError}</p>
+                            {:else if speciesInfo}
+                                {@const summaryText = speciesInfo.extract || speciesInfo.description}
+                                {@const summaryUrl = speciesInfo.summary_source_url || speciesInfo.wikipedia_url || speciesInfo.source_url}
+                                {@const summaryLabel = speciesInfo.summary_source || speciesInfo.source}
+                                {#if summaryText}
+                                    <!-- Only shortened when the rest can be reached. -->
+                                    <p class="text-sm leading-relaxed text-slate-700 dark:text-slate-300 {summaryUrl ? 'line-clamp-3' : ''}" data-detection-reference-text>
+                                        {summaryText}
+                                    </p>
+                                {:else}
+                                    <p class="text-xs text-slate-600 dark:text-slate-400">{$_('species_detail.no_info')}</p>
+                                {/if}
+                                <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600 dark:text-slate-400">
+                                    {#if summaryUrl}
                                         <a
-                                            href={speciesInfo.summary_source_url}
+                                            href={summaryUrl}
                                             target="_blank"
                                             rel="noopener noreferrer"
-                                            class="flex min-w-0 max-w-full items-center gap-1.5 break-all px-2 py-1 rounded-full bg-surface border border-line text-3xs font-semibold text-slate-600 dark:text-slate-400 hover:text-brand-700 dark:hover:text-brand-400 hover:border-brand-500/30 transition-colors"
+                                            class="inline-flex min-h-6 items-center gap-1 rounded-sm font-semibold text-brand-700 underline underline-offset-2 hover:text-brand-800 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus dark:text-brand-300 dark:hover:text-brand-200"
+                                            data-detection-reference-link
                                         >
-                                            {summaryLabel}
-                                            <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            {summaryLabel
+                                                ? $_('detection.reference_read_more_on', { values: { source: summaryLabel }, default: 'Read more on {source}' })
+                                                : $_('detection.reference_read_more', { default: 'Read more' })}
+                                            <svg class="h-3 w-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                                             </svg>
                                         </a>
-                                    {:else}
-                                        <span class="flex items-center gap-1.5 px-2 py-1 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-3xs font-semibold text-slate-600 dark:text-slate-400">
-                                            {summaryLabel}
-                                        </span>
+                                    {:else if summaryLabel}
+                                        <span>{$_('detection.reference_source', { values: { source: summaryLabel }, default: 'Source: {source}' })}</span>
                                     {/if}
-                                {/if}
-                            </div>
-
-                            <div class="relative">
-                                {#if speciesInfoLoading}
-                                    <div class="flex flex-col gap-2">
-                                        <div class="h-3 w-3/4 bg-slate-200 dark:bg-slate-700 rounded-sm animate-pulse"></div>
-                                        <div class="h-3 w-full bg-slate-200 dark:bg-slate-700 rounded-sm animate-pulse"></div>
-                                        <div class="h-3 w-5/6 bg-slate-200 dark:bg-slate-700 rounded-sm animate-pulse"></div>
-                                    </div>
-                                {:else if speciesInfoError}
-                                    <div class="flex items-center gap-2 p-3 rounded-xl bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-400">
-                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                        </svg>
-                                        <p class="text-xs font-semibold">{speciesInfoError}</p>
-                                    </div>
-                                {:else if speciesInfo}
-                                    {@const summaryText = speciesInfo.extract || speciesInfo.description}
-                                    {#if summaryText}
-                                        <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-                                            {summaryText}
-                                        </p>
-                                    {:else}
-                                        <p class="text-xs text-slate-600 dark:text-slate-400 italic">{$_('species_detail.no_info')}</p>
+                                    {#if speciesInfo.conservation_status}
+                                        <span>{$_('detection.reference_conservation', { values: { status: speciesInfo.conservation_status }, default: 'Conservation status: {status}' })}</span>
                                     {/if}
-                                    {#if speciesInfo.scientific_name || speciesInfo.conservation_status}
-                                        <div class="flex flex-wrap gap-2 mt-3 pt-3 border-t border-slate-100 dark:border-slate-700/50">
-                                            {#if speciesInfo.scientific_name}
-                                                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-3xs font-bold text-slate-600 dark:text-slate-400 italic">
-                                                    <svg class="w-3 h-3 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
-                                                    </svg>
-                                                    {speciesInfo.scientific_name}
-                                                </span>
-                                            {/if}
-                                            {#if speciesInfo.conservation_status}
-                                                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-3xs font-bold text-slate-700 dark:text-slate-200">
-                                                    <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                    </svg>
-                                                    {speciesInfo.conservation_status}
-                                                </span>
-                                            {/if}
-                                        </div>
-                                    {/if}
-                                {/if}
-                            </div>
+                                </div>
+                            {/if}
                         </div>
                     {/if}
 
@@ -3634,172 +3709,29 @@
                 </div>
             {/if}
 
-            <!-- Actions -->
-            {#if hasOwnerDetectionActions && detection.scientific_name}
-                <div class="rounded-xl border border-line-soft p-3">
-                    <button
-                        type="button"
-                        onclick={() => {
-                            commonNameOverrideInput = commonNameOverride ?? detection.common_name ?? '';
-                            commonNameEditorOpen = !commonNameEditorOpen;
-                        }}
-                        aria-expanded={commonNameEditorOpen}
-                        class="btn btn-ghost min-h-11 px-3 text-xs"
-                    >
-                        {$_('detection.common_name_override_edit', { default: 'Change the common name' })}
-                    </button>
-                    {#if commonNameEditorOpen}
-                        <div class="mt-3 flex flex-col gap-2 sm:flex-row">
-                            <input
-                                type="text"
-                                maxlength="120"
-                                bind:value={commonNameOverrideInput}
-                                disabled={commonNameOverrideSaving}
-                                aria-label={$_('detection.common_name_override', { default: 'Common name' })}
-                                class="min-w-0 flex-1 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-slate-900 dark:text-slate-100"
-                            />
-                            <button
-                                type="button"
-                                onclick={saveCommonNameOverride}
-                                disabled={!commonNameOverrideInput.trim() || commonNameOverrideSaving}
-                                class="rounded-lg bg-brand-700 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
+            <!-- The identifiers, last on screen and last in the tab order. -->
+            <RecordTechnicalDetails title={$_('detection.id')} identifier={detection.frigate_event} data-detection-technical-identity>
+                    {#if frigateEventUrl}
+                        <p class="mt-1">
+                            <a
+                                href={frigateEventUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                class="inline-flex min-h-6 items-center rounded-sm font-semibold text-brand-700 underline underline-offset-2 hover:text-brand-800 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus dark:text-brand-300 dark:hover:text-brand-200"
+                                data-frigate-event-link
                             >
-                                {commonNameOverrideSaving ? $_('common.saving') : $_('common.save')}
-                            </button>
-                            {#if commonNameOverride}
-                                <button
-                                    type="button"
-                                    onclick={resetCommonNameOverride}
-                                    disabled={commonNameOverrideSaving}
-                                    class="rounded-lg bg-slate-200 dark:bg-slate-700 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 disabled:opacity-50"
-                                >
-                                    {$_('detection.common_name_override_reset', { default: 'Use provider name' })}
-                                </button>
-                            {/if}
-                        </div>
+                                {$_('detection.open_in_frigate', { default: 'Open in Frigate' })} &nearr;
+                            </a>
+                        </p>
+                    {:else if hasOwnerDetectionActions && !isManualObservation && missingEventMetadataGone}
+                        <p class="mt-1 text-slate-600 dark:text-slate-400" data-frigate-event-gone>
+                            {$_('detection.open_in_frigate_gone', { default: 'No longer in Frigate' })}
+                        </p>
                     {/if}
-                </div>
-            {/if}
-
-            {#if hasOwnerDetectionActions}
-                <!-- The two decisions an owner makes about an identification, then the retry.
-                     Each control names its effect. -->
-                <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap" data-detection-identification-actions>
-                    {#if !detection.manual_tagged && !isUnknownSpecies}
-                        <button
-                            type="button"
-                            onclick={() => handleManualTag({
-                                id: detection.display_name,
-                                display_name: detection.display_name,
-                                scientific_name: detection.scientific_name ?? null,
-                                common_name: detection.common_name ?? null
-                            } as SearchResult)}
-                            disabled={updatingTag}
-                            class="btn btn-primary min-h-11 min-w-0 w-full px-4 text-sm sm:w-auto sm:flex-1"
-                            data-detection-confirm
-                        >
-                            <span class="min-w-0 wrap-anywhere">
-                                {updatingTag
-                                    ? $_('common.saving')
-                                    : $_('actions.confirm_species', {
-                                        values: { species: primaryName },
-                                        default: 'Confirm {species}'
-                                    })}
-                            </span>
-                        </button>
+                    {#if hasOwnerDetectionActions && !isManualObservation}
+                        <RangeFallbackNote eventId={detection.frigate_event} />
                     {/if}
-
-                    <button
-                        type="button"
-                        onclick={() => showTagDropdown = !showTagDropdown}
-                        disabled={updatingTag}
-                        class="btn btn-secondary min-h-11 min-w-0 w-full px-4 text-sm sm:w-auto sm:flex-1"
-                    >
-                        <span class="min-w-0 wrap-anywhere">
-                            {updatingTag
-                                ? $_('common.saving')
-                                : $_('actions.pick_species', { default: 'Pick a different species' })}
-                        </span>
-                    </button>
-
-                    {#if hasFrameSource}
-                        <button
-                            type="button"
-                            onclick={handleReclassifyClick}
-                            class="btn btn-ghost min-h-11 min-w-0 w-full px-4 text-sm sm:w-auto"
-                            title={$_('actions.reclassify')}
-                        >
-                            <span class="min-w-0 wrap-anywhere">{$_('detection.score_again', { default: 'Score again' })}</span>
-                        </button>
-                    {/if}
-                </div>
-            {/if}
-
-            {#if domesticMatch?.declared}
-                <div class="card-base space-y-2 p-3 text-sm text-slate-700 dark:text-slate-200" data-detection-domestic-bird>
-                    <p>
-                        {$_('detection.domestic_bird_declared', {
-                            default: 'This is a {bird}, a domestic bird you keep. Move it to Garden to record it as a Garden animal. This bird record is hidden, not deleted.',
-                            values: { bird: domesticBirdName(domesticMatch.key, (id, options) => $_(id, options)) }
-                        })}
-                    </p>
-                    <button type="button" class="btn btn-secondary min-h-11 px-4 text-sm" disabled={movingToGarden} onclick={handleMoveToGarden} data-detection-move-to-garden>
-                        {movingToGarden ? $_('common.saving') : $_('detection.move_to_garden', { default: 'Move to Garden' })}
-                    </button>
-                </div>
-            {:else if domesticMatch}
-                <GardenDomesticSuggestion bird={domesticMatch.key} />
-            {/if}
-
-	            <!-- Bottom Actions -->
-            <div class="flex flex-wrap gap-2 pt-2">
-	                {#if hasOwnerDetectionActions}
-	                    <!-- Both say what they do in words. Delete is the only red control here, and its
-	                         full name says the visit goes permanently; Hide is the reversible one. -->
-	                    <button
-	                        type="button"
-	                        onclick={handleDelete}
-	                        class="btn btn-danger min-h-11 min-w-0 max-w-full px-3 text-xs"
-	                        title={$_('actions.delete_detection')}
-	                        aria-label={$_('actions.delete_detection')}
-	                        data-detection-delete
-	                    >
-                        <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                        <!-- Its own box, so a long word at a large text size breaks inside the button instead of widening the row. -->
-                        <span class="min-w-0 hyphens-auto wrap-anywhere">{$_('common.delete', { default: 'Delete' })}</span>
-                    </button>
-                    <button
-                        type="button"
-                        onclick={handleHide}
-                        class="btn btn-secondary min-h-11 min-w-0 max-w-full px-3 text-xs"
-                        title={hideActionLabel}
-                        aria-label={hideActionLabel}
-                        aria-pressed={detection.is_hidden}
-                        data-detection-hide
-                    >
-                        {#if detection.is_hidden}
-                            <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.457 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.543 7-1.275 4.057-5.065 7-9.543 7-4.477 0-8.268-2.943-9.543-7z" />
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                            </svg>
-                            <span class="min-w-0 hyphens-auto wrap-anywhere">{$_('actions.unhide', { default: 'Unhide' })}</span>
-                        {:else}
-                            <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                            </svg>
-                            <span class="min-w-0 hyphens-auto wrap-anywhere">{$_('common.hide', { default: 'Hide' })}</span>
-                        {/if}
-                    </button>
-                {/if}
-                <button
-                    onclick={handleSpeciesInfo}
-                    class="btn btn-secondary flex-1 px-3 py-2.5 text-xs min-h-11 min-w-11 wrap-break-word"
-                >
-                    {$_('actions.species_info')}
-                </button>
-            </div>
+            </RecordTechnicalDetails>
             </div>
         </div>
 

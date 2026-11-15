@@ -493,7 +493,7 @@ How the interface reads.
 
 Reopens guided setup as a section map. Completing, skipping, or backing out of a section
 returns to the map. Continuing saves that section; it does not reset unrelated settings.
-**Skip step** leaves the remaining choices unsaved. A location saved before a hardware
+**Skip step** leaves the remaining choices unsaved, and a disabled **Continue** states its reason. A location saved before a hardware
 check stays saved if you leave, and leaving does not cancel the running backend check.
 See [first-run setup](getting-started.md#4-verify) for provider and location behaviour.
 

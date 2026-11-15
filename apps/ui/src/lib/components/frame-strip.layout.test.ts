@@ -211,23 +211,27 @@ describe('the record uses the strip and drops the framing toggle (#256)', () => 
         expect(modalSource).not.toContain('handleSaveSnapshotSelection');
     });
 
-    it('names the three identification actions by their effect, confirm first', () => {
+    it('offers one decision and its alternative, and keeps every other action behind More actions', () => {
         const start = modalSource.indexOf('data-detection-identification-actions');
         expect(start).toBeGreaterThan(-1);
-        const actions = modalSource.slice(start, modalSource.indexOf('<!-- Bottom Actions -->', start));
-        const confirm = actions.indexOf('actions.confirm_species');
-        const pick = actions.indexOf('actions.pick_species');
-        const score = actions.indexOf('detection.score_again');
+        const panel = modalSource.indexOf('data-detection-more-actions-panel', start);
+        const row = modalSource.slice(start, panel);
+        const confirm = row.indexOf('actions.confirm_species');
         expect(confirm).toBeGreaterThan(-1);
-        expect(pick).toBeGreaterThan(confirm);
-        expect(score).toBeGreaterThan(pick);
-        expect(actions).toContain('class="btn btn-primary min-h-11 min-w-0 w-full px-4 text-sm sm:w-auto sm:flex-1"');
-        expect(actions).toContain('class="btn btn-secondary min-h-11 min-w-0 w-full px-4 text-sm sm:w-auto sm:flex-1"');
-        expect(actions).toContain('class="btn btn-ghost min-h-11 min-w-0 w-full px-4 text-sm sm:w-auto"');
+        expect(row.indexOf('actions.pick_species')).toBeGreaterThan(confirm);
+        // One primary, one secondary: each takes its label's width, so a label wraps only when it is longer than the row.
+        expect(row.match(/class="btn btn-primary /g)).toHaveLength(1);
+        expect(row.match(/class="btn btn-secondary /g)).toHaveLength(1);
+        expect(row).toContain('class="btn btn-primary min-h-11 w-full min-w-0 max-w-full px-4 text-sm sm:w-auto sm:flex-none"');
+        expect(row).not.toContain('detection.score_again');
+        const list = modalSource.slice(panel, modalSource.indexOf('</ul>', panel));
+        const order = ['detection.score_again', 'detection.common_name_override_edit', 'data-detection-hide', 'actions.delete_detection'].map((marker) => list.indexOf(marker));
+        expect(order.every((index) => index > -1)).toBe(true);
+        expect([...order].sort((a, b) => a - b)).toEqual(order);
     });
 
     it('stacks its controls full width on a phone and lets the rail name the bird', () => {
-        expect(modalSource).toContain('class="flex flex-col gap-2 sm:flex-row sm:flex-wrap" data-detection-identification-actions');
+        expect(modalSource).toContain('class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-start" data-detection-identification-actions');
         expect(modalSource).toContain('class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center" data-detection-whole-scene-actions');
         // The rail's "Identified as" names the bird, and titles the dialog; the photograph never repeats it.
         expect(modalSource).not.toContain('data-detection-media-title');

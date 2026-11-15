@@ -74,6 +74,8 @@ class FakeBackend {
     unexpected: string[] = [];
     allowExtraReads = false;
     frigateTestFails = false;
+    /** The cause code the broker test answers with, when it fails. */
+    mqttFailure: string | null = null;
     evalWarnings: Json[] = [];
     frigateConfigFails = false;
     downloadDone = false;
@@ -248,7 +250,11 @@ class FakeBackend {
             return json({ status: 'success' });
         }
         if (path === '/api/frigate/test') return this.frigateTestFails ? json({ detail: 'Frigate authentication failed.' }, 401) : json({ status: 'ok', version: '0.16.0' });
-        if (path === '/api/settings/mqtt/test-publish') return json({ status: 'ok', message: 'Test message published' });
+        if (path === '/api/settings/mqtt/test-publish') {
+            return this.mqttFailure
+                ? json({ status: 'error', cause: this.mqttFailure, service: 'mqtt', address: 'mqtt.invalid:1883', message: 'English fallback sentence.' }, 502)
+                : json({ status: 'ok', message: 'Test message published' });
+        }
         if (path === '/api/audio/sources') return json([]);
         if (path === '/api/frigate/config') return this.frigateConfigFails ? json({ detail: 'unreachable' }, 502) : json({ cameras: { feeder: {}, nestbox: {} } });
         if (path === '/api/backfill/status') return json(null);
@@ -372,7 +378,7 @@ test(`first run walks every step to Finish with history import ${importHistory} 
     const fake = new FakeBackend({ firstRun: true });
     const errors = await openFixture(page, fake);
 
-    await expectStep(page, 'Welcome to YA-WAMF');
+    await expectStep(page, 'Set up YA-WAMF');
     await wizard(page).getByRole('button', { name: 'Get started' }).click();
 
     await expectStep(page, 'Admin account & access');
@@ -443,16 +449,16 @@ test(`first run walks every step to Finish with history import ${importHistory} 
 
     await expectStep(page, 'Integrations');
     await continueButton(page).click();
-    await expectStep(page, 'Import existing detections');
+    // The two optional closing questions share one screen.
+    await expectStep(page, 'Optional extras');
+    await expect(wizard(page).getByRole('checkbox', { name: /share anonymous usage stats/i })).not.toBeChecked();
     if (importHistory) {
         await wizard(page).getByRole('checkbox', { name: 'Import retained Frigate bird events' }).check();
         await wizard(page).getByText('Last week', { exact: true }).click();
         await wizard(page).getByRole('button', { name: 'Import & continue' }).click();
     } else {
-        await wizard(page).getByRole('button', { name: 'Continue without importing' }).click();
+        await continueButton(page).click();
     }
-    await expectStep(page, 'Share anonymous usage stats?');
-    await continueButton(page).click();
 
     await expectStep(page, 'Review setup');
     await expect(wizard(page).getByRole('listitem').filter({ hasText: 'Classifier model & hardware' })).toContainText('DINOv2 B/14 with location');
@@ -823,7 +829,7 @@ for (const change of ['location', 'cameras', 'quality', 'integrations'] as const
 test('in first run, a section opened from Review goes straight back to Review', async ({ page }) => {
     const fake = new FakeBackend({ firstRun: true });
     await openFixture(page, fake);
-    await expectStep(page, 'Welcome to YA-WAMF');
+    await expectStep(page, 'Set up YA-WAMF');
     await wizard(page).getByRole('button', { name: 'Get started' }).click();
     await wizard(page).getByRole('checkbox').check();
     await continueButton(page).click();
@@ -839,8 +845,8 @@ test('in first run, a section opened from Review goes straight back to Review', 
     await wizard(page).getByRole('button', { name: 'Skip step' }).click();
     await wizard(page).getByRole('button', { name: 'Skip step' }).click();
     await wizard(page).getByRole('button', { name: 'Skip step' }).click();
-    await wizard(page).getByRole('button', { name: 'Continue without importing' }).click();
-    await wizard(page).getByRole('button', { name: 'Skip step' }).click();
+    await expectStep(page, 'Optional extras');
+    await continueButton(page).click();
     await openSectionFromReview(page, 'Best available snapshots');
     await continueButton(page).click();
     await expectStep(page, 'Review setup');
@@ -982,4 +988,75 @@ test('the review says connected only once the connection was measured working', 
     await openRerun(page, fake);
     const connection = wizard(page).getByRole('listitem').filter({ hasText: 'Frigate & MQTT connection' });
     await expect(connection.locator('[data-setup-status]')).toHaveText('Connected');
+});
+
+test('first run opens on the step, not on the control that abandons setup', async ({ page }) => {
+    const fake = new FakeBackend({ firstRun: true });
+    await openFixture(page, fake);
+    await expectStep(page, 'Set up YA-WAMF');
+    // Enter on arrival must never head for "Skip setup".
+    await expect(wizard(page).getByRole('heading', { level: 2, name: 'Set up YA-WAMF' })).toBeFocused();
+    await expect(wizard(page).locator('[data-setup-welcome-covers] li')).toHaveCount(4);
+});
+
+test('a disabled Continue says why, and an unreachable Frigate can be set up later', async ({ page }) => {
+    const fake = new FakeBackend({ firstRun: true });
+    fake.frigateTestFails = true;
+    const errors = await openFixture(page, fake);
+    await wizard(page).getByRole('button', { name: 'Get started' }).click();
+    await wizard(page).getByRole('checkbox').check();
+    await continueButton(page).click();
+    await expectStep(page, 'Frigate & MQTT connection');
+
+    // Nothing saved yet: Continue is disabled, and the reason is on screen and tied to the button.
+    await expect(continueButton(page)).toBeDisabled();
+    const reason = wizard(page).locator('[data-setup-continue-blocked]');
+    await expect(reason).toHaveText('Save and test the connection to continue, or choose “Set up later”.');
+    await expect(continueButton(page)).toHaveAttribute('aria-describedby', 'setup-continue-blocked');
+    // What waits on the connection is stated before the choice is made.
+    await expect(wizard(page).locator('[data-setup-connection-later]')).toContainText('no visits arrive, no photos or clips can be fetched');
+
+    // A failed test is a red row that states its outcome in a word, not a colour alone.
+    await wizard(page).getByLabel('Frigate URL').fill('http://frigate.invalid:5000');
+    await wizard(page).getByLabel('MQTT broker').fill('mqtt.invalid');
+    await wizard(page).getByRole('button', { name: 'Save & test connection' }).click();
+    const failed = wizard(page).locator('[data-setup-connection-result="failed"]');
+    await expect(failed).toContainText('Frigate API');
+    await expect(failed).toContainText('Failed');
+    await expect(wizard(page).getByRole('button', { name: 'Test again' })).toBeVisible();
+
+    // The MQTT switch is the same control Settings uses.
+    await expect(wizard(page).getByRole('switch', { name: 'MQTT authentication' })).toHaveAttribute('aria-checked', 'false');
+
+    await wizard(page).getByRole('button', { name: 'Set up later' }).click();
+    await expectStep(page, 'Cameras & detection');
+    expect(errors).toEqual([]);
+});
+
+test('the model step opens with a model selected even when the running model is not in the catalogue', async ({ page }) => {
+    // The bundled fallback runs under an id no catalogue entry has, and nothing else is installed.
+    const fake = new FakeBackend({ installed: [], activeModelId: 'model.tflite' });
+    await openRerun(page, fake);
+    await openSectionFromReview(page, 'Classifier model & hardware');
+    await expect(modelSelect(page)).toHaveValue(MOBILENET);
+    await expect(continueButton(page)).toBeDisabled();
+    await expect(wizard(page).locator('[data-setup-continue-blocked]')).toContainText('Download this model to continue, or skip this step');
+});
+
+test('a failed broker test is worded from its cause code in the page language', async ({ page }) => {
+    const fake = new FakeBackend({});
+    fake.mqttFailure = 'host_not_found';
+    await page.addInitScript(() => localStorage.setItem('preferred-language', 'de'));
+    await openFixture(page, fake);
+    await page.getByRole('button', { name: 'Open setup wizard' }).click();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByRole('listitem').filter({ hasText: 'Frigate' }).first().getByRole('button').click();
+    await dialog.locator('#setup-frigate-url').fill('http://frigate:5000');
+    await dialog.locator('#setup-mqtt-server').fill('mqtt.invalid');
+    await dialog.locator('#setup-mqtt-server').press('Tab');
+    await dialog.getByRole('button', { name: /test/i }).click();
+    const failed = dialog.locator('[data-setup-connection-result="failed"]');
+    await expect(failed).toContainText('Der Hostname in mqtt.invalid:1883 wurde nicht gefunden. Prüfe die Adresse.');
+    await expect(failed).toContainText('MQTT-Broker');
+    await expect(dialog).not.toContainText('English fallback sentence.');
 });

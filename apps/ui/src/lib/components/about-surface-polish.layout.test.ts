@@ -13,9 +13,20 @@ describe('About surface polish', () => {
         expect(aboutSource).toMatch(/<a href=\{credit\.href\}[^>]*class="inline-flex min-h-11 items-center/);
     });
 
-    it('prints the classifier model id whole, as an identifier that may break anywhere', () => {
-        expect(pipelineSource).toContain("identifier: true");
-        expect(pipelineSource).toContain("step.identifier ? 'font-mono break-all' : ''");
+    it('names the model as the Models tab does, with its runtime as a muted second line', () => {
+        // A file id such as mobilenet_v2_birds ran past the card; ids belong in the issue report only.
+        expect(pipelineSource).toContain('classifier.effective_model_name');
+        expect(pipelineSource).not.toMatch(/effective_model_id|active_model_id|font-mono|break-all/);
+        expect(pipelineSource).toContain('data-pipeline-note');
+        expect(en.about.pipeline.standby).toBe('Not loaded yet');
+    });
+
+    it('draws every step as the same card, with its state as a dot and a word', () => {
+        // Three border styles and a three-item legend were more encoding than seven cards can carry.
+        expect(pipelineSource).not.toMatch(/kindClass|border-dashed|legend_local|legend_optional|legend_external/);
+        expect(pipelineSource).toContain('border border-line-soft p-3');
+        expect(pipelineSource).toContain('toneDot(step.tone)');
+        expect(pipelineSource).toContain('about.pipeline.legend_note');
     });
 
     it('lists every browser-side network call the sighting map makes', () => {
@@ -75,7 +86,9 @@ describe('About surface polish', () => {
         expect(instanceSource).toContain('class="mt-2 flex w-full min-w-0 max-w-full gap-[2px]"');
         expect(instanceSource).toContain('class="min-w-0" data-instance-report');
         expect(instanceSource).toContain('flex min-w-0 flex-col items-stretch gap-2');
-        expect(instanceSource).toContain('whitespace-normal break-all');
+        // The report line breaks between its parts, never inside a model name.
+        expect(instanceSource).not.toContain('break-all');
+        expect(instanceSource).toContain('{#each supportParts as part, position (position)}');
         expect(instanceSource).toContain('w-full sm:w-auto');
     });
 
@@ -98,5 +111,23 @@ describe('About surface polish', () => {
         for (const value of JSON.stringify(en.about).match(/"[^"]*"/g) ?? []) {
             expect(value).not.toContain('—');
         }
+    });
+
+    it('never puts an unmeasured running time beside a measured availability', () => {
+        // "Running for Unknown" above "100% up" claimed a measurement that was not made.
+        expect(instanceSource).not.toMatch(/uptime \?\? \$_\('about\.pipeline\.unknown'/);
+        expect(instanceSource).toContain('data-instance-running-unmeasured');
+        // The availability figure names its own window, apart from the running time.
+        expect(instanceSource).toContain("about.instance.availability_heading");
+        expect(instanceSource.indexOf('data-instance-running-for')).toBeLessThan(
+            instanceSource.indexOf('about.instance.availability_heading')
+        );
+        // The start time is read from the probes, never assumed.
+        expect(instanceSource).toContain('startedAtFrom(readiness) ?? startedAtFrom(await checkHealth()');
+    });
+
+    it('names the runtime and its device rather than a bare runtime token', () => {
+        expect(instanceSource).toContain('describeRuntime(classifier)');
+        expect(instanceSource).not.toContain('about.instance.acceleration');
     });
 });

@@ -65,6 +65,31 @@ describe('selectSetupModelId', () => {
 
         expect(selectSetupModelId(status, available, installed)).toBe('rope_vit_b14_inat21');
     });
+
+    it('never returns an id the model list cannot show, so the select is never blank', () => {
+        // The bundled fallback runs under an id that is not in the catalogue; nothing is installed.
+        const status = {
+            loaded: true,
+            error: null,
+            labels_count: 965,
+            enabled: true,
+            active_model_id: 'model.tflite',
+            effective_model_id: 'model.tflite',
+            image_flavor: 'full',
+        } satisfies ClassifierStatus;
+
+        // The bundled CPU model is the recommended start: it needs no download.
+        expect(selectSetupModelId(status, [...available].reverse(), [])).toBe('mobilenet_v2_birds');
+        // Without it in the catalogue, the first model listed is selected rather than nothing.
+        expect(selectSetupModelId(status, [available[1]], [])).toBe('rope_vit_b14_inat21');
+        // An installed model the catalogue does not list is still a real choice when it has details to show.
+        const unlisted = [{ id: 'local_model', is_active: true, validated: true, metadata: { id: 'local_model', name: 'Local' } }] as InstalledModel[];
+        expect(selectSetupModelId({ ...status, effective_model_id: 'local_model' }, available, unlisted)).toBe('local_model');
+        // One with nothing to show is not.
+        const bare = [{ id: 'bare_model', is_active: true, validated: true }] as InstalledModel[];
+        expect(selectSetupModelId({ ...status, effective_model_id: 'bare_model' }, available, bare)).toBe('mobilenet_v2_birds');
+        expect(selectSetupModelId(status, [], [])).toBe('');
+    });
 });
 
 describe('fetchAvailableModels', () => {

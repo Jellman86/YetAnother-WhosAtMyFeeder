@@ -5,6 +5,7 @@
     import InstancePipeline from '../components/InstancePipeline.svelte';
     import InstanceSummary from '../components/InstanceSummary.svelte';
     import PrivacySummary from '../components/PrivacySummary.svelte';
+    import ProjectNotes from '../components/ProjectNotes.svelte';
     import { onMount } from 'svelte';
     import { fetchCommunityStats, fetchEvents, fetchFeederPortrait } from '../api';
     import type { Detection, FeederPortrait as FeederPortraitData } from '../api';
@@ -50,6 +51,24 @@
     let portrait = $state.raw<FeederPortraitData | null>(null);
     // Until the read settles its shape stands in, so the colophon does not move when it lands.
     let portraitFailed = $state(false);
+    // With no picture there is no picture column, so the loading shape must know which to hold.
+    // The last portrait's shape is remembered per browser; a first visit assumes a picture.
+    const PORTRAIT_SHAPE_KEY = 'yawamf.about.portrait_has_picture';
+    function rememberedPortraitHasPicture(): boolean {
+        try {
+            return localStorage.getItem(PORTRAIT_SHAPE_KEY) !== 'false';
+        } catch {
+            return true;
+        }
+    }
+    function rememberPortraitShape(hasPicture: boolean): void {
+        try {
+            localStorage.setItem(PORTRAIT_SHAPE_KEY, String(hasPicture));
+        } catch {
+            // Storage can be refused; the page then holds the picture shape, as on a first visit.
+        }
+    }
+    const expectPortraitPicture = rememberedPortraitHasPicture();
     let communityInstalls = $state<number | null>(null);
     let communityReadEnabled = $state<boolean | null>(null);
     let selectedEvent = $state<Detection | null>(null);
@@ -79,7 +98,10 @@
     async function loadPortrait(signal: AbortSignal, generation: number): Promise<void> {
         try {
             const next = await fetchFeederPortrait(signal);
-            if (!signal.aborted && generation === portraitGeneration) portrait = next;
+            if (!signal.aborted && generation === portraitGeneration) {
+                portrait = next;
+                rememberPortraitShape(Boolean(next.latest_visit));
+            }
         } catch (error) {
             if (signal.aborted || generation !== portraitGeneration) return;
             portraitFailed = true;
@@ -205,7 +227,8 @@
                 class="max-w-full shrink-0 truncate rounded-full border border-slate-200/80 px-3 py-1 font-mono text-xs sm:ml-auto text-slate-600 transition-colors hover:border-brand-300/60 focus-ring dark:border-slate-700 dark:text-slate-300"
                 title={$_('about.view_changelog')}
             >
-                v{versionInfo.base_version}
+                <!-- The same full version string the footer shows, so the page never names two. -->
+                v{versionInfo.version}
             </a>
         </div>
 
@@ -218,7 +241,7 @@
                 onopenspecies={(name) => (selectedSpecies = name)}
             />
         {:else}
-            <FeederPortraitPlaceholder failed={portraitFailed} withCommunity={communityInstalls !== null} />
+            <FeederPortraitPlaceholder failed={portraitFailed} withCommunity={communityInstalls !== null} withPicture={expectPortraitPicture} />
         {/if}
 
         <div class="max-w-prose space-y-3 text-base leading-7 text-slate-700 dark:text-slate-300">
@@ -289,14 +312,16 @@
                 <p class="mt-4 text-xs font-semibold text-slate-800 dark:text-slate-100">
                     {$_('about.thanks_to', { default: 'Thanks to' })}
                 </p>
-                <ul class="mt-1 space-y-1 text-xs text-slate-600 dark:text-slate-300">
+                <!-- The same ruled rows as "What it stores", each a touch target tall, so the three columns keep one rhythm. -->
+                <ul class="mt-2 divide-y divide-slate-200/70 text-xs text-slate-600 dark:divide-slate-700/50 dark:text-slate-300">
                     {#each creditsLinks as credit}
                         <li>
                             {credit.parts.before}<a href={credit.href} target="_blank" rel="noopener noreferrer" class="inline-flex min-h-11 items-center font-medium text-brand-700 underline underline-offset-2 focus-ring rounded-sm dark:text-brand-400">{credit.label}</a>{credit.parts.after}
                         </li>
                     {/each}
-                    <li>{$_('about.credits_list.ai_assistants')}</li>
-                    <li>{$_('about.flaticon_credit')}</li>
+                    <!-- The rows above are a touch target tall; these match, so the list keeps one rhythm. -->
+                    <li class="flex min-h-11 items-center">{$_('about.credits_list.ai_assistants')}</li>
+                    <li class="flex min-h-11 items-center">{$_('about.flaticon_credit')}</li>
                 </ul>
                 <p class="mt-3 text-2xs text-slate-600 dark:text-slate-400">
                     {$_('about.license_notice', { values: { year: new Date().getFullYear(), license: $_('common.mit_license') } })}
@@ -304,6 +329,8 @@
             </section>
         </div>
     </section>
+
+    <ProjectNotes />
 </div>
 
 {#if selectedEvent}

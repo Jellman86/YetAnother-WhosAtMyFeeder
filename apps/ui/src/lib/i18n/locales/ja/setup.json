@@ -26,7 +26,6 @@
     "mqtt_username": "ユーザー名",
     "mqtt_password": "パスワード",
     "mqtt_password_saved": "新しい値を入力しない限り、保存済みパスワードが保持されます。",
-    "continue_hint": "設定は保存されました。続行して接続を後で修正することもできますが、Frigate に接続できるまで検出は取り込まれません。",
     "description": "YA-WAMF は MQTT 経由で Frigate から検出を読み取り、その API からスナップショットを取得します。両方の接続先を指定してからテストしてください。",
     "frigate_auth_hint": "Frigate でサインインが必要な場合は、YA-WAMF の起動環境に FRIGATE_AUTH_TOKEN を設定して再起動し、もう一度テストしてください。",
     "frigate_auth_link": "環境変数",
@@ -36,7 +35,12 @@
     "mqtt_port": "ポート",
     "mqtt_server": "MQTT ブローカー",
     "save_test": "保存して接続をテスト",
-    "frigate_ok": "Frigate {version} に接続しました"
+    "frigate_ok": "Frigate {version} に接続しました",
+    "blocked": "続行するには接続を保存してテストするか、「あとで設定」を選んでください。",
+    "later": "あとで設定",
+    "later_note": "Frigate やブローカーがまだ用意できていませんか。「あとで設定」を選んでください。設定 → 接続で両方がつながるまで、訪問は届かず、写真やクリップは取得できず、カメラの手順でカメラを一覧表示できません。",
+    "check_frigate": "Frigate の API",
+    "check_mqtt": "MQTT ブローカー"
   },
   "cameras": {
     "title": "カメラと検出",
@@ -54,7 +58,7 @@
   },
   "model": {
     "title": "分類モデルとハードウェア",
-    "description": "YA-WAMF には軽量な CPU フォールバックが含まれています。モデルを選び、必要ならここでダウンロードし、続行前に実際のイメージとハードウェア経路を検証してください。",
+    "description": "YA-WAMF には、どの CPU でも動く小さなモデルが付属しています。それか、より大きなモデルを選び、必要ならここでダウンロードして、続行する前にこのマシンで動くか確認してください。",
     "download_required": "このハードウェアで検証する前に、ここでモデルをダウンロードして確認してください。",
     "download_timeout": "ダウンロードに予想以上の時間がかかっています。接続を確認して再試行してください。",
     "validation_timeout": "ハードウェア検証が 30 分を超えました。診断画面でまだ完了処理中の可能性があります。別の検証を開始する前に状態を確認してください。",
@@ -92,7 +96,13 @@
     "readiness_retry": "検証は完了しましたが、モデルの準備状態を更新できませんでした。再試行中です。このステップを離れて後で戻ることもできます。",
     "best_provider": "検証済みの最適なプロバイダー: {provider}、画像あたり {ms} ms",
     "best_provider_without_timing": "検証済みの最適なプロバイダー: {provider}",
-    "failed_providers": "失敗: {providers}"
+    "failed_providers": "失敗: {providers}",
+    "blocked_downloading": "ダウンロードが終わると続行できます。",
+    "blocked_no_model": "続行するにはモデルを選ぶか、この手順をスキップして現在使用中のモデルをそのまま使ってください。",
+    "blocked_download": "続行するにはこのモデルをダウンロードするか、この手順をスキップして現在使用中のモデルをそのまま使ってください。",
+    "blocked_check": "続行するにはこのハードウェアでモデルを確認するか、この手順をスキップして現在使用中のモデルをそのまま使ってください。",
+    "blocked_location": "続行するには餌台の緯度と経度を入力するか、両方を空のままにしてください。",
+    "blocked_provider": "このホストには選択したデバイスがありません。続行するには別のデバイスか自動を選んでください。"
   },
   "quality": {
     "title": "利用可能な最良のスナップショット",
@@ -118,7 +128,6 @@
     "enable_help": "分類品質が向上した場合のみ更新し、保存済みの音声と天気情報は保持します。",
     "range": "履歴の範囲",
     "import_continue": "インポートして続行",
-    "continue_without": "インポートせず続行",
     "job_title": "検出履歴のインポート",
     "job_starting": "Frigate のイベント履歴を確認中",
     "audio_note": "Frigate の履歴から視覚検出とスナップショットは復元できますが、保存されていない BirdNET-Go 音声は再作成できません。"
@@ -175,10 +184,11 @@
     "cover_cameras": "カメラを選択",
     "cover_connect": "Frigate と MQTT を接続",
     "cover_integrations": "連携を有効化",
-    "cover_model": "お使いのハードウェアでモデルを検証",
-    "description": "給餌台の監視を始めましょう。数分で完了し、任意の項目はスキップできます。設定のナビゲーションからいつでも再実行できます。",
+    "cover_model": "このマシンでモデルが動くか確認する",
+    "description": "数分で終わります。任意の項目はスキップでき、設定からいつでもセットアップをやり直せます。",
     "start": "はじめる",
-    "title": "YA-WAMFへようこそ"
+    "title": "YA-WAMF のセットアップ",
+    "covers": "セットアップで行うこと:"
   },
   "working": "処理中…",
   "skip_step": "このステップをスキップ",
@@ -192,8 +202,15 @@
     "model": "モデル",
     "quality": "スナップショット",
     "integrations": "連携",
-    "history": "履歴",
-    "telemetry": "利用統計",
+    "history": "追加設定",
     "review": "確認"
+  },
+  "blocked": {
+    "loading": "現在の設定の読み込みが終わると続行できます。",
+    "load_failed": "現在の設定を読み込めなかったため、ここでは何も保存できません。上の「設定の読み込みを再試行」を使ってください。"
+  },
+  "extras": {
+    "title": "任意の追加設定",
+    "description": "完了前の2つの選択です。どちらもオンにしない限りオフのままで、あとから設定で変更できます。"
   }
 }

@@ -1,14 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import deFooter from './locales/de/footer.json';
-import enFooter from './locales/en/footer.json';
-import esFooter from './locales/es/footer.json';
-import frFooter from './locales/fr/footer.json';
-import itFooter from './locales/it/footer.json';
-import jaFooter from './locales/ja/footer.json';
-import ptFooter from './locales/pt/footer.json';
-import ruFooter from './locales/ru/footer.json';
-import zhFooter from './locales/zh/footer.json';
+import deFooter from './locales/de/project_notes.json';
+import enFooter from './locales/en/project_notes.json';
+import esFooter from './locales/es/project_notes.json';
+import frFooter from './locales/fr/project_notes.json';
+import itFooter from './locales/it/project_notes.json';
+import jaFooter from './locales/ja/project_notes.json';
+import ptFooter from './locales/pt/project_notes.json';
+import ruFooter from './locales/ru/project_notes.json';
+import zhFooter from './locales/zh/project_notes.json';
 import footerSource from '../components/Footer.svelte?raw';
+import notesSource from '../components/ProjectNotes.svelte?raw';
+import aboutSource from '../pages/About.svelte?raw';
 
 const de = { footer: deFooter };
 const en = { footer: enFooter };
@@ -22,9 +24,9 @@ const zh = { footer: zhFooter };
 
 const locales = { de, en, es, fr, it: itLocale, ja, pt, ru, zh } as const;
 
-describe('footer bird facts', () => {
+describe('project notes and bird facts', () => {
     it('keeps every locale at the same number of facts', () => {
-        // The ticker indexes by position, so a short locale would show a different fact
+        // The facts are indexed by position, so a short locale would show a different fact
         // from the one every other language is showing.
         const counts = Object.entries(locales).map(
             ([name, data]) => [name, data.footer.bird_facts.length] as const
@@ -32,10 +34,10 @@ describe('footer bird facts', () => {
         for (const [, count] of counts) {
             expect(count).toBe(en.footer.bird_facts.length);
         }
-        expect(en.footer.bird_facts.length).toBe(30);
+        expect(en.footer.bird_facts.length).toBe(29);
         for (const [name, data] of Object.entries(locales)) {
             const longest = Math.max(...data.footer.bird_facts.map((fact) => fact.length));
-            expect(longest, `${name} has a fact too long for the reserved mobile rail`).toBeLessThanOrEqual(180);
+            expect(longest, `${name} has a fact too long to read at a glance`).toBeLessThanOrEqual(180);
         }
     });
 
@@ -62,25 +64,26 @@ describe('footer bird facts', () => {
         }
     });
 
-    it('reads the footer signature from the footer namespace', () => {
-        expect(footerSource).toContain("footer.built_with_ai");
-        expect(footerSource).not.toContain('about.built_with_ai');
-        expect(en.footer.built_with_ai).toBe('Built with AI assistance, and a lot of trial and error');
+    it('keeps the facts off every operational page, on About, and says the project line once', () => {
+        // The footer of a working page carries the version, the licence and the links only.
+        expect(footerSource).not.toMatch(/bird_facts|did_you_know|built_with_ai|project_notes/);
+        expect(footerSource).toContain("common.mit_license");
+        expect(footerSource).toContain('v{version}');
+        expect(aboutSource).toContain('<ProjectNotes />');
+        expect(notesSource).toContain("project_notes.bird_facts");
+        // About already says how it was built in its opening paragraph and its thanks; a third time was one too many.
+        expect(notesSource).not.toContain('built_with_ai');
+        expect(en.footer).not.toHaveProperty('built_with_ai');
     });
 
-    it('keeps a stable mobile footprint', () => {
-        expect(footerSource).toContain('min-h-28');
-        expect(footerSource).toContain('sm:min-h-10');
+    it('drops the filler joke and writes no hyphen as a dash in English', () => {
+        expect(en.footer.bird_facts.join(' ')).not.toMatch(/aren't real|surveillance drones/i);
+        expect(en.footer.bird_facts.filter((fact) => fact.includes(' - '))).toEqual([]);
     });
 
-    it('shows one fact per page load and never changes it while the page is read', () => {
-        // Text that turns over by itself needs a way to pause it (WCAG 2.2.2); the footer has none
-        // and does not need one, because it no longer moves.
-        expect(footerSource).not.toMatch(/setInterval|setTimeout/);
-        expect(footerSource).toContain('if (birdFacts.length > 0) currentFactIndex = Math.floor(Math.random() * birdFacts.length);');
-    });
-
-    it('keeps amber for work that needs a person, not for a bird fact', () => {
-        expect(footerSource).not.toMatch(/text-(?:amber|accent|attention)-/);
+    it('changes the fact only when asked, never by itself', () => {
+        // Text that turns over by itself needs a way to pause it (WCAG 2.2.2).
+        expect(notesSource).not.toMatch(/setInterval|setTimeout/);
+        expect(notesSource).toContain('data-project-notes-another');
     });
 });

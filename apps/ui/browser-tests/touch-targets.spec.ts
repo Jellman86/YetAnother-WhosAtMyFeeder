@@ -103,7 +103,7 @@ test('About quick links and credit links clear the touch floor', async ({ page }
         if (path === '/api/about/portrait') return route.fulfill({ status: 503, json: { detail: 'No portrait in this fixture' } });
         if (path === '/api/version') return route.fulfill({ json: { version: '2.9.15', base_version: '2.9.15', git_hash: 'fixture', branch: 'dev' } });
         if (path === '/api/about/community') return route.fulfill({ json: { enabled: false, active_installs: null } });
-        if (path === '/api/classifier/status') return route.fulfill({ json: { loaded: true, effective_model_id: 'dinov2_b14_inat21_metadata_336', active_provider: 'intel_gpu' } });
+        if (path === '/api/classifier/status') return route.fulfill({ json: { loaded: true, effective_model_id: 'dinov2_b14_inat21_metadata_336', effective_model_name: 'DINOv2 B/14 with location', inference_backend: 'onnxruntime', active_provider: 'intel_gpu' } });
         if (path === '/api/stats/uptime') return route.fulfill({ json: { buckets: [], longest_gap_minutes: 0, availability_percent: 100 } });
         if (path === '/api/update-status') return route.fulfill({ json: { enabled: false, update_available: false } });
         return route.fulfill({ status: 503, json: { detail: 'Not part of the About fixture' } });
@@ -112,9 +112,11 @@ test('About quick links and credit links clear the touch floor', async ({ page }
     const credits = page.locator('section[aria-labelledby="about-credits-heading"]');
     await expect(credits).toBeVisible({ timeout: 15000 });
     await targetHeights(credits.getByRole('link'));
-    // The model id is an identifier: it wraps inside its step rather than being cut or overflowing.
-    const modelStep = page.locator('[data-about-pipeline] li').filter({ hasText: 'dinov2_b14_inat21_metadata_336' });
+    // The step names the model as the Models tab does, with its runtime beneath; the file id is not shown here.
+    const modelStep = page.locator('[data-about-pipeline] li').filter({ hasText: 'DINOv2 B/14 with location' });
     await expect(modelStep).toBeVisible();
+    await expect(modelStep.locator('[data-pipeline-note]')).toHaveText('ONNX Runtime');
+    await expect(page.locator('[data-about-pipeline]')).not.toContainText('dinov2_b14_inat21_metadata_336');
     expect(await modelStep.evaluate(node => node.scrollWidth <= node.clientWidth)).toBe(true);
 });
 
@@ -161,6 +163,10 @@ test('the record’s audio context and edit-name controls clear the touch floor'
     await expect(modal).toBeVisible({ timeout: 15000 });
     const audio = modal.getByRole('button', { name: /^All calls heard around this visit/ });
     await expect(audio).toHaveAttribute('aria-expanded', 'false');
+    // The rename control waits behind More actions, which must clear the floor as well.
+    const more = modal.locator('[data-detection-more-actions]');
+    await targetHeights(more);
+    await more.click();
     const editName = modal.getByRole('button', { name: 'Change the common name' });
     await targetHeights(audio);
     await targetHeights(editName);

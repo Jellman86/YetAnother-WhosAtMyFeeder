@@ -1,6 +1,6 @@
 <script lang="ts">
     import { onMount } from 'svelte';
-    import { fetchClassifierStatus, fetchReadiness, fetchUpdateStatus } from '../api';
+    import { checkHealth, fetchClassifierStatus, fetchReadiness, fetchUpdateStatus } from '../api';
     import type { UpdateStatus } from '../api';
     import { fetchUptimeWindow, type UptimeWindowResponse } from '../api/leaderboard';
     import type { ClassifierStatus, VersionInfo } from '../api';
@@ -8,6 +8,7 @@
     import { getErrorMessage, isTransientRequestError } from '../utils/error-handling';
     import { logger } from '../utils/logger';
     import { formatDate, formatTime } from '../utils/datetime';
+    import { describeRuntime, startedAtFrom } from '../utils/instance-facts';
     import { uptimeCoverage } from '../utils/uptime-coverage';
     import { _ } from 'svelte-i18n';
 
@@ -21,6 +22,7 @@
 
     let classifier = $state<ClassifierStatus | null>(null);
     let startedAt = $state<string | null>(null);
+    let startRead = $state(false);
     let uptimeWindow = $state<UptimeWindowResponse | null>(null);
     let uptimeLoadState = $state<UptimeLoadState>('loading');
     let updateStatus = $state<UpdateStatus | null>(null);
@@ -31,12 +33,11 @@
 
     onMount(() => {
         void (async () => {
-            try {
-                const readiness = await fetchReadiness();
-                startedAt = readiness.startup_started_at ?? null;
-            } catch {
-                // Uptime is supporting detail; the card stands without it.
-            }
+            // Both probes report the same process start; the second is asked only when the
+            // first could not be read, and with neither the card says it was not measured.
+            const readiness = await fetchReadiness().catch(() => null);
+            startedAt = startedAtFrom(readiness) ?? startedAtFrom(await checkHealth().catch(() => null));
+            startRead = true;
             try {
                 uptimeWindow = await fetchUptimeWindow(24);
                 uptimeLoadState = 'ready';
@@ -64,14 +65,20 @@
         })();
     });
 
-    const acceleration = $derived(
-        classifier?.active_provider ??
-            classifier?.inference_backend ??
-            $_('about.pipeline.unknown', { default: 'Unknown' })
+    const runtime = $derived(describeRuntime(classifier));
+    const runtimeLabel = $derived(
+        !runtime
+            ? null
+            : runtime.device
+              ? $_('about.instance.runtime_on', {
+                    values: { runtime: runtime.runtime, device: runtime.device },
+                    default: '{runtime} on {device}'
+                })
+              : runtime.runtime
     );
 
-    // The readiness probe records when this process started. There is no health history,
-    // so this is honestly "running since", not a 24-hour availability strip.
+    // Two separate measurements share this card and are never merged: how long this process
+    // has run (from its own start time), and the share of the last 24 hours it was recorded up.
     const availability = $derived.by(() => {
         const ratio = uptimeWindow?.uptime_ratio;
         if (ratio === null || ratio === undefined) return null;
@@ -104,17 +111,17 @@
     });
 
     // Deliberately no keys, URLs or camera names: this is meant to be pasted in public.
-    const supportSummary = $derived(
+    // Kept as parts so the page can break the line between them and never inside a model name.
+    const supportParts = $derived(
         [
             `v${versionInfo.base_version}`,
             versionInfo.branch,
             versionInfo.git_hash,
-            acceleration,
+            runtimeLabel,
             classifier?.effective_model_id ?? classifier?.active_model_id ?? 'no model'
-        ]
-            .filter(Boolean)
-            .join(' · ')
+        ].filter((part): part is string => Boolean(part))
     );
+    const supportSummary = $derived(supportParts.join(' · '));
 
     async function copySummary(): Promise<void> {
         try {
@@ -171,11 +178,17 @@
         </div>
 
         <div class="grid min-w-0 gap-6 sm:grid-cols-[minmax(0,0.7fr)_minmax(0,0.7fr)_minmax(0,1.6fr)]">
-            <div class="min-w-0">
+            <div class="min-w-0" data-instance-runtime>
                 <p class="text-2xs font-semibold text-slate-600 wrap-anywhere dark:text-slate-400">
-                    {$_('about.instance.acceleration', { default: 'Acceleration' })}
+                    {$_('about.instance.runtime', { default: 'Identifying birds with' })}
                 </p>
-                <p class="wrap-break-word font-display text-2xl font-bold text-slate-900 dark:text-white">{acceleration}</p>
+                {#if runtimeLabel}
+                    <p class="wrap-break-word font-display text-2xl font-bold text-slate-900 dark:text-white">{runtimeLabel}</p>
+                {:else}
+                    <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                        {$_('about.instance.runtime_unread', { default: 'Not read yet. The model reports this once it has loaded.' })}
+                    </p>
+                {/if}
                 {#if classifier?.fallback_reason}
                     <p class="mt-1 text-2xs leading-snug text-slate-600 dark:text-slate-400">
                         {classifier.fallback_reason}
@@ -187,14 +200,34 @@
                 <p class="text-2xs font-semibold text-slate-600 wrap-anywhere dark:text-slate-400">
                     {$_('about.instance.uptime', { default: 'Running for' })}
                 </p>
-                <p class="font-display text-2xl font-bold text-slate-900 dark:text-white">
-                    {uptime ?? $_('about.pipeline.unknown', { default: 'Unknown' })}
-                </p>
+                {#if uptime && startedAt}
+                    <p class="font-display text-2xl font-bold text-slate-900 dark:text-white" data-instance-running-for>{uptime}</p>
+                    <p class="text-2xs text-slate-600 dark:text-slate-400">
+                        {$_('about.instance.since', {
+                            values: { when: `${formatDate(startedAt)} ${formatTime(startedAt)}` },
+                            default: 'since {when}'
+                        })}
+                    </p>
+                {:else if startRead}
+                    <!-- A dash where the figure would be, and one muted line for why: never a sentence as the value. -->
+                    <p class="font-display text-2xl font-bold text-slate-900 dark:text-white" data-instance-running-unmeasured>
+                        <span aria-hidden="true">&mdash;</span>
+                        <span class="sr-only">{$_('about.instance.uptime_unmeasured_value', { default: 'Not measured' })}</span>
+                    </p>
+                    <p class="text-2xs text-slate-600 dark:text-slate-400">
+                        {$_('about.instance.uptime_unmeasured', { default: 'The backend did not report when it started.' })}
+                    </p>
+                {:else}
+                    <p class="mt-1 text-sm text-slate-600 dark:text-slate-400" role="status">{$_('common.loading', { default: 'Loading…' })}</p>
+                {/if}
 
+                <p class="mt-4 text-2xs font-semibold text-slate-600 wrap-anywhere dark:text-slate-400">
+                    {$_('about.instance.availability_heading', { values: { hours: 24 }, default: 'Availability, last {hours} hours' })}
+                </p>
                 {#if uptimeLoadState === 'ready' && uptimeWindow}
                     {#if availability}
                         <!-- The percentage covers only the hours that were recorded, and says so. -->
-                        <p class="mt-0.5 text-xs font-semibold tabular-nums text-slate-600 dark:text-slate-300" data-uptime-availability>
+                        <p class="font-display text-2xl font-bold tabular-nums text-slate-900 dark:text-white" data-uptime-availability>
                             {#if coverage && !coverage.complete}
                                 {$_('about.instance.availability_partial', {
                                     values: { percent: availability, hours: coverage.recordedHours },
@@ -279,14 +312,6 @@
                         })}
                     </p>
                 {/if}
-                {#if startedAt}
-                    <p class="mt-1 text-2xs text-slate-600 dark:text-slate-400">
-                        {$_('about.instance.since', {
-                            values: { when: `${formatDate(startedAt)} ${formatTime(startedAt)}` },
-                            default: 'since {when}'
-                        })}
-                    </p>
-                {/if}
             </div>
 
             <div class="min-w-0" data-instance-report>
@@ -294,8 +319,8 @@
                     {$_('about.instance.for_issue', { default: 'For an issue report' })}
                 </p>
                 <div class="mt-1.5 flex min-w-0 flex-col items-stretch gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 sm:flex-row sm:items-center dark:border-slate-700 dark:bg-slate-900/50">
-                    <code class="min-w-0 max-w-full whitespace-normal break-all font-mono text-xs leading-relaxed text-slate-700 sm:flex-1 dark:text-slate-200">
-                        {supportSummary}
+                    <code class="min-w-0 max-w-full whitespace-normal font-mono text-xs leading-relaxed text-slate-700 sm:flex-1 dark:text-slate-200">
+                        {#each supportParts as part, position (position)}{#if position > 0}{' · '}{/if}<span class="inline-block max-w-full align-top wrap-anywhere">{part}</span>{/each}
                     </code>
                     <button class="btn btn-secondary min-h-11 w-full sm:w-auto shrink-0 px-3 py-1.5 text-xs" onclick={copySummary}>
                         {copied

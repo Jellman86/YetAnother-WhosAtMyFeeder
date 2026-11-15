@@ -650,7 +650,9 @@
     "test_subtitle": "Verifica se a API do Frigate responde e se o broker MQTT aceita uma publicação.",
     "test_title": "Teste de conexão Frigate e MQTT",
     "recording_frame_delay": "Atraso da identificação inicial (segundos)",
-    "recording_frame_delay_desc": "Espera de 1 a 120 segundos após a primeira imagem. Usa os metadados de rastreamento mais recentes recebidos durante a espera. A identificação e as notificações chegam mais tarde. Não espera pelo fim de todos os eventos nem reclassifica deteções guardadas."
+    "recording_frame_delay_desc": "Espera de 1 a 120 segundos após a primeira imagem. Usa os metadados de rastreamento mais recentes recebidos durante a espera. A identificação e as notificações chegam mais tarde. Não espera pelo fim de todos os eventos nem reclassifica deteções guardadas.",
+    "stage_frigate_next": "Verifique o URL do servidor Frigate neste separador e se o Frigate está em execução.",
+    "stage_mqtt_next": "Verifique o endereço do broker, a porta e o início de sessão neste separador."
   },
   "cameras": {
     "title": "Câmaras a observar",

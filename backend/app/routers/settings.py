@@ -11,6 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, create_model
 import structlog
 
 from app.utils.diagnostic_redaction import redact_address, safe_connection_error, safe_error_message
+from app.services.connection_failure import classify_connection_failure, connection_failure_payload
 from app.services.settings_update import apply_update, prepare_update, run_settings_writer
 from app.services.cache_stats_measurements import CacheStatsMeasurements
 from app.config import CONFIG_PATH, Settings as AppSettings, settings
@@ -260,28 +261,13 @@ async def test_birdnet_reachability(
     except httpx.TimeoutException:
         return JSONResponse(
             status_code=504,
-            content={
-                "status": "error",
-                "message": f"BirdNET-Go at {redact_address(base_url)} did not answer in time. Check the URL in Settings → Integrations, and that BirdNET-Go is running.",
-            },
+            content=connection_failure_payload("timeout", service="birdnet", address=base_url),
         )
     except httpx.RequestError as e:
         return JSONResponse(
             status_code=502,
-            content={
-                "status": "error",
-                "message": _birdnet_unreachable_message(e, redact_address(base_url)),
-            },
+            content=connection_failure_payload(classify_connection_failure(e), service="birdnet", address=base_url),
         )
-
-
-def _birdnet_unreachable_message(error: httpx.RequestError, address: str) -> str:
-    """Why BirdNET-Go could not be reached and what to check, instead of an exception class."""
-    if isinstance(error, httpx.ConnectError):
-        return (
-            f"Nothing answered at {address}. Check the URL in Settings → Integrations, and that BirdNET-Go is running."
-        )
-    return f"BirdNET-Go at {address} could not be reached. Check the URL in Settings → Integrations, and that BirdNET-Go is running."
 
 
 class MQTTTestRequest(BaseModel):
@@ -309,7 +295,6 @@ async def test_mqtt_publish(
     supplied_password = request.password if request.password not in (None, "", "***REDACTED***") else None
     password = (supplied_password or settings.frigate.mqtt_password) if use_auth else None
 
-    where = f"{server}:{port}"
     try:
         cause = await mqtt_service.diagnose_connection(
             server=server,
@@ -319,25 +304,12 @@ async def test_mqtt_publish(
         )
     except Exception as exc:
         log.error("MQTT Test Publish Failed", error_type=type(exc).__name__)
-        cause = "failed"
+        cause = classify_connection_failure(exc)
     if cause is None:
         return ActionStatusResponse(status="ok", message="Test message published to 'yawamf/test'")
-    return JSONResponse(status_code=502, content={"status": "error", "message": _mqtt_failure_message(cause, where)})
-
-
-def _mqtt_failure_message(cause: str, where: str) -> str:
-    """The cause of a failed MQTT test and what to change, in the owner's words."""
-    host = where.rsplit(":", 1)[0]
-    messages = {
-        "unresolved": f"The MQTT broker address {host} could not be found. Check the address in Settings → Connection.",
-        "refused": f"Nothing at {where} accepted the connection. Check the port in Settings → Connection, and that the broker is running.",
-        "timeout": f"The MQTT broker at {where} did not answer in time. Check the address in Settings → Connection, and that the broker is running.",
-        "auth": "The MQTT broker refused the username or password. Check them in Settings → Connection.",
-        "unreachable": f"The MQTT broker at {where} could not be reached. Check the address and port in Settings → Connection, and that the broker is running.",
-    }
-    return messages.get(
-        cause,
-        f"Connected to the MQTT broker at {where}, but it did not accept the test message. Check that this user may publish to yawamf/test.",
+    return JSONResponse(
+        status_code=502,
+        content=connection_failure_payload(cause, service="mqtt", address=f"{server}:{port}"),
     )
 
 

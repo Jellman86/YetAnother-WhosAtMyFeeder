@@ -16,7 +16,6 @@
     import QualityStep from './QualityStep.svelte';
     import IntegrationsStep from './IntegrationsStep.svelte';
     import HistoryStep from './HistoryStep.svelte';
-    import TelemetryStep from './TelemetryStep.svelte';
     import ReviewStep from './ReviewStep.svelte';
     import SetupStepIcon from './SetupStepIcon.svelte';
 
@@ -160,7 +159,14 @@
         <div class="max-h-[70vh] overflow-y-auto p-6">
             {#key step.id}
                 <div in:fade={{ duration: 180 }}>
-                    <div class="mb-4"><SetupStepIcon step={step.id} /></div>
+                    <!-- Setup opens under the app's own mark; each later step has an icon for what it sets up. -->
+                    <div class="mb-4">
+                        {#if step.id === 'welcome'}
+                            <BrandMark alt="" class="h-10 w-10 rounded-xl" width={40} height={40} sizes="40px" />
+                        {:else}
+                            <SetupStepIcon step={step.id} />
+                        {/if}
+                    </div>
                     {#if step.id === 'welcome'}
                         <WelcomeStep />
                     {:else if step.id === 'account'}
@@ -177,8 +183,6 @@
                         <IntegrationsStep />
                     {:else if step.id === 'history'}
                         <HistoryStep />
-                    {:else if step.id === 'telemetry'}
-                        <TelemetryStep />
                     {:else if step.id === 'review'}
                         <ReviewStep />
                     {/if}

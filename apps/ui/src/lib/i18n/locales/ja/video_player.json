@@ -18,7 +18,6 @@
   "preview_notification_title": "タイムラインプレビュー",
   "shortcut_play_pause": "再生/一時停止",
   "shortcut_seek": "シーク +/-5秒",
-  "shortcuts_mobile_hint": "ハードウェアキーボード使用時にキーボードショートカットを利用できます。",
   "buffering_hint": "動画ストリームをバッファ中…",
   "previews_touch_hint": "タイムラインプレビューを利用できます。シークバーをドラッグまたはタップしてフレームを確認してください。",
   "download": "クリップをダウンロード",

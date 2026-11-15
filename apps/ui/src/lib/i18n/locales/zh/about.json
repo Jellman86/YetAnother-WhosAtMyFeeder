@@ -31,13 +31,8 @@
     "notify": "通知",
     "browser": "你的浏览器",
     "unknown": "未知",
-    "online": "在线",
     "degraded": "需检查",
     "loaded": "已加载",
-    "enabled": "已启用",
-    "off": "关闭",
-    "streaming": "推送中",
-    "offline": "离线",
     "cameras_count": "{total} 个摄像头中 {online} 个在线",
     "mqtt_detail": "frigate/events",
     "audio_detail": "与 BirdNET-Go 比对",
@@ -45,15 +40,12 @@
     "notify_on": "至少配置了一个渠道",
     "notify_off": "尚未配置",
     "browser_detail": "通过 SSE 实时更新",
-    "legend_local": "在你的硬件上运行",
-    "legend_optional": "可选",
-    "legend_external": "你的 broker 和浏览器",
     "legend_note": "除下面列出的请求外，没有任何数据离开你的网络。",
     "not_checked": "未检查",
     "no_reading": "无法从此处读取",
     "owner_only": "仅所有者",
     "owner_only_detail": "仅所有者可见的读数",
-    "standby": "首次检测时加载"
+    "standby": "尚未加载"
   },
   "storage": {
     "title": "存储了什么",
@@ -82,7 +74,6 @@
   },
   "instance": {
     "title": "本实例",
-    "acceleration": "加速方式",
     "for_issue": "用于问题反馈",
     "copy": "复制",
     "copied": "已复制",
@@ -106,7 +97,13 @@
     "history_loading": "正在加载可用性…",
     "history_unavailable": "无法读取可用性。",
     "availability_partial": "已记录的 {hours} 小时内运行 {percent}%",
-    "no_gaps_since": "自 {when} 开始记录以来没有中断。"
+    "no_gaps_since": "自 {when} 开始记录以来没有中断。",
+    "runtime": "识别鸟类所用",
+    "runtime_on": "{runtime}（{device}）",
+    "runtime_unread": "尚未读取。模型加载完成后会报告。",
+    "uptime_unmeasured": "后端没有报告启动时间。",
+    "availability_heading": "可用性（过去 {hours} 小时）",
+    "uptime_unmeasured_value": "未测量"
   },
   "close": {
     "title": "数据、隐私与致谢"
@@ -114,11 +111,10 @@
   "reference_thanks": "参考与致谢",
   "thanks_to": "感谢",
   "portrait": {
-    "since": "自 {date} 起观察。",
-    "shared_today": "今天在这个喂食器。",
-    "shared_days": "这个喂食器最近 {days} 天。",
+    "since": "自 {date} 起观察",
+    "shared_today": "今天在这个喂食器",
+    "shared_days": "这个喂食器最近 {days} 天",
     "empty": "还没有到访记录。鸟儿到来后，这里就会有内容。",
-    "no_latest": "暂无最近到访的图片。",
     "visits": "次到访",
     "species": "种",
     "busiest_day": "最热闹的一天",

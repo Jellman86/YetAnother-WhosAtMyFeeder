@@ -676,7 +676,7 @@ model is currently loaded. A CPU worker stays loaded for up to 60 seconds after 
 accelerator worker stays loaded only while further automatic checks are due and birds are idle.
 Manual checks also follow the Detection device preference. Capture records show
 the model, device, source, timestamps and retained checksums in the same read-only
-terminal-style **Details** panel used by bird records. Historical CPU results
+**Details** panel used by bird records, a plain disclosure that is the last thing in the record. Historical CPU results
 remain CPU results after a later NPU preference change. **Motion detector only: CPU** refers to Cedar
 motion collection, not SpeciesNet animal identification.
 

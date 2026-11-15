@@ -5,7 +5,8 @@
     "daily_sub": "每日 BirdNET-Go 听测次数",
     "hourly_title": "时段",
     "species_title": "物种构成",
-    "empty": "此时间范围内没有活动。"
+    "empty": "此时间范围内没有活动。",
+    "other_species": "其他物种"
   },
   "stat": {
     "heard": "听测",

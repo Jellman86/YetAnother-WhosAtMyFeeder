@@ -15,4 +15,12 @@ describe('focus trap', () => {
         expect(focusTrapSource).toContain("getAttribute('aria-hidden') !== 'true'");
         expect(focusTrapSource).toContain('getClientRects().length > 0');
     });
+
+    it('counts a disclosure summary as a tab stop, so one placed last can be reached', () => {
+        expect(focusTrapSource).toContain('details > summary:first-of-type');
+    });
+
+    it('starts where the dialog says reading starts, before falling back to the first control', () => {
+        expect(focusTrapSource).toMatch(/querySelector<HTMLElement>\('\[data-initial-focus\]'\)\s+\?\? focusable\.find/);
+    });
 });

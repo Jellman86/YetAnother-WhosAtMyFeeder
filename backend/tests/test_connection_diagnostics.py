@@ -90,6 +90,31 @@ async def test_mqtt_diagnostic_uses_current_form_values_and_preserves_saved_pass
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("cause", "said"),
+    [
+        ("host_not_found", "The host name in mqtt.invalid:1883 was not found"),
+        ("refused", "Nothing answered at mqtt.invalid:1883"),
+        ("not_authorised", "refused the user name or password"),
+    ],
+)
+async def test_mqtt_diagnostic_names_the_cause_and_the_next_step(client, monkeypatch, cause, said):
+    monkeypatch.setattr("app.services.mqtt_service.mqtt_service.diagnose_connection", AsyncMock(return_value=cause))
+
+    response = await client.post("/api/settings/mqtt/test-publish", json={"server": "mqtt.invalid", "port": 1883})
+
+    assert response.status_code == 502
+    body = response.json()
+    # A stable code and safe parameters, so the page words the cause in the reader's language.
+    assert body["cause"] == cause
+    assert body["service"] == "mqtt"
+    assert body["address"] == "mqtt.invalid:1883"
+    # The English sentence stays for clients that only read `message`.
+    assert said in body["message"]
+    assert "logs" not in body["message"].lower()
+
+
+@pytest.mark.asyncio
 async def test_birdnet_ingest_diagnostic_waits_for_durable_success(client, monkeypatch):
     add_detection = AsyncMock(return_value=True)
     monkeypatch.setattr(
@@ -120,34 +145,6 @@ async def test_birdnet_ingest_diagnostic_reports_failed_persistence(client, monk
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize(
-    ("cause", "expected"),
-    [
-        ("unresolved", "could not be found"),
-        ("refused", "accepted the connection"),
-        ("timeout", "did not answer in time"),
-        ("auth", "username or password"),
-        ("unreachable", "could not be reached"),
-        ("failed", "did not accept the test message"),
-    ],
-)
-async def test_mqtt_diagnostic_names_the_cause_and_the_next_step(client, monkeypatch, cause, expected):
-    # A failed test says what went wrong and what to change, never "Check logs".
-    monkeypatch.setattr(
-        "app.services.mqtt_service.mqtt_service.diagnose_connection",
-        AsyncMock(return_value=cause),
-    )
-
-    response = await client.post("/api/settings/mqtt/test-publish", json={"server": "mqtt.invalid", "port": 1883})
-
-    assert response.status_code == 502
-    message = response.json()["message"]
-    assert expected in message
-    assert "Check logs" not in message
-    assert "Settings → Connection" in message or "broker is running" in message or "yawamf/test" in message
-
-
-@pytest.mark.asyncio
 async def test_birdnet_url_check_names_the_cause_not_the_exception_class(client, monkeypatch):
     class _Refusing:
         async def __aenter__(self):
@@ -166,5 +163,7 @@ async def test_birdnet_url_check_names_the_cause_not_the_exception_class(client,
     assert response.status_code == 502
     message = response.json()["message"]
     assert "ConnectError" not in message
-    assert "Nothing answered" in message
-    assert "BirdNET-Go is running" in message
+    # The error names a host that does not resolve, so that is the cause given, with its code.
+    assert response.json()["cause"] == "host_not_found"
+    assert "was not found" in message
+    assert "Check the address for BirdNET-Go" in message
