@@ -118,6 +118,11 @@ async function explorerSettled(page: Page): Promise<void> {
     await page.waitForTimeout(2_000);
 }
 
+/** The day strip's counts are only meaningful against the fixture's instant, so the pin itself is checked. */
+async function expectClockPinnedToFixture(page: Page): Promise<void> {
+    expect(await page.evaluate(() => Date.now())).toBe(NOW);
+}
+
 /** Every layout shift of a cold Explorer load. */
 async function coldLoadShifts(page: Page, viewport: { width: number; height: number }, options: Feeder = {}): Promise<Shift[]> {
     await feeder(page, viewport, options);
@@ -188,6 +193,7 @@ test('on a desktop the count has a line of its own, so its length cannot wrap th
 
 test('a page from one day has no day strip, and a count with nothing to add says only the visits', async ({ page }) => {
     await coldLoadShifts(page, { width: 1440, height: 900 }, { minutesApart: 1 });
+    await expectClockPinnedToFixture(page);
     await expect(page.locator('[data-events-timeline]')).toHaveCount(0);
     // "0 Garden visits on this page" read as a fault; a figure is given only when there is one.
     await expect(page.locator('[data-explorer-count]')).toHaveText('763 visits');
@@ -195,6 +201,7 @@ test('a page from one day has no day strip, and a count with nothing to add says
 
 test('a page from two days names each day with a plain count, and one day narrows the page to itself', async ({ page }) => {
     const shifts = await coldLoadShifts(page, { width: 1440, height: 900 });
+    await expectClockPinnedToFixture(page);
     const days = page.locator('[data-events-timeline] button');
     await expect(days).toHaveCount(3);
     await expect(days.first()).toHaveText(/^All\s*24$/);
