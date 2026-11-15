@@ -670,14 +670,14 @@ keeps what the model originally said as evidence.
 
 ## Verify which device ran a model
 
-In **Settings → Models**, each bird finder shows its recommended device from the
-host comparison. The chosen finder also shows its **Last completed run**, device,
-time and CPU fallback, or explicitly says there is no execution report yet. The
-recommendation can differ from the Detection preference because it selects the fastest
-CPU-agreeing device for that finder. **Finder device** can save a different validated
-choice independently of identification. If that choice becomes unavailable, the
-accurate finder uses CPU. The scoped **Check devices** action remains
-available after a successful check and does not change the identification model.
+In **Settings → Models**, the bird finder card has one **Runs on** row for the chosen
+finder. It states the device and the evidence behind it: the device that passed its check,
+or CPU together with the reason, such as a device check that failed and its date. When the
+finder has completed a run, **Last completed run** follows with the device, time and any CPU
+fallback. **Device** can save a different choice independently of identification. A device
+without a passing check stays in the list as **not passed on this host**; while it is saved,
+the accurate finder runs on CPU. **Check devices** remains available after a successful
+check and does not change the identification model.
 
 **Collection status** under **Settings → Beta features → Garden animals → Automatic checks and naming** separately shows the automatic check's
 device preference and last completed execution. Open a capture to see the device and

@@ -590,7 +590,7 @@
                 <p role="status" class="mt-1 border-l-2 border-attention-400 py-1 pl-3 text-xs font-semibold leading-relaxed text-attention-800 dark:border-attention-500 dark:text-attention-200">
                     {$_('settings.detection.provider_saved_unavailable', {
                         values: { provider: providerLabel(selectedProvider as InferenceProvider) },
-                        default: `${providerLabel(selectedProvider as InferenceProvider)} is saved but unavailable. Choose an available provider or Auto.`
+                        default: `Saved: ${providerLabel(selectedProvider as InferenceProvider)}. It is not among the devices this model can use here now, so another device is used. Check devices on this host, or choose Auto.`
                     })}
                 </p>
             {/if}

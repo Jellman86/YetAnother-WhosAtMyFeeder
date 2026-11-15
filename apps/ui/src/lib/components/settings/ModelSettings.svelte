@@ -493,10 +493,10 @@
                         </p>
                     {/if}
                     {#if configuredProviderUnavailable}
-                        <p role="status" class="text-xs font-semibold leading-relaxed text-attention-800 dark:text-attention-200">
+                        <p role="status" class="text-sm leading-snug text-slate-600 dark:text-slate-400">
                             {$_('settings.detection.provider_saved_unavailable', {
                                 values: { provider: providerLabel(inferenceProvider as InferenceProvider) },
-                                default: `${providerLabel(inferenceProvider as InferenceProvider)} is saved but is not available in this image, on this host, or for the active model. Choose an available provider or Auto.`
+                                default: `Saved: ${providerLabel(inferenceProvider as InferenceProvider)}. It is not among the devices this model can use here now, so another device is used. Check devices on this host, or choose Auto.`
                             })}
                         </p>
                     {/if}

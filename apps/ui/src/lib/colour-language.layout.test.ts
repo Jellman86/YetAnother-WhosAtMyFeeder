@@ -187,6 +187,7 @@ const ATTENTION_COMPONENTS: Record<string, string> = {
     'pages/AudioHistory.svelte': 'filters changed but not yet applied',
     'pages/ModelEvaluation.svelte': 'checks that did not match',
     'pages/models/ModelManager.svelte': 'an incomplete install that needs repair',
+    'pages/models/FinderDevicePanel.svelte': 'a finder that fell back to the CPU after a failed or interrupted device check',
     // Settings and first run: a value that cannot work as set.
     'pages/Settings.svelte': 'the page is served without HTTPS',
     'components/settings/_primitives/SettingsPage.svelte': 'a save that conflicts with a newer change',
