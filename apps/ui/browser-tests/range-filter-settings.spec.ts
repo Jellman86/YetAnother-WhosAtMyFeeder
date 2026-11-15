@@ -55,6 +55,12 @@ test('before it is switched on, the preview shows what would be set aside and th
     await expect(preview.locator('[data-range-filter-preview-seen]')).toContainText('6 detections');
     await expect(preview.locator('[data-range-filter-preview-total]')).toContainText('The current model can name 803 species');
     await expect(preview).toContainText('Northern Cardinal');
+    // The rules sit behind a plain disclosure, closed at first.
+    const how = card(page).getByRole('button', { name: 'How the range filter decides' });
+    await expect(how).toHaveAttribute('aria-expanded', 'false');
+    await expect(card(page)).not.toContainText('its next answer that has been recorded');
+    await how.click();
+    await expect(how).toHaveAttribute('aria-expanded', 'true');
     await expect(card(page)).toContainText('its next answer that has been recorded');
 
     const toggle = card(page).getByRole('switch', { name: 'Check new detections against your region' });

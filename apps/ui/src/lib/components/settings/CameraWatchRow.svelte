@@ -93,7 +93,7 @@
                     {previewOpen
                         ? $_('settings.cameras.preview_hide', { default: 'Hide preview' })
                         : $_('settings.cameras.preview_show', { default: 'Preview' })}<span class="sr-only"> {camera}</span>
-                    <span class="inline-block transition-transform motion-reduce:transition-none {previewOpen ? 'rotate-90' : ''}" aria-hidden="true">›</span>
+                    <svg class="h-4 w-4 shrink-0 transition-transform motion-reduce:transition-none {previewOpen ? 'rotate-90' : ''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 6 15 12 9 18" /></svg>
                 </button>
             {/if}
         </div>
