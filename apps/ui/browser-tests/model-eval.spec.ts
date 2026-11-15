@@ -378,7 +378,8 @@ test('the page names each thing once, in sentence case, with the kit and plain w
     await openEvaluation(page);
     await expect(page).toHaveTitle('Model evaluation · YA-WAMF');
     await expect(page.getByRole('heading', { name: 'Model evaluation', exact: true })).toHaveCount(1);
-    await expect(page.getByRole('heading', { level: 2 })).toHaveText(['Start an evaluation', 'Results', 'Provider checks']);
+    // The page's own sections: the shell's sidebar has a heading of its own at this level.
+    await expect(page.locator('[data-model-evaluation]').getByRole('heading', { level: 2 })).toHaveText(['Start an evaluation', 'Results', 'Provider checks']);
     const table = page.getByRole('region', { name: 'Results' }).getByRole('table');
     // Models carry the names Settings shows; the identifier is in the downloaded files only.
     await expect(table.getByRole('rowheader').first()).toHaveText('ConvNeXt Large (High Accuracy)');
