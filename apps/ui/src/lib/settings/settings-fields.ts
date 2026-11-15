@@ -141,7 +141,7 @@ const FIELD_PLACES: Readonly<Record<string, SettingsFieldPlace>> = {
     video_classification_delay: { labelKey: 'settings.detection.video_delay', inputId: 'video-delay', disclosures: ['detection-frigate-video'] },
     video_classification_max_retries: { labelKey: 'settings.detection.video_retries', inputId: 'video-retries', disclosures: ['detection-frigate-video'] },
     video_classification_frames: { labelKey: 'settings.detection.video_frames', inputId: 'video-frames', disclosures: ['detection-frigate-video'] },
-    maintenance_max_concurrent: { labelKey: 'settings.data.maintenance_max_concurrent', inputId: 'maintenance-max-concurrent', disclosures: ['data-retention-advanced'] },
+    maintenance_max_concurrent: { labelKey: 'settings.data.maintenance_max_concurrent', inputId: 'maintenance-max-concurrent', disclosures: ['maintenance-concurrency'] },
     garden_labels: { labelKey: 'garden.labels', inputId: 'garden-labels', disclosures: ['garden-section-cameras'] },
     garden_motion_confidence: { labelKey: 'garden.confidence', inputId: 'garden-motion-confidence', disclosures: ['garden-section-cameras'] },
     garden_naming_threshold: { labelKey: 'settings.beta.garden_naming_threshold', inputId: 'garden-naming-threshold', disclosures: ['garden-section-checks'] },
@@ -173,6 +173,11 @@ const FIELD_PLACES: Readonly<Record<string, SettingsFieldPlace>> = {
     live_worker_count: { labelKey: 'settings.detection.worker_counts_live', inputId: 'live-worker-count', disclosures: ['detection-hardware', 'detection-memory-advanced'] },
     background_worker_count: { labelKey: 'settings.detection.worker_counts_background', inputId: 'background-worker-count', disclosures: ['detection-hardware', 'detection-memory-advanced'] }
 };
+
+/** Every field with a place of its own, so a test can hold each place to the markup. */
+export function settingsFieldPlaces(): Array<[string, SettingsFieldPlace]> {
+    return Object.entries(FIELD_PLACES);
+}
 
 /** Where a field is shown, or null for one without its own input (the tab is then the pointer). */
 export function settingsFieldPlace(field: string): SettingsFieldPlace | null {

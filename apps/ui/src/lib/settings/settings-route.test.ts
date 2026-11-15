@@ -77,6 +77,12 @@ describe('canonicalSettingsPath', () => {
         expect(canonicalSettingsPath('/settings', 'debug')).toBe('/settings/models');
     });
 
+    it('sends every older Health address, hash or path, to the Health page', () => {
+        for (const [pathname, hash] of [['/settings', 'health'], ['/settings/', 'health'], ['/settings', 'errors'], ['/settings/health', ''], ['/settings/health/', ''], ['/settings/errors', ''], ['/settings/errors/recent', '']]) {
+            expect(canonicalSettingsPath(pathname, hash), `${pathname}#${hash}`).toBe('/system-health');
+        }
+    });
+
     it('settles every rewrite in one step', () => {
         for (const [pathname, hash] of [['/settings', 'ai'], ['/settings/debug', ''], ['/settings/unknown/', ''], ['/settings/', '']]) {
             const canonical = canonicalSettingsPath(pathname, hash);

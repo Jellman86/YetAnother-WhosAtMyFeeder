@@ -33,6 +33,10 @@ export const SETTINGS_TAB_ORDER: readonly SettingsTab[] = [
 // model settings, now in Models. Health is a page of its own (`/system-health`), redirected by the app.
 const RETIRED_TABS: Readonly<Record<string, SettingsTab>> = { enrichment: 'integrations', debug: 'models' };
 
+/** The Health page's address. Not `/health`: the backend answers that path itself. */
+const HEALTH_PAGE_PATH = '/system-health';
+const HEALTH_HASHES: ReadonlySet<string> = new Set(['health', 'errors']);
+
 function isSettingsTab(value: string): value is SettingsTab {
     return (SETTINGS_TAB_ORDER as readonly string[]).includes(value);
 }
@@ -53,13 +57,18 @@ export function settingsTabFromRoute(route: string | undefined): SettingsTab {
 
 /**
  * The canonical `/settings/<tab>` address for a pathname and hash, or null when the pathname is
- * already canonical (or outside Settings), so a caller can do nothing in the steady state.
+ * already canonical (or outside Settings), so a caller can do nothing in the steady state. Older
+ * Health addresses return the Health page, outside Settings.
  *
  * Older links used `/settings#<tab>`; an unknown tab steers back to Connection so the visible tab
  * and the address agree.
  */
 export function canonicalSettingsPath(pathname: string, hash: string): string | null {
     if (!pathname.startsWith('/settings')) return null;
+
+    // Health left Settings for a page of its own; its older tab, hash and errors addresses open it.
+    if (/^\/settings\/(health|errors)(\/|$)/.test(pathname)) return HEALTH_PAGE_PATH;
+    if ((pathname === '/settings' || pathname === '/settings/') && HEALTH_HASHES.has(hash)) return HEALTH_PAGE_PATH;
 
     if (pathname === '/settings/' || pathname === '/settings') {
         const tab = RETIRED_TABS[hash] ?? hash;

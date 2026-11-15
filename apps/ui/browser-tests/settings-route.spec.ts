@@ -50,9 +50,10 @@ test('older and loose Settings addresses open the tab they name at its canonical
 
 test('Health is a page of its own, and the old Settings addresses open it', async ({ page }) => {
     await openOwnerShell(page);
-    for (const address of ['/settings/health', '/settings/errors', '/notifications/errors']) {
+    for (const address of ['/settings/health', '/settings#health', '/settings/#health', '/settings/errors', '/notifications/errors']) {
         await page.goto(address);
-        await expect.poll(() => pathname(page)).toBe('/system-health');
+        // The first open compiles the Health page on the dev server, which is slow under load.
+        await expect.poll(() => pathname(page), { timeout: 15_000 }).toBe('/system-health');
         await expect(page.getByRole('heading', { level: 1, name: 'Health' })).toBeVisible();
     }
     await expect(page.locator('#app-sidebar').getByRole('button', { name: 'Health', exact: true })).toHaveAttribute('aria-current', 'page');
