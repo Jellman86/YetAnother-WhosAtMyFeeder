@@ -20,6 +20,7 @@
     "refreshing_options": "Optionen werden aktualisiert…",
     "title": "Filter",
     "clear_all": "Alle zurücksetzen",
+    "page_controls": "Ansicht",
     "when": "Wann",
     "only": "Nur",
     "show_rail": "Filter anzeigen",
@@ -137,6 +138,7 @@
   "count_unavailable": "Anzahl nicht verfügbar",
   "results_loading": "Ergebnisse werden geladen…",
   "selection_count": "{count, plural, =0 {Keine Aufnahmen ausgewählt} one {# Aufnahme ausgewählt} other {# Aufnahmen ausgewählt}}",
+  "selection_done": "Fertig",
   "settings_unavailable": "Ihre Einstellungen konnten nicht geladen werden, daher weiß der Explorer nicht, welche Besucher er zeigen soll. Es wurde nichts geändert. Versuchen Sie es gleich noch einmal.",
   "bulk_tag_applied": "{species} für {count, plural, one {# Datensatz} other {# Datensätze}} gesetzt"
 }
