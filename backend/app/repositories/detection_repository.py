@@ -3079,14 +3079,20 @@ class DetectionRepository:
         audio_species: str | None,
         audio_score: float | None,
         species_id: int | None = None,
-    ) -> None:
+        expected_category_name: str | None = None,
+    ) -> bool:
         """Persist the database fields owned by a manual species correction.
 
         `species_id` is the catalogue identity of the species being corrected
         to; None means the catalogue could not identify it, which is recorded
         honestly rather than left pointing at the previous species.
+
+        With `expected_category_name`, the correction applies only while the stored
+        identification is still the one the owner was shown, checked in the same
+        UPDATE so a change made elsewhere in the meantime is never overwritten.
+        Returns whether the row was written.
         """
-        await self.db.execute(
+        async with self.db.execute(
             """
             UPDATE detections
             SET display_name = ?, category_name = ?,
@@ -3102,6 +3108,7 @@ class DetectionRepository:
                 audio_confirmed = ?, audio_species = ?, audio_score = ?,
                 manual_tagged = 1, classification_input_json = '{"source":"owner_species_choice"}'
             WHERE frigate_event = ?
+              AND (? IS NULL OR LOWER(TRIM(category_name)) = LOWER(TRIM(?)))
             """,
             (
                 display_name,
@@ -3115,18 +3122,34 @@ class DetectionRepository:
                 audio_species,
                 audio_score,
                 frigate_event,
+                expected_category_name,
+                expected_category_name,
             ),
-        )
-        await self._record_owner_species_choice(frigate_event)
+        ) as cursor:
+            written = (cursor.rowcount or 0) > 0
+        if written:
+            await self._record_owner_species_choice(frigate_event)
+        return written
 
-    async def confirm_manual_species_tag(self, *, frigate_event: str) -> None:
-        """Record a human confirmation without rewriting the stored species identity."""
-        await self.db.execute(
+    async def confirm_manual_species_tag(
+        self, *, frigate_event: str, expected_category_name: str | None = None
+    ) -> bool:
+        """Record a human confirmation without rewriting the stored species identity.
+
+        With `expected_category_name`, only while the stored identification is still the one
+        the owner was shown (see `apply_manual_species_tag`). Returns whether the row was written.
+        """
+        async with self.db.execute(
             """UPDATE detections SET manual_tagged = 1,
-               classification_input_json = '{"source":"owner_species_choice"}' WHERE frigate_event = ?""",
-            (frigate_event,),
-        )
-        await self._record_owner_species_choice(frigate_event)
+               classification_input_json = '{"source":"owner_species_choice"}'
+               WHERE frigate_event = ?
+                 AND (? IS NULL OR LOWER(TRIM(category_name)) = LOWER(TRIM(?)))""",
+            (frigate_event, expected_category_name, expected_category_name),
+        ) as cursor:
+            written = (cursor.rowcount or 0) > 0
+        if written:
+            await self._record_owner_species_choice(frigate_event)
+        return written
 
     def _species_floor_sql(self, minimum: int) -> str:
         """Ids of the newest `minimum` visible detections of each canonical species.

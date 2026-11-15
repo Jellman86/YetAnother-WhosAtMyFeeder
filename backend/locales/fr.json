@@ -48,7 +48,8 @@
       "wildlife_model_unavailable": "Modèle de faune non disponible. Veuillez d'abord le télécharger.",
       "reclassification_failed": "Échec de la reclassification",
       "video_analysis_paused": "L’analyse vidéo est temporairement suspendue après plusieurs échecs d’inférence. Réessayez plus tard.",
-      "video_analysis_capacity": "L’analyse vidéo a atteint sa capacité maximale. Réessayez une fois les tâches en cours terminées."
+      "video_analysis_capacity": "L’analyse vidéo a atteint sa capacité maximale. Réessayez une fois les tâches en cours terminées.",
+      "identification_changed": "Cette visite a été modifiée ailleurs. Elle indique maintenant {species}."
     },
     "species": {
       "unknown_bird": "Oiseau Inconnu",

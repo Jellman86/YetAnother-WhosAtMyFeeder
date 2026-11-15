@@ -48,7 +48,8 @@
       "wildlife_model_unavailable": "野生動物モデルは利用できません。最初にダウンロードしてください。",
       "reclassification_failed": "再分類に失敗しました",
       "video_analysis_paused": "推論エラーが繰り返されたため、動画解析を一時停止しています。しばらくしてからもう一度お試しください。",
-      "video_analysis_capacity": "動画解析は現在処理上限に達しています。実行中のジョブが完了してからもう一度お試しください。"
+      "video_analysis_capacity": "動画解析は現在処理上限に達しています。実行中のジョブが完了してからもう一度お試しください。",
+      "identification_changed": "この訪問は別の場所で変更されました。現在は {species} です。"
     },
     "species": {
       "unknown_bird": "不明な鳥",

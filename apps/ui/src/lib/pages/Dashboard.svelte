@@ -26,7 +26,7 @@
     import { detectionsStore } from '../stores/detections.svelte';
     import { toastStore } from '../stores/toast.svelte';
     import type { AudioSummaryResponse, Detection, DailySummary } from '../api';
-    import { deleteDetection, hideDetection, updateDetectionSpecies, fetchAudioSummary, fetchDailySummary, reclassifyDetection, fetchReviewQueue, updateSettings, fetchLeaderboardSpecies, fetchAudioSpeciesLeaderboard } from '../api';
+    import { deleteDetection, hideDetection, IdentificationChangedError, updateDetectionSpecies, fetchAudioSummary, fetchDailySummary, reclassifyDetection, fetchReviewQueue, updateSettings, fetchLeaderboardSpecies, fetchAudioSpeciesLeaderboard } from '../api';
     import { readRangeCheck, SPECIES_CHECKS_LINK, type RangeCheckReading } from '../leaderboard/species-checks';
     import { needsYourCall, type ReadingStatus, type SpeciesChecksView } from '../utils/needs-your-call';
     import type { DomesticBirdKey } from '../utils/domestic-birds';
@@ -136,11 +136,19 @@
 
     async function identifyFromQueue(detection: Detection, species: string): Promise<void> {
         try {
-            const result = await updateDetectionSpecies(detection.frigate_event, species);
+            // The queue shows a snapshot; the server applies this only while the visit still reads as shown.
+            const result = await updateDetectionSpecies(detection.frigate_event, species, detection.category_name);
             detectionsStore.recordOwnerSpeciesChoice(applyManualTagResult(detection, result));
             toastStore.show($_('detection.species_updated', { default: 'Species updated' }), 'success');
             loadReviewQueue();
         } catch (e) {
+            if (e instanceof IdentificationChangedError) {
+                // Changed elsewhere: say what it reads now, and show that rather than the old copy.
+                detectionsStore.updateDetection({ ...detection, ...e.current });
+                toastStore.show(e.message, 'info');
+                loadReviewQueue();
+                throw e;
+            }
             toastStore.show(getErrorMessage(e), 'error');
             throw e;
         }

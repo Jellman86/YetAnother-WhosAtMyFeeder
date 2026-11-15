@@ -90,7 +90,8 @@
     function markFailed(event: string): void {
         failed = new Set([...failed, event]);
     }
-    const usable = $derived(tiles.slice(0, maxTiles ?? tiles.length).filter((tile) => !failed.has(tile.frigateEvent)));
+    // A visit whose picture fails keeps its cell: the wall is packed once and nothing moves after load.
+    const usable = $derived(tiles.slice(0, maxTiles ?? tiles.length));
     const shown = $derived(width === 0 ? [] : packTiles(usable, columns, rowCount));
     const hasMore = $derived(!opened && usable.length > shown.length);
     const large = (tile: WallTile): boolean => tile.featured && columns >= 4;
@@ -488,15 +489,22 @@
                             onkeydown={moveFocus}
                             onclick={() => pickTile(tile)}
                         >
-                            <img
-                                src={getReelImageUrl(tile.frigateEvent, large(tile) ? 'card' : 'tile')}
-                                alt=""
-                                loading="lazy"
-                                decoding="async"
-                                draggable="false"
-                                class="tile-photo"
-                                use:photo={() => markFailed(tile.frigateEvent)}
-                            />
+                            {#if failed.has(tile.frigateEvent)}
+                                <!-- The picture is gone; the visit is not. A neutral cell that names the bird. -->
+                                <span class="tile-missing flex h-full w-full items-center justify-center bg-slate-200 p-1 text-center text-3xs font-semibold leading-tight text-slate-700 dark:bg-slate-800 dark:text-slate-200" data-capture-wall-missing>
+                                    <span class="line-clamp-3 wrap-break-word">{tile.name}</span>
+                                </span>
+                            {:else}
+                                <img
+                                    src={getReelImageUrl(tile.frigateEvent, large(tile) ? 'card' : 'tile')}
+                                    alt=""
+                                    loading="lazy"
+                                    decoding="async"
+                                    draggable="false"
+                                    class="tile-photo"
+                                    use:photo={() => markFailed(tile.frigateEvent)}
+                                />
+                            {/if}
                             {#if tile.hasClip}
                                 <span class="clip-badge" aria-hidden="true">
                                     <svg viewBox="0 0 16 16" class="h-2.5 w-2.5" fill="currentColor"><path d="M4 2.5v11l9-5.5z" /></svg>

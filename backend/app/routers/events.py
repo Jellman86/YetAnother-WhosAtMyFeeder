@@ -1190,6 +1190,15 @@ class UpdateDetectionRequest(BaseModel):
     """Request to manually update a detection's species."""
 
     display_name: str = Field(..., min_length=1, description="New species name")
+    expected_category_name: Optional[str] = Field(
+        None,
+        min_length=1,
+        description=(
+            "The stored identification (category_name) the owner was shown. When given, the update "
+            "applies only while the detection still carries it; otherwise the answer is 409 with what "
+            "the detection says now."
+        ),
+    )
 
 
 class BulkManualTagRequest(BaseModel):
@@ -1332,6 +1341,39 @@ async def _prefetch_manual_tag_taxonomy(
     return taxonomy
 
 
+def _shown_identification_stands(detection, expected_category_name: str | None) -> bool:
+    """Whether the detection still carries the identification the owner was shown."""
+    if expected_category_name is None:
+        return True
+    return (detection.category_name or "").strip().lower() == expected_category_name.strip().lower()
+
+
+async def _identification_changed(repo: DetectionRepository, event_id: str, lang: str) -> HTTPException:
+    """409 for a decision taken on an identification that has since changed elsewhere.
+
+    It says, in words and as data, what the detection reads now, so the page can show it
+    instead of the snapshot the owner acted on.
+    """
+    current = await repo.get_by_frigate_event(event_id)
+    if current is None:
+        return HTTPException(status_code=404, detail=i18n_service.translate("errors.detection_not_found", lang))
+    species = current.display_name or current.category_name or ""
+    return HTTPException(
+        status_code=409,
+        detail={
+            "code": "identification_changed",
+            "message": i18n_service.translate("errors.events.identification_changed", lang, species=species),
+            "current": {
+                "display_name": current.display_name,
+                "category_name": current.category_name,
+                "scientific_name": current.scientific_name,
+                "common_name": current.common_name,
+                "manual_tagged": bool(current.manual_tagged),
+            },
+        },
+    )
+
+
 async def _apply_manual_tag_update(
     *,
     db,
@@ -1340,6 +1382,7 @@ async def _apply_manual_tag_update(
     requested_species: str,
     lang: str,
     prefetched_taxonomy: dict,
+    expected_category_name: str | None = None,
 ) -> dict:
     old_species = detection.display_name
     old_category_name = detection.category_name
@@ -1356,7 +1399,11 @@ async def _apply_manual_tag_update(
     )
 
     async def confirm_existing_species() -> dict:
-        await repo.confirm_manual_species_tag(frigate_event=event_id)
+        if not await repo.confirm_manual_species_tag(
+            frigate_event=event_id, expected_category_name=expected_category_name
+        ):
+            await db.rollback()
+            raise await _identification_changed(repo, event_id, lang)
         await db.commit()
 
         refreshed_detection = await repo.get_by_frigate_event(event_id)
@@ -1484,7 +1531,8 @@ async def _apply_manual_tag_update(
                 "Could not resolve corrected species identity", error=safe_error_message(exc), event_id=event_id
             )
 
-    await repo.apply_manual_species_tag(
+    written = await repo.apply_manual_species_tag(
+        expected_category_name=expected_category_name,
         frigate_event=event_id,
         display_name=stored_display_name,
         category_name=stored_category_name,
@@ -1496,6 +1544,9 @@ async def _apply_manual_tag_update(
         audio_score=audio_score,
         species_id=corrected_species_id,
     )
+    if not written:
+        await db.rollback()
+        raise await _identification_changed(repo, event_id, lang)
 
     model_id = _get_active_model_id_for_feedback()
     predicted_label = (old_category_name or old_species or "").strip()
@@ -1986,6 +2037,10 @@ async def update_event(
 
         if not detection:
             raise HTTPException(status_code=404, detail=i18n_service.translate("errors.detection_not_found", lang))
+        # A quick refusal before any taxonomy or audio work; the conditional write in the
+        # repository closes the window between this read and the write.
+        if not _shown_identification_stands(detection, update_request.expected_category_name):
+            raise await _identification_changed(repo, event_id, lang)
 
         result = await _apply_manual_tag_update(
             db=db,
@@ -1994,6 +2049,7 @@ async def update_event(
             requested_species=update_request.display_name,
             lang=lang,
             prefetched_taxonomy=prefetched_taxonomy,
+            expected_category_name=update_request.expected_category_name,
         )
     result["photo_changed"] = await _photo_follows_species(result, update_request.display_name)
     return result

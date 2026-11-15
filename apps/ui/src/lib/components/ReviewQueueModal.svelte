@@ -22,7 +22,8 @@
     import { getManualTagSearchOptions } from '../search/manual-tag-search';
     import { toastStore } from '../stores/toast.svelte';
     import { confirmAction } from '../stores/confirm_dialog.svelte';
-    import { advance, createReviewSession, type ReviewSession } from '../utils/review-session';
+    import { advance, createReviewSession, refreshCurrent, type ReviewSession } from '../utils/review-session';
+    import { IdentificationChangedError } from '../api/classifier';
     import { formatDate, formatTime } from '../utils/datetime';
     import { trapFocus } from '../utils/focus-trap';
     import { lockDocumentScroll } from '../utils/document-scroll-lock';
@@ -390,6 +391,10 @@
         try {
             await onidentify(current, species);
             session = advance(session, 'resolved');
+        } catch (error) {
+            // Someone else decided first: stay on the visit and show what it says now.
+            if (error instanceof IdentificationChangedError) session = refreshCurrent(session, error.current);
+            else throw error;
         } finally {
             busy = false;
         }

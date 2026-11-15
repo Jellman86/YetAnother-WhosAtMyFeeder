@@ -22558,6 +22558,19 @@
             "minLength": 1,
             "title": "Display Name",
             "type": "string"
+          },
+          "expected_category_name": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The stored identification (category_name) the owner was shown. When given, the update applies only while the detection still carries it; otherwise the answer is 409 with what the detection says now.",
+            "title": "Expected Category Name"
           }
         },
         "required": [

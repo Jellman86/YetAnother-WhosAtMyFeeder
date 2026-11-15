@@ -2973,6 +2973,7 @@ export interface components {
 };
     UpdateDetectionRequest: {
     display_name: string;
+    expected_category_name?: string | null;
 };
     UpdateStatusResponse: {
     channel: string;

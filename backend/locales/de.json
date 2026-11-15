@@ -48,7 +48,8 @@
       "wildlife_model_unavailable": "Wildtiermodell nicht verfügbar. Bitte laden Sie es zuerst herunter.",
       "reclassification_failed": "Neuklassifizierung fehlgeschlagen",
       "video_analysis_paused": "Die Videoanalyse wurde nach wiederholten Inferenzfehlern vorübergehend angehalten. Versuchen Sie es später erneut.",
-      "video_analysis_capacity": "Die Videoanalyse ist ausgelastet. Versuchen Sie es erneut, wenn die aktuellen Aufträge abgeschlossen sind."
+      "video_analysis_capacity": "Die Videoanalyse ist ausgelastet. Versuchen Sie es erneut, wenn die aktuellen Aufträge abgeschlossen sind.",
+      "identification_changed": "Dieser Besuch wurde an anderer Stelle geändert. Er lautet jetzt {species}."
     },
     "species": {
       "unknown_bird": "Unbekannter Vogel",
