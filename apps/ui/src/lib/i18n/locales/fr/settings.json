@@ -1636,6 +1636,7 @@
     "level_county": "Comté",
     "level_state": "État ou province",
     "level_country": "Pays",
+    "how_toggle": "Comment le filtre d’aire de répartition décide",
     "how_title": "Ce qui arrive à un oiseau hors de l'aire de répartition",
     "how_fallback": "Si la meilleure réponse du modèle n'a jamais été signalée dans votre région, sa réponse suivante déjà signalée est utilisée à la place, si elle atteint encore votre seuil de confiance. La fiche garde une note de ce que le modèle a d'abord proposé.",
     "how_skip": "Si aucune réponse ne convient, la détection n'est pas enregistrée. Elle figure ci-dessous et dans le journal d'activité, pour qu'une vraie rareté puisse encore être enregistrée à la main.",

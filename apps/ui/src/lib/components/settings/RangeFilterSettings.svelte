@@ -54,6 +54,7 @@
     let previewLoading = $state(false);
     let skips = $state.raw<RangeSkip[]>([]);
     let refreshRequested = $state(false);
+    let howOpen = $state(false);
     let pollTimer: ReturnType<typeof setTimeout> | null = null;
     let destroyed = false;
 
@@ -440,15 +441,31 @@
             </SettingsRow>
         {/if}
 
-        <section class="space-y-2" aria-labelledby="range-filter-how" data-range-filter-how>
-            <h3 id="range-filter-how" class="text-sm font-bold text-slate-900 dark:text-white">{$_('settings.range_filter.how_title', { default: 'What happens to a bird outside the range' })}</h3>
-            <ul class="list-disc space-y-1.5 pl-5 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
-                <li>{$_('settings.range_filter.how_fallback', { default: "If the model's top answer has never been recorded in your region, its next answer that has been recorded, and still clears your confidence threshold, is used instead. The record keeps a note of what the model said first." })}</li>
-                <li>{$_('settings.range_filter.how_skip', { default: 'If no answer qualifies, the detection is not recorded. It is listed below and in the activity log, so a genuine rarity can still be recorded by hand.' })}</li>
-                <li>{$_('settings.range_filter.how_open', { default: 'Whenever the list is missing, out of date or unreachable, nothing is filtered.' })}</li>
-                <li>{$_('settings.range_filter.how_owner', { default: 'Species you choose yourself are never filtered.' })}</li>
-            </ul>
-        </section>
+        <!-- The rules are there when wanted; the default view keeps the switch, its hint and the key. -->
+        <div class="space-y-2" data-range-filter-how>
+            <button
+                type="button"
+                class="focus-ring inline-flex min-h-11 items-center gap-1.5 rounded-sm text-sm font-medium text-brand-700 hover:underline dark:text-brand-300"
+                aria-expanded={howOpen}
+                aria-controls="range-filter-how-body"
+                onclick={() => (howOpen = !howOpen)}
+            >
+                {$_('settings.range_filter.how_toggle', { default: 'How the range filter decides' })}
+                <svg class="h-4 w-4 shrink-0 transition-transform motion-reduce:transition-none {howOpen ? 'rotate-180' : ''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
+            </button>
+            {#if howOpen}
+                <ul
+                    id="range-filter-how-body"
+                    class="list-disc space-y-1.5 pl-5 text-sm leading-relaxed text-slate-600 dark:text-slate-300"
+                    aria-label={$_('settings.range_filter.how_title', { default: 'What happens to a bird outside the range' })}
+                >
+                    <li>{$_('settings.range_filter.how_fallback', { default: "If the model's top answer has never been recorded in your region, its next answer that has been recorded, and still clears your confidence threshold, is used instead. The record keeps a note of what the model said first." })}</li>
+                    <li>{$_('settings.range_filter.how_skip', { default: 'If no answer qualifies, the detection is not recorded. It is listed below and in the activity log, so a genuine rarity can still be recorded by hand.' })}</li>
+                    <li>{$_('settings.range_filter.how_open', { default: 'Whenever the list is missing, out of date or unreachable, nothing is filtered.' })}</li>
+                    <li>{$_('settings.range_filter.how_owner', { default: 'Species you choose yourself are never filtered.' })}</li>
+                </ul>
+            {/if}
+        </div>
 
         {#if status?.region}
             <section class="space-y-3" aria-labelledby="range-filter-preview" data-range-filter-preview>

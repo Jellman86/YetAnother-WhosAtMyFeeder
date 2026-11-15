@@ -1636,6 +1636,7 @@
     "level_county": "Contea",
     "level_state": "Stato o provincia",
     "level_country": "Paese",
+    "how_toggle": "Come decide il filtro di areale",
     "how_title": "Cosa succede a un uccello fuori areale",
     "how_fallback": "Se la risposta principale del modello non è mai stata registrata nella tua regione, si usa invece la sua risposta successiva registrata, purché superi ancora la tua soglia di confidenza. Il record conserva una nota di ciò che il modello aveva detto per primo.",
     "how_skip": "Se nessuna risposta è valida, il rilevamento non viene registrato. Compare qui sotto e nel registro attività, così una vera rarità può ancora essere registrata a mano.",

@@ -1636,6 +1636,7 @@
     "level_county": "Condado",
     "level_state": "Estado ou província",
     "level_country": "País",
+    "how_toggle": "Como o filtro de área de distribuição decide",
     "how_title": "O que acontece a uma ave fora da área de distribuição",
     "how_fallback": "Se a resposta principal do modelo nunca foi registada na sua região, usa-se antes a sua resposta seguinte já registada, desde que ainda passe o seu limiar de confiança. O registo guarda uma nota do que o modelo disse primeiro.",
     "how_skip": "Se nenhuma resposta servir, a deteção não é registada. Aparece abaixo e no registo de atividade, para que uma raridade genuína ainda possa ser registada à mão.",

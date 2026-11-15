@@ -1636,6 +1636,7 @@
     "level_county": "Landkreis",
     "level_state": "Bundesland oder Provinz",
     "level_country": "Land",
+    "how_toggle": "So entscheidet der Verbreitungsfilter",
     "how_title": "Was mit einem Vogel außerhalb des Verbreitungsgebiets geschieht",
     "how_fallback": "Wurde die beste Antwort des Modells in Ihrer Region nie erfasst, wird stattdessen seine nächste erfasste Antwort verwendet, sofern sie Ihre Konfidenzschwelle noch erreicht. Der Eintrag vermerkt, was das Modell zuerst gesagt hat.",
     "how_skip": "Erfüllt keine Antwort die Bedingungen, wird die Erkennung nicht erfasst. Sie erscheint unten und im Aktivitätsprotokoll, sodass eine echte Seltenheit noch von Hand erfasst werden kann.",

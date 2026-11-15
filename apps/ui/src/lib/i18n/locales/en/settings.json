@@ -1636,6 +1636,7 @@
     "level_county": "County",
     "level_state": "State or province",
     "level_country": "Country",
+    "how_toggle": "How the range filter decides",
     "how_title": "What happens to a bird outside the range",
     "how_fallback": "If the model's top answer has never been recorded in your region, its next answer that has been recorded, and still clears your confidence threshold, is used instead. The record keeps a note of what the model said first.",
     "how_skip": "If no answer qualifies, the detection is not recorded. It is listed below and in the activity log, so a genuine rarity can still be recorded by hand.",

@@ -11,6 +11,7 @@ import modelManagerSource from '../../pages/models/ModelManager.svelte?raw';
 import telemetrySource from './TelemetrySettings.svelte?raw';
 import connectionSource from './ConnectionSettings.svelte?raw';
 import notificationSource from './NotificationSettings.svelte?raw';
+import rangeFilterSource from './RangeFilterSettings.svelte?raw';
 // @ts-expect-error -- node:fs resolves at runtime, not in the app tsconfig
 import { readFileSync } from 'node:fs';
 
@@ -86,6 +87,15 @@ describe('Settings has one look across tabs', () => {
             expect(notificationSource, channel).toContain(`data-notification-channel="${channel}"`);
             expect(notificationSource, channel).not.toContain(`titleId="${channel}-channel-label"`);
         }
+    });
+
+    it('keeps how the range filter decides behind a plain disclosure, closed at first', () => {
+        expect(rangeFilterSource).toContain("$_('settings.range_filter.how_toggle'");
+        expect(rangeFilterSource).toContain('aria-expanded={howOpen}');
+        expect(rangeFilterSource).toContain('let howOpen = $state(false);');
+        const disclosure = rangeFilterSource.indexOf('{#if howOpen}');
+        expect(disclosure).toBeGreaterThan(-1);
+        expect(rangeFilterSource.indexOf("settings.range_filter.how_fallback")).toBeGreaterThan(disclosure);
     });
 
     it('draws no colour bar along one edge of a note', () => {
