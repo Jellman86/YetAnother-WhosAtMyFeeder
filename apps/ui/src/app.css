@@ -618,15 +618,6 @@ html[data-theme='dark'] {
   }
 }
 
-/* A page's title row: the title takes what is left, the header's actions sit beside it. */
-@utility page-header-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: start;
-  column-gap: 0.75rem;
-  row-gap: 0.25rem;
-}
-
 @utility settings-row-columns {
   grid-template-columns: minmax(0, 1fr) minmax(0, 20rem);
 

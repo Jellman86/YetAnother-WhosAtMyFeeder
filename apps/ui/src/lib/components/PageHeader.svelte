@@ -35,16 +35,18 @@
 
 <!-- With a title, the actions share its row at every width (they used to drop under it on a phone),
      and the subtitle runs across the full width beneath both. -->
-<header class="{title ? 'page-header-grid mb-6' : 'mb-2 flex justify-end'}">
+<!-- The title takes the room; the actions sit beside it while they fit and wrap below it when they do
+     not, so enlarged text never squeezes the title away. The subtitle always comes last. -->
+<header class="{title ? 'mb-6 flex flex-wrap items-start justify-between gap-x-3 gap-y-1' : 'mb-2 flex justify-end'}">
     {#if title}
-        <div class="page-title-block min-w-0 wrap-break-word">
+        <div class="page-title-block min-w-0 flex-1 basis-32 wrap-break-word">
             <h1 class="page-title font-display text-3xl font-bold leading-tight text-slate-900 sm:text-4xl sm:leading-10 dark:text-white">{title}</h1>
         </div>
         {#if subtitle}
-            <p class="col-span-2 row-start-2 text-base text-slate-600 dark:text-slate-400">{subtitle}</p>
+            <p class="basis-full order-last text-base text-slate-600 dark:text-slate-400">{subtitle}</p>
         {/if}
     {/if}
-    <div class="flex max-w-full flex-wrap items-center justify-end gap-1 {title ? 'col-start-2 row-start-1' : ''}">
+    <div class="ml-auto flex max-w-full flex-wrap items-center justify-end gap-1">
         {#if actions}
             {@render actions()}
         {:else if showOwnerActions}

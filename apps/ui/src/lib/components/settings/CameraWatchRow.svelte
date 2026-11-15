@@ -84,7 +84,7 @@
                 <!-- A link-styled action, so it never reads as a label; the chevron turns while the preview shows. -->
                 <button
                     type="button"
-                    class="focus-ring inline-flex min-h-11 items-center gap-1 rounded-sm text-sm font-medium text-brand-700 underline-offset-2 hover:underline disabled:cursor-not-allowed disabled:text-slate-600 disabled:no-underline dark:text-brand-300 dark:disabled:text-slate-400"
+                    class="focus-ring inline-flex min-h-11 max-w-full flex-wrap items-center gap-x-1 rounded-sm text-sm font-medium text-brand-700 underline-offset-2 hover:underline disabled:cursor-not-allowed disabled:text-slate-600 disabled:no-underline dark:text-brand-300 dark:disabled:text-slate-400"
                     aria-expanded={previewOpen}
                     aria-describedby={previewUnavailableId}
                     disabled={!!previewUnavailableId}
