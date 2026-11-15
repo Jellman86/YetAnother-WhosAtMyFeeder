@@ -333,9 +333,7 @@ async def test_owner_pipe_eof_terminates_worker_even_while_native_inference_is_h
 from pathlib import Path
 import threading
 import sys
-from contextlib import redirect_stdout
-with redirect_stdout(sys.stderr):
- from app.services.bird_crop_service import BirdCropService
+BirdCropService=type('BirdCropService',(),{})
 class Native:
  def get_inputs(self): return [SimpleNamespace(name='images',shape=[1],type='tensor(float)')]
  def get_outputs(self): return [SimpleNamespace(name='boxes',shape=[1],type='tensor(float)')]
@@ -344,6 +342,11 @@ class Native:
   Path(__file__).with_suffix('.running').touch()
   threading.Event().wait()
 BirdCropService._create_native_session=lambda *args,**kwargs: Native()
+# Exercise ownership and the real worker protocol without importing detector runtimes.
+from types import ModuleType
+stub=ModuleType('app.services.bird_crop_service')
+stub.BirdCropService=BirdCropService
+sys.modules[stub.__name__]=stub
 from app.services.crop_process_worker import main
 main()
 """)
@@ -419,7 +422,7 @@ def test_crop_fallback_uses_cpu_only_after_aborted_gpu_child_is_reaped(tmp_path,
         model["session"].run(None, {"images": np.zeros((1, 3, 2, 2), dtype=np.float32)})
         return []
 
-    monkeypatch.setattr(service, "_replace_tier_with_cpu", replace)
+    monkeypatch.setattr(service, "_recover_tier_provider", replace)
     monkeypatch.setattr(service, "_infer_candidates", infer)
     try:
         result, available = service._generate_crop_for_tier(Image.new("RGB", (64, 64)), "fast")
@@ -590,11 +593,9 @@ async def test_kernel_ownership_reaps_child_after_owner_dies_with_gil_held(tmp_p
 
     worker = tmp_path / "gil_native.py"
     worker.write_text("""import ctypes, sys
-from contextlib import redirect_stdout
 from types import SimpleNamespace
 from pathlib import Path
-with redirect_stdout(sys.stderr):
- from app.services.bird_crop_service import BirdCropService
+BirdCropService=type('BirdCropService',(),{})
 class Native:
  def get_inputs(self): return [SimpleNamespace(name='images',shape=[1],type='tensor(float)')]
  def get_outputs(self): return [SimpleNamespace(name='boxes',shape=[1],type='tensor(float)')]
@@ -603,6 +604,11 @@ class Native:
   Path(__file__).with_suffix('.running').touch()
   ctypes.PyDLL(None).sleep(30)
 BirdCropService._create_native_session=lambda *args,**kwargs: Native()
+# Exercise ownership and the real worker protocol without importing detector runtimes.
+from types import ModuleType
+stub=ModuleType('app.services.bird_crop_service')
+stub.BirdCropService=BirdCropService
+sys.modules[stub.__name__]=stub
 from app.services.crop_process_worker import main
 main()
 """)

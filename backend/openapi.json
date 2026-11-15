@@ -3537,6 +3537,16 @@
             ],
             "title": "Checked At"
           },
+          "last_result": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ClassifierCropDeviceCheckResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "model_id": {
             "anyOf": [
               {
@@ -3566,6 +3576,33 @@
             ],
             "title": "Reason"
           },
+          "reason_code": {
+            "anyOf": [
+              {
+                "enum": [
+                  "mismatch",
+                  "unfinished",
+                  "no_photos",
+                  "driver_changed",
+                  "no_positive_baseline",
+                  "superseded",
+                  "interrupted",
+                  "passed",
+                  "gpu_recovery"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason Code"
+          },
+          "runtime_current": {
+            "default": true,
+            "title": "Runtime Current",
+            "type": "boolean"
+          },
           "state": {
             "enum": [
               "idle",
@@ -3590,6 +3627,102 @@
         "title": "ClassifierCropDeviceCheck",
         "type": "object"
       },
+      "ClassifierCropDeviceCheckResult": {
+        "additionalProperties": {
+          "$ref": "#/components/schemas/JsonValue"
+        },
+        "properties": {
+          "checked_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checked At"
+          },
+          "model_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Id"
+          },
+          "providers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Providers",
+            "type": "array"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "reason_code": {
+            "anyOf": [
+              {
+                "enum": [
+                  "mismatch",
+                  "unfinished",
+                  "no_photos",
+                  "driver_changed",
+                  "no_positive_baseline",
+                  "superseded",
+                  "interrupted",
+                  "passed",
+                  "gpu_recovery"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason Code"
+          },
+          "runtime_current": {
+            "default": true,
+            "title": "Runtime Current",
+            "type": "boolean"
+          },
+          "state": {
+            "enum": [
+              "idle",
+              "waiting",
+              "running",
+              "succeeded",
+              "failed",
+              "superseded",
+              "interrupted"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "model_id",
+          "providers",
+          "reason",
+          "checked_at"
+        ],
+        "title": "ClassifierCropDeviceCheckResult",
+        "type": "object"
+      },
       "ClassifierCropStatus": {
         "additionalProperties": {
           "$ref": "#/components/schemas/JsonValue"
@@ -3599,6 +3732,16 @@
             "default": "",
             "title": "Chosen Model Id",
             "type": "string"
+          },
+          "cpu_fallback": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ClassifierFinderCPUFallback"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "device_check": {
             "anyOf": [
@@ -3741,6 +3884,54 @@
           "message"
         ],
         "title": "ClassifierDownloadResponse",
+        "type": "object"
+      },
+      "ClassifierFinderCPUFallback": {
+        "additionalProperties": {
+          "$ref": "#/components/schemas/JsonValue"
+        },
+        "properties": {
+          "action": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Action"
+          },
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "model_id": {
+            "title": "Model Id",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "active",
+          "model_id",
+          "provider"
+        ],
+        "title": "ClassifierFinderCPUFallback",
         "type": "object"
       },
       "ClassifierHostEligibility": {

@@ -531,14 +531,28 @@ export interface components {
 };
     ClassifierCropDeviceCheck: {
     checked_at: string | null;
+    last_result?: components['schemas']['ClassifierCropDeviceCheckResult'] | null;
     model_id: string | null;
     providers: Array<string>;
     reason: string | null;
+    reason_code?: "mismatch" | "unfinished" | "no_photos" | "driver_changed" | "no_positive_baseline" | "superseded" | "interrupted" | "passed" | "gpu_recovery" | null;
+    runtime_current?: boolean;
+    state: "idle" | "waiting" | "running" | "succeeded" | "failed" | "superseded" | "interrupted";
+    [key: string]: components['schemas']['JsonValue'];
+};
+    ClassifierCropDeviceCheckResult: {
+    checked_at: string | null;
+    model_id: string | null;
+    providers: Array<string>;
+    reason: string | null;
+    reason_code?: "mismatch" | "unfinished" | "no_photos" | "driver_changed" | "no_positive_baseline" | "superseded" | "interrupted" | "passed" | "gpu_recovery" | null;
+    runtime_current?: boolean;
     state: "idle" | "waiting" | "running" | "succeeded" | "failed" | "superseded" | "interrupted";
     [key: string]: components['schemas']['JsonValue'];
 };
     ClassifierCropStatus: {
     chosen_model_id?: string;
+    cpu_fallback?: components['schemas']['ClassifierFinderCPUFallback'] | null;
     device_check?: components['schemas']['ClassifierCropDeviceCheck'] | null;
     enabled_for_runtime?: boolean;
     healthy?: boolean;
@@ -559,6 +573,14 @@ export interface components {
     model?: string | null;
     path?: string | null;
     status: string;
+};
+    ClassifierFinderCPUFallback: {
+    action?: string | null;
+    active: boolean;
+    model_id: string;
+    provider: string;
+    reason?: string | null;
+    [key: string]: components['schemas']['JsonValue'];
 };
     ClassifierHostEligibility: {
     generated_at?: string | null;

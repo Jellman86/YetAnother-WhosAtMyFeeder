@@ -325,19 +325,42 @@ not choose the crop detector's device. The compatibility API can check only the
 installed RF-DETR artifact using `compat_only`, `sweep_devices` and its `model_ids`
 entry, as shown in the [API reference](../api.md#model-evaluation-owner).
 The bird finder card's **Check *devices* for *finder*** button runs that scoped check.
-The fastest passing crop provider is recommended. **Finder device** can instead
+Other finders recommend the fastest passing crop provider. **Finder device** can instead
 keep a specific validated device, such as **Intel NPU (OpenVINO)**. Save it with
-**Save changes**. If its evidence expires or the device fails, the accurate
-finder uses CPU rather than switching to another accelerator. The fast fallback
-finder keeps its own device evidence. Startup re-checks respect the saved choice;
-manual **Check devices** still checks all supported devices, so do not use it to
-retry a known failing GPU during an NPU-only investigation. Existing worker crop sessions
+**Save changes**. RF-DETR prefers a verified NPU, then a verified GPU, before its
+last-resort CPU baseline. If an NPU check fails, automatic recovery checks the GPU; it skips that
+extra check when the NPU passes. A runtime NPU failure can also use an already
+verified GPU. Other finders keep the saved explicit device or use CPU. The fast
+fallback finder keeps its own device evidence. Startup re-checks respect the saved
+choice for other finders; RF-DETR may check
+the GPU as recovery for an NPU failure. Manual **Check devices** checks all
+supported devices. Existing worker crop sessions
 adopt a changed recommendation on their next use without restarting the worker.
 After a kernel, driver or image update, startup re-checks the chosen finder once on
-its previously passing accelerators, using the newest saved bird snapshots.
-If an accelerator fails at runtime, CPU fallback remains in place while its
-recommendation is unchanged. Checks consume compute and may compete with video
-processing; a model-forward benchmark does not predict full video throughput.
+its previously checked accelerators, or its explicitly saved accelerator, using at
+most 12 of the newest saved bird snapshots. A missing eligibility list does not
+prevent this recovery. If there are no photos yet, it checks again every five
+minutes without spending the attempt. Each runtime and comparison policy gets one
+attempt; a failed or interrupted check needs **Check devices** to retry on that
+runtime. CPU remains eligible when it runs successfully, even if the photos contain
+no admitted bird boxes; accelerator approval still requires a positive CPU baseline.
+RF-DETR also checks its packaged Intel accelerators when no passing history remains.
+The check reads the same full frame and tiles as normal inference and matches all
+admitted boxes regardless of score ordering. Extra or missing birds fail the check.
+The status API keeps the last result and marks evidence from a different runtime
+as historical, including while a new check runs. A structured
+`bird_finder_revalidation_result` log records the outcome and each provider's box
+counts and worst matched IoU (zero when boxes remain unmatched).
+RF-DETR CPU use is a degraded Health condition, even when CPU was explicitly
+selected. A structured `bird_finder_cpu_fallback` warning and a Health incident
+name the finder, reason and next action. The System status indicator counts that
+open incident; it resolves after current evidence reports an accelerator in use.
+CPU detector inference is limited to two intra-op threads and one inter-op
+thread; OpenVINO CPU uses two inference threads. Provider-check child processes
+also run at nice 19 on POSIX hosts with bounded numerical-library threads.
+If an accelerator fails at runtime, a cached recovery provider remains in place
+while its recommendation is unchanged. Checks consume compute and may compete
+with video processing; a model-forward benchmark does not predict full video throughput.
 
 The reference RTX 4070 container passed real CUDA execution and CPU consistency
 checks. This does not qualify every NVIDIA host, sustained workload or two-bird

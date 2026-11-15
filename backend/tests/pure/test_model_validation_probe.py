@@ -602,3 +602,155 @@ async def test_provider_guard_prevents_quarantined_native_probe(monkeypatch):
     assert calls == ["cpu", "intel_gpu"]
     assert result["eligible_providers"] == ["cpu", "intel_gpu"]
     assert next(p for p in result["providers"] if p["provider"] == "intel_cpu")["ok"] is False
+
+
+@pytest.mark.parametrize("cpu_detects_bird", [False, True])
+@pytest.mark.asyncio
+async def test_crop_sweep_keeps_finite_cpu_without_accelerator_agreement(monkeypatch, tmp_path, cpu_detects_bird):
+    from app.services import classifier_service
+    from app.services.model_manager import model_manager
+
+    monkeypatch.setenv("YAWAMF_EVAL_RUNS_DIR", str(tmp_path))
+    monkeypatch.setenv("YAWAMF_IMAGE_FLAVOR", "intel")
+    monkeypatch.setattr(
+        classifier_service,
+        "_detect_acceleration_capabilities",
+        lambda: {
+            "ort_available": True,
+            "openvino_available": True,
+            "intel_npu_available": True,
+        },
+    )
+    monkeypatch.setattr(
+        model_manager,
+        "get_crop_detector_spec_by_model_id",
+        lambda _: {
+            "healthy": True,
+            "metadata": {"runtime": "onnx", "supported_inference_providers": ["cpu", "intel_npu"]},
+        },
+    )
+
+    async def probe(provider, **kwargs):
+        return {
+            "compile": {"ok": True},
+            "output_summary": {"finite_count": 1, "element_count": 1},
+            "per_image_detections": [
+                {
+                    "image": "bird.jpg",
+                    "kind": "real",
+                    "top_detection": (
+                        {"normalized_box": [0.1, 0.1, 0.5, 0.5], "confidence": 0.8}
+                        if cpu_detects_bird and provider == "cpu"
+                        else None
+                    ),
+                }
+            ],
+        }
+
+    monkeypatch.setattr(mv, "_probe_one_crop_provider", probe)
+    result = await mv.sweep_crop_model_devices("finder")
+    assert result["eligible_providers"] == ["cpu"]
+    mv.write_eligibility_entry(
+        "finder",
+        result["eligible_providers"],
+        provider_results=result["providers"],
+        artifact_sha256="abc",
+        image_flavor="intel",
+    )
+    assert mv.host_eligible_providers("finder", artifact_sha256="abc") == ["cpu"]
+    data = mv._read_current_eligibility_payload()
+    assert data["model_provider_signatures"]["finder"]["cpu"] == mv.current_provider_runtime_signature("cpu")
+
+
+def test_crop_comparison_matches_all_boxes_independently_of_score_order():
+    left = {"normalized_box": [0.1, 0.2, 0.3, 0.5], "confidence": 0.8}
+    right = {"normalized_box": [0.6, 0.2, 0.8, 0.5], "confidence": 0.79}
+    baseline = [{"image": "birds", "detections": [left, right], "top_detection": left}]
+    provider = [
+        {
+            "image": "birds",
+            "detections": [dict(right, confidence=0.80), dict(left, confidence=0.79)],
+            "top_detection": right,
+        }
+    ]
+    result = mv._compare_crop_detections(baseline, provider)
+    assert result["agrees"] is True
+    assert result["baseline_boxes"] == result["provider_boxes"] == result["matched_boxes"] == 2
+    assert result["worst_box_iou"] == 1.0
+
+
+@pytest.mark.parametrize("extra", [True, False])
+def test_crop_comparison_rejects_extra_or_missing_birds(extra):
+    bird = {"normalized_box": [0.1, 0.2, 0.3, 0.5], "confidence": 0.8}
+    other = {"normalized_box": [0.6, 0.2, 0.8, 0.5], "confidence": 0.8}
+    baseline = [{"image": "birds", "detections": [bird], "top_detection": bird}]
+    provider = [{"image": "birds", "detections": [bird, other] if extra else [], "top_detection": bird}]
+    assert mv._compare_crop_detections(baseline, provider)["agrees"] is False
+
+
+def test_crop_comparison_uses_the_same_score_floor_on_both_sides():
+    bird = {"normalized_box": [0.1, 0.2, 0.3, 0.5], "confidence": 0.8}
+    noise = {"normalized_box": [0.6, 0.2, 0.8, 0.5], "confidence": 0.01}
+    result = mv._compare_crop_detections(
+        [{"image": "birds", "detections": [noise, bird]}],
+        [{"image": "birds", "detections": [bird]}],
+    )
+    assert result["agrees"] is True
+
+
+def test_crop_comparison_allows_small_localization_drift_but_rejects_a_different_bird():
+    bird = {"normalized_box": [0.1, 0.2, 0.3, 0.5], "confidence": 0.8}
+    baseline = [{"image": "birds", "detections": [bird]}]
+    shifted = dict(bird, normalized_box=[0.11, 0.2, 0.31, 0.5])
+    assert mv._compare_crop_detections(baseline, [{"image": "birds", "detections": [shifted]}])["agrees"] is True
+    shifted["normalized_box"] = [0.6, 0.2, 0.8, 0.5]
+    assert mv._compare_crop_detections(baseline, [{"image": "birds", "detections": [shifted]}])["agrees"] is False
+
+
+def test_crop_probe_reads_tiles_and_merges_the_same_boxes_as_runtime():
+    from scripts.probe_crop_model_provider import _ProbeCropService, _admitted_detections
+
+    import numpy as np
+
+    calls = []
+
+    class Session:
+        def run(self, *_args):
+            calls.append(True)
+            return [np.ones((1, 2))]
+
+    service = _ProbeCropService(detector_tier="accurate")
+    service._parse_detector_outputs = lambda outputs, **kwargs: [{"box": [20, 20, 120, 120], "confidence": 0.8}]
+    model = {
+        "session": Session(),
+        "input_width": 384,
+        "input_height": 384,
+        "detector_config": {"frame_scan": {"tile_grid": 2, "tile_overlap": 0.2}},
+    }
+    image = Image.new("RGB", (1920, 1080))
+    candidates = service._infer_candidates_on_model(model, image)
+    assert len(calls) == 5
+    assert len(service.outputs) == 5
+    detections = _admitted_detections(service, candidates, image, tier="accurate")
+    assert len(detections) > 1
+
+
+def test_crop_box_matching_reassigns_an_ambiguous_box_to_cover_both_birds():
+    def bird(left):
+        return {"normalized_box": [left, 0.1, left + 0.5, 0.6], "confidence": 0.8}
+
+    baseline = [{"image": "birds", "detections": [bird(0.1), bird(0.135)]}]
+    provider = [{"image": "birds", "detections": [bird(0.115), bird(0.07)]}]
+    result = mv._compare_crop_detections(baseline, provider)
+    assert result["agrees"] is True
+    assert result["matched_boxes"] == 2
+
+
+@pytest.mark.parametrize("delta", [0.01, 0.031])
+def test_crop_box_matching_keeps_confidence_agreement_as_a_separate_gate(delta):
+    box = {"normalized_box": [0.1, 0.2, 0.3, 0.5], "confidence": 0.8}
+    result = mv._compare_crop_detections(
+        [{"image": "bird", "detections": [box]}],
+        [{"image": "bird", "detections": [dict(box, confidence=0.8 + delta)]}],
+    )
+    assert result["agrees"] is (delta <= 0.03)

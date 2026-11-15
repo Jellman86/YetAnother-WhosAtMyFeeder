@@ -450,7 +450,9 @@ async def _revalidate_stale_accelerators() -> None:
     from app.services.provider_revalidation import provider_revalidation
 
     await provider_revalidation.run()
-    await bird_finder_revalidation.run()
+    while True:
+        await bird_finder_revalidation.run()
+        await asyncio.sleep(300)
 
 
 async def _start_mqtt_service_task() -> None:

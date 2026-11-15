@@ -894,6 +894,7 @@ class ModelEvalRunner:
         child process and compared against a real-image CPU baseline.
         """
         from app.services.model_validation import (
+            host_eligible_providers,
             sweep_crop_model_devices,
             sweep_model_devices,
             write_eligibility_entry,
@@ -1053,10 +1054,12 @@ class ModelEvalRunner:
                     error=str(exc),
                 )
                 crop_matrix[model.id] = {"error": "provider_sweep_failed"}
+                current = await asyncio.to_thread(host_eligible_providers, model.id, artifact_sha256=artifact_sha256)
+                cpu_fallback = ["cpu"] if "cpu" in current else []
                 await asyncio.to_thread(
                     write_eligibility_entry,
                     model.id,
-                    [],
+                    cpu_fallback,
                     run_id=run_id,
                     image_flavor=image_flavor,
                     artifact_sha256=artifact_sha256,
@@ -1065,7 +1068,7 @@ class ModelEvalRunner:
                     write_validation_record,
                     model.id,
                     provider="cpu",
-                    ok=False,
+                    ok=bool(cpu_fallback),
                     reason="crop provider sweep failed",
                     artifact_sha256=artifact_sha256,
                 )

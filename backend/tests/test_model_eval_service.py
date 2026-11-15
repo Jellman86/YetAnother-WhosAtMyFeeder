@@ -891,3 +891,24 @@ async def test_a_failed_run_writes_its_code_and_keeps_the_exception_out_of_the_s
     assert json.loads(written)["error_code"] == "unexpected"
     assert "0x7f3a" not in written
     assert "error" not in json.loads(written)
+
+
+@pytest.mark.asyncio
+async def test_aborted_crop_sweep_preserves_a_current_cpu_pass(tmp_path, monkeypatch):
+    from app.services import model_validation
+    from unittest.mock import AsyncMock
+
+    monkeypatch.setenv("YAWAMF_EVAL_RUNS_DIR", str(tmp_path))
+    monkeypatch.setenv("YAWAMF_IMAGE_FLAVOR", "intel")
+    finder = "bird_crop_detector_accurate_rfdetr_nano"
+    model_validation.write_eligibility_entry(finder, ["cpu", "intel_npu"], image_flavor="intel", artifact_sha256="abc")
+    monkeypatch.setattr(
+        model_validation, "sweep_crop_model_devices", AsyncMock(side_effect=RuntimeError("probe failed"))
+    )
+    runner = ModelEvalRunner()
+    monkeypatch.setattr(runner, "_emit", AsyncMock())
+    await runner._device_sweep(
+        "run-1", tmp_path, [], [SimpleNamespace(id=finder, metadata=SimpleNamespace(sha256="abc"))]
+    )
+    assert model_validation.host_eligible_providers(finder, artifact_sha256="abc") == ["cpu"]
+    assert model_validation.read_validation_record(finder)["validated"] is True

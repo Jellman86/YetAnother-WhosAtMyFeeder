@@ -181,6 +181,11 @@ function isStatefulIncidentOpen(
         return Boolean(asRecord(currentHealth.video_classifier).circuit_open);
     }
 
+    if (normalizedComponent === 'bird_finder' && normalizedReason === 'rfdetr_cpu_fallback') {
+        const active = asRecord(ml.bird_finder).active;
+        return typeof active === 'boolean' ? active : null;
+    }
+
     if (normalizedComponent === 'ml_live_image' && normalizedReason === 'recovery_active') {
         return Boolean(asRecord(ml.live_image).recovery_active);
     }

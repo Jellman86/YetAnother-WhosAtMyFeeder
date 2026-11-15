@@ -113,6 +113,8 @@ class _OpenVINODetectorSession:
                 pass
 
         config: dict[str, str] = {"PERFORMANCE_HINT": "LATENCY", "NUM_STREAMS": "1"}
+        if self.device == "CPU":
+            config["INFERENCE_NUM_THREADS"] = "2"
         if is_gpu:
             # The detector outputs include large intermediate activations. Avoid
             # silent f16 overflow on Intel GPUs, matching the classifier policy.
@@ -225,6 +227,7 @@ class BirdCropService:
         self._last_executions: dict[str, dict[str, Any]] = {}
         self._active_providers: dict[str, str] = {}
         self._provider_fallbacks: dict[str, str | None] = {}
+        self._cpu_warning: tuple[str, str] | None = None
         self._loaded_model_ids: dict[str, str] = {}
         self._loaded_provider_preferences: dict[str, str] = {}
 
@@ -320,7 +323,7 @@ class BirdCropService:
             active_provider = str((model or {}).get("provider") or "cpu") if isinstance(model, dict) else "cpu"
             if not self.strict_provider and active_provider != "cpu":
                 try:
-                    model = self._replace_tier_with_cpu(detector_tier, failed_provider=active_provider)
+                    model = self._recover_tier_provider(detector_tier, failed_provider=active_provider)
                     candidates = self._infer_candidates(model, image)
                 except Exception as fallback_exc:
                     log.warning(
@@ -1033,25 +1036,63 @@ class BirdCropService:
             )
             self._active_providers[tier] = requested_provider
             self._provider_fallbacks[tier] = None
+            if requested_provider in {"cpu", "intel_cpu"}:
+                self._warn_cpu_fallback(tier, reason="no_verified_accelerator_or_cpu_selected")
             return model
         except Exception as exc:
             if self.strict_provider or requested_provider == "cpu":
                 raise
             log.warning(
-                "Bird crop accelerated provider load failed; falling back to CPU",
+                "bird_crop_accelerated_provider_load_failed",
                 detector_tier=tier,
                 provider=requested_provider,
                 error=str(exc),
             )
-            model = self._load_model_on_provider(
-                tier=tier,
-                model_path=model_path,
-                model_config=model_config,
-                provider="cpu",
-            )
-            self._active_providers[tier] = "cpu"
-            self._provider_fallbacks[tier] = requested_provider
-            return model
+            for fallback in self._fallback_providers(tier, requested_provider):
+                try:
+                    model = self._load_model_on_provider(
+                        tier=tier, model_path=model_path, model_config=model_config, provider=fallback
+                    )
+                except Exception:
+                    if fallback == "cpu":
+                        raise
+                    continue
+                self._active_providers[tier] = fallback
+                self._provider_fallbacks[tier] = requested_provider
+                if fallback == "cpu":
+                    self._warn_cpu_fallback(tier, reason="accelerator_load_failed")
+                return model
+            raise RuntimeError("No finder recovery provider is available")
+
+    def _fallback_providers(self, tier: str, failed_provider: str) -> list[str]:
+        from app.services.bird_finder_health import RFDETR_FINDER
+        from app.services.model_validation import host_eligible_providers
+        from app.services.model_manager import model_manager
+
+        if self._registry_model_id_for_tier(tier) == RFDETR_FINDER:
+            metadata = model_manager._get_registry_model_meta(RFDETR_FINDER) or {}
+            eligible = host_eligible_providers(RFDETR_FINDER, artifact_sha256=metadata.get("sha256"))
+            return [
+                provider
+                for provider in ("intel_npu", "intel_gpu", "cuda")
+                if provider != failed_provider and provider in eligible
+            ] + ["cpu"]
+        return ["cpu"]
+
+    def _warn_cpu_fallback(self, tier: str, *, reason: str) -> None:
+        from app.services.bird_finder_health import RFDETR_FINDER
+
+        model_id = self._registry_model_id_for_tier(tier)
+        identity = (model_id, reason)
+        if model_id != RFDETR_FINDER or identity == self._cpu_warning:
+            return
+        self._cpu_warning = identity
+        log.warning(
+            "bird_finder_cpu_fallback",
+            model_id=model_id,
+            reason=reason,
+            action="Check devices for RF-DETR Nano in Settings; review NPU/GPU driver access and check results.",
+        )
 
     def _provider_for_tier(self, tier: str) -> str:
         if self.provider_override:
@@ -1063,6 +1104,16 @@ class BirdCropService:
             model_id = self._registry_model_id_for_tier(tier)
             metadata = model_manager._get_registry_model_meta(model_id) or {}
             preference = settings.classification.bird_crop_inference_provider if tier == "accurate" else "auto"
+            from app.services.bird_finder_health import RFDETR_FINDER
+
+            if model_id == RFDETR_FINDER and preference in {"auto", "intel_npu", "intel_gpu"}:
+                eligible = host_eligible_providers(model_id, artifact_sha256=metadata.get("sha256"))
+                order = (
+                    ("intel_gpu", "intel_npu", "cuda", "cpu")
+                    if preference == "intel_gpu"
+                    else ("intel_npu", "intel_gpu", "cuda", "cpu")
+                )
+                return next((provider for provider in order if provider in eligible), "cpu")
             if preference != "auto":
                 if preference == "cpu":
                     return "cpu"
@@ -1125,6 +1176,8 @@ class BirdCropService:
             if normalized_provider == "cuda":
                 preload_packaged_cuda_libraries(ort)
             sess_options = ort.SessionOptions()
+            sess_options.intra_op_num_threads = 2
+            sess_options.inter_op_num_threads = 1
             ort_provider = "CUDAExecutionProvider" if normalized_provider == "cuda" else "CPUExecutionProvider"
             session = ort.InferenceSession(
                 str(model_path),
@@ -1159,27 +1212,38 @@ class BirdCropService:
             self._model_error = None
             self._model_errors.clear()
 
-    def _replace_tier_with_cpu(self, tier: str, *, failed_provider: str) -> dict[str, Any]:
+    def _recover_tier_provider(self, tier: str, *, failed_provider: str) -> dict[str, Any]:
         model_path = self._resolve_model_path(tier)
         if model_path is None:
             raise FileNotFoundError(f"Crop detector model for {tier} is no longer installed")
-        replacement = self._load_model_on_provider(
-            tier=tier,
-            model_path=model_path,
-            model_config=self._load_model_config(model_path),
-            provider="cpu",
-        )
-        with self._model_lock:
-            self._models[tier] = replacement
-            self._models_loaded[tier] = True
-            self._active_providers[tier] = "cpu"
-            self._provider_fallbacks[tier] = failed_provider
-        log.warning(
-            "Bird crop provider failed during inference; CPU fallback activated",
-            detector_tier=tier,
-            failed_provider=failed_provider,
-        )
-        return replacement
+        for provider in self._fallback_providers(tier, failed_provider):
+            try:
+                replacement = self._load_model_on_provider(
+                    tier=tier,
+                    model_path=model_path,
+                    model_config=self._load_model_config(model_path),
+                    provider=provider,
+                )
+            except Exception:
+                if provider == "cpu":
+                    raise
+                continue
+            with self._model_lock:
+                self._models[tier] = replacement
+                self._models_loaded[tier] = True
+                self._active_providers[tier] = provider
+                self._provider_fallbacks[tier] = failed_provider
+            log.warning(
+                "bird_crop_provider_recovered",
+                detector_tier=tier,
+                model_id=self._registry_model_id_for_tier(tier),
+                failed_provider=failed_provider,
+                active_provider=provider,
+            )
+            if provider == "cpu":
+                self._warn_cpu_fallback(tier, reason="accelerator_inference_failed")
+            return replacement
+        raise RuntimeError("No finder recovery provider is available")
 
     def _load_model_config(self, model_path: Path) -> dict[str, Any]:
         config_path = model_path.with_name("model_config.json")

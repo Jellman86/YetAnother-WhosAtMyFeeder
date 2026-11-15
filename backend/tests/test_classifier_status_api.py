@@ -456,3 +456,103 @@ def test_patching_the_live_classifier_proxy_is_undone_on_the_current_classifier(
     assert getattr(live, "probe_marker") == 1
     delattr(classifier_router.classifier_service, "probe_marker")
     assert not hasattr(live, "probe_marker")
+
+
+@pytest.mark.asyncio
+async def test_classifier_status_reports_last_finder_failure_from_a_different_runtime(client, monkeypatch, tmp_path):
+    from app.services import bird_finder_revalidation as recovery
+    from app.services import model_validation as validation
+
+    finder = "bird_crop_detector_accurate_rfdetr_nano"
+    monkeypatch.setenv("YAWAMF_EVAL_RUNS_DIR", str(tmp_path))
+    monkeypatch.setattr(recovery, "selected_finder", lambda: (finder, "abc"))
+    monkeypatch.setattr(settings.classification, "bird_crop_inference_provider", "cpu")
+    recovery._write_ledger_entry(
+        "old-runtime",
+        {
+            "state": "failed",
+            "model_id": finder,
+            "providers": ["intel_npu"],
+            "reason": "The accelerator did not match the CPU.",
+            "checked_at": "2026-11-12T21:59:27Z",
+        },
+    )
+    runner = recovery.BirdFinderRevalidation()
+    await runner.run()
+    monkeypatch.setattr(recovery, "bird_finder_revalidation", runner)
+    from app.services.bird_crop_service import BirdCropService
+
+    monkeypatch.setattr(
+        classifier_router.classifier_service,
+        "get_status",
+        lambda: {
+            "loaded": True,
+            "crop_detector": BirdCropService().get_status(),
+        },
+    )
+    response = await client.get("/api/classifier/status")
+    assert response.status_code == 200, response.text
+    check = response.json()["crop_detector"]["device_check"]
+    assert check["state"] == "failed"
+    assert check["runtime_current"] is False
+    assert check["providers"] == ["intel_npu"]
+    assert check["checked_at"] == "2026-11-12T21:59:27Z"
+    assert check["reason"] == "The accelerator did not match the CPU."
+    assert check["reason_code"] == "mismatch"
+    assert validation.host_eligible_providers(finder) == []
+
+
+@pytest.mark.asyncio
+async def test_startup_revalidation_revisits_waiting_finder_without_rerunning_classifier(monkeypatch):
+    import asyncio
+    import app.main as main_module
+    from app.services.bird_finder_revalidation import bird_finder_revalidation
+    from app.services.provider_revalidation import provider_revalidation
+
+    finder_run = AsyncMock()
+    classifier_run = AsyncMock()
+    pauses = []
+
+    async def pause(seconds):
+        pauses.append(seconds)
+        if len(pauses) == 2:
+            raise asyncio.CancelledError
+
+    monkeypatch.setattr(bird_finder_revalidation, "run", finder_run)
+    monkeypatch.setattr(provider_revalidation, "run", classifier_run)
+    monkeypatch.setattr(main_module.asyncio, "sleep", pause)
+    with pytest.raises(asyncio.CancelledError):
+        await main_module._revalidate_stale_accelerators()
+    assert classifier_run.await_count == 1
+    assert finder_run.await_count == 2
+    assert pauses == [300, 300]
+
+
+@pytest.mark.asyncio
+async def test_rfdetr_cpu_fallback_degrades_health_and_records_actionable_diagnostic(client, monkeypatch):
+    from app.services import error_diagnostics
+
+    history = error_diagnostics.ErrorDiagnosticsHistory()
+    monkeypatch.setattr(error_diagnostics, "error_diagnostics_history", history)
+    problem = {
+        "active": True,
+        "model_id": "bird_crop_detector_accurate_rfdetr_nano",
+        "provider": "cpu",
+        "reason": "NPU and GPU failed validation",
+        "action": "Check devices for RF-DETR Nano in Settings.",
+    }
+    monkeypatch.setattr(
+        classifier_router.classifier_service, "_crop_detector_status", lambda _: {"cpu_fallback": problem}
+    )
+    monkeypatch.setattr(classifier_router.classifier_service, "_finder_cpu_warning", None, raising=False)
+    response = await client.get("/health")
+    assert response.status_code == 200
+    assert response.json()["status"] == "degraded"
+    assert response.json()["ml"]["bird_finder"] == problem
+    events = history.snapshot()["events"]
+    assert len(events) == 1
+    assert events[0]["reason_code"] == "rfdetr_cpu_fallback"
+    assert "Check devices" in events[0]["message"]
+    assert "NPU and GPU failed" in events[0]["message"]
+    await client.get("/health")
+    assert history.snapshot()["events"][0]["count"] == 1

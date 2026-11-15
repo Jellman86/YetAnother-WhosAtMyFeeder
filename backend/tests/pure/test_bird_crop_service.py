@@ -55,10 +55,14 @@ def test_crop_session_preloads_packaged_libraries_only_before_cuda(monkeypatch, 
         calls.append(("preload", directory))
 
     def create_session(*args, **kwargs):
+        assert kwargs["sess_options"].intra_op_num_threads == 2
+        assert kwargs["sess_options"].inter_op_num_threads == 1
         calls.append(("session", kwargs["providers"]))
         return FakeSession()
 
-    ort = types.SimpleNamespace(preload_dlls=preload_dlls, SessionOptions=object, InferenceSession=create_session)
+    ort = types.SimpleNamespace(
+        preload_dlls=preload_dlls, SessionOptions=types.SimpleNamespace, InferenceSession=create_session
+    )
     service = BirdCropService()
     monkeypatch.setattr(service, "_import_onnxruntime", lambda: ort)
     monkeypatch.setattr(service, "_session_factory", service._create_native_session)
@@ -365,7 +369,7 @@ def test_accelerated_inference_failure_switches_cached_tier_to_cpu(monkeypatch):
     gpu_model = {"provider": "intel_gpu"}
     cpu_model = {"provider": "cpu"}
     monkeypatch.setattr(service, "_load_model_for_tier", lambda _tier: gpu_model)
-    monkeypatch.setattr(service, "_replace_tier_with_cpu", lambda _tier, failed_provider: cpu_model)
+    monkeypatch.setattr(service, "_recover_tier_provider", lambda _tier, failed_provider: cpu_model)
 
     def infer(model, _image):
         if model is gpu_model:
@@ -946,9 +950,9 @@ def test_missing_execution_metadata_never_changes_a_successful_finder_result(mon
 
 
 @pytest.mark.parametrize(
-    "eligible, expected", [(["cpu", "intel_gpu", "intel_npu"], "intel_npu"), (["cpu", "intel_gpu"], "cpu")]
+    "eligible, expected", [(["cpu", "intel_gpu", "intel_npu"], "intel_npu"), (["cpu", "intel_gpu"], "intel_gpu")]
 )
-def test_saved_finder_provider_never_switches_to_a_faster_gpu(monkeypatch, eligible, expected):
+def test_saved_rfdetr_prefers_npu_and_recovers_on_verified_gpu(monkeypatch, eligible, expected):
     monkeypatch.setattr(settings.classification, "bird_crop_inference_provider", "intel_npu", raising=False)
     monkeypatch.setattr("app.services.model_validation.host_eligible_providers", lambda *a, **kw: eligible)
     monkeypatch.setattr(
