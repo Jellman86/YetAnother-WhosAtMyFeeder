@@ -88,7 +88,10 @@ describe('content that arrives late has its space held', () => {
         expect(errorsSource).toContain("refreshedAgoText() ? '' : 'invisible'");
     });
 
-    it('holds the Explorer day strip\'s space while the first page is read', () => {
-        expect(eventsSource).toMatch(/\{:else if pane\.state === 'first-load'\}\s*<!--[^>]*-->\s*<div class="pb-4 pt-1" aria-hidden="true" data-events-timeline-placeholder>/);
+    it('takes the Explorer\'s first-read placeholders away whole, so a day strip arriving above the results moves nothing', () => {
+        expect(eventsSource).toMatch(/\{#key pane\.state === 'first-load'\}[\s\S]*data-events-timeline[\s\S]*data-explorer-results=\{pane\.state\}[\s\S]*\{\/key\}/);
+        // One day on the page says nothing the count has not said, so the strip waits for a second day.
+        expect(eventsSource).toContain("{#if pane.state === 'results' && timelineBuckets.length > 1}");
+        expect(eventsSource).not.toContain('data-events-timeline-placeholder');
     });
 });
