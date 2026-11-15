@@ -320,7 +320,7 @@
                 </p>
                 <div class="mt-1.5 flex min-w-0 flex-col items-stretch gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 sm:flex-row sm:items-center dark:border-slate-700 dark:bg-slate-900/50">
                     <code class="min-w-0 max-w-full whitespace-normal font-mono text-xs leading-relaxed text-slate-700 sm:flex-1 dark:text-slate-200">
-                        {#each supportParts as part, position (position)}{#if position > 0}{' · '}{/if}<span class="whitespace-nowrap">{part}</span>{/each}
+                        {#each supportParts as part, position (position)}{#if position > 0}{' · '}{/if}<span class="inline-block max-w-full align-top wrap-anywhere">{part}</span>{/each}
                     </code>
                     <button class="btn btn-secondary min-h-11 w-full sm:w-auto shrink-0 px-3 py-1.5 text-xs" onclick={copySummary}>
                         {copied

@@ -2746,7 +2746,9 @@
                 </div>
                 {#if moreActionsOpen}
                     <!-- A plain list directly under its trigger: each row is one action, named by its effect. -->
-                    <ul id="detection-more-actions" class="card-base divide-y divide-line-soft overflow-hidden" data-detection-more-actions-panel>
+                    <!-- shrink-0: it clips its rows to its rounded corners, and a clipped box in this scrolling
+                         column would otherwise be squashed and cut its last rows off. -->
+                    <ul id="detection-more-actions" class="card-base shrink-0 divide-y divide-line-soft overflow-hidden" data-detection-more-actions-panel>
                         {#if hasFrameSource}
                             <li>
                                 <button type="button" onclick={handleReclassifyClick} class="btn btn-ghost min-h-11 w-full justify-start rounded-none px-3 text-sm" title={$_('actions.reclassify')} data-detection-score-again>

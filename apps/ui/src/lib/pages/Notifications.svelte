@@ -214,8 +214,9 @@
     {/if}
     <span class="block min-w-0 flex-1">
         <!-- The time sits on the title line, at the right edge, so a row is as tall as its words. -->
-        <span class="flex items-baseline gap-2">
-            <span class="flex min-w-0 flex-1 items-center gap-2 text-sm font-semibold text-slate-900 dark:text-white">
+        <!-- Wraps: at a large text size the time takes a line of its own rather than leaving the row. -->
+        <span class="flex flex-wrap items-baseline gap-x-2">
+            <span class="flex min-w-0 flex-1 basis-32 items-center gap-2 text-sm font-semibold text-slate-900 dark:text-white">
                 <!-- Its own box, so a long word can break instead of pushing the unread dot off the row. -->
                 <span class="min-w-0 wrap-anywhere">{item.title}</span>
                 {#if !item.read}
@@ -224,7 +225,7 @@
                 {/if}
             </span>
             <!-- The group heading already carries the day, so only older rows repeat the date. -->
-            <span class="shrink-0 text-3xs tabular-nums text-slate-600 dark:text-slate-400">
+            <span class="min-w-0 text-3xs tabular-nums wrap-anywhere text-slate-600 dark:text-slate-400">
                 {groupKey === 'older' || groupKey === 'yesterday' ? formatDateTime(item.timestamp) : formatTime(item.timestamp)}
             </span>
         </span>

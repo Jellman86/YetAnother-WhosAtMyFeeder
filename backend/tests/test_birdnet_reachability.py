@@ -120,7 +120,11 @@ async def test_reachability_failure_names_the_cause_not_an_exception_class(clien
 
     assert resp.status_code == 502
     body = resp.json()
-    assert (body["cause"], body["service"], body["address"]) == ("host_not_found", "birdnet", "birdnet.invalid:8080")
+    assert (body["cause"], body["service"], body["address"]) == (
+        "host_not_found",
+        "birdnet",
+        "http://birdnet.invalid:8080",
+    )
     message = body["message"]
     assert "was not found" in message
     assert "Check the address for BirdNET-Go" in message

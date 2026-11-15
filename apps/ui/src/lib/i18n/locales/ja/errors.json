@@ -7,6 +7,7 @@
     "refused": "{service}: {address} から応答がありません。起動しているか、ポートが正しいかを確認してください。",
     "timeout": "{service}: {address} から時間内に応答がありません。アドレスと、このマシンから到達できるかを確認してください。",
     "not_authorised": "{service}: ユーザー名またはパスワードが拒否されました。確認するか、匿名クライアントを受け付ける場合は認証をオフにしてください。",
-    "unreachable": "{service}: {address} に接続できません。アドレスとポートを確認してください。"
+    "unreachable": "{service}: {address} に接続できません。アドレスとポートを確認してください。",
+    "unreachable_url": "{service}: {address} に接続できません。アドレス、スキーム（http か https）、ポートを確認してください。"
   }
 }

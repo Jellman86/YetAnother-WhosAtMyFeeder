@@ -7,6 +7,7 @@
     "refused": "{service}: nada respondió en {address}. Comprueba que está en marcha y que el puerto es correcto.",
     "timeout": "{service}: {address} no respondió a tiempo. Comprueba la dirección y que este equipo puede alcanzarla.",
     "not_authorised": "{service}: se rechazó el nombre de usuario o la contraseña. Compruébalos, o desactiva la autenticación si acepta clientes anónimos.",
-    "unreachable": "{service}: no se pudo conectar con {address}. Comprueba la dirección y el puerto."
+    "unreachable": "{service}: no se pudo conectar con {address}. Comprueba la dirección y el puerto.",
+    "unreachable_url": "{service}: no se pudo conectar con {address}. Comprueba la dirección, el esquema (http o https) y el puerto."
   }
 }

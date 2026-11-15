@@ -235,4 +235,9 @@ describe('detection surface polish', () => {
         // Which device and model ran the video analysis is diagnostics, not record content.
         expect(detectionModalSource).not.toMatch(/video_classification_model_name|completedVideoInferenceBadge/);
     });
+
+    it('never lets the scrolling column squash the More actions list', () => {
+        // A box that clips its content has no minimum height as a flex item, so Delete was cut off and could not be clicked.
+        expect(detectionModalSource).toContain('class="card-base shrink-0 divide-y divide-line-soft overflow-hidden" data-detection-more-actions-panel');
+    });
 });

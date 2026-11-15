@@ -69,5 +69,20 @@ def test_the_failure_payload_never_carries_credentials_from_an_address():
     payload = connection_failure_payload(
         "timeout", service="birdnet", address="http://user:secret@birdnet.invalid:8080/x?token=abc"
     )
-    assert payload["address"] == "birdnet.invalid:8080"
+    # The scheme is kept: a wrong http or https is a common cause, and it carries no credential.
+    assert payload["address"] == "http://birdnet.invalid:8080"
     assert "secret" not in payload["message"] and "token" not in payload["message"]
+
+
+def test_an_unreachable_url_names_the_scheme_as_something_to_check():
+    payload = connection_failure_payload(
+        "unreachable", service="birdnet", address="https://integration.example.test:8443/api"
+    )
+    assert payload["address"] == "https://integration.example.test:8443"
+    assert "at https://integration.example.test:8443." in payload["message"]
+    assert "Check the address, scheme and port." in payload["message"]
+    # A broker address has no scheme to check.
+    assert (
+        "scheme"
+        not in connection_failure_payload("unreachable", service="mqtt", address="mqtt.invalid:1883")["message"]
+    )

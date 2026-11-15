@@ -16,7 +16,7 @@ describe('About surface polish', () => {
     it('prints the classifier model id whole: an identifier breaks between its parts, never inside one', () => {
         expect(pipelineSource).toContain("identifier: true");
         expect(pipelineSource).toContain("return detail.split(' · ');");
-        expect(pipelineSource).toMatch(/data-pipeline-identifier[\s\S]{0,200}<span class="whitespace-nowrap">\{part\}<\/span>/);
+        expect(pipelineSource).toMatch(/data-pipeline-identifier[\s\S]{0,200}<span class="inline-block max-w-full align-top wrap-anywhere">\{part\}<\/span>/);
         expect(pipelineSource).not.toContain('break-all');
     });
 

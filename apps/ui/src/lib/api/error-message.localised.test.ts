@@ -62,6 +62,13 @@ describe('errors a person reads are worded here, in their language', () => {
         expect(extractApiErrorMessage(payload, 'HTTP 502')).toBe('MQTT broker: the host name in mqtt.invalid:1883 was not found. Check the address.');
     });
 
+    it('names the scheme as something to check when the address is a URL', async () => {
+        await locale.set('en');
+        const url = { cause: 'unreachable', service: 'birdnet', address: 'https://integration.example.test:8443', message: 'x' };
+        expect(extractApiErrorMessage(url, 'HTTP 502')).toBe('BirdNET-Go: could not connect to https://integration.example.test:8443. Check the address, scheme and port.');
+        expect(extractApiErrorMessage({ ...url, service: 'mqtt', address: 'mqtt.invalid:1883' }, 'HTTP 502')).toBe('MQTT broker: could not connect to mqtt.invalid:1883. Check the address and the port.');
+    });
+
     it('falls back to the server’s sentence for a cause it does not know', async () => {
         await locale.set('de');
         expect(extractApiErrorMessage({ cause: 'something_new', service: 'mqtt', address: 'x', message: 'A new failure.' }, 'HTTP 502')).toBe('A new failure.');

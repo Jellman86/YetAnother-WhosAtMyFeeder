@@ -7,6 +7,7 @@
     "refused": "{service} \u0001 rien n’a répondu à {address}. Vérifiez que le service fonctionne et que le port est correct.",
     "timeout": "{service} \u0001 pas de réponse de {address} dans le délai. Vérifiez l’adresse et que cette machine peut l’atteindre.",
     "not_authorised": "{service} \u0001 le nom d’utilisateur ou le mot de passe a été refusé. Vérifiez-les, ou désactivez l’authentification si les clients anonymes sont acceptés.",
-    "unreachable": "{service} \u0001 connexion à {address} impossible. Vérifiez l’adresse et le port."
+    "unreachable": "{service} \u0001 connexion à {address} impossible. Vérifiez l’adresse et le port.",
+    "unreachable_url": "{service} \u0001 connexion à {address} impossible. Vérifiez l’adresse, le schéma (http ou https) et le port."
   }
 }

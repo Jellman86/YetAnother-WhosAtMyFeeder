@@ -65,18 +65,26 @@ def describe_connection_failure(cause: ConnectionFailure, *, service: str, addre
         return f"{named} did not answer at {address} in time. Check the address and that this machine can reach it."
     if cause == "not_authorised":
         return f"{named} refused the user name or password. Check them, or turn authentication off if it accepts anonymous clients."
+    if "://" in address:
+        return f"Could not connect to {service} at {address}. Check the address, scheme and port."
     return f"Could not connect to {service} at {address}. Check the address and the port."
 
 
 def reduced_address(address: str) -> str:
-    """Host and port only: no scheme, user, password, path or query ever leaves in a failure."""
-    parts = urlsplit(address if "//" in address else f"//{address}")
+    """Scheme, host and port only: no user, password, path or query ever leaves in a failure.
+
+    The scheme stays when the address has one. A wrong http or https is among the commonest
+    reasons a check fails, so the reader needs to see which was tried.
+    """
+    has_scheme = "://" in address
+    parts = urlsplit(address if has_scheme else f"//{address}")
     host = parts.hostname or ""
     try:
         port = parts.port
     except ValueError:
         port = None
-    return f"{host}:{port}" if host and port else host
+    where = f"{host}:{port}" if host and port else host
+    return f"{parts.scheme}://{where}" if has_scheme and parts.scheme and where else where
 
 
 def connection_failure_payload(cause: ConnectionFailure, *, service: ConnectionService, address: str) -> dict[str, str]:

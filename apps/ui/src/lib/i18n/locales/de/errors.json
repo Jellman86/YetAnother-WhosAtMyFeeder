@@ -7,6 +7,7 @@
     "refused": "{service}: Unter {address} hat nichts geantwortet. Prüfe, ob der Dienst läuft und der Port stimmt.",
     "timeout": "{service}: Keine rechtzeitige Antwort von {address}. Prüfe die Adresse und ob dieses Gerät sie erreichen kann.",
     "not_authorised": "{service}: Benutzername oder Passwort wurden abgelehnt. Prüfe beide oder schalte die Authentifizierung aus, wenn anonyme Clients erlaubt sind.",
-    "unreachable": "{service}: Verbindung zu {address} nicht möglich. Prüfe Adresse und Port."
+    "unreachable": "{service}: Verbindung zu {address} nicht möglich. Prüfe Adresse und Port.",
+    "unreachable_url": "{service}: Verbindung zu {address} nicht möglich. Prüfe Adresse, Schema (http oder https) und Port."
   }
 }

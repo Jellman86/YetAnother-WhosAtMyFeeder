@@ -49,6 +49,13 @@ function connectionFailureMessage(payload: object): string | null {
     if (typeof cause !== 'string' || typeof service !== 'string' || typeof address !== 'string') return null;
     const serviceName = connectionServiceName(service);
     if (!Object.hasOwn(CONNECTION_CAUSES, cause) || serviceName === null) return null;
+    // An address given as a URL has a scheme, and a wrong http or https is a common cause.
+    if (cause === 'unreachable' && address.includes('://')) {
+        return worded('errors.connection.unreachable_url', '{service}: could not connect to {address}. Check the address, scheme and port.', {
+            service: serviceName,
+            address
+        });
+    }
     return worded(`errors.connection.${cause}`, CONNECTION_CAUSES[cause], { service: serviceName, address });
 }
 

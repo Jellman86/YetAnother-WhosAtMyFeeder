@@ -1233,7 +1233,8 @@ return 422. It does not reclassify saved detections or wait indefinitely for an 
 - A failed reachability or test-publish answer (502 or 504) carries, beside `status` and an
   English `message`, a stable `cause` (`host_not_found`, `refused`, `timeout`,
   `not_authorised` or `unreachable`), the `service` (`mqtt` or `birdnet`) and an `address`
-  reduced to `host[:port]`, so a client can word the cause in its own language.
+  reduced to `host[:port]`, or `scheme://host[:port]` when it was given as a URL, so a client can
+  word the cause in its own language. It never carries a user, password, path or query.
 - `POST /api/settings/notifications/test` (owner)
 - `POST /api/settings/birdweather/test` (owner)
 - `POST /api/settings/ha-weather/test` (owner) — fetches a live reading from the configured

@@ -7,6 +7,7 @@
     "refused": "{service}: nothing answered at {address}. Check that it is running and that the port is right.",
     "timeout": "{service}: no answer from {address} in time. Check the address and that this machine can reach it.",
     "not_authorised": "{service}: the user name or password was refused. Check them, or turn authentication off if it accepts anonymous clients.",
-    "unreachable": "{service}: could not connect to {address}. Check the address and the port."
+    "unreachable": "{service}: could not connect to {address}. Check the address and the port.",
+    "unreachable_url": "{service}: could not connect to {address}. Check the address, scheme and port."
   }
 }

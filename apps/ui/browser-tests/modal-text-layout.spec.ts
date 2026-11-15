@@ -33,7 +33,8 @@ for (const font of ['system', 'wide fallback'] as const) {
         // Actual modal; HTTP and media boundaries are fixtures, not backend/inference E2E.
         await page.goto('/browser-tests/modal-text-layout.html');
         const modal = page.locator('[data-detection-detail-modal]');
-        await expect(modal).toBeVisible();
+        // The record is a lazy chunk on a dev server; a loaded host can take longer than the default wait.
+        await expect(modal).toBeVisible({ timeout: 15_000 });
         // Keep the platform font case and also exercise wider fallback glyphs, which exposed the
         // anonymous flex text item's intrinsic width on Linux.
         await page.addStyleTag({ content: 'html{font-size:200%!important}'

@@ -235,7 +235,10 @@
         return tone === 'ok' ? 'bg-success-500' : 'border border-slate-400 dark:border-slate-500';
     }
 
-    /** An identifier may only break between its parts, never inside a model name. */
+    /**
+     * An identifier breaks between its parts. Each part is its own box, so it breaks inside only
+     * when it alone is wider than the card, as at a very large text size.
+     */
     function parts(detail: string): string[] {
         return detail.split(' · ');
     }
@@ -273,7 +276,7 @@
                 </span>
                 {#if step.identifier}
                     <span class="relative mt-0.5 block font-mono text-2xs leading-snug text-slate-600 dark:text-slate-400" data-pipeline-identifier>
-                        {#each parts(step.detail) as part, position (position)}{#if position > 0}{' · '}{/if}<span class="whitespace-nowrap">{part}</span>{/each}
+                        {#each parts(step.detail) as part, position (position)}{#if position > 0}{' · '}{/if}<span class="inline-block max-w-full align-top wrap-anywhere">{part}</span>{/each}
                     </span>
                 {:else}
                     <span class="relative mt-0.5 block text-2xs leading-snug text-slate-600 wrap-anywhere dark:text-slate-400">
