@@ -59,13 +59,33 @@ def test_the_packet_listing_reads_time_base_timestamps_and_keyframes():
         "#tb 0: 1/90000\n0, 0, 0, 1, 1, 0x0, F=0xZZ\n",
     ],
 )
-def test_an_unreadable_packet_listing_is_a_hardware_failure_not_a_guess(text):
-    with pytest.raises(decode.HardwareDecodeFailed):
+def test_an_unreadable_packet_listing_is_a_property_of_the_file_not_a_gpu_failure(text):
+    with pytest.raises(decode.HardwareDecodeUnsupported):
         decode.parse_timeline(text)
 
 
+def test_a_packet_without_a_timestamp_is_refused_explicitly():
+    missing = -9223372036854775808
+    with pytest.raises(decode.HardwareDecodeUnsupported, match="timestamp"):
+        decode.parse_timeline(_framecrc([(0, 0, ""), (missing, missing, ", F=0x0")]))
+
+
+def test_packets_flagged_discard_are_read_from_the_listing():
+    timeline = decode.parse_timeline(_framecrc([(0, 0, ", F=0x5"), (3000, 3000, ", F=0x4"), (6000, 6000, ", F=0x0")]))
+    assert [(p.key, p.discard) for p in timeline.packets] == [(True, True), (False, True), (False, False)]
+
+
+def test_a_recording_with_discarded_packets_is_left_to_the_cpu():
+    # OpenCV's decoder never returns discarded packets, so counting them would run ahead of it.
+    rows = [(0, 0, ", F=0x5"), (3000, 3000, ", F=0x4"), (6000, 6000, "")] + [
+        (i * 3000, i * 3000, ", F=0x0") for i in range(3, 100)
+    ]
+    with pytest.raises(decode.HardwareDecodeUnsupported, match="discard"):
+        decode.opencv_seek_frames(decode.parse_timeline(_framecrc(rows)), [30], fps=30.0)
+
+
 def test_an_unbounded_packet_listing_is_refused():
-    with pytest.raises(decode.HardwareDecodeFailed):
+    with pytest.raises(decode.HardwareDecodeUnsupported):
         decode.parse_timeline(_framecrc([(i, i, "") for i in range(decode.TIMELINE_PACKET_LIMIT + 1)]))
 
 
@@ -368,3 +388,37 @@ async def test_cancelling_the_startup_probe_kills_and_reaps_its_decoder(tmp_path
     with pytest.raises(asyncio.CancelledError):
         await probe
     assert _gone(pid, seconds=1.0)
+
+
+def test_the_listing_reads_at_most_its_limit_then_stops_and_reaps_the_lister(tmp_path):
+    # An over-long listing is refused at the limit instead of being buffered whole. The
+    # stand-in writes a bounded 2 MB and then hangs, so even a buffering reader holds only
+    # that much before its deadline: a test must never be able to exhaust the host's memory.
+    pid_file = tmp_path / "lister.pid"
+    ffmpeg = _python_ffmpeg(
+        tmp_path,
+        f"open({str(pid_file)!r}, 'w').write(str(__import__('os').getpid()))\n"
+        "out.write(b'0, 0, 0, 1, 1, 0x0\\n' * 110000)\nout.flush()\ntime.sleep(30)",
+    )
+    started = time.monotonic()
+    with pytest.raises(decode.HardwareDecodeUnsupported, match="too long"):
+        decode.read_timeline(Path("clip.mp4"), ffmpeg=ffmpeg)
+    assert time.monotonic() - started < 5
+    assert _gone(int(pid_file.read_text()), seconds=1.0)
+
+
+def test_a_lister_that_hangs_or_crashes_is_a_hardware_failure_that_counts(tmp_path, monkeypatch):
+    monkeypatch.setattr(decode, "LISTING_TIMEOUT_SECONDS", 0.5)
+    for body in ("time.sleep(30)", "sys.exit(3)"):
+        ffmpeg = _python_ffmpeg(tmp_path, body)
+        with pytest.raises(decode.HardwareDecodeFailed) as raised:
+            decode.read_timeline(Path("clip.mp4"), ffmpeg=ffmpeg)
+        assert not isinstance(raised.value, decode.HardwareDecodeUnsupported)
+
+
+def test_the_worst_case_gpu_scan_fits_well_inside_the_worker_deadline():
+    from app.services.garden_motion import MOTION_WORKER_TIMEOUT_SECONDS
+
+    # Listing, then a GPU decode that times out, then the CPU rescans the recording and runs
+    # three detector samples: about 15 s of CPU work on a slow host.
+    assert decode.LISTING_TIMEOUT_SECONDS + decode.FRAME_TIMEOUT_SECONDS + 15 <= MOTION_WORKER_TIMEOUT_SECONDS

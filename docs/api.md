@@ -152,8 +152,9 @@ curl -N "http://localhost:9852/api/sse?ticket=$TICKET"
   accelerator utilization or live-request latency; short bursts between checks can be missed.
   `garden_motion_decode` reports how Garden motion recordings decode: `state` (`vaapi`,
   `not_packaged`, `no_render_node`, `probe_failed`, `decode_failed`, or `not_checked` before the
-  first check), `decoder` (`vaapi` or `software`), the render `device`, a plain-language `message`
-  and `consecutive_fallbacks`. CPU decode never sets `status=degraded`.
+  first check), `decoder` (`vaapi` or `software`), the render `device`, a plain-language `message`,
+  `consecutive_fallbacks`, and `software_cameras`: cameras whose recordings decode on the CPU by
+  design (B-frames or edit lists) while the GPU works. CPU decode never sets `status=degraded`.
   Existing maintenance-specific fields remain available. See [video queue behaviour](features/video-analysis.md#settings).
   `mqtt.connection_state` is the broker session as measured (`connecting`, `connected`,
   `disconnected`, `not_configured` or `stopped`), and `frigate_api` carries `state`

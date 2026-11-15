@@ -38,6 +38,12 @@ PROBE_TIMEOUT_SECONDS = 10.0
 # A 20 s, 1440p recording decodes on the GPU in about a second. This bounds one
 # recording's decode so a hung GPU falls back to software inside the parent's 45 s deadline.
 FRAME_TIMEOUT_SECONDS = 20.0
+# Listing packets only demuxes, well under a second for a 48 MiB recording. Kept short so a
+# listing timeout, a GPU timeout and a full CPU rescan still finish inside the 45 s deadline.
+LISTING_TIMEOUT_SECONDS = 5.0
+LISTING_BYTE_LIMIT = 1024 * 1024
+# ffmpeg prints AV_NOPTS_VALUE for a packet without a timestamp.
+_NO_TIMESTAMP = -(2**63)
 
 DecoderState = Literal["vaapi", "not_packaged", "no_render_node", "probe_failed", "decode_failed"]
 
@@ -74,6 +80,9 @@ def owned_by_this_process() -> Callable[[], None] | None:
     """
     if sys.platform != "linux":
         return None
+    # Python warns that pre-exec code is unsafe in a threaded process because the child may
+    # need a lock another thread held at fork. This hook takes none: prctl is looked up here,
+    # before fork, and the child only makes the prctl and getppid system calls, then execs.
     prctl = ctypes.CDLL(None, use_errno=True).prctl
     parent = os.getpid()
 
@@ -125,6 +134,7 @@ class Packet:
     dts: int
     pts: int
     key: bool
+    discard: bool = False
 
 
 @dataclass(frozen=True)
@@ -139,33 +149,41 @@ TIMELINE_PACKET_LIMIT = 4096
 
 
 def parse_timeline(text: str) -> VideoTimeline:
-    """Read ffmpeg's framecrc listing of one stream-copied video stream, strictly and boundedly."""
+    """Read ffmpeg's framecrc listing of one stream-copied video stream, strictly and boundedly.
+
+    Anything unreadable is a property of the recording, not a GPU fault, so it is
+    ``HardwareDecodeUnsupported``: the recording is read in software without counting
+    towards switching hardware decode off.
+    """
     time_base: float | None = None
     packets: list[Packet] = []
     for line in text.splitlines():
         if line.startswith("#tb 0:"):
             numerator, _, denominator = line.split(":", 1)[1].strip().partition("/")
             if not numerator.isdigit() or not denominator.isdigit() or int(denominator) == 0:
-                raise HardwareDecodeFailed("Recording time base is unreadable")
+                raise HardwareDecodeUnsupported("Recording time base is unreadable")
             time_base = int(numerator) / int(denominator)
         elif line and not line.startswith("#"):
             fields = [field.strip() for field in line.split(",")]
             if len(fields) < 6 or fields[0] != "0" or len(packets) >= TIMELINE_PACKET_LIMIT:
-                raise HardwareDecodeFailed("Recording packet listing is unreadable")
+                raise HardwareDecodeUnsupported("Recording packet listing is unreadable")
             try:
                 dts, pts = int(fields[1]), int(fields[2])
             except ValueError as error:
-                raise HardwareDecodeFailed("Recording packet timestamps are unreadable") from error
+                raise HardwareDecodeUnsupported("Recording packet timestamps are unreadable") from error
+            if _NO_TIMESTAMP in (dts, pts):
+                raise HardwareDecodeUnsupported("Recording has a packet without a timestamp")
             # framecrc names flags (F=0x..) only when a packet is not exactly a keyframe, and
             # may append side data (S=..) after them.
+            # Bit 0x1 is a keyframe; 0x4 marks a packet an edit list tells the decoder to drop.
             flags = [field for field in fields[6:] if field.startswith("F=0x")]
             try:
-                key = not flags or bool(int(flags[0][4:], 16) & 1)
+                value = int(flags[0][4:], 16) if flags else 0x1
             except ValueError as error:
-                raise HardwareDecodeFailed("Recording packet flags are unreadable") from error
-            packets.append(Packet(dts, pts, key))
+                raise HardwareDecodeUnsupported("Recording packet flags are unreadable") from error
+            packets.append(Packet(dts, pts, bool(value & 0x1), bool(value & 0x4)))
     if time_base is None or not packets:
-        raise HardwareDecodeFailed("Recording has no video packets")
+        raise HardwareDecodeUnsupported("Recording has no video packets")
     return VideoTimeline(time_base, tuple(packets))
 
 
@@ -177,9 +195,13 @@ def opencv_seek_frames(timeline: VideoTimeline, targets: list[int], *, fps: floa
     timestamps jitter, such as one at 30.14 fps on a 1/60 s grid, the keyframe's timestamp
     number differs from its position, so OpenCV returns a frame or two either side of the
     one it reports. Replaying its arithmetic here makes the GPU return the same frame.
-    Recordings that reorder frames are refused, so they keep decoding in software.
+    Recordings that reorder frames are refused, so they keep decoding in software, as are
+    recordings with packets marked for discard: OpenCV's decoder never returns those, so
+    counting them would run ahead of its frame count.
     """
     packets = timeline.packets
+    if any(packet.discard for packet in packets):
+        raise HardwareDecodeUnsupported("Recording has packets marked for discard by an edit list")
     if any(later.pts <= earlier.pts or later.dts < earlier.dts for earlier, later in zip(packets, packets[1:])):
         raise HardwareDecodeUnsupported("Recording reorders frames")
     start = packets[0].pts
@@ -248,20 +270,47 @@ def packet_command(clip: Path, *, ffmpeg: Path = FFMPEG) -> list[str]:
 
 
 def read_timeline(clip: Path, *, ffmpeg: Path = FFMPEG) -> VideoTimeline:
+    """The recording's packet timestamps, read through a bounded pipe.
+
+    At most ``LISTING_BYTE_LIMIT`` bytes are read; a longer listing is refused and ffmpeg is
+    killed and reaped, so an odd recording cannot make the worker buffer without bound. A
+    hung or crashed lister is a hardware-path failure; an over-long listing is the file's.
+    """
     try:
-        completed = subprocess.run(
+        process = subprocess.Popen(
             packet_command(clip, ffmpeg=ffmpeg),
             stdin=subprocess.DEVNULL,
-            capture_output=True,
-            timeout=FRAME_TIMEOUT_SECONDS,
-            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
             preexec_fn=owned_by_this_process(),
         )
-    except (OSError, subprocess.TimeoutExpired) as error:
+    except OSError as error:
         raise HardwareDecodeFailed(type(error).__name__) from error
-    if completed.returncode != 0 or len(completed.stdout) > 1024 * 1024:
-        raise HardwareDecodeFailed("Recording packets could not be listed")
-    return parse_timeline(completed.stdout.decode("ascii", "replace"))
+    timed_out = threading.Event()
+
+    def stop() -> None:
+        timed_out.set()
+        process.kill()
+
+    deadline = threading.Timer(LISTING_TIMEOUT_SECONDS, stop)
+    deadline.start()
+    try:
+        output = process.stdout.read(LISTING_BYTE_LIMIT + 1) if process.stdout else b""
+        if len(output) > LISTING_BYTE_LIMIT:
+            raise HardwareDecodeUnsupported("Recording packet listing is too long")
+        returncode = process.wait()
+    finally:
+        deadline.cancel()
+        if process.poll() is None:
+            process.kill()
+        process.wait()
+        if process.stdout:
+            process.stdout.close()
+    if timed_out.is_set():
+        raise HardwareDecodeFailed("Recording packet listing timed out")
+    if returncode != 0:
+        raise HardwareDecodeFailed(f"Recording packet listing exited with status {returncode}")
+    return parse_timeline(output.decode("ascii", "replace"))
 
 
 def frame_command(device: str, clip: Path, indices: list[int], *, ffmpeg: Path = FFMPEG) -> list[str]:

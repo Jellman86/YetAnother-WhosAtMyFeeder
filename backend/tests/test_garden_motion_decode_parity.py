@@ -9,6 +9,7 @@ image's decoder and a render node can decode, and is skipped elsewhere.
 """
 
 import asyncio
+import hashlib
 from pathlib import Path
 
 import cv2
@@ -18,7 +19,9 @@ import pytest
 from app.services import garden_motion_decode as decode
 from app.services.garden_motion_worker import software_samples
 
-FIXTURES = sorted((Path(__file__).parent / "fixtures" / "garden_motion").glob("garden_parity_*.mp4"))
+ALL_FIXTURES = sorted((Path(__file__).parent / "fixtures" / "garden_motion").glob("garden_parity_*.mp4"))
+EDIT_LIST = next(path for path in ALL_FIXTURES if "edit" in path.stem)
+FIXTURES = [path for path in ALL_FIXTURES if path != EDIT_LIST]
 CONSTANT_RATE = [path for path in FIXTURES if "jitter" not in path.stem]
 LIVE = (0.1, 0.5, 0.9)
 OFFLINE = tuple(i / 10 for i in range(1, 10))
@@ -51,15 +54,20 @@ def _opencv_samples(
     return times, [int(index) for index, _ in samples], [frame for _, frame in samples], fps, count
 
 
-def _sequential(path: Path) -> list[np.ndarray]:
+def _digest(frame: np.ndarray) -> str:
+    return hashlib.sha256(frame.tobytes()).hexdigest()
+
+
+def _sequential(path: Path) -> list[str]:
+    """Each frame's digest in decode order; frames are discarded as they stream past."""
     reader = _reader(path)
-    frames = []
+    digests = []
     try:
         while True:
             ok, frame = reader.read()
             if not ok:
-                return frames
-            frames.append(frame)
+                return digests
+            digests.append(_digest(frame))
     finally:
         reader.release()
 
@@ -69,12 +77,13 @@ def _timeline(path: Path) -> decode.VideoTimeline:
 
 
 def test_every_fixture_and_its_packet_listing_are_present():
-    assert [path.name for path in FIXTURES] == [
+    assert [path.name for path in ALL_FIXTURES] == [
+        "garden_parity_edit.mp4",
         "garden_parity_full.mp4",
         "garden_parity_jitter.mp4",
         "garden_parity_limited.mp4",
     ]
-    assert all(path.with_suffix(".framecrc").is_file() for path in FIXTURES)
+    assert all(path.with_suffix(".framecrc").is_file() for path in ALL_FIXTURES)
 
 
 @pytest.mark.parametrize("fixture", FIXTURES, ids=lambda path: path.stem)
@@ -91,7 +100,7 @@ def test_the_replayed_seek_picks_the_frame_opencv_returns_for_every_frame_number
             (index, frame), *_ = list(software_samples(reader, [time]))
             (chosen,) = decode.opencv_seek_frames(timeline, [target], fps=fps)
             quirks += chosen != target
-            if int(index) != target or not np.array_equal(frame, sequential[chosen]):
+            if int(index) != target or _digest(frame) != sequential[chosen]:
                 mismatched.append(wanted)
     finally:
         reader.release()
@@ -108,7 +117,7 @@ def test_gpu_frame_selection_matches_the_frames_opencv_seeks_to(fixture, fractio
     assert decode.sample_frame_indices(times, fps=fps, count=count) == indices
     sequential = _sequential(fixture)
     # Each seeked frame is the frame at its reported position, decoded in order.
-    assert all(np.array_equal(frame, sequential[index]) for index, frame in zip(indices, frames))
+    assert all(_digest(frame) == sequential[index] for index, frame in zip(indices, frames))
     if fractions == LIVE:
         # 4.95 s at 30 fps is half a frame: OpenCV rounds it up, unlike Python's round().
         assert indices == [30, 149, 267] and round(times[1] * 30) == 148
@@ -139,3 +148,61 @@ def test_gpu_frames_are_pixel_identical_to_opencv(fixture, fractions):
     assert planned == indices
     differing = sum(int(np.count_nonzero(a != b)) for a, b in zip(gpu, frames))
     assert differing == 0
+
+
+def test_an_edit_listed_recording_is_left_to_the_cpu_because_opencv_skips_its_discarded_packets():
+    # A stream copy cut mid-GOP keeps the lead-in packets but flags them discard (F=0x4).
+    timeline = _timeline(EDIT_LIST)
+    listed = len(timeline.packets)
+    assert listed - len(_sequential(EDIT_LIST)) > 0
+    assert any(packet.discard for packet in timeline.packets)
+    with pytest.raises(decode.HardwareDecodeUnsupported, match="discard"):
+        decode.opencv_seek_frames(timeline, [30, 90, 150], fps=30.0)
+
+
+def _drain(samples) -> tuple[list[tuple[int, str]], str | None]:
+    """Each sample's index and pixel digest until the stream ends, and the reason it stopped early."""
+    from app.services.garden_motion_worker import UnusableRecording
+
+    seen = []
+    try:
+        for index, frame in samples:
+            seen.append((int(index), _digest(frame)))
+    except UnusableRecording as error:
+        return seen, error.reason
+    return seen, None
+
+
+@pytest.mark.parametrize("fractions", [LIVE, OFFLINE], ids=["live", "offline"])
+def test_a_gpu_scan_of_an_edit_listed_recording_reads_exactly_what_the_cpu_reads(fractions):
+    from app.services.garden_motion_worker import hardware_samples
+
+    device = _gpu_decoder().device
+    assert device is not None
+    cpu, gpu = _reader(EDIT_LIST), _reader(EDIT_LIST)
+    paths: list[str] = []
+    try:
+        fps, count = cpu.get(cv2.CAP_PROP_FPS), cpu.get(cv2.CAP_PROP_FRAME_COUNT)
+        width, height = int(cpu.get(cv2.CAP_PROP_FRAME_WIDTH)), int(cpu.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        times = _scan_times(fps, count, fractions)
+        expected = _drain(software_samples(cpu, times))
+        actual = _drain(
+            hardware_samples(
+                device,
+                EDIT_LIST,
+                gpu,
+                times,
+                fps=fps,
+                count=count,
+                width=width,
+                height=height,
+                on_fallback=lambda: paths.append("software_fallback"),
+                on_unsupported=lambda: paths.append("software"),
+            )
+        )
+    finally:
+        cpu.release()
+        gpu.release()
+    # The CPU reads it, without blaming the GPU, so samples and any unreadable frame match exactly.
+    assert paths == ["software"]
+    assert actual == expected and expected[0]

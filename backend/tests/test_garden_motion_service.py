@@ -891,6 +891,7 @@ async def test_a_successful_gpu_scan_clears_earlier_fallbacks(collector, monkeyp
         "device": "/dev/dri/renderD128",
         "message": "Motion recordings decode on the Intel GPU (/dev/dri/renderD128).",
         "consecutive_fallbacks": 0,
+        "software_cameras": [],
     }
 
 
@@ -1008,3 +1009,26 @@ async def test_a_recording_decoded_in_software_by_design_does_not_count_against_
     assert collector.last_outcome == "no_candidate"
     assert collector.hardware_fallbacks == 2 and collector.decode_health()["state"] == "vaapi"
     record.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_a_camera_that_always_decodes_in_software_is_said_once_and_shown_in_health(collector, monkeypatch):
+    from app.services import garden_motion
+
+    collector.decoder = MotionDecoder("vaapi", "/dev/dri/renderD128")
+    collector.decoder_reported = True
+    monkeypatch.setattr("app.services.garden_motion.time.time", lambda: 5000.0)
+    records = [{"start_time": 4400.0, "end_time": 4970.0, "motion": 5}]
+    monkeypatch.setattr("app.services.garden_motion.frigate_client.get", _records_get(records, []))
+    monkeypatch.setattr(
+        collector, "_native", AsyncMock(return_value={"outcome": "no_candidate", "decoder": "software"})
+    )
+    info = Mock()
+    monkeypatch.setattr(garden_motion.log, "info", info)
+    for _ in range(3):
+        collector.next_scan = 0
+        await collector.scan_once()
+    lines = [call for call in info.call_args_list if call.args[0] == "garden_motion_camera_decodes_in_software"]
+    assert len(lines) == 1 and lines[0].kwargs["camera"] == "patio"
+    health = collector.decode_health()
+    assert health["state"] == "vaapi" and health["software_cameras"] == ["patio"]

@@ -50,6 +50,9 @@ class UnusableRecording(ValueError):
             raise ValueError("Unknown unusable-recording reason")
         super().__init__(reason)
         self.reason = reason
+        # Which decoder the scan had reached; a GPU failure before an unreadable CPU frame is
+        # still a fallback the parent must count.
+        self.decoder: str | None = None
 
 
 def model_binding(payload: dict[str, Any]) -> tuple[str, str]:
@@ -145,6 +148,7 @@ def scan_clip(
     cv2.setNumThreads(1)
     reader = cv2.VideoCapture(str(clip), cv2.CAP_FFMPEG, [cv2.CAP_PROP_N_THREADS, 1])
     samples: Generator[tuple[float, np.ndarray]] | None = None
+    decoder: str | None = None
     try:
         width, height = reader.get(cv2.CAP_PROP_FRAME_WIDTH), reader.get(cv2.CAP_PROP_FRAME_HEIGHT)
         fps, count = reader.get(cv2.CAP_PROP_FPS), reader.get(cv2.CAP_PROP_FRAME_COUNT)
@@ -163,7 +167,6 @@ def scan_clip(
         greys = []
         seen: dict[int, str] = {}
         decoded = 0
-        decoder: str | None = None
 
         def finish(result: dict[str, Any]) -> dict[str, Any]:
             if samples_per_window == 9:
@@ -264,6 +267,9 @@ def scan_clip(
                     }
                 )
         raise UnusableRecording("photo_too_large")
+    except UnusableRecording as error:
+        error.decoder = decoder
+        raise
     finally:
         if samples is not None:
             # An early person veto stops the GPU decode here instead of when garbage collected.
@@ -279,7 +285,10 @@ def main() -> None:
         try:
             return scan_clip(payload, runtime=detector.get(payload))
         except UnusableRecording as error:
-            return {"outcome": "unusable_recording", "reason": error.reason}
+            result = {"outcome": "unusable_recording", "reason": error.reason}
+            if error.decoder is not None:
+                result["decoder"] = error.decoder
+            return result
 
     serve("MOTION_RESULT:", handle)
 

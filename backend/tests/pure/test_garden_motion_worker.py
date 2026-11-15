@@ -475,3 +475,28 @@ def test_a_recording_the_gpu_cannot_match_is_read_in_software_without_blaming_th
     # Not a GPU failure: the stream itself needs software, so the fallback count is untouched.
     assert result == {"outcome": "no_candidate", "decoder": "software"}
     assert calls == [] and reader.read.call_count == 3
+
+
+def test_an_unlistable_recording_is_read_in_software_without_blaming_the_gpu(scan, monkeypatch):
+    from app.services.garden_motion_decode import HardwareDecodeUnsupported
+
+    payload, reader, _, _, _ = scan
+    hardware_frames(monkeypatch, {})
+    monkeypatch.setattr(worker, "read_timeline", Mock(side_effect=HardwareDecodeUnsupported("bad time base")))
+    monkeypatch.setattr(worker, "decode_candidates", lambda *args: [])
+    result = worker.scan_clip(payload | {"decode_device": "/dev/dri/renderD128"})
+    assert result == {"outcome": "no_candidate", "decoder": "software"}
+
+
+def test_a_gpu_failure_before_an_unreadable_cpu_frame_is_still_reported_as_a_fallback(scan, monkeypatch):
+    payload, reader, _, photo, _ = scan
+    hardware_frames(monkeypatch, {}, fail_after=0)
+    reader.read.side_effect = lambda: (False, None)
+    served = {}
+    monkeypatch.setattr(worker.os, "nice", lambda increment: increment)
+    monkeypatch.setattr(worker, "serve", lambda prefix, handle: served.update(handle=handle))
+    monkeypatch.setattr(worker, "load_detector", Mock(return_value=Mock(actual=["CPUExecutionProvider"])))
+    worker.main()
+    result = served["handle"](payload | {"decode_device": "/dev/dri/renderD128"})
+    assert result == {"outcome": "unusable_recording", "reason": "decode_failed", "decoder": "software_fallback"}
+    assert not photo.exists()

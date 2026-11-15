@@ -412,6 +412,9 @@ falls back to the CPU for one recording at a time, so a GPU problem never stops 
 The GPU returns the same frames and pixels as CPU decoding, so the detector sees what it
 always saw. Each sample is the frame OpenCV's seek would return, worked out from the
 recording's packet timestamps; on cameras whose timestamps jitter that can be a frame either
-side of the frame number OpenCV reports. Recordings that reorder frames (B-frames) decode on
-the CPU. If YA-WAMF stops or the scan is pre-empted for birds, the decoder process is killed
-with it.
+side of the frame number OpenCV reports. Recordings that reorder frames (B-frames), carry
+an edit list that drops packets, or whose packet listing cannot be read decode on the CPU.
+That is a property of the recording, not a GPU fault, so it never switches GPU decode off;
+the log says so once per camera and `garden_motion_decode.software_cameras` lists those
+cameras. If YA-WAMF stops or the scan is pre-empted for birds, the decoder process is
+killed with it.

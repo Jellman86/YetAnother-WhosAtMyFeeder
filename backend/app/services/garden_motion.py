@@ -67,6 +67,8 @@ log = structlog.get_logger()
 UNREADABLE_WINDOW_SECONDS = 3600
 # One odd recording falling back to the CPU is not a broken GPU; this many in a row is.
 MOTION_HARDWARE_FALLBACK_LIMIT = 3
+# The parent's deadline for one recording scan; the decoder's own timeouts fit inside it.
+MOTION_WORKER_TIMEOUT_SECONDS = 45
 # Decoder states that mean the image expected the GPU and something on the host prevented it.
 _HARDWARE_DECODE_FAULTS = frozenset({"no_render_node", "probe_failed", "decode_failed"})
 
@@ -114,6 +116,8 @@ class GardenMotionService:
         self.decoder: MotionDecoder | None = None
         self.decoder_reported = False
         self.hardware_fallbacks = 0
+        # Cameras whose recordings the GPU cannot match to OpenCV's frames, said once each.
+        self.software_cameras: set[str] = set()
         self.worker = GardenWarmWorker(
             "app.services.garden_motion_worker",
             b"MOTION_RESULT:",
@@ -230,6 +234,7 @@ class GardenMotionService:
                 "device": None,
                 "message": "The motion recording decoder has not been checked yet.",
                 "consecutive_fallbacks": 0,
+                "software_cameras": [],
             }
         return {
             "state": self.decoder.state,
@@ -237,6 +242,8 @@ class GardenMotionService:
             "device": self.decoder.device,
             "message": self.decoder.message,
             "consecutive_fallbacks": self.hardware_fallbacks,
+            # Decoded on the CPU by design, for example B-frames or edit lists, while the GPU works.
+            "software_cameras": sorted(self.software_cameras),
         }
 
     async def _motion_decoder(self) -> MotionDecoder:
@@ -271,6 +278,14 @@ class GardenMotionService:
     def _note_decoder(self, camera: str, used: str | None) -> None:
         if used == "vaapi":
             self.hardware_fallbacks = 0
+        elif used == "software" and camera not in self.software_cameras:
+            self.software_cameras.add(camera)
+            log.info(
+                "garden_motion_camera_decodes_in_software",
+                camera=camera,
+                message="This camera's recordings cannot be matched to OpenCV's frames on the GPU, "
+                "for example because they use B-frames or edit lists, so they decode on the CPU.",
+            )
         elif used == "software_fallback":
             self.hardware_fallbacks += 1
             log.warning("garden_motion_hardware_decode_fallback", camera=camera, consecutive=self.hardware_fallbacks)
@@ -382,7 +397,7 @@ class GardenMotionService:
     async def _native(self, payload: dict[str, Any], blocked: Callable[[], bool]) -> dict[str, Any]:
         # A warm detector serves only the exact model it loaded.
         binding = (payload["model"], payload["model_sha256"])
-        result = await self.worker.request(binding, payload, blocked, timeout_seconds=45)
+        result = await self.worker.request(binding, payload, blocked, timeout_seconds=MOTION_WORKER_TIMEOUT_SECONDS)
         if result.get("outcome") not in {
             "candidate",
             "person_rejected",
