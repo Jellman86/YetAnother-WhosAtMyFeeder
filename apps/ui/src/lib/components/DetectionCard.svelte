@@ -14,13 +14,8 @@
 
     import { getBirdNames } from '../naming';
     import { formatDate as formatDateValue, formatTime } from '../utils/datetime';
-    import { formatTemperature } from '../utils/temperature';
     import { photoFitFor, type PhotoFit } from '../utils/photo-fit';
     import type { SpeciesInCapture } from '../utils/visit-captures';
-    import {
-        getTemperatureUnitForSystem,
-        resolveWeatherUnitSystem
-    } from '../utils/weather-units';
 
     interface Props {
         detection: Detection;
@@ -95,13 +90,6 @@
     let hasAudioConfirmed = $derived(!isManualObservation && !!detection.audio_confirmed);
     let upstreamMissing = $derived(!isManualObservation && detection.frigate_status === 'missing');
 
-    let hasWeather = $derived(
-        detection.temperature !== undefined && detection.temperature !== null ||
-        !!detection.weather_condition
-    );
-    let hasTemperature = $derived(
-        detection.temperature !== undefined && detection.temperature !== null
-    );
 
     const thumbnailUrl = $derived(
         getThumbnailUrl(detection.frigate_event, detectionsStore.settledMediaVersion(detection.frigate_event))
@@ -164,47 +152,7 @@
         }
     }
 
-    const weatherConditionSummary = $derived.by(() => summarizeWeatherCondition(detection.weather_condition));
-    const hasWeatherCondition = $derived(weatherConditionSummary.length > 0);
-    const weatherUnitSystem = $derived(
-        resolveWeatherUnitSystem(
-            settingsStore.settings?.location_weather_unit_system ?? authStore.locationWeatherUnitSystem,
-            settingsStore.settings?.location_temperature_unit ?? authStore.locationTemperatureUnit
-        )
-    );
-    const temperatureUnit = $derived(getTemperatureUnitForSystem(weatherUnitSystem));
     const canPlayVideo = $derived(!!onPlay && (detection.has_clip || fullVisitFetched));
-
-    function summarizeWeatherCondition(value?: string | null): string {
-        if (typeof value !== 'string') return '';
-        const raw = value.trim();
-        if (!raw) return '';
-        const text = raw.toLowerCase();
-
-        if (text.includes('thunder') || text.includes('storm')) return 'Storm';
-        if (text.includes('sleet')) return 'Sleet';
-        if (text.includes('hail')) return 'Hail';
-        if (text.includes('snow')) return 'Snow';
-        if (text.includes('drizzle')) return 'Drizzle';
-        if (text.includes('rain') || text.includes('shower')) return 'Rain';
-        if (text.includes('fog') || text.includes('mist') || text.includes('haze')) return 'Fog';
-        if (text.includes('cloud')) return text.includes('partly') ? 'Partly Cloudy' : 'Cloudy';
-        if (text.includes('clear') || text.includes('sunny')) return 'Clear';
-
-        return raw;
-    }
-
-    function weatherIcon(summary: string): string {
-        const s = summary.toLowerCase();
-        if (s.includes('storm') || s.includes('thunder')) return 'storm';
-        if (s.includes('snow') || s.includes('sleet') || s.includes('hail')) return 'snow';
-        if (s.includes('rain') || s.includes('drizzle') || s.includes('shower')) return 'rain';
-        if (s.includes('fog') || s.includes('mist') || s.includes('haze')) return 'fog';
-        if (s.includes('partly')) return 'partly-cloudy';
-        if (s.includes('cloud')) return 'cloudy';
-        if (s.includes('clear') || s.includes('sunny')) return 'clear';
-        return 'cloudy';
-    }
 </script>
 
 <div class="relative h-full rounded-4xl transition-all duration-300 ease-out">
@@ -217,7 +165,7 @@
                hover:border-brand-500/40 dark:hover:border-brand-500/30
                overflow-hidden transition-[border-color,box-shadow] duration-200 ease-out
                flex flex-col h-full
-               text-left w-full animate-entrance
+               text-left w-full
                {detection.is_hidden ? 'opacity-60 grayscale-[0.5]' : ''}
                {isVerified ? 'ring-2 ring-success-500/20 dark:ring-success-500/10' : ''}
                {analysisActive ? 'border-2 border-brand-500 ring-2 ring-brand-500/30 dark:border-brand-400 dark:ring-brand-400/25' : ''}
@@ -483,45 +431,7 @@
             {/if}
         </div>
 
-        <!-- Compact weather: icon + condition + temp -->
-        {#if hasWeather && (hasWeatherCondition || hasTemperature)}
-            <div class="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
-                {#if hasWeatherCondition}
-                    {@const icon = weatherIcon(weatherConditionSummary)}
-                    {#if icon === 'clear'}
-                        <svg class="w-4 h-4 text-slate-500 dark:text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-                        </svg>
-                    {:else if icon === 'rain' || icon === 'storm'}
-                        <svg class="w-4 h-4 text-slate-500 dark:text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 13v4m-4-2v4m-4-2v2m1-8a5 5 0 119.584 1.245A4 4 0 0117 16H7a4 4 0 01-1-7.874" />
-                        </svg>
-                    {:else if icon === 'snow'}
-                        <svg class="w-4 h-4 text-slate-500 dark:text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v18m9-9H3m15.364-6.364l-12.728 12.728m0-12.728l12.728 12.728" />
-                        </svg>
-                    {:else if icon === 'fog'}
-                        <svg class="w-4 h-4 text-slate-500 dark:text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 12h12M4 16h16" />
-                        </svg>
-                    {:else if icon === 'partly-cloudy'}
-                        <svg class="w-4 h-4 text-slate-500 dark:text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m4.22 1.78l.7-.7M20 12h1m-3.78 4.22l.7.7M12 20v1m-4.22-1.78l-.7.7M4 12H3m3.78-4.22l-.7-.7" />
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 15a4 4 0 004 4h5a3 3 0 100-6h-.5a4 4 0 00-7.5-1.5" />
-                        </svg>
-                    {:else}
-                        <svg class="w-4 h-4 text-slate-500 dark:text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a4 4 0 100-8h-1a5 5 0 10-9 4H7a4 4 0 00-4 4z" />
-                        </svg>
-                    {/if}
-                    <span class="font-semibold">{weatherConditionSummary}</span>
-                {/if}
-                {#if hasTemperature}
-                    <span class="font-bold text-slate-700 dark:text-slate-200">{formatTemperature(detection.temperature, temperatureUnit)}</span>
-                {/if}
-            </div>
-        {/if}
-
+        <!-- No weather here: it does not help tell one visit from the next, and the record states it once. -->
         <!-- Compact metadata line: date + camera -->
         <div class="mt-auto flex items-center gap-1.5 text-2xs text-slate-600 dark:text-slate-400 font-medium flex-wrap">
             <span>{formatDate(detection.detection_time)}</span>

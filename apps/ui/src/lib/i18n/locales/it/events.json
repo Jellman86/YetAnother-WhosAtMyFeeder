@@ -20,6 +20,7 @@
     "refreshing_options": "Aggiornamento opzioni…",
     "title": "Filtri",
     "clear_all": "Cancella tutto",
+    "page_controls": "Vista",
     "when": "Quando",
     "only": "Solo",
     "show_rail": "Mostra filtri",
@@ -137,6 +138,7 @@
   "count_unavailable": "Conteggio non disponibile",
   "results_loading": "Caricamento dei risultati…",
   "selection_count": "{count, plural, =0 {Nessuna acquisizione selezionata} one {# acquisizione selezionata} other {# acquisizioni selezionate}}",
+  "selection_done": "Fine",
   "settings_unavailable": "Non è stato possibile caricare le impostazioni, quindi Esplora non sa quali visitatori mostrare. Non è stato modificato nulla. Riprova tra poco.",
   "bulk_tag_applied": "{species} assegnata a {count, plural, one {# record} other {# record}}"
 }

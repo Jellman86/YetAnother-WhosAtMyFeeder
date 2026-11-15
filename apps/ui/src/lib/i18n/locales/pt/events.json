@@ -20,6 +20,7 @@
     "refreshing_options": "Atualizando opções…",
     "title": "Filtros",
     "clear_all": "Limpar tudo",
+    "page_controls": "Visualização",
     "when": "Quando",
     "only": "Apenas",
     "show_rail": "Mostrar filtros",
@@ -137,6 +138,7 @@
   "count_unavailable": "Contagem indisponível",
   "results_loading": "Carregando resultados…",
   "selection_count": "{count, plural, =0 {Nenhuma captura selecionada} one {# captura selecionada} other {# capturas selecionadas}}",
+  "selection_done": "Concluir",
   "settings_unavailable": "Não foi possível carregar suas configurações, então Explorar não sabe quais visitantes mostrar. Nada foi alterado. Tente novamente em instantes.",
   "bulk_tag_applied": "{species} atribuída a {count, plural, one {# registo} other {# registos}}"
 }

@@ -20,6 +20,7 @@
     "refreshing_options": "Actualisation des options…",
     "title": "Filtres",
     "clear_all": "Tout effacer",
+    "page_controls": "Affichage",
     "when": "Quand",
     "only": "Seulement",
     "show_rail": "Afficher les filtres",
@@ -137,6 +138,7 @@
   "count_unavailable": "Nombre indisponible",
   "results_loading": "Chargement des résultats…",
   "selection_count": "{count, plural, =0 {Aucune capture sélectionnée} one {# capture sélectionnée} other {# captures sélectionnées}}",
+  "selection_done": "Terminé",
   "settings_unavailable": "Vos paramètres n’ont pas pu être chargés, l’Explorateur ne sait donc pas quels visiteurs afficher. Rien n’a été modifié. Réessayez dans un instant.",
   "bulk_tag_applied": "{species} attribuée à {count, plural, one {# fiche} other {# fiches}}"
 }

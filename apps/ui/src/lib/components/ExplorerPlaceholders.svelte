@@ -25,7 +25,6 @@
                     <div class="h-5 {nameWidths[index % nameWidths.length]} rounded-sm {pulse}" data-loading-placeholder></div>
                     <div class="h-3 w-1/3 rounded-sm {pulse}" data-loading-placeholder></div>
                 </div>
-                <div class="h-3 w-1/4 rounded-sm {pulse}" data-loading-placeholder></div>
                 <div class="mt-auto h-2.5 w-1/2 rounded-sm {pulse}" data-loading-placeholder></div>
             </div>
         </div>

@@ -2017,6 +2017,9 @@
     // filters, and stays when they are hidden. A phone keeps it above the results in the rail.
     // Tailwind's lg, so the header and the rail switch at the same width as the layout.
     const wideExplorer = new MediaQuery('min-width: 1024px', false);
+    // Heard calls belong to grouped bird visits; choosing captures is the owner's, and birds only.
+    const heardToggleAvailable = $derived(audioHistoryAvailable && groupVisits && !selectionMode && !gardenOnly);
+    const multiSelectAvailable = $derived(authStore.hasOwnerAccess && !gardenOnly);
     const pane = $derived(explorerPane({ loading, failed: error !== null, measured, entries: entries.length, filtered: hasActiveExplorerFilters }));
 
     function openPeakCapture(visit: DetectionVisit | undefined): (() => void) | undefined {
@@ -2037,16 +2040,93 @@
     />
 {/snippet}
 
+<!-- The page's own controls. A desktop holds them all in the header row. On a narrower screen the
+     view switch sits beside the Filters button and the two used less often open with the filters,
+     so three rows of buttons no longer stand between the title and the first photo. -->
+{#snippet heardToggle()}
+    {#if heardToggleAvailable}
+        <button
+            type="button"
+            class="btn min-h-11 px-3 text-xs focus-visible:ring-2 focus-visible:ring-focus {explorerHeardStore.enabled
+                ? 'border border-brand-300 bg-brand-100 text-brand-700 dark:border-brand-400/60 dark:bg-brand-500/20 dark:text-brand-100'
+                : 'btn-secondary'}"
+            aria-pressed={explorerHeardStore.enabled}
+            use:explanation={$_('events.heard.toggle_hint', { default: 'Show BirdNET-Go calls between the camera visits. Off until you turn it on; this device remembers the choice.' })}
+            onclick={() => setHeard(!explorerHeardStore.enabled)}
+            data-explorer-heard-toggle
+        >
+            <svg aria-hidden="true" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 12v2m4-5v8m4-13v16m4-13v10m4-7v4" />
+            </svg>
+            {$_('events.heard.toggle', { default: 'Heard calls' })}
+        </button>
+    {/if}
+{/snippet}
+
+{#snippet viewSwitch()}
+    <!-- At the largest text size on a phone the two choices wrap inside the frame rather than off the screen. -->
+    <div
+        class="inline-flex min-h-11 items-stretch max-w-full flex-wrap rounded-xl border border-slate-200/80 bg-white/90 p-0.5 shadow-xs dark:border-slate-700/60 dark:bg-slate-800/80"
+        role="group"
+        aria-label={$_('settings.explorer_view.label')}
+    >
+        {#each [{ value: 'cards', label: $_('settings.explorer_view.cards') }, { value: 'list', label: $_('settings.explorer_view.list') }] as option (option.value)}
+            <button
+                type="button"
+                aria-pressed={explorerView === option.value}
+                onclick={() => explorerViewStore.set(option.value as 'cards' | 'list')}
+                data-explorer-view-toggle={option.value}
+                class="inline-flex items-center gap-1.5 rounded-lg px-3 text-xs font-bold transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus
+                       {explorerView === option.value
+                    ? 'bg-brand-700 text-white'
+                    : 'text-slate-600 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}"
+            >
+                {#if option.value === 'cards'}
+                    <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+                {:else}
+                    <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+                {/if}
+                {option.label}
+            </button>
+        {/each}
+    </div>
+{/snippet}
+
+{#snippet multiSelectToggle()}
+    {#if multiSelectAvailable}
+        <button
+            type="button"
+            class="btn min-h-11 px-3 py-2 text-xs {selectionMode
+                ? 'border border-brand-300 bg-brand-100 text-brand-700 dark:border-brand-400/60 dark:bg-brand-500/20 dark:text-brand-100'
+                : 'btn-secondary'}"
+            onclick={toggleSelectionMode}
+        >
+            <span>{selectionMode ? $_('common.cancel') : $_('common.multi_select', { default: 'Multi Select' })}</span>
+        </button>
+    {/if}
+{/snippet}
+
+{#snippet sheetControls()}
+    <div class="flex flex-wrap items-center gap-2" data-explorer-sheet-controls>
+        {@render heardToggle()}
+        {@render multiSelectToggle()}
+    </div>
+{/snippet}
+
 <div class="space-y-6">
     <div class="flex flex-wrap items-center justify-between gap-3">
         {#if wideExplorer.current}
             <div class="min-w-0 max-w-2xl flex-1 basis-80" data-explorer-header-search>{@render explorerSearch()}</div>
         {/if}
-        <div class="flex flex-wrap items-center gap-2">
-            <!-- A count is stated only once measured; paging moves focus here so the new page is announced. -->
+        <!-- The count arrives after the page is drawn and its length depends on what was found, so
+             it has a line of its own: beside the controls, a long count wrapped them under the
+             search and moved the whole page. It follows the search in reading order; a desktop
+             shows it beneath the header row, a phone above the search.
+             A count is stated only once measured; paging moves focus here so the new page is announced. -->
+        <div class="basis-full lg:order-last" data-explorer-count-line>
             <div
                 bind:this={countElement}
-                class="mr-1 basis-full rounded-sm text-sm text-slate-600 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-focus sm:basis-auto dark:text-slate-400"
+                class="w-fit max-w-full rounded-sm text-sm text-slate-600 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-focus dark:text-slate-400"
                 role="status"
                 tabindex="-1"
                 data-explorer-count={pane.count}
@@ -2067,7 +2147,8 @@
                     <Separator />
                     <span data-garden-awaiting-check>{$_('garden.explorer.awaiting_check', { values: { count: gardenAwaitingCheck }, default: '{count, plural, one {# camera capture waiting for the automatic check} other {# camera captures waiting for the automatic check}}' })}</span>
                 {/if}
-                {#if pane.count === 'measured' && gardenInTimeline && gardenItems !== null}
+                <!-- Said only when there is one: "0 Garden visits on this page" read as a fault. -->
+                {#if pane.count === 'measured' && gardenInTimeline && gardenItems !== null && shownGarden.length > 0}
                     <Separator />
                     {$_('garden.explorer.count_on_page', { values: { count: shownGarden.length }, default: '{count, plural, one {# Garden visit on this page} other {# Garden visits on this page}}' })}
                 {/if}
@@ -2076,95 +2157,35 @@
                     {$_('events.heard.count_on_page', { values: { count: heardShownCalls }, default: '{count} calls heard on this page' })}
                 {/if}
             </div>
-            <!-- With heard calls mixed into the list, the listening history is already here. -->
-            {#if audioHistoryAvailable && !heardWanted}
-                <a
-                    data-explorer-audio-history-link
-                    href={toAppPath('/audio')}
-                    class="btn btn-secondary inline-flex min-h-11 items-center gap-2 px-3 text-xs focus-visible:ring-2 focus-visible:ring-focus"
-                >
-                    <svg aria-hidden="true" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 12v2m4-5v8m4-13v16m4-13v10m4-7v4" />
-                    </svg>
-                    {$_('nav.audio_history')}
-                </a>
-            {/if}
-            {#if audioHistoryAvailable && groupVisits && !selectionMode && !gardenOnly}
-                <button
-                    type="button"
-                    class="btn min-h-11 px-3 text-xs focus-visible:ring-2 focus-visible:ring-focus {explorerHeardStore.enabled
-                        ? 'border border-brand-300 bg-brand-100 text-brand-700 dark:border-brand-400/60 dark:bg-brand-500/20 dark:text-brand-100'
-                        : 'btn-secondary'}"
-                    aria-pressed={explorerHeardStore.enabled}
-                    use:explanation={$_('events.heard.toggle_hint', { default: 'Show BirdNET-Go calls between the camera visits. Off until you turn it on; this device remembers the choice.' })}
-                    onclick={() => setHeard(!explorerHeardStore.enabled)}
-                    data-explorer-heard-toggle
-                >
-                    <svg aria-hidden="true" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 12v2m4-5v8m4-13v16m4-13v10m4-7v4" />
-                    </svg>
-                    {$_('events.heard.toggle', { default: 'Heard calls' })}
-                </button>
-            {/if}
-            <button
-                class="btn btn-secondary hidden min-h-11 px-3 py-2 text-xs lg:inline-flex"
-                aria-expanded={!explorerFiltersStore.collapsed}
-                aria-controls="explorer-filter-rail"
-                onclick={() => explorerFiltersStore.set(!explorerFiltersStore.collapsed)}
-                data-explorer-rail-toggle
-            >
-                <svg
-                    class="h-3.5 w-3.5 transition-transform duration-200 {explorerFiltersStore.collapsed ? '' : 'rotate-180'}"
-                    viewBox="0 0 20 20"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    aria-hidden="true"
-                >
-                    <path d="M12 5 7 10l5 5" stroke-linecap="round" stroke-linejoin="round"></path>
-                </svg>
-                {explorerFiltersStore.collapsed
-                    ? $_('events.filters.show_rail', { default: 'Show filters' })
-                    : $_('events.filters.hide_rail', { default: 'Hide filters' })}
-            </button>
-            <!-- At the largest text size on a phone the two choices wrap inside the frame rather than off the screen. -->
-            <div
-                class="inline-flex min-h-11 items-stretch max-w-full flex-wrap rounded-xl border border-slate-200/80 bg-white/90 p-0.5 shadow-xs dark:border-slate-700/60 dark:bg-slate-800/80"
-                role="group"
-                aria-label={$_('settings.explorer_view.label')}
-            >
-                {#each [{ value: 'cards', label: $_('settings.explorer_view.cards') }, { value: 'list', label: $_('settings.explorer_view.list') }] as option (option.value)}
-                    <button
-                        type="button"
-                        aria-pressed={explorerView === option.value}
-                        onclick={() => explorerViewStore.set(option.value as 'cards' | 'list')}
-                        data-explorer-view-toggle={option.value}
-                        class="inline-flex items-center gap-1.5 rounded-lg px-3 text-xs font-bold transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus
-                               {explorerView === option.value
-                            ? 'bg-brand-700 text-white'
-                            : 'text-slate-600 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}"
-                    >
-                        {#if option.value === 'cards'}
-                            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
-                        {:else}
-                            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
-                        {/if}
-                        {option.label}
-                    </button>
-                {/each}
-            </div>
-            {#if authStore.hasOwnerAccess && !gardenOnly}
-                <button
-                    type="button"
-                    class="btn min-h-11 px-3 py-2 text-xs {selectionMode
-                        ? 'border border-brand-300 bg-brand-100 text-brand-700 dark:border-brand-400/60 dark:bg-brand-500/20 dark:text-brand-100'
-                        : 'btn-secondary'}"
-                    onclick={toggleSelectionMode}
-                >
-                    <span>{selectionMode ? $_('common.cancel') : $_('common.multi_select', { default: 'Multi Select' })}</span>
-                </button>
-            {/if}
         </div>
+        {#if wideExplorer.current}
+            <div class="flex flex-wrap items-center gap-2" data-explorer-controls>
+                {@render heardToggle()}
+                <button
+                    class="btn btn-secondary hidden min-h-11 px-3 py-2 text-xs lg:inline-flex"
+                    aria-expanded={!explorerFiltersStore.collapsed}
+                    aria-controls="explorer-filter-rail"
+                    onclick={() => explorerFiltersStore.set(!explorerFiltersStore.collapsed)}
+                    data-explorer-rail-toggle
+                >
+                    <svg
+                        class="h-3.5 w-3.5 transition-transform duration-200 {explorerFiltersStore.collapsed ? '' : 'rotate-180'}"
+                        viewBox="0 0 20 20"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        aria-hidden="true"
+                    >
+                        <path d="M12 5 7 10l5 5" stroke-linecap="round" stroke-linejoin="round"></path>
+                    </svg>
+                    {explorerFiltersStore.collapsed
+                        ? $_('events.filters.show_rail', { default: 'Show filters' })
+                        : $_('events.filters.hide_rail', { default: 'Hide filters' })}
+                </button>
+                {@render viewSwitch()}
+                {@render multiSelectToggle()}
+            </div>
+        {/if}
     </div>
 
     {#if authStore.hasOwnerAccess && selectionMode}
@@ -2212,6 +2233,10 @@
                     disabled={selectedEventIds.length === 0 || bulkDeleting || bulkReclassifying}
                 >
                     {bulkDeleting ? $_('common.working', { default: 'Working…' }) : $_('actions.delete_selected', { default: 'Delete selected' })}
+                </button>
+                <!-- The way out is on the bar itself: on a phone the switch that started this is behind Filters. -->
+                <button type="button" class="btn btn-ghost px-3 py-2 text-xs" onclick={toggleSelectionMode} disabled={bulkDeleting || bulkReclassifying} data-explorer-selection-done>
+                    {$_('events.selection_done', { default: 'Done' })}
                 </button>
             </div>
         </div>
@@ -2298,6 +2323,8 @@
             }}
             onrefresh={() => refreshEventMetadata(true, true)}
             search={wideExplorer.current ? undefined : explorerSearch}
+            beside={wideExplorer.current ? undefined : viewSwitch}
+            controls={wideExplorer.current || !(heardToggleAvailable || multiSelectAvailable) ? undefined : sheetControls}
         />
         </div>
 
@@ -2325,7 +2352,12 @@
             </div>
         {/if}
 
-        {#if pane.state === 'results' && timelineBuckets.length > 0}
+        <!-- The first read's placeholders and the results that replace them are separate panes: what
+             was drawn while loading is taken away whole, so a day strip or a notice arriving above
+             the results moves nothing that was already on screen. -->
+        {#key pane.state === 'first-load'}
+        <!-- With one day on the page the strip would only repeat the count above it, so it is left out. -->
+        {#if pane.state === 'results' && timelineBuckets.length > 1}
             <section data-events-timeline class="pb-4 pt-1 transition-opacity motion-reduce:transition-none {pane.stale ? 'opacity-60' : ''}">
                 <!--
                     These chips group the loaded page, and clicking one narrows to that
@@ -2342,68 +2374,29 @@
                 </p>
                 <!-- One scrolling row on a phone, so a long page of days does not push the visits down. -->
                 <div class="flex items-center gap-2 overflow-x-auto overscroll-x-contain scrollbar-none sm:flex-wrap sm:overflow-visible [&::-webkit-scrollbar]:hidden" role="group" aria-labelledby="events-timeline-scope">
-                    <button
-                        type="button"
-                        class="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition-colors
-                            {selectedTimelineBucket === 'all'
-                                ? 'bg-brand-100/90 dark:bg-brand-500/20 border-brand-300/80 dark:border-brand-400/60 text-brand-700 dark:text-brand-100 shadow-xs'
-                                : 'bg-white/80 dark:bg-slate-800/60 border-slate-300/80 dark:border-slate-600/70 text-slate-600 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/70'}"
-                        onclick={() => selectedTimelineBucket = 'all'}
-                        aria-pressed={selectedTimelineBucket === 'all'}
-                    >
-                        <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
-                            <circle cx="10" cy="10" r="6"></circle>
-                            <path d="M4.5 10h11"></path>
-                        </svg>
-                        <span>{$_('common.all', { default: 'All' })}</span>
-                        <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-3xs font-bold normal-case tracking-normal
-                            {selectedTimelineBucket === 'all'
-                                ? 'bg-brand-200/80 dark:bg-brand-400/25 text-brand-800 dark:text-brand-100'
-                                : 'bg-slate-100 dark:bg-slate-700/60 text-slate-700 dark:text-slate-200'}"
-                        >
-                            <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
-                                <path d="M4 14h12"></path>
-                                <path d="M7 14V9M10 14V6M13 14v-3"></path>
-                            </svg>
-                            {events.length + ((gardenOnly || gardenInTimeline) ? (gardenItems?.length ?? 0) : 0)}
-                        </span>
-                    </button>
-                    {#each timelineBuckets as bucket}
+                    {#snippet dayChip(key: string, label: string, count: number)}
+                        {@const chosen = selectedTimelineBucket === key}
+                        <!-- The name and its count as plain text: one outline per choice, nothing drawn inside it. -->
                         <button
                             type="button"
-                            class="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition-colors
-                                {selectedTimelineBucket === bucket.key
-                                    ? 'bg-brand-100/90 dark:bg-brand-500/20 border-brand-300/80 dark:border-brand-400/60 text-brand-700 dark:text-brand-100 shadow-xs'
-                                    : 'bg-white/80 dark:bg-slate-800/60 border-slate-300/80 dark:border-slate-600/70 text-slate-600 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/70'}"
-                            onclick={() => selectedTimelineBucket = bucket.key}
-                            aria-pressed={selectedTimelineBucket === bucket.key}
+                            class="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus
+                                {chosen
+                                    ? 'bg-brand-100/90 dark:bg-brand-500/20 border-brand-300/80 dark:border-brand-400/60 text-brand-800 dark:text-brand-100 shadow-xs'
+                                    : 'bg-white/80 dark:bg-slate-800/60 border-slate-300/80 dark:border-slate-600/70 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/70'}"
+                            onclick={() => selectedTimelineBucket = key}
+                            aria-pressed={chosen}
+                            data-events-timeline-day={key}
                         >
-                            <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
-                                <rect x="3" y="4" width="14" height="13" rx="2"></rect>
-                                <path d="M3 8h14"></path>
-                            </svg>
-                            <span>{bucket.label}</span>
-                            <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-3xs font-bold normal-case tracking-normal
-                                {selectedTimelineBucket === bucket.key
-                                    ? 'bg-brand-200/80 dark:bg-brand-400/25 text-brand-800 dark:text-brand-100'
-                                    : 'bg-slate-100 dark:bg-slate-700/60 text-slate-700 dark:text-slate-200'}"
-                            >
-                                <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
-                                    <path d="M4 14h12"></path>
-                                    <path d="M7 14V9M10 14V6M13 14v-3"></path>
-                                </svg>
-                                {bucket.count}
-                            </span>
+                            <span>{label}</span>
+                            <span class="font-normal tabular-nums">{count}</span>
                         </button>
+                    {/snippet}
+                    {@render dayChip('all', $_('common.all', { default: 'All' }), events.length + ((gardenOnly || gardenInTimeline) ? (gardenItems?.length ?? 0) : 0))}
+                    {#each timelineBuckets as bucket (bucket.key)}
+                        {@render dayChip(bucket.key, bucket.label, bucket.count)}
                     {/each}
                 </div>
             </section>
-        {:else if pane.state === 'first-load'}
-            <!-- The day strip's space, held while the first page is read, so the visits are not pushed down when it appears. -->
-            <div class="pb-4 pt-1" aria-hidden="true" data-events-timeline-placeholder>
-                <p class="invisible mb-2 text-2xs font-semibold">{$_('events.timeline_scope', { default: 'Days on this page' })}</p>
-                <div class="min-h-11"></div>
-            </div>
         {/if}
 
         {#if heardBlocker}
@@ -2639,6 +2632,7 @@
             </div>
         {/if}
         </div>
+        {/key}
 
         <!-- An emptied later page keeps its way back. -->
         {#if pane.state === 'results' || ((pane.state === 'empty' || pane.state === 'empty-filtered') && totalCount > 0)}
