@@ -1095,7 +1095,7 @@ Each compatibility summary row has `requested_provider: "validation_sweep"`. Its
 are zero placeholders, not measurements, and its `mean_latency_ms`, `p50_latency_ms` and
 `p95_latency_ms` all hold the best provider's median inference latency. Clients should use the
 marker, not a zero score, to tell such a row from a measured one.
-Compatibility-only clients should label the run **Compatibility check only**, omit accuracy/mean/p95
+Compatibility-only clients should label the run **Provider check only**, omit accuracy/mean/p95
 claims, and read measured provider medians from `device_matrix.json`.
 Compatibility summaries also expose `validated_providers` and `failed_providers` per model; the
 measured passing order becomes the current-install activation and `Auto` recommendation.
@@ -1533,7 +1533,10 @@ See [Model evaluation](features/model-evaluation.md).
 
 - `POST /api/diagnostics/model-eval/runs` — start a run.
 - `GET /api/diagnostics/model-eval/runs` — list runs.
-- `GET /api/diagnostics/model-eval/runs/{run_id}` — one run's status and results.
+- `GET /api/diagnostics/model-eval/runs/{run_id}` — one run's status and results. `available_artifacts`
+  lists the result files this run wrote, in the order `summary.json`, `confusions.csv`,
+  `runtime.json`, `results.jsonl`, `device_matrix.json`; clients offer those and no others. It is
+  empty while a run has not written its first summary.
 - `GET /api/diagnostics/model-eval/runs/{run_id}/{artifact}` — download an existing run
   artifact with owner authorization. Compatibility-only runs normally write `summary.json`
   and `device_matrix.json`; accuracy/per-image files are not implied. An allowed filename

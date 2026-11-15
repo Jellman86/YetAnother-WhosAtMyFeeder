@@ -269,10 +269,10 @@
   "debug": {
     "title": "Strumenti di debug",
     "subtitle": "Interruttori extra per test e diagnostica.",
-    "model_eval_title": "Strumento di valutazione dei modelli",
-    "model_eval_desc": "Valuta i classificatori installati con immagini di uccelli verificate tassonomicamente. Gli artefatti vengono salvati in /config/yawamf-eval/.",
-    "model_eval_action_desc": "Esegui controlli di accuratezza, latenza e coerenza su ogni modello installato. Solo per il proprietario.",
-    "model_eval_open": "Apri",
+    "model_eval_title": "Valutazione dei modelli",
+    "model_eval_desc": "Confronta i modelli installati su foto la cui specie è già confermata.",
+    "model_eval_action_desc": "Vedi quanto spesso ogni modello ha ragione e quanto tempo impiega.",
+    "model_eval_open": "Apri la valutazione dei modelli",
     "llm_prompts_title": "Modelli di prompt LLM",
     "llm_prompts_subtitle": "Personalizza la struttura Markdown e il tono per analisi IA e conversazioni.",
     "llm_prompt_style_label": "Stile del prompt",
@@ -1333,7 +1333,8 @@
     "bird_finder_recommended_running": "Verifica di {devices} in corso. La CPU resta disponibile durante la verifica.",
     "bird_finder_recommended_unchecked": "CPU finché {devices} non superano una verifica qui. Nessun acceleratore ancora consigliato.",
     "bird_finder_recommended_waiting": "In attesa di foto salvate di uccelli per riverificare {devices}. La CPU resta disponibile.",
-    "model_manager_card_on_disk": "Su questo host"
+    "model_manager_card_on_disk": "Su questo host",
+    "models_compare_link": "Confronta accuratezza e velocità dei modelli installati"
   },
   "llm": {
     "title": "Analisi IA",

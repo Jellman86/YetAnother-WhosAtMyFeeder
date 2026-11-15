@@ -269,10 +269,10 @@
   "debug": {
     "title": "Debug tools",
     "subtitle": "Extra switches for testing and diagnostics.",
-    "model_eval_title": "Model evaluation harness",
-    "model_eval_desc": "Benchmark installed classifiers against taxonomy-verified bird images. Artifacts are stored under /config/yawamf-eval/.",
-    "model_eval_action_desc": "Run accuracy, latency, and sanity checks against every installed model. Owner-only.",
-    "model_eval_open": "Open",
+    "model_eval_title": "Model evaluation",
+    "model_eval_desc": "Compare the installed models on photos whose species is already confirmed.",
+    "model_eval_action_desc": "See how often each model is right and how long it takes.",
+    "model_eval_open": "Open model evaluation",
     "llm_prompts_title": "LLM prompt templates",
     "llm_prompts_subtitle": "Customize the Markdown structure and tone for AI analysis and conversations.",
     "llm_prompt_style_label": "Prompt style",
@@ -1333,7 +1333,8 @@
     "bird_finder_recommended_failed": "{devices} did not match the CPU on recent bird photos. CPU remains available.",
     "bird_finder_recommended_waiting": "Waiting for saved bird photos to re-check {devices}. CPU remains available.",
     "bird_finder_recommended_unchecked": "CPU until {devices} pass a device check on this host. No accelerator recommendation yet.",
-    "model_manager_card_on_disk": "On this host"
+    "model_manager_card_on_disk": "On this host",
+    "models_compare_link": "Compare the accuracy and speed of the installed models"
   },
   "llm": {
     "title": "AI insights",

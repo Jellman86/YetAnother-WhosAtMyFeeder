@@ -269,10 +269,10 @@
   "debug": {
     "title": "Herramientas de depuración",
     "subtitle": "Interruptores extra para pruebas y diagnóstico.",
-    "model_eval_title": "Herramienta de evaluación de modelos",
-    "model_eval_desc": "Evalúa los clasificadores instalados con imágenes de aves verificadas taxonómicamente. Los artefactos se guardan en /config/yawamf-eval/.",
-    "model_eval_action_desc": "Ejecuta pruebas de precisión, latencia y coherencia para cada modelo instalado. Solo para propietarios.",
-    "model_eval_open": "Abrir",
+    "model_eval_title": "Evaluación de modelos",
+    "model_eval_desc": "Compara los modelos instalados con fotos cuya especie ya está confirmada.",
+    "model_eval_action_desc": "Mira con qué frecuencia acierta cada modelo y cuánto tarda.",
+    "model_eval_open": "Abrir la evaluación de modelos",
     "llm_prompts_title": "Plantillas de prompts de LLM",
     "llm_prompts_subtitle": "Personaliza la estructura Markdown y el tono para el análisis de IA y las conversaciones.",
     "llm_prompt_style_label": "Estilo de prompt",
@@ -1333,7 +1333,8 @@
     "bird_finder_recommended_running": "Comprobando {devices}. La CPU sigue disponible durante la comprobación.",
     "bird_finder_recommended_unchecked": "CPU hasta que {devices} superen una comprobación aquí. Todavía no hay recomendación de acelerador.",
     "bird_finder_recommended_waiting": "Esperando fotos de aves guardadas para comprobar de nuevo {devices}. La CPU sigue disponible.",
-    "model_manager_card_on_disk": "En este equipo"
+    "model_manager_card_on_disk": "En este equipo",
+    "models_compare_link": "Comparar la precisión y la velocidad de los modelos instalados"
   },
   "llm": {
     "title": "Análisis de IA",

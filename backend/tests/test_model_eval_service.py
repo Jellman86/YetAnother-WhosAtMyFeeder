@@ -549,6 +549,20 @@ def test_get_run_does_not_normalize_untrusted_input_to_an_existing_run(tmp_path:
     assert runner.get_run("../20260507-200000") is None
 
 
+def test_get_run_lists_only_the_result_files_the_run_wrote(tmp_path: Path, monkeypatch):
+    _set_runs_dir(monkeypatch, tmp_path)
+    run_dir = tmp_path / "20260507-210000"
+    run_dir.mkdir()
+    (run_dir / SUMMARY_FILENAME).write_text(json.dumps({"run_id": "20260507-210000", "models": []}))
+    (run_dir / "results.jsonl").write_text("{}\n")
+    (run_dir / "notes.txt").write_text("not a result file")
+
+    payload = ModelEvalRunner().get_run("20260507-210000")
+
+    assert payload is not None
+    assert payload["available_artifacts"] == [SUMMARY_FILENAME, "results.jsonl"]
+
+
 def test_get_run_reads_summary_and_runtime(tmp_path: Path, monkeypatch):
     _set_runs_dir(monkeypatch, tmp_path)
     run_dir = tmp_path / "20260507-200000"

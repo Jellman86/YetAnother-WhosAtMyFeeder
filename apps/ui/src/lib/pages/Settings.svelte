@@ -2946,6 +2946,7 @@
                     {videoCircuitUntil}
                     {videoCircuitFailures}
                     onopenlocationsettings={() => openIntegrationField('#location-lat', '#setting-location-mode + div button[aria-pressed="false"]')}
+                    onopenmodelevaluation={() => onNavigate?.('/diagnostics/model-eval')}
                     bind:rangeFilterEnabled
                     bind:rangeFilterRegionLevel
                     onopenebirdsettings={() => openIntegrationField('#ebird-api-key', '[aria-labelledby="setting-ebird-enabled"]')}
@@ -3350,14 +3351,14 @@
                         title={$_('settings.debug.model_eval_title')}
                         description={$_('settings.debug.model_eval_desc')}
                     >
-                        <div class="flex items-center justify-between gap-4">
-                            <p class="text-sm font-medium text-slate-600 dark:text-slate-400">
+                        <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+                            <p class="min-w-0 flex-1 basis-56 text-sm font-medium text-slate-600 dark:text-slate-400">
                                 {$_('settings.debug.model_eval_action_desc')}
                             </p>
                             <button
                                 type="button"
                                 onclick={() => onNavigate && onNavigate('/diagnostics/model-eval')}
-                                class="focus-ring min-h-11 shrink-0 rounded-xl bg-slate-900 px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
+                                class="btn btn-secondary shrink-0"
                             >
                                 {$_('settings.debug.model_eval_open')}
                             </button>

@@ -269,10 +269,10 @@
   "debug": {
     "title": "调试工具",
     "subtitle": "用于测试和诊断的额外开关。",
-    "model_eval_title": "模型评估工具",
-    "model_eval_desc": "使用经过分类学验证的鸟类图像评估已安装的分类器。产物保存在 /config/yawamf-eval/ 下。",
-    "model_eval_action_desc": "对每个已安装模型运行准确率、延迟和健全性检查。仅限所有者。",
-    "model_eval_open": "打开",
+    "model_eval_title": "模型评估",
+    "model_eval_desc": "用物种已确认的照片比较已安装的模型。",
+    "model_eval_action_desc": "查看每个模型答对的频率和所需的时间。",
+    "model_eval_open": "打开模型评估",
     "llm_prompts_title": "LLM 提示模板",
     "llm_prompts_subtitle": "自定义 AI 分析与对话的 Markdown 结构和语气。",
     "llm_prompt_style_label": "提示风格",
@@ -1333,7 +1333,8 @@
     "bird_finder_recommended_running": "正在检查{devices}。检查期间CPU仍然可用。",
     "bird_finder_recommended_unchecked": "在{devices}通过此主机的检查之前使用CPU。尚无加速器推荐。",
     "bird_finder_recommended_waiting": "正在等待已保存的鸟类照片，以重新检查{devices}。CPU仍然可用。",
-    "model_manager_card_on_disk": "已在本机"
+    "model_manager_card_on_disk": "已在本机",
+    "models_compare_link": "比较已安装模型的准确率和速度"
   },
   "llm": {
     "title": "AI 洞察",

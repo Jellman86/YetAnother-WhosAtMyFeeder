@@ -269,10 +269,10 @@
   "debug": {
     "title": "Outils de débogage",
     "subtitle": "Interrupteurs supplémentaires pour tests et diagnostic.",
-    "model_eval_title": "Outil d’évaluation des modèles",
-    "model_eval_desc": "Évaluez les classificateurs installés avec des images d’oiseaux vérifiées sur le plan taxonomique. Les artefacts sont stockés dans /config/yawamf-eval/.",
-    "model_eval_action_desc": "Exécutez des tests de précision, de latence et de cohérence sur chaque modèle installé. Réservé au propriétaire.",
-    "model_eval_open": "Ouvrir",
+    "model_eval_title": "Évaluation des modèles",
+    "model_eval_desc": "Comparez les modèles installés sur des photos dont l'espèce est déjà confirmée.",
+    "model_eval_action_desc": "Voyez à quelle fréquence chaque modèle a raison et combien de temps il lui faut.",
+    "model_eval_open": "Ouvrir l'évaluation des modèles",
     "llm_prompts_title": "Modèles de prompt LLM",
     "llm_prompts_subtitle": "Personnalisez la structure Markdown et le ton pour l'analyse IA et les conversations.",
     "llm_prompt_style_label": "Style de prompt",
@@ -1333,7 +1333,8 @@
     "bird_finder_recommended_running": "Vérification de {devices} en cours. Le CPU reste disponible pendant la vérification.",
     "bird_finder_recommended_unchecked": "CPU jusqu’à ce que {devices} réussissent la vérification ici. Aucun accélérateur recommandé pour le moment.",
     "bird_finder_recommended_waiting": "En attente de photos d’oiseaux enregistrées pour revérifier {devices}. Le CPU reste disponible.",
-    "model_manager_card_on_disk": "Sur cet hôte"
+    "model_manager_card_on_disk": "Sur cet hôte",
+    "models_compare_link": "Comparer la précision et la vitesse des modèles installés"
   },
   "llm": {
     "title": "Analyses IA",

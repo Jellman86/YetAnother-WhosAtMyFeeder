@@ -6,5 +6,6 @@
   "add_observation": "Classez votre photo ou vidéo, vérifiez les indices et ajoutez-la à votre historique.",
   "notifications": "Visites, alertes et tâches de fond, les plus récentes d’abord.",
   "settings": "Connexions, classification, intégrations et personnalisation.",
-  "species": "Quels oiseaux viennent le plus, à quelle fréquence et quand."
+  "species": "Quels oiseaux viennent le plus, à quelle fréquence et quand.",
+  "model_evaluation": "À quelle fréquence chaque modèle installé nomme correctement un oiseau, et à quelle vitesse."
 }

@@ -6,5 +6,6 @@
   "add_observation": "Classifica uma foto ou vídeo, revê as evidências e adiciona-o ao histórico.",
   "notifications": "Visitas, alertas e trabalho em segundo plano, os mais recentes primeiro.",
   "settings": "Conexões, classificação, integrações e personalização.",
-  "species": "Que aves visitam mais, com que frequência e quando."
+  "species": "Que aves visitam mais, com que frequência e quando.",
+  "model_evaluation": "Com que frequência cada modelo instalado nomeia uma ave corretamente, e com que rapidez."
 }

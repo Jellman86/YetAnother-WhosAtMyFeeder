@@ -269,10 +269,10 @@
   "debug": {
     "title": "Debug-Tools",
     "subtitle": "Zusätzliche Schalter für Tests und Diagnose.",
-    "model_eval_title": "Werkzeug zur Modellbewertung",
-    "model_eval_desc": "Bewerten Sie installierte Klassifikatoren mit taxonomisch geprüften Vogelbildern. Artefakte werden unter /config/yawamf-eval/ gespeichert.",
-    "model_eval_action_desc": "Führen Sie Genauigkeits-, Latenz- und Plausibilitätsprüfungen für jedes installierte Modell aus. Nur für Eigentümer.",
-    "model_eval_open": "Öffnen",
+    "model_eval_title": "Modellbewertung",
+    "model_eval_desc": "Vergleichen Sie die installierten Modelle anhand von Fotos, deren Art bereits bestätigt ist.",
+    "model_eval_action_desc": "Sehen Sie, wie oft jedes Modell richtig liegt und wie lange es braucht.",
+    "model_eval_open": "Modellbewertung öffnen",
     "llm_prompts_title": "LLM-Promptvorlagen",
     "llm_prompts_subtitle": "Passen Sie die Markdown-Struktur und den Ton für KI-Analysen und Gespräche an.",
     "llm_prompt_style_label": "Prompt-Stil",
@@ -1333,7 +1333,8 @@
     "bird_finder_recommended_running": "Geräteprüfung für {devices} läuft. CPU bleibt während der Prüfung verfügbar.",
     "bird_finder_recommended_unchecked": "CPU, bis {devices} die Geräteprüfung hier bestehen. Noch keine Beschleunigerempfehlung.",
     "bird_finder_recommended_waiting": "Warten auf gespeicherte Vogelfotos zur erneuten Prüfung von {devices}. CPU bleibt verfügbar.",
-    "model_manager_card_on_disk": "Auf diesem Host"
+    "model_manager_card_on_disk": "Auf diesem Host",
+    "models_compare_link": "Genauigkeit und Geschwindigkeit der installierten Modelle vergleichen"
   },
   "llm": {
     "title": "KI-Einblicke",

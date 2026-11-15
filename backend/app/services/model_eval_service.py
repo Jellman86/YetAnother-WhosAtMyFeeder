@@ -60,6 +60,14 @@ RESULTS_FILENAME = "results.jsonl"
 CONFUSIONS_FILENAME = "confusions.csv"
 DEVICE_MATRIX_FILENAME = "device_matrix.json"
 IMAGES_SUBDIR = "images"
+# The files a run may offer for download, in the order the page lists them.
+ARTIFACT_FILENAMES = (
+    SUMMARY_FILENAME,
+    CONFUSIONS_FILENAME,
+    RUNTIME_FILENAME,
+    RESULTS_FILENAME,
+    DEVICE_MATRIX_FILENAME,
+)
 
 
 class ModelEvalAlreadyRunning(RuntimeError):
@@ -207,6 +215,7 @@ class ModelEvalRunner:
                     "models": [],
                     "in_progress": True,
                     "active_status": status,
+                    "available_artifacts": [],
                 }
             return None
         try:
@@ -219,16 +228,13 @@ class ModelEvalRunner:
                 summary["runtime"] = json.loads(runtime_path.read_text())
             except (OSError, json.JSONDecodeError):
                 pass
+        # A run writes different files depending on how it was started, so the page
+        # offers the ones that exist rather than guessing from the run's shape.
+        summary["available_artifacts"] = [name for name in ARTIFACT_FILENAMES if (run_dir / name).is_file()]
         return summary
 
     def artifact_path(self, run_id: str, filename: str) -> Optional[Path]:
-        if filename not in {
-            SUMMARY_FILENAME,
-            RUNTIME_FILENAME,
-            RESULTS_FILENAME,
-            CONFUSIONS_FILENAME,
-            DEVICE_MATRIX_FILENAME,
-        }:
+        if filename not in ARTIFACT_FILENAMES:
             return None
         run_dir = _existing_run_dir(run_id)
         if run_dir is None:

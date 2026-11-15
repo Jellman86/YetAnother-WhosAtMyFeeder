@@ -1,8 +1,163 @@
 {
-  "col_best_provider": "Best validated provider",
-  "col_median_inference": "Median inference",
+  "checks": {
+    "body": "Each model ran on every provider this install can use, each in its own process so a crash cannot stop YA-WAMF. The CPU is the reference: another provider passes when it gives the same answers on the same bird photos. A bird finder is compared on where it places its box.",
+    "cell": {
+      "did_not_load": "Did not load",
+      "differs": "{photos, plural, one {Differs: same on {same} of # photo} other {Differs: same on {same} of # photos}}",
+      "differs_boxes": "{photos, plural, one {Differs: same box on {same} of # photo} other {Differs: same boxes on {same} of # photos}}",
+      "not_tested": "Not tested",
+      "ran": "Ran",
+      "reference": "Reference, {photos, plural, one {# photo} other {# photos}}",
+      "reference_plain": "Reference",
+      "same": "{photos, plural, one {Same on # photo} other {Same on all # photos}}",
+      "same_boxes": "{photos, plural, one {Same box on # photo} other {Same boxes on all # photos}}",
+      "unusable_output": "Unusable output"
+    },
+    "finder": "Bird finder",
+    "image": "Container image: {flavor}",
+    "title": "Provider checks"
+  },
+  "col_best_provider": "Fastest provider that passed",
+  "col_median_inference": "Typical time per photo",
   "col_model": "Model",
-  "col_validated_providers": "Validated providers",
-  "compat_only_body": "This run checked that each provider loads, gives finite output and agrees with the CPU baseline. It did not measure accuracy, so no accuracy figures are shown. Run Evaluation to measure accuracy.",
-  "compat_only_title": "Compatibility check only"
+  "col_validated_providers": "Providers that passed",
+  "compat_only_body": "This check confirmed which providers load each model and give the same answers as the CPU. It did not measure accuracy, so no accuracy figures are shown. Start an evaluation to measure accuracy.",
+  "compat_only_title": "Provider check only",
+  "confirm_delete": {
+    "confirm": "Delete evaluation",
+    "message": "The results and files of the evaluation from {when} are removed from the server. This cannot be undone.",
+    "title": "Delete this evaluation?"
+  },
+  "confirm_download": {
+    "cancel": "Go back",
+    "confirm": "Download and start",
+    "message": "Checking every model first downloads the ones you have not installed, about {size}. They stay installed afterwards.",
+    "message_unknown": "Checking every model first downloads the ones you have not installed. Their size could not be read. They stay installed afterwards.",
+    "title": "{count, plural, one {Download # model?} other {Download # models?}}",
+    "title_unknown": "Download the missing models?"
+  },
+  "confirm_stop": {
+    "cancel": "Keep running",
+    "confirm": "Stop evaluation",
+    "message": "Models that were already tested keep their results, and the model you use now is put back.",
+    "title": "Stop the evaluation?"
+  },
+  "page_title": "Model evaluation",
+  "problem": {
+    "cause": {
+      "already_running": "Another evaluation is already running. Wait for it to finish, or stop it first.",
+      "gone": "It is no longer on the server. Refresh the page to see what is there.",
+      "refused": "YA-WAMF refused the request.",
+      "server_fault": "YA-WAMF hit an error while handling the request. Try again; if it keeps failing, look at the container logs.",
+      "signed_out": "Your sign-in has expired or is not the owner's. Sign in again, then retry.",
+      "unreachable": "YA-WAMF did not answer. Check that it is running and that this device can reach it, then try again."
+    },
+    "detail": "The server said: {detail}",
+    "stale": "What is shown below may be out of date.",
+    "what": {
+      "delete": "The evaluation was not deleted.",
+      "download": "The file was not downloaded.",
+      "history": "The past evaluations could not be read.",
+      "results": "The results of this evaluation could not be read.",
+      "start": "The evaluation did not start.",
+      "stop": "The evaluation was not stopped."
+    }
+  },
+  "progress": {
+    "count": "{done} of {total}",
+    "label": "Progress of the evaluation",
+    "phase": {
+      "building_panel": "Choosing the test birds",
+      "device_sweep": "Checking providers",
+      "downloading_models": "Downloading models",
+      "evaluating": "Testing models",
+      "fetching_images": "Fetching photos",
+      "starting": "Starting",
+      "working": "Working"
+    }
+  },
+  "results": {
+    "can_name": "{known} of {total}",
+    "capped": "Only the 20 most recent evaluations are listed.",
+    "choose": "Evaluation",
+    "col_average_time": "Average time",
+    "col_can_name": "Species it can name",
+    "col_common": "Common feeder birds",
+    "col_first_guess": "First guess right",
+    "col_local": "Birds near you",
+    "col_provider": "Ran on",
+    "col_slow_time": "Slow photos",
+    "col_top_three": "Right in top three",
+    "delete": "Delete this evaluation",
+    "delete_blocked": "Stop it before you delete it.",
+    "duration": "{minutes, plural, one {# minute} other {# minutes}}",
+    "empty": "No evaluation has been run yet. Start one above and its results appear here.",
+    "file": {
+      "each_photo": "Each photo's result",
+      "mix_ups": "Mix-ups",
+      "provider_checks": "Provider checks",
+      "speed": "Speed details",
+      "summary": "Summary"
+    },
+    "file_download": "Download {label} ({file})",
+    "files": "Download the results",
+    "folder": "Folder on the server:",
+    "key": "First guess right is the share of photos where the first guess was the correct species; right in top three counts the first three guesses. Common feeder birds and birds near you split the first-guess share between widespread feeder birds and birds recorded near your location. Slow photos is the time that 19 in 20 photos stayed under.",
+    "loading": "Reading the results",
+    "loading_list": "Reading the past evaluations",
+    "no_models": "No model was tested in this evaluation.",
+    "not_measured": "Not measured",
+    "option_running": "{when}, running now",
+    "option_stopped": "{when}, stopped early",
+    "photos": "{count, plural, one {# photo} other {# photos}}",
+    "region": "Region {region}",
+    "species": "{count, plural, one {# species} other {# species}}",
+    "still_running": "This evaluation is still running. Results appear here as each model finishes.",
+    "stopped_early": "This evaluation stopped before it finished, so some models may be missing. Start a new evaluation; if it stops again, look at the container logs.",
+    "title": "Results",
+    "under_a_minute": "Under a minute",
+    "vocabulary_note": "Shares count only the species a model can name, so a regional model is not marked down for birds outside its region."
+  },
+  "skipped": {
+    "activation_failed": "Its files are missing or incomplete. Use Repair download for this model in Settings → Detection.",
+    "other": "It was skipped.",
+    "reload_failed": "It could not be loaded.",
+    "title": "Models that were not tested"
+  },
+  "start": {
+    "action": "Start evaluation",
+    "all_models_desc": "Also checks that each model gives the same answers on your graphics chip or NPU as on the CPU. Models you have not installed are downloaded first and stay installed. This takes much longer.",
+    "all_models_label": "Check every model on every provider",
+    "cost": "While it runs, YA-WAMF loads each model in turn, so live detections can be slower. The model you use now is put back when it ends. Fetching the photos needs internet access.",
+    "download_none": "Every model is already installed, so nothing is downloaded.",
+    "download_reading": "Reading how much would be downloaded…",
+    "download_size": "{count, plural, one {# model is not installed yet: a download of about {size}.} other {# models are not installed yet: a download of about {size}.}}",
+    "download_unknown": "The download size could not be read. Models you have not installed are still downloaded.",
+    "each_photo_desc": "Adds a file with the five best guesses for every photo, so you can look into single mistakes. You can download it with the other results.",
+    "each_photo_label": "Keep each photo's result",
+    "limit": "The photos are not from your feeder. Use the figures to compare models with each other, not to predict how accurate one will be at your feeder.",
+    "options": "Evaluation options",
+    "running": "Evaluation running",
+    "running_reason": "One evaluation runs at a time. Stop this one to start another.",
+    "stop": "Stop evaluation",
+    "title": "Start an evaluation",
+    "what": "Each installed model names photos of common feeder birds and of birds recorded near your saved location. The photos come from iNaturalist and Wikimedia Commons, where the species is already confirmed, so you see how often each model is right and how long it takes."
+  },
+  "warning": {
+    "high_abstention": "Gave no species for {share}% of the photos. It may not cover these birds, or its install may be incomplete. Check the model in Settings → Detection.",
+    "incomplete_install": "Its files are incomplete. Use Repair download for this model in Settings → Detection.",
+    "inference_health_unhealthy": "Errors or timeouts happened while it ran. Look at the container logs for the cause.",
+    "latency_drift_high": "Much slower than when it was loaded: {measured, number} ms a photo against {loaded, number} ms. The provider it ran on may be failing. Set the inference provider to CPU in Settings → Detection and evaluate again.",
+    "latency_drift_high_plain": "Much slower than when it was loaded. The provider it ran on may be failing. Set the inference provider to CPU in Settings → Detection and evaluate again.",
+    "low_shared_core": "Named fewer than half of the common feeder birds correctly, which usually means a broken install. Use Repair download for this model in Settings → Detection.",
+    "partial_vocabulary": "Cannot name {outside} of the {total} test species, usually because they live outside its region. Its shares cover the species it can name.",
+    "partial_vocabulary_plain": "Cannot name some of the test species, usually because they live outside its region. Its shares cover the species it can name.",
+    "provider_fallback_active": "Ran on the CPU although a faster provider was asked for. Runtime diagnostics in Settings → Detection gives the reason.",
+    "region_mismatch": "Built for a different region than the birds near you, so its shares here are lower than they would be there.",
+    "severity": {
+      "critical": "Problem",
+      "info": "Note",
+      "warning": "Check"
+    }
+  }
 }

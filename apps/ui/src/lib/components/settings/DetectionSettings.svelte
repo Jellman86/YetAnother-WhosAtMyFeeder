@@ -63,6 +63,7 @@
         rangeFilterEnabled = $bindable(false),
         rangeFilterRegionLevel = $bindable<'county' | 'state' | 'country'>('county'),
         onopenlocationsettings,
+        onopenmodelevaluation,
         onopenebirdsettings,
         onopenactivitylog,
         onopenmanualobservation
@@ -94,6 +95,7 @@
         rangeFilterEnabled?: boolean;
         rangeFilterRegionLevel?: 'county' | 'state' | 'country';
         onopenlocationsettings?: () => void;
+        onopenmodelevaluation?: () => void;
         onopenebirdsettings?: () => void;
         onopenactivitylog?: () => void;
         onopenmanualobservation?: () => void;
@@ -815,6 +817,22 @@
                 {onopenlocationsettings}
             />
         </div>
+        {#if onopenmodelevaluation}
+            <!-- A real address, so it can be opened in a new tab; a plain click stays in the app. -->
+            <a
+                href="/diagnostics/model-eval"
+                class="inline-flex min-h-11 items-center gap-1.5 rounded-lg text-sm font-semibold text-brand-700 underline-offset-2 hover:underline focus-ring dark:text-brand-300"
+                data-open-model-evaluation
+                onclick={(event) => {
+                    if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
+                    event.preventDefault();
+                    onopenmodelevaluation();
+                }}
+            >
+                {$_('settings.detection.models_compare_link', { default: 'Compare the accuracy and speed of the installed models' })}
+                <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m8 5 5 5-5 5" /></svg>
+            </a>
+        {/if}
     </SettingsCard>
 
     <SettingsCard

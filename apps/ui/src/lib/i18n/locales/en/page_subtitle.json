@@ -6,5 +6,6 @@
   "audio_history": "Calls BirdNET-Go has heard, by species and source.",
   "notifications": "Visits, alerts and background work, newest first.",
   "settings": "Connections, classification, integrations, and personalization.",
-  "species": "Which birds visit most, how often, and when."
+  "species": "Which birds visit most, how often, and when.",
+  "model_evaluation": "How often each installed model names a bird correctly, and how fast."
 }

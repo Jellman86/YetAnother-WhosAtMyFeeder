@@ -1,9 +1,47 @@
-# Model Evaluation Harness
+# Model evaluation
 
-Use the owner-only **Model Evaluation** page at `/diagnostics/model-eval` to compare installed
+Use the owner-only **Model evaluation** page at `/diagnostics/model-eval` to compare installed
 classifiers on taxonomy-verified images or check which providers run correctly on your hardware.
-Accuracy evaluation and compatibility checks answer different questions; a passing device check
-does not establish correct species identification at your feeder.
+Open it from **Settings → Detection → Models** (**Compare the accuracy and speed of the installed
+models**) or from **Settings → Debug**. Accuracy evaluation and compatibility checks answer
+different questions; a passing provider check does not establish correct species identification at
+your feeder.
+
+## The page
+
+- **Start an evaluation** says what a run does and what it costs before you press **Start
+  evaluation**: it loads each model in turn, so live detections can be slower, and it needs
+  internet access for the photos. While one runs the button reads **Evaluation running**, the
+  phase and its count are shown above a progress bar, and **Stop evaluation** asks before it stops.
+- **Evaluation options** is closed by default and holds two switches:
+  - **Keep each photo's result** adds `results.jsonl` to the run, offered afterwards as the
+    **Each photo's result** download.
+  - **Check every model on every provider** also validates each model on every provider this
+    image can use. It downloads every bird model and bird finder that is not installed and leaves
+    them installed, so the page reads the registry, states how many models and how large the
+    download is, and asks you to confirm that size before it starts.
+- **Results** shows one evaluation, chosen by its start time in the **Evaluation** list (newest
+  first, the 20 most recent). **Delete this evaluation** asks first and cannot be undone; it is
+  unavailable for the one that is running. On a narrow panel each model's figures are a labelled
+  list instead of a table.
+- **Provider checks** appears for an evaluation that validated providers, with each result in
+  words: **Reference**, **Same on all 24 photos**, **Differs: same on 21 of 24 photos**, **Did not
+  load**, **Unusable output** or **Not tested**.
+
+A read or an action that fails says what failed, the cause and the next step (for example that
+YA-WAMF did not answer, that the sign-in has expired, or that another evaluation is already
+running), with **Try again** where a read failed. A failed read is never shown as "no evaluations".
+
+| Column | What it measures | Field in `summary.json` |
+|---|---|---|
+| First guess right | photos whose first guess was the correct species | `top1_accuracy_in_vocabulary` (or `top1_accuracy`) |
+| Right in top three | photos whose correct species was among the first three guesses | `top3_accuracy_in_vocabulary` (or `top3_accuracy`) |
+| Common feeder birds | first-guess share on the shared core of widespread feeder birds | `shared_core_top1_in_vocabulary` (or `shared_core_top1`) |
+| Birds near you | first-guess share on birds recorded near the saved location | `regional_top1_in_vocabulary` (or `regional_top1`) |
+| Species it can name | test species the model has an output for | `panel_species` less `species_outside_vocabulary` |
+| Average time | mean inference time per photo | `mean_latency_ms` |
+| Slow photos | the time 19 in 20 photos stayed under | `p95_latency_ms` |
+| Ran on | the provider the model ran on | `active_provider` |
 
 ## What it does
 
@@ -14,18 +52,20 @@ does not establish correct species identification at your feeder.
 5. Restores the originally-active model after the run finishes (even on failure).
 6. Cleans up the image cache at the end of the run; **persistent artifacts are kept** until you delete the run from the UI.
 
-The run detail provides **summary.json**, **runtime.json**, and **confusions.csv** download
-buttons. Downloads use your current owner session and save the file in your browser; a failed or
-expired session shows an error on the page. Sign in again if access has expired.
+**Download the results** offers the files the evaluation wrote, by what they hold: **Summary**
+(`summary.json`), **Mix-ups** (`confusions.csv`), **Speed details** (`runtime.json`), **Each
+photo's result** (`results.jsonl`) and **Provider checks** (`device_matrix.json`). A file the
+evaluation did not write is not offered. Downloads use your current owner session and save the
+file in your browser; a refused download says so on the page. Sign in again if access has expired.
 
 A compatibility check started from **Settings → Detection** or the setup wizard also appears in
-the run history. It checks providers but does not score accuracy, so the page labels it
-**Compatibility check only** and shows each model's best validated provider, that provider's
-median inference time, and the providers that passed. It shows no accuracy columns and no mean or
-p95 latency, because the run measured neither. Such a run writes only `summary.json` and
+the **Evaluation** list. It checks providers but does not score accuracy, so the page labels it
+**Provider check only** and shows each model's fastest provider that passed, that provider's
+typical time per photo, and the providers that passed. It shows no accuracy columns and no average
+or slow-photo time, because the run measured neither. Such a run writes only `summary.json` and
 `device_matrix.json`, so those are the only downloads offered.
 
-![A compatibility-only run showing best validated CPU and NPU providers, median inference time and passing providers, with summary and device-matrix downloads and no accuracy figures](../images/model-evaluation-compatibility.png)
+![A provider check only: the fastest provider that passed and its typical time per photo for each model, the provider checks written in words, Summary and Provider checks downloads, and no accuracy figures](../images/model-evaluation-compatibility.png)
 
 For a location-aware classifier such as DINOv2, normal in-app runs use the saved feeder location.
 Record whether coordinates were present when comparing runs; the October public benchmark used
@@ -41,7 +81,7 @@ Each run writes a directory at `/config/yawamf-eval/<run_id>/` containing:
 | `summary.json` | headline metrics + per-model breakdown (top-1/3/5 accuracy, latency, abstention, shared-core vs regional split, sanity-check warnings) |
 | `runtime.json` | per-model provider / device / startup benchmark / drift factor / `InferenceHealth` snapshot |
 | `confusions.csv` | top wrong→right confusions per model, ranked by frequency |
-| `results.jsonl` | per-image top-5 predictions with scores, output index, catalogue `species_id` and taxa_id resolution, plus the expected species and whether the model can name it — only when **Include per-image details** is checked |
+| `results.jsonl` | per-image top-5 predictions with scores, output index, catalogue `species_id` and taxa_id resolution, plus the expected species and whether the model can name it — only when **Keep each photo's result** is on |
 | `device_matrix.json` | image-aware classifier and crop-detector provider compile, finite-output, CPU-agreement and median inference-latency results when provider validation is enabled |
 
 The container mount means you can pull these straight off the host:
@@ -59,7 +99,7 @@ A prediction is scored by species, not by label text. Its species comes from the
 A model can only name the species it has an output for. A European model has none for a Blue Jay, so every figure is reported twice:
 
 - **`top1_accuracy`**, **`shared_core_top1`**, **`regional_top1`** — over every test image. Production threshold work usually compares against top-1.
-- **`top1_accuracy_in_vocabulary`**, **`shared_core_top1_in_vocabulary`**, **`regional_top1_in_vocabulary`** (and top-3/top-5) — over the images of species the model can name. This is the fair cross-model number, and the one the page shows. `images_in_vocabulary` and `species_outside_vocabulary` (out of `panel_species`) say how much of the test set that covers; the page shows it under **Can name**. These are `null` when `vocabulary_known` is false.
+- **`top1_accuracy_in_vocabulary`**, **`shared_core_top1_in_vocabulary`**, **`regional_top1_in_vocabulary`** (and top-3/top-5) — over the images of species the model can name. This is the fair cross-model number, and the one the page shows. `images_in_vocabulary` and `species_outside_vocabulary` (out of `panel_species`) say how much of the test set that covers; the page shows it under **Species it can name**. These are `null` when `vocabulary_known` is false.
 
 Only a species the catalogue proves is outside the model's outputs is set aside. Some outputs have no catalogue identity (the European models' "Feral pigeon" and "Great bittern"); a species stays in the score when any of those could be it, by sharing its genus or the last word of its common name. A species whose membership is unknown still counts, so a miss is never hidden on a guess. Which species a model can name is decided from the test panel, not from the images that classified successfully.
 
@@ -70,6 +110,9 @@ Only a species the catalogue proves is outside the model's outputs is set aside.
 - **`latency_drift_ratio`** = mean / startup_benchmark. A value above ~5 is unusual and surfaces as the `latency_drift_high` warning. This is the signature pattern from issue #33 (OpenVINO Intel GPU running at ~12 s/frame instead of ~600 ms).
 
 ### Warnings
+
+The page states each warning as a sentence with its next step, under **Problem**, **Check** or
+**Note**. The codes below are what `summary.json` carries.
 
 | Code | What it means | What to do |
 |---|---|---|

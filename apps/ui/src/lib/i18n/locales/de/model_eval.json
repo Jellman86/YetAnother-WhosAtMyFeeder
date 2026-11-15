@@ -1,8 +1,163 @@
 {
-  "col_best_provider": "Bester validierter Anbieter",
-  "col_median_inference": "Median-Inferenzzeit",
+  "checks": {
+    "body": "Jedes Modell lief auf jedem Anbieter, den diese Installation nutzen kann, jeweils in einem eigenen Prozess, damit ein Absturz YA-WAMF nicht anhält. Die CPU ist die Referenz: Ein anderer Anbieter besteht, wenn er auf denselben Vogelfotos dieselben Antworten liefert. Ein Vogelfinder wird daran gemessen, wohin er seinen Rahmen setzt.",
+    "cell": {
+      "did_not_load": "Nicht geladen",
+      "differs": "{photos, plural, one {Weicht ab: gleich bei {same} von # Foto} other {Weicht ab: gleich bei {same} von # Fotos}}",
+      "differs_boxes": "{photos, plural, one {Weicht ab: gleicher Rahmen bei {same} von # Foto} other {Weicht ab: gleiche Rahmen bei {same} von # Fotos}}",
+      "not_tested": "Nicht getestet",
+      "ran": "Lief",
+      "reference": "Referenz, {photos, plural, one {# Foto} other {# Fotos}}",
+      "reference_plain": "Referenz",
+      "same": "{photos, plural, one {Gleich bei # Foto} other {Gleich bei allen # Fotos}}",
+      "same_boxes": "{photos, plural, one {Gleicher Rahmen bei # Foto} other {Gleiche Rahmen bei allen # Fotos}}",
+      "unusable_output": "Unbrauchbare Ausgabe"
+    },
+    "finder": "Vogelfinder",
+    "image": "Container-Image: {flavor}",
+    "title": "Anbieterprüfungen"
+  },
+  "col_best_provider": "Schnellster Anbieter, der bestanden hat",
+  "col_median_inference": "Übliche Zeit pro Foto",
   "col_model": "Modell",
-  "col_validated_providers": "Validierte Anbieter",
-  "compat_only_body": "Dieser Lauf hat geprüft, ob jeder Anbieter lädt, endliche Ausgaben liefert und mit der CPU-Referenz übereinstimmt. Die Genauigkeit wurde nicht gemessen, daher werden keine Genauigkeitswerte angezeigt. Starten Sie eine Evaluierung, um die Genauigkeit zu messen.",
-  "compat_only_title": "Nur Kompatibilitätsprüfung"
+  "col_validated_providers": "Anbieter, die bestanden haben",
+  "compat_only_body": "Diese Prüfung hat bestätigt, welche Anbieter jedes Modell laden und dieselben Antworten liefern wie die CPU. Die Genauigkeit wurde nicht gemessen, daher werden keine Genauigkeitswerte angezeigt. Starten Sie eine Bewertung, um die Genauigkeit zu messen.",
+  "compat_only_title": "Nur Anbieterprüfung",
+  "confirm_delete": {
+    "confirm": "Bewertung löschen",
+    "message": "Die Ergebnisse und Dateien der Bewertung vom {when} werden vom Server entfernt. Das lässt sich nicht rückgängig machen.",
+    "title": "Diese Bewertung löschen?"
+  },
+  "confirm_download": {
+    "cancel": "Zurück",
+    "confirm": "Herunterladen und starten",
+    "message": "Um jedes Modell zu prüfen, werden zuerst die nicht installierten heruntergeladen, etwa {size}. Sie bleiben danach installiert.",
+    "message_unknown": "Um jedes Modell zu prüfen, werden zuerst die nicht installierten heruntergeladen. Ihre Größe konnte nicht ermittelt werden. Sie bleiben danach installiert.",
+    "title": "{count, plural, one {# Modell herunterladen?} other {# Modelle herunterladen?}}",
+    "title_unknown": "Fehlende Modelle herunterladen?"
+  },
+  "confirm_stop": {
+    "cancel": "Weiterlaufen lassen",
+    "confirm": "Bewertung beenden",
+    "message": "Bereits getestete Modelle behalten ihre Ergebnisse, und das Modell, das Sie jetzt verwenden, wird wieder eingesetzt.",
+    "title": "Bewertung beenden?"
+  },
+  "page_title": "Modellbewertung",
+  "problem": {
+    "cause": {
+      "already_running": "Es läuft bereits eine andere Bewertung. Warten Sie, bis sie fertig ist, oder beenden Sie sie zuerst.",
+      "gone": "Sie ist nicht mehr auf dem Server. Aktualisieren Sie die Seite, um den aktuellen Stand zu sehen.",
+      "refused": "YA-WAMF hat die Anfrage abgelehnt.",
+      "server_fault": "YA-WAMF ist bei der Anfrage auf einen Fehler gestoßen. Versuchen Sie es erneut; wenn es weiter fehlschlägt, sehen Sie in die Container-Protokolle.",
+      "signed_out": "Ihre Anmeldung ist abgelaufen oder gehört nicht dem Besitzer. Melden Sie sich erneut an und versuchen Sie es noch einmal.",
+      "unreachable": "YA-WAMF hat nicht geantwortet. Prüfen Sie, ob es läuft und von diesem Gerät erreichbar ist, und versuchen Sie es dann erneut."
+    },
+    "detail": "Meldung des Servers: {detail}",
+    "stale": "Die Angaben unten sind möglicherweise veraltet.",
+    "what": {
+      "delete": "Die Bewertung wurde nicht gelöscht.",
+      "download": "Die Datei wurde nicht heruntergeladen.",
+      "history": "Die bisherigen Bewertungen konnten nicht gelesen werden.",
+      "results": "Die Ergebnisse dieser Bewertung konnten nicht gelesen werden.",
+      "start": "Die Bewertung wurde nicht gestartet.",
+      "stop": "Die Bewertung wurde nicht beendet."
+    }
+  },
+  "progress": {
+    "count": "{done} von {total}",
+    "label": "Fortschritt der Bewertung",
+    "phase": {
+      "building_panel": "Testvögel werden ausgewählt",
+      "device_sweep": "Anbieter werden geprüft",
+      "downloading_models": "Modelle werden heruntergeladen",
+      "evaluating": "Modelle werden getestet",
+      "fetching_images": "Fotos werden abgerufen",
+      "starting": "Wird gestartet",
+      "working": "In Arbeit"
+    }
+  },
+  "results": {
+    "can_name": "{known} von {total}",
+    "capped": "Es werden nur die 20 neuesten Bewertungen aufgeführt.",
+    "choose": "Bewertung",
+    "col_average_time": "Durchschnittliche Zeit",
+    "col_can_name": "Benennbare Arten",
+    "col_common": "Häufige Futterplatzvögel",
+    "col_first_guess": "Erste Vermutung richtig",
+    "col_local": "Vögel in Ihrer Nähe",
+    "col_provider": "Lief auf",
+    "col_slow_time": "Langsame Fotos",
+    "col_top_three": "Unter den ersten drei",
+    "delete": "Diese Bewertung löschen",
+    "delete_blocked": "Beenden Sie sie, bevor Sie sie löschen.",
+    "duration": "{minutes, plural, one {# Minute} other {# Minuten}}",
+    "empty": "Es wurde noch keine Bewertung durchgeführt. Starten Sie oben eine, dann erscheinen ihre Ergebnisse hier.",
+    "file": {
+      "each_photo": "Ergebnis jedes Fotos",
+      "mix_ups": "Verwechslungen",
+      "provider_checks": "Anbieterprüfungen",
+      "speed": "Geschwindigkeit im Detail",
+      "summary": "Zusammenfassung"
+    },
+    "file_download": "{label} herunterladen ({file})",
+    "files": "Ergebnisse herunterladen",
+    "folder": "Ordner auf dem Server:",
+    "key": "Erste Vermutung richtig ist der Anteil der Fotos, bei denen die erste Vermutung die richtige Art war; unter den ersten drei zählt die ersten drei Vermutungen. Häufige Futterplatzvögel und Vögel in Ihrer Nähe teilen den Anteil der ersten Vermutung in weit verbreitete Futterplatzvögel und in der Nähe Ihres Standorts gemeldete Vögel auf. Langsame Fotos ist die Zeit, unter der 19 von 20 Fotos blieben.",
+    "loading": "Ergebnisse werden gelesen",
+    "loading_list": "Bisherige Bewertungen werden gelesen",
+    "no_models": "In dieser Bewertung wurde kein Modell getestet.",
+    "not_measured": "Nicht gemessen",
+    "option_running": "{when}, läuft gerade",
+    "option_stopped": "{when}, vorzeitig beendet",
+    "photos": "{count, plural, one {# Foto} other {# Fotos}}",
+    "region": "Region {region}",
+    "species": "{count, plural, one {# Art} other {# Arten}}",
+    "still_running": "Diese Bewertung läuft noch. Die Ergebnisse erscheinen hier, sobald ein Modell fertig ist.",
+    "stopped_early": "Diese Bewertung wurde vorzeitig beendet, daher können Modelle fehlen. Starten Sie eine neue Bewertung; wenn sie wieder abbricht, sehen Sie in die Container-Protokolle.",
+    "title": "Ergebnisse",
+    "under_a_minute": "Unter einer Minute",
+    "vocabulary_note": "Die Anteile zählen nur die Arten, die ein Modell benennen kann. Ein regionales Modell wird also nicht für Vögel außerhalb seiner Region abgewertet."
+  },
+  "skipped": {
+    "activation_failed": "Seine Dateien fehlen oder sind unvollständig. Nutzen Sie für dieses Modell „Download reparieren“ unter Einstellungen → Erkennung.",
+    "other": "Es wurde übersprungen.",
+    "reload_failed": "Es konnte nicht geladen werden.",
+    "title": "Nicht getestete Modelle"
+  },
+  "start": {
+    "action": "Bewertung starten",
+    "all_models_desc": "Prüft zusätzlich, ob jedes Modell auf Ihrem Grafikchip oder Ihrer NPU dieselben Antworten liefert wie auf der CPU. Nicht installierte Modelle werden zuerst heruntergeladen und bleiben installiert. Das dauert deutlich länger.",
+    "all_models_label": "Jedes Modell auf jedem Anbieter prüfen",
+    "cost": "Während der Bewertung lädt YA-WAMF die Modelle nacheinander, daher können laufende Erkennungen langsamer sein. Am Ende wird das Modell, das Sie jetzt verwenden, wieder eingesetzt. Zum Abrufen der Fotos ist Internetzugang nötig.",
+    "download_none": "Alle Modelle sind bereits installiert, es wird nichts heruntergeladen.",
+    "download_reading": "Der Umfang des Downloads wird ermittelt…",
+    "download_size": "{count, plural, one {# Modell ist noch nicht installiert: ein Download von etwa {size}.} other {# Modelle sind noch nicht installiert: ein Download von etwa {size}.}}",
+    "download_unknown": "Die Größe des Downloads konnte nicht ermittelt werden. Nicht installierte Modelle werden trotzdem heruntergeladen.",
+    "each_photo_desc": "Fügt eine Datei mit den fünf besten Vermutungen zu jedem Foto hinzu, damit Sie einzelnen Fehlern nachgehen können. Sie lässt sich mit den anderen Ergebnissen herunterladen.",
+    "each_photo_label": "Ergebnis jedes Fotos behalten",
+    "limit": "Die Fotos stammen nicht von Ihrer Futterstelle. Nutzen Sie die Werte, um Modelle miteinander zu vergleichen, nicht um vorherzusagen, wie genau eines an Ihrer Futterstelle sein wird.",
+    "options": "Optionen für die Bewertung",
+    "running": "Bewertung läuft",
+    "running_reason": "Es läuft immer nur eine Bewertung. Beenden Sie diese, um eine neue zu starten.",
+    "stop": "Bewertung beenden",
+    "title": "Bewertung starten",
+    "what": "Jedes installierte Modell benennt Fotos häufiger Futterplatzvögel und von Vögeln, die in der Nähe Ihres gespeicherten Standorts gemeldet wurden. Die Fotos stammen von iNaturalist und Wikimedia Commons, wo die Art bereits bestätigt ist. So sehen Sie, wie oft jedes Modell richtig liegt und wie lange es braucht."
+  },
+  "warning": {
+    "high_abstention": "Hat bei {share} % der Fotos keine Art genannt. Möglicherweise deckt es diese Vögel nicht ab, oder die Installation ist unvollständig. Prüfen Sie das Modell unter Einstellungen → Erkennung.",
+    "incomplete_install": "Seine Dateien sind unvollständig. Nutzen Sie für dieses Modell „Download reparieren“ unter Einstellungen → Erkennung.",
+    "inference_health_unhealthy": "Während des Laufs traten Fehler oder Zeitüberschreitungen auf. Die Ursache steht in den Container-Protokollen.",
+    "latency_drift_high": "Viel langsamer als beim Laden: {measured, number} ms pro Foto gegenüber {loaded, number} ms. Der Anbieter, auf dem es lief, arbeitet möglicherweise fehlerhaft. Stellen Sie den Inferenzanbieter unter Einstellungen → Erkennung auf CPU und bewerten Sie erneut.",
+    "latency_drift_high_plain": "Viel langsamer als beim Laden. Der Anbieter, auf dem es lief, arbeitet möglicherweise fehlerhaft. Stellen Sie den Inferenzanbieter unter Einstellungen → Erkennung auf CPU und bewerten Sie erneut.",
+    "low_shared_core": "Hat weniger als die Hälfte der häufigen Futterplatzvögel richtig benannt, was meist auf eine beschädigte Installation hinweist. Nutzen Sie für dieses Modell „Download reparieren“ unter Einstellungen → Erkennung.",
+    "partial_vocabulary": "Kann {outside} der {total} Testarten nicht benennen, meist weil sie außerhalb seiner Region leben. Seine Anteile beziehen sich auf die Arten, die es benennen kann.",
+    "partial_vocabulary_plain": "Kann einige der Testarten nicht benennen, meist weil sie außerhalb seiner Region leben. Seine Anteile beziehen sich auf die Arten, die es benennen kann.",
+    "provider_fallback_active": "Lief auf der CPU, obwohl ein schnellerer Anbieter angefordert war. Den Grund nennt die Laufzeit-Diagnose unter Einstellungen → Erkennung.",
+    "region_mismatch": "Für eine andere Region gebaut als die Vögel in Ihrer Nähe, daher sind seine Anteile hier niedriger als dort.",
+    "severity": {
+      "critical": "Problem",
+      "info": "Hinweis",
+      "warning": "Prüfen"
+    }
+  }
 }

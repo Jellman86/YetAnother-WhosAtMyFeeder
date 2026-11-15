@@ -5,8 +5,8 @@ export interface ModelEvalScores {
     top3: number | null;
     core: number | null;
     region: number | null;
-    /** "116 of 141", or null when the run does not know which birds the model can name. */
-    canName: string | null;
+    /** How many of the test species the model can name, or null when the run does not know. */
+    canName: { known: number; total: number } | null;
 }
 
 /**
@@ -53,6 +53,6 @@ export function modelEvalScores(model: ModelEvalModelSummary): ModelEvalScores {
         top3: model.top3_accuracy_in_vocabulary ?? null,
         core: model.shared_core_top1_in_vocabulary ?? null,
         region: model.regional_top1_in_vocabulary ?? null,
-        canName: total ? `${total - outside} of ${total}` : null,
+        canName: total ? { known: total - outside, total } : null,
     };
 }

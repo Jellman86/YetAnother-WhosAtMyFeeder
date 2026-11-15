@@ -19,6 +19,10 @@ export interface ModelEvalRunSummary {
     config_snapshot?: Record<string, unknown>;
     runtime?: Record<string, unknown>;
     error?: string;
+    /** The result files this evaluation wrote, which are the ones offered for download. */
+    available_artifacts?: string[];
+    /** Set while the evaluation has not written its first results yet. */
+    in_progress?: boolean;
 }
 
 interface ModelEvalSkippedModel {

@@ -269,10 +269,10 @@
   "debug": {
     "title": "Ferramentas de debug",
     "subtitle": "Interruptores extras para testes e diagnóstico.",
-    "model_eval_title": "Ferramenta de avaliação de modelos",
-    "model_eval_desc": "Avalie os classificadores instalados com imagens de aves verificadas taxonomicamente. Os artefatos são salvos em /config/yawamf-eval/.",
-    "model_eval_action_desc": "Execute testes de precisão, latência e coerência em todos os modelos instalados. Apenas para o proprietário.",
-    "model_eval_open": "Abrir",
+    "model_eval_title": "Avaliação de modelos",
+    "model_eval_desc": "Compare os modelos instalados em fotos cuja espécie já está confirmada.",
+    "model_eval_action_desc": "Veja com que frequência cada modelo acerta e quanto tempo leva.",
+    "model_eval_open": "Abrir a avaliação de modelos",
     "llm_prompts_title": "Modelos de prompt LLM",
     "llm_prompts_subtitle": "Personalize a estrutura Markdown e o tom para análise de IA e conversas.",
     "llm_prompt_style_label": "Estilo de prompt",
@@ -1333,7 +1333,8 @@
     "bird_finder_recommended_running": "A verificar {devices}. A CPU continua disponível durante a verificação.",
     "bird_finder_recommended_unchecked": "CPU até {devices} passarem uma verificação aqui. Ainda não há acelerador recomendado.",
     "bird_finder_recommended_waiting": "A aguardar fotografias guardadas de aves para voltar a verificar {devices}. A CPU continua disponível.",
-    "model_manager_card_on_disk": "Neste host"
+    "model_manager_card_on_disk": "Neste host",
+    "models_compare_link": "Comparar a precisão e a velocidade dos modelos instalados"
   },
   "llm": {
     "title": "Análises de IA",
