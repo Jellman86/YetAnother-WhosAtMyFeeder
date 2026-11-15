@@ -155,10 +155,6 @@
             <!-- One readable column of rows (48rem), however wide the window. -->
             <div class="min-w-0 max-w-3xl flex-1 space-y-6">
                 <div id={contentId} class="space-y-8 focus:outline-hidden" tabindex="-1" data-settings-content>
-                    <!-- One rule for every tab, so no control has to say it again: what waits and what does not. -->
-                    <p class="text-sm text-slate-600 dark:text-slate-300" data-settings-save-rule>
-                        {$_('settings.save_rule', { default: 'Changes to settings wait until you choose Save changes. Buttons such as Test, Run and Download act straight away.' })}
-                    </p>
                     {@render children()}
                 </div>
                 {#if showSaveBar}
@@ -194,6 +190,10 @@
                                             onclick={() => onOpenTab?.(tab.id)}
                                         >{tab.label}</button>
                                     {/each}
+                                </p>
+                                <!-- Said where it matters, once something is waiting: what waits and what does not. -->
+                                <p class="text-xs text-slate-600 dark:text-slate-400" data-settings-save-rule>
+                                    {$_('settings.save_rule', { default: 'Changes to settings wait until you choose Save changes. Buttons such as Test, Run and Download act straight away.' })}
                                 </p>
                                 {/if}
                                 {#if conflicts.length > 0}

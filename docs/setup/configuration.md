@@ -22,8 +22,8 @@ on the system and has nothing to save (see [Health](#health)).
 
 Edits wait in one draft across every tab. While anything differs from what is saved, a bar
 at the bottom of the page counts the changes and names their tabs, with **Discard changes**
-(puts every saved value back) and **Save changes**. A line at the top of every tab says the same:
-settings wait for **Save changes**, while buttons such as Test, Run and Download act straight away.
+(puts every saved value back) and **Save changes**. The bar also says that settings wait for
+**Save changes**, while buttons such as Test, Run and Download act straight away.
 While the bar shows, the page keeps a focused control above it. Choosing another page with unsaved
 changes asks first, offering **Save and leave** (it leaves only once the save goes through) as well
 as **Leave without saving**; reloading or closing the tab asks too, and moving between tabs keeps

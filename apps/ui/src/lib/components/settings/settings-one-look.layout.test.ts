@@ -106,7 +106,9 @@ describe('Settings has one look across tabs', () => {
         expect(pageSource).toContain('ResizeObserver');
     });
 
-    it('says once, on every tab, that buttons act at once and fields wait for Save', () => {
-        expect(pageSource).toContain('data-settings-save-rule');
+    it('says that buttons act at once and fields wait for Save in the unsaved-changes bar, not above every tab', () => {
+        const rule = pageSource.indexOf('data-settings-save-rule');
+        expect(rule).toBeGreaterThan(pageSource.indexOf('data-settings-save-bar'));
+        expect(pageSource.indexOf('data-settings-save-rule', rule + 1)).toBe(-1);
     });
 });

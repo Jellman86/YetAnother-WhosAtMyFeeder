@@ -10,7 +10,7 @@
   first row (Integrations, Sign-in, Public access, each notification channel).
 - **Focus never hides under the save bar.** While unsaved changes show the bar, the page keeps a
   focused control above it, at every text size.
-- **What acts now and what waits is said once, on every tab**, and Appearance and Accessibility
+- **What acts now and what waits is said once, in the unsaved-changes bar**, and Appearance and Accessibility
   say which choices apply at once on this device and which apply to everyone after saving.
 - **Leaving with unsaved changes offers Save and leave**, and a tab holding a refused value is
   marked "needs a fix" in the rail and the phone's section list.
