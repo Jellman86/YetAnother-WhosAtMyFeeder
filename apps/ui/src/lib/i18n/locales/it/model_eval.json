@@ -14,7 +14,6 @@
       "unusable_output": "Risultato inutilizzabile"
     },
     "finder": "Rilevatore di uccelli",
-    "image": "Immagine del container: {flavor}",
     "row": {
       "activation_failed": "Non è stato possibile caricarlo, quindi nessun provider è stato verificato. Usa «Riscarica per riparare» per questo modello in Impostazioni → Rilevamento.",
       "provider_sweep_failed": "La verifica non è riuscita prima che un provider desse un risultato. Eseguila di nuovo; se non riesce ancora, la causa è nei log del container.",

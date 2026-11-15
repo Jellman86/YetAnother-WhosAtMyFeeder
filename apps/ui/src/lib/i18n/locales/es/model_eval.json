@@ -14,7 +14,6 @@
       "unusable_output": "Salida inutilizable"
     },
     "finder": "Buscador de aves",
-    "image": "Imagen del contenedor: {flavor}",
     "row": {
       "activation_failed": "No se pudo cargar, así que no se comprobó ningún proveedor. Usa «Reparar descarga» para este modelo en Ajustes → Detección.",
       "provider_sweep_failed": "La comprobación falló antes de que ningún proveedor diera un resultado. Ejecútala de nuevo; si vuelve a fallar, la causa está en los registros del contenedor.",

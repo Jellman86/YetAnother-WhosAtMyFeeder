@@ -402,6 +402,17 @@ test('the page names each thing once, in sentence case, with the kit and plain w
     await expect(checks.getByRole('row', { name: /Bird Crop Detector/ })).toContainText('Same boxes on all 27 photos');
     await expect(checks.getByRole('row', { name: /Bird Crop Detector/ })).toContainText('Not tested');
 
+    // At this width every model is one line, so the rows keep one height.
+    const heights = await table.locator('tbody tr').filter({ has: page.getByRole('rowheader') }).evaluateAll((rows) => rows.map((row) => Math.round(row.getBoundingClientRect().height)));
+    // A row without a note carries the hairline that its note row otherwise does: one pixel.
+    expect(Math.max(...heights) - Math.min(...heights), JSON.stringify(heights)).toBeLessThanOrEqual(1);
+    expect(Math.max(...heights)).toBeLessThan(40);
+    // The downloads are quiet text actions on one line.
+    const tops = await page.getByRole('group', { name: 'Download the results' }).getByRole('button').evaluateAll((buttons) => buttons.map((button) => Math.round(button.getBoundingClientRect().top)));
+    expect(tops).toHaveLength(5);
+    expect(new Set(tops).size).toBe(1);
+    await expect(page.locator('[data-model-evaluation]')).not.toContainText('Container image');
+
     // One sentence opens the page; the rest waits behind "How this works".
     const start = page.getByRole('region', { name: 'Start an evaluation' });
     await expect(start.locator('p')).toHaveCount(1);
@@ -603,6 +614,9 @@ test('a German owner gets a German page that fits a phone without scrolling side
     await expect(content).toContainText('Erste Vermutung richtig');
     await expect(content).toContainText('90,0 %');
     await expect(content).toContainText('141 Arten · 423 Fotos · Region GB-ENG · 16 Minuten');
+    // A fact wraps only at a separator, never inside itself.
+    const factLines = await content.locator('[data-model-eval-facts] span.whitespace-nowrap').evaluateAll((facts) => facts.map((fact) => fact.getClientRects().length));
+    expect(factLines).toEqual([1, 1, 1, 1]);
     await expect(content).not.toContainText(/\b(Start an|Results|Download the|Evaluation|First guess|Provider checks|Not tested|Delete this|Summary|Problem:|photos)\b/);
     expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
 });

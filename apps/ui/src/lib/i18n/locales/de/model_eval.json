@@ -14,7 +14,6 @@
       "unusable_output": "Unbrauchbare Ausgabe"
     },
     "finder": "Vogelfinder",
-    "image": "Container-Image: {flavor}",
     "row": {
       "activation_failed": "Es konnte nicht geladen werden, daher wurde kein Anbieter geprüft. Nutzen Sie für dieses Modell „Download reparieren“ unter Einstellungen → Erkennung.",
       "provider_sweep_failed": "Die Prüfung ist fehlgeschlagen, bevor ein Anbieter ein Ergebnis geliefert hat. Starten Sie sie erneut; wenn sie wieder fehlschlägt, steht die Ursache in den Container-Protokollen.",

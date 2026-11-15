@@ -167,6 +167,23 @@ describe('model evaluation keeps the page quiet', () => {
         expect(markup).toContain("{TONE_DOT[cell.tone ?? 'neutral']}");
     });
 
+    it('offers the downloads as quiet text actions, not a row of outlined buttons', () => {
+        const downloads = markup.slice(markup.indexOf('model-eval-files-title'), markup.indexOf("$_('model_eval.results.folder'"));
+        expect(openingTags(downloads, 'button')[0]).toMatch(/class="btn btn-ghost [^"]*text-brand-700/);
+        expect(downloads).not.toContain('btn-secondary');
+        expect(downloads).toContain('<Separator />');
+    });
+
+    it('keeps each row to one line: a provider and a fact never break inside themselves', () => {
+        expect(source).toContain("{ default: 'Ran on' }), nowrap: true }");
+        expect(markup).toContain('<span class="whitespace-nowrap">{fact}</span>');
+    });
+
+    it('says nothing an owner cannot use: the container image name is not shown', () => {
+        expect(source).not.toContain('image_flavor');
+        expect(english['model_eval.checks.image']).toBeUndefined();
+    });
+
     it('puts Delete in the Results header as a quiet action that still asks first', () => {
         const header = markup.slice(markup.indexOf('model-eval-results-title') - 400, markup.indexOf('<div class="mt-2 space-y-4">'));
         expect(header).toContain("$_('model_eval.results.delete'");

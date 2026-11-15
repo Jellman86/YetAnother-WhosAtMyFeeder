@@ -14,7 +14,6 @@
       "unusable_output": "Sortie inutilisable"
     },
     "finder": "Détecteur d'oiseaux",
-    "image": "Image du conteneur : {flavor}",
     "row": {
       "activation_failed": "Il n'a pas pu être chargé, donc aucun fournisseur n'a été vérifié. Utilisez « Réparer le téléchargement » pour ce modèle dans Paramètres → Détection.",
       "provider_sweep_failed": "La vérification a échoué avant qu'un fournisseur ne donne un résultat. Relancez-la ; si elle échoue encore, la cause figure dans les journaux du conteneur.",

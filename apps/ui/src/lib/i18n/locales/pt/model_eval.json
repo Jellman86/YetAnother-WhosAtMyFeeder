@@ -14,7 +14,6 @@
       "unusable_output": "Saída inutilizável"
     },
     "finder": "Localizador de aves",
-    "image": "Imagem do contêiner: {flavor}",
     "row": {
       "activation_failed": "Não foi possível carregá-lo, então nenhum provedor foi verificado. Use “Reparar download” para este modelo em Configurações → Detecção.",
       "provider_sweep_failed": "A verificação falhou antes que algum provedor desse um resultado. Execute de novo; se falhar outra vez, a causa está nos logs do contêiner.",

@@ -60,7 +60,7 @@
     interface Cell { text: string | null; tone?: Tone; dot?: boolean }
     interface Note { tone: Tone; label: string; text: string }
     interface Row { id: string; name: string; kind?: string; cells: Cell[]; notes: Note[] }
-    interface Column { label: string; numeric?: boolean }
+    interface Column { label: string; numeric?: boolean; nowrap?: boolean }
     interface ModelTable { columns: Column[]; rows: Row[] }
 
     type DownloadReading =
@@ -166,7 +166,7 @@
         if (compatibilityOnly) {
             return {
                 columns: [
-                    { label: $_('model_eval.col_best_provider', { default: 'Fastest provider that passed' }) },
+                    { label: $_('model_eval.col_best_provider', { default: 'Fastest provider that passed' }), nowrap: true },
                     { label: $_('model_eval.col_median_inference', { default: 'Typical time per photo' }), numeric: true },
                     { label: $_('model_eval.col_validated_providers', { default: 'Providers that passed' }) },
                 ],
@@ -187,7 +187,7 @@
                 { label: $_('model_eval.results.col_can_name', { default: 'Species it can name' }), numeric: true },
                 { label: $_('model_eval.results.col_average_time', { default: 'Average time' }), numeric: true },
                 { label: $_('model_eval.results.col_slow_time', { default: 'Slow photos' }), numeric: true },
-                { label: $_('model_eval.results.col_provider', { default: 'Ran on' }) },
+                { label: $_('model_eval.results.col_provider', { default: 'Ran on' }), nowrap: true },
             ],
             rows: models.map((model) => {
                 const scores = modelEvalScores(model);
@@ -530,7 +530,7 @@
 {/snippet}
 
 {#snippet modelName(row: Row)}
-    <span class="block wrap-break-word">{row.name}</span>
+    <span class="block">{row.name}</span>
     {#if row.kind}
         <span class="block text-xs font-normal text-slate-600 dark:text-slate-400">{row.kind}</span>
     {/if}
@@ -588,9 +588,9 @@
             <tbody>
                 {#each table.rows as row (row.id)}
                     <tr class="align-top {row.notes.length ? '' : 'border-b border-line-soft'}">
-                        <th scope="row" class="py-2 pr-4 text-left font-semibold text-slate-900 dark:text-white">{@render modelName(row)}</th>
+                        <th scope="row" class="whitespace-nowrap py-2 pr-4 text-left font-semibold text-slate-900 dark:text-white">{@render modelName(row)}</th>
                         {#each row.cells as cell, index}
-                            <td class="px-2 py-2 {table.columns[index].numeric ? 'text-right tabular-nums' : ''} text-slate-700 dark:text-slate-300">{@render cellValue(cell)}</td>
+                            <td class="px-2 py-2 {table.columns[index].numeric ? 'whitespace-nowrap text-right tabular-nums' : ''} {table.columns[index].nowrap ? 'whitespace-nowrap' : ''} text-slate-700 dark:text-slate-300">{@render cellValue(cell)}</td>
                         {/each}
                     </tr>
                     {#if row.notes.length}
@@ -605,7 +605,7 @@
     <ul class="divide-y divide-line-soft border-y border-line-soft @2xl:hidden" aria-labelledby={labelId}>
         {#each table.rows as row (row.id)}
             <li class="space-y-2 py-3">
-                <h3 class="text-sm font-semibold text-slate-900 dark:text-white">{@render modelName(row)}</h3>
+                <h3 class="text-sm font-semibold text-slate-900 wrap-break-word dark:text-white">{@render modelName(row)}</h3>
                 <dl class="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
                     {#each table.columns as column, index}
                         <dt class="text-slate-600 dark:text-slate-400">{column.label}</dt>
@@ -819,7 +819,7 @@
                 {:else}
                     {#if testSetFacts.length}
                         <p class="text-sm text-slate-600 dark:text-slate-400" data-model-eval-facts>
-                            {#each testSetFacts as fact, index}{#if index > 0}<Separator spaced />{/if}{fact}{/each}
+                            {#each testSetFacts as fact, index}{#if index > 0}<Separator spaced />{/if}<span class="whitespace-nowrap">{fact}</span>{/each}
                         </p>
                     {/if}
 
@@ -878,12 +878,15 @@
                     {#if files.length}
                         <div class="border-t border-line-soft pt-4" aria-busy={downloadingFile !== null}>
                             <p id="model-eval-files-title" class="eyebrow">{$_('model_eval.results.files', { default: 'Download the results' })}</p>
-                            <div class="mt-2 flex flex-wrap gap-2" role="group" aria-labelledby="model-eval-files-title">
-                                {#each files as file (file.name)}
+                            <!-- A secondary task: quiet text actions on one line, each still a full touch target. -->
+                            <div class="-ml-2 flex flex-wrap items-center gap-x-1" role="group" aria-labelledby="model-eval-files-title">
+                                {#each files as file, index (file.name)}
                                     {@const label = $_(`model_eval.results.file.${file.label}`)}
+                                    <!-- Where the row wraps, a separator would be left hanging at a line end. -->
+                                    {#if index > 0}<span class="hidden text-slate-600 @2xl:inline dark:text-slate-400"><Separator /></span>{/if}
                                     <button
                                         type="button"
-                                        class="btn btn-secondary"
+                                        class="btn btn-ghost px-2 font-medium text-brand-700 hover:underline dark:text-brand-300"
                                         disabled={downloadingFile !== null}
                                         aria-label={$_('model_eval.results.file_download', { values: { label, file: file.name }, default: 'Download {label} ({file})' })}
                                         onclick={() => selectedRun && downloadFile(selectedRun.run_id, file.name)}
@@ -897,7 +900,7 @@
                                     </button>
                                 {/each}
                             </div>
-                            <p class="mt-2 text-xs text-slate-600 dark:text-slate-400">
+                            <p class="text-xs text-slate-600 dark:text-slate-400">
                                 {$_('model_eval.results.folder', { default: 'Folder on the server:' })}
                                 <code class="font-mono wrap-break-word">{RUNS_FOLDER}/{selectedRun.run_id}/</code>
                             </p>
@@ -914,9 +917,6 @@
                 {$_('model_eval.checks.title', { default: 'Provider checks' })}
             </h2>
             <p class="mt-2 max-w-3xl text-sm leading-relaxed text-slate-600 dark:text-slate-300">{$_('model_eval.checks.body')}</p>
-            {#if deviceMatrix?.image_flavor}
-                <p class="mt-1 text-xs text-slate-600 dark:text-slate-400">{$_('model_eval.checks.image', { values: { flavor: deviceMatrix.image_flavor }, default: 'Container image: {flavor}' })}</p>
-            {/if}
             <div class="mt-4">{@render modelTable(checksTable, 'model-eval-checks-title')}</div>
         </section>
     {/if}

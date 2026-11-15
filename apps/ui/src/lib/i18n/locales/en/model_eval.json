@@ -14,7 +14,6 @@
       "unusable_output": "Unusable output"
     },
     "finder": "Bird finder",
-    "image": "Container image: {flavor}",
     "row": {
       "activation_failed": "It could not be loaded, so no provider was checked. Use Repair download for this model in Settings → Detection.",
       "provider_sweep_failed": "The check failed before any provider gave a result. Run it again; if it fails again, the container logs name the cause.",
