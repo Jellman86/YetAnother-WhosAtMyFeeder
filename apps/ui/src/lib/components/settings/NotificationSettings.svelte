@@ -642,20 +642,28 @@
 
     </SettingsCard>
 
-    <div id={channelsSectionId} class="scroll-mt-24 space-y-8">
-        <!-- Discord -->
-        <SettingsCard title={$_('settings.discord.title')} description={$_('settings.discord.desc', { default: 'Posts each alert to a Discord channel through its webhook.' })} titleId="discord-channel-label">
-            {#snippet actions()}
-                    <SettingsToggle
-                        checked={discordEnabled}
-                        labelledBy="discord-channel-label"
-                        srLabel={$_('settings.discord.title')}
-                        onchange={(v) => (discordEnabled = v)}
-                    />
-            {/snippet}
+    <!-- One surface for every channel: a row each, its switch on the right, its fields inside the row while on. -->
+    <SettingsCard
+        id={channelsSectionId}
+        title={$_('settings.notifications.channels_title', { default: 'Channels' })}
+        description={$_('settings.notifications.channels_desc', { default: 'Where alerts go. Turn a channel on to set it up.' })}
+    >
+        <div data-notification-channel="discord">
+            <div class="flex items-start justify-between gap-4">
+                <div class="min-w-0">
+                    <h3 id="discord-channel-label" class="text-base font-medium text-slate-900 dark:text-white">{$_('settings.discord.title')}</h3>
+                    <p class="mt-1 max-w-prose text-sm leading-snug text-slate-600 dark:text-slate-400">{$_('settings.discord.desc', { default: 'Posts each alert to a Discord channel through its webhook.' })}</p>
+                </div>
+                <SettingsToggle
+                    checked={discordEnabled}
+                    labelledBy="discord-channel-label"
+                    srLabel={$_('settings.discord.title')}
+                    onchange={(v) => (discordEnabled = v)}
+                />
+            </div>
 
             {#if discordEnabled}
-            <div class="settings-stack">
+            <div class="settings-stack mt-4 border-t border-line-soft pt-4">
                 <div class="settings-row space-y-2 md:grid md:settings-row-columns md:items-start md:gap-x-8 md:space-y-0" data-settings-row>
                     <label for="discord-webhook" class="block text-base font-medium text-slate-900 dark:text-white">{$_('settings.discord.webhook_url')}</label>
                     <div class="min-w-0">
@@ -697,21 +705,24 @@
                 {/if}
             </div>
             {/if}
-        </SettingsCard>
+        </div>
 
-        <!-- Pushover -->
-        <SettingsCard title={$_('settings.pushover.title')} description={$_('settings.pushover.desc', { default: 'Sends each alert to your phone through the Pushover app.' })} titleId="pushover-channel-label">
-            {#snippet actions()}
-                    <SettingsToggle
-                        checked={pushoverEnabled}
-                        labelledBy="pushover-channel-label"
-                        srLabel={$_('settings.pushover.title')}
-                        onchange={(v) => (pushoverEnabled = v)}
-                    />
-            {/snippet}
+        <div data-notification-channel="pushover">
+            <div class="flex items-start justify-between gap-4">
+                <div class="min-w-0">
+                    <h3 id="pushover-channel-label" class="text-base font-medium text-slate-900 dark:text-white">{$_('settings.pushover.title')}</h3>
+                    <p class="mt-1 max-w-prose text-sm leading-snug text-slate-600 dark:text-slate-400">{$_('settings.pushover.desc', { default: 'Sends each alert to your phone through the Pushover app.' })}</p>
+                </div>
+                <SettingsToggle
+                    checked={pushoverEnabled}
+                    labelledBy="pushover-channel-label"
+                    srLabel={$_('settings.pushover.title')}
+                    onchange={(v) => (pushoverEnabled = v)}
+                />
+            </div>
 
             {#if pushoverEnabled}
-            <div class="settings-stack">
+            <div class="settings-stack mt-4 border-t border-line-soft pt-4">
                 <div class="settings-row space-y-2 md:grid md:settings-row-columns md:items-start md:gap-x-8 md:space-y-0" data-settings-row>
                     <label for="pushover-userkey" class="block text-base font-medium text-slate-900 dark:text-white">{$_('settings.pushover.user_key')}</label>
                     <div class="min-w-0">
@@ -791,21 +802,24 @@
                 </AdvancedSection>
             </div>
             {/if}
-        </SettingsCard>
+        </div>
 
-        <!-- Telegram -->
-        <SettingsCard title={$_('settings.telegram.title')} description={$_('settings.telegram.desc', { default: 'Sends each alert to a Telegram chat through your bot.' })} titleId="telegram-channel-label">
-            {#snippet actions()}
-                    <SettingsToggle
-                        checked={telegramEnabled}
-                        labelledBy="telegram-channel-label"
-                        srLabel={$_('settings.telegram.title')}
-                        onchange={(v) => (telegramEnabled = v)}
-                    />
-            {/snippet}
+        <div data-notification-channel="telegram">
+            <div class="flex items-start justify-between gap-4">
+                <div class="min-w-0">
+                    <h3 id="telegram-channel-label" class="text-base font-medium text-slate-900 dark:text-white">{$_('settings.telegram.title')}</h3>
+                    <p class="mt-1 max-w-prose text-sm leading-snug text-slate-600 dark:text-slate-400">{$_('settings.telegram.desc', { default: 'Sends each alert to a Telegram chat through your bot.' })}</p>
+                </div>
+                <SettingsToggle
+                    checked={telegramEnabled}
+                    labelledBy="telegram-channel-label"
+                    srLabel={$_('settings.telegram.title')}
+                    onchange={(v) => (telegramEnabled = v)}
+                />
+            </div>
 
             {#if telegramEnabled}
-            <div class="settings-stack">
+            <div class="settings-stack mt-4 border-t border-line-soft pt-4">
                 <div class="settings-row space-y-2 md:grid md:settings-row-columns md:items-start md:gap-x-8 md:space-y-0" data-settings-row>
                     <label for="telegram-bottoken" class="block text-base font-medium text-slate-900 dark:text-white">{$_('settings.telegram.bot_token')}</label>
                     <div class="min-w-0">
@@ -847,21 +861,24 @@
                 {/if}
             </div>
             {/if}
-        </SettingsCard>
+        </div>
 
-        <!-- Email -->
-        <SettingsCard title={$_('settings.email.title')} description={$_('settings.email.desc', { default: 'Sends each alert by email, from Gmail, Outlook or your own mail server.' })} titleId="email-channel-label">
-            {#snippet actions()}
-                    <SettingsToggle
-                        checked={emailEnabled}
-                        labelledBy="email-channel-label"
-                        srLabel={$_('settings.email.title')}
-                        onchange={(v) => (emailEnabled = v)}
-                    />
-            {/snippet}
+        <div data-notification-channel="email">
+            <div class="flex items-start justify-between gap-4">
+                <div class="min-w-0">
+                    <h3 id="email-channel-label" class="text-base font-medium text-slate-900 dark:text-white">{$_('settings.email.title')}</h3>
+                    <p class="mt-1 max-w-prose text-sm leading-snug text-slate-600 dark:text-slate-400">{$_('settings.email.desc', { default: 'Sends each alert by email, from Gmail, Outlook or your own mail server.' })}</p>
+                </div>
+                <SettingsToggle
+                    checked={emailEnabled}
+                    labelledBy="email-channel-label"
+                    srLabel={$_('settings.email.title')}
+                    onchange={(v) => (emailEnabled = v)}
+                />
+            </div>
 
             {#if emailEnabled}
-            <div class="settings-stack">
+            <div class="settings-stack mt-4 border-t border-line-soft pt-4">
                 <!-- Auth Mode Selector -->
                 <SettingsRow labelId="email-auth-mode-label" label={$_('settings.email.auth_mode')}>
                     <SettingsSegmented
@@ -1131,8 +1148,8 @@
                 {/if}
             </div>
             {/if}
-        </SettingsCard>
-    </div>
+        </div>
+    </SettingsCard>
 
     {#if gardenBeta}
         <!-- Garden alerts are set with the rest of Garden; their channels are the ones set up here. -->

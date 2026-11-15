@@ -930,7 +930,9 @@
     },
     "garden_elsewhere": "花园动物提醒在“测试功能”的“花园动物”中设置，通过上方的渠道发送。",
     "garden_open": "打开花园提醒",
-    "link_open_connection": "打开“连接”"
+    "link_open_connection": "打开“连接”",
+    "channels_title": "渠道",
+    "channels_desc": "通知发送到的地方。开启某个渠道即可进行设置。"
   },
   "discord": {
     "title": "Discord 通知",

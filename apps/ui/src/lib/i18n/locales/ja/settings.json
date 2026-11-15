@@ -930,7 +930,9 @@
     },
     "garden_elsewhere": "庭の動物の通知は、ベータ機能の「庭の動物」で設定します。上のチャネルから送信されます。",
     "garden_open": "庭の通知を開く",
-    "link_open_connection": "接続を開く"
+    "link_open_connection": "接続を開く",
+    "channels_title": "チャンネル",
+    "channels_desc": "通知の送信先です。チャンネルをオンにすると設定できます。"
   },
   "discord": {
     "title": "Discord通知",

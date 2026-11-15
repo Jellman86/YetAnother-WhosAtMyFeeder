@@ -930,7 +930,9 @@
     },
     "garden_elsewhere": "Gli avvisi sugli animali del giardino si impostano con Animali del giardino, in Funzioni beta. Vengono inviati tramite i canali qui sopra.",
     "garden_open": "Apri gli avvisi del giardino",
-    "link_open_connection": "Apri Connessione"
+    "link_open_connection": "Apri Connessione",
+    "channels_title": "Canali",
+    "channels_desc": "Dove vanno gli avvisi. Attiva un canale per configurarlo."
   },
   "discord": {
     "title": "Notifiche Discord",

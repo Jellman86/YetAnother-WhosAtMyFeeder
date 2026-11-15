@@ -930,7 +930,9 @@
     },
     "garden_elsewhere": "Os alertas de animais do jardim são definidos em Animais do jardim, nas Funções beta. São enviados pelos canais acima.",
     "garden_open": "Abrir alertas do jardim",
-    "link_open_connection": "Abrir Conexão"
+    "link_open_connection": "Abrir Conexão",
+    "channels_title": "Canais",
+    "channels_desc": "Para onde vão os alertas. Ative um canal para configurá-lo."
   },
   "discord": {
     "title": "Notificações Discord",

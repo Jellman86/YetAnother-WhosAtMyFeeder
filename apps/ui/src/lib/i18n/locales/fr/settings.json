@@ -930,7 +930,9 @@
     },
     "garden_elsewhere": "Les alertes Animaux du jardin se règlent avec Animaux du jardin, dans Fonctions bêta. Elles passent par les canaux ci-dessus.",
     "garden_open": "Ouvrir les alertes du jardin",
-    "link_open_connection": "Ouvrir Connexion"
+    "link_open_connection": "Ouvrir Connexion",
+    "channels_title": "Canaux",
+    "channels_desc": "Où partent les alertes. Activez un canal pour le configurer."
   },
   "discord": {
     "title": "Notifications Discord",

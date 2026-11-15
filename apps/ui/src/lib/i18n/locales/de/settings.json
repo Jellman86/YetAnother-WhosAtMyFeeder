@@ -930,7 +930,9 @@
     },
     "garden_elsewhere": "Benachrichtigungen zu Gartentieren werden bei den Gartentieren unter Beta-Funktionen eingestellt. Sie werden über die Kanäle oben gesendet.",
     "garden_open": "Gartentier-Benachrichtigungen öffnen",
-    "link_open_connection": "Verbindung öffnen"
+    "link_open_connection": "Verbindung öffnen",
+    "channels_title": "Kanäle",
+    "channels_desc": "Wohin Benachrichtigungen gehen. Schalten Sie einen Kanal ein, um ihn einzurichten."
   },
   "discord": {
     "title": "Discord-Benachrichtigungen",

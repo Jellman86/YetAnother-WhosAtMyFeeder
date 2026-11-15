@@ -10,6 +10,7 @@ import authenticationSource from './AuthenticationSettings.svelte?raw';
 import modelManagerSource from '../../pages/models/ModelManager.svelte?raw';
 import telemetrySource from './TelemetrySettings.svelte?raw';
 import connectionSource from './ConnectionSettings.svelte?raw';
+import notificationSource from './NotificationSettings.svelte?raw';
 // @ts-expect-error -- node:fs resolves at runtime, not in the app tsconfig
 import { readFileSync } from 'node:fs';
 
@@ -76,6 +77,14 @@ describe('Settings has one look across tabs', () => {
         expect(pageSource).not.toMatch(/font-(sans|serif|mono|ui|body)\b/);
         for (const [file, source] of Object.entries(tabSources)) {
             expect(source, file).not.toMatch(/font-family|font-\[/);
+        }
+    });
+
+    it('lists the notification channels as rows of one Channels card, each with its switch on the right', () => {
+        expect(notificationSource).toContain("$_('settings.notifications.channels_title'");
+        for (const channel of ['discord', 'pushover', 'telegram', 'email']) {
+            expect(notificationSource, channel).toContain(`data-notification-channel="${channel}"`);
+            expect(notificationSource, channel).not.toContain(`titleId="${channel}-channel-label"`);
         }
     });
 
