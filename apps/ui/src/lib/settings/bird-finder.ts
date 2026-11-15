@@ -1,5 +1,6 @@
 import type { SettingsUpdate } from '../api/settings';
 import type { InstalledModel } from '../api';
+import type { components } from '../api/generated/openapi';
 
 export type BirdFinderProvider = NonNullable<SettingsUpdate['bird_crop_inference_provider']>;
 
@@ -61,16 +62,19 @@ export interface FinderDeviceCheck {
     providers?: string[] | null;
     reason?: string | null;
     checked_at?: string | null;
+    reason_code?: components['schemas']['ClassifierCropDeviceCheck']['reason_code'];
+    runtime_current?: boolean;
 }
 
 /** Why a check failed, when the backend's reason is one this page can state as a measured fact. */
 type FinderCheckCause = 'mismatch' | 'unfinished' | null;
 
-/** The one measured fact the "Runs on" row states. Every kind but `passed` and `checking` runs on the CPU. */
+/** The measured execution or device-check fact shown in the "Runs on" row. */
 export type FinderRunsOn =
     | { kind: 'not_downloaded' }
     | { kind: 'checking'; devices: string[] }
     | { kind: 'passed'; provider: string; checkedAt: string | null }
+    | { kind: 'active'; provider: string; checkedAt: string }
     | { kind: 'cpu_chosen' }
     | { kind: 'failed'; devices: string[]; checkedAt: string | null; cause: FinderCheckCause }
     | { kind: 'interrupted'; devices: string[]; checkedAt: string | null }
@@ -80,6 +84,9 @@ export type FinderRunsOn =
 
 export interface FinderRunsOnInput {
     installed: boolean;
+    execution?: components['schemas']['InferenceExecution'] | null;
+    /** The device the backend will use for the running finder's next frame, from its crop status. */
+    planned?: { model_id?: string | null; provider?: string | null } | null;
     /** The finder's current passing evidence on this host, fastest first. */
     evidence: readonly string[];
     /** Graphics and NPU devices this host offers the finder. */
@@ -91,13 +98,38 @@ export interface FinderRunsOnInput {
     checkRunning: boolean;
 }
 
-// The backend reports its reason as a sentence. Only the two it is known to write are read as a
-// cause; anything else is left unsaid rather than guessed at.
-function finderCheckCause(reason: string | null | undefined): FinderCheckCause {
+// Codes are stable; sentence matching supports ledgers written before they existed.
+function finderCheckCause(check: FinderDeviceCheck): FinderCheckCause {
+    if (check.reason_code) {
+        return check.reason_code === 'mismatch' || check.reason_code === 'unfinished' ? check.reason_code : null;
+    }
+    const reason = check.reason;
     if (!reason) return null;
     if (reason.includes('did not match the CPU')) return 'mismatch';
     if (reason.includes('could not finish')) return 'unfinished';
     return null;
+}
+
+/** A passing check newer than the last frame outranks that frame's device until the next frame runs. */
+function checkPassedAfter(execution: { checked_at: string }, check: FinderDeviceCheck | null): boolean {
+    if (check?.state !== 'succeeded' || !check.checked_at) return false;
+    const checked = Date.parse(check.checked_at);
+    const executed = Date.parse(execution.checked_at);
+    return Number.isFinite(checked) && (!Number.isFinite(executed) || checked > executed);
+}
+
+const CPU_CHOICES: readonly string[] = ['cpu', 'intel_cpu'];
+
+/**
+ * A fallback the owner did not choose is work for a person: a failed or interrupted check, or CPU use
+ * on a host that offers an accelerator while neither CPU option is the saved device.
+ */
+export function finderNeedsAttention(runsOn: FinderRunsOn, accelerators: readonly string[], savedProvider: string): boolean {
+    if (runsOn.kind === 'failed' || runsOn.kind === 'interrupted') return true;
+    return runsOn.kind === 'active'
+        && CPU_CHOICES.includes(runsOn.provider)
+        && accelerators.length > 0
+        && !CPU_CHOICES.includes(savedProvider);
 }
 
 /**
@@ -114,13 +146,21 @@ export function finderRunsOn(input: FinderRunsOnInput): FinderRunsOn {
     const wantedDevices = checkedDevices ?? (specific ? [specific] : [...accelerators]);
     if (checkRunning || check?.state === 'running') return { kind: 'checking', devices: wantedDevices };
     if (savedProvider === 'cpu') return { kind: 'cpu_chosen' };
-    const running = specific ? (evidence.includes(specific) ? specific : undefined) : evidence[0];
+    const execution = input.execution?.model_id === modelId && !checkPassedAfter(input.execution, check) ? input.execution : null;
+    if (execution) return { kind: 'active', provider: execution.provider, checkedAt: execution.checked_at };
+    // RF-DETR keeps the NPU (then GPU) ahead of CPU even when CPU benchmarks faster.
+    const order = modelId === BIRD_FINDER_MODEL_IDS.rfdetr_nano && ['auto', 'intel_npu', 'intel_gpu'].includes(savedProvider)
+        ? (savedProvider === 'intel_gpu' ? ['intel_gpu', 'intel_npu', 'cuda', 'cpu'] : ['intel_npu', 'intel_gpu', 'cuda', 'cpu'])
+        : specific ? [specific] : evidence;
+    // The backend's own choice wins; the order above only covers a status read that lacks one.
+    const planned = input.planned?.model_id === modelId ? input.planned.provider : null;
+    const running = planned ?? order.find((provider) => evidence.includes(provider));
     if (running && running !== 'cpu') {
-        const measured = check?.state === 'succeeded' && (check.providers ?? []).includes(running);
+        const measured = check?.runtime_current !== false && check?.state === 'succeeded' && (check.providers ?? []).includes(running);
         return { kind: 'passed', provider: running, checkedAt: measured ? (check.checked_at ?? null) : null };
     }
     if (check?.state === 'failed') {
-        return { kind: 'failed', devices: wantedDevices, checkedAt: check.checked_at ?? null, cause: finderCheckCause(check.reason) };
+        return { kind: 'failed', devices: wantedDevices, checkedAt: check.checked_at ?? null, cause: finderCheckCause(check) };
     }
     if (check?.state === 'interrupted') return { kind: 'interrupted', devices: wantedDevices, checkedAt: check.checked_at ?? null };
     if (check?.state === 'waiting') return { kind: 'waiting', devices: wantedDevices };

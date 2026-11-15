@@ -86,7 +86,7 @@ test('the finder options state cost only, and where the finder runs is said once
 
 test('a finder running on its saved device says which, and dates the check only when one measured it', async ({ page }) => {
     await openDetectionSettings(page, { savedFinder: 'rfdetr_nano' });
-    await expect(runsOn(page)).toHaveText('Intel GPU · passed its device check on this host');
+    await expect(runsOn(page)).toHaveText('Intel NPU · passed its device check on this host');
 });
 
 test('a passed check that measured the saved device is dated', async ({ page }) => {
@@ -107,9 +107,9 @@ test('a finder that fell back after a failed check says so with the date and the
     const npu = device(page).locator('option[value="intel_npu"]');
     await expect(npu).toHaveText('Intel NPU · not passed on this host');
     await expect(npu).toHaveJSProperty('disabled', false);
-    await expect(device(page).locator('option').first()).toHaveText('Automatic (fastest device that passed)');
+    await expect(device(page).locator('option').first()).toHaveText('Automatic (NPU, then GPU, then CPU)');
     await expect(finder(page).locator('[data-finder-device-note]'))
-        .toHaveText('Saved: Intel NPU. It runs on CPU until Intel NPU passes a check. Check devices, or choose Automatic.');
+        .toHaveText('Saved: Intel NPU. See Runs on above for the device currently used, or Check devices.');
     await expect(finder(page)).not.toContainText('in this image');
     await expect(finder(page)).not.toContainText('No check has finished');
     // The server refuses a newly chosen device that has not passed, so that one is named but not offered.
@@ -121,6 +121,12 @@ test('a finder that fell back after a failed check says so with the date and the
     await expect(finder(page).locator('[data-finder-device-note]')).toHaveCount(0);
     await device(page).selectOption('intel_npu');
     await expect(finder(page).locator('[data-finder-device-note]')).toContainText('Saved: Intel NPU.');
+});
+
+test('a saved NPU preference names the GPU when only the GPU has current passing evidence', async ({ page }) => {
+    await openDetectionSettings(page, { savedFinder: 'rfdetr_nano', savedFinderProvider: 'intel_npu', rfdetrEvidence: ['intel_gpu', 'cpu'], finderDeviceCheck: npuFailed });
+    await expect(runsOn(page)).toHaveText('Intel GPU · passed its device check on this host');
+    await expect(device(page)).toHaveValue('intel_npu');
 });
 
 test('a cause the backend does not name is left unsaid', async ({ page }) => {
@@ -172,7 +178,7 @@ test('re-download waits behind Repair, and the background behind "How the finder
     await expect(how.getByText('takes effect when you save')).toBeHidden();
     await how.locator('summary').click();
     await expect(how).toContainText("Frigate's tracking box");
-    await expect(how).toContainText('takes effect when you save. If the device becomes unavailable, CPU is used.');
+    await expect(how).toContainText('takes effect when you save. If the device becomes unavailable, a verified recovery device or CPU is used.');
 });
 
 test('the last completed run is shown under the fact it qualifies', async ({ page }) => {
@@ -180,7 +186,7 @@ test('the last completed run is shown under the fact it qualifies', async ({ pag
         model_id: RFDETR, provider: 'cpu', requested_provider: 'intel_gpu',
         devices: ['CPUExecutionProvider'], checked_at: '2026-10-25T08:00:00Z', fallback_reason: 'runtime_failed'
     } });
-    await expect(runsOn(page)).toContainText('Intel GPU · passed its device check on this host');
+    await expect(runsOn(page)).toContainText('CPU · last confirmed use on');
     await expect(runsOn(page)).toContainText('Last completed run: CPU');
     await expect(runsOn(page)).toContainText('CPU fallback:');
 });

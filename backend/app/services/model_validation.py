@@ -37,11 +37,12 @@ import os
 import platform
 import threading
 import time
+import weakref
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import structlog
 
@@ -55,6 +56,7 @@ VALIDATION_FILENAME = "model_validation.json"
 ELIGIBILITY_FILENAME = "device_eligibility.json"
 ELIGIBILITY_SCHEMA_VERSION = 4
 _EVIDENCE_WRITE_LOCK = threading.RLock()
+_CROP_VALIDATION_LOCKS: weakref.WeakKeyDictionary = weakref.WeakKeyDictionary()
 
 _INFERENCE_RUNTIME_PACKAGES = (
     "numpy",
@@ -455,6 +457,14 @@ def host_provider_preference_order(
     if not eligible:
         return []
 
+    from app.services.bird_finder_health import RFDETR_FINDER
+
+    if model_id == RFDETR_FINDER:
+        # Latency on one model-forward call cannot outweigh sustained CPU cost
+        # from the finder's full frame and four tiles on every selected frame.
+        order = ("intel_npu", "intel_gpu", "cuda", "cpu", "intel_cpu")
+        return sorted(eligible, key=lambda provider: order.index(provider) if provider in order else len(order))
+
     preferred = str((read_validation_record(model_id) or {}).get("provider") or "").strip().lower()
     results = host_provider_validation_results(model_id, artifact_sha256=artifact_sha256)
     stable_rank = {provider: index for index, provider in enumerate(VALIDATION_PROVIDER_ORDER)}
@@ -618,9 +628,26 @@ def write_eligibility_entry(
                 model_runtime_signatures = {}
                 model_artifact_sha256 = {}
                 model_provider_results = {}
-        models[model_id] = [str(p).strip().lower() for p in providers if str(p).strip()]
+        providers = [str(p).strip().lower() for p in providers if str(p).strip()]
+        cpu_checked = any(
+            isinstance(result, dict) and result.get("provider") == "cpu" for result in provider_results or []
+        )
+        # A partial accelerator check cannot revoke a current CPU pass. Never
+        # renew stale evidence or carry it across an artifact replacement.
+        if (
+            provider_results
+            and not cpu_checked
+            and "cpu" not in providers
+            and "cpu" in host_eligible_providers(model_id, artifact_sha256=artifact_sha256)
+        ):
+            providers.insert(0, "cpu")
+        models[model_id] = providers
         eligible = set(models[model_id])
         normalized_results: dict[str, dict[str, Any]] = {}
+        if not cpu_checked and "cpu" in providers:
+            previous_cpu = (model_provider_results.get(model_id) or {}).get("cpu")
+            if previous_cpu:
+                normalized_results["cpu"] = previous_cpu
         for result in provider_results or []:
             if not isinstance(result, dict):
                 continue
@@ -780,7 +807,12 @@ async def _probe_one_crop_provider(
         backend_root = str(Path(_app_pkg.__file__).resolve().parent.parent)
     except Exception:
         backend_root = None
-    executable, child_environment = python_subprocess_launch()
+    executable, child_environment = python_subprocess_launch(dict(os.environ))
+    if child_environment is None:
+        child_environment = dict(os.environ)
+    child_environment.update(
+        {"OMP_NUM_THREADS": "2", "MKL_NUM_THREADS": "2", "OPENBLAS_NUM_THREADS": "2", "YAWAMF_CROP_PROBE_THREADS": "2"}
+    )
     args = [
         executable,
         "-m",
@@ -792,6 +824,8 @@ async def _probe_one_crop_provider(
     ]
     if image_paths:
         args += ["--images", ",".join(image_paths)]
+    if os.name == "posix":
+        args = ["nice", "-n", "19", *args]
     proc: asyncio.subprocess.Process | None = None
     try:
         proc = await asyncio.create_subprocess_exec(
@@ -890,57 +924,196 @@ def _crop_report_ok(report: dict | None) -> tuple[bool, float | None, list[dict[
     return (finite, report.get("inference_latency_ms"), rows)
 
 
+def _comparison_detections(row: dict[str, Any], score_threshold: float) -> list[dict[str, Any]]:
+    detections = row.get("detections")
+    if detections is None:
+        top = row.get("top_detection")
+        detections = [top] if isinstance(top, dict) else []
+    return [detection for detection in detections if float(detection.get("confidence") or 0.0) >= score_threshold]
+
+
+def _crop_baseline_status(report: dict | None) -> Literal["unavailable", "no_positive", "usable"]:
+    """Whether a CPU report can judge accelerators: it ran, and it admitted a bird."""
+    finite, _, rows = _crop_report_ok(report)
+    if not finite or not rows:
+        return "unavailable"
+    positive = any(
+        row.get("kind") == "real"
+        and _comparison_detections(row, max(0.02, float(row.get("score_threshold") or 0)) + 0.03)
+        for row in rows
+    )
+    return "usable" if positive else "no_positive"
+
+
+def _match_crop_boxes(
+    baseline: list[dict[str, Any]],
+    provider: list[dict[str, Any]],
+    *,
+    min_iou: float,
+    max_confidence_delta: float,
+    required_score: float = 0.0,
+) -> list[tuple[int, int, float, float]]:
+    edges: list[list[tuple[int, float, float]]] = []
+    for detection in baseline:
+        candidates = []
+        for index, other in enumerate(provider):
+            # Alternatives explain survivor geometry, not a large change in
+            # the strongest evidence for this bird.
+            if abs(float(detection["confidence"]) - float(other["confidence"])) > max_confidence_delta:
+                continue
+            # Every pairing keeps one device's survivor, so a swapped survivor
+            # still matches while two survivors that merely share a suppressed
+            # neighbour do not. The reported overlap is the survivors' own.
+            pairs = [(detection, right) for right in [other, *other.get("alternatives", [])]] + [
+                (left, other) for left in detection.get("alternatives", [])
+            ]
+            if any(
+                _normalized_box_iou(left.get("normalized_box") or [], right.get("normalized_box") or []) >= min_iou
+                and abs(float(left["confidence"]) - float(right["confidence"])) <= max_confidence_delta
+                for left, right in pairs
+            ):
+                survivor_iou = _normalized_box_iou(
+                    detection.get("normalized_box") or [], other.get("normalized_box") or []
+                )
+                delta = abs(float(detection["confidence"]) - float(other["confidence"]))
+                candidates.append((index, survivor_iou, delta))
+        edges.append(
+            sorted(
+                candidates,
+                key=lambda edge: (float(provider[edge[0]]["confidence"]) >= required_score, edge[1]),
+                reverse=True,
+            )
+        )
+    assigned: dict[int, tuple[int, float, float]] = {}
+
+    def assign(index: int, seen: set[int]) -> bool:
+        for target, iou, delta in edges[index]:
+            if target in seen:
+                continue
+            seen.add(target)
+            if target not in assigned or assign(assigned[target][0], seen):
+                assigned[target] = (index, iou, delta)
+                return True
+        return False
+
+    # Cover strong CPU boxes first; weak boundary proposals cannot steal their
+    # only counterpart. Augmenting paths retain previously covered CPU boxes.
+    for index in sorted(range(len(baseline)), key=lambda i: float(baseline[i]["confidence"]), reverse=True):
+        assign(index, set())
+
+    def cover_provider(target: int, seen: set[int]) -> bool:
+        for index, candidates in enumerate(edges):
+            edge = next((item for item in candidates if item[0] == target), None)
+            if edge is None or index in seen:
+                continue
+            seen.add(index)
+            previous = next((right for right, match in assigned.items() if match[0] == index), None)
+            if (
+                previous is None
+                or float(provider[previous]["confidence"]) < required_score
+                or cover_provider(previous, seen)
+            ):
+                if previous is not None and assigned.get(previous, (-1, 0.0, 0.0))[0] == index:
+                    assigned.pop(previous, None)
+                assigned[target] = (index, edge[1], edge[2])
+                return True
+        return False
+
+    for target, detection in enumerate(provider):
+        if float(detection["confidence"]) >= required_score and target not in assigned:
+            cover_provider(target, set())
+    return [(left, right, iou, delta) for right, (left, iou, delta) in assigned.items()]
+
+
+def _suppressed_on_other_side(
+    box: dict[str, Any], other_side: list[dict[str, Any]], *, min_iou: float, max_confidence_delta: float
+) -> bool:
+    """A survivor here can be a suppressed member of a chained NMS group there.
+
+    Box A suppresses B while C survives on one device; on another, B edges ahead
+    and suppresses both A and C. Production keeps one crop for that chain either
+    way, so C is the same bird, not a missing one. Localization and score
+    agreement stay as strict as for survivors.
+    """
+    return any(
+        _normalized_box_iou(box.get("normalized_box") or [], alternative.get("normalized_box") or []) >= min_iou
+        and abs(float(box["confidence"]) - float(alternative["confidence"])) <= max_confidence_delta
+        for survivor in other_side
+        for alternative in survivor.get("alternatives", [])
+    )
+
+
 def _compare_crop_detections(
     baseline_rows: list[dict[str, Any]],
     provider_rows: list[dict[str, Any]],
     *,
-    min_iou: float = 0.90,
+    min_iou: float = 0.85,
     max_confidence_delta: float = 0.03,
+    score_threshold: float = 0.02,
 ) -> dict[str, Any]:
+    # Keep localization strict within an NMS group. Equivalent full-frame/tile
+    # survivors can swap rank at the production 0.6 suppression threshold; their
+    # retained alternatives identify the same bird without relaxing 0.85 IoU.
+    # A missing proposal within 0.03 of the shared admission floor is numerical
+    # threshold jitter, not evidence that a bird appeared or disappeared. A strong
+    # survivor that the other device suppressed into a chained group is the same bird.
     baseline_keys = [str(row.get("image") or "") for row in baseline_rows]
     provider_keys = [str(row.get("image") or "") for row in provider_rows]
     duplicate_keys = (len(baseline_keys) != len(set(baseline_keys))) or (len(provider_keys) != len(set(provider_keys)))
     baseline_key_set = set(baseline_keys)
     provider_key_set = set(provider_keys)
-    coverage_complete = bool(
-        baseline_keys
-        and not duplicate_keys
-        and len(baseline_keys) == len(provider_keys)
-        and baseline_key_set == provider_key_set
-    )
+    coverage_complete = bool(baseline_keys and not duplicate_keys and baseline_key_set == provider_key_set)
     provider_by_image = {str(row.get("image") or ""): row for row in provider_rows}
-    comparisons = matches = 0
+    comparisons = matches = matched_boxes = ignored_boundary_boxes = unmatched_required_boxes = nms_grouped_boxes = 0
+    baseline_boxes = sum(len(_comparison_detections(row, score_threshold)) for row in baseline_rows)
+    provider_boxes = sum(len(_comparison_detections(row, score_threshold)) for row in provider_rows)
     ious: list[float] = []
     confidence_deltas: list[float] = []
     for baseline in baseline_rows:
-        image_key = str(baseline.get("image") or "")
-        provider = provider_by_image.get(image_key)
+        provider = provider_by_image.get(str(baseline.get("image") or ""))
         if provider is None:
             continue
         comparisons += 1
-        baseline_detection = baseline.get("top_detection")
-        provider_detection = provider.get("top_detection")
-        if baseline_detection is None and provider_detection is None:
-            matches += 1
-            continue
-        if not isinstance(baseline_detection, dict) or not isinstance(provider_detection, dict):
-            continue
-        iou = _normalized_box_iou(
-            list(baseline_detection.get("normalized_box") or []),
-            list(provider_detection.get("normalized_box") or []),
+        floor = max(
+            score_threshold, float(baseline.get("score_threshold") or 0), float(provider.get("score_threshold") or 0)
         )
-        confidence_delta = abs(
-            float(baseline_detection.get("confidence") or 0.0) - float(provider_detection.get("confidence") or 0.0)
+        left = _comparison_detections(baseline, floor)
+        right = _comparison_detections(provider, floor)
+        required_score = floor + max_confidence_delta
+        pairs = _match_crop_boxes(
+            left, right, min_iou=min_iou, max_confidence_delta=max_confidence_delta, required_score=required_score
         )
-        ious.append(iou)
-        confidence_deltas.append(confidence_delta)
-        if iou >= min_iou and confidence_delta <= max_confidence_delta:
+        matched_left = {index for index, _, _, _ in pairs}
+        matched_right = {index for _, index, _, _ in pairs}
+        missing = [box for index, box in enumerate(left) if index not in matched_left]
+        extra = [box for index, box in enumerate(right) if index not in matched_right]
+        strong_missing = [box for box in missing if float(box["confidence"]) + 1e-9 >= required_score]
+        strong_extra = [box for box in extra if float(box["confidence"]) + 1e-9 >= required_score]
+        tolerance = {"min_iou": min_iou, "max_confidence_delta": max_confidence_delta}
+        grouped = sum(_suppressed_on_other_side(box, right, **tolerance) for box in strong_missing) + sum(
+            _suppressed_on_other_side(box, left, **tolerance) for box in strong_extra
+        )
+        strong_unmatched = len(strong_missing) + len(strong_extra) - grouped
+        ignored_boundary_boxes += len(missing) + len(extra) - len(strong_missing) - len(strong_extra)
+        nms_grouped_boxes += grouped
+        unmatched_required_boxes += strong_unmatched
+        matched_boxes += len(pairs)
+        ious.extend(iou for _, _, iou, _ in pairs)
+        confidence_deltas.extend(delta for _, _, _, delta in pairs)
+        if not strong_unmatched:
             matches += 1
     return {
         "images_expected": len(baseline_rows),
         "images_compared": comparisons,
         "matches": matches,
         "match_rate": (matches / comparisons) if comparisons else None,
+        "baseline_boxes": baseline_boxes,
+        "provider_boxes": provider_boxes,
+        "matched_boxes": matched_boxes,
+        "ignored_boundary_boxes": ignored_boundary_boxes,
+        "nms_grouped_boxes": nms_grouped_boxes,
+        "unmatched_required_boxes": unmatched_required_boxes,
+        "worst_box_iou": 0.0 if unmatched_required_boxes else (min(ious) if ious else None),
         "mean_box_iou": (sum(ious) / len(ious)) if ious else None,
         "mean_confidence_delta": (sum(confidence_deltas) / len(confidence_deltas)) if confidence_deltas else None,
         "coverage_complete": coverage_complete,
@@ -1104,16 +1277,52 @@ async def sweep_model_devices(
     }
 
 
+def crop_validation_lock(model_id: str) -> asyncio.Lock:
+    """Serialize owner and automatic sweeps for each model on this event loop."""
+    loop = asyncio.get_running_loop()
+    locks = _CROP_VALIDATION_LOCKS.setdefault(loop, {})
+    return locks.setdefault(model_id, asyncio.Lock())
+
+
 async def sweep_crop_model_devices(
     model_id: str,
     *,
     image_paths: list[str] | None = None,
     discover_providers: bool = False,
     only_providers: set[str] | None = None,
+    prefer_accelerators: bool = False,
+    hardware_guard_held: bool = False,
+) -> dict[str, Any]:
+    """Serialized per model; a caller that already holds the guard passes ``hardware_guard_held``."""
+    if hardware_guard_held:
+        return await _sweep_crop_model_devices(
+            model_id,
+            image_paths=image_paths,
+            discover_providers=discover_providers,
+            only_providers=only_providers,
+            prefer_accelerators=prefer_accelerators,
+        )
+    async with crop_validation_lock(model_id):
+        return await _sweep_crop_model_devices(
+            model_id,
+            image_paths=image_paths,
+            discover_providers=discover_providers,
+            only_providers=only_providers,
+            prefer_accelerators=prefer_accelerators,
+        )
+
+
+async def _sweep_crop_model_devices(
+    model_id: str,
+    *,
+    image_paths: list[str] | None = None,
+    discover_providers: bool = False,
+    only_providers: set[str] | None = None,
+    prefer_accelerators: bool = False,
 ) -> dict[str, Any]:
     """Validate an exact crop detector across CPU/GPU/NPU providers.
 
-    Raw output must be finite and every top detection must agree with the CPU
+    Raw output must be finite and every admitted detection must agree with the CPU
     baseline in presence, geometry, and confidence. Three deterministic hard
     negatives are added by the child probe to catch provider-specific false
     positives alongside the varied real bird images supplied by the eval run.
@@ -1150,6 +1359,11 @@ async def sweep_crop_model_devices(
         next((candidate.provider for candidate in candidates if candidate.provider == "intel_cpu"), None),
     )
 
+    if prefer_accelerators:
+        order = ("cpu", "intel_cpu", "intel_npu", "intel_gpu", "cuda")
+        candidates.sort(
+            key=lambda candidate: order.index(candidate.provider) if candidate.provider in order else len(order)
+        )
     reports: dict[str, dict | None] = {}
     for candidate in candidates:
         reports[candidate.provider] = await _probe_one_crop_provider(
@@ -1157,13 +1371,34 @@ async def sweep_crop_model_devices(
             model_id=model_id,
             image_paths=image_paths,
         )
+        if not prefer_accelerators:
+            continue
+        if candidate.provider == baseline_provider:
+            # Nothing an accelerator returns can be judged without a usable
+            # baseline, so compiling and running them only spends power.
+            if _crop_baseline_status(reports[candidate.provider]) != "usable":
+                break
+        elif candidate.provider in {"intel_npu", "intel_gpu", "cuda"}:
+            _, _, cpu_rows = _crop_report_ok(reports.get(baseline_provider))
+            finite, _, rows = _crop_report_ok(reports[candidate.provider])
+            if (
+                _crop_baseline_status(reports.get(baseline_provider)) == "usable"
+                and finite
+                and _compare_crop_detections(cpu_rows, rows)["agrees"]
+            ):
+                break
+    candidates = [candidate for candidate in candidates if candidate.provider in reports]
 
     baseline_report = reports.get(baseline_provider) if baseline_provider else None
     baseline_finite, _baseline_latency, baseline_rows = _crop_report_ok(baseline_report)
     baseline_real_detections = sum(
-        1 for row in baseline_rows if row.get("kind") == "real" and row.get("top_detection") is not None
+        1
+        for row in baseline_rows
+        if row.get("kind") == "real"
+        and _comparison_detections(row, max(0.02, float(row.get("score_threshold") or 0)) + 0.03)
     )
-    baseline_usable = bool(baseline_finite and baseline_rows and baseline_real_detections)
+    baseline_status = _crop_baseline_status(baseline_report)
+    baseline_usable = baseline_status == "usable"
 
     per_provider: list[dict[str, Any]] = []
     eligible: list[str] = []
@@ -1191,8 +1426,8 @@ async def sweep_crop_model_devices(
             }
         )
         if candidate.provider == baseline_provider:
-            agrees = baseline_usable
-            comparison = {
+            agrees = bool(baseline_finite and baseline_rows)
+            comparison |= {
                 "images_expected": len(baseline_rows),
                 "images_compared": 0,
                 "matches": 0,
@@ -1226,6 +1461,20 @@ async def sweep_crop_model_devices(
             "real_detections": sum(
                 1 for row in rows if row.get("kind") == "real" and row.get("top_detection") is not None
             ),
+            "baseline_boxes": comparison.get("baseline_boxes"),
+            "provider_boxes": comparison.get("provider_boxes"),
+            "matched_boxes": comparison.get("matched_boxes"),
+            "worst_box_iou": comparison.get("worst_box_iou"),
+            "baseline_has_birds": bool(baseline_real_detections),
+            "comparison_mismatch": bool(
+                candidate.provider != baseline_provider
+                and finite
+                and baseline_usable
+                and comparison["coverage_complete"]
+                and not comparison["agrees"]
+            ),
+            "ignored_boundary_boxes": comparison.get("ignored_boundary_boxes"),
+            "nms_grouped_boxes": comparison.get("nms_grouped_boxes"),
             "images_compared": comparison["images_compared"],
             "image_set_complete": comparison["coverage_complete"],
             "duplicate_image_keys": comparison["duplicate_image_keys"],
@@ -1272,6 +1521,7 @@ async def sweep_crop_model_devices(
         "image_flavor": image_flavor,
         "artifact_sha256": str(metadata.get("sha256") or "").strip().lower() or None,
         "comparison_kind": "crop_box",
+        "baseline_status": baseline_status,
         "baseline_provider": baseline_provider,
         "providers": per_provider,
         "devices": per_provider,

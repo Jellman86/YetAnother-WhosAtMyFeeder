@@ -471,3 +471,23 @@ describe('incidentWorkspaceStore', () => {
         expect(store.workspacePayload).toBeNull();
     });
 });
+
+describe('RF-DETR CPU fallback health', () => {
+    it('keeps CPU use open in System status and resolves it when the finder uses an accelerator', () => {
+        const store = createIncidentWorkspaceStore();
+        const event = { id: 'finder-cpu', component: 'bird_finder', source: 'backend',
+            reason_code: 'rfdetr_cpu_fallback', severity: 'warning' as const,
+            message: 'RF-DETR Nano uses CPU. Check devices to restore NPU or GPU.', timestamp: '2026-11-15T19:00:00Z' };
+        store.ingestBackendDiagnostics([event]);
+        expect(store.currentIssues).toHaveLength(1);
+        store.ingestWorkspacePayload({ health: { ml: { bird_finder: { active: true } } }, workspace_schema_version: 'test', classifier: {}, taxonomy_repair: {}, maintenance_coordinator: {}, focused_diagnostics: {}, startup_warnings: [],
+            backend_diagnostics: { captured_at: event.timestamp, capacity: 500, total_events: 1, filtered_events: 1,
+                returned_events: 1, severity_counts: { warning: 1 }, component_counts: { bird_finder: 1 }, events: [event] } });
+        expect(store.currentIssues).toHaveLength(1);
+        store.ingestWorkspacePayload({ health: { ml: { bird_finder: { active: false } } }, workspace_schema_version: 'test', classifier: {}, taxonomy_repair: {}, maintenance_coordinator: {}, focused_diagnostics: {}, startup_warnings: [],
+            backend_diagnostics: { captured_at: event.timestamp, capacity: 500, total_events: 1, filtered_events: 1,
+                returned_events: 1, severity_counts: { warning: 1 }, component_counts: { bird_finder: 1 }, events: [event] } });
+        expect(store.currentIssues).toHaveLength(0);
+        expect(store.recentIncidents[0].status).toBe('resolved');
+    });
+});

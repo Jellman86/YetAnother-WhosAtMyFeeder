@@ -450,7 +450,9 @@ async def _revalidate_stale_accelerators() -> None:
     from app.services.provider_revalidation import provider_revalidation
 
     await provider_revalidation.run()
-    await bird_finder_revalidation.run()
+    while True:
+        await bird_finder_revalidation.run()
+        await asyncio.sleep(300)
 
 
 async def _start_mqtt_service_task() -> None:
@@ -1303,7 +1305,7 @@ def build_health_payload() -> dict[str, object]:
 @app.get("/health")
 async def health_check(response: Response) -> dict[str, object]:
     response.headers["Cache-Control"] = "no-store, max-age=0"
-    return build_health_payload()
+    return await asyncio.to_thread(build_health_payload)
 
 
 @app.get("/ready", response_model=ReadinessResponse)

@@ -2968,6 +2968,49 @@ class ClassifierService:
             status["late_results_ignored"] = int(supervisor_metrics.get("late_results_ignored") or 0)
         return status
 
+    def _crop_detector_status(self, supervisor_metrics: dict | None) -> dict:
+        try:
+            from app.services.model_manager import model_manager
+
+            crop_detector_status = dict(model_manager.get_crop_detector_spec() or {})
+        except Exception:
+            crop_detector_status = {}
+
+        if self._bird_crop_service is not None:
+            try:
+                crop_detector_status.update(dict(self._bird_crop_service.get_status() or {}))
+            except Exception:
+                pass
+
+        from app.services.inference_execution import latest_model_execution
+
+        executions = [crop_detector_status.get("last_execution")]
+        for pool in (supervisor_metrics or {}).values():
+            if isinstance(pool, dict):
+                executions.append(pool.get("crop_execution"))
+                if isinstance(pool.get("runtime"), dict):
+                    executions.append(pool["runtime"].get("crop_execution"))
+        latest_execution = latest_model_execution(crop_detector_status.get("model_id"), executions)
+        crop_detector_status["last_execution"] = latest_execution.model_dump(mode="json") if latest_execution else None
+
+        from app.services.bird_finder_health import finder_cpu_problem
+
+        provider_selector = getattr(self._bird_crop_service, "_provider_for_tier", None)
+        planned_provider = provider_selector("accurate") if callable(provider_selector) else "cpu"
+        crop_detector_status["active_provider"] = latest_execution.provider if latest_execution else None
+        crop_detector_status["planned_provider"] = planned_provider
+        packaged = packaged_inference_providers(get_image_flavor())
+        capabilities = self._accel_caps_for_read()
+        available_accelerators = {
+            provider
+            for provider, node in (("intel_npu", "dev_accel_present"), ("intel_gpu", "dev_dri_present"))
+            if provider in packaged and (capabilities.get(f"{provider}_available") or capabilities.get(node))
+        }
+        crop_detector_status["cpu_fallback"] = finder_cpu_problem(
+            crop_detector_status, planned_provider=planned_provider, available_accelerators=available_accelerators
+        )
+        return crop_detector_status
+
     def check_health(self) -> dict:
         """Detailed health check for the classification service."""
         bird = self._models.get("bird")
@@ -2976,6 +3019,29 @@ class ClassifierService:
         background_image_health = self._describe_background_image_health(admission_metrics)
         supervisor_metrics = self._get_supervisor_metrics()
         effective_runtime_recovery = self._effective_runtime_recovery(supervisor_metrics)
+        finder_health = self._crop_detector_status(supervisor_metrics)["cpu_fallback"]
+        # The check's reason code cycles through retries while the finder stays
+        # on the CPU; one ongoing condition is one incident.
+        identity = (
+            (finder_health["model_id"], finder_health["provider"], "rfdetr_cpu_fallback")
+            if finder_health["active"]
+            else None
+        )
+        if identity != getattr(self, "_finder_cpu_warning", None):
+            self._finder_cpu_warning = identity
+            if identity is not None:
+                from app.services.error_diagnostics import error_diagnostics_history
+
+                message = f"RF-DETR Nano is using CPU. {finder_health['reason']} {finder_health['action']}"
+                log.warning("bird_finder_cpu_fallback", **finder_health)
+                error_diagnostics_history.record(
+                    source="backend",
+                    component="bird_finder",
+                    reason_code="rfdetr_cpu_fallback",
+                    message=message,
+                    severity="warning",
+                    context=finder_health,
+                )
 
         # Determine which TFLite runtime is actually in use
         tflite_type = runtimes.tflite_runtime_name() if runtimes.tflite is not None else "none"
@@ -3020,6 +3086,7 @@ class ClassifierService:
 
         health = {
             "status": "ok" if (bird_runtime_ready and not runtime_recovery_failed) else "error",
+            "bird_finder": finder_health,
             "execution_mode": self._image_execution_mode,
             "runtimes": {
                 "tflite": {"installed": runtimes.tflite is not None, "type": tflite_type},
@@ -3048,6 +3115,8 @@ class ClassifierService:
             "inference_health": self._inference_health.snapshot(),
             "runtime_benchmarks": dict(self._runtime_benchmarks or {}),
         }
+        if finder_health["active"] and health["status"] == "ok":
+            health["status"] = "degraded"
         if supervisor_metrics is not None:
             health["worker_pools"] = supervisor_metrics
             recovery_states = [
@@ -3148,33 +3217,11 @@ class ClassifierService:
         else:
             effective_backend, effective_provider = self._inference_backend, self._active_inference_provider
             runtime_source = "in_process"
-        active_model_id = None
+        from app.services.model_manager import model_manager
+
+        active_model_id = getattr(model_manager, "active_model_id", None)
         effective_model_id = None
-        try:
-            from app.services.model_manager import model_manager
-
-            active_model_id = getattr(model_manager, "active_model_id", None)
-            crop_detector_status = dict(model_manager.get_crop_detector_spec() or {})
-        except Exception:
-            active_model_id = None
-            crop_detector_status = {}
-
-        if self._bird_crop_service is not None:
-            try:
-                crop_detector_status.update(dict(self._bird_crop_service.get_status() or {}))
-            except Exception:
-                pass
-
-        from app.services.inference_execution import latest_model_execution
-
-        executions = [crop_detector_status.get("last_execution")]
-        for pool in (supervisor_metrics or {}).values():
-            if isinstance(pool, dict):
-                executions.append(pool.get("crop_execution"))
-                if isinstance(pool.get("runtime"), dict):
-                    executions.append(pool["runtime"].get("crop_execution"))
-        latest_execution = latest_model_execution(crop_detector_status.get("model_id"), executions)
-        crop_detector_status["last_execution"] = latest_execution.model_dump(mode="json") if latest_execution else None
+        crop_detector_status = self._crop_detector_status(supervisor_metrics)
 
         selected_provider = normalize_inference_provider(getattr(settings.classification, "inference_provider", "auto"))
         image_flavor = get_image_flavor()

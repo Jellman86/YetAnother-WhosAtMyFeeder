@@ -325,21 +325,62 @@ not choose the crop detector's device. The compatibility API can check only the
 installed RF-DETR artifact using `compat_only`, `sweep_devices` and its `model_ids`
 entry, as shown in the [API reference](../api.md#model-evaluation-owner).
 The bird finder card's **Check devices** button runs that scoped check.
-**Automatic** uses the fastest passing crop provider. **Device** can instead
-keep a specific device, such as **Intel NPU**. Save it with
-**Save changes**. If its evidence expires or the device fails its check, the accurate
-finder uses CPU rather than switching to another accelerator, the **Runs on** row says
-so with the date of the failed check, and the device stays saved, listed as
-**not passed on this host**, until it passes again or you choose **Automatic**. The fast fallback
-finder keeps its own device evidence. Startup re-checks respect the saved choice;
-manual **Check devices** still checks all supported devices, so do not use it to
-retry a known failing GPU during an NPU-only investigation. Existing worker crop sessions
+**Automatic** prefers a verified NPU, then a verified GPU for RF-DETR; other
+finders use their fastest passing provider. **Device** can keep a specific device.
+RF-DETR may recover from its saved NPU to a verified GPU before using CPU. The
+**Runs on** row reports that recovery. Other finders keep the saved explicit
+provider or use CPU. Manual **Check devices** checks all supported devices.
+Existing worker crop sessions
 adopt a changed recommendation on their next use without restarting the worker.
-After a kernel, driver or image update, startup re-checks the chosen finder once on
-its previously passing accelerators, using the newest saved bird snapshots.
-If an accelerator fails at runtime, CPU fallback remains in place while its
-recommendation is unchanged. Checks consume compute and may compete with video
-processing; a model-forward benchmark does not predict full video throughput.
+After a kernel, driver or image update, startup re-checks the chosen finder on
+its previously checked accelerators, or its explicitly saved accelerator, using at
+most 12 of the newest saved bird snapshots. A missing eligibility list does not
+prevent this recovery. The five-minute scheduler waits for photos without spending
+an attempt. A completed pass or box mismatch finishes that runtime, artifact,
+comparison-policy and device-preference context. Interrupted, unfinished or superseded
+checks retry after one hour, then four hours, with at most three attempts in that
+context. A panel without reliable CPU bird detections retries when the saved photo
+set changes, after four hours, then eight, sixteen and at most once a day, because
+a busy feeder changes that set most minutes. Only accelerators the container can
+reach are checked (`/dev/accel` for the NPU, `/dev/dri` for the GPU), so an Intel
+image on a host without them never runs a CPU-only sweep; a sweep that still opened
+no accelerator ends as **no accelerator** and is not retried on that runtime. In
+an automatic RF-DETR check, the NPU and GPU are probed only after the CPU baseline
+proves usable, and OpenVINO CPU is never probed because it cannot move the finder
+off the CPU. **Check devices** allows an owner-run check at any time, and its
+result is recorded so the automatic check does not repeat it.
+CPU remains eligible when it runs successfully, even if the photos contain no
+admitted bird boxes; accelerator approval still requires a positive CPU baseline.
+An unavailable CPU baseline is inconclusive and preserves all previous evidence.
+RF-DETR also checks its packaged Intel accelerators when no passing history remains.
+The check reads the same full frame and tiles as normal inference and matches all
+admitted boxes regardless of score ordering. Both sides use the same score floor.
+Unmatched proposals within 0.03 of that floor are ignored as threshold jitter;
+stronger extra or missing birds fail. Within each production NMS group, equivalent
+full-frame and tile proposals can match at IoU 0.85 with score difference at most
+0.03, so a small score change that swaps the survivor does not fail the check.
+Every pairing includes one device's surviving box: two survivors that only share a
+suppressed neighbour do not match, and the reported IoU is the survivors' own.
+When overlapping boxes chain (A suppresses B while C survives on one device, and B
+suppresses both on the other), a strong box that the other device suppressed into
+its group, at IoU 0.85 and within 0.03 of its score, counts as the same bird.
+The status API keeps the last result and marks evidence from a different runtime
+as historical, including while a new check runs. A structured
+`bird_finder_revalidation_result` log records the outcome and each provider's box
+counts and worst matched IoU (zero when boxes remain unmatched).
+RF-DETR CPU use is a degraded Health condition when an Intel NPU or GPU is
+packaged and present and the saved preference is neither CPU nor Intel CPU
+(OpenVINO). A structured `bird_finder_cpu_fallback` warning and one Health incident
+per ongoing condition name the finder, reason and next action. The System status
+indicator counts that open incident; it resolves after current evidence reports an
+accelerator in use, including a device check that passed after the last frame.
+Provider-check child processes run at nice 19 on POSIX hosts with bounded
+numerical-library threads. Only these disposable probes cap CPU inference at two
+intra-op threads (one inter-op for ONNX Runtime); production CPU settings keep their
+runtime defaults. Automatic and owner-run sweeps for the same finder are serialized.
+If an accelerator fails at runtime, a cached recovery provider remains in place
+while its recommendation is unchanged. Checks consume compute and may compete
+with video processing; a model-forward benchmark does not predict full video throughput.
 
 The reference RTX 4070 container passed real CUDA execution and CPU consistency
 checks. This does not qualify every NVIDIA host, sustained workload or two-bird

@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime, timezone
 from typing import Any, Literal
 
@@ -279,7 +280,7 @@ async def _collect_workspace_payload(limit: int) -> dict[str, Any]:
 
     # Measured first, so the health verdict below already counts a Frigate that stopped answering.
     connections = await collect_service_connections(refresh_frigate=True)
-    health = build_health_payload()
+    health = await asyncio.to_thread(build_health_payload)
     backend_diagnostics = error_diagnostics_history.snapshot(limit=limit)
     taxonomy_repair = canonical_identity_repair_service.get_status()
     maintenance_status = await maintenance_coordinator.get_status()
@@ -293,7 +294,7 @@ async def _collect_workspace_payload(limit: int) -> dict[str, Any]:
         },
         "health": health,
         "connections": connections.model_dump(),
-        "classifier": classifier_service.get_status(),
+        "classifier": await asyncio.to_thread(classifier_service.get_status),
         "taxonomy_repair": taxonomy_repair,
         "maintenance_coordinator": maintenance_status,
         "startup_warnings": health.get("startup_warnings") or [],

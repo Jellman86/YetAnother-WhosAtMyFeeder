@@ -4,7 +4,7 @@
     import ModelExecutionEvidence from '../../components/ModelExecutionEvidence.svelte';
     import SettingsRow from '../../components/settings/_primitives/SettingsRow.svelte';
     import SettingsSelect from '../../components/settings/_primitives/SettingsSelect.svelte';
-    import { finderDeviceOptions, finderRunsOn, type BirdFinderProvider, type FinderDeviceCheck } from '../../settings/bird-finder';
+    import { finderDeviceOptions, finderNeedsAttention, finderRunsOn, type BirdFinderProvider, type FinderDeviceCheck } from '../../settings/bird-finder';
     import { formatDay } from '../../utils/datetime';
 
     interface Props {
@@ -26,6 +26,8 @@
         checkRunning: boolean;
         downloading: boolean;
         execution: components['schemas']['InferenceExecution'] | null | undefined;
+        /** The backend's device for the running finder's next frame. */
+        planned: { model_id?: string | null; provider?: string | null } | null;
         oncheck?: () => void;
         ondownload: () => void;
     }
@@ -44,6 +46,7 @@
         checkRunning,
         downloading,
         execution,
+        planned,
         oncheck,
         ondownload
     }: Props = $props();
@@ -75,7 +78,7 @@
         }
     }
 
-    const runsOn = $derived(finderRunsOn({ installed, evidence, accelerators, savedProvider, check, modelId, checkRunning }));
+    const runsOn = $derived(finderRunsOn({ installed, evidence, accelerators, savedProvider, check, modelId, checkRunning, execution, planned }));
 
     // The measured fact, in words. Every sentence names the device first, so the row reads the same way in each state.
     const runsOnText = $derived.by((): string => {
@@ -86,6 +89,8 @@
                 return runsOn.devices.length > 0
                     ? $_('settings.detection.bird_finder_runs_checking', { default: 'Checking {devices}…', values: { devices: deviceNames(runsOn.devices) } })
                     : $_('settings.detection.bird_finder_checking_devices', { default: 'Checking…' });
+            case 'active':
+                return $_('settings.detection.bird_finder_runs_active', { default: '{provider} · last confirmed use on {date}', values: { provider: deviceName(runsOn.provider), date: formatDay(runsOn.checkedAt) } });
             case 'passed':
                 return runsOn.checkedAt
                     ? $_('settings.detection.bird_finder_runs_passed_dated', { default: '{provider} · passed its device check on {date}', values: { provider: deviceName(runsOn.provider), date: formatDay(runsOn.checkedAt) } })
@@ -116,12 +121,14 @@
         }
     });
     // A fallback the owner did not choose is work for a person; the words say so, the colour only agrees.
-    const needsAttention = $derived(runsOn.kind === 'failed' || runsOn.kind === 'interrupted');
+    const needsAttention = $derived(finderNeedsAttention(runsOn, accelerators, savedProvider));
 
     // The server keeps an unchanged saved device and refuses a newly chosen one that has not passed.
     const keepable = $derived(finderSaved ? savedProvider : null);
     const deviceOptions = $derived([
-        { value: 'auto', label: $_('settings.detection.bird_finder_device_auto', { default: 'Automatic (fastest device that passed)' }) },
+        { value: 'auto', label: modelId === 'bird_crop_detector_accurate_rfdetr_nano'
+            ? $_('settings.detection.bird_finder_device_auto_rfdetr', { default: 'Automatic (NPU, then GPU, then CPU)' })
+            : $_('settings.detection.bird_finder_device_auto', { default: 'Automatic (fastest device that passed)' }) },
         { value: 'cpu', label: deviceName('cpu') },
         ...finderDeviceOptions({ evidence, accelerators, hostProviders, chosen: provider, keepable }).map((option) => ({
             value: option.value,
@@ -163,7 +170,9 @@
             {#if chosenUnpassed}
                 <p id="bird-finder-device-note" class="text-sm leading-snug text-slate-600 dark:text-slate-400" role="status" data-finder-device-note>
                     {provider === keepable
-                        ? $_('settings.detection.bird_finder_device_unpassed_saved', { default: 'Saved: {provider}. It runs on CPU until {provider} passes a check. Check devices, or choose Automatic.', values: { provider: deviceName(provider) } })
+                        ? modelId === 'bird_crop_detector_accurate_rfdetr_nano'
+                        ? $_('settings.detection.bird_finder_device_unpassed_saved_recovery', { default: 'Saved: {provider}. See Runs on above for the device currently used, or Check devices.', values: { provider: deviceName(provider) } })
+                        : $_('settings.detection.bird_finder_device_unpassed_saved', { default: 'Saved: {provider}. It runs on CPU until {provider} passes a check. Check devices, or choose Automatic.', values: { provider: deviceName(provider) } })
                         : $_('settings.detection.bird_finder_device_unpassed_chosen', { default: '{provider} has not passed a check for this finder on this host, so it cannot be saved yet. Check devices, or choose Automatic.', values: { provider: deviceName(provider) } })}
                 </p>
             {/if}
@@ -182,7 +191,9 @@
                     : $_('settings.detection.bird_finder_check_devices', { default: 'Check devices' })}
             </button>
             <p id="bird-finder-check-hint" class="max-w-prose text-sm leading-snug text-slate-600 dark:text-slate-400">
-                {$_('settings.detection.bird_finder_check_devices_hint', { default: 'Compares the finder on each device with the CPU on your saved bird photos, then uses the fastest that matches. The identification model is not changed.' })}
+                {modelId === 'bird_crop_detector_accurate_rfdetr_nano'
+                    ? $_('settings.detection.bird_finder_check_devices_hint_rfdetr', { default: 'Compares the finder on each device with the CPU on your saved bird photos, then prefers a passing NPU, followed by GPU, before CPU. The identification model is not changed.' })
+                    : $_('settings.detection.bird_finder_check_devices_hint', { default: 'Compares the finder on each device with the CPU on your saved bird photos, then uses the fastest that matches. The identification model is not changed.' })}
             </p>
         {/if}
     </div>
@@ -216,7 +227,7 @@
             </summary>
             <div class="mt-2 max-w-prose space-y-2 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
                 <p>{$_('settings.detection.bird_finder_backup', { default: 'If it cannot find a usable bird, YA-WAMF also tries the fast fallback finder and Frigate\'s tracking box, and uses the full frame only when none of them gives a reliable crop.' })}</p>
-                <p>{$_('settings.detection.bird_finder_how_save', { default: 'A change of finder or device takes effect when you save. If the device becomes unavailable, CPU is used. The fast fallback finder picks its device automatically.' })}</p>
+                <p>{$_('settings.detection.bird_finder_how_save', { default: 'A change of finder or device takes effect when you save. If the device becomes unavailable, a verified recovery device or CPU is used. The fast fallback finder picks its device automatically.' })}</p>
             </div>
         </details>
     </div>

@@ -139,6 +139,16 @@ def select_evaluation_models(
     return classifiers, crop_detectors
 
 
+async def _remember_owner_finder_check(model_id: str, artifact: str | None, result: dict[str, Any] | None) -> None:
+    """Spare the automatic finder check from repeating a sweep the owner just ran."""
+    from app.services.bird_finder_revalidation import bird_finder_revalidation
+
+    try:
+        await bird_finder_revalidation.record_owner_check(model_id, artifact, result)
+    except Exception as exc:
+        log.warning("model_eval_owner_finder_check_record_failed", model_id=model_id, error_type=type(exc).__name__)
+
+
 class ModelEvalRunner:
     """Single-run orchestrator. Module-level singleton ``model_eval_runner``."""
 
@@ -894,6 +904,8 @@ class ModelEvalRunner:
         child process and compared against a real-image CPU baseline.
         """
         from app.services.model_validation import (
+            host_eligible_providers,
+            host_provider_validation_results,
             sweep_crop_model_devices,
             sweep_model_devices,
             write_eligibility_entry,
@@ -1053,23 +1065,9 @@ class ModelEvalRunner:
                     error=str(exc),
                 )
                 crop_matrix[model.id] = {"error": "provider_sweep_failed"}
-                await asyncio.to_thread(
-                    write_eligibility_entry,
-                    model.id,
-                    [],
-                    run_id=run_id,
-                    image_flavor=image_flavor,
-                    artifact_sha256=artifact_sha256,
-                )
-                await asyncio.to_thread(
-                    write_validation_record,
-                    model.id,
-                    provider="cpu",
-                    ok=False,
-                    reason="crop provider sweep failed",
-                    artifact_sha256=artifact_sha256,
-                )
+                await _remember_owner_finder_check(model.id, artifact_sha256, None)
                 continue
+            await _remember_owner_finder_check(model.id, result.get("artifact_sha256") or artifact_sha256, result)
             image_flavor = str(result.get("image_flavor") or image_flavor)
             per_provider = {
                 str(entry.get("provider")): entry for entry in result.get("providers") or [] if entry.get("provider")
@@ -1087,14 +1085,29 @@ class ModelEvalRunner:
                 "best_discovered_provider": (result.get("best_discovered") or {}).get("provider"),
                 "devices": per_provider,
             }
+            if result.get("baseline_status") == "unavailable":
+                crop_matrix[model.id]["inconclusive"] = True
+                continue
             eligible = list(result.get("eligible_providers") or [])
+            provider_results = list(result.get("providers") or [])
+            if result.get("baseline_status") == "no_positive":
+                artifact = result.get("artifact_sha256") or artifact_sha256
+                previous = await asyncio.to_thread(host_eligible_providers, model.id, artifact_sha256=artifact)
+                previous_results = await asyncio.to_thread(
+                    host_provider_validation_results, model.id, artifact_sha256=artifact
+                )
+                eligible = list(dict.fromkeys([*previous, *eligible]))
+                provider_results = list(previous_results.values()) + [
+                    entry for entry in provider_results if entry.get("provider") == "cpu"
+                ]
+                crop_matrix[model.id]["inconclusive"] = True
             await asyncio.to_thread(
                 write_eligibility_entry,
                 model.id,
                 eligible,
                 run_id=run_id,
                 image_flavor=image_flavor,
-                provider_results=list(result.get("providers") or []),
+                provider_results=provider_results,
                 artifact_sha256=result.get("artifact_sha256") or artifact_sha256,
             )
             await asyncio.to_thread(

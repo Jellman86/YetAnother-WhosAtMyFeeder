@@ -1115,6 +1115,7 @@
                                 checkRunning={deviceCheckRunning}
                                 downloading={chosenFinderDownload?.status === 'downloading' || chosenFinderDownload?.status === 'pending'}
                                 execution={cropDetectorStatus?.last_execution}
+                                planned={cropDetectorStatus ? { model_id: cropDetectorStatus.model_id, provider: cropDetectorStatus.planned_provider } : null}
                                 oncheck={oncheckfinderdevices ? () => checkFinderDevices(chosenFinder.model.id) : undefined}
                                 ondownload={() => handleDownload(chosenFinder.model)}
                             />

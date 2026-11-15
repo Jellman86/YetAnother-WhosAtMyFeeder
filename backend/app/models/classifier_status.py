@@ -35,15 +35,49 @@ class ClassifierHostEligibility(_StatusSection):
     model_count: int = 0
 
 
-class ClassifierCropDeviceCheck(_StatusSection):
+FinderCheckReasonCode = Literal[
+    "mismatch",
+    "unfinished",
+    "no_photos",
+    "driver_changed",
+    "no_positive_baseline",
+    "superseded",
+    "interrupted",
+    "passed",
+    "gpu_recovery",
+    "no_accelerator",
+    "ledger_unreadable",
+]
+
+
+class ClassifierCropDeviceCheckResult(_StatusSection):
     state: Literal["idle", "waiting", "running", "succeeded", "failed", "superseded", "interrupted"]
     model_id: str | None
     providers: list[str]
     reason: str | None
     checked_at: str | None
+    runtime_current: bool = True
+    reason_code: FinderCheckReasonCode | None = None
+
+
+class ClassifierCropDeviceCheck(ClassifierCropDeviceCheckResult):
+    last_result: ClassifierCropDeviceCheckResult | None = None
+    attempt_count: int = 0
+    next_retry_at: str | None = None
+
+
+class ClassifierFinderCPUFallback(_StatusSection):
+    active: bool
+    model_id: str
+    provider: str
+    reason: str | None = None
+    action: str | None = None
+    reason_code: str | None = None
 
 
 class ClassifierCropStatus(_StatusSection):
+    active_provider: str | None = None
+    planned_provider: str | None = None
     last_execution: InferenceExecution | None = None
     model_id: str = ""
     chosen_model_id: str = ""
@@ -56,6 +90,7 @@ class ClassifierCropStatus(_StatusSection):
     model_path: str | None = None
     load_error: str | None = None
     device_check: ClassifierCropDeviceCheck | None = None
+    cpu_fallback: ClassifierFinderCPUFallback | None = None
 
 
 class ClassifierWorkerRuntime(_StatusSection):

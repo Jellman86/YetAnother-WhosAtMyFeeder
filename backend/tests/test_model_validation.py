@@ -380,3 +380,28 @@ def test_bound_device_drivers_ignore_display_connectors(tmp_path):
         (tmp_path / "class/drm" / name / "device").mkdir(parents=True)
 
     assert mv._bound_device_drivers(tmp_path) == {"class/drm/card1/device": None}
+
+
+def test_failed_accelerator_write_preserves_current_cpu_signature(tmp_path, monkeypatch):
+    monkeypatch.setenv("YAWAMF_EVAL_RUNS_DIR", str(tmp_path))
+    monkeypatch.setenv("YAWAMF_IMAGE_FLAVOR", "intel")
+    mv.write_eligibility_entry("finder", ["cpu", "intel_npu"], artifact_sha256="abc", image_flavor="intel")
+    signature = mv._read_current_eligibility_payload()["model_provider_signatures"]["finder"]["cpu"]
+    mv.write_eligibility_entry(
+        "finder",
+        [],
+        provider_results=[{"provider": "intel_npu", "ok": False}],
+        artifact_sha256="abc",
+        image_flavor="intel",
+    )
+    assert mv.host_eligible_providers("finder", artifact_sha256="abc") == ["cpu"]
+    assert mv._read_current_eligibility_payload()["model_provider_signatures"]["finder"] == {"cpu": signature}
+
+
+def test_failed_cpu_probe_does_not_inherit_a_previous_pass(tmp_path, monkeypatch):
+    monkeypatch.setenv("YAWAMF_EVAL_RUNS_DIR", str(tmp_path))
+    mv.write_eligibility_entry("finder", ["cpu"], artifact_sha256="abc")
+    mv.write_eligibility_entry(
+        "finder", [], provider_results=[{"provider": "cpu", "ok": False, "finite": False}], artifact_sha256="abc"
+    )
+    assert mv.host_eligible_providers("finder", artifact_sha256="abc") == []
