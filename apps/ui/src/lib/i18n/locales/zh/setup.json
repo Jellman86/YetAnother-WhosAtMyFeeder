@@ -26,7 +26,6 @@
     "mqtt_username": "用户名",
     "mqtt_password": "密码",
     "mqtt_password_saved": "除非输入新密码，否则将保留已保存的密码。",
-    "continue_hint": "设置已保存。您可以先继续，稍后再修复连接，但在 Frigate 可访问之前不会收到检测。",
     "description": "YA-WAMF 通过 MQTT 从 Frigate 读取检测，并通过其 API 获取快照。请填写这两项的地址，然后进行测试。",
     "frigate_auth_hint": "如果您的 Frigate 需要登录，请在 YA-WAMF 的启动环境中设置 FRIGATE_AUTH_TOKEN，重新启动后再次测试。",
     "frigate_auth_link": "环境变量",
@@ -36,7 +35,12 @@
     "mqtt_port": "端口",
     "mqtt_server": "MQTT 代理",
     "save_test": "保存并测试连接",
-    "frigate_ok": "已连接到 Frigate {version}"
+    "frigate_ok": "已连接到 Frigate {version}",
+    "blocked": "保存并测试连接后即可继续，或选择“稍后设置”。",
+    "later": "稍后设置",
+    "later_note": "手边还没有 Frigate 或代理服务器？请选择“稍后设置”。在“设置 → 连接”中把两者都连上之前，不会收到到访记录，无法获取照片或片段，摄像头步骤也无法列出你的摄像头。",
+    "check_frigate": "Frigate 接口",
+    "check_mqtt": "MQTT 代理服务器"
   },
   "cameras": {
     "title": "摄像头与检测",
@@ -54,7 +58,7 @@
   },
   "model": {
     "title": "分类模型与硬件",
-    "description": "YA-WAMF 内置轻量级 CPU 后备模型。请选择模型，必要时在此下载，然后在继续前验证实际镜像与硬件路径。",
+    "description": "YA-WAMF 自带一个可在任何 CPU 上运行的小模型。选择它或更大的模型，需要时在此下载，然后在继续之前检查它能否在本机运行。",
     "download_required": "请先在此下载并校验该模型，再在此硬件上进行验证。",
     "download_timeout": "下载时间超出预期。请检查连接后重试。",
     "validation_timeout": "硬件验证已超过 30 分钟。任务可能仍在“诊断”中收尾；请先查看其状态，再开始新的验证。",
@@ -92,7 +96,13 @@
     "readiness_retry": "检查已完成，但无法刷新模型就绪状态。正在重试；您可以离开此步骤并稍后返回。",
     "best_provider": "最佳已验证提供程序：{provider}，每张图像 {ms} 毫秒",
     "best_provider_without_timing": "最佳已验证提供程序：{provider}",
-    "failed_providers": "失败：{providers}"
+    "failed_providers": "失败：{providers}",
+    "blocked_downloading": "下载完成后即可继续。",
+    "blocked_no_model": "选择一个模型即可继续，或跳过此步骤以保留当前使用的模型。",
+    "blocked_download": "下载此模型即可继续，或跳过此步骤以保留当前使用的模型。",
+    "blocked_check": "在此硬件上检查该模型后即可继续，或跳过此步骤以保留当前使用的模型。",
+    "blocked_location": "输入喂食器的纬度和经度即可继续，或将两者都留空。",
+    "blocked_provider": "此主机没有所选设备。请选择其他设备或“自动”后继续。"
   },
   "quality": {
     "title": "最佳可用快照",
@@ -118,7 +128,6 @@
     "enable_help": "仅在分类质量提高时更新检测，并保留已保存的音频与天气信息。",
     "range": "历史范围",
     "import_continue": "导入并继续",
-    "continue_without": "不导入并继续",
     "job_title": "检测历史导入",
     "job_starting": "正在扫描 Frigate 事件历史",
     "audio_note": "Frigate 历史可恢复视觉检测和快照，但无法重建未保存的 BirdNET-Go 音频。"
@@ -175,10 +184,11 @@
     "cover_cameras": "选择摄像头",
     "cover_connect": "连接 Frigate 与 MQTT",
     "cover_integrations": "启用集成",
-    "cover_model": "在您的硬件上验证模型",
-    "description": "开始让您的喂食器上线。设置只需几分钟，可选项可以跳过，之后也可以随时从设置导航中重新运行。",
+    "cover_model": "检查模型能否在本机运行",
+    "description": "只需几分钟。可选项可以跳过，之后随时可以在“设置”中重新运行设置向导。",
     "start": "开始",
-    "title": "欢迎使用 YA-WAMF"
+    "title": "设置 YA-WAMF",
+    "covers": "设置向导会请你："
   },
   "working": "处理中…",
   "skip_step": "跳过此步骤",
@@ -192,8 +202,15 @@
     "model": "模型",
     "quality": "快照",
     "integrations": "集成",
-    "history": "历史",
-    "telemetry": "使用统计",
+    "history": "可选项",
     "review": "检查"
+  },
+  "blocked": {
+    "loading": "当前设置加载完成后即可继续。",
+    "load_failed": "无法加载当前设置，因此这里无法保存任何内容。请使用上方的“重试加载设置”。"
+  },
+  "extras": {
+    "title": "可选项",
+    "description": "完成前还有两个选择。两者默认关闭，除非你开启，之后也都可以在“设置”中更改。"
   }
 }

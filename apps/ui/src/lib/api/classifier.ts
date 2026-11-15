@@ -8,29 +8,39 @@ export async function fetchClassifierStatus(): Promise<ClassifierStatus> {
     return handleResponse<ClassifierStatus>(response);
 }
 
+/** The bundled CPU model: it needs no download, so it is the recommended place to start. */
+const RECOMMENDED_SETUP_MODEL_ID = 'mobilenet_v2_birds';
+
+/** Every model the setup step can offer: the catalogue, then installed models it does not list. */
+export function setupModelOptions(available: ModelMetadata[], installed: InstalledModel[]): ModelMetadata[] {
+    const listed = new Set(available.map((model) => model.id));
+    const unlisted = installed.flatMap((model) => (model.metadata && !listed.has(model.id) ? [model.metadata] : []));
+    return [...available, ...unlisted];
+}
+
+/**
+ * The model the setup step opens on. It is always one the list can show: an id with no option
+ * would leave the select blank and Continue disabled with nothing to explain it.
+ */
 export function selectSetupModelId(
     status: ClassifierStatus,
     available: ModelMetadata[],
     installed: InstalledModel[]
 ): string {
-    const installedIds = new Set(installed.map((model) => model.id));
-    const effectiveModelId = status.effective_model_id ?? '';
-    if (effectiveModelId && installedIds.has(effectiveModelId)) return effectiveModelId;
-
-    const activeInstalled = installed.find((model) => model.is_active && model.ready !== false);
-    if (activeInstalled) return activeInstalled.id;
-
-    if (status.image_flavor === 'rpi' && installedIds.has('mobilenet_v2_birds')) {
-        return 'mobilenet_v2_birds';
-    }
-
-    const firstInstalled = installed.find((model) => model.ready !== false);
-    if (firstInstalled) return firstInstalled.id;
-
-    const preferredAvailable = status.image_flavor === 'rpi'
-        ? available.find((model) => model.id === 'mobilenet_v2_birds')
-        : undefined;
-    return preferredAvailable?.id ?? status.active_model_id ?? available[0]?.id ?? '';
+    const options = setupModelOptions(available, installed);
+    const selectable = new Set(options.map((model) => model.id));
+    const usable = installed.filter((model) => selectable.has(model.id));
+    const candidates = [
+        usable.find((model) => model.id === (status.effective_model_id ?? ''))?.id,
+        usable.find((model) => model.is_active && model.ready !== false)?.id,
+        status.image_flavor === 'rpi' ? usable.find((model) => model.id === RECOMMENDED_SETUP_MODEL_ID)?.id : undefined,
+        usable.find((model) => model.ready !== false)?.id,
+        status.image_flavor === 'rpi' ? RECOMMENDED_SETUP_MODEL_ID : undefined,
+        status.active_model_id ?? undefined,
+        RECOMMENDED_SETUP_MODEL_ID,
+        options[0]?.id
+    ];
+    return candidates.find((id): id is string => Boolean(id) && selectable.has(id as string)) ?? '';
 }
 
 export type DownloadModelResult = paths['/api/classifier/download']['post']['response'];

@@ -25,5 +25,8 @@
   "month": "Month",
   "no_local_visits_title": "No visits at your feeder yet",
   "no_local_visits_body": "Your cameras have not recorded this bird. Everything below comes from public reference sources.",
-  "reclassify_clip": "Reclassify from the clip"
+  "reclassify_clip": "Reclassify from the clip",
+  "detections_all_time": "Detections, all time",
+  "detections_shared": "Detections, shared history",
+  "detections_note": "Every identified frame counts once. One visit can hold several frames, so the Leaderboard’s visit counts are lower."
 }

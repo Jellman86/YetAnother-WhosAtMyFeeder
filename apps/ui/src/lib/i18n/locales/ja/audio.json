@@ -5,7 +5,8 @@
     "daily_sub": "1日ごとの BirdNET-Go 音声検出数",
     "hourly_title": "時間帯",
     "species_title": "種の構成",
-    "empty": "この期間にアクティビティはありません。"
+    "empty": "この期間にアクティビティはありません。",
+    "other_species": "その他の種"
   },
   "stat": {
     "heard": "検出数",

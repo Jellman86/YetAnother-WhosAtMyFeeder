@@ -67,5 +67,10 @@
   "checks_passed": "Все проверки пройдены: {total}.",
   "check_passed": "Проверка пройдена.",
   "map_your_location": "Ваше местоположение",
-  "map_sighting": "Место наблюдения"
+  "map_sighting": "Место наблюдения",
+  "test_again": "Проверить снова",
+  "diagnostic_state_passed": "Пройдено",
+  "diagnostic_state_failed": "Не пройдено",
+  "diagnostic_state_warning": "Пройдено с предупреждением",
+  "diagnostic_state_skipped": "Не выполнялось"
 }

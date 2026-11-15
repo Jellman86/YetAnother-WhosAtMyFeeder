@@ -5,7 +5,8 @@
     "daily_sub": "BirdNET-Go detections heard per day",
     "hourly_title": "Time of day",
     "species_title": "Species mix",
-    "empty": "No activity in this window."
+    "empty": "No activity in this window.",
+    "other_species": "Other species"
   },
   "stat": {
     "heard": "Heard",

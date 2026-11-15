@@ -31,13 +31,8 @@
     "notify": "Benachrichtigungen",
     "browser": "Ihr Browser",
     "unknown": "Unbekannt",
-    "online": "Online",
     "degraded": "Prüfen",
     "loaded": "Geladen",
-    "enabled": "Aktiv",
-    "off": "Aus",
-    "streaming": "Überträgt",
-    "offline": "Offline",
     "cameras_count": "{online} von {total} Kameras online",
     "mqtt_detail": "frigate/events",
     "audio_detail": "BirdNET-Go-Abgleich",
@@ -45,15 +40,12 @@
     "notify_on": "mindestens ein Kanal eingerichtet",
     "notify_off": "nichts eingerichtet",
     "browser_detail": "Live-Updates über SSE",
-    "legend_local": "läuft auf Ihrer Hardware",
-    "legend_optional": "optional",
-    "legend_external": "Ihr Broker und Browser",
     "legend_note": "Nichts verlässt Ihr Netzwerk außer den unten aufgeführten Aufrufen.",
     "not_checked": "Nicht geprüft",
     "no_reading": "von hier aus keine Messung",
     "owner_only": "Nur Besitzer",
     "owner_only_detail": "Messwert nur für den Besitzer sichtbar",
-    "standby": "Lädt bei der ersten Erkennung"
+    "standby": "Noch nicht geladen"
   },
   "storage": {
     "title": "Was gespeichert wird",
@@ -82,7 +74,6 @@
   },
   "instance": {
     "title": "Diese Instanz",
-    "acceleration": "Beschleunigung",
     "for_issue": "Für eine Fehlermeldung",
     "copy": "Kopieren",
     "copied": "Kopiert",
@@ -106,7 +97,13 @@
     "history_loading": "Verfügbarkeit wird geladen…",
     "history_unavailable": "Verfügbarkeit konnte nicht abgerufen werden.",
     "availability_partial": "{percent}% verfügbar in den {hours} h mit Aufzeichnung",
-    "no_gaps_since": "Keine Lücken seit Beginn der Aufzeichnung um {when}."
+    "no_gaps_since": "Keine Lücken seit Beginn der Aufzeichnung um {when}.",
+    "runtime": "Vogelbestimmung mit",
+    "runtime_on": "{runtime} auf {device}",
+    "runtime_unread": "Noch nicht gelesen. Das Modell meldet dies, sobald es geladen ist.",
+    "uptime_unmeasured": "Das Backend hat nicht gemeldet, wann es gestartet wurde.",
+    "availability_heading": "Verfügbarkeit, letzte {hours} Stunden",
+    "uptime_unmeasured_value": "Nicht gemessen"
   },
   "close": {
     "title": "Daten, Datenschutz und Danksagungen"
@@ -114,11 +111,10 @@
   "reference_thanks": "Referenz & Dank",
   "thanks_to": "Dank an",
   "portrait": {
-    "since": "Beobachtet seit {date}.",
-    "shared_today": "Heute an diesem Futterhaus.",
-    "shared_days": "Die letzten {days} Tage an diesem Futterhaus.",
+    "since": "Beobachtet seit {date}",
+    "shared_today": "Heute an diesem Futterhaus",
+    "shared_days": "Die letzten {days} Tage an diesem Futterhaus",
     "empty": "Noch keine Besuche erfasst. Das füllt sich, sobald Vögel kommen.",
-    "no_latest": "Noch kein Bild eines aktuellen Besuchs vorhanden.",
     "visits": "Besuche",
     "species": "Arten",
     "busiest_day": "Aktivster Tag",

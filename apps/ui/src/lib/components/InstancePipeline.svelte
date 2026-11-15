@@ -8,6 +8,7 @@
     import { serviceConnectionsStore } from '../stores/service_connections.svelte';
     import { getErrorMessage, isTransientRequestError } from '../utils/error-handling';
     import { logger } from '../utils/logger';
+    import { describeRuntime } from '../utils/instance-facts';
     import { pipelineClassifierState, type PipelineClassifierState } from '../utils/pipeline-classifier-state';
     import { _ } from 'svelte-i18n';
 
@@ -20,12 +21,11 @@
 
     interface Step {
         key: string;
-        kind: 'local' | 'optional' | 'external';
         detail: string;
         state: string | null;
         tone: Tone;
-        /** The detail is a literal identifier, such as a model id, not words. */
-        identifier?: boolean;
+        /** A muted second line under the detail, such as the runtime a model runs on. */
+        note?: string | null;
     }
 
     let cameraStatus = $state<CameraStatusResponse | null>(null);
@@ -110,7 +110,7 @@
             // The camera list failing is not a reading; Frigate measured as not answering is.
             const frigateDown = serviceConnectionsStore.connections?.frigate.state === 'unreachable';
             return frigateDown
-                ? { detail: noReading, state: $_('about.pipeline.offline', { default: 'Offline' }), tone: 'off' as Tone }
+                ? { detail: noReading, state: $_('status.state_not_connected', { default: 'Not connected' }), tone: 'off' as Tone }
                 : { detail: noReading, state: unknown, tone: 'unknown' as Tone };
         }
         if (!cameraStatus) return { detail: '…', state: null, tone: 'unknown' as Tone };
@@ -123,7 +123,7 @@
             }),
             state:
                 cameras.length > 0 && online === cameras.length
-                    ? $_('about.pipeline.online', { default: 'Online' })
+                    ? $_('status.state_connected', { default: 'Connected' })
                     : $_('about.pipeline.degraded', { default: 'Check' }),
             tone: (cameras.length > 0 && online === cameras.length ? 'ok' : 'off') as Tone
         };
@@ -132,30 +132,33 @@
     const classifierSummary = $derived.by(() => {
         if (classifierFailed) return { detail: noReading, state: unknown, tone: 'unknown' as Tone };
         if (!classifier) return { detail: '…', state: null, tone: 'unknown' as Tone };
-        const model = classifier.effective_model_id ?? classifier.active_model_id ?? '—';
-        const provider = classifier.active_provider ?? classifier.inference_backend ?? '';
+        // The model's own name, as the Models tab shows it. Its file id belongs in the issue report.
+        const modelName = classifier.effective_model_name?.trim() || null;
+        const runtime = describeRuntime(classifier)?.runtime ?? null;
         const reading = pipelineClassifierState(classifier);
         const states: Record<PipelineClassifierState, { state: string; tone: Tone }> = {
             loaded: { state: $_('about.pipeline.loaded', { default: 'Loaded' }), tone: 'ok' },
-            standby: { state: $_('about.pipeline.standby', { default: 'Loads on first detection' }), tone: 'off' },
+            standby: { state: $_('about.pipeline.standby', { default: 'Not loaded yet' }), tone: 'off' },
             check: { state: $_('about.pipeline.degraded', { default: 'Check' }), tone: 'off' },
             unknown: { state: unknown, tone: 'unknown' }
         };
         return {
-            detail: provider ? `${model} · ${provider}` : String(model),
-            identifier: true,
+            detail: modelName ?? runtime ?? noReading,
+            note: modelName ? runtime : null,
             ...states[reading]
         };
     });
+
+    const audioListening = $derived(serviceConnectionsStore.connections?.mqtt.state === 'connected');
 
     // The broker session as the server measured it; guests are not told, and an owner's
     // unread state stays "not checked" rather than borrowing a neighbour's green.
     const mqttSummary = $derived.by((): { state: string; tone: Tone } => {
         if (isGuestView) return { state: ownerOnly, tone: 'off' };
         const state = serviceConnectionsStore.connections?.mqtt.state;
-        if (state === 'connected') return { state: $_('about.pipeline.online', { default: 'Online' }), tone: 'ok' };
+        if (state === 'connected') return { state: $_('status.state_connected', { default: 'Connected' }), tone: 'ok' };
         if (state === 'disconnected' || state === 'not_configured' || state === 'stopped') {
-            return { state: $_('about.pipeline.offline', { default: 'Offline' }), tone: 'off' };
+            return { state: $_('status.state_not_connected', { default: 'Not connected' }), tone: 'off' };
         }
         return { state: notChecked, tone: 'unknown' };
     });
@@ -163,45 +166,42 @@
     const steps = $derived<Step[]>([
         {
             key: 'frigate',
-            kind: 'external',
             detail: cameraSummary.detail,
             state: cameraSummary.state,
             tone: cameraSummary.tone
         },
         {
             key: 'mqtt',
-            kind: 'external',
             detail: $_('about.pipeline.mqtt_detail', { default: 'frigate/events' }),
             state: mqttSummary.state,
             tone: mqttSummary.tone
         },
         {
             key: 'classifier',
-            kind: 'local',
             detail: classifierSummary.detail,
-            identifier: 'identifier' in classifierSummary,
+            note: 'note' in classifierSummary ? classifierSummary.note : null,
             state: classifierSummary.state,
             tone: classifierSummary.tone
         },
         {
             key: 'audio',
-            kind: 'optional',
             detail: $_('about.pipeline.audio_detail', { default: 'BirdNET-Go correlation' }),
-            state: birdnetEnabled
-                ? $_('about.pipeline.enabled', { default: 'Enabled' })
-                : $_('about.pipeline.off', { default: 'Off' }),
-            tone: (birdnetEnabled ? 'ok' : 'off') as Tone
+            // The sidebar's own words for the same reading: on is only "Listening" while the broker is connected.
+            state: !birdnetEnabled
+                ? $_('status.state_off', { default: 'Off' })
+                : audioListening
+                  ? $_('status.state_listening', { default: 'Listening' })
+                  : $_('status.state_not_listening', { default: 'Not listening' }),
+            tone: (birdnetEnabled && audioListening ? 'ok' : 'off') as Tone
         },
         {
             key: 'store',
-            kind: 'local',
             detail: $_('about.pipeline.store_detail', { default: 'SQLite under /data' }),
             state: notChecked,
             tone: 'unknown'
         },
         {
             key: 'notify',
-            kind: 'optional',
             // Notification channels are only reported in owner settings; a guest
             // reading "off" would be a guess presented as a measurement.
             detail: isGuestView
@@ -212,17 +212,16 @@
             state: isGuestView
                 ? ownerOnly
                 : notificationsEnabled
-                  ? $_('about.pipeline.enabled', { default: 'Enabled' })
-                  : $_('about.pipeline.off', { default: 'Off' }),
+                  ? $_('status.state_on', { default: 'On' })
+                  : $_('status.state_off', { default: 'Off' }),
             tone: (isGuestView ? 'off' : notificationsEnabled ? 'ok' : 'off') as Tone
         },
         {
             key: 'browser',
-            kind: 'external',
             detail: $_('about.pipeline.browser_detail', { default: 'live updates over SSE' }),
             state: detectionsStore.connected
-                ? $_('about.pipeline.streaming', { default: 'Streaming' })
-                : $_('about.pipeline.offline', { default: 'Offline' }),
+                ? $_('status.state_live', { default: 'Live' })
+                : $_('status.state_not_connected', { default: 'Not connected' }),
             tone: (detectionsStore.connected ? 'ok' : 'off') as Tone
         }
     ]);
@@ -233,10 +232,9 @@
         return 'text-slate-600 dark:text-slate-400';
     }
 
-    function kindClass(kind: Step['kind']): string {
-        if (kind === 'local') return 'border-brand-300 bg-brand-50/70 dark:border-brand-800 dark:bg-brand-950/30';
-        if (kind === 'optional') return 'border-dashed border-slate-300 dark:border-slate-600';
-        return 'border-slate-200 dark:border-slate-700';
+    /** The dot beside the state word: filled when measured working, a ring otherwise. The word carries the meaning. */
+    function toneDot(tone: Tone): string {
+        return tone === 'ok' ? 'bg-success-500' : 'border border-slate-400 dark:border-slate-500';
     }
 </script>
 
@@ -244,7 +242,7 @@
     <ol class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
         {#each steps as step, index (step.key)}
             <li
-                class="pipeline-step relative overflow-hidden rounded-xl border p-3 {kindClass(step.kind)}"
+                class="pipeline-step relative overflow-hidden rounded-xl border border-line-soft p-3"
                 style="--flow-index: {index}"
             >
                 <!-- The pulse sweeps each card in turn, so the eye is carried along the chain in the
@@ -261,41 +259,28 @@
                     </span>
                 {/if}
                 {#if step.state}
-                    <!-- Seven narrow cards at a large text size: a word breaks rather than being cut by the card. -->
-                    <span class="relative block text-3xs font-bold wrap-anywhere {toneClass(step.tone)}">
+                    <!-- One card style for every step: the state is a dot and a word, never a border. -->
+                    <span class="relative flex items-center gap-1.5 text-3xs font-bold wrap-anywhere {toneClass(step.tone)}">
+                        <i class="h-1.5 w-1.5 shrink-0 rounded-full {toneDot(step.tone)}" aria-hidden="true"></i>
                         {step.state}
                     </span>
                 {/if}
                 <span class="relative mt-0.5 block text-sm font-semibold text-slate-900 wrap-anywhere dark:text-white">
                     {$_(`about.pipeline.${step.key}`)}
                 </span>
-                <!-- A model id has no spaces, so it may break anywhere rather than be cut mid-word. -->
-                <span class="relative mt-0.5 block text-2xs leading-snug text-slate-600 wrap-anywhere dark:text-slate-400 {step.identifier ? 'font-mono break-all' : ''}">
+                <span class="relative mt-0.5 block text-2xs leading-snug text-slate-600 wrap-anywhere dark:text-slate-400">
                     {step.detail}
                 </span>
+                {#if step.note}
+                    <span class="relative block text-2xs leading-snug text-slate-600 wrap-anywhere dark:text-slate-400" data-pipeline-note>{step.note}</span>
+                {/if}
             </li>
         {/each}
     </ol>
 
-    <div class="flex flex-wrap items-center gap-x-5 gap-y-2 text-2xs text-slate-600 dark:text-slate-400">
-        <span class="flex items-center gap-1.5">
-            <i class="h-2.5 w-2.5 rounded-xs border border-brand-300 bg-brand-50 dark:border-brand-800 dark:bg-brand-950/40" aria-hidden="true"></i>
-            {$_('about.pipeline.legend_local', { default: 'runs on your hardware' })}
-        </span>
-        <span class="flex items-center gap-1.5">
-            <i class="h-2.5 w-2.5 rounded-xs border border-dashed border-slate-400 dark:border-slate-500" aria-hidden="true"></i>
-            {$_('about.pipeline.legend_optional', { default: 'optional' })}
-        </span>
-        <span class="flex items-center gap-1.5">
-            <i class="h-2.5 w-2.5 rounded-xs border border-slate-300 dark:border-slate-600" aria-hidden="true"></i>
-            {$_('about.pipeline.legend_external', { default: 'your broker and browser' })}
-        </span>
-        <span class="sm:ml-auto">
-            {$_('about.pipeline.legend_note', {
-                default: 'Nothing leaves your network except the calls listed below.'
-            })}
-        </span>
-    </div>
+    <p class="text-2xs text-slate-600 dark:text-slate-400">
+        {$_('about.pipeline.legend_note', { default: 'Nothing leaves your network except the calls listed below.' })}
+    </p>
 
 </div>
 

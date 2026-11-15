@@ -424,7 +424,7 @@
     "again": "Analisar novamente",
     "detector_unavailable": "Instale um detector de recortes para encontrar mais aves.",
     "reviewed_other_frame": "As aves revisadas em outro quadro são mantidas. Este quadro não pode substituí-las.",
-    "scene_unavailable": "O quadro completo desta fotografia não está disponível.",
+    "scene_unavailable": "Não é possível procurar mais aves: o fotograma inteiro por trás desta fotografia não foi guardado.",
     "other_running": "Outro quadro desta captura está sendo analisado. Tente novamente quando terminar.",
     "media_changed": "O quadro mudou durante a análise. Tente novamente no quadro atual.",
     "interrupted": "A análise foi interrompida. Você pode tentar novamente.",
@@ -495,5 +495,11 @@
   "domestic_bird_declared": "Esta é uma ave do tipo {bird}, uma ave doméstica que você cria. Mova-a para o Jardim para registrá-la como animal do jardim. Este registro de ave é ocultado, não excluído.",
   "move_to_garden": "Mover para o Jardim",
   "range_fallback": "Filtro de área: o modelo disse primeiro {original} ({score}%), que o eBird nunca registou em {region}, por isso manteve-se a resposta seguinte dentro da área.",
-  "audio_context_all": "Todos os cantos ouvidos em torno desta visita"
+  "audio_context_all": "Todos os cantos ouvidos em torno desta visita",
+  "record_label": "Registo de deteção",
+  "more_actions": "Mais ações",
+  "reference_read_more_on": "Ler mais em {source}",
+  "reference_read_more": "Ler mais",
+  "reference_source": "Fonte: {source}",
+  "reference_conservation": "Estado de conservação: {status}"
 }

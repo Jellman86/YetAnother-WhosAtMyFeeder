@@ -16,6 +16,8 @@ export interface DiagnosticStage {
     label: string;
     state: DiagnosticStageState;
     message: string;
+    /** What to do about a failure, in one line, when the check or its caller can say. */
+    hint?: string;
 }
 
 export interface DiagnosticResult {
@@ -30,6 +32,8 @@ export interface DiagnosticStep {
     label: string;
     /** Runs the real check. `status: 'ok'` marks the stage passed; anything else fails it. */
     run: () => Promise<{ status: string; message: string }>;
+    /** Where to look when this check fails. Shown under the failed row, never under a passed one. */
+    nextStep?: string;
 }
 
 export interface DiagnosticRunOptions {
@@ -78,12 +82,17 @@ export async function runSequentialDiagnostic(
         try {
             const result = await steps[i].run();
             const ok = result.status === 'ok';
-            stages[i] = { ...stages[i], state: ok ? 'passed' : 'failed', message: result.message || genericFailure };
+            stages[i] = {
+                ...stages[i],
+                state: ok ? 'passed' : 'failed',
+                message: result.message || genericFailure,
+                hint: ok ? undefined : steps[i].nextStep
+            };
             finalMessage = result.message || finalMessage;
             if (!ok) failed = true;
         } catch (error) {
             finalMessage = error instanceof Error && error.message.trim() ? error.message : genericFailure;
-            stages[i] = { ...stages[i], state: 'failed', message: finalMessage };
+            stages[i] = { ...stages[i], state: 'failed', message: finalMessage, hint: steps[i].nextStep };
             failed = true;
         }
         apply([...stages]);

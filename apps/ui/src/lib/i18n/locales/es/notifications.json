@@ -58,7 +58,6 @@
   "window_label": "Hoy",
   "count_events": "{count, plural, one {evento} other {eventos}}",
   "count_unread": "sin leer",
-  "owner_only": "Solo lo ves tú",
   "empty_title": "Todavía no ha pasado nada",
   "empty_body": "Las visitas aparecen aquí en cuanto el clasificador las nombra, y las tareas en segundo plano mientras se ejecutan. La más reciente primero.",
   "empty_action": "Abrir el registro de campo",
@@ -69,5 +68,6 @@
   "bell_unread": "{title}, {count} sin leer",
   "filter_group": "Filtrar notificaciones",
   "count_unread_unit": "{count, plural, one {sin leer} other {sin leer}}",
-  "cleared": "{count, plural, one {Se borró # notificación.} other {Se borraron # notificaciones.}}"
+  "cleared": "{count, plural, one {Se borró # notificación.} other {Se borraron # notificaciones.}}",
+  "owner_only_note": "Las tareas en segundo plano y los eventos de estado y del sistema solo se te muestran a ti, no a los visitantes."
 }

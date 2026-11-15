@@ -424,7 +424,7 @@
     "again": "Scan again",
     "detector_unavailable": "Install a crop detector to find additional birds.",
     "reviewed_other_frame": "Birds reviewed on another frame are kept. This frame cannot replace them.",
-    "scene_unavailable": "The whole frame for this photograph is unavailable.",
+    "scene_unavailable": "More birds cannot be looked for: the whole frame behind this photograph was not kept.",
     "other_running": "Another frame in this capture is being scanned. Try again when it finishes.",
     "media_changed": "The frame changed during the scan. Try again on the current frame.",
     "interrupted": "The scan was interrupted. You can try again.",
@@ -495,5 +495,11 @@
   "domestic_bird_declared": "This is a {bird}, a domestic bird you keep. Move it to Garden to record it as a Garden animal. This bird record is hidden, not deleted.",
   "move_to_garden": "Move to Garden",
   "range_fallback": "Range filter: the model first said {original} ({score}%), which eBird has never recorded in {region}, so its next answer in range was kept.",
-  "audio_context_all": "All calls heard around this visit"
+  "audio_context_all": "All calls heard around this visit",
+  "record_label": "Detection record",
+  "more_actions": "More actions",
+  "reference_read_more_on": "Read more on {source}",
+  "reference_read_more": "Read more",
+  "reference_source": "Source: {source}",
+  "reference_conservation": "Conservation status: {status}"
 }

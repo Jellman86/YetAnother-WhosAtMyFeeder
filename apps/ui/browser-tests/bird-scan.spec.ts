@@ -68,7 +68,7 @@ test('new photograph ignores an old response and missing scene never starts work
     await expect(page.locator('[data-scan-completions]')).toHaveText('0');
     await page.getByRole('button', { name: 'No whole frame', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Find more birds' })).toBeDisabled();
-    await expect(page.getByText('The whole frame for this photograph is unavailable.')).toBeVisible();
+    await expect(page.getByText('More birds cannot be looked for: the whole frame behind this photograph was not kept.')).toBeVisible();
 });
 
 test('retained previous findings and unavailable detector are explained', async ({ page }) => {
@@ -123,7 +123,7 @@ test('binds a scan to displayed pixels and refuses an unversioned photo', async 
     await expect.poll(() => posted).toEqual(['old-revision', 'new-revision']);
     await page.getByRole('button', { name: 'No image revision', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Find more birds' })).toBeDisabled();
-    await expect(page.getByText('The whole frame for this photograph is unavailable.')).toBeVisible();
+    await expect(page.getByText('More birds cannot be looked for: the whole frame behind this photograph was not kept.')).toBeVisible();
 });
 
 

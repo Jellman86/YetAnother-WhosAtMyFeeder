@@ -11,7 +11,9 @@ export function trapFocus(element: HTMLElement): () => void {
     let released = false;
     function getFocusableElements() {
         return Array.from(element.querySelectorAll<HTMLElement>(
-            'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])'
+            // A disclosure's summary is a tab stop too: left out, one placed last in a dialog
+            // could never be reached, because the wrap fired on the control before it.
+            'a[href], button:not([disabled]), textarea, input, select, details > summary:first-of-type, [tabindex]:not([tabindex="-1"])'
         )).filter((candidate) =>
             candidate.getAttribute('aria-hidden') !== 'true'
             && !candidate.matches(':disabled')
@@ -26,7 +28,10 @@ export function trapFocus(element: HTMLElement): () => void {
         if (released || !element.isConnected || activeTraps.at(-1) !== trap) return;
         if (element.contains(document.activeElement)) return;
         const focusable = getFocusableElements();
-        const initialFocus = focusable.find(candidate => candidate.hasAttribute('autofocus')) ?? focusable[0] ?? element;
+        // A dialog may name where reading starts (its heading, say). Without that the first control
+        // takes focus, which in a guided flow can be the one that abandons it.
+        const initialFocus = element.querySelector<HTMLElement>('[data-initial-focus]')
+            ?? focusable.find(candidate => candidate.hasAttribute('autofocus')) ?? focusable[0] ?? element;
         initialFocus.focus();
     }, 50);
 

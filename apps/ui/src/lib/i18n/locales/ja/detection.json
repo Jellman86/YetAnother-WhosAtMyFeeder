@@ -424,7 +424,7 @@
     "again": "再スキャン",
     "detector_unavailable": "ほかの鳥を探すには、切り抜き用の検出モデルをインストールしてください。",
     "reviewed_other_frame": "別のフレームで確認した鳥は保持されます。このフレームで置き換えることはできません。",
-    "scene_unavailable": "この写真に対応するフレーム全体を利用できません。",
+    "scene_unavailable": "ほかの鳥は探せません。この写真の元になった全体フレームが保存されていないためです。",
     "other_running": "この記録の別のフレームをスキャン中です。完了後にもう一度お試しください。",
     "media_changed": "スキャン中にフレームが変更されました。現在のフレームでもう一度お試しください。",
     "interrupted": "スキャンが中断されました。もう一度お試しいただけます。",
@@ -495,5 +495,11 @@
   "domestic_bird_declared": "これは飼っている家禽 ({bird}) です。庭に移動すると庭の動物として記録されます。この鳥の記録は削除されず、非表示になります。",
   "move_to_garden": "庭に移動",
   "range_fallback": "分布域フィルター：モデルは最初に {original}（{score}%）と答えましたが、eBird は {region} で一度も記録していないため、分布域内の次の候補を採用しました。",
-  "audio_context_all": "この訪問の前後に聞こえたすべての鳴き声"
+  "audio_context_all": "この訪問の前後に聞こえたすべての鳴き声",
+  "record_label": "検出の記録",
+  "more_actions": "その他の操作",
+  "reference_read_more_on": "{source}で続きを読む",
+  "reference_read_more": "続きを読む",
+  "reference_source": "出典: {source}",
+  "reference_conservation": "保全状況: {status}"
 }

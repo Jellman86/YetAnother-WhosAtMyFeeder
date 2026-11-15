@@ -15,6 +15,6 @@ describe('an uploaded video gets the same photo and scoring controls as a visit'
     it('offers the frame picker, the counted birds and Score again whenever there are frames', () => {
         expect(source).toMatch(/const showInlineFramePicker = \$derived\(\s*hasOwnerDetectionActions\s*&& hasFrameSource/);
         expect(source).toContain('{#if hasOwnerDetectionActions && hasFrameSource}');
-        expect(source).toMatch(/\{#if hasFrameSource\}\s*<button\s*type="button"\s*onclick=\{handleReclassifyClick\}/);
+        expect(source).toMatch(/\{#if hasFrameSource\}\s*<li>\s*<button type="button" onclick=\{handleReclassifyClick\}/);
     });
 });

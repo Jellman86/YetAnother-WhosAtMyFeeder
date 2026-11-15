@@ -1,3 +1,13 @@
 {
-  "stack_trace": "堆栈跟踪："
+  "stack_trace": "堆栈跟踪：",
+  "server_failure": "服务器上的问题中断了这次请求。请重试；如果持续出现，请打开“系统状态”查看问题所在。",
+  "connection": {
+    "service_mqtt": "MQTT 代理服务器",
+    "host_not_found": "{service}：找不到 {address} 中的主机名。请检查地址。",
+    "refused": "{service}：{address} 没有任何响应。请检查它是否在运行，以及端口是否正确。",
+    "timeout": "{service}：{address} 未在规定时间内响应。请检查地址，并确认本机可以访问它。",
+    "not_authorised": "{service}：用户名或密码被拒绝。请检查，或在其接受匿名客户端时关闭身份验证。",
+    "unreachable": "{service}：无法连接到 {address}。请检查地址和端口。",
+    "unreachable_url": "{service}：无法连接到 {address}。请检查地址、协议（http 或 https）和端口。"
+  }
 }

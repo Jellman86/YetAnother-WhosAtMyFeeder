@@ -1,9 +1,10 @@
 {
   "did_you_know": "Did you know?",
+  "another_fact": "Show another fact",
   "bird_facts": [
     "Hummingbirds can sustain hovering in still air and fly backwards",
     "American crows remembered faces worn by their captors for years",
-    "The Arctic Tern migrates over 44,000 miles annually - the longest migration of any bird",
+    "The Arctic Tern migrates over 44,000 miles annually, the longest migration of any bird",
     "Owls cannot move their eyeballs, which is why they can rotate their heads up to 270 degrees",
     "The Peregrine Falcon can dive at speeds over 240 mph, making it the fastest animal on Earth",
     "Ravens can imitate human speech and many sounds in their environment",
@@ -16,7 +17,6 @@
     "The wandering albatross has the largest wingspan of any living bird, up to 11.8 feet",
     "Woodpecker skulls act as stiff hammers rather than shock absorbers; measured brain loads stay below estimated concussion thresholds",
     "Common swifts can remain airborne for about ten months between breeding seasons",
-    "Birds aren't real - they're government surveillance drones (allegedly)",
     "Geese do not have teeth; serrated bill edges and backward-pointing tongue papillae help them grip food",
     "A bird in the hand is worth two in the bush, but significantly messier",
     "Penguins are just formal chickens dressed for a gala",
@@ -31,6 +31,5 @@
     "European robins use their orange-red breasts in territorial displays toward rivals",
     "Birds have a translucent third eyelid that sweeps sideways to spread tears and protect the eye",
     "Everything at your feeder has quietly decided that you are the staff"
-  ],
-  "built_with_ai": "Built with AI assistance, and a lot of trial and error"
+  ]
 }

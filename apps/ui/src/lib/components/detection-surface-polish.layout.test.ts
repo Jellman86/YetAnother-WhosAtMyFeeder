@@ -31,7 +31,7 @@ describe('detection surface polish', () => {
         expect(detectionModalSource).toContain('data-detection-photograph');
         expect(detectionModalSource).not.toContain('from-black/80 via-black/25');
         expect(detectionModalSource).not.toContain('absolute inset-x-0 bottom-0 z-20 flex flex-col');
-        expect(detectionModalSource).toContain('<DialogCloseButton tone="media" class="absolute top-4 right-4 z-40"');
+        expect(detectionModalSource).toContain('<DialogCloseButton onclick={onClose} data-detection-modal-close />');
     });
 
     it('offers the originating Frigate event to the owner, honestly', () => {
@@ -54,7 +54,6 @@ describe('detection surface polish', () => {
     it('keeps implementation identity collapsed until it is requested', () => {
         expect(detectionModalSource).toContain('data-detection-technical-identity');
         expect(technicalSource).toContain('<details');
-        expect(technicalSource).toContain('group order-last');
         expect(detectionModalSource).toContain('{detection.frigate_event}');
     });
 
@@ -150,35 +149,45 @@ describe('detection surface polish', () => {
         expect(detectionModalSource).toContain('border-t pt-2 {videoStatusNoticeTone.detailsContainer}');
     });
 
-    it('makes the detection id disclosure the terminal chrome itself', () => {
-        // The summary is the title bar: clicking the window opens it.
-        expect(technicalSource).toContain('@keyframes -global-terminal-blink');
-        expect(detectionModalSource).toContain('yawamf event show');
+    it('draws the detection id disclosure as a plain panel in the current theme', () => {
         expect(detectionModalSource).toContain('<RecordTechnicalDetails');
-        expect(technicalSource).toContain('terminal-caret');
-        expect(technicalSource).toContain('prefers-reduced-motion');
-        // overflow-hidden on a <details> collapses it to its own borders in Chrome, so the
-        // corners are rounded on the summary rather than clipped by the parent.
-        expect(technicalSource).not.toMatch(
-            /data-record-technical-details[\s\S]{0,240}?overflow-hidden/
-        );
-        expect(technicalSource).toContain('group-open:rounded-b-none');
-        expect(technicalSource).toContain('focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-on-dark');
-        expect(technicalSource).toContain('font-mono text-xs');
+        expect(technicalSource).toContain('class="group card-base"');
+        // No window furniture, fake prompt, platform sniffing or period colours.
+        expect(technicalSource).not.toMatch(/terminal|navigator|traffic|sigil|bg-\[#|text-\[#/i);
+        expect(detectionModalSource).not.toContain('yawamf event show');
+        // overflow-hidden on a <details> collapses it to its own borders in Chrome.
+        expect(technicalSource).not.toContain('overflow-hidden');
+        expect(technicalSource).toContain('focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus');
         expect(technicalSource).toContain('motion-safe:transition-transform group-open:rotate-180');
     });
 
-    it('borrows the window furniture of the viewer os', () => {
-        expect(technicalSource).toContain("): 'mac' | 'windows' | 'linux'");
-        expect(technicalSource).toContain("if (platform.includes('win')) return 'windows'");
-        // Android reports Linux in its user agent and is not a desktop window manager.
-        expect(technicalSource).toContain("!platform.includes('android')");
-        // Cosmetic only, so an unrecognised platform still gets a complete window.
-        expect(technicalSource).toContain("if (typeof navigator === 'undefined') return 'mac'");
-        // The insides follow the furniture: DOS black, Ubuntu aubergine, plain dark elsewhere.
-        expect(technicalSource).toContain("shell: 'bg-[#300a24]'");
-        expect(technicalSource).toContain("host: 'yawamf@feeder'");
-        expect(technicalSource).toContain("bg-[#000080]");
+    it('keeps the record in the order it is read: identity, decisions, context, reference, identifiers', () => {
+        // Keyboard order is DOM order, so nothing may be re-ordered in CSS.
+        expect(technicalSource).not.toContain('order-last');
+        const order = [
+            'data-detection-identity',
+            'data-detection-identification-actions',
+            'data-detection-more-actions-panel',
+            'data-detection-facts',
+            'data-detection-reference ',
+            'data-detection-technical-identity'
+        ].map((marker) => detectionModalSource.indexOf(marker));
+        expect(order.every((index) => index > 0)).toBe(true);
+        expect([...order].sort((a, b) => a - b)).toEqual(order);
+    });
+
+    it('shortens the species reference to a few lines with a link to the source', () => {
+        expect(detectionModalSource).toContain("summaryUrl ? 'line-clamp-3' : ''");
+        expect(detectionModalSource).toContain('data-detection-reference-link');
+    });
+
+    it('keeps the less common record actions behind one control', () => {
+        expect(detectionModalSource).toContain('data-detection-more-actions');
+        expect(detectionModalSource).toMatch(/aria-expanded=\{moreActionsOpen\}\s+aria-controls="detection-more-actions"/);
+        const panel = detectionModalSource.indexOf('data-detection-more-actions-panel');
+        for (const marker of ['data-detection-score-again', 'data-detection-hide', 'data-detection-delete', 'detection.common_name_override_edit']) {
+            expect(detectionModalSource.indexOf(marker)).toBeGreaterThan(panel);
+        }
     });
 
     it('keeps no strip machinery of its own now the strip is a component', () => {
@@ -190,7 +199,9 @@ describe('detection surface polish', () => {
         // It carried no padding class at all, so with its siblings hidden for a guest it
         // collapsed to the height of its own text. As a second primary it competed with Confirm.
         expect(detectionModalSource).not.toContain('flex-1 bg-brand-500 hover:bg-brand-600 text-white font-semibold text-xs rounded-xl');
-        expect(detectionModalSource).toContain('btn btn-secondary flex-1 px-3 py-2.5 text-xs');
+        // Now a text link beside the name it is about, still a full touch target tall.
+        expect(detectionModalSource).toMatch(/onclick=\{handleSpeciesInfo\}\s+class="inline-flex min-h-11 items-center gap-1 rounded-sm text-xs font-semibold text-brand-700 underline/);
+        expect(detectionModalSource.indexOf('data-detection-species-details')).toBeLessThan(detectionModalSource.indexOf('data-detection-identification-actions'));
         expect(detectionModalSource).not.toContain('btn btn-primary flex-1 px-3 py-2.5 text-xs');
         expect(detectionModalSource.match(/\{\$_\('actions\.species_info'\)\}/g)).toHaveLength(1);
     });
@@ -214,5 +225,27 @@ describe('detection surface polish', () => {
     it('shows retained upload coordinates without BirdNET context', () => {
         expect(detectionModalSource).toContain('detection.observation_latitude');
         expect(detectionModalSource).toContain('data-manual-observation-location');
+    });
+
+    it('keeps record status off the photograph and diagnostics out of the record', () => {
+        // The archive state is said in the panel; only the favourite star stays on the image.
+        const media = detectionModalSource.slice(detectionModalSource.indexOf('data-detection-media-actions'), detectionModalSource.indexOf('data-detection-details-column'));
+        expect(media).not.toContain('archiveLabel');
+        expect(detectionModalSource).toContain('data-detection-archive-state={archiveState}');
+        // Which device and model ran the video analysis is diagnostics, not record content.
+        expect(detectionModalSource).not.toMatch(/video_classification_model_name|completedVideoInferenceBadge/);
+    });
+
+    it('never lets the scrolling column squash the More actions list', () => {
+        // A box that clips its content has no minimum height as a flex item, so Delete was cut off and could not be clicked.
+        expect(detectionModalSource).toContain('class="card-base shrink-0 divide-y divide-line-soft overflow-hidden" data-detection-more-actions-panel');
+    });
+
+    it('lets the delete row be named by the words on it', () => {
+        // A label that differs from the visible text fails speech input (label in name).
+        const marker = detectionModalSource.indexOf('data-detection-delete');
+        const row = detectionModalSource.slice(detectionModalSource.lastIndexOf('<button', marker), detectionModalSource.indexOf('</button>', marker));
+        expect(row).not.toContain('aria-label');
+        expect(row).toContain("{$_('actions.delete_detection')}");
     });
 });

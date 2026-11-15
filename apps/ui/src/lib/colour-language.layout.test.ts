@@ -143,10 +143,6 @@ const PALETTE_EXCEPTIONS: Record<string, { families: string[]; reason: string }>
     'pages/Species.svelte': {
         families: ['sky'],
         reason: 'the precipitation overlay draws rain as a sky band on the activity chart, and its legend matches it'
-    },
-    'components/RecordTechnicalDetails.svelte': {
-        families: ['amber', 'emerald'],
-        reason: "the technical details are drawn as the viewer's own terminal, window controls and all"
     }
 };
 
@@ -210,7 +206,6 @@ const ATTENTION_COMPONENTS: Record<string, string> = {
     'components/setup/WelcomeStep.svelte': 'a first-run problem',
     'components/setup/WizardShell.svelte': 'skipping setup',
     'components/setup/CamerasStep.svelte': 'a camera Frigate does not know',
-    'components/setup/ConnectionStep.svelte': 'a connection test that failed',
     'components/setup/ModelStep.svelte': 'a model or device that cannot run as chosen',
     'components/setup/ReviewStep.svelte': 'a setup step that still needs attention'
 };

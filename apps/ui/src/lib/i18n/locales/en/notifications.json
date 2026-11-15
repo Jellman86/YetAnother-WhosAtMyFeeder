@@ -58,7 +58,6 @@
   "window_label": "Today",
   "count_events": "{count, plural, one {event} other {events}}",
   "count_unread": "unread",
-  "owner_only": "Only you see this",
   "empty_title": "Nothing has happened yet",
   "empty_body": "Visits appear here as the classifier names them, and background work as it runs. Newest first.",
   "empty_action": "Open the field log",
@@ -69,5 +68,6 @@
   "bell_unread": "{title}, {count} unread",
   "filter_group": "Filter notifications",
   "count_unread_unit": "{count, plural, one {unread} other {unread}}",
-  "cleared": "{count, plural, one {Cleared # notification.} other {Cleared # notifications.}}"
+  "cleared": "{count, plural, one {Cleared # notification.} other {Cleared # notifications.}}",
+  "owner_only_note": "Background jobs, health and system events are shown only to you, not to visitors."
 }

@@ -30,16 +30,16 @@
     const heading = $derived.by(() => {
         if (portrait.scope === 'shared') {
             return portrait.shared_days === 0
-                ? $_('about.portrait.shared_today', { default: 'Today at this feeder.' })
+                ? $_('about.portrait.shared_today', { default: 'Today at this feeder' })
                 : $_('about.portrait.shared_days', {
                       values: { days: portrait.shared_days ?? 0 },
-                      default: 'The last {days} days at this feeder.'
+                      default: 'The last {days} days at this feeder'
                   });
         }
         return portrait.started_at
             ? $_('about.portrait.since', {
                   values: { date: formatDate(portrait.started_at) },
-                  default: 'Watching since {date}.'
+                  default: 'Watching since {date}'
               })
             : $_('about.portrait.empty', { default: 'No visits recorded yet. This fills in as birds arrive.' });
     });
@@ -49,7 +49,9 @@
     }
 </script>
 
-<section class="grid gap-5 md:grid-cols-2 md:items-center" aria-labelledby="about-portrait-heading" data-feeder-portrait>
+<!-- With no picture to show there is no picture column: the facts take the row under the title,
+     rather than floating beside an empty frame. -->
+<section class="grid gap-5 {latest ? 'md:grid-cols-2 md:items-center' : ''}" aria-labelledby="about-portrait-heading" data-feeder-portrait>
     {#if latest}
         <button
             type="button"
@@ -81,15 +83,6 @@
                 </span>
             {/if}
         </button>
-    {:else}
-        <!-- The picture's place is kept when there is no picture: the loading shape reserves it, and
-             giving it back would pull the page up by the height of a photograph as the facts land. -->
-        <div class="flex aspect-video w-full flex-col items-center justify-center gap-2 rounded-2xl border border-line-soft bg-surface-raised px-4 text-center" data-feeder-portrait-no-visit>
-            <svg class="h-8 w-8 text-slate-500 dark:text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M4 7h3l1.5-2h7L17 7h3v12H4V7Z" /><circle cx="12" cy="13" r="3.5" />
-            </svg>
-            <p class="text-sm text-slate-600 dark:text-slate-400">{$_('about.portrait.no_latest', { default: 'No picture of a recent visit to show yet.' })}</p>
-        </div>
     {/if}
 
     <div class="min-w-0 space-y-4">
@@ -97,7 +90,7 @@
             {heading}
         </h3>
         {#if portrait.visits > 0}
-            <dl class="grid grid-cols-2 gap-x-6 gap-y-4" data-feeder-portrait-facts>
+            <dl class="grid grid-cols-2 gap-x-6 gap-y-4 {latest ? '' : 'sm:grid-cols-4'}" data-feeder-portrait-facts>
                 <div>
                     <dd class="font-display text-2xl font-bold tabular-nums text-slate-900 dark:text-white">{portrait.visits.toLocaleString()}</dd>
                     <dt class="text-xs text-slate-600 dark:text-slate-400">{$_('about.portrait.visits', { default: 'visits' })}</dt>

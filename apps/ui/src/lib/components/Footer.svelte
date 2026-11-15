@@ -1,8 +1,7 @@
 <script lang="ts">
     import Separator from './Separator.svelte';
     import BrandMark from './BrandMark.svelte';
-    import { onMount } from 'svelte';
-    import { _, json } from 'svelte-i18n';
+    import { _ } from 'svelte-i18n';
     import { fetchVersion, type VersionInfo } from '../api';
     import { docsRefForBranch } from '../app/app-version';
 
@@ -30,28 +29,13 @@
         })();
     });
 
-    // Get bird facts from i18n using json() for array values - fallback to empty array if missing
-    const birdFacts = $derived(($json('footer.bird_facts') || []) as string[]);
-
-    // One fact per page load, chosen when the footer mounts. It does not turn over by itself:
-    // text that changes while someone reads the page needs a way to pause it, and a footer
-    // is not worth a control.
-    let currentFactIndex = $state(0);
-    const currentFact = $derived(
-        birdFacts.length > 0 ? (birdFacts[currentFactIndex % birdFacts.length] ?? '') : ''
-    );
     const year = $derived(new Date().getFullYear());
-
-    onMount(() => {
-        if (birdFacts.length > 0) currentFactIndex = Math.floor(Math.random() * birdFacts.length);
-    });
 </script>
 
-<!-- One slim band the full width of the content: who and which build, a bird fact, then the links.
-     It stacks on narrow screens. The fact keeps a reserved height at every width, because facts run
-     from four words to two lines and the footer must be the same height whichever one is drawn. -->
+<!-- One slim band the full width of the content: which build this is, then the licence and the
+     links. Nothing here changes from page to page, and it stacks on narrow screens. -->
 <footer class="mt-auto border-t border-line-soft bg-surface">
-    <div class="flex flex-col items-center gap-x-8 gap-y-3 px-4 py-4 text-xs text-slate-600 sm:px-6 lg:flex-row lg:flex-wrap lg:px-8 lg:py-3 2xl:px-12 dark:text-slate-400">
+    <div class="flex flex-col items-center gap-x-8 gap-y-3 px-4 py-4 text-xs text-slate-600 sm:px-6 lg:flex-row lg:flex-wrap lg:justify-between lg:px-8 lg:py-3 2xl:px-12 dark:text-slate-400">
         <div class="flex shrink-0 flex-wrap items-center justify-center gap-x-2 gap-y-1">
             <BrandMark class="h-5 w-5 rounded-md" sizes="20px" width={20} height={20} loading="lazy" alt="" />
             <span class="font-display text-sm font-bold text-slate-800 dark:text-slate-200">Yet Another WhosAtMyFeeder</span>
@@ -65,12 +49,6 @@
                 v{version}
             </a>
         </div>
-
-        <!-- A bird fact. Neutral ink: amber is kept for work that needs a person. -->
-        <p class="flex min-h-28 min-w-0 flex-1 flex-col items-center justify-center gap-1 text-center sm:min-h-10 sm:flex-row sm:gap-2 lg:min-h-8" data-footer-fact>
-            <span class="shrink-0 font-semibold text-slate-800 dark:text-slate-200">{$_('footer.did_you_know', { default: 'Did you know?' })}</span>
-            <span class="min-w-0 wrap-break-word">{currentFact}</span>
-        </p>
 
         <div class="flex shrink-0 flex-wrap items-center justify-center gap-x-3 gap-y-1">
             <a
@@ -89,9 +67,5 @@
             <Separator />
             <span>&copy; {year} Jellman86</span>
         </div>
-        <!-- Its own row below 1920px, so it never narrows the fact; in the row from there. -->
-        <span class="text-center text-slate-600 lg:basis-full 3xl:basis-auto dark:text-slate-400">
-                {$_('footer.built_with_ai', { default: 'Built with AI assistance, and a lot of trial and error' })}
-                    </span>
     </div>
 </footer>

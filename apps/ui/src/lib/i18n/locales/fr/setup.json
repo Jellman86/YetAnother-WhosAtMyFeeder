@@ -26,7 +26,6 @@
     "mqtt_username": "Nom d’utilisateur",
     "mqtt_password": "Mot de passe",
     "mqtt_password_saved": "Le mot de passe enregistré sera conservé sauf si vous le remplacez.",
-    "continue_hint": "Les paramètres sont enregistrés. Vous pouvez continuer et corriger la connexion plus tard, mais aucune détection n’arrivera tant que Frigate ne sera pas accessible.",
     "description": "YA-WAMF lit les détections de Frigate via MQTT et récupère les instantanés depuis son API. Renseignez les deux, puis testez.",
     "frigate_auth_hint": "Si votre Frigate exige une connexion, définissez FRIGATE_AUTH_TOKEN dans l’environnement de démarrage de YA-WAMF, redémarrez-le, puis testez à nouveau.",
     "frigate_auth_link": "Variables d’environnement",
@@ -36,7 +35,12 @@
     "mqtt_port": "Port",
     "mqtt_server": "Courtier MQTT",
     "save_test": "Enregistrer et tester la connexion",
-    "frigate_ok": "Connecté à Frigate {version}"
+    "frigate_ok": "Connecté à Frigate {version}",
+    "blocked": "Enregistrez et testez la connexion pour continuer, ou choisissez « Configurer plus tard ».",
+    "later": "Configurer plus tard",
+    "later_note": "Pas de Frigate ni de broker sous la main \u0001 Choisissez « Configurer plus tard ». Tant que les deux ne sont pas connectés dans Paramètres → Connexion, aucune visite n’arrive, aucune photo ni aucun clip ne peut être récupéré, et l’étape des caméras ne peut pas lister vos caméras.",
+    "check_frigate": "API Frigate",
+    "check_mqtt": "Broker MQTT"
   },
   "cameras": {
     "title": "Caméras et détection",
@@ -54,7 +58,7 @@
   },
   "model": {
     "title": "Modèle de classification et matériel",
-    "description": "YA-WAMF inclut une solution de repli légère sur CPU. Choisissez un modèle, téléchargez-le ici si nécessaire, puis validez le chemin exact de l’image et du matériel avant de continuer.",
+    "description": "YA-WAMF est fourni avec un petit modèle qui fonctionne sur n’importe quel processeur. Choisissez celui-ci ou un plus grand, téléchargez-le ici si nécessaire, puis vérifiez qu’il fonctionne sur cette machine avant de continuer.",
     "download_required": "Téléchargez et vérifiez ce modèle ici avant de le valider sur ce matériel.",
     "download_timeout": "Le téléchargement prend plus de temps que prévu. Vérifiez la connexion et réessayez.",
     "validation_timeout": "La validation du matériel a dépassé 30 minutes. Elle se termine peut-être encore dans Diagnostic ; vérifiez son état avant de lancer un autre test.",
@@ -92,7 +96,13 @@
     "readiness_retry": "Le test est terminé, mais l’état du modèle n’a pas pu être actualisé. Nouvelle tentative en cours ; vous pouvez quitter cette étape et revenir plus tard.",
     "best_provider": "Meilleur moteur validé : {provider}, {ms} ms par image",
     "best_provider_without_timing": "Meilleur moteur validé : {provider}",
-    "failed_providers": "Échecs : {providers}"
+    "failed_providers": "Échecs : {providers}",
+    "blocked_downloading": "Vous pourrez continuer une fois le téléchargement terminé.",
+    "blocked_no_model": "Choisissez un modèle pour continuer, ou ignorez cette étape pour garder le modèle utilisé actuellement.",
+    "blocked_download": "Téléchargez ce modèle pour continuer, ou ignorez cette étape pour garder le modèle utilisé actuellement.",
+    "blocked_check": "Vérifiez ce modèle sur ce matériel pour continuer, ou ignorez cette étape pour garder le modèle utilisé actuellement.",
+    "blocked_location": "Saisissez la latitude et la longitude de la mangeoire pour continuer, ou laissez les deux vides.",
+    "blocked_provider": "Cet hôte ne dispose pas de l’appareil choisi. Choisissez-en un autre, ou Auto, pour continuer."
   },
   "quality": {
     "title": "Meilleurs instantanés disponibles",
@@ -118,7 +128,6 @@
     "enable_help": "Les détections ne sont mises à jour que si la classification s’améliore ; l’audio et la météo sont préservés.",
     "range": "Période de l’historique",
     "import_continue": "Importer et continuer",
-    "continue_without": "Continuer sans importer",
     "job_title": "Import de l’historique",
     "job_starting": "Analyse de l’historique Frigate",
     "audio_note": "L’historique Frigate restaure les détections visuelles et instantanés, mais pas l’audio BirdNET-Go qui n’a pas été stocké."
@@ -175,10 +184,11 @@
     "cover_cameras": "Choisir vos caméras",
     "cover_connect": "Connecter Frigate et MQTT",
     "cover_integrations": "Activer les intégrations",
-    "cover_model": "Valider le modèle sur votre matériel",
-    "description": "Mettons votre mangeoire en ligne. Cela prend quelques minutes, les choix facultatifs peuvent être ignorés, et vous pouvez relancer l’assistant à tout moment depuis la navigation des Paramètres.",
+    "cover_model": "Vérifier que le modèle fonctionne sur cette machine",
+    "description": "Cela prend quelques minutes. Les choix facultatifs peuvent être ignorés, et vous pouvez relancer la configuration à tout moment depuis les Paramètres.",
     "start": "Commencer",
-    "title": "Bienvenue sur YA-WAMF"
+    "title": "Configurer YA-WAMF",
+    "covers": "La configuration vous demandera de \u0001"
   },
   "working": "En cours…",
   "skip_step": "Passer cette étape",
@@ -192,8 +202,15 @@
     "model": "Modèle",
     "quality": "Instantanés",
     "integrations": "Intégrations",
-    "history": "Historique",
-    "telemetry": "Statistiques d’usage",
+    "history": "Options",
     "review": "Vérification"
+  },
+  "blocked": {
+    "loading": "Vous pourrez continuer une fois les paramètres actuels chargés.",
+    "load_failed": "Les paramètres actuels n’ont pas pu être chargés, rien ne peut donc être enregistré ici. Utilisez « Réessayer de charger les paramètres » ci-dessus."
+  },
+  "extras": {
+    "title": "Options facultatives",
+    "description": "Deux choix avant de terminer. Les deux sont désactivés tant que vous ne les activez pas, et tous deux peuvent être modifiés plus tard dans les Paramètres."
   }
 }

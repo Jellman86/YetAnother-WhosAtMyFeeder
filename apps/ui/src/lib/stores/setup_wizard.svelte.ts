@@ -21,8 +21,8 @@ export const WIZARD_STEPS: readonly WizardStep[] = [
     { id: 'model', section: 'model', optional: false },
     { id: 'quality', section: 'quality', optional: true },
     { id: 'integrations', section: 'integrations', optional: true },
+    // History import and the usage-stats choice share one screen: neither is needed to see a bird.
     { id: 'history', section: null, optional: true },
-    { id: 'telemetry', section: null, optional: true },
     { id: 'review', section: null, optional: false }
 ];
 

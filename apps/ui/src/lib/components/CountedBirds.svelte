@@ -232,7 +232,7 @@
 <!-- Nothing while the first read is pending: most captures have no counted birds, and a passing
      loading line would shift the record for nothing. -->
 {#if error || regenerating || birds.length > 0 || (countingAvailable && !loading)}
-    <section bind:this={sectionEl} class="space-y-3 wrap-break-word border-t border-slate-200 pt-5 dark:border-slate-700" data-counted-birds aria-labelledby="counted-birds-title-{eventId}">
+    <section bind:this={sectionEl} class="{error ? 'space-y-0' : 'space-y-3'} wrap-break-word border-t border-slate-200 {error ? 'pt-3' : 'pt-5'} dark:border-slate-700" data-counted-birds aria-labelledby="counted-birds-title-{eventId}">
         <div class="flex items-baseline justify-between gap-3">
             <h4 id="counted-birds-title-{eventId}" class="text-xs font-semibold text-slate-600 dark:text-slate-400">
                 {$_('detection.counted_birds.title', { default: 'Birds found in this capture' })}

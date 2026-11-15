@@ -1,3 +1,13 @@
 {
-  "stack_trace": "Rastreamento de pilha:"
+  "stack_trace": "Rastreamento de pilha:",
+  "server_failure": "Algo no servidor interrompeu este pedido. Tente novamente; se continuar a acontecer, abra o Estado do sistema para ver o que está errado.",
+  "connection": {
+    "service_mqtt": "Broker MQTT",
+    "host_not_found": "{service}: o nome do anfitrião em {address} não foi encontrado. Verifique o endereço.",
+    "refused": "{service}: nada respondeu em {address}. Verifique se está em execução e se a porta está correta.",
+    "timeout": "{service}: sem resposta de {address} a tempo. Verifique o endereço e se esta máquina o consegue alcançar.",
+    "not_authorised": "{service}: o nome de utilizador ou a palavra-passe foi recusado. Verifique-os, ou desligue a autenticação se aceitar clientes anónimos.",
+    "unreachable": "{service}: não foi possível ligar a {address}. Verifique o endereço e a porta.",
+    "unreachable_url": "{service}: não foi possível ligar a {address}. Verifique o endereço, o esquema (http ou https) e a porta."
+  }
 }

@@ -25,5 +25,8 @@
   "copy_diagnostics_bundle": "Copiar pacote de diagnósticos",
   "no_local_visits_title": "Ainda não há visitas ao seu comedouro",
   "no_local_visits_body": "Suas câmeras não registraram esta ave. Tudo abaixo vem de fontes de referência públicas.",
-  "reclassify_clip": "Reclassificar a partir do clipe"
+  "reclassify_clip": "Reclassificar a partir do clipe",
+  "detections_all_time": "Deteções, desde sempre",
+  "detections_shared": "Deteções, histórico partilhado",
+  "detections_note": "Cada fotograma identificado conta uma vez. Uma visita pode incluir vários fotogramas, por isso as contagens de visitas da classificação são mais baixas."
 }

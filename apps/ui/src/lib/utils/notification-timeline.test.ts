@@ -9,6 +9,7 @@ import {
     groupNotifications,
     isOwnerOnlyFilter,
     progressOf,
+    showsProgress,
     toneOf
 } from './notification-timeline';
 
@@ -209,6 +210,16 @@ describe('notification timeline', () => {
         expect(progressOf(item({ id: 'p1' }))).toBeNull();
         expect(progressOf(item({ id: 'p2', meta: { current: 3, total: 0 } }))).toBeNull();
         expect(progressOf(item({ id: 'p3', meta: { current: 3, total: 4 } }))?.percent).toBe(75);
+    });
+
+    it('draws a progress bar only for work that is unfinished', () => {
+        // A finished or failed job is a record: a full bar under it says nothing, or the wrong thing.
+        expect(showsProgress(item({ id: 'r1', type: 'process', meta: { current: 3, total: 4, status: 'running' } }))).toBe(true);
+        expect(showsProgress(item({ id: 'r2', type: 'process', meta: { current: 3, total: 4, status: 'stopped' } }))).toBe(true);
+        expect(showsProgress(item({ id: 'r3', type: 'process', meta: { current: 4, total: 4, status: 'completed' } }))).toBe(false);
+        expect(showsProgress(item({ id: 'r4', type: 'process', meta: { current: 4, total: 4 } }))).toBe(false);
+        expect(showsProgress(item({ id: 'r5', type: 'process', meta: { current: 2, total: 4, status: 'failed' } }))).toBe(false);
+        expect(showsProgress(item({ id: 'r6' }))).toBe(false);
     });
 
     it('marks jobs and errors as owner only', () => {

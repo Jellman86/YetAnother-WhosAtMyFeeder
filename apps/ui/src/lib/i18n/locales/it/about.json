@@ -31,13 +31,8 @@
     "notify": "Notifiche",
     "browser": "Il tuo browser",
     "unknown": "Sconosciuto",
-    "online": "Online",
     "degraded": "Da controllare",
     "loaded": "Caricato",
-    "enabled": "Attivo",
-    "off": "Disattivo",
-    "streaming": "In streaming",
-    "offline": "Offline",
     "cameras_count": "{online} di {total} telecamere online",
     "mqtt_detail": "frigate/events",
     "audio_detail": "Correlazione BirdNET-Go",
@@ -45,15 +40,12 @@
     "notify_on": "almeno un canale configurato",
     "notify_off": "niente configurato",
     "browser_detail": "aggiornamenti live via SSE",
-    "legend_local": "gira sul tuo hardware",
-    "legend_optional": "opzionale",
-    "legend_external": "il tuo broker e browser",
     "legend_note": "Nulla esce dalla tua rete tranne le chiamate elencate sotto.",
     "not_checked": "Non verificato",
     "no_reading": "nessuna lettura da qui",
     "owner_only": "Solo proprietario",
     "owner_only_detail": "lettura visibile al proprietario",
-    "standby": "Si carica al primo rilevamento"
+    "standby": "Non ancora caricato"
   },
   "storage": {
     "title": "Cosa memorizza",
@@ -82,7 +74,6 @@
   },
   "instance": {
     "title": "Questa istanza",
-    "acceleration": "Accelerazione",
     "for_issue": "Per una segnalazione",
     "copy": "Copia",
     "copied": "Copiato",
@@ -106,7 +97,13 @@
     "history_loading": "Caricamento disponibilità…",
     "history_unavailable": "Impossibile leggere la disponibilità.",
     "availability_partial": "{percent}% attivo nelle {hours} h registrate",
-    "no_gaps_since": "Nessuna interruzione da quando la registrazione è iniziata alle {when}."
+    "no_gaps_since": "Nessuna interruzione da quando la registrazione è iniziata alle {when}.",
+    "runtime": "Identificazione degli uccelli con",
+    "runtime_on": "{runtime} su {device}",
+    "runtime_unread": "Non ancora letto. Il modello lo comunica una volta caricato.",
+    "uptime_unmeasured": "Il backend non ha comunicato quando è stato avviato.",
+    "availability_heading": "Disponibilità, ultime {hours} ore",
+    "uptime_unmeasured_value": "Non misurato"
   },
   "close": {
     "title": "Dati, privacy e ringraziamenti"
@@ -114,11 +111,10 @@
   "reference_thanks": "Riferimenti e ringraziamenti",
   "thanks_to": "Grazie a",
   "portrait": {
-    "since": "In osservazione dal {date}.",
-    "shared_today": "Oggi a questa mangiatoia.",
-    "shared_days": "Gli ultimi {days} giorni a questa mangiatoia.",
+    "since": "In osservazione dal {date}",
+    "shared_today": "Oggi a questa mangiatoia",
+    "shared_days": "Gli ultimi {days} giorni a questa mangiatoia",
     "empty": "Nessuna visita registrata finora. Si riempirà man mano che arrivano gli uccelli.",
-    "no_latest": "Ancora nessuna immagine di una visita recente.",
     "visits": "visite",
     "species": "specie",
     "busiest_day": "Giorno più movimentato",

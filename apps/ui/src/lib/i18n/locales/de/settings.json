@@ -659,7 +659,9 @@
     "recording_frame_delay": "Verzögerung der ersten Bestimmung (Sekunden)",
     "recording_frame_delay_desc": "1 bis 120 Sekunden nach dem ersten Schnappschuss warten. Die neuesten währenddessen empfangenen Metadaten des verfolgten Schnappschusses werden verwendet. Bestimmung und Benachrichtigungen erfolgen später. Dies wartet nicht auf jedes Ereignisende und bestimmt gespeicherte Erkennungen nicht neu.",
     "test_connection_both": "Frigate und MQTT testen",
-    "test_again": "Erneut testen"
+    "test_again": "Erneut testen",
+    "stage_frigate_next": "Prüfe die Frigate-Server-URL auf diesem Tab und ob Frigate läuft.",
+    "stage_mqtt_next": "Prüfe Broker-Adresse, Port und Anmeldung auf diesem Tab."
   },
   "cameras": {
     "title": "Beobachtete Kameras",

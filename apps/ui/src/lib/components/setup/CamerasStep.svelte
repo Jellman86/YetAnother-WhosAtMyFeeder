@@ -5,6 +5,7 @@
     import { fetchFrigateConfig } from '../../api/system';
     import { setupWizardStore } from '../../stores/setup_wizard.svelte';
     import WizardStepLayout from './WizardStepLayout.svelte';
+    import { loadBlockedReason } from './continue-blocked';
     import WizardLoadState, { type WizardLoadStatus } from './WizardLoadState.svelte';
     import CameraThumbnail from './CameraThumbnail.svelte';
     import { cameraChoices, frigateCameraNames, parseCameraNames } from './camera-choices';
@@ -79,6 +80,7 @@
         default: 'Choose which Frigate cameras YA-WAMF watches. Advanced detection and classifier gates stay in Detection settings.'
     })}
     canContinue={loadState === 'ready'}
+    blockedReason={loadBlockedReason(loadState, $_)}
     {busy}
     onContinue={save}
 >
