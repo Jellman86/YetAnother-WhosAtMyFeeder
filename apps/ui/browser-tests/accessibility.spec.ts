@@ -135,6 +135,47 @@ for (const theme of THEMES) {
             });
         }
 
+        test('the Explorer list view has no serious accessibility violation, and each badge is named by its words', async ({ page }) => {
+            await replayFeeder(page, theme);
+            await page.goto('/events');
+            await page.getByRole('button', { name: 'List', exact: true }).click();
+            await expect(page.locator('[data-detection-row]').first()).toBeVisible(READY);
+            await settled(page);
+            expect(await seriousFindings(page)).toEqual([]);
+            // The words on a badge are its name; what they mean is its description, not a replacement.
+            const badges = page.locator('[data-detection-row] [data-badge-hint]');
+            await expect(badges.first()).toBeVisible();
+            for (const badge of await badges.all()) {
+                const words = ((await badge.textContent()) ?? '').trim();
+                if (words) await expect(badge).toHaveAccessibleName(words);
+            }
+        });
+
+        test('Explorer cards on a phone are readable the moment they arrive', async ({ page }) => {
+            await page.setViewportSize({ width: 390, height: 844 });
+            await replayFeeder(page, theme);
+            await page.goto('/events');
+            const card = page.locator('[data-detection-card]').first();
+            await expect(card).toBeVisible(READY);
+            // A card that fades in is under 4.5:1 for as long as the fade runs, on every word it
+            // holds. It takes the place of a placeholder its own size, so it has nothing to enter from.
+            expect(await card.evaluate((node) => node.getAnimations().map((animation) => (animation as CSSAnimation).animationName ?? ''))).toEqual([]);
+            expect(await card.evaluate((node) => getComputedStyle(node).opacity)).toBe('1');
+            await settled(page);
+            expect(await seriousFindings(page)).toEqual([]);
+        });
+
+        test('the Explorer filter sheet on a phone has no serious accessibility violation', async ({ page }) => {
+            await page.setViewportSize({ width: 390, height: 844 });
+            await replayFeeder(page, theme);
+            await page.goto('/events');
+            await expect(page.locator('[data-detection-card]').first()).toBeVisible(READY);
+            await page.locator('[data-explorer-filter-toggle]').click();
+            await expect(page.getByRole('dialog', { name: 'Filters' })).toBeVisible();
+            await settled(page);
+            expect(await seriousFindings(page)).toEqual([]);
+        });
+
         for (const dialog of DIALOGS) {
             test(`${dialog.name} has no serious accessibility violation`, async ({ page }) => {
                 await replayFeeder(page, theme, dialog.overrides);
