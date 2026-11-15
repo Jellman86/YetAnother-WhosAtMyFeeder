@@ -1,4 +1,4 @@
-import { API_BASE, ApiRequestError, apiFetch, fetchWithAbort, handleResponse } from './core';
+import { API_BASE, apiFetch, fetchWithAbort, handleResponse } from './core';
 import type { components, paths } from './generated/openapi';
 
 export type ClassifierStatus = components['schemas']['ClassifierStatusResponse'];
@@ -73,11 +73,12 @@ export interface CurrentIdentification {
 }
 
 /** The server refused a decision because the visit was changed elsewhere after it was shown. */
-export class IdentificationChangedError extends ApiRequestError {
+export class IdentificationChangedError extends Error {
+    readonly status = 409;
     readonly current: CurrentIdentification;
 
     constructor(message: string, current: CurrentIdentification) {
-        super(message, 409);
+        super(message);
         this.name = 'IdentificationChangedError';
         this.current = current;
     }

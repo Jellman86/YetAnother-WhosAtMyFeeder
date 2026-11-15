@@ -49,9 +49,11 @@ describe('the leaderboard opens on a wall of this feeder\'s own visits', () => {
         expect(wallSource).toContain('onpointerenter={holdOpen}');
     });
 
-    it('never leaves a hole: a photograph that fails to load leaves the wall', () => {
+    it('never leaves a hole or moves a tile: a photograph that fails keeps its cell and names the bird', () => {
         expect(wallSource).toContain('use:photo={() => markFailed(tile.frigateEvent)}');
-        expect(wallSource).toContain('.filter((tile) => !failed.has(tile.frigateEvent))');
+        expect(wallSource).not.toContain('.filter((tile) => !failed.has(tile.frigateEvent))');
+        expect(wallSource).toContain('{#if failed.has(tile.frigateEvent)}');
+        expect(wallSource).toContain('data-capture-wall-missing');
     });
 
     it('stands still under reduced motion', () => {
