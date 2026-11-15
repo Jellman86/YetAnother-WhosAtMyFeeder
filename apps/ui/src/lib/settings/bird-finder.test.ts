@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BIRD_FINDER_MODEL_IDS, birdFinderDevice, finderDeviceOptions, finderRunsOn, parseBirdFinder } from './bird-finder';
+import { BIRD_FINDER_MODEL_IDS, birdFinderDevice, finderDeviceOptions, finderNeedsAttention, finderRunsOn, parseBirdFinder } from './bird-finder';
 
 describe('parseBirdFinder', () => {
     it('keeps the two saved finders', () => {
@@ -176,6 +176,14 @@ describe('finderRunsOn', () => {
         expect(finderRunsOn({ ...base, savedProvider: 'intel_npu', evidence, planned: { model_id: 'other', provider: 'cpu' } }))
             .toEqual({ kind: 'passed', provider: 'intel_npu', checkedAt: null });
     });
+    it('lets a passing check newer than the last frame outrank that frame until the next one runs', () => {
+        const execution = { model_id: finder, provider: 'cpu' as const, devices: ['CPUExecutionProvider'], checked_at: '2026-11-15T21:00:00Z' };
+        const planned = { model_id: finder, provider: 'intel_npu' };
+        expect(finderRunsOn({ ...base, evidence: ['intel_npu', 'cpu'], execution, planned, check: check('succeeded', { checked_at: '2026-11-15T22:00:00Z' }) }))
+            .toEqual({ kind: 'passed', provider: 'intel_npu', checkedAt: '2026-11-15T22:00:00Z' });
+        expect(finderRunsOn({ ...base, evidence: ['intel_npu', 'cpu'], execution, planned, check: check('succeeded', { checked_at: '2026-11-15T20:00:00Z' }) }))
+            .toEqual({ kind: 'active', provider: 'cpu', checkedAt: '2026-11-15T21:00:00Z' });
+    });
     it('does not date current evidence using a passing check from an older runtime', () => {
         expect(finderRunsOn({ ...base, savedProvider: 'intel_npu', evidence: ['intel_npu'], check: check('succeeded', { runtime_current: false }) }))
             .toMatchObject({ kind: 'passed', checkedAt: null });
@@ -205,5 +213,25 @@ describe('finderDeviceOptions', () => {
         expect(finderDeviceOptions({ evidence: [], accelerators: [], hostProviders: ['cpu'], chosen: 'cuda', keepable: 'cuda' }))
             .toEqual([{ value: 'cuda', passed: false, selectable: true }]);
         expect(finderDeviceOptions({ evidence: [], accelerators: [], hostProviders: ['cpu'], chosen: 'cpu', keepable: null })).toEqual([]);
+    });
+});
+
+describe('finderNeedsAttention', () => {
+    const cpuRun = { kind: 'active', provider: 'cpu', checkedAt: '2026-11-15T21:00:00Z' } as const;
+
+    it('flags unchosen CPU use on a host that offers an accelerator', () => {
+        expect(finderNeedsAttention(cpuRun, ['intel_npu'], 'auto')).toBe(true);
+    });
+
+    it('treats either CPU choice as the owner\'s decision, and a CPU-only host as nothing to fix', () => {
+        expect(finderNeedsAttention(cpuRun, ['intel_npu'], 'cpu')).toBe(false);
+        expect(finderNeedsAttention(cpuRun, ['intel_npu'], 'intel_cpu')).toBe(false);
+        expect(finderNeedsAttention({ ...cpuRun, provider: 'intel_cpu' }, ['intel_npu'], 'intel_cpu')).toBe(false);
+        expect(finderNeedsAttention(cpuRun, [], 'auto')).toBe(false);
+    });
+
+    it('always flags a failed or interrupted check', () => {
+        expect(finderNeedsAttention({ kind: 'failed', devices: [], checkedAt: null, cause: null }, [], 'cpu')).toBe(true);
+        expect(finderNeedsAttention({ kind: 'interrupted', devices: [], checkedAt: null }, [], 'auto')).toBe(true);
     });
 });

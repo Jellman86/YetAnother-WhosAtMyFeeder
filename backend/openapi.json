@@ -3604,7 +3604,9 @@
                   "superseded",
                   "interrupted",
                   "passed",
-                  "gpu_recovery"
+                  "gpu_recovery",
+                  "no_accelerator",
+                  "ledger_unreadable"
                 ],
                 "type": "string"
               },
@@ -3700,7 +3702,9 @@
                   "superseded",
                   "interrupted",
                   "passed",
-                  "gpu_recovery"
+                  "gpu_recovery",
+                  "no_accelerator",
+                  "ledger_unreadable"
                 ],
                 "type": "string"
               },

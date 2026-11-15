@@ -194,7 +194,9 @@ def test_cpu_health_explains_an_unusable_positive_baseline_without_changing_lega
     assert "no admitted birds" in problem["reason"]
 
 
-@pytest.mark.parametrize("available, preference", [(set(), "auto"), ({"intel_npu"}, "cpu")])
+@pytest.mark.parametrize(
+    "available, preference", [(set(), "auto"), ({"intel_npu"}, "cpu"), ({"intel_npu"}, "intel_cpu")]
+)
 def test_cpu_only_hosts_and_explicit_cpu_choices_do_not_raise_finder_incidents(available, preference):
     problem = finder_cpu_problem(
         {"model_id": FINDER, "healthy": True, "requested_provider": preference},
@@ -205,7 +207,8 @@ def test_cpu_only_hosts_and_explicit_cpu_choices_do_not_raise_finder_incidents(a
 
 
 @pytest.mark.parametrize(
-    "flavor, preference, expect_warning", [("cpu", "auto", False), ("intel", "cpu", False), ("intel", "auto", True)]
+    "flavor, preference, expect_warning",
+    [("cpu", "auto", False), ("intel", "cpu", False), ("intel", "intel_cpu", False), ("intel", "auto", True)],
 )
 def test_worker_cpu_warning_requires_an_offered_accelerator_and_non_cpu_preference(
     monkeypatch, flavor, preference, expect_warning
@@ -221,3 +224,61 @@ def test_worker_cpu_warning_requires_an_offered_accelerator_and_non_cpu_preferen
     service._warn_cpu_fallback("accurate", reason="accelerator_unavailable")
     service._warn_cpu_fallback("accurate", reason="accelerator_unavailable")
     assert warning.call_count == int(expect_warning)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("baseline", ["unavailable", "no_positive"])
+async def test_automatic_rfdetr_sweep_stops_after_an_unusable_cpu_baseline(monkeypatch, baseline):
+    from app.services import classifier_service
+    from app.services.model_manager import model_manager
+
+    monkeypatch.setenv("YAWAMF_IMAGE_FLAVOR", "intel")
+    monkeypatch.setattr(
+        classifier_service,
+        "_detect_acceleration_capabilities",
+        lambda: {
+            "ort_available": True,
+            "openvino_available": True,
+            "intel_npu_available": True,
+            "intel_gpu_available": True,
+        },
+    )
+    monkeypatch.setattr(
+        model_manager,
+        "get_crop_detector_spec_by_model_id",
+        lambda _: {
+            "healthy": True,
+            "metadata": {"runtime": "onnx", "supported_inference_providers": ["cpu", "intel_npu", "intel_gpu"]},
+        },
+    )
+    probes = []
+
+    async def probe(provider, **kwargs):
+        probes.append(provider)
+        if provider == "cpu" and baseline == "unavailable":
+            return None
+        detections = [] if provider == "cpu" else [{"normalized_box": [0.1, 0.1, 0.5, 0.5], "confidence": 0.8}]
+        return {
+            "compile": {"ok": True},
+            "output_summary": {"finite_count": 1, "element_count": 1},
+            "per_image_detections": [{"image": "bird", "kind": "real", "detections": detections}],
+        }
+
+    monkeypatch.setattr(validation, "_probe_one_crop_provider", probe)
+    result = await validation.sweep_crop_model_devices(FINDER, prefer_accelerators=True)
+    assert probes == ["cpu"]
+    assert result["baseline_status"] == baseline
+
+
+@pytest.mark.parametrize("check_at, active", [("2026-11-15T22:00:00Z", False), ("2026-11-15T20:00:00Z", True)])
+def test_a_passing_check_newer_than_the_last_frame_clears_cpu_health_before_the_next_frame(check_at, active):
+    status = {
+        "model_id": FINDER,
+        "healthy": True,
+        "requested_provider": "auto",
+        "last_execution": {"provider": "cpu", "checked_at": "2026-11-15T21:00:00Z"},
+        "device_check": {"state": "succeeded", "reason_code": "passed", "checked_at": check_at},
+    }
+    problem = finder_cpu_problem(status, planned_provider="intel_npu", available_accelerators={"intel_npu"})
+    assert problem["active"] is active
+    assert problem["provider"] == ("cpu" if active else "intel_npu")

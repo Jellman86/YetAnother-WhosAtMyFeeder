@@ -42,7 +42,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import structlog
 
@@ -932,6 +932,19 @@ def _comparison_detections(row: dict[str, Any], score_threshold: float) -> list[
     return [detection for detection in detections if float(detection.get("confidence") or 0.0) >= score_threshold]
 
 
+def _crop_baseline_status(report: dict | None) -> Literal["unavailable", "no_positive", "usable"]:
+    """Whether a CPU report can judge accelerators: it ran, and it admitted a bird."""
+    finite, _, rows = _crop_report_ok(report)
+    if not finite or not rows:
+        return "unavailable"
+    positive = any(
+        row.get("kind") == "real"
+        and _comparison_detections(row, max(0.02, float(row.get("score_threshold") or 0)) + 0.03)
+        for row in rows
+    )
+    return "usable" if positive else "no_positive"
+
+
 def _match_crop_boxes(
     baseline: list[dict[str, Any]],
     provider: list[dict[str, Any]],
@@ -948,18 +961,22 @@ def _match_crop_boxes(
             # the strongest evidence for this bird.
             if abs(float(detection["confidence"]) - float(other["confidence"])) > max_confidence_delta:
                 continue
-            pairs = [
-                (
-                    _normalized_box_iou(left.get("normalized_box") or [], right.get("normalized_box") or []),
-                    abs(float(left["confidence"]) - float(right["confidence"])),
-                )
-                for left in [detection, *detection.get("alternatives", [])]
-                for right in [other, *other.get("alternatives", [])]
+            # Every pairing keeps one device's survivor, so a swapped survivor
+            # still matches while two survivors that merely share a suppressed
+            # neighbour do not. The reported overlap is the survivors' own.
+            pairs = [(detection, right) for right in [other, *other.get("alternatives", [])]] + [
+                (left, other) for left in detection.get("alternatives", [])
             ]
-            valid = [(iou, delta) for iou, delta in pairs if iou >= min_iou and delta <= max_confidence_delta]
-            if valid:
-                iou, delta = max(valid, key=lambda pair: pair[0])
-                candidates.append((index, iou, delta))
+            if any(
+                _normalized_box_iou(left.get("normalized_box") or [], right.get("normalized_box") or []) >= min_iou
+                and abs(float(left["confidence"]) - float(right["confidence"])) <= max_confidence_delta
+                for left, right in pairs
+            ):
+                survivor_iou = _normalized_box_iou(
+                    detection.get("normalized_box") or [], other.get("normalized_box") or []
+                )
+                delta = abs(float(detection["confidence"]) - float(other["confidence"]))
+                candidates.append((index, survivor_iou, delta))
         edges.append(
             sorted(
                 candidates,
@@ -1274,7 +1291,17 @@ async def sweep_crop_model_devices(
     discover_providers: bool = False,
     only_providers: set[str] | None = None,
     prefer_accelerators: bool = False,
+    hardware_guard_held: bool = False,
 ) -> dict[str, Any]:
+    """Serialized per model; a caller that already holds the guard passes ``hardware_guard_held``."""
+    if hardware_guard_held:
+        return await _sweep_crop_model_devices(
+            model_id,
+            image_paths=image_paths,
+            discover_providers=discover_providers,
+            only_providers=only_providers,
+            prefer_accelerators=prefer_accelerators,
+        )
     async with crop_validation_lock(model_id):
         return await _sweep_crop_model_devices(
             model_id,
@@ -1344,15 +1371,21 @@ async def _sweep_crop_model_devices(
             model_id=model_id,
             image_paths=image_paths,
         )
-        if prefer_accelerators and candidate.provider in {"intel_npu", "intel_gpu", "cuda"}:
-            cpu_finite, _, cpu_rows = _crop_report_ok(reports.get(baseline_provider))
+        if not prefer_accelerators:
+            continue
+        if candidate.provider == baseline_provider:
+            # Nothing an accelerator returns can be judged without a usable
+            # baseline, so compiling and running them only spends power.
+            if _crop_baseline_status(reports[candidate.provider]) != "usable":
+                break
+        elif candidate.provider in {"intel_npu", "intel_gpu", "cuda"}:
+            _, _, cpu_rows = _crop_report_ok(reports.get(baseline_provider))
             finite, _, rows = _crop_report_ok(reports[candidate.provider])
-            positive_baseline = any(
-                row.get("kind") == "real"
-                and _comparison_detections(row, max(0.02, float(row.get("score_threshold") or 0)) + 0.03)
-                for row in cpu_rows
-            )
-            if cpu_finite and finite and positive_baseline and _compare_crop_detections(cpu_rows, rows)["agrees"]:
+            if (
+                _crop_baseline_status(reports.get(baseline_provider)) == "usable"
+                and finite
+                and _compare_crop_detections(cpu_rows, rows)["agrees"]
+            ):
                 break
     candidates = [candidate for candidate in candidates if candidate.provider in reports]
 
@@ -1364,12 +1397,8 @@ async def _sweep_crop_model_devices(
         if row.get("kind") == "real"
         and _comparison_detections(row, max(0.02, float(row.get("score_threshold") or 0)) + 0.03)
     )
-    baseline_usable = bool(baseline_finite and baseline_rows and baseline_real_detections)
-    baseline_status = (
-        "unavailable"
-        if not baseline_finite or not baseline_rows
-        else ("usable" if baseline_real_detections else "no_positive")
-    )
+    baseline_status = _crop_baseline_status(baseline_report)
+    baseline_usable = baseline_status == "usable"
 
     per_provider: list[dict[str, Any]] = []
     eligible: list[str] = []

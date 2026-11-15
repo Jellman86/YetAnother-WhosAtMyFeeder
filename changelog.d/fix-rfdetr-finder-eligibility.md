@@ -17,3 +17,15 @@
   planned device for the running finder.
   Settings uses stable failure codes and completed execution evidence, including
   verified GPU recovery when the saved NPU cannot run the model.
+- Automatic finder checks no longer spend power proving nothing. An Intel image on
+  a host without an NPU or GPU never runs a CPU-only sweep, and a sweep that opened
+  no accelerator is final instead of retrying as "could not finish". RF-DETR stops
+  after an unusable CPU baseline instead of compiling the NPU and GPU, never probes
+  OpenVINO CPU, and an empty baseline backs off from four hours to once a day. An
+  owner-run Check devices is recorded so the automatic check does not repeat it.
+- Finder checks no longer pass two surviving boxes that only share a suppressed
+  neighbour, and report the survivors' own overlap.
+- An Intel CPU (OpenVINO) choice no longer raises the CPU Health incident. A check
+  that passed after the last frame clears it without waiting for the next bird,
+  one ongoing CPU condition is one incident, and a damaged check record says to run
+  Check devices instead of promising a retry.

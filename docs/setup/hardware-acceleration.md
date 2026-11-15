@@ -340,8 +340,15 @@ an attempt. A completed pass or box mismatch finishes that runtime, artifact,
 comparison-policy and device-preference context. Interrupted, unfinished or superseded
 checks retry after one hour, then four hours, with at most three attempts in that
 context. A panel without reliable CPU bird detections retries when the saved photo
-set changes, at most once every four hours, because a busy feeder changes that set
-most minutes. **Check devices** allows an owner-run check at any time.
+set changes, after four hours, then eight, sixteen and at most once a day, because
+a busy feeder changes that set most minutes. Only accelerators the container can
+reach are checked (`/dev/accel` for the NPU, `/dev/dri` for the GPU), so an Intel
+image on a host without them never runs a CPU-only sweep; a sweep that still opened
+no accelerator ends as **no accelerator** and is not retried on that runtime. In
+an automatic RF-DETR check, the NPU and GPU are probed only after the CPU baseline
+proves usable, and OpenVINO CPU is never probed because it cannot move the finder
+off the CPU. **Check devices** allows an owner-run check at any time, and its
+result is recorded so the automatic check does not repeat it.
 CPU remains eligible when it runs successfully, even if the photos contain no
 admitted bird boxes; accelerator approval still requires a positive CPU baseline.
 An unavailable CPU baseline is inconclusive and preserves all previous evidence.
@@ -352,6 +359,8 @@ Unmatched proposals within 0.03 of that floor are ignored as threshold jitter;
 stronger extra or missing birds fail. Within each production NMS group, equivalent
 full-frame and tile proposals can match at IoU 0.85 with score difference at most
 0.03, so a small score change that swaps the survivor does not fail the check.
+Every pairing includes one device's surviving box: two survivors that only share a
+suppressed neighbour do not match, and the reported IoU is the survivors' own.
 When overlapping boxes chain (A suppresses B while C survives on one device, and B
 suppresses both on the other), a strong box that the other device suppressed into
 its group, at IoU 0.85 and within 0.03 of its score, counts as the same bird.
@@ -360,9 +369,11 @@ as historical, including while a new check runs. A structured
 `bird_finder_revalidation_result` log records the outcome and each provider's box
 counts and worst matched IoU (zero when boxes remain unmatched).
 RF-DETR CPU use is a degraded Health condition when an Intel NPU or GPU is
-packaged and present and the saved preference is not CPU. A structured `bird_finder_cpu_fallback` warning and a Health incident
-name the finder, reason and next action. The System status indicator counts that
-open incident; it resolves after current evidence reports an accelerator in use.
+packaged and present and the saved preference is neither CPU nor Intel CPU
+(OpenVINO). A structured `bird_finder_cpu_fallback` warning and one Health incident
+per ongoing condition name the finder, reason and next action. The System status
+indicator counts that open incident; it resolves after current evidence reports an
+accelerator in use, including a device check that passed after the last frame.
 Provider-check child processes run at nice 19 on POSIX hosts with bounded
 numerical-library threads. Only these disposable probes cap CPU inference at two
 intra-op threads (one inter-op for ONNX Runtime); production CPU settings keep their

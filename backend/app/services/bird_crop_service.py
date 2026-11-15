@@ -1080,7 +1080,7 @@ class BirdCropService:
         return ["cpu"]
 
     def _warn_cpu_fallback(self, tier: str, *, reason: str) -> None:
-        from app.services.bird_finder_health import RFDETR_FINDER
+        from app.services.bird_finder_health import CPU_PROVIDERS, RFDETR_FINDER, present_accelerators
 
         model_id = self._registry_model_id_for_tier(tier)
         identity = (model_id, "cpu", reason)
@@ -1088,16 +1088,13 @@ class BirdCropService:
             model_id != RFDETR_FINDER
             or identity == self._cpu_warning
             or self.strict_provider
-            or settings.classification.bird_crop_inference_provider == "cpu"
+            or settings.classification.bird_crop_inference_provider in CPU_PROVIDERS
         ):
             return
         from app.utils.runtime_flavor import get_image_flavor, packaged_inference_providers
 
         packaged = packaged_inference_providers(get_image_flavor())
-        if not any(
-            provider in packaged and os.path.isdir(node)
-            for provider, node in (("intel_npu", "/dev/accel"), ("intel_gpu", "/dev/dri"))
-        ):
+        if not {"intel_npu", "intel_gpu"} & set(packaged) & present_accelerators():
             return
         self._cpu_warning = identity
         log.warning(

@@ -48,8 +48,8 @@ describe('bird finder choice', () => {
         expect(en.settings.detection.bird_finder_runs_failed_dated).toBe('CPU · {devices} failed the device check on {date}');
         expect(en.settings.detection.bird_finder_runs_cause_mismatch).toMatch(/did not match the CPU/);
         expect(en.settings.detection.bird_finder_runs_never).toBe('CPU · no accelerator has passed a check on this host yet');
-        // The fallback is said in words; the attention colour only agrees with them.
-        expect(panelSource).toContain("runsOn.kind === 'failed' || runsOn.kind === 'interrupted'");
+        // The fallback is said in words; the attention colour only agrees with them (rule unit-tested in bird-finder.test.ts).
+        expect(panelSource).toContain('finderNeedsAttention(runsOn, accelerators, savedProvider)');
         // Values and help are normal weight: bold is for labels alone.
         expect(panelSource).not.toMatch(/font-(bold|semibold)/);
     });

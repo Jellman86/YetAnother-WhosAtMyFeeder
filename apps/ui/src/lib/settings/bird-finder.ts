@@ -110,6 +110,28 @@ function finderCheckCause(check: FinderDeviceCheck): FinderCheckCause {
     return null;
 }
 
+/** A passing check newer than the last frame outranks that frame's device until the next frame runs. */
+function checkPassedAfter(execution: { checked_at: string }, check: FinderDeviceCheck | null): boolean {
+    if (check?.state !== 'succeeded' || !check.checked_at) return false;
+    const checked = Date.parse(check.checked_at);
+    const executed = Date.parse(execution.checked_at);
+    return Number.isFinite(checked) && (!Number.isFinite(executed) || checked > executed);
+}
+
+const CPU_CHOICES: readonly string[] = ['cpu', 'intel_cpu'];
+
+/**
+ * A fallback the owner did not choose is work for a person: a failed or interrupted check, or CPU use
+ * on a host that offers an accelerator while neither CPU option is the saved device.
+ */
+export function finderNeedsAttention(runsOn: FinderRunsOn, accelerators: readonly string[], savedProvider: string): boolean {
+    if (runsOn.kind === 'failed' || runsOn.kind === 'interrupted') return true;
+    return runsOn.kind === 'active'
+        && CPU_CHOICES.includes(runsOn.provider)
+        && accelerators.length > 0
+        && !CPU_CHOICES.includes(savedProvider);
+}
+
 /**
  * Where the finder runs and why, from evidence only: the host's passing checks, the saved device,
  * and the last device check the backend reports for this finder. Passing evidence outranks an
@@ -124,7 +146,7 @@ export function finderRunsOn(input: FinderRunsOnInput): FinderRunsOn {
     const wantedDevices = checkedDevices ?? (specific ? [specific] : [...accelerators]);
     if (checkRunning || check?.state === 'running') return { kind: 'checking', devices: wantedDevices };
     if (savedProvider === 'cpu') return { kind: 'cpu_chosen' };
-    const execution = input.execution?.model_id === modelId ? input.execution : null;
+    const execution = input.execution?.model_id === modelId && !checkPassedAfter(input.execution, check) ? input.execution : null;
     if (execution) return { kind: 'active', provider: execution.provider, checkedAt: execution.checked_at };
     // RF-DETR keeps the NPU (then GPU) ahead of CPU even when CPU benchmarks faster.
     const order = modelId === BIRD_FINDER_MODEL_IDS.rfdetr_nano && ['auto', 'intel_npu', 'intel_gpu'].includes(savedProvider)

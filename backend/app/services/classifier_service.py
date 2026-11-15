@@ -3020,8 +3020,10 @@ class ClassifierService:
         supervisor_metrics = self._get_supervisor_metrics()
         effective_runtime_recovery = self._effective_runtime_recovery(supervisor_metrics)
         finder_health = self._crop_detector_status(supervisor_metrics)["cpu_fallback"]
+        # The check's reason code cycles through retries while the finder stays
+        # on the CPU; one ongoing condition is one incident.
         identity = (
-            (finder_health["model_id"], finder_health["provider"], finder_health.get("reason_code"))
+            (finder_health["model_id"], finder_health["provider"], "rfdetr_cpu_fallback")
             if finder_health["active"]
             else None
         )

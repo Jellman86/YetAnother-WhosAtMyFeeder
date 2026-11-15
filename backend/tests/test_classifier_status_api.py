@@ -577,7 +577,7 @@ async def test_health_file_reads_run_off_the_event_loop(client, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_cpu_incident_identity_uses_reason_code_instead_of_reason_sentence(client, monkeypatch):
+async def test_cpu_incident_identity_ignores_changes_to_the_reason_sentence(client, monkeypatch):
     from app.services import error_diagnostics
 
     history = error_diagnostics.ErrorDiagnosticsHistory()
@@ -599,3 +599,29 @@ async def test_cpu_incident_identity_uses_reason_code_instead_of_reason_sentence
     await client.get("/health")
     assert len(history.snapshot()["events"]) == 1
     assert history.snapshot()["events"][0]["count"] == 1
+
+
+@pytest.mark.asyncio
+async def test_one_ongoing_cpu_condition_is_one_incident_while_the_check_code_cycles(client, monkeypatch):
+    from app.services import error_diagnostics
+
+    history = error_diagnostics.ErrorDiagnosticsHistory()
+    monkeypatch.setattr(error_diagnostics, "error_diagnostics_history", history)
+    problem = {
+        "active": True,
+        "model_id": "bird_crop_detector_accurate_rfdetr_nano",
+        "provider": "cpu",
+        "reason_code": "driver_changed",
+        "reason": "Checking",
+        "action": "Check devices",
+    }
+    monkeypatch.setattr(
+        classifier_router.classifier_service, "_crop_detector_status", lambda _: {"cpu_fallback": problem}
+    )
+    monkeypatch.setattr(classifier_router.classifier_service, "_finder_cpu_warning", None, raising=False)
+    for code in ("driver_changed", "unfinished", "interrupted", "unfinished", "no_positive_baseline"):
+        problem["reason_code"] = code
+        await client.get("/health")
+    events = history.snapshot()["events"]
+    assert len(events) == 1
+    assert events[0]["count"] == 1

@@ -45,6 +45,8 @@ FinderCheckReasonCode = Literal[
     "interrupted",
     "passed",
     "gpu_recovery",
+    "no_accelerator",
+    "ledger_unreadable",
 ]
 
 

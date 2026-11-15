@@ -832,3 +832,33 @@ def test_a_separate_bird_outside_every_nms_group_still_fails():
     result = mv._compare_crop_detections([{"image": "bird", "detections": cpu}], [{"image": "bird", "detections": npu}])
     assert result["agrees"] is False
     assert result["nms_grouped_boxes"] == 0
+
+
+def test_two_survivors_that_only_share_a_suppressed_alternative_do_not_match():
+    shared = [0.30, 0.30, 0.60, 0.60]
+    cpu_box = [0.24, 0.30, 0.54, 0.60]
+    npu_box = [0.36, 0.30, 0.66, 0.60]
+    assert mv._normalized_box_iou(cpu_box, npu_box) < 0.6
+
+    def row(box):
+        survivor = {"normalized_box": box, "confidence": 0.90}
+        alternatives = [dict(survivor), {"normalized_box": shared, "confidence": 0.88}]
+        return {"image": "bird", "score_threshold": 0.05, "detections": [dict(survivor, alternatives=alternatives)]}
+
+    result = mv._compare_crop_detections([row(cpu_box)], [row(npu_box)])
+    assert result["agrees"] is False
+    assert result["worst_box_iou"] == 0.0
+
+
+def test_a_survivor_swap_reports_the_survivor_overlap_not_the_alternative_overlap():
+    full = {"normalized_box": [0.1, 0.1, 0.5, 0.5], "confidence": 0.81}
+    cut = {"normalized_box": [0.2, 0.1, 0.5, 0.5], "confidence": 0.80}
+    cpu = dict(full, alternatives=[full, cut])
+    npu = dict(cut, confidence=0.81, alternatives=[dict(full, confidence=0.80), dict(cut, confidence=0.81)])
+    result = mv._compare_crop_detections(
+        [{"image": "bird", "detections": [cpu]}], [{"image": "bird", "detections": [npu]}]
+    )
+    assert result["agrees"] is True
+    assert result["worst_box_iou"] == pytest.approx(
+        mv._normalized_box_iou(full["normalized_box"], cut["normalized_box"])
+    )

@@ -925,3 +925,28 @@ async def test_inconclusive_crop_sweep_preserves_all_current_passes(tmp_path, mo
     )
     assert set(model_validation.host_eligible_providers(finder, artifact_sha256="abc")) == {"cpu", "intel_npu"}
     assert model_validation.read_validation_record(finder)["validated"] is True
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("crash", [True, False])
+async def test_owner_crop_sweeps_are_recorded_for_the_automatic_finder_check(tmp_path, monkeypatch, crash):
+    from app.services import bird_finder_revalidation, model_validation
+    from unittest.mock import AsyncMock
+
+    monkeypatch.setenv("YAWAMF_EVAL_RUNS_DIR", str(tmp_path))
+    finder = "bird_crop_detector_accurate_rfdetr_nano"
+    result = {
+        "baseline_status": "usable",
+        "eligible_providers": ["cpu"],
+        "providers": [{"provider": "cpu", "ok": True}],
+    }
+    sweep = AsyncMock(side_effect=RuntimeError("probe failed")) if crash else AsyncMock(return_value=result)
+    monkeypatch.setattr(model_validation, "sweep_crop_model_devices", sweep)
+    record = AsyncMock()
+    monkeypatch.setattr(bird_finder_revalidation.bird_finder_revalidation, "record_owner_check", record)
+    runner = ModelEvalRunner()
+    monkeypatch.setattr(runner, "_emit", AsyncMock())
+    await runner._device_sweep(
+        "run-1", tmp_path, [], [SimpleNamespace(id=finder, metadata=SimpleNamespace(sha256="abc"))]
+    )
+    record.assert_awaited_once_with(finder, "abc", None if crash else result)

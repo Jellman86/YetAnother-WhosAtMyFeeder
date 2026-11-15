@@ -139,6 +139,16 @@ def select_evaluation_models(
     return classifiers, crop_detectors
 
 
+async def _remember_owner_finder_check(model_id: str, artifact: str | None, result: dict[str, Any] | None) -> None:
+    """Spare the automatic finder check from repeating a sweep the owner just ran."""
+    from app.services.bird_finder_revalidation import bird_finder_revalidation
+
+    try:
+        await bird_finder_revalidation.record_owner_check(model_id, artifact, result)
+    except Exception as exc:
+        log.warning("model_eval_owner_finder_check_record_failed", model_id=model_id, error_type=type(exc).__name__)
+
+
 class ModelEvalRunner:
     """Single-run orchestrator. Module-level singleton ``model_eval_runner``."""
 
@@ -1055,7 +1065,9 @@ class ModelEvalRunner:
                     error=str(exc),
                 )
                 crop_matrix[model.id] = {"error": "provider_sweep_failed"}
+                await _remember_owner_finder_check(model.id, artifact_sha256, None)
                 continue
+            await _remember_owner_finder_check(model.id, result.get("artifact_sha256") or artifact_sha256, result)
             image_flavor = str(result.get("image_flavor") or image_flavor)
             per_provider = {
                 str(entry.get("provider")): entry for entry in result.get("providers") or [] if entry.get("provider")

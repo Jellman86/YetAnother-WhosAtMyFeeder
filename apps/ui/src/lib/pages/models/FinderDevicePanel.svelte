@@ -4,7 +4,7 @@
     import ModelExecutionEvidence from '../../components/ModelExecutionEvidence.svelte';
     import SettingsRow from '../../components/settings/_primitives/SettingsRow.svelte';
     import SettingsSelect from '../../components/settings/_primitives/SettingsSelect.svelte';
-    import { finderDeviceOptions, finderRunsOn, type BirdFinderProvider, type FinderDeviceCheck } from '../../settings/bird-finder';
+    import { finderDeviceOptions, finderNeedsAttention, finderRunsOn, type BirdFinderProvider, type FinderDeviceCheck } from '../../settings/bird-finder';
     import { formatDay } from '../../utils/datetime';
 
     interface Props {
@@ -121,7 +121,7 @@
         }
     });
     // A fallback the owner did not choose is work for a person; the words say so, the colour only agrees.
-    const needsAttention = $derived(runsOn.kind === 'failed' || runsOn.kind === 'interrupted' || (runsOn.kind === 'active' && runsOn.provider === 'cpu' && accelerators.length > 0 && savedProvider !== 'cpu'));
+    const needsAttention = $derived(finderNeedsAttention(runsOn, accelerators, savedProvider));
 
     // The server keeps an unchanged saved device and refuses a newly chosen one that has not passed.
     const keepable = $derived(finderSaved ? savedProvider : null);

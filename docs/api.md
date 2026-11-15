@@ -1200,7 +1200,9 @@ worker-reported runtime.
 `reason`, `reason_code`, `checked_at`, `model_id` and checked accelerator `providers`.
 `reason_code` is a stable nullable enum: `mismatch`, `unfinished`, `no_photos`,
 `driver_changed`, `no_positive_baseline`, `superseded`, `interrupted`, `passed`,
-or `gpu_recovery`. Consumers should prefer it over parsing the human-readable
+`gpu_recovery`, `no_accelerator` (no NPU or GPU could be opened; final for that
+runtime) or `ledger_unreadable` (the record of earlier checks is damaged, so automatic
+checks pause until an owner-run **Check devices** starts a new record). Consumers should prefer it over parsing the human-readable
 `reason`; the existing mismatch and unfinished sentences remain compatible.
 Legacy saved reports acquire a code when their state or known sentence identifies
 one; an unknown old failure keeps a null code.
@@ -1212,7 +1214,12 @@ are reported as historical. None of these status fields authorizes a device;
 selection still requires current provider eligibility. `attempt_count` and
 `next_retry_at` describe capped automatic retries: inconclusive checks retry after
 one hour then four hours, up to three attempts per context. A missing positive CPU
-baseline waits for a changed saved photo set, and at least four hours, instead.
+baseline waits for a changed saved photo set and a wait that starts at four hours and
+doubles after each further empty baseline, up to once a day. A `checked_at` later
+than the current time, from a clock that ran ahead, counts as due. An owner-run
+device sweep is recorded too, so the automatic check does not repeat it: a pass or
+mismatch on the current runtime settles the context, and an unfinished owner sweep
+delays the automatic one by an hour.
 
 `crop_detector.active_provider` is the provider from its most recent completed
 execution, or null before an execution. `planned_provider` is the current selection
@@ -1225,8 +1232,12 @@ any first frame, so it names the same device the backend will load.
 `reason` and `action` for last-resort RF-DETR CPU use. `/health` and the diagnostics
 workspace expose the same condition as `ml.bird_finder`; an active condition
 degrades health and records a `bird_finder` / `rfdetr_cpu_fallback` warning only
-when an Intel accelerator is packaged and present and the saved preference is not
-CPU. Incident identity uses model, provider and stable reason code.
+when an Intel accelerator is packaged and present and the saved preference is
+neither `cpu` nor `intel_cpu`. A device check that passed after the last frame
+outranks that frame's provider, so the condition clears before the next bird is
+seen. Incident identity is the model, the provider and the fixed condition
+`rfdetr_cpu_fallback`, so one ongoing CPU condition is one incident while the
+check's own reason code moves through retries.
 The Health incident and System status attention count resolve when that condition
 clears. RF-DETR prefers a verified NPU, then GPU, before CPU; its saved NPU
 preference permits a verified GPU recovery route.
