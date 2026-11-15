@@ -512,7 +512,7 @@
                         {/if}
                     </p>
                     <div class="flex flex-wrap items-center gap-2">
-                        <span class="inline-flex min-h-11 items-center gap-3">
+                        <span class="inline-flex min-h-11 max-w-full items-center gap-3">
                             <SettingsToggle
                                 checked={compatAllModels}
                                 disabled={compatRunning}

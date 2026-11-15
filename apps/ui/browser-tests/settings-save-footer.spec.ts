@@ -94,10 +94,12 @@ test('a control reached with Tab is never hidden under the save bar', async ({ p
         const overlap = await page.evaluate(() => {
             const focused = document.activeElement as HTMLElement | null;
             const barElement = document.querySelector('[data-settings-save-bar]');
-            if (!focused || !barElement || barElement.contains(focused)) return null;
+            // After the last stop focus leaves the page and falls back to <body>: nothing is hidden then.
+            if (!focused || focused === document.body || !barElement || barElement.contains(focused)) return null;
             const box = focused.getBoundingClientRect();
             if (box.height === 0) return null;
-            return box.bottom > barElement.getBoundingClientRect().top + 1 ? (focused.id || focused.textContent || focused.tagName).trim().slice(0, 40) : null;
+            const name = focused.id || `${focused.tagName.toLowerCase()}.${focused.className.toString().split(' ').slice(0, 4).join('.')} "${(focused.textContent ?? '').trim().slice(0, 24)}"`;
+            return box.bottom > barElement.getBoundingClientRect().top + 1 ? name : null;
         });
         if (overlap) hidden.push(overlap);
     }

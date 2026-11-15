@@ -2970,10 +2970,10 @@
                     {videoCircuitOpen}
                     {videoCircuitUntil}
                     {videoCircuitFailures}
-                    onopenlocationsettings={() => openIntegrationField('#location-lat', '#setting-location-mode + div button[aria-pressed="false"]')}
+                    onopenlocationsettings={() => openIntegrationField('#location-lat', '#setting-location-mode + div input[type="radio"]:not(:checked)')}
                     bind:rangeFilterEnabled
                     bind:rangeFilterRegionLevel
-                    onopenebirdsettings={() => openIntegrationField('#ebird-api-key', '[aria-labelledby="integration-ebird-title"]')}
+                    onopenebirdsettings={() => openIntegrationField('#ebird-api-key', '[role="switch"][aria-labelledby="integration-ebird-title"]')}
                     onopenactivitylog={onNavigate ? () => onNavigate('/system-health') : undefined}
                     onopenmanualobservation={onNavigate ? () => onNavigate('/observations/new') : undefined}
                     onopenmodels={() => handleTabChange('models')}
@@ -2999,7 +2999,7 @@
                     {debugUiEnabled}
                     {classifierStatus}
                     onrefreshclassifierstatus={loadClassifierStatus}
-                    onopenlocationsettings={() => openIntegrationField('#location-lat', '#setting-location-mode + div button[aria-pressed="false"]')}
+                    onopenlocationsettings={() => openIntegrationField('#location-lat', '#setting-location-mode + div input[type="radio"]:not(:checked)')}
                     onopenmodelevaluation={onNavigate ? () => onNavigate('/diagnostics/model-eval') : undefined}
                 />
                 {/snippet}
@@ -3151,7 +3151,7 @@
                     label={$_('settings.enrichment.title')}
                     props={{
                         ...enrichmentDraft,
-                        onOpenEbird: () => openIntegrationField('#ebird-api-key', '[aria-labelledby="integration-ebird-title"]')
+                        onOpenEbird: () => openIntegrationField('#ebird-api-key', '[role="switch"][aria-labelledby="integration-ebird-title"]')
                     }}
                 />
             {/if}
@@ -3356,7 +3356,7 @@
                                 bind:notificationsIncludePhoto={gardenNotificationsIncludePhoto}
                                 birdChannels={gardenBirdChannels}
                                 onOpenNotifications={() => handleTabChange('notifications')}
-                                onOpenLocation={() => openIntegrationField('#location-lat', '#setting-location-mode + div button[aria-pressed="false"]')}
+                                onOpenLocation={() => openIntegrationField('#location-lat', '#setting-location-mode + div input[type="radio"]:not(:checked)')}
                                 bind:automaticNaming={gardenAutomaticNaming}
                                 bind:namingThreshold={gardenNamingThreshold}
                                 bind:domesticBirds={gardenDomesticBirds}

@@ -117,6 +117,18 @@ for (const width of [320, 393]) {
         await expect(page.locator('#bird-model-region-override')).toBeVisible();
         await page.getByRole('button', { name: /Memory and isolation/ }).click();
         await expect(page.locator('#live-worker-count')).toBeVisible();
+        // Name the outermost elements that reach past the window, so a failure says what to fix.
+        expect(await page.evaluate(() => {
+            const depth = (element: Element) => { let d = 0; for (let e: Element | null = element; e; e = e.parentElement) d += 1; return d; };
+            return [document.body, ...document.querySelectorAll<HTMLElement>('body *')]
+                .filter(element => element.getBoundingClientRect().right + Math.max(0, parseFloat(getComputedStyle(element).marginRight) || 0) > window.innerWidth + 1)
+                .sort((a, b) => depth(b) - depth(a))
+                .slice(0, 6)
+                .map(element => {
+                    const owner = element.closest('svg')?.parentElement ?? element;
+                    return `${owner.tagName.toLowerCase()}.${owner.className.toString().split(' ').slice(0, 5).join('.')} "${(owner.textContent ?? '').trim().slice(0, 30)}" ${Math.round(owner.getBoundingClientRect().right)}/${owner.scrollWidth}`;
+                });
+        })).toEqual([]);
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
         // Cards clip their content, so a page without a scrollbar can still hide words.
         const clipped = await page.evaluate(() => [...document.querySelectorAll('section.card-base *')]

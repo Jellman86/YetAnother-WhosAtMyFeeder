@@ -762,7 +762,7 @@
                     <section aria-labelledby="selected-model-name" class="border-t border-slate-200 pt-6 dark:border-slate-700">
                         <div>
                             <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                                <div class="max-w-3xl">
+                                <div class="min-w-0 max-w-3xl">
                                     <div class="flex flex-wrap items-center gap-2">
                                         <h3 id="selected-model-name" class="text-xl font-bold text-slate-900 dark:text-white">
                                             {model.name}
@@ -776,7 +776,7 @@
                                     <p class="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">{model.description}</p>
                                 </div>
                                 <div class="flex flex-wrap gap-2">
-                                    <span class="rounded-full border px-2.5 py-1 text-xs font-semibold {FACT_CHIP}">
+                                    <span class="max-w-full rounded-full border px-2.5 py-1 text-xs font-semibold wrap-break-word {FACT_CHIP}">
                                         {statusLabel(model.status)}
                                     </span>
                                 </div>
@@ -906,7 +906,7 @@
                                     </p>
                                 </div>
 
-                                <dl class="grid gap-4 text-sm sm:grid-cols-2">
+                                <dl class="grid grid-cols-1 gap-4 text-sm wrap-break-word sm:grid-cols-2">
                                     <div>
                                         <dt class="font-semibold text-slate-600 dark:text-slate-400">{$_('settings.detection.model_manager_recommended_for', { default: 'Recommended for' })}</dt>
                                         <dd class="mt-1 font-medium text-slate-800 dark:text-slate-100">{model.recommended_for}</dd>
@@ -953,11 +953,11 @@
                                     <div class="mt-2 flex flex-wrap gap-2">
                                         {#if dynamicProviderChips.length > 0}
                                             {#each dynamicProviderChips as chip}
-                                                <span class="rounded-full border px-2.5 py-1 text-xs font-semibold {chip.className}" title={chip.title}>{chip.label}</span>
+                                                <span class="max-w-full rounded-full border px-2.5 py-1 text-xs font-semibold wrap-break-word {chip.className}" title={chip.title}>{chip.label}</span>
                                             {/each}
                                         {:else}
                                             {#each getProviderSupport(model) as provider}
-                                                <span class="rounded-full border px-2.5 py-1 text-xs font-semibold {FACT_CHIP}">{providerLabel(provider)}</span>
+                                                <span class="max-w-full rounded-full border px-2.5 py-1 text-xs font-semibold wrap-break-word {FACT_CHIP}">{providerLabel(provider)}</span>
                                             {/each}
                                         {/if}
                                     </div>
@@ -1157,7 +1157,7 @@
                                         onclick={() => checkFinderDevices(chosenFinder.model.id)}
                                         disabled={deviceCheckRunning}
                                         aria-describedby="bird-finder-check-hint"
-                                        class="btn btn-secondary min-h-11 px-4"
+                                        class="btn btn-secondary min-h-11 max-w-full px-4 whitespace-normal"
                                     >
                                         {deviceCheckRunning
                                             ? $_('settings.detection.compat_running', { default: 'Running…' })
