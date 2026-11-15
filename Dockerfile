@@ -23,7 +23,7 @@ RUN set -eux; \
 COPY apps/ui/ .
 RUN npm run build
 
-FROM python:3.13-slim AS backend-builder
+FROM python:3.15-slim AS backend-builder
 
 WORKDIR /app
 
@@ -53,7 +53,7 @@ RUN runtime_arch="${TARGETARCH:-amd64}"; \
 # this stage builds a minimal LGPL ffmpeg that can only read MP4, list its packet
 # timestamps and decode H.264 and HEVC through VA-API: about 7 MB. Every other flavor builds nothing here and keeps
 # decoding in software through OpenCV.
-FROM python:3.13-slim AS motion-decoder-builder
+FROM python:3.15-slim AS motion-decoder-builder
 
 ARG RUNTIME_FLAVOR=full
 ARG TARGETARCH
@@ -85,7 +85,7 @@ RUN set -eux; \
         /out/yawamf-ffmpeg -hide_banner -hwaccels | grep -qx vaapi; \
     fi
 
-FROM python:3.13-slim
+FROM python:3.15-slim
 
 WORKDIR /app
 
