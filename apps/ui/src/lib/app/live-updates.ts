@@ -320,7 +320,7 @@ export class LiveUpdateCoordinator {
                         type: 'system',
                         title: this.deps.t('notifications.system_health_title'),
                         message: this.deps.t('notifications.system_health_message', { status: String(health?.status ?? 'unknown') }),
-                        meta: { source: 'health', route: '/settings' }
+                        meta: { source: 'health', route: '/system-health' }
                     });
                 }
             } else {

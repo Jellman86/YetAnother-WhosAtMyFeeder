@@ -1,3 +1,5 @@
+import type { ServiceConnections } from '../api/diagnostics';
+import { connectionProblems } from './connection-health';
 import type { LiveFeedState } from './live-feed-state';
 
 /**
@@ -125,4 +127,12 @@ export interface HealthAttention {
 export function healthAttention(openIssues: number | null): HealthAttention {
     const count = typeof openIssues === 'number' && Number.isFinite(openIssues) ? Math.max(0, Math.floor(openIssues)) : 0;
     return { needsAttention: count > 0, count };
+}
+
+/**
+ * What the Health page lists as open: the failed connections of the workspace reading, then every
+ * incident not yet resolved. Counted the same way here so the sidebar and the page cannot disagree.
+ */
+export function openHealthItems(connections: ServiceConnections | null, openIncidents: number): number {
+    return connectionProblems(connections).length + Math.max(0, openIncidents);
 }

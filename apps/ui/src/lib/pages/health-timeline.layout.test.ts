@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import appSource from '../../App.svelte?raw';
 
 import errorsSource from './Errors.svelte?raw';
-import settingsSource from './Settings.svelte?raw';
 import timelineSource from '../components/HealthActivityTimeline.svelte?raw';
 import filteredPreviewSource from '../components/FilteredFramePreview.svelte?raw';
 
@@ -25,8 +25,8 @@ describe('health page timeline', () => {
         expect(errorsSource).toContain('onNavigate?: (path: string) => void');
         expect(errorsSource).toContain("onNavigate?.(`/events?event=${encodeURIComponent(eventId)}`)");
         expect(errorsSource).not.toContain('window.location.hash');
-        expect(settingsSource).toContain('loader={loadHealthTab}');
-        expect(settingsSource).toContain('props={{ onNavigate }}');
+        expect(appSource).toContain('loader={loadHealthPage}');
+        expect(appSource).toContain('props={{ onNavigate: navigate }}');
         expect(timelineSource).toContain("jobs.errors_activity_view_record");
     });
 

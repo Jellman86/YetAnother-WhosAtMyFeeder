@@ -499,22 +499,26 @@ const notificationStatus = {
 const gardenNotifications: GardenHandler = (route, path) => path === '/api/garden/notifications'
     ? route.fulfill({ json: notificationStatus }) : undefined;
 
-async function openNotifications(page: Page): Promise<void> {
-    await page.getByRole('link', { name: 'Notifications', exact: true }).click();
-    await expect(page.getByRole('heading', { name: 'Garden animals' })).toBeVisible();
+/** Garden alerts are set in the Garden card, in its Alerts section. */
+async function openGardenAlerts(page: Page): Promise<void> {
+    await openBeta(page);
+    await openSection(page, 'Alerts');
+    await expect(page.locator('[data-garden-notifications]')).toBeVisible();
 }
 
-test('Beta features summarises Garden alerts and opens Notifications to set them up', async ({ page }) => {
+test('Garden alerts are set in the Garden card; Notifications links to them and keeps the channels', async ({ page }) => {
     await openSettings(page, { garden_cameras: ['patio'] }, ['patio'], gardenNotifications);
-    await openBeta(page);
-    await expect(page.getByRole('heading', { name: 'Alerts' })).toContainText('Off');
-    await openSection(page, 'Alerts');
-    const summary = page.locator('[data-garden-alerts-summary]');
-    await expect(summary).toContainText('Garden alerts are off.');
+    await page.getByRole('link', { name: 'Notifications', exact: true }).click();
     await expect(page.getByRole('switch', { name: 'Send Garden alerts' })).toHaveCount(0);
-    await summary.getByRole('button', { name: 'Set up alerts' }).click();
-    await expect(page.getByRole('heading', { name: 'Garden animals' })).toBeVisible();
+    await expect(page.locator('[data-garden-alerts-elsewhere]')).toContainText('in Beta features');
+    await page.getByRole('button', { name: 'Open Garden alerts', exact: true }).click();
+    await expect(page.getByRole('link', { name: 'Beta features' })).toHaveAttribute('aria-current', 'page');
+    const alerts = page.getByRole('heading', { name: 'Alerts' }).getByRole('button');
+    await expect(alerts).toHaveAttribute('aria-expanded', 'true');
+    await expect(alerts).toContainText('Off');
     await expect(page.getByRole('switch', { name: 'Send Garden alerts' })).toHaveAttribute('aria-checked', 'false');
+    await page.getByRole('button', { name: 'Set up channels in Notifications' }).click();
+    await expect(page.getByRole('link', { name: 'Notifications', exact: true })).toHaveAttribute('aria-current', 'page');
 });
 
 test('Garden alerts follow the enabled bird channels by default, attach the photo and report saved attempts', async ({ page }) => {
@@ -522,7 +526,7 @@ test('Garden alerts follow the enabled bird channels by default, attach the phot
         garden_cameras: ['patio'], notifications_telegram_enabled: true,
         notifications_telegram_bot_token: '***REDACTED***', notifications_telegram_chat_id: '***REDACTED***'
     }, ['patio'], gardenNotifications);
-    await openNotifications(page);
+    await openGardenAlerts(page);
     const garden = page.locator('[data-garden-notifications]');
     await expect(garden.getByRole('radio')).toHaveCount(0);
     await page.getByRole('switch', { name: 'Send Garden alerts' }).click();
@@ -540,10 +544,10 @@ test('Garden alerts follow the enabled bird channels by default, attach the phot
 
 test('chosen Garden channels use saved credentials without enabling bird alerts, and say what is missing', async ({ page }) => {
     const harness = await openSettings(page, { garden_cameras: ['patio'], notifications_telegram_enabled: false }, ['patio'], gardenNotifications);
-    await openNotifications(page);
+    await openGardenAlerts(page);
     const garden = page.locator('[data-garden-notifications]');
     await page.getByRole('switch', { name: 'Send Garden alerts' }).click();
-    await expect(garden.locator('[data-garden-delivery]')).toContainText('No bird channel is switched on and configured');
+    await expect(garden.locator('[data-garden-delivery]')).toContainText('No bird channel is switched on and set up');
     await garden.getByRole('radio', { name: /^Choose channels/ }).check();
     await expect(garden.locator('[data-garden-delivery]')).toHaveText('Choose at least one channel to deliver Garden alerts.');
     await page.getByRole('button', { name: 'Garden alerts via Telegram', exact: true }).click();
@@ -569,7 +573,7 @@ test('chosen Garden channels use saved credentials without enabling bird alerts,
 
 test('the Garden alert choices work from the keyboard', async ({ page }) => {
     await openSettings(page, { garden_cameras: ['patio'], garden_notifications_enabled: true }, ['patio'], gardenNotifications);
-    await openNotifications(page);
+    await openGardenAlerts(page);
     const bird = page.getByRole('radio', { name: /^Use my bird channels/ });
     await bird.focus();
     await page.keyboard.press('ArrowRight');
@@ -577,11 +581,11 @@ test('the Garden alert choices work from the keyboard', async ({ page }) => {
     await expect(page.getByRole('button', { name: 'Garden alerts via Telegram', exact: true })).toBeVisible();
 });
 
-test('Notifications shows no Garden section while the Garden beta is off', async ({ page }) => {
+test('Notifications says nothing about Garden while the Garden beta is off', async ({ page }) => {
     const harness = await openSettings(page, { beta_garden_animals: false }, ['patio'], gardenNotifications);
     await page.getByRole('link', { name: 'Notifications', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Discord' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Garden animals' })).toHaveCount(0);
+    await expect(page.locator('[data-garden-alerts-elsewhere]')).toHaveCount(0);
     expect(harness.gardenRequests).toEqual([]);
 });
 
@@ -717,10 +721,10 @@ test('a collapsible section opens and closes from the keyboard', async ({ page }
     await alerts.focus();
     await page.keyboard.press('Enter');
     await expect(alerts).toHaveAttribute('aria-expanded', 'true');
-    await expect(page.locator('[data-garden-alerts-summary]')).toBeVisible();
+    await expect(page.locator('[data-garden-notifications]')).toBeVisible();
     await page.keyboard.press('Space');
     await expect(alerts).toHaveAttribute('aria-expanded', 'false');
-    await expect(page.locator('[data-garden-alerts-summary]')).toBeHidden();
+    await expect(page.locator('[data-garden-notifications]')).toBeHidden();
 });
 
 test('the camera selector in Connection follows the staged Garden switch and keeps Garden cameras', async ({ page }) => {

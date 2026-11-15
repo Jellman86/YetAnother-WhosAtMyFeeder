@@ -69,6 +69,7 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
   const loadSettingsPage = lazyComponent(() => import('./lib/pages/Settings.svelte'));
   const loadAboutPage = lazyComponent(() => import('./lib/pages/About.svelte'));
   const loadNotificationsPage = lazyComponent(() => import('./lib/pages/Notifications.svelte'));
+  const loadHealthPage = lazyComponent(() => import('./lib/pages/Errors.svelte'));
   const loadModelEvaluationPage = lazyComponent(() => import('./lib/pages/ModelEvaluation.svelte'));
   const loadManualObservationPage = lazyComponent(() => import('./lib/pages/ManualObservation.svelte'));
   // The setup wizard runs once per install, so every later visit skips downloading it.
@@ -93,6 +94,7 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
           case 'leaderboard': return $_('nav.leaderboard', { default: 'Leaderboard' });
           case 'audio_history': return $_('nav.audio_history', { default: 'Audio history' });
           case 'notifications': return $_('nav.notifications', { default: 'Notifications' });
+          case 'health': return $_('nav.health', { default: 'Health' });
           case 'settings': return $_('settings.title', { default: 'Settings' });
           case 'model_evaluation': return 'Model Evaluation';
           case 'about': return $_('nav.about', { default: 'About' });
@@ -107,7 +109,8 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
           case 'leaderboard': return $_('page_subtitle.species', { default: 'Which birds visit most, how often, and when.' });
           case 'audio_history': return $_('page_subtitle.audio_history', { default: 'Calls BirdNET-Go has heard, by species and source.' });
           case 'notifications': return $_('page_subtitle.notifications', { default: 'Visits, alerts and background work, newest first.' });
-          case 'settings': return $_('page_subtitle.settings', { default: 'Connections, classification, integrations, and personalization.' });
+          case 'health': return $_('page_subtitle.health', { default: 'Whether YA-WAMF is working, what the host is doing, and what happened.' });
+          case 'settings': return $_('page_subtitle.settings', { default: 'Connections, identification, integrations and personalisation.' });
           case 'model_evaluation': return 'Benchmark every installed classifier against verified bird images.';
           case 'about': return $_('page_subtitle.about', { default: 'Version, changelog, contributors, and support links.' });
           default: return '';
@@ -150,8 +153,9 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
   }
 
   function normalizeSettingsRoute(path: string): string {
-      if (path === '/settings/errors' || path.startsWith('/settings/errors/')) {
-          return '/settings/health';
+      // Health was a Settings tab, and before that an errors page; both addresses open the page.
+      if (path === '/settings/health' || path.startsWith('/settings/health/') || path === '/settings/errors' || path.startsWith('/settings/errors/')) {
+          return '/system-health';
       }
       // Garden review moved into the Explorer; old links open the same work there.
       if (path === '/garden' || path.startsWith('/garden/')) {
@@ -229,7 +233,7 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
       if (!authStore.statusLoaded || !authStore.statusHealthy) return;
       if (authStore.needsInitialSetup) return;
       const isOwnerOnly = isNotificationRoute(currentRoute)
-          || currentRoute.startsWith('/settings') || currentRoute.startsWith('/diagnostics/model-eval') || currentRoute.startsWith('/observations/new');
+          || currentRoute.startsWith('/settings') || currentRoute === '/system-health' || currentRoute.startsWith('/system-health/') || currentRoute.startsWith('/diagnostics/model-eval') || currentRoute.startsWith('/observations/new');
       if (!isOwnerOnly) return;
 
       if (!authStore.showSettings) {
@@ -947,6 +951,17 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
                       label={pageTitle}
                       onLoadError={handleRouteLoadError}
                   />
+              {:else if routeId === 'health'}
+                   {#if authStore.showSettings}
+                       <LazyRoute
+                           loader={loadHealthPage}
+                           props={{ onNavigate: navigate }}
+                           label={pageTitle}
+                           onLoadError={handleRouteLoadError}
+                       />
+                   {:else}
+                       <div class="h-24"></div>
+                   {/if}
               {:else if routeId === 'model_evaluation'}
                    {#if authStore.showSettings}
                        <LazyRoute

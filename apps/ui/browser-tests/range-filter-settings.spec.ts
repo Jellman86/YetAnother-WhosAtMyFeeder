@@ -15,7 +15,7 @@ const ready = {
 };
 
 async function open(page: Page, range: RangeMock) {
-    const state = await openDetectionSettings(page, { range });
+    const state = await openDetectionSettings(page, { range, tab: 'detection' });
     await expect(card(page)).toBeVisible();
     await card(page).scrollIntoViewIfNeeded();
     return state;
@@ -165,7 +165,7 @@ test('detections set aside are listed with a way to the activity log and to reco
     await expect(skips).toContainText('91% confidence');
     await expect(skips).toContainText('record it by hand');
     await skips.getByRole('button', { name: 'Open the activity log' }).click();
-    await expect(page.locator('[data-fixture-route]')).toHaveAttribute('data-fixture-route', '/settings/health');
+    await expect(page.locator('[data-fixture-route]')).toHaveAttribute('data-fixture-route', '/system-health');
 });
 
 test('with nothing set aside the list says so', async ({ page }) => {

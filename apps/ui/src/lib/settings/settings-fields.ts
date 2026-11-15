@@ -5,7 +5,7 @@ import { SETTINGS_TAB_ORDER, type SettingsTab } from './settings-route';
  * unsaved changes, and to send a rejected value back to the field that shows it.
  *
  * A field is matched exactly first, then by its longest matching prefix, so a whole family such as
- * `notifications_` has one home and an exception (`garden_notifications_`) can still be named.
+ * `notifications_` has one home and an exception can still be named.
  */
 const EXACT_FIELD_TABS: Readonly<Record<string, SettingsTab>> = {
     frigate_url: 'connection',
@@ -21,23 +21,23 @@ const EXACT_FIELD_TABS: Readonly<Record<string, SettingsTab>> = {
     clips_enabled: 'connection',
     frigate_missing_behavior: 'data',
     retention_days: 'data',
-    auto_analyze_unknowns: 'data',
+    auto_analyze_unknowns: 'maintenance',
     classification_threshold: 'detection',
     classification_min_confidence: 'detection',
-    live_worker_count: 'detection',
-    background_worker_count: 'detection',
+    live_worker_count: 'models',
+    background_worker_count: 'models',
     trust_frigate_sublabel: 'detection',
     write_frigate_sublabel: 'detection',
     personalized_rerank_enabled: 'detection',
     auto_video_classification: 'detection',
-    image_execution_mode: 'detection',
-    inference_provider: 'detection',
+    image_execution_mode: 'models',
+    inference_provider: 'models',
     blocked_labels: 'detection',
     blocked_species: 'detection',
     camera_audio_mapping: 'integrations',
     trusted_proxy_hosts: 'security',
     notification_language: 'notifications',
-    strict_non_finite_output: 'debug',
+    strict_non_finite_output: 'models',
     beta_garden_animals: 'beta',
     display_common_names: 'appearance',
     scientific_name_primary: 'appearance',
@@ -51,12 +51,11 @@ const EXACT_FIELD_TABS: Readonly<Record<string, SettingsTab>> = {
 const PREFIX_FIELD_TABS: ReadonlyArray<readonly [string, SettingsTab]> = [
     ['mqtt_', 'connection'],
     ['recording_clip_', 'connection'],
-    ['telemetry_', 'data'],
+    ['telemetry_', 'security'],
     ['video_classification_', 'detection'],
     ['range_filter_', 'detection'],
-    ['bird_model_region_', 'detection'],
-    ['bird_crop_', 'detection'],
-    ['garden_notification', 'notifications'],
+    ['bird_model_region_', 'models'],
+    ['bird_crop_', 'models'],
     ['notifications_', 'notifications'],
     ['garden_', 'beta'],
     ['birdnet_', 'integrations'],
@@ -72,7 +71,7 @@ const PREFIX_FIELD_TABS: ReadonlyArray<readonly [string, SettingsTab]> = [
     ['auth_', 'security'],
     ['public_access_', 'security'],
     ['media_cache_', 'data'],
-    ['maintenance_', 'data'],
+    ['maintenance_', 'maintenance'],
     ['auto_purge_', 'data'],
     ['accessibility_', 'accessibility']
 ];
@@ -142,7 +141,7 @@ const FIELD_PLACES: Readonly<Record<string, SettingsFieldPlace>> = {
     video_classification_delay: { labelKey: 'settings.detection.video_delay', inputId: 'video-delay', disclosures: ['detection-frigate-video'] },
     video_classification_max_retries: { labelKey: 'settings.detection.video_retries', inputId: 'video-retries', disclosures: ['detection-frigate-video'] },
     video_classification_frames: { labelKey: 'settings.detection.video_frames', inputId: 'video-frames', disclosures: ['detection-frigate-video'] },
-    maintenance_max_concurrent: { labelKey: 'settings.data.maintenance_max_concurrent', inputId: 'maintenance-max-concurrent', disclosures: ['data-retention-advanced'] },
+    maintenance_max_concurrent: { labelKey: 'settings.data.maintenance_max_concurrent', inputId: 'maintenance-max-concurrent', disclosures: ['maintenance-concurrency'] },
     garden_labels: { labelKey: 'garden.labels', inputId: 'garden-labels', disclosures: ['garden-section-cameras'] },
     garden_motion_confidence: { labelKey: 'garden.confidence', inputId: 'garden-motion-confidence', disclosures: ['garden-section-cameras'] },
     garden_naming_threshold: { labelKey: 'settings.beta.garden_naming_threshold', inputId: 'garden-naming-threshold', disclosures: ['garden-section-checks'] },
@@ -174,6 +173,11 @@ const FIELD_PLACES: Readonly<Record<string, SettingsFieldPlace>> = {
     live_worker_count: { labelKey: 'settings.detection.worker_counts_live', inputId: 'live-worker-count', disclosures: ['detection-hardware', 'detection-memory-advanced'] },
     background_worker_count: { labelKey: 'settings.detection.worker_counts_background', inputId: 'background-worker-count', disclosures: ['detection-hardware', 'detection-memory-advanced'] }
 };
+
+/** Every field with a place of its own, so a test can hold each place to the markup. */
+export function settingsFieldPlaces(): Array<[string, SettingsFieldPlace]> {
+    return Object.entries(FIELD_PLACES);
+}
 
 /** Where a field is shown, or null for one without its own input (the tab is then the pointer). */
 export function settingsFieldPlace(field: string): SettingsFieldPlace | null {

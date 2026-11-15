@@ -56,12 +56,12 @@ async function openShell(page: Page, theme: Theme, overrides: Record<string, unk
     await settled(page);
 }
 
-/** What the Health page itself counts as open, read from its own "N open" badge. */
-async function openIssuesOnHealth(page: Page): Promise<number> {
+/** What the Health page itself lists as open, counted from its own verdict card. */
+async function openItemsOnHealth(page: Page): Promise<number> {
     await page.locator('[data-sidebar-status-link]').click();
-    const badge = page.locator('[data-health-current-issues]').getByText(/^\d[\d,]* open$/);
-    await expect(badge).toBeVisible({ timeout: 15_000 });
-    return Number(((await badge.textContent()) ?? '').replace(/\D/g, ''));
+    await expect(page.locator('[data-health-status]')).toBeVisible({ timeout: 15_000 });
+    await settled(page);
+    return page.locator('[data-health-problems] > li').count();
 }
 
 const card = (page: Page) => page.locator('[data-sidebar-status-card]');
@@ -72,7 +72,7 @@ test('with nothing open the link is just "System health"', async ({ page }) => {
     await expect(link(page)).toHaveAttribute('data-health-attention', 'false');
     await expect(link(page)).toHaveText('System health');
     await expect(card(page).locator('[data-health-issues]')).toHaveCount(0);
-    expect(await openIssuesOnHealth(page)).toBe(0);
+    expect(await openItemsOnHealth(page)).toBe(0);
 });
 
 test('open issues are counted on the link, and the Health page counts the same', async ({ page }) => {
@@ -80,7 +80,7 @@ test('open issues are counted on the link, and the Health page counts the same',
     await expect(link(page)).toHaveAttribute('data-health-attention', 'true');
     await expect(card(page).locator('[data-health-issues]')).toHaveText('2 issues need attention');
     await expect(link(page)).toHaveAccessibleName('2 issues need attention System health');
-    expect(await openIssuesOnHealth(page)).toBe(2);
+    expect(await openItemsOnHealth(page)).toBe(2);
     // A fault that repeated is one entry there, with how often and over what span.
     await expect(page.locator('[data-diagnostic-repeats]').first()).toContainText('×14, first');
 });
@@ -123,7 +123,7 @@ test('the icon rail names each status and the Health link with the same words', 
     expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual((sidebar?.x ?? 0) + (sidebar?.width ?? 0));
     await link(page).focus();
     await page.keyboard.press('Enter');
-    await expect(page).toHaveURL(/\/settings\/health$/);
+    await expect(page).toHaveURL(/\/system-health$/);
 });
 
 test('a guest sees the status rows and no way into System health', async ({ page }) => {

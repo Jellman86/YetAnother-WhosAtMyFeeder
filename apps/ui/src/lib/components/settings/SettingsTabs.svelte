@@ -18,14 +18,13 @@
     interface Props {
         activeTab: string;
         ontabchange: (tab: SettingsTab) => void;
-        debugUiEnabled?: boolean;
         /** Tabs holding unsaved changes; each is marked in the list with a worded dot. */
         unsavedTabs?: readonly SettingsTab[];
         /** The id of the element the skip link moves focus to. */
         contentId: string;
     }
 
-    let { activeTab, ontabchange, debugUiEnabled = false, unsavedTabs = [], contentId }: Props = $props();
+    let { activeTab, ontabchange, unsavedTabs = [], contentId }: Props = $props();
 
     const groups = $derived<SettingsTabGroup[]>([
         {
@@ -33,7 +32,8 @@
             label: $_("settings.tabs.groups.pipeline", { default: "Feeder pipeline" }),
             tabs: [
                 { id: "connection", label: $_("settings.tabs.connection") },
-                { id: "detection", label: $_("settings.tabs.detection") }
+                { id: "detection", label: $_("settings.tabs.detection") },
+                { id: "models", label: $_("settings.tabs.models", { default: "Models" }) }
             ]
         },
         {
@@ -49,11 +49,10 @@
             id: "operations",
             label: $_("settings.tabs.groups.operations", { default: "Operations" }),
             tabs: [
-                { id: "health", label: $_("settings.tabs.health") },
                 { id: "security", label: $_("settings.tabs.security") },
                 { id: "data", label: $_("settings.tabs.data") },
-                { id: "beta", label: $_("settings.tabs.beta", { default: "Beta features" }) },
-                ...(debugUiEnabled ? [{ id: "debug" as const, label: $_("settings.tabs.debug") }] : [])
+                { id: "maintenance", label: $_("settings.tabs.maintenance", { default: "Maintenance" }) },
+                { id: "beta", label: $_("settings.tabs.beta", { default: "Beta features" }) }
             ]
         },
         {

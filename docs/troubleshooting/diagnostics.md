@@ -26,12 +26,12 @@ The sidebar's **System status** list follows the same readings, in words:
 | **Alerts** | **On**, **Off** | Whether notifications are switched on. |
 
 Under the rows is the current CPU and accelerator load, and the **System health** link. The link
-reads **2 issues need attention** (with the number) only while Health lists open issues under
-**Current issues**; the two always count the same thing.
+reads **2 issues need attention** (with the number) only while the System health page lists open items in its
+verdict (a failed connection or an unresolved incident); the two always count the same thing.
 
 ## Repeated faults are one entry
 
-A fault that keeps happening is kept as one entry in **Recent backend diagnostics**, marked with how
+A fault that keeps happening is kept as one entry in **Backend warnings and errors**, marked with how
 many times it was recorded and when it was first and last seen (for example **×14, first 12:21, last
 12:27**), instead of fourteen rows. Entries are grouped when their source, component, reason code
 and severity match and their messages differ only in identifiers or numbers. The newest occurrence

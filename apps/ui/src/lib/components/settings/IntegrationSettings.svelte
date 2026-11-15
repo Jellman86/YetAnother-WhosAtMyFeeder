@@ -513,7 +513,7 @@
     <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-6-5.686-6-10a6 6 0 1 1 12 0c0 4.314-6 10-6 10Z" /><circle cx="12" cy="11" r="2" /></svg>
 {/snippet}
 
-<div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
+<div class="grid grid-cols-1 gap-6 md:grid-cols-2 md:items-start">
     <SettingsCard accent iconSnippet={birdnetIcon} title={$_('settings.integrations.birdnet.title')}>
         <SettingsRow
             labelId="setting-birdnet-enabled"

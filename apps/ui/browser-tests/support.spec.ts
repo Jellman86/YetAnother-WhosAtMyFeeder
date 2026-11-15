@@ -28,7 +28,7 @@ test('owners reach support from Notifications and export fresh server evidence',
     });
     await page.goto('/browser-tests/support.html');
     await page.getByRole('button', { name: 'Open Health', exact: true }).click();
-    await expect(page.getByLabel('Current route')).toHaveText('/settings/health');
+    await expect(page.getByLabel('Current route')).toHaveText('/system-health');
     const exportPanel = page.locator('[data-diagnostics-export]');
     await exportPanel.locator('summary').click();
     await expect.poll(() => workspaceReads).toBe(1);

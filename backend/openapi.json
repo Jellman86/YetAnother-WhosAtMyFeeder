@@ -3906,6 +3906,17 @@
             ],
             "title": "Active Model Id"
           },
+          "active_model_installed": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active Model Installed"
+          },
           "active_model_validated_providers": {
             "items": {
               "type": "string"
@@ -3993,6 +4004,17 @@
               }
             ],
             "title": "Effective Model Id"
+          },
+          "effective_model_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective Model Name"
           },
           "enabled": {
             "default": false,

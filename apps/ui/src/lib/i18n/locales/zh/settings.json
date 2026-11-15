@@ -36,7 +36,7 @@
     "purge_button": "清理旧记录",
     "purge_confirm": "{count, plural, other {永久删除 # 条超过 {days} 天的检测记录和 BirdNET-Go 音频？收藏和每个物种保留的最新访问不受影响。此操作无法撤销。}}",
     "cleaning": "清理中…",
-    "auto_cleanup_note": "自动清理在启动时运行，之后每 24 小时运行一次",
+    "auto_cleanup_note": "清理会在 YA-WAMF 启动时运行，之后每 24 小时运行一次。",
     "cache_title": "照片和视频",
     "cache_clips": "保留 Frigate 事件片段的副本",
     "cache_high_quality_event_snapshot_jpeg_quality": "HQ 快照 JPEG 质量",
@@ -202,7 +202,7 @@
     "bird_scan_standard": "标准",
     "bird_scan_intensive": "高强度",
     "cache_clips_help": "Frigate 已经保存了这些片段。即使 Frigate 删除，副本也会保留，每个约与片段大小相同。",
-    "cache_always_kept": "照片、完整到访片段和预览会一直保留。下方的限制决定保留多久以及占用多少空间。",
+    "cache_always_kept": "照片、完整到访片段和预览会一直保留，直到下面的某个限制将其删除。",
     "cache_unavailable": "无法写入媒体文件夹，因此没有保留照片和视频。请检查文件夹权限；系统检查会显示错误。",
     "cache_high_quality_storage_note": "每次到访还会保留全分辨率画面，通常有几 MB；如果空间紧张，请设置存储上限。",
     "automatic_multi_bird_scan": "自动查找其他鸟类",
@@ -219,7 +219,14 @@
     "retention_shrink_kept": "收藏会保留。较早的 BirdNET-Go 音频和花园动物记录也会被删除。",
     "retention_confirm_title": "删除较早的历史记录？",
     "retention_confirm_button": "保存并删除 {count, plural, other {# 条}}检测记录",
-    "retention_confirm_uncounted": "保存并删除较早的历史记录"
+    "retention_confirm_uncounted": "保存并删除较早的历史记录",
+    "history_summary": "共 {count, plural, other {# 条记录}}，最早的来自 {oldest}。",
+    "history_summary_empty": "还没有记录。",
+    "history_due": "有 {count, plural, other {# 条}}早于保存期限，将在下次清理时删除。",
+    "missing_media_title": "当 Frigate 丢失一次到访时",
+    "missing_media_desc": "Frigate 会按自己的计划删除旧事件。这里决定事件消失后 YA-WAMF 保留什么。",
+    "maintenance_jobs_title": "同时运行的任务",
+    "maintenance_jobs_desc": "上面的任务一次只运行一个，因此不会与鸟类识别争用资源。"
   },
   "security": {
     "title": "安全",
@@ -244,13 +251,11 @@
     "connection": "连接",
     "detection": "检测",
     "notifications": "通知",
-    "health": "健康",
     "integrations": "集成",
     "data": "数据",
     "security": "安全",
     "appearance": "外观",
     "accessibility": "辅助功能",
-    "debug": "调试",
     "enrichment": "增强信息",
     "ai": "人工智能",
     "groups": {
@@ -264,15 +269,11 @@
     "skip_to_content": "跳到设置",
     "section_label": "设置分区",
     "navigation_label": "设置分区列表",
-    "unsaved_note": "有未保存的更改"
+    "unsaved_note": "有未保存的更改",
+    "models": "模型",
+    "maintenance": "维护"
   },
   "debug": {
-    "title": "调试工具",
-    "subtitle": "用于测试和诊断的额外开关。",
-    "model_eval_title": "模型评估工具",
-    "model_eval_desc": "使用经过分类学验证的鸟类图像评估已安装的分类器。产物保存在 /config/yawamf-eval/ 下。",
-    "model_eval_action_desc": "对每个已安装模型运行准确率、延迟和健全性检查。仅限所有者。",
-    "model_eval_open": "打开",
     "llm_prompts_title": "LLM 提示模板",
     "llm_prompts_subtitle": "自定义 AI 分析与对话的 Markdown 结构和语气。",
     "llm_prompt_style_label": "提示风格",
@@ -285,8 +286,8 @@
     "llm_prompt_conversation_hint": "标记: {species}, {analysis}, {history}, {question}, {language_note}",
     "llm_prompt_chart": "图表分析提示",
     "llm_prompt_chart_hint": "标记: {timeframe}, {total_count}, {series}, {weather_notes}, {sun_notes}, {notes}, {language_note}",
-    "strict_non_finite_output": "严格处理非有限输出",
-    "strict_non_finite_output_desc": "丢弃模型无法计算的结果并重启模型，因此不会从中保存任何内容。仅在调试模型时关闭。"
+    "strict_non_finite_output": "丢弃模型无法计算出的结果",
+    "strict_non_finite_output_desc": "开启时，非数值的结果会被丢弃并重启模型。仅在排查模型故障时关闭。"
   },
   "ai": {
     "usage_title": "AI 使用情况",
@@ -507,7 +508,7 @@
     "disabled": "已禁用",
     "needs_ebird": "未显示：需要 eBird API 密钥",
     "ebird_hint": "开启 eBird 并填写 API 密钥后，物种页面会显示附近观测、季节性和稀有度。",
-    "open_ebird": "设置 eBird"
+    "open_ebird": "前往 eBird"
   },
   "auth": {
     "title": "身份验证",
@@ -849,16 +850,15 @@
     "instance_url_placeholder": "https://feeder.example.com",
     "link_opens": "通知链接打开",
     "link_opens_yawamf": "此 YA-WAMF",
-    "link_opens_yawamf_desc": "检测页面上的该条检测，包含片段、快照和鉴定结果。",
+    "link_opens_yawamf_desc": "在“探索”中打开这次到访，附带片段、快照和识别结果。",
     "link_opens_yawamf_req": "使用上方的实例地址。",
     "link_opens_frigate": "Frigate",
     "link_opens_frigate_desc": "Frigate Explore 页面中的同一追踪对象。",
-    "link_opens_frigate_req": "需要 Frigate 0.15 或更新版本，以及集成设置中的 Frigate 公开地址。",
+    "link_opens_frigate_req": "需要 Frigate 0.15 或更新版本，以及在“设置 → 连接”中设置的 Frigate 公开网址。",
     "link_frigate_url_missing": "尚未设置 Frigate 公开地址，设置之前通知不会附带链接。",
-    "link_open_integrations": "打开集成设置",
-    "link_preview_telegram": "Telegram 按钮",
+    "link_preview_telegram": "Telegram 按钮上的链接：",
     "link_preview_others": "Discord 标题、Pushover 和邮件使用同一地址。",
-    "link_preview_none": "不发送链接",
+    "link_preview_none": "暂无，因此 Telegram 消息没有按钮。",
     "sentence": {
       "chip_context": "（{setting}）",
       "lead": "通知我",
@@ -877,16 +877,14 @@
       "species_any": "任何物种",
       "species_all_but": "{count, plural, other {除 # 个物种外的全部}}",
       "species_only": "{count, plural, other {仅 # 个物种}}",
-      "species_jump": "物种筛选:{summary}。跳转到物种筛选。",
-      "channels_none": "尚未选择",
-      "channels_hint": "选择消息发送到哪里。",
-      "channel_needs_setup": "需要设置",
-      "destinations": "发送目标",
+      "species_jump": "物种筛选：{summary}。前往物种筛选。",
+      "channels_none": "尚无渠道",
       "channel_discord": "Discord",
       "channel_pushover": "Pushover",
       "channel_telegram": "Telegram",
       "channel_email": "邮件",
-      "confidence_chip_audio": "{value}%且有声音确认"
+      "confidence_chip_audio": "{value}%且有声音确认",
+      "channels_jump": "渠道：{channels}。前往渠道。"
     },
     "test_channel": "渠道",
     "test_failed": "无法发送测试消息。",
@@ -901,15 +899,15 @@
       "enabled_help": "动物被自动命名或你确认其物种时，每次来访发送一条提醒。保存更改后生效。",
       "send_to": "花园提醒发送到",
       "use_bird": "使用我的鸟类通知渠道",
-      "use_bird_help": "上方已开启且已配置的渠道。",
+      "use_bird_help": "“通知”中已开启并设置好的渠道。",
       "choose": "选择渠道",
       "choose_help": "使用已保存的凭据；其鸟类开关可以保持关闭。",
       "bird_uses": "发送到 {channels}。",
-      "bird_none": "没有已开启且已配置的鸟类渠道，因此无法发送花园提醒。请在上方开启一个，或选择渠道。",
+      "bird_none": "没有已开启并设置好的鸟类渠道，因此无法发送花园提醒。请在“通知”中开启一个渠道，或在此选择渠道。",
       "channels_label": "花园提醒渠道",
       "channel": "通过 {channel} 发送花园提醒",
       "choose_one": "请至少选择一个花园提醒渠道。",
-      "credentials": "{channels} 没有已保存的凭据，因此发往那里的花园提醒会失败。请在上方的渠道卡片中添加。",
+      "credentials": "{channels} 没有保存的凭据，因此发往那里的花园提醒会失败。请在“通知”中添加。",
       "include_photo": "附带照片",
       "include_photo_help": "附上已保存的动物裁剪图，没有时附上捕获照片。只发送已确认的动物，因此照片是你或自动检查已接受的。无法读取照片时仅发送文字。",
       "privacy": "将动物名称、摄像头、目击时间以及（如已选择）照片发送到这些服务。链接会在此处打开该捕获；访客只能在公开访问共享它时打开。",
@@ -917,7 +915,10 @@
       "status": "已保存的发送尝试。渠道已接受：{sent}。失败：{failed}。未确认：{unknown}。已跳过：{skipped}。",
       "status_after_apply": "开启并保存花园后，这里会显示发送状态。",
       "refresh": "刷新发送状态"
-    }
+    },
+    "garden_elsewhere": "花园动物提醒在“测试功能”的“花园动物”中设置，通过上方的渠道发送。",
+    "garden_open": "打开花园提醒",
+    "link_open_connection": "打开“连接”"
   },
   "discord": {
     "title": "Discord 通知",
@@ -994,20 +995,20 @@
     "resolving": "正在查找…"
   },
   "danger": {
-    "title": "无法撤销的操作",
-    "subtitle": "破坏性操作",
-    "reset_desc": "重置数据库将永久删除所有检测记录、清空媒体缓存并移除所有已归档的收藏。此操作无法撤销。",
-    "reset_button": "重置数据库和缓存",
+    "title": "删除数据",
+    "subtitle": "这些操作都会永久删除内容。执行前都会先确认。",
+    "reset_desc": "删除所有检测记录、所有缓存的照片和片段，以及所有已归档的收藏。",
+    "reset_button": "删除全部历史",
     "resetting": "正在重置…",
-    "confirm": "危险：这将删除所有检测记录、清空媒体缓存并移除所有已归档的收藏。此操作无法撤销。确定吗？",
-    "clear_feedback_button": "清除个性化数据",
-    "clear_feedback_desc": "清除个性化反馈将删除 AI 用于调整置信度分数的所有手动标签修正。这会让分类器恢复到基础精度。",
-    "clear_feedback_hint": "这不会删除检测或媒体。随着你进行新的手动修正，重新排序会重新开始学习。",
+    "confirm": "删除全部 {count, plural, other {# 条检测记录}}、所有缓存的照片和片段，以及所有已归档的收藏？此操作无法撤销。",
+    "clear_feedback_button": "删除更正",
+    "clear_feedback_desc": "YA-WAMF 会根据您更正过的物种，为每个摄像头调整评分。删除这些更正后，将恢复为模型自身的评分。",
+    "clear_feedback_hint": "检测记录和照片会保留。新的更正会重新开始调整。",
     "clearing_feedback": "清除中…",
-    "clear_feedback_confirm": "确定要清除所有个性化重排序数据吗?这会将 AI 还原为基线准确度,且无法撤销。",
-    "feedback_title": "个性化数据",
+    "clear_feedback_confirm": "删除您对识别结果的更正？评分将恢复为模型自身的评分，检测记录和照片会保留。此操作无法撤销。",
+    "feedback_title": "您对识别结果的更正",
     "favorites_title": "收藏",
-    "reset_title": "数据库和媒体缓存"
+    "reset_title": "所有检测记录及其媒体"
   },
   "detection": {
     "fine_tuning": "精细调优",
@@ -1097,14 +1098,12 @@
     "model_manager_crop_policy_automatic_desc": "YA-WAMF 会使用此模型经过测试的裁剪策略。切换模型时无需调整。",
     "model_manager_runtime_health": "运行时状态",
     "model_manager_image_preparation": "图像准备",
-    "model_manager_detector_missing": "需要下载",
+    "model_manager_detector_missing": "尚未下载。下载按钮在选项下方。",
     "model_manager_lineup_title": "分层模型阵容",
     "model_manager_lineup_desc": "推荐模型会优先显示。高级选项在你展开前保持隐藏。",
     "model_manager_hide_advanced": "隐藏高级模型",
     "model_manager_show_advanced": "显示高级模型 ({count})",
     "model_manager_count": "显示 {count} 个",
-    "model_manager_advanced_hidden": "高级模型默认隐藏。需要更大的 ONNX 选项时再显示它们。",
-    "model_manager_active": "已启用",
     "model_manager_recommended_for": "推荐用途",
     "model_manager_notes": "说明",
     "model_manager_architecture": "架构",
@@ -1116,7 +1115,6 @@
     "model_manager_host_verification": "活动 ONNX 模型会显示 OpenVINO 主机验证结果。",
     "model_manager_downloading": "下载中…",
     "model_manager_redownloading": "重新下载中…",
-    "model_manager_currently_active": "当前已启用",
     "model_manager_activating": "启用中…",
     "model_manager_activate": "启用",
     "model_manager_redownload": "重新下载",
@@ -1165,7 +1163,6 @@
     "model_manager_provider_unavailable_suffix": "不可用",
     "model_manager_provider_fallback_suffix": "回退",
     "model_manager_provider_fallback_title": "按显示顺序自动回退",
-    "model_manager_tier_cpu_only": "仅 CPU",
     "model_manager_scope_birds_only": "仅鸟类",
     "model_manager_scope_wildlife_wide": "广泛野生动物",
     "model_manager_provider_cpu": "CPU",
@@ -1333,7 +1330,13 @@
     "bird_finder_recommended_running": "正在检查{devices}。检查期间CPU仍然可用。",
     "bird_finder_recommended_unchecked": "在{devices}通过此主机的检查之前使用CPU。尚无加速器推荐。",
     "bird_finder_recommended_waiting": "正在等待已保存的鸟类照片，以重新检查{devices}。CPU仍然可用。",
-    "model_manager_card_on_disk": "已在本机"
+    "model_manager_card_on_disk": "已在本机",
+    "models_elsewhere": "由哪个模型识别物种，以及它运行在什么硬件上，在“模型”中设置。",
+    "models_open": "打开“模型”",
+    "band_model_missing": "尚未安装。请在下方下载。",
+    "model_manager_in_use": "使用中",
+    "model_manager_show_catalogue": "选择其他模型",
+    "model_manager_hide_catalogue": "隐藏其他模型"
   },
   "llm": {
     "title": "AI 洞察",
@@ -1375,7 +1378,7 @@
     "description": "这台主机在做什么，其中有多少是这个应用。",
     "window": "最近 30 分钟，每 5 秒采样",
     "legend": "数据系列",
-    "legend_cpu": "CPU，整台主机",
+    "legend_cpu": "CPU",
     "cpu_now": "当前 CPU",
     "accelerator_now": "当前 {label}",
     "memory_now": "此应用占用内存",
@@ -1415,7 +1418,8 @@
     "not_measured": "未测量",
     "measurement_gap": "此采样没有利用率读数。下方的工作进程行显示已加载的加速器；缺少读数并不代表已回退到 CPU。",
     "unreadable_nvidia": "检测到 {label}，但其驱动不公布容器可读取的利用率计数器。",
-    "unreadable_accelerator": "检测到 {label}，但无法从容器内部读取其计数器。"
+    "unreadable_accelerator": "检测到 {label}，但无法从容器内部读取其计数器。",
+    "table_region": "按进程的负载"
   },
   "text_size": {
     "label": "文字大小",
@@ -1529,7 +1533,8 @@
     "garden_fact_motion_on": "已为 {cameras} 开启",
     "garden_fact_unreadable": "无法读取。请刷新后重试。",
     "garden_fact_saved_crops": "已保存的裁剪",
-    "garden_fact_saved_crops_value": "{count, plural, other {# 张裁剪}}，上限 {limit, number}"
+    "garden_fact_saved_crops_value": "{count, plural, other {# 张裁剪}}，上限 {limit, number}",
+    "garden_channels_open": "在“通知”中设置渠道"
   },
   "native_revalidation": {
     "title": "检查隔离的配置",
@@ -1690,5 +1695,11 @@
     "notifications_email_gmail_client_secret": "Gmail 客户端密钥",
     "notifications_email_outlook_client_secret": "Outlook 客户端密钥",
     "notifications_email_smtp_password": "SMTP 密码"
+  },
+  "models": {
+    "testing_title": "测试模型",
+    "testing_desc": "用您已确认的照片比较已安装的模型。",
+    "testing_action": "模型评估会用这些照片运行每个已安装的模型，显示各自的准确次数和耗时。",
+    "testing_open": "打开模型评估"
   }
 }

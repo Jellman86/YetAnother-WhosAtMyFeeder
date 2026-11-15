@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { alertsRow, audioRow, feedRow, healthAttention, type StatusRow } from './system-status';
+import { alertsRow, audioRow, feedRow, healthAttention, openHealthItems, type StatusRow } from './system-status';
+import { connectionProblems } from './connection-health';
+import type { ServiceConnections } from '../api/diagnostics';
 import type { LiveFeedState } from './live-feed-state';
 
 const word = (row: StatusRow) => row.state.fallback;
@@ -71,5 +73,20 @@ describe('the System health link counts open issues only', () => {
         expect(healthAttention(null)).toEqual({ needsAttention: false, count: 0 });
         expect(healthAttention(Number.NaN)).toEqual({ needsAttention: false, count: 0 });
         expect(healthAttention(-3)).toEqual({ needsAttention: false, count: 0 });
+    });
+});
+
+describe('the count is what the Health page lists as open', () => {
+    const down = {
+        mqtt: { state: 'disconnected', server: 'mqtt.invalid', port: 1883 },
+        frigate: { state: 'unreachable', url: 'http://frigate.invalid:5000', availability: 'unknown' },
+        generated_at: '2026-11-15T12:00:00Z'
+    } as ServiceConnections;
+
+    it('adds failed connections to unresolved incidents, as the page does', () => {
+        expect(openHealthItems(null, 0)).toBe(0);
+        expect(openHealthItems(null, 2)).toBe(2);
+        expect(connectionProblems(down).length).toBeGreaterThan(0);
+        expect(openHealthItems(down, 2)).toBe(connectionProblems(down).length + 2);
     });
 });

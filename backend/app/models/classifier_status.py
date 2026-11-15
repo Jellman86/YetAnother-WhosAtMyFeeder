@@ -94,6 +94,10 @@ class ClassifierStatusResponse(_StatusSection):
     enabled: bool = False
     active_model_id: str | None = None
     effective_model_id: str | None = None
+    # The effective model's name as the model list shows it; None when it has no registry entry.
+    effective_model_name: str | None = None
+    # Whether the effective model's weights are on disk; None when that could not be resolved.
+    active_model_installed: bool | None = None
     onnx_available: bool = False
     openvino_available: bool = False
     openvino_version: str | None = None

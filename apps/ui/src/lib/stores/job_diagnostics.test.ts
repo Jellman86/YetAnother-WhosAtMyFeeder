@@ -722,7 +722,7 @@ describe('jobDiagnosticsStore', () => {
 
     it('keeps the export behind a disclosure so the health view stays about health', () => {
         expect(errorsPageSource).toContain('System Status');
-        expect(errorsPageSource).toContain('Recent Backend Diagnostics');
+        expect(errorsPageSource).toContain('Backend warnings and errors');
         expect(errorsPageSource).toMatch(/<details[^>]*data-diagnostics-export/);
     });
 

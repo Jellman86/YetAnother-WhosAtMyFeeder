@@ -4,7 +4,7 @@ YA-WAMF supports multiple classifier models, allowing you to balance speed, memo
 
 ## Choose and validate a model
 
-You can manage models directly from **Settings → Detection → Model Manager**. The current lineup includes:
+You can manage models directly from **Settings → Models**. The current lineup includes:
 
 - Wildlife-wide ONNX models for broad species coverage
 - Birds-only regional and global models with different species coverage
@@ -52,7 +52,7 @@ Detection Diagnostics.
 ## Inference Providers (CPU / CUDA / Intel OpenVINO)
 
 For ONNX models, YA-WAMF supports a provider selector under
-**Settings → Detection → Inference Provider**:
+**Settings → Models → Hardware → Inference provider**:
 
 - `Auto` (recommended): uses the selected model's measured passing order on this installation and
   otherwise remains within its globally safe provider contract.
@@ -87,7 +87,7 @@ successful load does not prove that the route can finish a live workload within 
   access to the saved provider, subject to host and model validation.
 - CUDA and OpenVINO availability are probed separately from model loading, then validated again during runtime initialization.
 - **Selected** is the saved preference; **Active** describes loaded workers. If no worker has loaded
-  yet, the UI marks the provider as planned rather than claiming it is active. The Detection tab
+  yet, the UI marks the provider as planned rather than claiming it is active. The Models tab
   refreshes this status after validation, activation and saving, periodically while visible and
   when you return to the browser. An explicit unsaved provider choice is kept; an untouched field
   follows a newly saved server preference so a later unrelated save cannot switch it back.
@@ -112,7 +112,7 @@ size and memory estimates are listed in the [model release](https://github.com/J
 | **EVA-02 Large** | Large comparison model. The reporter's sustained Intel GPU/backfill fault in [#490](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/490) remains unconfirmed; another host's passing check does not close it. |
 
 #### Birds-Only Families: Small Birds / Medium Birds
-- Region-aware family entries that resolve to EU or North America candidate assets. **Bird model region**, in the setup wizard's model step and **Settings → Detection**, decides which. On **Auto** it follows your saved country, and with no country saved it uses North America.
+- Region-aware family entries that resolve to EU or North America candidate assets. **Bird model region**, in the setup wizard's model step and **Settings → Models**, decides which. On **Auto** it follows your saved country, and with no country saved it uses North America.
 - Their regional output vocabularies exclude many species present in wildlife-wide models; compare coverage and accuracy on your own birds.
 - `Small Birds` targets lower RAM and faster inference.
 - `Medium Birds` is the larger regional option.
@@ -156,7 +156,7 @@ CPU-only, low-memory legacy option with 965 outputs. Hidden by default in Model 
 
 #### Crops, photographs and video
 
-**Settings → Detection → Models → Bird finder** chooses which detector locates birds in full
+**Settings → Models → Bird finder** chooses which detector locates birds in full
 frames before they are identified and counted. It does not name species. The choice is saved by
 **Save changes** with the rest of the page. The CPU-friendly **Fast** detector remains the
 automatic fallback. Each option shows its download size, estimated RAM, and the device it runs on:

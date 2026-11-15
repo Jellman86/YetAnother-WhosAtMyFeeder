@@ -169,7 +169,7 @@ Video-job concurrency follows `CLASSIFICATION__BACKGROUND_WORKER_COUNT` (one wor
 unset), with one clip per worker. The legacy `video_classification_max_concurrent` setting is
 ignored. See [Maintenance concurrency](../setup/configuration.md#maintenance-concurrency).
 
-Live snapshot work takes priority over new video starts. **Settings → Health** reports queue
+Live snapshot work takes priority over new video starts. The **Health** page reports queue
 counts, waiting ages and active phases. Queue relief and pressure counters describe scheduler
 observations, not accelerator utilization or proof that a job succeeded; check its stored result.
 

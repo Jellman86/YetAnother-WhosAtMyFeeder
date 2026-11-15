@@ -588,6 +588,7 @@ export interface components {
     active_model_candidate_providers?: Array<string>;
     active_model_estimated_ram_mb?: number | null;
     active_model_id?: string | null;
+    active_model_installed?: boolean | null;
     active_model_validated_providers?: Array<string>;
     active_provider?: string;
     available_providers?: Array<string>;
@@ -601,6 +602,7 @@ export interface components {
     dev_dri_entries?: Array<string>;
     dev_dri_present?: boolean;
     effective_model_id?: string | null;
+    effective_model_name?: string | null;
     enabled?: boolean;
     error?: string | null;
     fallback_reason?: string | null;

@@ -76,8 +76,9 @@
             <p class="min-w-0 flex-1 basis-56 text-sm text-slate-600 dark:text-slate-300">
                 {$_('settings.enrichment.ebird_hint', { default: 'Nearby sightings, seasonality and rarity appear on species pages once eBird is on with an API key.' })}
             </p>
-            <button type="button" class="btn btn-secondary min-h-11 px-4" onclick={onOpenEbird}>
-                {$_('settings.enrichment.open_ebird', { default: 'Set up eBird' })}
+            <!-- A way to eBird's own card, where it is switched on; not a second switch. -->
+            <button type="button" class="focus-ring min-h-11 rounded-sm text-sm font-semibold text-brand-700 underline underline-offset-2 hover:text-brand-800 dark:text-brand-300 dark:hover:text-brand-200" onclick={onOpenEbird}>
+                {$_('settings.enrichment.open_ebird', { default: 'Go to eBird' })}
             </button>
         </div>
     {/if}
