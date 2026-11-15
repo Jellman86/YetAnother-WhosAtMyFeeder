@@ -243,7 +243,8 @@ describe('detection surface polish', () => {
 
     it('lets the delete row be named by the words on it', () => {
         // A label that differs from the visible text fails speech input (label in name).
-        const row = detectionModalSource.slice(detectionModalSource.indexOf('onclick={handleDelete}'), detectionModalSource.indexOf('data-detection-delete') + 200);
+        const marker = detectionModalSource.indexOf('data-detection-delete');
+        const row = detectionModalSource.slice(detectionModalSource.lastIndexOf('<button', marker), detectionModalSource.indexOf('</button>', marker));
         expect(row).not.toContain('aria-label');
         expect(row).toContain("{$_('actions.delete_detection')}");
     });
