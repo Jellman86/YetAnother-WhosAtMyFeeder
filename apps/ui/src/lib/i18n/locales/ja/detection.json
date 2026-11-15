@@ -494,5 +494,6 @@
   "move_to_garden_failed": "この記録を庭に移動できませんでした: {message}",
   "domestic_bird_declared": "これは飼っている家禽 ({bird}) です。庭に移動すると庭の動物として記録されます。この鳥の記録は削除されず、非表示になります。",
   "move_to_garden": "庭に移動",
-  "range_fallback": "分布域フィルター：モデルは最初に {original}（{score}%）と答えましたが、eBird は {region} で一度も記録していないため、分布域内の次の候補を採用しました。"
+  "range_fallback": "分布域フィルター：モデルは最初に {original}（{score}%）と答えましたが、eBird は {region} で一度も記録していないため、分布域内の次の候補を採用しました。",
+  "audio_context_all": "この訪問の前後に聞こえたすべての鳴き声"
 }

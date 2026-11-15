@@ -494,5 +494,6 @@
   "move_to_garden_failed": "Could not move this record to Garden: {message}",
   "domestic_bird_declared": "This is a {bird}, a domestic bird you keep. Move it to Garden to record it as a Garden animal. This bird record is hidden, not deleted.",
   "move_to_garden": "Move to Garden",
-  "range_fallback": "Range filter: the model first said {original} ({score}%), which eBird has never recorded in {region}, so its next answer in range was kept."
+  "range_fallback": "Range filter: the model first said {original} ({score}%), which eBird has never recorded in {region}, so its next answer in range was kept.",
+  "audio_context_all": "All calls heard around this visit"
 }

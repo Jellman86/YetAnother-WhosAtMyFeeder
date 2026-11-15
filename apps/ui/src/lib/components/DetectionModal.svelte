@@ -3077,13 +3077,8 @@
             {#if hasAudioContext}
                 <section data-detection-audio-section class="space-y-3 border-t border-slate-200 pt-5 dark:border-slate-700">
                     <div class="flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-xl bg-brand-500/20 flex items-center justify-center">
-                            <svg class="w-5 h-5 text-brand-600 dark:text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 9l10.5-3m0 6.553v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 11-.99-3.467l2.31-.66a2.25 2.25 0 001.632-2.163zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 01-.99-3.467l2.31-.66A2.25 2.25 0 009 15.553z" />
-                            </svg>
-                        </div>
                         <div class="min-w-0">
-                            <p class="text-3xs font-semibold text-brand-700 dark:text-brand-300">
+                            <p class="text-3xs font-semibold text-slate-600 dark:text-slate-400">
                                 {effectiveAudioConfirmed
                                     ? $_('detection.audio_match')
                                     : $_('detection.audio_context')}
@@ -3208,7 +3203,7 @@
                             <svg class="w-3 h-3 transition-transform {audioContextOpen ? '-rotate-90' : 'rotate-0'}" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
                             </svg>
-                            {$_('detection.audio_context')}
+                            {$_('detection.audio_context_all', { default: 'All calls heard around this visit' })}
                         </span>
                         <span class="text-3xs font-bold text-slate-600 dark:text-slate-400">{audioContextOpen ? $_('common.hide') : $_('common.show')}</span>
                     </button>

@@ -1283,7 +1283,7 @@
     function playGardenClip(capture: GardenCapture): void {
         if (!capture.clip_event) return;
         videoEventId = capture.clip_event;
-        videoHeading = null;
+        videoHeading = { name: $_('garden.explorer.eyebrow_capture', { default: 'Garden capture' }), at: capture.observed_at };
         videoShareToken = null;
         videoPlayIntent = 'user';
         showVideo = true;

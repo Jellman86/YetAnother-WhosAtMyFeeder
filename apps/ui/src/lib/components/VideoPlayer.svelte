@@ -870,15 +870,17 @@
                         {heading?.name ?? $_('video_player.detection_clip_title', { default: 'Detection clip' })}
                     </h2>
                     <p class="truncate text-xs text-slate-300">
-                        {clipVariantLabel}{#if heading?.at} · {formatDateTime(heading.at)}{/if}
+                        {clipVariantLabel}{#if heading?.at}{` · ${formatDateTime(heading.at)}`}{/if}
                     </p>
                 </div>
                 <div class="flex items-center gap-1.5 shrink-0">
                     <!-- The state is the word. One neutral chip for every state: none of them is work
                          waiting on a person, so none of them is amber. -->
-                    <span class="inline-flex items-center rounded-full border border-white/30 bg-white/10 px-2.5 py-1 text-3xs font-semibold text-white" data-video-playback-state>
-                        {playbackLabel}
-                    </span>
+                    {#if !videoError}
+                        <span class="inline-flex items-center rounded-full border border-white/30 bg-white/10 px-2.5 py-1 text-3xs font-semibold text-white" data-video-playback-state>
+                            {playbackLabel}
+                        </span>
+                    {/if}
                     <DialogCloseButton tone="media" bind:element={closeButton} label={$_('video_player.close', { default: 'Close video' })} onclick={onClose} />
                 </div>
                 {#if shareToken && shareExpiresAt}

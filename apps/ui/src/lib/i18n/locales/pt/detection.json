@@ -494,5 +494,6 @@
   "move_to_garden_failed": "Não foi possível mover este registro para o Jardim: {message}",
   "domestic_bird_declared": "Esta é uma ave do tipo {bird}, uma ave doméstica que você cria. Mova-a para o Jardim para registrá-la como animal do jardim. Este registro de ave é ocultado, não excluído.",
   "move_to_garden": "Mover para o Jardim",
-  "range_fallback": "Filtro de área: o modelo disse primeiro {original} ({score}%), que o eBird nunca registou em {region}, por isso manteve-se a resposta seguinte dentro da área."
+  "range_fallback": "Filtro de área: o modelo disse primeiro {original} ({score}%), que o eBird nunca registou em {region}, por isso manteve-se a resposta seguinte dentro da área.",
+  "audio_context_all": "Todos os cantos ouvidos em torno desta visita"
 }

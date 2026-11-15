@@ -494,5 +494,6 @@
   "move_to_garden_failed": "Impossibile spostare questa scheda in Giardino: {message}",
   "domestic_bird_declared": "È un uccello di tipo {bird}, un uccello domestico che allevi. Spostalo in Giardino per registrarlo come animale del giardino. Questa scheda viene nascosta, non eliminata.",
   "move_to_garden": "Sposta in Giardino",
-  "range_fallback": "Filtro di areale: il modello aveva detto prima {original} ({score}%), mai registrato da eBird in {region}, quindi è stata tenuta la sua risposta successiva nell'areale."
+  "range_fallback": "Filtro di areale: il modello aveva detto prima {original} ({score}%), mai registrato da eBird in {region}, quindi è stata tenuta la sua risposta successiva nell'areale.",
+  "audio_context_all": "Tutti i richiami sentiti attorno a questa visita"
 }
