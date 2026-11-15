@@ -218,8 +218,12 @@ Tailwind's `lg`. Each result is one line where the panel allows (name, italic ot
 collapsible sections, initially closed, and their summaries name what is chosen inside. A chosen
 row is `.choice-active` with a check, so it reads by weight and shape as well as tint. Only the rail
 scrolls, never a list inside it. Applied filters stay
-visible as removable tokens, with **Clear all** beside the rail's title. Phones use the
-same ordering behind the Filters button. A switch and its token use one name per option (the
+visible as removable tokens, with **Clear all** beside the rail's title. Phones, and a desktop
+with the rail hidden, use the same ordering behind the Filters button, which opens them as a modal
+sheet in the app's dialog pattern: portalled, named **Filters**, focus moved in and held by
+`trapFocus`, the page scroll locked, closed by **Close**, Escape or a press on the dimmed page,
+with focus returned to the Filters button. Filters still act at once; the sheet has no Apply. The
+filters are written once (a snippet) and drawn in the rail or the sheet. A switch and its token use one name per option (the
 subject is **Garden animals**, as Settings names it), and a custom window's token names its
 dates ("1 Oct to 28 Oct") under visible **From** and **To** labels. **Cameras** lists the cameras
 of the chosen visitors and shows a count only where one was measured for them: bird counts under

@@ -41,6 +41,9 @@ stored call information remain available. A call-loading failure does not remove
 - **Cards** and **List** change how visits are drawn. A card shows the photograph, the time, the
   confidence, the names, the day and the camera. Weather is in the record, which you open from the
   card.
+- **Filters**, on a phone or with the desktop rail hidden, opens the filters as a sheet over the
+  page. Each choice applies at once; **Close**, `Escape` or a tap outside returns you to the
+  results, with keyboard focus back on **Filters**.
 - **Multi-select** lets an owner choose several captures to reclassify, tag or delete. **Done** on
   the selection bar leaves it. On a phone **Multi-select** opens with **Filters**, under **View**;
   **Cards** and **List** stay beside the **Filters** button.

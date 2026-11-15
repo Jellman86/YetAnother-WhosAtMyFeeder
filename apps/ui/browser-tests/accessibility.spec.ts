@@ -163,6 +163,17 @@ for (const theme of THEMES) {
             expect(await seriousFindings(page)).toEqual([]);
         });
 
+        test('the Explorer filter sheet on a phone has no serious accessibility violation', async ({ page }) => {
+            await page.setViewportSize({ width: 390, height: 844 });
+            await replayFeeder(page, theme);
+            await page.goto('/events');
+            await expect(page.locator('[data-detection-card]').first()).toBeVisible(READY);
+            await page.locator('[data-explorer-filter-toggle]').click();
+            await expect(page.getByRole('dialog', { name: 'Filters' })).toBeVisible();
+            await settled(page);
+            expect(await seriousFindings(page)).toEqual([]);
+        });
+
         for (const dialog of DIALOGS) {
             test(`${dialog.name} has no serious accessibility violation`, async ({ page }) => {
                 await replayFeeder(page, theme, dialog.overrides);

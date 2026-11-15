@@ -51,7 +51,23 @@ describe('collapsing the Explorer filter rail', () => {
         // controls no longer publish contradictory expanded states for one
         // region when the rail is collapsed and the panel is open.
         expect(filtersSource).not.toContain('aria-controls="explorer-facets"\n            aria-expanded={!collapsed}');
-        expect(filtersSource).toMatch(/aria-controls="explorer-facets"[\s\S]{0,200}data-explorer-filter-toggle/);
+        expect(filtersSource).toMatch(/aria-expanded=\{panelOpen\}\s+aria-haspopup="dialog"[\s\S]{0,200}data-explorer-filter-toggle/);
+    });
+
+    it('opens the filters as the shared modal pattern wherever the rail is not standing', () => {
+        // A toggled block let focus walk out into the page behind it, ignored Escape and left
+        // focus nowhere on closing.
+        expect(filtersSource).toContain("const rail = $derived(wide.current && !collapsed);");
+        expect(filtersSource).toContain('const sheetOpen = $derived(panelOpen && !rail);');
+        const sheet = filtersSource.slice(filtersSource.indexOf('{:else if sheetOpen}'));
+        expect(sheet).toContain('use:portal');
+        expect(sheet).toMatch(/role="dialog"\s+aria-modal="true"\s+aria-labelledby="explorer-filter-sheet-title"/);
+        expect(sheet).toContain('data-explorer-sheet-close');
+        expect(filtersSource).toContain('const release = trapFocus(sheet);');
+        expect(filtersSource).toContain('const unlock = lockDocumentScroll();');
+        // The filters are written once and drawn in whichever of the two holds them.
+        expect(filtersSource.match(/\{@render facets\(\)\}/g)).toHaveLength(2);
+        expect(filtersSource.match(/data-explorer-date-facet/g)).toHaveLength(1);
     });
 
     it('does not fold the rail away while leaving the facets on screen', () => {

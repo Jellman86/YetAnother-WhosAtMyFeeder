@@ -14,6 +14,9 @@
   one day, and each day is its name and a plain count. The count leaves out a figure that would
   be zero, so "0 Garden visits on this page" is gone. The **Visitors** switch is three equal
   segments, one to a line. Cards no longer repeat the weather, which the record states.
+- **The phone's Filters panel is a proper sheet.** It opens over the page with keyboard focus
+  inside and kept inside, closes with **Close**, Escape or a tap outside, and puts focus back on
+  the **Filters** button. Filters still apply as you choose them.
 - **Badges are named by the words they show.** A time, a confidence or "matching call" on an
   Explorer card or row, in the field log and in a visit's captures, was announced by its
   explanation instead of its visible text, so speech input could not activate it by what is on

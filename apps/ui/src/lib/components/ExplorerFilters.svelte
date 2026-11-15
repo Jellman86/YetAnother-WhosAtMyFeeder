@@ -1,5 +1,9 @@
 <script lang="ts">
     import type { Snippet } from 'svelte';
+    import { MediaQuery } from 'svelte/reactivity';
+    import { portal } from '../utils/portal';
+    import { trapFocus } from '../utils/focus-trap';
+    import { lockDocumentScroll } from '../utils/document-scroll-lock';
     import type { EventFilterSpecies, EventFilters } from '../api';
     import { _ } from 'svelte-i18n';
     import { shownExplorerSpecies, sortExplorerSpecies } from '../utils/explorer-species';
@@ -104,6 +108,45 @@
     }: Props = $props();
 
     let panelOpen = $state(false);
+
+    // On a desktop with the rail shown, the filters stand beside the results. Anywhere else the
+    // Filters button opens them as a modal sheet over the page, the app's dialog pattern: named,
+    // portalled, focus held inside, Escape and Close to leave. Tailwind's lg, as the layout uses.
+    const wide = new MediaQuery('min-width: 1024px', false);
+    const rail = $derived(wide.current && !collapsed);
+    const sheetOpen = $derived(panelOpen && !rail);
+    let sheet = $state<HTMLDivElement | null>(null);
+
+    function closeSheet(): void {
+        panelOpen = false;
+    }
+
+    function toggleFilters(event: MouseEvent): void {
+        // Safari does not focus a button it clicks; the trap returns focus to whatever held it.
+        if (event.currentTarget instanceof HTMLElement) event.currentTarget.focus();
+        panelOpen = !panelOpen;
+    }
+
+    function handleSheetKeydown(event: KeyboardEvent): void {
+        // Keys pressed in a modal belong to it: the page's shortcuts (the search's "/", the day
+        // keys) would otherwise act on, or move focus to, what lies beneath.
+        event.stopPropagation();
+        if (event.key === 'Escape') {
+            event.preventDefault();
+            closeSheet();
+        }
+    }
+
+    // trapFocus moves focus in, holds it, and alone returns it to the opener on release.
+    $effect(() => {
+        if (!sheet) return;
+        const unlock = lockDocumentScroll();
+        const release = trapFocus(sheet);
+        return () => {
+            release();
+            unlock();
+        };
+    });
 
     // Collapsing arrives from the header toolbar. The collapsed desktop shares
     // the phone's Filters button, so the moment the rail folds away the facets
@@ -300,8 +343,8 @@
                 ? 'border border-brand-300 bg-brand-100 text-brand-700 dark:border-brand-400/60 dark:bg-brand-500/20 dark:text-brand-100'
                 : 'btn-secondary'} {collapsed ? '' : 'lg:hidden'}"
             aria-expanded={panelOpen}
-            aria-controls="explorer-facets"
-            onclick={() => (panelOpen = !panelOpen)}
+            aria-haspopup="dialog"
+            onclick={toggleFilters}
             data-explorer-filter-toggle
         >
             {$_('events.filters.title', { default: 'Filters' })}
@@ -319,15 +362,7 @@
         {/if}
     </div>
 
-    <div
-        id="explorer-facets"
-        class="mt-3 gap-3 border-t border-slate-200 pt-3 dark:border-slate-700 {panelOpen
-            ? 'flex flex-col'
-            : 'hidden'} {collapsed
-            ? ''
-            : 'lg:flex! lg:mt-2 lg:min-h-0 lg:flex-1 lg:flex-col lg:gap-3 lg:overflow-y-auto lg:overscroll-contain lg:border-t-0 lg:pt-0'}"
-        data-explorer-facets
-    >
+    {#snippet facets()}
             {#if controls}
                 <div class="min-w-0 shrink-0" role="group" aria-labelledby="explorer-page-controls-heading">
                     <p id="explorer-page-controls-heading" class="eyebrow">{$_('events.filters.page_controls', { default: 'View' })}</p>
@@ -602,5 +637,46 @@
                     ? $_('events.filters.refreshing_options', { default: 'Refreshing options' })
                     : $_('events.filters.refresh_options', { default: 'Refresh options' })}
             </button>
-    </div>
+    {/snippet}
+
+    {#if rail}
+        <div
+            id="explorer-facets"
+            class="mt-2 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain"
+            data-explorer-facets
+        >
+            {@render facets()}
+        </div>
+    {:else if sheetOpen}
+        <div
+            class="fixed inset-0 z-60 flex items-end justify-center bg-slate-950/70 sm:items-stretch sm:justify-end"
+            use:portal
+            role="presentation"
+            onclick={(event) => { if (event.target === event.currentTarget) closeSheet(); }}
+        >
+            <div
+                bind:this={sheet}
+                id="explorer-facets"
+                class="flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-3xl border border-line bg-surface text-slate-900 shadow-2xl sm:h-full sm:max-h-none sm:max-w-sm sm:rounded-none sm:rounded-l-3xl dark:text-slate-100"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="explorer-filter-sheet-title"
+                tabindex="-1"
+                onkeydown={handleSheetKeydown}
+                data-explorer-filter-sheet
+            >
+                <div class="flex shrink-0 items-center justify-between gap-3 border-b border-line-soft px-4 py-3">
+                    <h2 id="explorer-filter-sheet-title" class="text-base font-semibold text-slate-900 dark:text-white">
+                        {$_('events.filters.title', { default: 'Filters' })}
+                    </h2>
+                    <button type="button" class="btn btn-secondary min-h-11 px-3 py-2 text-xs" onclick={closeSheet} data-explorer-sheet-close>
+                        {$_('common.close', { default: 'Close' })}
+                    </button>
+                </div>
+                <div class="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain px-4 py-4" data-explorer-facets>
+                    {@render facets()}
+                </div>
+            </div>
+        </div>
+    {/if}
 </section>

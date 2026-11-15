@@ -36,7 +36,8 @@ describe('Explorer page layout', () => {
         expect(filtersSource).toContain('data-explorer-species-facet');
         expect(filtersSource).toContain('data-explorer-species-list');
         expect(filtersSource).toContain('lg:max-h-[calc(100dvh-2rem)]');
-        expect(filtersSource).toContain('lg:overflow-y-auto');
+        // The standing rail scrolls as one; the same filters in the phone's sheet scroll inside it.
+        expect(filtersSource).toMatch(/\{#if rail\}\s*<div\s+id="explorer-facets"\s+class="[^"]*overflow-y-auto overscroll-contain"/);
         // A list scrolling inside the scrolling rail trapped the wheel.
         expect(filtersSource).not.toContain('max-h-64');
         expect(filtersSource.indexOf('data-explorer-date-facet')).toBeLessThan(filtersSource.indexOf('data-explorer-species-facet'));
