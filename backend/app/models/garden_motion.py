@@ -14,12 +14,30 @@ MOTION_PADDING_SECONDS = 5
 MOTION_KEYFRAME_PREROLL_SECONDS = 10
 MOTION_INTERVAL_SECONDS = 10
 UnusableRecordingReason = Literal[
-    "invalid_metadata", "pixel_limit", "duration_limit", "decode_failed", "frame_unbounded", "photo_too_large"
+    "invalid_metadata",
+    "pixel_limit",
+    "duration_limit",
+    "decode_failed",
+    "frame_unbounded",
+    "photo_too_large",
+    "size_limit",
 ]
 UNUSABLE_RECORDING_REASONS: frozenset[str] = frozenset(get_args(UnusableRecordingReason))
 MOTION_CATCHUP_INTERVAL_SECONDS = 5
-MOTION_CATCHUP_SECONDS = 1800
+# The backlog window: footage older than this is skipped, never scanned late. After a
+# restart a longer window meant a long full-CPU catch-up of footage nobody was waiting for.
+MOTION_CATCHUP_SECONDS = 600
+# Per backlog window, at most this many scans start at the faster catch-up interval;
+# the rest wait the normal interval, so a long backlog cannot hold a core.
+MOTION_CATCHUP_BUDGET = 30
+# Skipped footage is counted this far back, so one log line can say how much a
+# restart skipped without asking Frigate for an unbounded history.
+MOTION_SKIP_LOOKBACK_SECONDS = 3 * 3600
 MOTION_QUEUE_LIMIT = 24
+# A 10 s window plus up to 10 s of keyframe pre-roll. The owner's 2688x1512 greenhouse
+# camera records up to 1.7 MB/s on infrared at night, so one window reached about 25 MB;
+# the old 16 MiB limit failed it on every retry instead of scanning it.
+MOTION_RECORDING_BYTE_LIMIT = 48 * 1024 * 1024
 
 
 class MotionSource(BaseModel):

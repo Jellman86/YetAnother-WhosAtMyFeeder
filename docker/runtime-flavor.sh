@@ -2,7 +2,7 @@
 set -euo pipefail
 
 usage() {
-  echo "usage: runtime-flavor.sh <validate|requirements|needs-intel-runtime|packaged-providers> <flavor> <arch>" >&2
+  echo "usage: runtime-flavor.sh <validate|requirements|needs-intel-runtime|needs-vaapi|packaged-providers> <flavor> <arch>" >&2
   exit 64
 }
 
@@ -52,6 +52,10 @@ case "$command" in
     ;;
   needs-intel-runtime)
     [[ "$flavor" == "full" || "$flavor" == "intel" ]]
+    ;;
+  needs-vaapi)
+    # Garden motion's GPU video decode ships in the Intel image only.
+    [[ "$flavor" == "intel" ]]
     ;;
   packaged-providers)
     case "$flavor" in

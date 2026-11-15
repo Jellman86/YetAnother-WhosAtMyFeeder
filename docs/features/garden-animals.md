@@ -350,18 +350,22 @@ It does not replace Frigate's bird detector or change bird classification settin
 Collection is off by default. One worker drains up to 24 queued recording windows
 per camera, oldest first, taking turns between enabled cameras. Each window covers
 up to ten seconds and samples three frames. After a completed window, remaining
-queued footage allows scan starts five seconds apart to catch up. Collection
-returns to a ten-second interval when caught up or paused. Both intervals include
-processing time. Long scans finish and leave at least one second of rest before
+queued footage allows scan starts five seconds apart to catch up, for at most 30
+scans in any ten minutes. After that budget, and whenever collection is caught up
+or paused, scans start ten seconds apart, so a long backlog cannot hold a CPU core.
+Both intervals include processing time. Long scans finish and leave at least one second of rest before
 another starts; failed scans retry thirty seconds after failure. Queues refill from
 Frigate metadata and the saved completion cursor, so restarting does not replay
 completed windows. Longer recordings resume from the cursor instead of losing
 their remaining footage. Overlapping recording metadata is merged before sampling.
 No new database queue or retained clips are needed.
 
-Only completed motion recordings from the last thirty minutes are considered.
+Only completed motion recordings from the last ten minutes are considered.
 Frigate must retain that footage. Pressure or repeated failures can let older
-windows fall outside this catch-up limit without being scanned. This samples
+windows fall outside this catch-up limit without being scanned. After a restart or a
+long pause, footage older than ten minutes is skipped in one step rather than scanned
+late, and the backend logs one `garden_motion_backlog_skipped` line with the number of
+motion windows skipped (at most one line per camera every ten minutes). This samples
 activity; it does not track animals or promise to find every visit. Even within
 a scanned window, a brief visit can fall between the three sampled frames.
 
@@ -370,8 +374,8 @@ can begin up to one 10-second recording segment early (a camera with a 6-second 
 interval returned 16 seconds for a 10-second window). Samples skip that pre-roll and stay
 inside the requested window, and frame offsets are measured from the requested start;
 displayed visit times are approximate. A recording that cannot be read, for example one
-over the size or duration limit or with a frame that will not decode, is skipped with its
-reason instead of being retried, keeps no photo, and **Collection status** counts such
+over the 48 MiB size limit or the duration limit, or with a frame that will not decode, is
+skipped with its reason instead of being retried, keeps no photo, and **Collection status** counts such
 recordings per camera for the last hour.
 The panel reports waiting, failures, the last attempted scan and the latest checked
 camera's remaining queue count and check time. A full queue can have further footage
@@ -392,7 +396,13 @@ the detected shape did not move. On owner-reviewed footage this kept all 28 conf
 visitors and rejected 97 of 104 dismissed fixture photos. An animal that stays
 perfectly still for the whole window can be missed the same way.
 
-Cedar runs on CPU with two inference threads and one video-decoding thread. It
+Cedar runs on CPU with two inference threads. The worker runs at a lower scheduling
+priority than bird classification. In the Intel image (`-intel` tags), the sampled frames
+decode on the Intel GPU through VA-API when `/dev/dri` is passed through. On a 2688x1512
+camera with a five-second keyframe interval this cut decoding from about 1.4 to 0.5
+CPU-seconds per recording, with the same detections. Other images, and Intel hosts where a
+test decode fails, decode on one CPU thread and log `garden_motion_software_decode` once.
+`GET /health` reports the decoder in use under `garden_motion_decode`. It
 yields to queued or running bird inference and stops if active Frigate cameras
 fall behind. One garden operation runs at a time, with a 45-second motion-worker
 deadline. The detector stays loaded between scans and is released after 60 seconds without a

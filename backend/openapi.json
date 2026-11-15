@@ -9883,7 +9883,7 @@
             "type": "boolean"
           },
           "catchup_seconds": {
-            "default": 1800,
+            "default": 600,
             "title": "Catchup Seconds",
             "type": "integer"
           },
@@ -10019,7 +10019,8 @@
               "duration_limit",
               "decode_failed",
               "frame_unbounded",
-              "photo_too_large"
+              "photo_too_large",
+              "size_limit"
             ],
             "title": "Last Reason",
             "type": "string"

@@ -16,6 +16,7 @@ from collections.abc import Awaitable
 from datetime import datetime, timezone
 from typing import Optional
 from app.config import settings
+from app.models.garden_motion import MOTION_RECORDING_BYTE_LIMIT
 from app.services.frigate_readiness import FRIGATE_NOT_READY, FrigateReadinessGate
 from app.services.service_connections import frigate_reachability
 from app.utils.diagnostic_redaction import safe_connection_error
@@ -27,6 +28,10 @@ READINESS_CHECK_TIMEOUT_SECONDS = 5.0
 
 class FrigateEventsFetchError(RuntimeError):
     """Frigate did not return a confirmed, usable event-history response."""
+
+
+class MotionRecordingTooLarge(ValueError):
+    """The recording is larger than a motion scan may download; retrying the same window cannot help."""
 
 
 class FrigateClient:
@@ -307,7 +312,7 @@ class FrigateClient:
             return None, "clip_unknown_error"
 
     async def download_motion_recording(
-        self, camera: str, start: float, end: float, destination: Path, *, byte_limit: int = 16 * 1024 * 1024
+        self, camera: str, start: float, end: float, destination: Path, *, byte_limit: int = MOTION_RECORDING_BYTE_LIMIT
     ) -> None:
         if (
             not re.fullmatch(r"[A-Za-z0-9_-]{1,100}", camera)
@@ -326,7 +331,7 @@ class FrigateClient:
                 async for chunk in response.aiter_bytes(256 * 1024):
                     size += len(chunk)
                     if size > byte_limit:
-                        raise ValueError("Motion recording exceeds its byte limit")
+                        raise MotionRecordingTooLarge("Motion recording exceeds its byte limit")
                     await output.write(chunk)
             if size == 0:
                 raise ValueError("Motion recording is empty")

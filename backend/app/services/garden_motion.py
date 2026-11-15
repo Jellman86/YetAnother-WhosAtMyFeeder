@@ -26,16 +26,19 @@ from app.models.garden_motion import (
     GardenMotionUnreadable,
     MotionSource,
     UNUSABLE_RECORDING_REASONS,
+    MOTION_CATCHUP_BUDGET,
     MOTION_PADDING_SECONDS,
     MOTION_INTERVAL_SECONDS,
     MOTION_CATCHUP_SECONDS,
+    MOTION_SKIP_LOOKBACK_SECONDS,
 )
 from app.repositories.garden_detector_catalog import GardenDetectorCatalog
 from app.repositories.garden_repository import GardenRepository
 from app.services import garden_motion_privacy
 from app.services.broadcaster import broadcaster
 from app.services.classifier_service import garden_inference_pressure
-from app.services.frigate_client import frigate_client, FrigateEventsFetchError
+from app.services.error_diagnostics import error_diagnostics_history
+from app.services.frigate_client import frigate_client, FrigateEventsFetchError, MotionRecordingTooLarge
 from app.services.garden_capture_service import garden_capture_service
 from app.services.garden_identification import (
     bird_work_pending,
@@ -43,7 +46,14 @@ from app.services.garden_identification import (
     MODEL_BASE_URL,
 )
 from app.services.garden_model_runtime import digest
-from app.services.garden_motion_policy import recording_queue, camera_pressure, motion_scan_interval
+from app.services.garden_motion_decode import MotionDecoder, probe_motion_decoder
+from app.services.garden_motion_policy import (
+    camera_pressure,
+    motion_scan_interval,
+    recent_scan_count,
+    recording_queue,
+    skipped_backlog_windows,
+)
 from app.services.garden_worker_supervisor import (
     GardenBusy,
     GardenCleanupFailed,
@@ -55,6 +65,10 @@ from app.utils.api_datetime import utc_naive_now
 
 log = structlog.get_logger()
 UNREADABLE_WINDOW_SECONDS = 3600
+# One odd recording falling back to the CPU is not a broken GPU; this many in a row is.
+MOTION_HARDWARE_FALLBACK_LIMIT = 3
+# Decoder states that mean the image expected the GPU and something on the host prevented it.
+_HARDWARE_DECODE_FAULTS = frozenset({"no_render_node", "probe_failed", "decode_failed"})
 
 
 def unreadable_summary(
@@ -93,6 +107,13 @@ class GardenMotionService:
         self.queue_checked_at: str | None = None
         # (time.time(), camera, reason) for recordings skipped because they could not be read.
         self.unreadable: deque[tuple[float, str, str]] = deque(maxlen=512)
+        # time.monotonic() of recent scan starts; only the budget's worth needs remembering.
+        self.scan_starts: deque[float] = deque(maxlen=MOTION_CATCHUP_BUDGET)
+        # camera -> (skipped windows not yet logged, time.monotonic() of the last skip log line).
+        self.backlog_skips: dict[str, tuple[int, float | None]] = {}
+        self.decoder: MotionDecoder | None = None
+        self.decoder_reported = False
+        self.hardware_fallbacks = 0
         self.worker = GardenWarmWorker(
             "app.services.garden_motion_worker",
             b"MOTION_RESULT:",
@@ -200,6 +221,80 @@ class GardenMotionService:
             garden_identification_service.busy = False
         return await self.status()
 
+    def decode_health(self) -> dict[str, object]:
+        """How motion recordings are decoded, for /health and support bundles."""
+        if self.decoder is None:
+            return {
+                "state": "not_checked",
+                "decoder": None,
+                "device": None,
+                "message": "The motion recording decoder has not been checked yet.",
+                "consecutive_fallbacks": 0,
+            }
+        return {
+            "state": self.decoder.state,
+            "decoder": self.decoder.decoder,
+            "device": self.decoder.device,
+            "message": self.decoder.message,
+            "consecutive_fallbacks": self.hardware_fallbacks,
+        }
+
+    async def _motion_decoder(self) -> MotionDecoder:
+        if self.decoder is None:
+            try:
+                self.decoder = await probe_motion_decoder()
+            except OSError:
+                self.decoder = MotionDecoder("probe_failed")
+        if not self.decoder_reported:
+            self.decoder_reported = True
+            self._report_decoder()
+        return self.decoder
+
+    def _report_decoder(self) -> None:
+        """Said once, when collection first runs, so an install not using motion collection stays quiet."""
+        decoder = self.decoder
+        if decoder is None:
+            return
+        if decoder.state == "vaapi":
+            log.info("garden_motion_decoder", decoder="vaapi", device=decoder.device)
+            return
+        log.warning("garden_motion_software_decode", state=decoder.state, message=decoder.message)
+        if decoder.state in _HARDWARE_DECODE_FAULTS:
+            error_diagnostics_history.record(
+                source="garden_motion",
+                component="motion_decoder",
+                reason_code=f"hardware_decode_{decoder.state}",
+                message=decoder.message,
+                severity="warning",
+            )
+
+    def _note_decoder(self, camera: str, used: str | None) -> None:
+        if used == "vaapi":
+            self.hardware_fallbacks = 0
+        elif used == "software_fallback":
+            self.hardware_fallbacks += 1
+            log.warning("garden_motion_hardware_decode_fallback", camera=camera, consecutive=self.hardware_fallbacks)
+            if self.hardware_fallbacks >= MOTION_HARDWARE_FALLBACK_LIMIT:
+                self.decoder = MotionDecoder("decode_failed")
+                self._report_decoder()
+
+    def _note_skipped_backlog(self, camera: str, skipped: int, resumed_at: float) -> None:
+        """One log line per camera per backlog window, however often the window overtakes the cursor."""
+        pending, logged_at = self.backlog_skips.get(camera, (0, None))
+        pending += skipped
+        now = time.monotonic()
+        if pending and (logged_at is None or now - logged_at >= MOTION_CATCHUP_SECONDS):
+            log.info(
+                "garden_motion_backlog_skipped",
+                camera=camera,
+                skipped_windows=pending,
+                backlog_seconds=MOTION_CATCHUP_SECONDS,
+                resumed_at=resumed_at,
+            )
+            self.backlog_skips[camera] = (0, now)
+        else:
+            self.backlog_skips[camera] = (pending, logged_at)
+
     async def start(self) -> None:
         if self.task is not None:
             return
@@ -207,6 +302,12 @@ class GardenMotionService:
             await asyncio.to_thread(self.catalog.initialize)
         except (OSError, ValueError, sqlite3.Error) as error:
             log.warning("garden_motion_catalogue_unavailable", error_type=type(error).__name__)
+        if self.decoder is None:
+            # Checked at start so /health can say how recordings will decode before the first scan.
+            try:
+                self.decoder = await probe_motion_decoder()
+            except OSError:
+                self.decoder = MotionDecoder("probe_failed")
         self.task = asyncio.create_task(self._run(), name="garden_motion_collector")
 
     async def stop(self) -> None:
@@ -284,6 +385,9 @@ class GardenMotionService:
             raise ValueError("Motion worker returned an unknown unusable-recording reason")
         if result["outcome"] == "candidate" and result.get("devices") != ["CPUExecutionProvider"]:
             raise ValueError("Motion worker did not use its requested CPU provider")
+        allowed_decoders = {"vaapi", "software_fallback"} if payload.get("decode_device") else {None}
+        if result.get("decoder") not in allowed_decoders:
+            raise ValueError("Motion worker reported a decoder it was not asked to use")
         return result
 
     async def scan_once(self) -> None:
@@ -350,15 +454,28 @@ class GardenMotionService:
             if blocked():
                 raise GardenBusy("Waiting for Frigate cameras and bird inference to become idle.")
             now = time.time()
+            floor = now - MOTION_CATCHUP_SECONDS
             async with get_db() as db:
                 cursor = await GardenRepository(db).motion_cursor(camera)
+            behind = cursor is not None and cursor < floor
             response = await frigate_client.get(
                 f"api/{camera}/recordings",
-                params={"after": max(cursor or 0, now - MOTION_CATCHUP_SECONDS), "before": now - 20},
+                params={
+                    # Only a skip reads further back, and only to count what it skips.
+                    "after": max(cursor, now - MOTION_SKIP_LOOKBACK_SECONDS) if behind else max(cursor or 0, floor),
+                    "before": now - 20,
+                },
                 timeout=5,
             )
             response.raise_for_status()
-            windows = recording_queue(response.json(), after=cursor or now - MOTION_CATCHUP_SECONDS, now=now)
+            records = response.json()
+            if behind:
+                skipped = skipped_backlog_windows(records, cursor=cursor, now=now)
+                async with get_db() as db:
+                    await GardenRepository(db).advance_motion_cursor(camera, floor)
+                self._note_skipped_backlog(camera, skipped, floor)
+                cursor = floor
+            windows = recording_queue(records, after=cursor or floor, now=now)
             self.queued_windows = len(windows)
             self.queue_camera = camera
             self.queue_checked_at = utc_naive_now().isoformat() + "Z"
@@ -381,20 +498,29 @@ class GardenMotionService:
             temporary = await asyncio.to_thread(tempfile.mkdtemp, prefix="yawamf-motion-")
             clip, photo = Path(temporary) / "clip.mp4", Path(temporary) / "photo.jpg"
             watcher = asyncio.create_task(watch())
-            await frigate_client.download_motion_recording(camera, start, end, clip)
-            if blocked():
-                raise GardenBusy("Motion scan paused for birds or camera pressure.")
-            payload = dict(
-                model=str(self.path),
-                clip=str(clip),
-                photo=str(photo),
-                duration=end - start,
-                clip_sha256=await asyncio.to_thread(digest, clip),
-                model_sha256=bundle["model_sha256"],
-                names=bundle["names"],
-                animal_confidence=animal_confidence,
-            )
-            result = await self._native(payload, blocked)
+            self.scan_starts.append(time.monotonic())
+            payload: dict[str, Any] = {}
+            try:
+                await frigate_client.download_motion_recording(camera, start, end, clip)
+            except MotionRecordingTooLarge:
+                result: dict[str, Any] = {"outcome": "unusable_recording", "reason": "size_limit"}
+            else:
+                if blocked():
+                    raise GardenBusy("Motion scan paused for birds or camera pressure.")
+                decoder = await self._motion_decoder()
+                payload = dict(
+                    model=str(self.path),
+                    clip=str(clip),
+                    photo=str(photo),
+                    duration=end - start,
+                    clip_sha256=await asyncio.to_thread(digest, clip),
+                    model_sha256=bundle["model_sha256"],
+                    names=bundle["names"],
+                    animal_confidence=animal_confidence,
+                    decode_device=decoder.device if decoder.state == "vaapi" else None,
+                )
+                result = await self._native(payload, blocked)
+                self._note_decoder(camera, result.get("decoder"))
             if blocked():
                 raise GardenBusy("Motion scan paused for birds or camera pressure.")
             if await self._person_overlap(camera, start, end):
@@ -499,7 +625,9 @@ class GardenMotionService:
             self.scanning = False
             garden_identification_service.busy = False
             finished = time.monotonic()
-            self.interval_seconds = motion_scan_interval(self.last_outcome, self.queued_windows)
+            self.interval_seconds = motion_scan_interval(
+                self.last_outcome, self.queued_windows, recent_scans=recent_scan_count(self.scan_starts, now=finished)
+            )
             self.next_scan = (
                 finished + 30 if self.last_outcome == "failed" else max(scan_started + self.interval_seconds, finished)
             )

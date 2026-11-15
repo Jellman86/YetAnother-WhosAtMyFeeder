@@ -1,21 +1,33 @@
 """Bounded CPU recording scans in a warm child. Parent supervises deadline and bird priority.
 
-The detector loads once, for the first scan's model binding. No application settings,
-database, network, species identification or reporting.
+The detector loads once, for the first scan's model binding. Sampled frames decode on
+the Intel GPU when the parent passes a proven render node, else in software. No
+application settings, database, network, species identification or reporting.
 """
 
+from collections.abc import Callable, Generator
 import hashlib
 import math
+import os
 from pathlib import Path
 from typing import Any
 
 import cv2
+import numpy as np
 
 from app.services.garden_detector_runtime import detector_input, decode_candidates
 from app.services.garden_model_runtime import Runtime, digest
+from app.services.garden_motion_decode import RENDER_NODE, HardwareDecodeFailed, sample_frame_indices, stream_frames
 from app.services.garden_motion_policy import STILL_PROPOSAL_MOTION_RATIO, box_motion_ratio
 from app.services.garden_worker_loop import BoundModel, serve
-from app.models.garden_motion import MOTION_KEYFRAME_PREROLL_SECONDS, UNUSABLE_RECORDING_REASONS
+from app.models.garden_motion import (
+    MOTION_KEYFRAME_PREROLL_SECONDS,
+    MOTION_RECORDING_BYTE_LIMIT,
+    UNUSABLE_RECORDING_REASONS,
+)
+
+# Review photos can wait; bird classification and the API cannot. ffmpeg inherits it.
+MOTION_WORKER_NICENESS = 10
 
 
 class UnusableRecording(ValueError):
@@ -43,12 +55,56 @@ def load_detector(payload: dict[str, Any]) -> Runtime:
     return Runtime(model, "cpu")
 
 
+def software_samples(reader: Any, times: list[float]) -> Generator[tuple[float, np.ndarray]]:
+    """Seek-and-read each sample, lazily, so a failed read stops before later inference."""
+    for time in times:
+        reader.set(cv2.CAP_PROP_POS_MSEC, time * 1000)
+        ok, frame = reader.read()
+        if not ok:
+            raise UnusableRecording("decode_failed")
+        yield reader.get(cv2.CAP_PROP_POS_FRAMES) - 1, frame
+
+
+def hardware_samples(
+    device: str,
+    clip: Path,
+    reader: Any,
+    times: list[float],
+    *,
+    fps: float,
+    count: float,
+    width: int,
+    height: int,
+    on_fallback: Callable[[], None],
+) -> Generator[tuple[float, np.ndarray]]:
+    """GPU-decoded samples; if the GPU stops, the remaining samples are read in software.
+
+    Hardware and software decode return the same pixels, so a scan that changes
+    decoder part-way still compares like with like.
+    """
+    indices = sample_frame_indices(times, fps=fps, count=count)
+    frames = stream_frames(device, clip, indices, width=width, height=height)
+    try:
+        for position, index in enumerate(indices):
+            try:
+                frame = next(frames)
+            except HardwareDecodeFailed:
+                on_fallback()
+                yield from software_samples(reader, times[position:])
+                return
+            yield index, frame
+    finally:
+        frames.close()
+
+
 def scan_clip(
     payload: dict[str, Any], *, samples_per_window: int = 3, runtime: Runtime | None = None
 ) -> dict[str, Any]:
     """Nine samples are an explicit offline comparison, never a payload setting.
 
     ``runtime`` is the warm detector already loaded for this payload's model binding.
+    A ``decode_device`` render node decodes the samples on the GPU; when that fails the
+    remaining samples are read in software and the result says ``software_fallback``.
     """
     if type(samples_per_window) is not int or samples_per_window not in (3, 9):
         raise ValueError("Motion sampling supports only three live or nine offline samples")
@@ -56,12 +112,18 @@ def scan_clip(
     duration_limit = float(payload["duration"])
     if not 0.1 <= duration_limit <= 10 or photo.parent != clip.parent:
         raise ValueError("Motion scan requires bounded temporary recording and photo paths")
-    if clip.stat().st_size > 16 * 1024 * 1024 or digest(clip) != payload["clip_sha256"]:
-        raise ValueError("Motion recording exceeds its limit or differs from its checksum")
+    device = payload.get("decode_device")
+    if device is not None and (not isinstance(device, str) or not RENDER_NODE.fullmatch(device)):
+        raise ValueError("Hardware decode needs a GPU render node")
+    if clip.stat().st_size > MOTION_RECORDING_BYTE_LIMIT:
+        raise UnusableRecording("size_limit")
+    if digest(clip) != payload["clip_sha256"]:
+        raise ValueError("Motion recording differs from its checksum")
     if runtime is None:
         runtime = load_detector(payload)
     cv2.setNumThreads(1)
     reader = cv2.VideoCapture(str(clip), cv2.CAP_FFMPEG, [cv2.CAP_PROP_N_THREADS, 1])
+    samples: Generator[tuple[float, np.ndarray]] | None = None
     try:
         width, height = reader.get(cv2.CAP_PROP_FRAME_WIDTH), reader.get(cv2.CAP_PROP_FRAME_HEIGHT)
         fps, count = reader.get(cv2.CAP_PROP_FPS), reader.get(cv2.CAP_PROP_FRAME_COUNT)
@@ -80,19 +142,37 @@ def scan_clip(
         greys = []
         seen: dict[int, str] = {}
         decoded = 0
+        decoder: str | None = None
 
         def finish(result: dict[str, Any]) -> dict[str, Any]:
             if samples_per_window == 9:
                 result["sampling"] = {"requested": 9, "decoded": decoded, "inferred": len(seen)}
+            if decoder is not None:
+                result["decoder"] = decoder
             return result
 
         fractions = (0.1, 0.5, 0.9) if samples_per_window == 3 else tuple(i / 10 for i in range(1, 10))
-        for fraction in fractions:
-            reader.set(cv2.CAP_PROP_POS_MSEC, (preroll + span * fraction) * 1000)
-            ok, frame = reader.read()
-            if not ok:
-                raise UnusableRecording("decode_failed")
-            index = reader.get(cv2.CAP_PROP_POS_FRAMES) - 1
+        times = [preroll + span * fraction for fraction in fractions]
+        samples = software_samples(reader, times)
+        if device is not None:
+            decoder = "vaapi"
+
+            def fell_back() -> None:
+                nonlocal decoder
+                decoder = "software_fallback"
+
+            samples = hardware_samples(
+                device,
+                clip,
+                reader,
+                times,
+                fps=fps,
+                count=count,
+                width=int(width),
+                height=int(height),
+                on_fallback=fell_back,
+            )
+        for index, frame in samples:
             if not math.isfinite(index) or not 0 <= index <= 1200 or index / fps > duration:
                 raise UnusableRecording("frame_unbounded")
             rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -159,10 +239,14 @@ def scan_clip(
                 )
         raise UnusableRecording("photo_too_large")
     finally:
+        if samples is not None:
+            # An early person veto stops the GPU decode here instead of when garbage collected.
+            samples.close()
         reader.release()
 
 
 def main() -> None:
+    os.nice(MOTION_WORKER_NICENESS)
     detector = BoundModel(load_detector, model_binding)
 
     def handle(payload: dict[str, Any]) -> dict[str, Any]:
