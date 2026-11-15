@@ -13,6 +13,6 @@
             <p>{$_('model_execution.fallback', { default: 'CPU fallback: the requested accelerator did not complete its current check or inference successfully.' })}</p>
         {/if}
     {:else}
-        <p>{$_('model_execution.unreported', { default: 'No completed run has reported its device yet. A recommendation is not an execution record.' })}</p>
+        <p>{$_('model_execution.unreported', { default: 'No check has finished on this host yet, so the device it runs on is not known.' })}</p>
     {/if}
 </div>

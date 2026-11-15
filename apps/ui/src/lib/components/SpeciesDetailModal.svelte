@@ -581,14 +581,8 @@
                     <section data-species-record-summary aria-labelledby="species-record-heading">
                         <div class="mb-3 flex items-center justify-between gap-4">
                             <div class="flex items-center gap-2.5">
-                                <span data-species-section-icon class="flex h-8 w-8 items-center justify-center rounded-xl bg-brand-500/10 text-brand-600 dark:text-brand-400" aria-hidden="true">
-                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 19V9m5 10V5m5 14v-7m5 7V3" />
-                                    </svg>
-                                </span>
                                 <h3 id="species-record-heading" class="text-base font-semibold text-slate-900 dark:text-white">{$_('common.statistics')}</h3>
                             </div>
-                            <span class="text-xs font-medium text-brand-700 dark:text-brand-300">{$_('common.detections')}</span>
                         </div>
                         <dl class="grid grid-cols-2 overflow-hidden border-y border-slate-200 dark:border-slate-700 sm:grid-cols-4">
                             <div class="border-b border-r border-slate-200 px-3 py-4 dark:border-slate-700 sm:border-b-0 sm:px-4">
@@ -613,12 +607,6 @@
                     {#if stats.recent_sightings.length > 0}
                         <section data-species-recent-sightings aria-labelledby="recent-sightings-heading">
                             <div class="mb-4 flex items-center gap-2.5">
-                                <span data-species-section-icon class="flex h-8 w-8 items-center justify-center rounded-xl bg-brand-500/10 text-brand-600 dark:text-brand-400" aria-hidden="true">
-                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7a2 2 0 012-2h2l1.25-2h7.5L17 5h2a2 2 0 012 2v11a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" />
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.5 12.5a3.5 3.5 0 11-7 0 3.5 3.5 0 017 0z" />
-                                    </svg>
-                                </span>
                                 <h3 id="recent-sightings-heading" class="text-base font-semibold text-slate-900 dark:text-white">{$_('species_detail.recent_sightings')}</h3>
                             </div>
                             <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
@@ -708,11 +696,6 @@
                     <section data-species-reference class="border-t border-slate-200 pt-8 dark:border-slate-700">
                         <div class="mb-4 flex items-center justify-between gap-3">
                             <div class="flex items-center gap-2">
-                                <div data-species-section-icon class="flex h-8 w-8 items-center justify-center rounded-xl bg-brand-500/10 text-brand-600 dark:text-brand-400" aria-hidden="true">
-                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5.5A2.5 2.5 0 016.5 3H11v17H6.5A2.5 2.5 0 014 17.5v-12zM20 5.5A2.5 2.5 0 0017.5 3H13v17h4.5a2.5 2.5 0 002.5-2.5v-12z" />
-                                    </svg>
-                                </div>
                                 <h3 class="text-base font-semibold text-slate-900 dark:text-white">{$_('actions.species_info')}</h3>
                             </div>
                             
@@ -911,11 +894,6 @@
                 <!-- Time Distribution Charts -->
                 <section data-species-activity class="border-t border-slate-200 pt-8 dark:border-slate-700">
                     <div class="mb-4 flex items-center gap-2.5">
-                        <span data-species-section-icon class="flex h-8 w-8 items-center justify-center rounded-xl bg-brand-500/10 text-brand-600 dark:text-brand-400" aria-hidden="true">
-                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12h4l2.5-6 5 12 2.5-6h4" />
-                            </svg>
-                        </span>
                         <h3 class="text-base font-semibold text-slate-900 dark:text-white">{$_('species_detail.activity_patterns')}</h3>
                     </div>
 
@@ -970,11 +948,6 @@
                 {#if stats.cameras.length > 0}
                     <section class="border-t border-slate-200 pt-8 dark:border-slate-700">
                         <div class="mb-4 flex items-center gap-2.5">
-                            <span data-species-section-icon class="flex h-8 w-8 items-center justify-center rounded-xl bg-brand-500/10 text-brand-600 dark:text-brand-400" aria-hidden="true">
-                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.5-2.25A1 1 0 0121 8.65v6.7a1 1 0 01-1.5.9L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                                </svg>
-                            </span>
                             <h3 class="text-base font-semibold text-slate-900 dark:text-white">{$_('species_detail.camera_breakdown')}</h3>
                         </div>
                         <div class="space-y-3">

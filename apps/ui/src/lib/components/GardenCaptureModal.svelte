@@ -494,13 +494,9 @@
                     {/if}
                     <div class="absolute left-3 top-3 z-30"><GardenExplorerMarker overlay /></div>
                 </div>
-                <div class="relative flex shrink-0 flex-col gap-3 bg-slate-950 px-5 pb-5 pt-4">
-                    <!-- On a phone the rail's title sits right under the picture, so this would say it twice. -->
-                    <div class="flex flex-wrap items-center justify-between gap-3">
-                        <div class="hidden min-w-0 flex-1 sm:block">
-                            <h2 id="garden-capture-title" class="truncate text-xl font-bold leading-tight text-white drop-shadow-lg">{title}</h2>
-                            <p class="mt-2 text-3xs font-semibold text-white/80">{formatDateTime(capture.observed_at)} &middot; {capture.camera}</p>
-                        </div>
+                <!-- The rail names the animal and gives the time; the band under the photograph holds only actions. -->
+                <div class="relative flex shrink-0 flex-col gap-3 bg-slate-950 px-5 {canPlay ? 'pb-5 pt-4' : ''}">
+                    <div class="flex flex-wrap items-center justify-end gap-3">
                         {#if canPlay}
                             <button
                                 type="button"
@@ -584,7 +580,7 @@
                                         ? $_('garden.explorer.suggested_as', { default: 'Suggested as' })
                                         : $_('garden.explorer.eyebrow_capture', { default: 'Garden capture' })}
                             </p>
-                            <h3 class="font-display text-2xl font-bold text-slate-900 dark:text-white">{title}</h3>
+                            <h3 id="garden-capture-title" class="font-display text-2xl font-bold text-slate-900 dark:text-white">{title}</h3>
                             {#if view.name && capture.scientific_name && capture.scientific_name !== view.name}
                                 <p class="text-xs italic text-slate-600 dark:text-slate-400" data-garden-scientific-name>{capture.scientific_name}</p>
                             {/if}

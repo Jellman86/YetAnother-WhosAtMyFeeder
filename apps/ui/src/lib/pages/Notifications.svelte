@@ -198,12 +198,6 @@
             >
                 {$_(`notifications.filter_${name}`)}
                 <span class="tabular-nums text-3xs text-slate-600 dark:text-slate-400">{counts[name]}</span>
-                {#if isOwnerOnlyFilter(name)}
-                    <svg class="h-2.5 w-2.5 text-slate-500 dark:text-slate-400" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                        <rect x="3.5" y="7" width="9" height="6" rx="1.5" />
-                        <path d="M5.8 7V5.2a2.2 2.2 0 014.4 0V7" />
-                    </svg>
-                {/if}
             </button>
         {/each}
     </div>

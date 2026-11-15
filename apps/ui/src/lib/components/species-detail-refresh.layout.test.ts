@@ -68,9 +68,9 @@ describe('species detail field-record layout', () => {
         expect(speciesDetailSource).not.toContain('object-cover object-center');
     });
 
-    it('uses a restrained, accessible icon language for primary record sections', () => {
-        expect(speciesDetailSource.match(/data-species-section-icon/g) ?? []).toHaveLength(5);
-        expect(speciesDetailSource.match(/data-species-section-icon[^>]+aria-hidden="true"/g) ?? []).toHaveLength(5);
+    it('heads its sections with words alone, with no icon tile beside each heading', () => {
+        expect(speciesDetailSource).not.toContain('data-species-section-icon');
+        expect(speciesDetailSource).not.toMatch(/p-1\.5 rounded-lg bg-\w+-500\/10/);
         expect(speciesDetailSource).toContain('focus-visible:ring-2 focus-visible:ring-focus');
     });
 

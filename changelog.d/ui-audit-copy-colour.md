@@ -8,10 +8,11 @@
 - Buttons, headings and labels read in sentence case across the app ("Clear history", "Keyboard
   shortcuts", "Test AI connection") in English and in the translations whose grammar uses it. A
   locale test now fails Title Case labels and em dashes in English fallbacks.
-- The detection record names the bird once, in its "Identified as" heading. The photograph no
-  longer repeats it, the common-name card is now a "Change the common name" button, the species
+- The detection and Garden records name the subject once, in the rail's heading. The photograph
+  no longer repeats it, the common-name card is now a "Change the common name" button, the species
   details button is no longer a second primary action, and the record stops saying that a source
-  "was not recorded".
+  "was not recorded". The species dialog's sections are headed by words alone, without an icon
+  tile beside each heading.
 - The review queue offers "Confirm {species}" for every visit the model named, not only for new
   species, so a visit just under the naming threshold is one tap.
 - Every dialog closes with the same round button, the video player is titled by the bird and the
@@ -19,5 +20,5 @@
   place of the permanent hint on the page. The unexplained "Classification sources" line is gone.
 - Clearer words: the error screen says what happened and what to do instead of "Something went
   wrong", empty states say what to do next, Audio history's filters show "Any species" and "Any
-  source" instead of sample values, and notifications say "Only you see this" in place of a padlock
-  and "owner".
+  source" instead of sample values, notifications say "Only you see this" in place of a padlock
+  and "owner", and a model whose device is not known yet says so in plain words.
