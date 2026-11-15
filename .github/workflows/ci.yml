@@ -211,3 +211,59 @@ jobs:
           docker compose -f docker-compose.dev.yml config --quiet
           docker compose -f docker-compose.prod.yml config --quiet
           bash tests/e2e/monolith_canary_compose_config.sh
+
+  intel-image:
+    name: Intel image and motion decoder
+    runs-on: ubuntu-latest
+    # Pull requests otherwise build no image, so a Dockerfile change was first built after
+    # merge. A cold Intel build downloads several runtimes; the dev build's cache usually
+    # covers most of them.
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Decide whether the Intel image changed
+        id: scope
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -euo pipefail
+          base="origin/${BASE_REF:-dev}"
+          if git diff --quiet "$base"...HEAD -- \
+              Dockerfile docker/ backend/requirements-base.txt backend/requirements-provider-intel.txt \
+              backend/app/services/garden_motion_decode.py tests/e2e/monolith_runtime_flavor_smoke.sh; then
+            echo "build=false" >> "$GITHUB_OUTPUT"
+            echo "The Intel image's inputs are unchanged; the dev build checks it after merge."
+          else
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Buildx
+        if: steps.scope.outputs.build == 'true'
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
+
+      - name: Build the Intel image without publishing it
+        if: steps.scope.outputs.build == 'true'
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
+        with:
+          context: .
+          push: false
+          load: true
+          build-args: |
+            RUNTIME_FLAVOR=intel
+          tags: yawamf-monalithic:pr-intel
+          cache-from: type=gha,scope=monolith-intel
+
+      - name: Report the Intel image size
+        if: steps.scope.outputs.build == 'true'
+        run: |
+          docker image inspect --format '{{.Size}}' yawamf-monalithic:pr-intel \
+            | awk '{ printf "Intel image: %.0f MB uncompressed\n", $1 / 1000000 }'
+
+      - name: Smoke-test the Intel image and its motion decoder
+        if: steps.scope.outputs.build == 'true'
+        run: tests/e2e/monolith_runtime_flavor_smoke.sh yawamf-monalithic:pr-intel intel

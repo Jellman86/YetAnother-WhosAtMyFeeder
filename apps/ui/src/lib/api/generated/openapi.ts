@@ -1408,7 +1408,7 @@ export interface components {
     GardenMotionUnreadable: {
     camera: string;
     count: number;
-    last_reason: "invalid_metadata" | "pixel_limit" | "duration_limit" | "decode_failed" | "frame_unbounded" | "photo_too_large";
+    last_reason: "invalid_metadata" | "pixel_limit" | "duration_limit" | "decode_failed" | "frame_unbounded" | "photo_too_large" | "size_limit";
 };
     GardenNotificationStatus: {
     attempts: Record<string, number>;

@@ -1,5 +1,6 @@
 """Bounded recording selection and evidence identity, independent of bird ingest."""
 
+from collections.abc import Iterable
 import math
 import re
 
@@ -7,6 +8,7 @@ import numpy as np
 
 from app.models.garden_motion import (
     MotionSource,
+    MOTION_CATCHUP_BUDGET,
     MOTION_CATCHUP_SECONDS,
     MOTION_QUEUE_LIMIT,
     MOTION_INTERVAL_SECONDS,
@@ -55,13 +57,20 @@ def box_motion_ratio(frames: list[np.ndarray], box_xywh: object) -> float | None
     return inside_change / max(ring_change, _CHANGED_PIXEL_FLOOR)
 
 
-def motion_scan_interval(outcome: str | None, queued_windows: int) -> int:
+def motion_scan_interval(outcome: str | None, queued_windows: int, *, recent_scans: int) -> int:
+    """Catch up faster only after completed work, and only within the cycle's budget."""
     if (
         outcome in {"candidate", "no_candidate", "person_rejected", "still_rejected", "unusable_recording"}
         and queued_windows > 0
+        and recent_scans < MOTION_CATCHUP_BUDGET
     ):
         return MOTION_CATCHUP_INTERVAL_SECONDS
     return MOTION_INTERVAL_SECONDS
+
+
+def recent_scan_count(started: Iterable[float], *, now: float) -> int:
+    """Scans started within the current backlog window, which is the budget's cycle."""
+    return sum(1 for at in started if now - at < MOTION_CATCHUP_SECONDS)
 
 
 def motion_key(source: MotionSource) -> str:
@@ -88,16 +97,14 @@ def choose_segment(records: object, *, after: float, now: float) -> tuple[float,
     return windows[0] if windows else None
 
 
-def recording_queue(records: object, *, after: float, now: float) -> list[tuple[float, float]]:
-    """Reconstruct a bounded oldest-first queue from retained recording metadata.
+def _merged_motion(records: object, *, floor: float, ceiling: float, now: float) -> list[tuple[float, float]]:
+    """Completed motion between ``floor`` and ``ceiling``, with overlapping records merged.
 
     Frigate returns overlapping records, including one that straddles the saved
-    cursor. Merge overlaps before splitting so duplicate metadata cannot replay
-    a sampled window. Only the completed cursor needs to survive a restart.
+    cursor. Merging before splitting means duplicate metadata cannot replay a window.
     """
-    if not isinstance(records, list) or len(records) > 2048 or not _number(after) or not _number(now):
+    if not isinstance(records, list) or len(records) > 2048 or not _number(floor) or not _number(now):
         return []
-    floor = max(after, now - MOTION_CATCHUP_SECONDS, 0)
     candidates = []
     for record in records:
         if not isinstance(record, dict):
@@ -105,23 +112,48 @@ def recording_queue(records: object, *, after: float, now: float) -> list[tuple[
         start, end, motion = (record.get(k) for k in ("start_time", "end_time", "motion"))
         if not all(_number(v) for v in (start, end, motion)):
             continue
-        if 0 < start < end <= now - 20 and end > floor and motion > 0:
-            candidates.append((float(max(start, floor)), float(end)))
+        if 0 < start < end <= now - 20 and end > floor and start < ceiling and motion > 0:
+            candidates.append((float(max(start, floor)), float(min(end, ceiling))))
     merged: list[tuple[float, float]] = []
     for start, end in sorted(candidates):
         if merged and start <= merged[-1][1]:
             merged[-1] = (merged[-1][0], max(merged[-1][1], end))
         else:
             merged.append((start, end))
+    return merged
+
+
+def _windows(merged: list[tuple[float, float]], limit: int | None) -> list[tuple[float, float]]:
     windows: list[tuple[float, float]] = []
     for start, end in merged:
         while end - start >= 0.1:
             stop = min(end, start + 10)
             windows.append((start, stop))
-            if len(windows) == MOTION_QUEUE_LIMIT:
+            if len(windows) == limit:
                 return windows
             start = stop
     return windows
+
+
+def recording_queue(records: object, *, after: float, now: float) -> list[tuple[float, float]]:
+    """Reconstruct a bounded oldest-first queue from retained recording metadata.
+
+    Only the completed cursor needs to survive a restart.
+    """
+    if not _number(after) or not _number(now):
+        return []
+    floor = max(after, now - MOTION_CATCHUP_SECONDS, 0)
+    return _windows(_merged_motion(records, floor=floor, ceiling=now, now=now), MOTION_QUEUE_LIMIT)
+
+
+def skipped_backlog_windows(records: object, *, cursor: float | None, now: float) -> int:
+    """Motion windows between the saved cursor and the backlog window that will never be scanned."""
+    if cursor is None or not _number(cursor) or not _number(now):
+        return 0
+    floor = now - MOTION_CATCHUP_SECONDS
+    if cursor >= floor:
+        return 0
+    return len(_windows(_merged_motion(records, floor=cursor, ceiling=floor, now=now), None))
 
 
 def camera_pressure(stats: object, camera: str) -> bool:

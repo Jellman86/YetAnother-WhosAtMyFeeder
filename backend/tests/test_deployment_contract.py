@@ -418,3 +418,31 @@ def test_each_backend_image_reports_its_layout_to_telemetry(dockerfile_path: str
     dockerfile = (REPO_ROOT / dockerfile_path).read_text(encoding="utf-8")
     assert f"ENV YAWAMF_DEPLOYMENT_MODE={mode}" in dockerfile
     assert f'LABEL io.yawamf.deployment.mode="{mode}"' in dockerfile
+
+
+def test_only_the_intel_image_builds_a_pinned_minimal_vaapi_decoder() -> None:
+    """Garden motion decodes on the Intel GPU through a small LGPL ffmpeg, never Debian's 430 MB package."""
+    dockerfile = (REPO_ROOT / "Dockerfile").read_text(encoding="utf-8")
+    flavors = (REPO_ROOT / "docker/runtime-flavor.sh").read_text(encoding="utf-8")
+    smoke = (REPO_ROOT / "tests/e2e/monolith_runtime_flavor_smoke.sh").read_text(encoding="utf-8")
+
+    assert "FROM python:3.13-slim AS motion-decoder-builder" in dockerfile
+    assert "FFMPEG_VER=8.1.3" in dockerfile
+    assert "7138d28c96d9d3e3af4ee3d8cad72741f8ffb40da90c1112235dea3ecd3178a3" in dockerfile
+    assert "--disable-everything" in dockerfile and "--disable-network" in dockerfile
+    assert "--enable-hwaccel=h264_vaapi,hevc_vaapi" in dockerfile
+    # framecrc lists packet timestamps, so the GPU can return the frame OpenCV's seek returns.
+    assert "--enable-muxer=framecrc,rawvideo" in dockerfile
+    assert "--enable-gpl" not in dockerfile and "--enable-nonfree" not in dockerfile
+    assert dockerfile.count('yawamf-runtime-flavor needs-vaapi "$RUNTIME_FLAVOR"') == 3
+    assert (
+        "intel-media-va-driver" in dockerfile and "apt-get install -y --no-install-recommends ffmpeg" not in dockerfile
+    )
+    # Debian's driver goes in before Intel's Ubuntu channel can offer its own libva.
+    assert dockerfile.index("intel-media-va-driver") < dockerfile.index("repositories.intel.com/gpu/ubuntu")
+    assert "COPY --from=motion-decoder-builder /out/ /usr/local/bin/" in dockerfile
+    assert (
+        'needs-vaapi)\n    # Garden motion\'s GPU video decode ships in the Intel image only.\n    [[ "$flavor" == "intel" ]]'
+        in flavors
+    )
+    assert 'expected_decode_state="no_render_node"' in smoke and 'expected_decode_state="not_packaged"' in smoke

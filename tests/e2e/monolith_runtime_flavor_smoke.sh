@@ -71,6 +71,29 @@ fi
 # because of a stale Docker health state.
 docker exec "$container_name" /usr/local/bin/yawamf-healthcheck.sh
 
+# Garden motion decodes on the GPU only in the Intel image. This runner passes no
+# /dev/dri, so the Intel image must report the missing device and fall back, and
+# every other image must report that it ships no GPU decoder.
+if [[ "$expected_flavor" == "intel" ]]; then
+  docker exec "$container_name" yawamf-ffmpeg -hide_banner -hwaccels | grep -qx vaapi
+  expected_decode_state="no_render_node"
+else
+  if docker exec "$container_name" sh -c 'command -v yawamf-ffmpeg' >/dev/null; then
+    echo "only the intel image may ship the VA-API decoder" >&2
+    exit 1
+  fi
+  expected_decode_state="not_packaged"
+fi
+decode_state="$(
+  docker exec "$container_name" curl -fsS http://127.0.0.1:8080/health \
+    | docker exec -i "$container_name" python -c 'import json, sys; print(json.load(sys.stdin)["garden_motion_decode"]["state"])'
+)"
+if [[ "$decode_state" != "$expected_decode_state" ]]; then
+  echo "garden motion decoder: expected $expected_decode_state, got $decode_state" >&2
+  exit 1
+fi
+echo "garden motion decoder: $decode_state"
+
 classifier_status="$(
   docker exec "$container_name" \
     curl -fsS http://127.0.0.1:8080/api/classifier/status
