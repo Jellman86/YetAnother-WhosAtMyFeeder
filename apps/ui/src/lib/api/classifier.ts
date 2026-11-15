@@ -64,13 +64,9 @@ export async function reclassifyDetection(eventId: string, strategy: 'snapshot' 
 }
 
 /** What a detection reads now, when a decision was taken on an identification that has since changed. */
-export interface CurrentIdentification {
-    display_name: string;
-    category_name: string;
-    scientific_name?: string | null;
-    common_name?: string | null;
-    manual_tagged: boolean;
-}
+export type CurrentIdentification = components['schemas']['CurrentIdentification'];
+/** The 409 body of PATCH /api/events/{event_id}, as the API declares it. */
+type IdentificationChangedResponse = components['schemas']['IdentificationChangedResponse'];
 
 /** The server refused a decision because the visit was changed elsewhere after it was shown. */
 export class IdentificationChangedError extends Error {
@@ -84,7 +80,7 @@ export class IdentificationChangedError extends Error {
     }
 }
 
-function isIdentificationChanged(payload: unknown): payload is { detail: { code: 'identification_changed'; message: string; current: CurrentIdentification } } {
+function isIdentificationChanged(payload: unknown): payload is IdentificationChangedResponse {
     if (typeof payload !== 'object' || payload === null || !('detail' in payload)) return false;
     const detail = (payload as { detail: unknown }).detail;
     return typeof detail === 'object' && detail !== null && (detail as { code?: unknown }).code === 'identification_changed';
@@ -96,7 +92,7 @@ function isIdentificationChanged(payload: unknown): payload is { detail: { code:
  * refuses with what it says now (IdentificationChangedError).
  */
 export async function updateDetectionSpecies(eventId: string, displayName: string, shownCategoryName?: string | null): Promise<UpdateDetectionResult> {
-    const body: { display_name: string; expected_category_name?: string } = { display_name: displayName };
+    const body: components['schemas']['UpdateDetectionRequest'] = { display_name: displayName };
     if (shownCategoryName) body.expected_category_name = shownCategoryName;
     const response = await apiFetch(`${API_BASE}/events/${encodeURIComponent(eventId)}`, {
         method: 'PATCH',

@@ -4964,6 +4964,52 @@
         "title": "CropGeneratorConfig",
         "type": "object"
       },
+      "CurrentIdentification": {
+        "description": "What a detection's identification reads now.",
+        "properties": {
+          "category_name": {
+            "title": "Category Name",
+            "type": "string"
+          },
+          "common_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Common Name"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "manual_tagged": {
+            "title": "Manual Tagged",
+            "type": "boolean"
+          },
+          "scientific_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scientific Name"
+          }
+        },
+        "required": [
+          "display_name",
+          "category_name",
+          "manual_tagged"
+        ],
+        "title": "CurrentIdentification",
+        "type": "object"
+      },
       "DailyCameraVisits": {
         "properties": {
           "camera": {
@@ -10768,6 +10814,44 @@
           "is_hidden"
         ],
         "title": "HideResponse",
+        "type": "object"
+      },
+      "IdentificationChangedDetail": {
+        "description": "Why a decision was refused: the identification changed after it was shown.",
+        "properties": {
+          "code": {
+            "const": "identification_changed",
+            "title": "Code",
+            "type": "string"
+          },
+          "current": {
+            "$ref": "#/components/schemas/CurrentIdentification"
+          },
+          "message": {
+            "description": "Plain-language reason, in the request's language",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "current"
+        ],
+        "title": "IdentificationChangedDetail",
+        "type": "object"
+      },
+      "IdentificationChangedResponse": {
+        "description": "409 body of PATCH /api/events/{event_id} when `expected_category_name` no longer holds.",
+        "properties": {
+          "detail": {
+            "$ref": "#/components/schemas/IdentificationChangedDetail"
+          }
+        },
+        "required": [
+          "detail"
+        ],
+        "title": "IdentificationChangedResponse",
         "type": "object"
       },
       "ImageClassificationResponse": {
@@ -28460,6 +28544,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IdentificationChangedResponse"
+                }
+              }
+            },
+            "description": "The identification named in `expected_category_name` changed elsewhere; nothing was written."
           },
           "422": {
             "content": {

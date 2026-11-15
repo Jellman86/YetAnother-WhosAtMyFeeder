@@ -742,6 +742,13 @@ export interface components {
     input_context?: components['schemas']['ClassificationInputContext'] | null;
     source_preference?: string;
 };
+    CurrentIdentification: {
+    category_name: string;
+    common_name?: string | null;
+    display_name: string;
+    manual_tagged: boolean;
+    scientific_name?: string | null;
+};
     DailyCameraVisits: {
     camera: string;
     last_seen?: string | null;
@@ -1524,6 +1531,14 @@ export interface components {
     event_id: string;
     is_hidden: boolean;
     status: string;
+};
+    IdentificationChangedDetail: {
+    code: "identification_changed";
+    current: components['schemas']['CurrentIdentification'];
+    message: string;
+};
+    IdentificationChangedResponse: {
+    detail: components['schemas']['IdentificationChangedDetail'];
 };
     ImageClassificationResponse: {
     active_provider?: string | null;

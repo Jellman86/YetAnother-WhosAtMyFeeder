@@ -248,3 +248,25 @@ async def test_repository_writes_only_while_the_expected_identification_stands()
         assert await _stored(event_id) == ("Eurasian Bullfinch", "Pyrrhula pyrrhula", 1)
     finally:
         await _cleanup(event_id)
+
+
+def test_the_conflict_is_part_of_the_api_contract():
+    """Generated clients type the 409 from the schema instead of guessing its shape."""
+    schema = app.openapi()
+    responses = schema["paths"]["/api/events/{event_id}"]["patch"]["responses"]
+    assert "409" in responses
+    ref = responses["409"]["content"]["application/json"]["schema"]["$ref"]
+    body = schema["components"]["schemas"][ref.rsplit("/", 1)[-1]]
+    detail_ref = body["properties"]["detail"]["$ref"]
+    detail = schema["components"]["schemas"][detail_ref.rsplit("/", 1)[-1]]
+    assert set(detail["required"]) >= {"code", "message", "current"}
+    assert detail["properties"]["code"]["const"] == "identification_changed"
+    current_ref = detail["properties"]["current"]["$ref"]
+    current = schema["components"]["schemas"][current_ref.rsplit("/", 1)[-1]]
+    assert set(current["properties"]) == {
+        "display_name",
+        "category_name",
+        "scientific_name",
+        "common_name",
+        "manual_tagged",
+    }

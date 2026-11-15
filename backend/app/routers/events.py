@@ -1201,6 +1201,30 @@ class UpdateDetectionRequest(BaseModel):
     )
 
 
+class CurrentIdentification(BaseModel):
+    """What a detection's identification reads now."""
+
+    display_name: str
+    category_name: str
+    scientific_name: Optional[str] = None
+    common_name: Optional[str] = None
+    manual_tagged: bool
+
+
+class IdentificationChangedDetail(BaseModel):
+    """Why a decision was refused: the identification changed after it was shown."""
+
+    code: Literal["identification_changed"]
+    message: str = Field(..., description="Plain-language reason, in the request's language")
+    current: CurrentIdentification
+
+
+class IdentificationChangedResponse(BaseModel):
+    """409 body of PATCH /api/events/{event_id} when `expected_category_name` no longer holds."""
+
+    detail: IdentificationChangedDetail
+
+
 class BulkManualTagRequest(BaseModel):
     """Request to manually update multiple detections to the same species."""
 
@@ -1358,20 +1382,18 @@ async def _identification_changed(repo: DetectionRepository, event_id: str, lang
     if current is None:
         return HTTPException(status_code=404, detail=i18n_service.translate("errors.detection_not_found", lang))
     species = current.display_name or current.category_name or ""
-    return HTTPException(
-        status_code=409,
-        detail={
-            "code": "identification_changed",
-            "message": i18n_service.translate("errors.events.identification_changed", lang, species=species),
-            "current": {
-                "display_name": current.display_name,
-                "category_name": current.category_name,
-                "scientific_name": current.scientific_name,
-                "common_name": current.common_name,
-                "manual_tagged": bool(current.manual_tagged),
-            },
-        },
+    detail = IdentificationChangedDetail(
+        code="identification_changed",
+        message=i18n_service.translate("errors.events.identification_changed", lang, species=species),
+        current=CurrentIdentification(
+            display_name=current.display_name,
+            category_name=current.category_name,
+            scientific_name=current.scientific_name,
+            common_name=current.common_name,
+            manual_tagged=bool(current.manual_tagged),
+        ),
     )
+    return HTTPException(status_code=409, detail=detail.model_dump())
 
 
 async def _apply_manual_tag_update(
@@ -2021,7 +2043,16 @@ async def bulk_delete_events(body: BulkDeleteRequest, auth: AuthContext = Depend
     )
 
 
-@router.patch("/events/{event_id}", response_model=ManualTagResponse)
+@router.patch(
+    "/events/{event_id}",
+    response_model=ManualTagResponse,
+    responses={
+        409: {
+            "model": IdentificationChangedResponse,
+            "description": "The identification named in `expected_category_name` changed elsewhere; nothing was written.",
+        }
+    },
+)
 async def update_event(
     event_id: str, update_request: UpdateDetectionRequest, request: Request, auth: AuthContext = Depends(require_owner)
 ):

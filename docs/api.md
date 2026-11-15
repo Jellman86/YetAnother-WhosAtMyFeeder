@@ -346,7 +346,8 @@ still carries that identification, checked in the same conditional `UPDATE`, so 
 elsewhere in the meantime is never overwritten. Otherwise the answer is `409` with
 `detail: {"code": "identification_changed", "message": "This visit was changed elsewhere. It now
 reads …", "current": {"display_name", "category_name", "scientific_name", "common_name",
-"manual_tagged"}}` and nothing is written. Without the field, the last write wins as before; the
+"manual_tagged"}}` and nothing is written. The OpenAPI schema declares this body as
+`IdentificationChangedResponse`, so generated clients type it. Without the field, the last write wins as before; the
 record's own species picker and `PATCH /api/events/bulk/manual-tag` do not send it.
 
 Event rows and `GET /api/events/{event_id}/classification-status` expose
