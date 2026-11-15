@@ -7,6 +7,7 @@
     import ModelManager from '../../pages/models/ModelManager.svelte';
     import { searchSpecies, type ClassifierStatus, type SearchResult } from '../../api';
     import { startModelEvalRun, listModelEvalRuns, getModelEvalRun, getModelEvalDeviceMatrix, type DeviceMatrix } from '../../api/model_eval';
+    import { stopCause } from '../../utils/model-eval-view';
     import type { BlockedSpeciesEntry } from '../../api/settings';
     import { getManualTagSearchOptions } from '../../search/manual-tag-search';
     import { BIRD_MODEL_REGION_OVERRIDE_VALUES, type BirdModelRegionOverride } from '../../settings/bird-model-region-override';
@@ -248,13 +249,14 @@
                         if (!seenActive) {
                             const summary = await getModelEvalRun(run_id).catch(() => null);
                             if (check !== compatCheck) return;
-                            if (!summary?.finished_at && !summary?.error) return;
-                            if (summary?.error) {
+                            const stopped = stopCause(summary?.error_code);
+                            if (!summary?.finished_at && !stopped) return;
+                            if (stopped) {
                                 clearInterval(compatPoll ?? undefined);
                                 compatPoll = null;
                                 compatRunning = false;
                                 compatPhase = 'error';
-                                compatError = summary.error;
+                                compatError = $_(`model_eval.stopped.${stopped}`);
                                 cdRunId += 1;
                                 await refreshRuntimeAfterCheck();
                                 settleCompat();

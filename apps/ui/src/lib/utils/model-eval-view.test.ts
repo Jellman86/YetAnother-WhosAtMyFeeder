@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { ApiRequestError } from '../api/core';
 import type { DeviceMatrix, ModelEvalModelSummary } from '../api/model_eval';
 import {
+    checkRowProblem,
+    downloadStatement,
     evaluationFiles,
     evaluationProblem,
     evaluationProgress,
@@ -9,6 +11,8 @@ import {
     historyPane,
     missingModelDownload,
     providerCheck,
+    skipReason,
+    stopCause,
     warningCopy
 } from './model-eval-view';
 
@@ -66,7 +70,7 @@ describe('progress of a running evaluation', () => {
 describe('a problem states what failed and why', () => {
     it('tells a second start that an evaluation is already running', () => {
         expect(evaluationProblem('start', new ApiRequestError('A run is already in progress', 409)))
-            .toEqual({ what: 'start', cause: 'already_running', detail: null });
+            .toEqual({ what: 'start', cause: 'already_running' });
     });
 
     it('sends an expired or non-owner session to sign in again', () => {
@@ -75,30 +79,69 @@ describe('a problem states what failed and why', () => {
     });
 
     it('says a deleted evaluation is gone', () => {
-        expect(evaluationProblem('results', new ApiRequestError('run not found', 404)))
-            .toEqual({ what: 'results', cause: 'gone', detail: null });
+        expect(evaluationProblem('results', new ApiRequestError('run not found', 404))).toEqual({ what: 'results', cause: 'gone' });
     });
 
-    it('never shows a bare status phrase as the reason for a server fault', () => {
-        expect(evaluationProblem('start', new ApiRequestError('Internal Server Error', 500)))
-            .toEqual({ what: 'start', cause: 'server_fault', detail: null });
-        expect(evaluationProblem('history', new ApiRequestError('HTTP 502', 502)).detail).toBeNull();
+    it('maps a server fault to its plain cause', () => {
+        expect(evaluationProblem('start', new ApiRequestError('Internal Server Error', 500))).toEqual({ what: 'start', cause: 'server_fault' });
+        expect(evaluationProblem('history', new ApiRequestError('HTTP 502', 502)).cause).toBe('server_fault');
     });
 
-    it('keeps a specific reason from the server beside the plain cause', () => {
-        expect(evaluationProblem('start', new ApiRequestError('disk is full', 500)))
-            .toEqual({ what: 'start', cause: 'server_fault', detail: 'disk is full' });
+    it('carries none of what the server or the browser said, whatever it was', () => {
+        const leaks = [
+            new ApiRequestError('Traceback (most recent call last): File "/app/x.py", line 3', 500),
+            new ApiRequestError('unknown artifact', 400),
+            new Error('ECONNRESET 10.0.0.4:8000'),
+            'a bare string'
+        ];
+        for (const error of leaks) {
+            expect(Object.keys(evaluationProblem('delete', error)).sort()).toEqual(['cause', 'what']);
+        }
+        expect(evaluationProblem('delete', leaks[1]).cause).toBe('refused');
+        expect(evaluationProblem('delete', leaks[2]).cause).toBe('refused');
     });
 
     it('recognises a request that never reached YA-WAMF', () => {
-        expect(evaluationProblem('history', new TypeError('Failed to fetch')))
-            .toEqual({ what: 'history', cause: 'unreachable', detail: null });
+        expect(evaluationProblem('history', new TypeError('Failed to fetch'))).toEqual({ what: 'history', cause: 'unreachable' });
         expect(evaluationProblem('stop', new DOMException('timed out', 'AbortError')).cause).toBe('unreachable');
     });
+});
 
-    it('reports anything else as refused, with what the server said', () => {
-        expect(evaluationProblem('delete', new ApiRequestError('unknown artifact', 400)))
-            .toEqual({ what: 'delete', cause: 'refused', detail: 'unknown artifact' });
+describe('why an evaluation stopped, by the code the server recorded', () => {
+    it('knows every code the server writes', () => {
+        for (const code of ['no_models', 'models_not_ready', 'finder_needs_provider_check', 'no_test_birds', 'no_test_photos', 'network']) {
+            expect(stopCause(code)).toBe(code);
+        }
+    });
+
+    it('is the honest unknown for anything else, never the text itself', () => {
+        expect(stopCause('unexpected')).toBe('unexpected');
+        expect(stopCause('ValueError: tensor at 0x7f3a')).toBe('unexpected');
+        expect(stopCause('a_code_from_a_newer_server')).toBe('unexpected');
+    });
+
+    it('is nothing for an evaluation that did not stop early', () => {
+        expect(stopCause(null)).toBeNull();
+        expect(stopCause(undefined)).toBeNull();
+        expect(stopCause('')).toBeNull();
+    });
+});
+
+describe('why a model has no provider checks or was skipped', () => {
+    it('reads the code, with or without the text older files put after it', () => {
+        expect(checkRowProblem('activation_failed')).toBe('activation_failed');
+        expect(checkRowProblem('provider_sweep_failed')).toBe('provider_sweep_failed');
+        expect(checkRowProblem('provider_sweep_failed: RuntimeError(0x7f3a)')).toBe('provider_sweep_failed');
+    });
+
+    it('is unknown for anything else', () => {
+        expect(checkRowProblem('Segmentation fault in libopenvino.so')).toBe('unknown');
+    });
+
+    it('names the two reasons a model is skipped and nothing else', () => {
+        expect(skipReason('activation_failed')).toBe('activation_failed');
+        expect(skipReason('reload_failed')).toBe('reload_failed');
+        expect(skipReason('OSError: [Errno 2]')).toBe('other');
     });
 });
 
@@ -149,11 +192,15 @@ describe('a warning in owner language', () => {
             .toEqual({ key: 'latency_drift_high_plain', values: {} });
     });
 
-    it('knows the codes without figures and passes an unknown code through', () => {
+    it('knows the codes without figures and gives an unknown code its own sentence', () => {
         for (const code of ['low_shared_core', 'provider_fallback_active', 'incomplete_install', 'inference_health_unhealthy', 'region_mismatch']) {
             expect(warningCopy(model({}), { code, message: 'x', severity: 'warning' })).toEqual({ key: code, values: {} });
         }
-        expect(warningCopy(model({}), { code: 'brand_new', message: 'server words', severity: 'info' })).toEqual({ key: null, values: {} });
+        for (const code of ['provider_validation_failed', 'provider_validation_partial']) {
+            expect(warningCopy(model({}), { code, message: 'x', severity: 'critical' })).toEqual({ key: code, values: {} });
+        }
+        // The server's words are never the copy: an unknown code has its own honest sentence.
+        expect(warningCopy(model({}), { code: 'brand_new', message: 'server words', severity: 'info' })).toEqual({ key: 'unknown', values: {} });
     });
 });
 
@@ -231,12 +278,27 @@ describe('what checking every model would download', () => {
     ];
 
     it('counts the bird models and bird finders that are not installed and ready', () => {
-        expect(missingModelDownload(registry, [{ id: 'small', ready: true }, { id: 'large', ready: false }]))
-            .toEqual({ count: 2, megabytes: 779.3 });
+        const estimate = missingModelDownload(registry, [{ id: 'small', ready: true }, { id: 'large', ready: false }]);
+        expect(estimate).toEqual({ count: 2, megabytes: 779.3, unknownSizes: 0 });
+        expect(downloadStatement(estimate)).toBe('sized');
     });
 
     it('is nothing when every model is installed', () => {
-        expect(missingModelDownload(registry, [{ id: 'small', ready: true }, { id: 'large', ready: true }, { id: 'finder', ready: true }]))
-            .toEqual({ count: 0, megabytes: 0 });
+        const estimate = missingModelDownload(registry, [{ id: 'small', ready: true }, { id: 'large', ready: true }, { id: 'finder', ready: true }]);
+        expect(estimate).toEqual({ count: 0, megabytes: 0, unknownSizes: 0 });
+        expect(downloadStatement(estimate)).toBe('nothing');
+    });
+
+    it('keeps a model whose size the registry does not know apart from the measured total', () => {
+        const withUnknown = [...registry, { id: 'bundled', file_size_mb: 0 }, { id: 'broken', file_size_mb: Number.NaN }];
+        const estimate = missingModelDownload(withUnknown, [{ id: 'large', ready: true }, { id: 'finder', ready: true }]);
+        expect(estimate).toEqual({ count: 3, megabytes: 12.4, unknownSizes: 2 });
+        expect(downloadStatement(estimate)).toBe('partly_sized');
+    });
+
+    it('never states a size when none of the missing models has one', () => {
+        const estimate = missingModelDownload([{ id: 'a', file_size_mb: 0 }, { id: 'b', file_size_mb: 0 }], []);
+        expect(estimate).toEqual({ count: 2, megabytes: 0, unknownSizes: 2 });
+        expect(downloadStatement(estimate)).toBe('unsized');
     });
 });

@@ -1533,10 +1533,23 @@ See [Model evaluation](features/model-evaluation.md).
 
 - `POST /api/diagnostics/model-eval/runs` — start a run.
 - `GET /api/diagnostics/model-eval/runs` — list runs.
-- `GET /api/diagnostics/model-eval/runs/{run_id}` — one run's status and results. `available_artifacts`
-  lists the result files this run wrote, in the order `summary.json`, `confusions.csv`,
-  `runtime.json`, `results.jsonl`, `device_matrix.json`; clients offer those and no others. It is
-  empty while a run has not written its first summary.
+- `GET /api/diagnostics/model-eval/runs/{run_id}` — one run's status and results, in the declared
+  shape `ModelEvalRunResponse`; a field the run's summary file holds beyond that shape is not
+  answered. `available_artifacts` lists the result files this run wrote, in the order
+  `summary.json`, `confusions.csv`, `runtime.json`, `results.jsonl`, `device_matrix.json`; clients
+  offer those and no others. It is empty, and `in_progress` is true, while a run has not written
+  its first summary.
+  - `error_code` says why a run stopped early: `no_models`, `models_not_ready`,
+    `finder_needs_provider_check`, `no_test_birds`, `no_test_photos`, `network`, or `unexpected`
+    for anything else, including runs recorded before codes existed. It is `null` otherwise. The
+    text of what was raised is written to the server log only and is never part of an answer.
+    `GET …/runs` (`ModelEvalListResponse`) carries the same `error_code` per row.
+  - `skipped_models[].reason` is `activation_failed` or `reload_failed`, with no free text.
+  - In `device_matrix.json`, a model that could not be checked has `error` set to
+    `activation_failed` or `provider_sweep_failed`. Files written before codes were recorded may carry text after
+    the code; clients read the code before the first `:` and treat anything else as unknown.
+  - Clients translate these codes; a `warnings[].message` is diagnostic text for the summary file,
+    not copy to display.
 - `GET /api/diagnostics/model-eval/runs/{run_id}/{artifact}` — download an existing run
   artifact with owner authorization. Compatibility-only runs normally write `summary.json`
   and `device_matrix.json`; accuracy/per-image files are not implied. An allowed filename

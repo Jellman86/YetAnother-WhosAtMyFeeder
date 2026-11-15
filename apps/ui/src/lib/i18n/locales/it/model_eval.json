@@ -1,6 +1,6 @@
 {
   "checks": {
-    "body": "Ogni modello è stato eseguito su tutti i provider che questa installazione può usare, ciascuno in un processo separato perché un arresto anomalo non fermi YA-WAMF. La CPU è il riferimento: un altro provider supera la verifica quando dà le stesse risposte sulle stesse foto di uccelli. Un rilevatore di uccelli viene confrontato in base a dove colloca il riquadro.",
+    "body": "Ogni provider viene confrontato con la CPU sulle stesse foto di uccelli.",
     "cell": {
       "did_not_load": "Non caricato",
       "differs": "{photos, plural, one {Diverso: uguale su {same} di # foto} other {Diverso: uguale su {same} di # foto}}",
@@ -15,6 +15,11 @@
     },
     "finder": "Rilevatore di uccelli",
     "image": "Immagine del container: {flavor}",
+    "row": {
+      "activation_failed": "Non è stato possibile caricarlo, quindi nessun provider è stato verificato. Usa «Riscarica per riparare» per questo modello in Impostazioni → Rilevamento.",
+      "provider_sweep_failed": "La verifica non è riuscita prima che un provider desse un risultato. Eseguila di nuovo; se non riesce ancora, la causa è nei log del container.",
+      "unknown": "Non è stato verificato, per un motivo che questa pagina non sa indicare. La causa è nei log del container."
+    },
     "title": "Verifiche dei provider"
   },
   "col_best_provider": "Provider più veloce che ha superato la verifica",
@@ -31,8 +36,6 @@
   "confirm_download": {
     "cancel": "Indietro",
     "confirm": "Scarica e avvia",
-    "message": "Per verificare ogni modello vengono prima scaricati quelli non installati, circa {size}. Poi restano installati.",
-    "message_unknown": "Per verificare ogni modello vengono prima scaricati quelli non installati. Non è stato possibile calcolarne la dimensione. Poi restano installati.",
     "title": "{count, plural, one {Scaricare # modello?} other {Scaricare # modelli?}}",
     "title_unknown": "Scaricare i modelli mancanti?"
   },
@@ -42,17 +45,34 @@
     "message": "I modelli già provati conservano i risultati e viene ripristinato il modello che usi ora.",
     "title": "Interrompere la valutazione?"
   },
+  "how": {
+    "checks": "Nelle verifiche dei provider ogni modello viene eseguito su tutti i provider che questa installazione può usare, ciascuno in un processo separato perché un arresto anomalo non fermi YA-WAMF. Un rilevatore di uccelli viene confrontato in base a dove colloca il riquadro.",
+    "col": {
+      "average_time": "Il tempo medio per dare un nome a una foto.",
+      "can_name": "Per quante delle specie di prova il modello ha una risposta.",
+      "common": "La quota di prime ipotesi corrette sugli uccelli da mangiatoia più diffusi.",
+      "first_guess": "La quota di foto in cui la prima ipotesi era la specie giusta.",
+      "local": "La quota di prime ipotesi corrette sugli uccelli segnalati vicino alla tua posizione.",
+      "provider": "Il provider su cui è stato eseguito il modello.",
+      "slow_time": "Il tempo entro cui sono rimaste 19 foto su 20.",
+      "top_three": "La quota in cui la specie giusta era tra le prime tre ipotesi."
+    },
+    "columns_title": "Che cosa indicano le colonne",
+    "cost": "Durante l'esecuzione YA-WAMF carica i modelli uno alla volta, quindi i rilevamenti in tempo reale possono rallentare. Alla fine viene ripristinato il modello che usi ora. Per scaricare le foto serve l'accesso a internet.",
+    "limit": "Le foto non vengono dalla tua mangiatoia. Usa i valori per confrontare i modelli tra loro, non per prevedere quanto uno sarà accurato alla tua mangiatoia.",
+    "photos": "Le foto provengono da iNaturalist e Wikimedia Commons: uccelli comuni da mangiatoia e uccelli segnalati vicino alla posizione salvata.",
+    "title": "Come funziona"
+  },
   "page_title": "Valutazione dei modelli",
   "problem": {
     "cause": {
       "already_running": "È già in corso un'altra valutazione. Attendi che finisca oppure interrompila prima.",
       "gone": "Non è più sul server. Aggiorna la pagina per vedere cosa c'è.",
-      "refused": "YA-WAMF ha rifiutato la richiesta.",
+      "refused": "YA-WAMF ha rifiutato la richiesta. Aggiorna la pagina e riprova; se viene rifiutata ancora, la causa è nei log del container.",
       "server_fault": "YA-WAMF ha riscontrato un errore nel gestire la richiesta. Riprova; se continua a fallire, controlla i log del container.",
       "signed_out": "L'accesso è scaduto o non è quello del proprietario. Accedi di nuovo e riprova.",
       "unreachable": "YA-WAMF non ha risposto. Controlla che sia in esecuzione e che questo dispositivo possa raggiungerlo, poi riprova."
     },
-    "detail": "Risposta del server: {detail}",
     "stale": "Quanto mostrato sotto potrebbe non essere aggiornato.",
     "what": {
       "delete": "La valutazione non è stata eliminata.",
@@ -88,6 +108,7 @@
     "col_provider": "Eseguito su",
     "col_slow_time": "Foto lente",
     "col_top_three": "Tra le prime tre",
+    "columns_hint": "Ogni colonna è spiegata in «Come funziona».",
     "delete": "Elimina questa valutazione",
     "delete_blocked": "Interrompila prima di eliminarla.",
     "duration": "{minutes, plural, one {# minuto} other {# minuti}}",
@@ -102,7 +123,6 @@
     "file_download": "Scarica {label} ({file})",
     "files": "Scarica i risultati",
     "folder": "Cartella sul server:",
-    "key": "Prima ipotesi corretta è la quota di foto in cui la prima ipotesi era la specie giusta; tra le prime tre considera le prime tre ipotesi. Uccelli comuni da mangiatoia e uccelli vicino a te dividono quella quota tra gli uccelli da mangiatoia più diffusi e quelli segnalati vicino alla tua posizione. Foto lente è il tempo entro cui sono rimaste 19 foto su 20.",
     "loading": "Lettura dei risultati",
     "loading_list": "Lettura delle valutazioni precedenti",
     "no_models": "In questa valutazione non è stato provato alcun modello.",
@@ -113,35 +133,46 @@
     "region": "Regione {region}",
     "species": "{count, plural, one {# specie} other {# specie}}",
     "still_running": "Questa valutazione è ancora in corso. I risultati compaiono qui man mano che ogni modello termina.",
-    "stopped_early": "Questa valutazione si è fermata prima della fine, quindi possono mancare dei modelli. Avvia una nuova valutazione; se si ferma di nuovo, controlla i log del container.",
+    "stopped_early": "Questa valutazione si è fermata prima della fine, quindi possono mancare dei modelli.",
     "title": "Risultati",
     "under_a_minute": "Meno di un minuto",
-    "vocabulary_note": "Le quote considerano solo le specie che un modello sa nominare, quindi un modello regionale non viene penalizzato per gli uccelli fuori dalla sua regione."
+    "vocabulary_note": "Le quote considerano solo le specie che un modello sa nominare."
   },
   "skipped": {
     "activation_failed": "I suoi file mancano o sono incompleti. Usa «Riscarica per riparare» per questo modello in Impostazioni → Rilevamento.",
-    "other": "È stato saltato.",
-    "reload_failed": "Non è stato possibile caricarlo.",
+    "other": "È stato saltato per un motivo che questa pagina non sa indicare. La causa è nei log del container.",
+    "reload_failed": "Non è stato possibile caricarlo. Usa «Riscarica per riparare» per questo modello in Impostazioni → Rilevamento; se non basta, la causa è nei log del container.",
     "title": "Modelli non provati"
   },
   "start": {
     "action": "Avvia valutazione",
     "all_models_desc": "Verifica anche che ogni modello dia le stesse risposte sul chip grafico o sulla NPU e sulla CPU. I modelli non installati vengono prima scaricati e restano installati. Richiede molto più tempo.",
     "all_models_label": "Verifica ogni modello su ogni provider",
-    "cost": "Durante l'esecuzione YA-WAMF carica i modelli uno alla volta, quindi i rilevamenti in tempo reale possono rallentare. Alla fine viene ripristinato il modello che usi ora. Per scaricare le foto serve l'accesso a internet.",
     "download_none": "Tutti i modelli sono già installati, quindi non viene scaricato nulla.",
+    "download_note": "Il download può richiedere un po' di tempo, a seconda della connessione. I modelli scaricati restano sul disco finché non ne elimini i file in Impostazioni → Rilevamento → Modelli.",
     "download_reading": "Calcolo della dimensione del download…",
     "download_size": "{count, plural, one {# modello non è ancora installato: un download di circa {size}.} other {# modelli non sono ancora installati: un download di circa {size}.}}",
+    "download_size_partial": "{count, plural, one {# modello non è ancora installato.} other {# modelli non sono ancora installati.}} {unknown, plural, one {Di # di questi non si conosce la dimensione;} other {Di # di questi non si conosce la dimensione;}} gli altri sono un download di circa {size}.",
+    "download_size_unknown": "{count, plural, one {# modello non è ancora installato. La sua dimensione non è nota.} other {# modelli non sono ancora installati. La loro dimensione non è nota.}}",
     "download_unknown": "Non è stato possibile calcolare la dimensione del download. I modelli non installati vengono scaricati comunque.",
     "each_photo_desc": "Aggiunge un file con le cinque ipotesi migliori per ogni foto, per esaminare i singoli errori. Si scarica insieme agli altri risultati.",
     "each_photo_label": "Conserva il risultato di ogni foto",
-    "limit": "Le foto non vengono dalla tua mangiatoia. Usa i valori per confrontare i modelli tra loro, non per prevedere quanto uno sarà accurato alla tua mangiatoia.",
-    "options": "Opzioni della valutazione",
+    "options_hide": "Nascondi le opzioni della valutazione",
+    "options_show": "Mostra le opzioni della valutazione",
     "running": "Valutazione in corso",
     "running_reason": "Si esegue una sola valutazione alla volta. Interrompi questa per avviarne un'altra.",
     "stop": "Interrompi valutazione",
     "title": "Avvia una valutazione",
-    "what": "Ogni modello installato dà un nome a foto di uccelli comuni da mangiatoia e di uccelli segnalati vicino alla posizione salvata. Le foto provengono da iNaturalist e Wikimedia Commons, dove la specie è già confermata, così vedi quanto spesso ogni modello ha ragione e quanto tempo impiega."
+    "what": "Ogni modello installato dà un nome a foto di uccelli la cui specie è già confermata, così puoi confrontare quanto spesso ciascuno ha ragione e con quale velocità."
+  },
+  "stopped": {
+    "finder_needs_provider_check": "Un rilevatore di uccelli può essere verificato solo per provider. Avvia la verifica da Impostazioni → Rilevamento.",
+    "models_not_ready": "Un modello scelto per questa verifica non è installato e pronto. Controllalo in Impostazioni → Rilevamento, poi riavvia.",
+    "network": "Una richiesta a iNaturalist o Wikimedia Commons non è riuscita. Controlla la connessione a internet, poi riavvia.",
+    "no_models": "Nessun modello di uccelli è installato e pronto. Installane uno in Impostazioni → Rilevamento, poi riavvia.",
+    "no_test_birds": "Non è stato possibile creare l'elenco degli uccelli di prova perché iNaturalist non ha risposto. Controlla la connessione a internet, poi riavvia.",
+    "no_test_photos": "Non è stato possibile recuperare alcuna foto di prova da iNaturalist o Wikimedia Commons. Controlla la connessione a internet, poi riavvia.",
+    "unexpected": "Si è fermata per un errore che questa pagina non sa indicare. Avviala di nuovo; se si ferma ancora, la causa è nei log del container."
   },
   "warning": {
     "high_abstention": "Non ha indicato alcuna specie per il {share}% delle foto. Forse non copre questi uccelli o la sua installazione è incompleta. Controlla il modello in Impostazioni → Rilevamento.",
@@ -153,11 +184,14 @@
     "partial_vocabulary": "Non sa nominare {outside} delle {total} specie di prova, di solito perché vivono fuori dalla sua regione. Le sue quote riguardano le specie che sa nominare.",
     "partial_vocabulary_plain": "Non sa nominare alcune delle specie di prova, di solito perché vivono fuori dalla sua regione. Le sue quote riguardano le specie che sa nominare.",
     "provider_fallback_active": "È stato eseguito sulla CPU anche se era stato richiesto un provider più veloce. Il motivo è in Diagnostica runtime, in Impostazioni → Rilevamento.",
+    "provider_validation_failed": "Nessun provider ha dato risposte utilizzabili uguali a quelle della CPU. Le verifiche dei provider qui sotto mostrano ogni risultato.",
+    "provider_validation_partial": "Alcuni provider non hanno superato la verifica o non sono disponibili qui. Le verifiche dei provider qui sotto mostrano ogni risultato.",
     "region_mismatch": "È pensato per una regione diversa da quella degli uccelli vicino a te, quindi qui le sue quote sono più basse che là.",
     "severity": {
-      "critical": "Problema",
+      "critical": "Da guardare",
       "info": "Nota",
-      "warning": "Da controllare"
-    }
+      "warning": "Merita un controllo"
+    },
+    "unknown": "Segnalato per un motivo che questa versione della pagina non sa spiegare. Il dettaglio è nel download «Riepilogo»."
   }
 }

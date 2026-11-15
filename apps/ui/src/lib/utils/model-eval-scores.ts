@@ -39,10 +39,10 @@ export function modelEvalScores(model: ModelEvalModelSummary): ModelEvalScores {
     }
     if (!model.vocabulary_known) {
         return {
-            top1: model.top1_accuracy,
-            top3: model.top3_accuracy,
-            core: model.shared_core_top1,
-            region: model.regional_top1,
+            top1: model.top1_accuracy ?? null,
+            top3: model.top3_accuracy ?? null,
+            core: model.shared_core_top1 ?? null,
+            region: model.regional_top1 ?? null,
             canName: null,
         };
     }

@@ -74,6 +74,38 @@ class ModelEvalAlreadyRunning(RuntimeError):
     pass
 
 
+class ModelEvalStopped(RuntimeError):
+    """A run that cannot go on, for a reason an owner can act on.
+
+    `code` is what the summary and the API carry. The message is for the log.
+    """
+
+    def __init__(self, code: str, message: str) -> None:
+        super().__init__(message)
+        self.code = code
+
+
+# A run that stopped for a reason nobody anticipated. The exception is in the log.
+UNEXPECTED_FAILURE = "unexpected"
+
+
+def run_failure_code(error: BaseException) -> str:
+    """The stable code for why a run stopped. Never the text of what was raised."""
+    if isinstance(error, ModelEvalStopped):
+        return error.code
+    if isinstance(error, httpx.HTTPError):
+        return "network"
+    return UNEXPECTED_FAILURE
+
+
+def recorded_failure_code(summary: dict[str, Any]) -> Optional[str]:
+    """A summary's failure code. One written before codes existed holds only raised text."""
+    code = summary.get("error_code")
+    if code:
+        return str(code)
+    return UNEXPECTED_FAILURE if summary.get("error") else None
+
+
 def select_evaluation_models(
     installed: list[InstalledModel],
     *,
@@ -97,11 +129,13 @@ def select_evaluation_models(
         crop_detectors = [model for model in crop_detectors if model.id in requested]
         found = {model.id for model in [*classifiers, *crop_detectors]}
         if missing := sorted(requested - found):
-            raise RuntimeError(f"requested models are not installed and ready: {', '.join(missing)}")
+            raise ModelEvalStopped(
+                "models_not_ready", f"requested models are not installed and ready: {', '.join(missing)}"
+            )
         if crop_detectors and not (compat_only and sweep_devices):
-            raise RuntimeError("crop detectors require a device compatibility run")
+            raise ModelEvalStopped("finder_needs_provider_check", "crop detectors require a device compatibility run")
     if not classifiers and not (compat_only and sweep_devices and crop_detectors):
-        raise RuntimeError("no installed classifier models found")
+        raise ModelEvalStopped("no_models", "no installed classifier models found")
     return classifiers, crop_detectors
 
 
@@ -231,6 +265,7 @@ class ModelEvalRunner:
         # A run writes different files depending on how it was started, so the page
         # offers the ones that exist rather than guessing from the run's shape.
         summary["available_artifacts"] = [name for name in ARTIFACT_FILENAMES if (run_dir / name).is_file()]
+        summary["error_code"] = recorded_failure_code(summary)
         return summary
 
     def artifact_path(self, run_id: str, filename: str) -> Optional[Path]:
@@ -297,13 +332,15 @@ class ModelEvalRunner:
                 raise
             except Exception as e:
                 log.exception("model_eval_run_failed", run_id=run_id, error=str(e))
-                await self._emit(run_id, phase="error", error=str(e))
-                # Stamp a partial summary so the UI can see the failure.
+                error_code = run_failure_code(e)
+                await self._emit(run_id, phase="error", error_code=error_code)
+                # Stamp a partial summary so the UI can see the failure. It records why by
+                # code: what was raised can name paths and addresses, and stays in the log.
                 err_summary = {
                     "run_id": run_id,
                     "started_at": (self._active_status or {}).get("started_at"),
                     "finished_at": datetime.now(timezone.utc).isoformat(),
-                    "error": str(e),
+                    "error_code": error_code,
                     "models": [],
                 }
                 try:
@@ -348,7 +385,7 @@ class ModelEvalRunner:
             )
 
         if not panel:
-            raise RuntimeError("species panel is empty — taxonomy service unreachable?")
+            raise ModelEvalStopped("no_test_birds", "species panel is empty — taxonomy service unreachable?")
 
         # Fetch images
         images_root = run_dir / IMAGES_SUBDIR
@@ -387,7 +424,7 @@ class ModelEvalRunner:
                 image_sources_count[img.source] = image_sources_count.get(img.source, 0) + 1
 
         if not usable_panel:
-            raise RuntimeError("no species had any retrievable images; aborting")
+            raise ModelEvalStopped("no_test_photos", "no species had any retrievable images; aborting")
 
         # Device sweep wants the full picture. A full eval always pulls every
         # model; a standalone compatibility check only downloads all when asked
@@ -514,7 +551,6 @@ class ModelEvalRunner:
                         {
                             "model_id": model.id,
                             "reason": "activation_failed",
-                            "detail": "The model's files are missing or incomplete, so it could not be run.",
                             "ready": getattr(model, "ready", None),
                             "ready_reason": getattr(model, "reason", None),
                         }
@@ -530,7 +566,6 @@ class ModelEvalRunner:
                         {
                             "model_id": model.id,
                             "reason": "reload_failed",
-                            "detail": str(e),
                         }
                     )
                     continue
@@ -929,7 +964,7 @@ class ModelEvalRunner:
                     model_id=model.id,
                     error=str(e),
                 )
-                matrix[model.id] = {"error": f"provider_sweep_failed: {e}"}
+                matrix[model.id] = {"error": "provider_sweep_failed"}
                 await asyncio.to_thread(
                     write_eligibility_entry,
                     model.id,
@@ -943,7 +978,7 @@ class ModelEvalRunner:
                     model.id,
                     provider="cpu",
                     ok=False,
-                    reason=f"provider sweep failed: {e}",
+                    reason="provider sweep failed",
                     artifact_sha256=artifact_sha256,
                 )
                 continue
@@ -1017,7 +1052,7 @@ class ModelEvalRunner:
                     model_id=model.id,
                     error=str(exc),
                 )
-                crop_matrix[model.id] = {"error": f"provider_sweep_failed: {exc}"}
+                crop_matrix[model.id] = {"error": "provider_sweep_failed"}
                 await asyncio.to_thread(
                     write_eligibility_entry,
                     model.id,
@@ -1031,7 +1066,7 @@ class ModelEvalRunner:
                     model.id,
                     provider="cpu",
                     ok=False,
-                    reason=f"crop provider sweep failed: {exc}",
+                    reason="crop provider sweep failed",
                     artifact_sha256=artifact_sha256,
                 )
                 continue
@@ -1245,7 +1280,7 @@ def _summary_brief(summary: dict[str, Any]) -> dict[str, Any]:
         "total_species": (summary.get("test_set") or {}).get("total_species"),
         "total_images": (summary.get("test_set") or {}).get("total_images"),
         "region": (summary.get("test_set") or {}).get("region"),
-        "error": summary.get("error"),
+        "error_code": recorded_failure_code(summary),
     }
 
 

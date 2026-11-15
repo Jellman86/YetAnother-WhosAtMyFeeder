@@ -1844,6 +1844,97 @@ export interface components {
     message: string;
     status: string;
 };
+    ModelEvalActiveStatus: {
+    phase: string;
+    progress: components['schemas']['ModelEvalProgress'];
+    run_id: string;
+    started_at: string;
+};
+    ModelEvalListResponse: {
+    active?: components['schemas']['ModelEvalActiveStatus'] | null;
+    runs?: Array<components['schemas']['ModelEvalRunRow']>;
+};
+    ModelEvalModelSummary: {
+    abstention_rate?: number;
+    active_provider?: string | null;
+    device?: string | null;
+    failed_providers?: Array<string>;
+    high_confidence_unknown_rate?: number;
+    images_evaluated?: number;
+    images_in_vocabulary?: number | null;
+    inference_health_verdict?: string | null;
+    latency_drift_ratio?: number | null;
+    mean_latency_ms?: number | null;
+    model_id: string;
+    p50_latency_ms?: number | null;
+    p95_latency_ms?: number | null;
+    panel_species?: number | null;
+    ready?: boolean;
+    ready_reason?: string | null;
+    regional_top1?: number;
+    regional_top1_in_vocabulary?: number | null;
+    requested_provider?: string | null;
+    shared_core_top1?: number;
+    shared_core_top1_in_vocabulary?: number | null;
+    species_outside_vocabulary?: number | null;
+    startup_benchmark_ms?: number | null;
+    top1_accuracy?: number;
+    top1_accuracy_in_vocabulary?: number | null;
+    top3_accuracy?: number;
+    top3_accuracy_in_vocabulary?: number | null;
+    top5_accuracy?: number;
+    top5_accuracy_in_vocabulary?: number | null;
+    validated_providers?: Array<string>;
+    vocabulary_known?: boolean;
+    warnings?: Array<components['schemas']['ModelEvalWarning']>;
+};
+    ModelEvalProgress: {
+    done: number;
+    label: string;
+    total: number;
+};
+    ModelEvalRunResponse: {
+    available_artifacts?: Array<string>;
+    duration_seconds?: number | null;
+    error_code?: string | null;
+    finished_at?: string | null;
+    in_progress?: boolean;
+    models?: Array<components['schemas']['ModelEvalModelSummary']>;
+    run_id: string;
+    skipped_models?: Array<components['schemas']['ModelEvalSkippedModel']>;
+    started_at?: string | null;
+    test_set?: components['schemas']['ModelEvalTestSet'] | null;
+};
+    ModelEvalRunRow: {
+    duration_seconds?: number | null;
+    error_code?: string | null;
+    finished_at?: string | null;
+    model_count?: number | null;
+    region?: string | null;
+    run_id: string;
+    started_at?: string | null;
+    status: string;
+    total_images?: number | null;
+    total_species?: number | null;
+};
+    ModelEvalSkippedModel: {
+    model_id: string;
+    reason: string;
+};
+    ModelEvalTestSet: {
+    image_sources?: Record<string, number>;
+    images_per_species?: number;
+    region?: string | null;
+    regional_species?: number;
+    shared_core_species?: number;
+    total_images?: number;
+    total_species?: number;
+};
+    ModelEvalWarning: {
+    code: string;
+    message?: string;
+    severity?: string;
+};
     ModelFile: {
     name: string;
     size_bytes: number;
@@ -3742,7 +3833,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: Record<string, components['schemas']['JsonValue']>;
+      response: components['schemas']['ModelEvalListResponse'];
     };
     post: {
       operationId: "start_run_api_diagnostics_model_eval_runs_post";
@@ -3760,7 +3851,7 @@ export interface paths {
 };
       query: never;
       requestBody: unknown;
-      response: Record<string, components['schemas']['JsonValue']>;
+      response: components['schemas']['ModelEvalRunResponse'];
     };
     delete: {
       operationId: "delete_run_api_diagnostics_model_eval_runs__run_id__delete";

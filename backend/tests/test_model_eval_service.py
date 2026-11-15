@@ -15,14 +15,17 @@ import json
 from pathlib import Path
 from types import SimpleNamespace
 
+import httpx
 import pytest
 
 from app.services.model_eval_service import (
     DEVICE_MATRIX_FILENAME,
     ModelEvalAlreadyRunning,
     ModelEvalRunner,
+    ModelEvalStopped,
     SUMMARY_FILENAME,
     _build_summary_envelope,
+    run_failure_code,
     _compatibility_model_summaries,
     _catalogue_labels_present,
     _drift_ratio,
@@ -853,3 +856,38 @@ async def test_a_subprocess_install_still_scores_by_species(tmp_path, monkeypatc
 
     assert model["vocabulary_known"] is True
     assert model["top1_accuracy_in_vocabulary"] == 1.0
+
+
+@pytest.mark.parametrize(
+    ("raised", "code"),
+    [
+        (ModelEvalStopped("no_models", "no installed classifier models found"), "no_models"),
+        (ModelEvalStopped("no_test_photos", "no species had any retrievable images"), "no_test_photos"),
+        (httpx.ConnectError("[Errno 111] Connection refused"), "network"),
+        (ValueError("tensor shape (1, 3, 384, 384) at 0x7f3a"), "unexpected"),
+    ],
+)
+def test_a_stopped_run_is_recorded_by_code_not_by_what_was_raised(raised, code):
+    assert run_failure_code(raised) == code
+
+
+@pytest.mark.asyncio
+async def test_a_failed_run_writes_its_code_and_keeps_the_exception_out_of_the_summary(tmp_path: Path, monkeypatch):
+    _set_runs_dir(monkeypatch, tmp_path)
+    runner = ModelEvalRunner()
+
+    async def explode(**_kwargs):
+        raise ValueError("secret path /config/models/x.onnx at 0x7f3a")
+
+    async def emit(_run_id, **_fields):
+        return None
+
+    monkeypatch.setattr(runner, "_do_run", explode)
+    monkeypatch.setattr(runner, "_emit", emit)
+    run_id = await runner.start()
+    await runner._task
+
+    written = (tmp_path / run_id / SUMMARY_FILENAME).read_text()
+    assert json.loads(written)["error_code"] == "unexpected"
+    assert "0x7f3a" not in written
+    assert "error" not in json.loads(written)

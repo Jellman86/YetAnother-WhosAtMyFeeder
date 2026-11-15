@@ -2,7 +2,6 @@
     import { onDestroy, onMount } from 'svelte';
     import { _, locale } from 'svelte-i18n';
     import Separator from '../components/Separator.svelte';
-    import AdvancedSection from '../components/settings/_primitives/AdvancedSection.svelte';
     import SettingsRow from '../components/settings/_primitives/SettingsRow.svelte';
     import SettingsToggle from '../components/settings/_primitives/SettingsToggle.svelte';
     import { fetchAvailableModels, fetchInstalledModels } from '../api/classifier';
@@ -26,6 +25,8 @@
     import { formatDateTime } from '../utils/datetime';
     import { isCompatibilityOnlyRun, modelEvalScores } from '../utils/model-eval-scores';
     import {
+        checkRowProblem,
+        downloadStatement,
         evaluationFiles,
         evaluationProblem,
         evaluationProgress,
@@ -33,7 +34,10 @@
         historyPane,
         missingModelDownload,
         providerCheck,
+        skipReason,
+        stopCause,
         warningCopy,
+        type DownloadEstimate,
         type EvaluationProblem,
         type ProviderCheck,
     } from '../utils/model-eval-view';
@@ -44,23 +48,24 @@
     const LISTED_EVALUATIONS = 20;
 
     type Tone = 'neutral' | 'pass' | 'attention' | 'failure';
-    // Every tone is also said in words in its cell or note; the colour only helps the eye find it.
-    const TONE_TEXT: Record<Tone, string> = {
-        neutral: 'text-slate-700 dark:text-slate-300',
-        pass: 'text-success-700 dark:text-success-300',
-        attention: 'text-attention-800 dark:text-attention-200',
-        failure: 'text-red-700 dark:text-red-300',
+    // A result is its word in ordinary ink. The dot beside it only helps the eye find the rows that
+    // differ: amber where the owner should look, red only for a provider that really failed.
+    const TONE_DOT: Record<Tone, string> = {
+        neutral: 'bg-slate-400 dark:bg-slate-500',
+        pass: 'bg-success-500',
+        attention: 'bg-attention-500',
+        failure: 'bg-red-600 dark:bg-red-500',
     };
 
-    interface Cell { text: string | null; tone?: Tone }
-    interface Note { tone: Tone; label: string; text: string; detail?: string }
+    interface Cell { text: string | null; tone?: Tone; dot?: boolean }
+    interface Note { tone: Tone; label: string; text: string }
     interface Row { id: string; name: string; kind?: string; cells: Cell[]; notes: Note[] }
     interface Column { label: string; numeric?: boolean }
     interface ModelTable { columns: Column[]; rows: Row[] }
 
-    type DownloadEstimate =
-        | { status: 'idle' | 'reading' | 'unknown' }
-        | { status: 'known'; count: number; megabytes: number };
+    type DownloadReading =
+        | { status: 'idle' | 'reading' | 'unreadable' }
+        | { status: 'read'; estimate: DownloadEstimate };
 
     let runs = $state.raw<ModelEvalRunRow[]>([]);
     let active = $state.raw<ModelEvalActiveStatus | null>(null);
@@ -75,7 +80,9 @@
     let starting = $state(false);
     let includePerImage = $state(false);
     let sweepDevices = $state(false);
-    let download = $state<DownloadEstimate>({ status: 'idle' });
+    let optionsOpen = $state(false);
+    let howOpen = $state(false);
+    let download = $state<DownloadReading>({ status: 'idle' });
     let modelNames = $state.raw<ReadonlyMap<string, string>>(new Map());
     let downloadingFile = $state<string | null>(null);
     let pollHandle: number | null = null;
@@ -124,23 +131,27 @@
     function optionLabel(row: ModelEvalRunRow): string {
         const when = evaluationName(row);
         if (row.run_id === active?.run_id) return $_('model_eval.results.option_running', { values: { when }, default: '{when}, running now' });
-        if (row.error) return $_('model_eval.results.option_stopped', { values: { when }, default: '{when}, stopped early' });
+        if (row.error_code) return $_('model_eval.results.option_stopped', { values: { when }, default: '{when}, stopped early' });
         return when;
     }
 
-    function severityTone(severity: ModelEvalWarning['severity']): Tone {
-        if (severity === 'critical') return 'failure';
-        return severity === 'warning' ? 'attention' : 'neutral';
+    type Severity = 'critical' | 'warning' | 'info';
+    // A flagged model wants a look, not an alarm: amber for both, slate for a plain note.
+    const SEVERITY_TONE: Record<Severity, Tone> = { critical: 'attention', warning: 'attention', info: 'neutral' };
+
+    function severityOf(warning: ModelEvalWarning): Severity {
+        return warning.severity === 'critical' || warning.severity === 'warning' ? warning.severity : 'info';
     }
 
     function warningNotes(model: ModelEvalModelSummary): Note[] {
         return (model.warnings ?? []).map((warning) => {
             const copy = warningCopy(model, warning);
+            const severity = severityOf(warning);
             return {
-                tone: severityTone(warning.severity),
-                label: $_(`model_eval.warning.severity.${warning.severity}`),
-                // A warning this page does not know keeps the server's own words.
-                text: copy.key ? $_(`model_eval.warning.${copy.key}`, { values: copy.values }) : warning.message,
+                tone: SEVERITY_TONE[severity],
+                label: $_(`model_eval.warning.severity.${severity}`),
+                // The server's message is never the copy: every code, known or not, has a sentence here.
+                text: $_(`model_eval.warning.${copy.key}`, { values: copy.values }),
             };
         });
     }
@@ -197,23 +208,35 @@
     function checkCell(check: ProviderCheck): Cell {
         switch (check.kind) {
             case 'not_tested':
-                return { text: $_('model_eval.checks.cell.not_tested', { default: 'Not tested' }) };
+                return { text: $_('model_eval.checks.cell.not_tested', { default: 'Not tested' }), dot: true };
             case 'did_not_load':
-                return { text: $_('model_eval.checks.cell.did_not_load', { default: 'Did not load' }), tone: 'failure' };
+                return { text: $_('model_eval.checks.cell.did_not_load', { default: 'Did not load' }), tone: 'failure', dot: true };
             case 'unusable_output':
-                return { text: $_('model_eval.checks.cell.unusable_output', { default: 'Unusable output' }), tone: 'failure' };
+                return { text: $_('model_eval.checks.cell.unusable_output', { default: 'Unusable output' }), tone: 'failure', dot: true };
             case 'reference':
-                return { text: check.photos
+                return { dot: true, text: check.photos
                     ? $_('model_eval.checks.cell.reference', { values: { photos: check.photos } })
                     : $_('model_eval.checks.cell.reference_plain', { default: 'Reference' }) };
             case 'same':
-                return { text: $_(check.boxes ? 'model_eval.checks.cell.same_boxes' : 'model_eval.checks.cell.same', { values: { photos: check.photos } }), tone: 'pass' };
+                return { text: $_(check.boxes ? 'model_eval.checks.cell.same_boxes' : 'model_eval.checks.cell.same', { values: { photos: check.photos } }), tone: 'pass', dot: true };
             case 'differs':
-                return { text: $_(check.boxes ? 'model_eval.checks.cell.differs_boxes' : 'model_eval.checks.cell.differs', { values: { same: check.same, photos: check.photos } }), tone: 'attention' };
+                return { text: $_(check.boxes ? 'model_eval.checks.cell.differs_boxes' : 'model_eval.checks.cell.differs', { values: { same: check.same, photos: check.photos } }), tone: 'attention', dot: true };
             case 'ran':
-                return { text: $_('model_eval.checks.cell.ran', { default: 'Ran' }), tone: 'pass' };
+                return { text: $_('model_eval.checks.cell.ran', { default: 'Ran' }), tone: 'pass', dot: true };
         }
     }
+
+    // The accuracy columns, explained once under "How this works" whatever evaluation is shown.
+    let columnMeanings = $derived([
+        { label: $_('model_eval.results.col_first_guess', { default: 'First guess right' }), meaning: $_('model_eval.how.col.first_guess') },
+        { label: $_('model_eval.results.col_top_three', { default: 'Right in top three' }), meaning: $_('model_eval.how.col.top_three') },
+        { label: $_('model_eval.results.col_common', { default: 'Common feeder birds' }), meaning: $_('model_eval.how.col.common') },
+        { label: $_('model_eval.results.col_local', { default: 'Birds near you' }), meaning: $_('model_eval.how.col.local') },
+        { label: $_('model_eval.results.col_can_name', { default: 'Species it can name' }), meaning: $_('model_eval.how.col.can_name') },
+        { label: $_('model_eval.results.col_average_time', { default: 'Average time' }), meaning: $_('model_eval.how.col.average_time') },
+        { label: $_('model_eval.results.col_slow_time', { default: 'Slow photos' }), meaning: $_('model_eval.how.col.slow_time') },
+        { label: $_('model_eval.results.col_provider', { default: 'Ran on' }), meaning: $_('model_eval.how.col.provider') },
+    ]);
 
     let checksTable = $derived.by((): ModelTable | null => {
         if (!deviceMatrix) return null;
@@ -226,8 +249,9 @@
                 name: modelNames.get(modelId) ?? modelId,
                 kind: row.comparison_kind === 'crop_box' ? $_('model_eval.checks.finder', { default: 'Bird finder' }) : undefined,
                 cells: providers.map((provider) => checkCell(providerCheck(row, provider))),
+                // The row's own text may be what an exception said; only its code is read.
                 notes: row.error
-                    ? [{ tone: 'failure' as const, label: $_('model_eval.warning.severity.critical', { default: 'Problem' }), text: row.error }]
+                    ? [{ tone: 'attention' as const, label: $_('model_eval.warning.severity.critical', { default: 'Needs a look' }), text: $_(`model_eval.checks.row.${checkRowProblem(row.error)}`) }]
                     : [],
             })),
         };
@@ -236,14 +260,9 @@
     let skippedModels = $derived((selectedRun?.skipped_models ?? []).map((skipped) => ({
         id: skipped.model_id,
         name: modelNames.get(skipped.model_id) ?? skipped.model_id,
-        reason: skipped.reason === 'activation_failed'
-            ? $_('model_eval.skipped.activation_failed')
-            : skipped.reason === 'reload_failed'
-                ? $_('model_eval.skipped.reload_failed', { default: 'It could not be loaded.' })
-                : $_('model_eval.skipped.other', { default: 'It was skipped.' }),
-        // The server's own explanation of a missing install repeats the translated reason.
-        detail: skipped.reason === 'activation_failed' ? undefined : skipped.detail,
+        reason: $_(`model_eval.skipped.${skipReason(skipped.reason)}`),
     })));
+    let stopped = $derived(stopCause(selectedRun?.error_code));
 
     let testSetFacts = $derived.by((): string[] => {
         const facts: string[] = [];
@@ -300,9 +319,9 @@
         refreshInFlight = true;
         try {
             const list = await listModelEvalRuns();
-            const justFinished = active !== null && list.active === null;
-            runs = list.runs;
-            active = list.active;
+            const justFinished = active !== null && !list.active;
+            runs = list.runs ?? [];
+            active = list.active ?? null;
             historyLoaded = true;
             historyProblem = null;
             if (selectedRunId && !runs.some((row) => row.run_id === selectedRunId)) {
@@ -350,10 +369,10 @@
         download = { status: 'reading' };
         try {
             const [registry, installed] = await Promise.all([fetchAvailableModels(), fetchInstalledModels()]);
-            download = { status: 'known', ...missingModelDownload(registry, installed) };
+            download = { status: 'read', estimate: missingModelDownload(registry, installed) };
         } catch {
             // The size is advice: without it the page says it could not be read, and still asks first.
-            download = { status: 'unknown' };
+            download = { status: 'unreadable' };
         }
     }
 
@@ -362,18 +381,34 @@
         if (next) void readDownload();
     }
 
-    /** Checking every model downloads the missing ones first, so the owner agrees to the size. */
+    /** The sentence that states the download. A size is given only for the models that have one. */
+    function downloadLine(reading: DownloadReading): string {
+        if (reading.status === 'unreadable') return $_('model_eval.start.download_unknown');
+        if (reading.status !== 'read') return $_('model_eval.start.download_reading', { default: 'Reading how much would be downloaded…' });
+        const { count, megabytes, unknownSizes } = reading.estimate;
+        switch (downloadStatement(reading.estimate)) {
+            case 'nothing':
+                return $_('model_eval.start.download_none', { default: 'Every model is already installed, so nothing is downloaded.' });
+            case 'sized':
+                return $_('model_eval.start.download_size', { values: { count, size: downloadSize(megabytes) } });
+            case 'partly_sized':
+                return $_('model_eval.start.download_size_partial', { values: { count, unknown: unknownSizes, size: downloadSize(megabytes) } });
+            case 'unsized':
+                return $_('model_eval.start.download_size_unknown', { values: { count } });
+        }
+    }
+
+    let nothingToDownload = $derived(download.status === 'read' && download.estimate.count === 0);
+
+    /** Checking every model downloads the missing ones first, so the owner agrees to what that is. */
     async function agreeToDownload(): Promise<boolean> {
         if (download.status === 'reading' || download.status === 'idle') await readDownload();
-        if (download.status === 'known' && download.count === 0) return true;
-        const known = download.status === 'known' ? download : null;
+        if (nothingToDownload) return true;
         return confirmAction({
-            title: known
-                ? $_('model_eval.confirm_download.title', { values: { count: known.count } })
+            title: download.status === 'read'
+                ? $_('model_eval.confirm_download.title', { values: { count: download.estimate.count } })
                 : $_('model_eval.confirm_download.title_unknown', { default: 'Download the missing models?' }),
-            message: known
-                ? $_('model_eval.confirm_download.message', { values: { size: downloadSize(known.megabytes) } })
-                : $_('model_eval.confirm_download.message_unknown'),
+            message: `${downloadLine(download)} ${$_('model_eval.start.download_note')}`,
             confirmLabel: $_('model_eval.confirm_download.confirm', { default: 'Download and start' }),
             cancelLabel: $_('model_eval.confirm_download.cancel', { default: 'Go back' }),
             tone: 'default',
@@ -480,9 +515,6 @@
         <div class="min-w-0 space-y-1">
             <p class="font-semibold">{$_(`model_eval.problem.what.${issue.what}`)}</p>
             <p>{$_(`model_eval.problem.cause.${issue.cause}`)}</p>
-            {#if issue.detail}
-                <p class="wrap-break-word">{$_('model_eval.problem.detail', { values: { detail: issue.detail }, default: 'The server said: {detail}' })}</p>
-            {/if}
         </div>
         {#if retry}
             <button type="button" class="btn btn-secondary shrink-0" onclick={retry}>{$_('error.try_again', { default: 'Try again' })}</button>
@@ -499,9 +531,6 @@
 
 {#snippet modelName(row: Row)}
     <span class="block wrap-break-word">{row.name}</span>
-    {#if row.name !== row.id.split(':').at(-1)}
-        <span class="block font-mono text-xs font-normal text-slate-600 dark:text-slate-400 wrap-break-word">{row.id.split(':').at(-1)}</span>
-    {/if}
     {#if row.kind}
         <span class="block text-xs font-normal text-slate-600 dark:text-slate-400">{row.kind}</span>
     {/if}
@@ -510,20 +539,34 @@
 {#snippet cellValue(cell: Cell)}
     {#if cell.text === null}
         <span aria-hidden="true">—</span><span class="sr-only">{$_('model_eval.results.not_measured', { default: 'Not measured' })}</span>
+    {:else if cell.dot}
+        <span class="inline-flex items-baseline gap-2">
+            <span class="inline-block h-1.5 w-1.5 shrink-0 -translate-y-0.5 rounded-full {TONE_DOT[cell.tone ?? 'neutral']}" aria-hidden="true"></span>
+            <span>{cell.text}</span>
+        </span>
     {:else}
         {cell.text}
     {/if}
 {/snippet}
 
-{#snippet rowNotes(notes: Note[])}
-    <dl class="space-y-1 text-sm">
+<!-- Every note reads the same: a dot, what kind of note it is, and one quiet sentence with the next step. -->
+{#snippet noteLines(notes: Note[])}
+    <ul class="space-y-1 text-sm text-slate-600 dark:text-slate-300">
         {#each notes as note}
-            <div class="flex flex-wrap gap-x-2">
-                <dt class="font-semibold {TONE_TEXT[note.tone]}">{note.label}</dt>
-                <dd class="min-w-0 flex-1 basis-64 text-slate-700 dark:text-slate-300">{note.text}</dd>
-            </div>
+            <li class="flex items-baseline gap-2">
+                <span class="inline-block h-1.5 w-1.5 shrink-0 -translate-y-0.5 rounded-full {TONE_DOT[note.tone]}" aria-hidden="true"></span>
+                <span class="min-w-0"><span class="font-semibold text-slate-900 dark:text-white">{note.label}</span> {note.text}</span>
+            </li>
         {/each}
-    </dl>
+    </ul>
+{/snippet}
+
+<!-- A plain text disclosure: its words say what opens and the chevron says whether it is open. -->
+{#snippet disclosure(label: string, open: boolean, controls: string, toggle: () => void)}
+    <button type="button" class="btn btn-ghost -ml-2 justify-start px-2 text-left" aria-expanded={open} aria-controls={controls} onclick={toggle}>
+        <span class="min-w-0 wrap-break-word">{label}</span>
+        <svg class="h-4 w-4 shrink-0 transition-transform motion-reduce:transition-none {open ? 'rotate-180' : ''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
+    </button>
 {/snippet}
 
 <!-- One set of rows, laid out twice by the panel's own width: a table where the columns fit, and a
@@ -547,12 +590,12 @@
                     <tr class="align-top {row.notes.length ? '' : 'border-b border-line-soft'}">
                         <th scope="row" class="py-2 pr-4 text-left font-semibold text-slate-900 dark:text-white">{@render modelName(row)}</th>
                         {#each row.cells as cell, index}
-                            <td class="px-2 py-2 {table.columns[index].numeric ? 'text-right tabular-nums' : ''} {TONE_TEXT[cell.tone ?? 'neutral']}">{@render cellValue(cell)}</td>
+                            <td class="px-2 py-2 {table.columns[index].numeric ? 'text-right tabular-nums' : ''} text-slate-700 dark:text-slate-300">{@render cellValue(cell)}</td>
                         {/each}
                     </tr>
                     {#if row.notes.length}
                         <tr class="border-b border-line-soft">
-                            <td colspan={table.columns.length + 1} class="pb-3">{@render rowNotes(row.notes)}</td>
+                            <td colspan={table.columns.length + 1} class="pb-3">{@render noteLines(row.notes)}</td>
                         </tr>
                     {/if}
                 {/each}
@@ -566,10 +609,10 @@
                 <dl class="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
                     {#each table.columns as column, index}
                         <dt class="text-slate-600 dark:text-slate-400">{column.label}</dt>
-                        <dd class="text-right tabular-nums {TONE_TEXT[row.cells[index].tone ?? 'neutral']}">{@render cellValue(row.cells[index])}</dd>
+                        <dd class="flex justify-end text-right tabular-nums text-slate-700 dark:text-slate-300">{@render cellValue(row.cells[index])}</dd>
                     {/each}
                 </dl>
-                {#if row.notes.length}{@render rowNotes(row.notes)}{/if}
+                {#if row.notes.length}{@render noteLines(row.notes)}{/if}
             </li>
         {/each}
     </ul>
@@ -581,14 +624,42 @@
         <h2 id="model-eval-start-title" class="font-display text-lg font-semibold text-slate-900 dark:text-white">
             {$_('model_eval.start.title', { default: 'Start an evaluation' })}
         </h2>
-        <div class="mt-2 max-w-3xl space-y-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
-            <p>{$_('model_eval.start.what')}</p>
-            <p>{$_('model_eval.start.cost')}</p>
-            <p>{$_('model_eval.start.limit')}</p>
+        <p class="mt-2 max-w-3xl text-sm leading-relaxed text-slate-600 dark:text-slate-300">{$_('model_eval.start.what')}</p>
+
+        <div class="mt-2 max-w-3xl">
+            {@render disclosure($_('model_eval.how.title', { default: 'How this works' }), howOpen, 'model-eval-how', () => (howOpen = !howOpen))}
+            {#if howOpen}
+                <div id="model-eval-how" class="space-y-3 pb-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+                    <p>{$_('model_eval.how.photos')}</p>
+                    <p>{$_('model_eval.how.cost')}</p>
+                    <p>{$_('model_eval.how.limit')}</p>
+                    <div>
+                        <h3 class="text-sm font-semibold text-slate-900 dark:text-white">{$_('model_eval.how.columns_title', { default: 'What the columns mean' })}</h3>
+                        <dl class="mt-1 space-y-1">
+                            {#each columnMeanings as column}
+                                <div class="flex flex-wrap gap-x-2">
+                                    <dt class="font-semibold text-slate-900 dark:text-white">{column.label}</dt>
+                                    <dd class="min-w-0 flex-1 basis-64">{column.meaning}</dd>
+                                </div>
+                            {/each}
+                        </dl>
+                    </div>
+                    <p>{$_('model_eval.how.checks')}</p>
+                </div>
+            {/if}
         </div>
 
-        <div class="mt-4 max-w-3xl">
-            <AdvancedSection id="model-eval-options" title={$_('model_eval.start.options', { default: 'Evaluation options' })}>
+        <div class="max-w-3xl">
+            {@render disclosure(
+                optionsOpen
+                    ? $_('model_eval.start.options_hide', { default: 'Hide evaluation options' })
+                    : $_('model_eval.start.options_show', { default: 'Show evaluation options' }),
+                optionsOpen,
+                'model-eval-options',
+                () => (optionsOpen = !optionsOpen)
+            )}
+            {#if optionsOpen}
+                <div id="model-eval-options" class="space-y-4 pb-2 pt-1">
                 <SettingsRow
                     labelId="model-eval-each-photo"
                     label={$_('model_eval.start.each_photo_label', { default: 'Keep each photo’s result' })}
@@ -616,19 +687,15 @@
                     />
                 </SettingsRow>
                 {#if sweepDevices}
-                    <p class="text-sm font-semibold text-slate-700 dark:text-slate-200" role="status" data-model-eval-download>
-                        {#if download.status === 'known' && download.count === 0}
-                            {$_('model_eval.start.download_none', { default: 'Every model is already installed, so nothing is downloaded.' })}
-                        {:else if download.status === 'known'}
-                            {$_('model_eval.start.download_size', { values: { count: download.count, size: downloadSize(download.megabytes) } })}
-                        {:else if download.status === 'unknown'}
-                            {$_('model_eval.start.download_unknown')}
-                        {:else}
-                            {$_('model_eval.start.download_reading', { default: 'Reading how much would be downloaded…' })}
+                    <div class="space-y-1 text-sm text-slate-700 dark:text-slate-200" role="status" data-model-eval-download>
+                        <p class="font-semibold">{downloadLine(download)}</p>
+                        {#if !nothingToDownload && download.status !== 'reading'}
+                            <p class="text-slate-600 dark:text-slate-300">{$_('model_eval.start.download_note')}</p>
                         {/if}
-                    </p>
+                    </div>
                 {/if}
-            </AdvancedSection>
+                </div>
+            {/if}
         </div>
 
         <div class="mt-4 flex flex-wrap items-center gap-3">
@@ -686,11 +753,25 @@
     </section>
 
     <section class="card-base @container p-5" aria-labelledby="model-eval-results-title" aria-busy={pane === 'loading'}>
-        <h2 id="model-eval-results-title" class="font-display text-lg font-semibold text-slate-900 dark:text-white">
-            {$_('model_eval.results.title', { default: 'Results' })}
-        </h2>
+        <!-- The header keeps a control's height from the start, so nothing moves when Delete arrives. -->
+        <div class="flex min-h-11 flex-wrap items-center justify-between gap-x-4 gap-y-2">
+            <h2 id="model-eval-results-title" class="font-display text-lg font-semibold text-slate-900 dark:text-white">
+                {$_('model_eval.results.title', { default: 'Results' })}
+            </h2>
+            {#if pane === 'list'}
+                <button
+                    type="button"
+                    class="btn btn-ghost -mr-2 text-red-700 hover:text-red-800 dark:text-red-300 dark:hover:text-red-200"
+                    disabled={selectedIsRunning}
+                    aria-describedby={selectedIsRunning ? 'model-eval-delete-blocked' : undefined}
+                    onclick={deleteSelected}
+                >
+                    {$_('model_eval.results.delete', { default: 'Delete this evaluation' })}
+                </button>
+            {/if}
+        </div>
 
-        <div class="mt-4 space-y-4">
+        <div class="mt-2 space-y-4">
             {#if historyProblem}
                 {@render problem(historyProblem, () => void refresh(true))}
                 {#if pane === 'list'}
@@ -705,8 +786,7 @@
                     {$_('model_eval.results.empty', { default: 'No evaluation has been run yet. Start one above and its results appear here.' })}
                 </p>
             {:else if pane !== 'failed'}
-                <div class="flex flex-wrap items-end gap-3">
-                    <div class="min-w-0 flex-1 basis-56 space-y-1.5 sm:max-w-sm">
+                    <div class="space-y-1.5 sm:max-w-sm">
                         <label for="model-eval-choose" class="block text-sm font-semibold text-slate-900 dark:text-white">{$_('model_eval.results.choose', { default: 'Evaluation' })}</label>
                         <select
                             id="model-eval-choose"
@@ -719,16 +799,6 @@
                             {/each}
                         </select>
                     </div>
-                    <button
-                        type="button"
-                        class="btn btn-danger"
-                        disabled={selectedIsRunning}
-                        aria-describedby={selectedIsRunning ? 'model-eval-delete-blocked' : undefined}
-                        onclick={deleteSelected}
-                    >
-                        {$_('model_eval.results.delete', { default: 'Delete this evaluation' })}
-                    </button>
-                </div>
                 {#if selectedIsRunning}
                     <p id="model-eval-delete-blocked" class="text-sm text-slate-600 dark:text-slate-400">
                         {$_('model_eval.results.delete_blocked', { default: 'Stop it before you delete it.' })}
@@ -759,10 +829,10 @@
                         </p>
                     {/if}
 
-                    {#if selectedRun.error}
-                        <div class="space-y-1 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-200" data-model-eval-stopped>
-                            <p class="font-semibold">{$_('model_eval.results.stopped_early')}</p>
-                            <p class="wrap-break-word">{$_('model_eval.problem.detail', { values: { detail: selectedRun.error }, default: 'The server said: {detail}' })}</p>
+                    {#if stopped}
+                        <div class="flex items-baseline gap-2 text-sm text-slate-600 dark:text-slate-300" data-model-eval-stopped>
+                            <span class="inline-block h-1.5 w-1.5 shrink-0 -translate-y-0.5 rounded-full {TONE_DOT.attention}" aria-hidden="true"></span>
+                            <p class="min-w-0 max-w-3xl"><span class="font-semibold text-slate-900 dark:text-white">{$_('model_eval.results.stopped_early')}</span> {$_(`model_eval.stopped.${stopped}`)}</p>
                         </div>
                     {/if}
 
@@ -780,14 +850,11 @@
                     {#if resultsTable}
                         {@render modelTable(resultsTable, 'model-eval-results-title')}
                         {#if !compatibilityOnly}
-                            <div class="max-w-3xl space-y-1 text-sm text-slate-600 dark:text-slate-400">
-                                <p>{$_('model_eval.results.key')}</p>
-                                {#if selectedRun.models?.some((model) => model.vocabulary_known)}
-                                    <p>{$_('model_eval.results.vocabulary_note')}</p>
-                                {/if}
-                            </div>
+                            <p class="max-w-3xl text-sm text-slate-600 dark:text-slate-400">
+                                {#if selectedRun.models?.some((model) => model.vocabulary_known)}{$_('model_eval.results.vocabulary_note')}{' '}{/if}{$_('model_eval.results.columns_hint')}
+                            </p>
                         {/if}
-                    {:else if !selectedRun.in_progress && !selectedIsRunning && !selectedRun.error && skippedModels.length === 0}
+                    {:else if !selectedRun.in_progress && !selectedIsRunning && !stopped && skippedModels.length === 0}
                         <p class="text-sm text-slate-600 dark:text-slate-300">{$_('model_eval.results.no_models', { default: 'No model was tested in this evaluation.' })}</p>
                     {/if}
 
@@ -797,13 +864,10 @@
                             <ul class="mt-2 space-y-2 text-sm">
                                 {#each skippedModels as skipped (skipped.id)}
                                     <li class="flex gap-2">
-                                        <span class="attention-dot mt-2" aria-hidden="true"></span>
+                                        <span class="mt-2 inline-block h-1.5 w-1.5 shrink-0 rounded-full {TONE_DOT.attention}" aria-hidden="true"></span>
                                         <span class="min-w-0 text-slate-700 dark:text-slate-300">
                                             <span class="block font-semibold text-slate-900 dark:text-white">{skipped.name}</span>
                                             <span class="block">{skipped.reason}</span>
-                                            {#if skipped.detail}
-                                                <span class="block wrap-break-word">{$_('model_eval.problem.detail', { values: { detail: skipped.detail }, default: 'The server said: {detail}' })}</span>
-                                            {/if}
                                         </span>
                                     </li>
                                 {/each}

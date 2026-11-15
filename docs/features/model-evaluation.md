@@ -9,28 +9,40 @@ your feeder.
 
 ## The page
 
-- **Start an evaluation** says what a run does and what it costs before you press **Start
-  evaluation**: it loads each model in turn, so live detections can be slower, and it needs
-  internet access for the photos. While one runs the button reads **Evaluation running**, the
-  phase and its count are shown above a progress bar, and **Stop evaluation** asks before it stops.
-- **Evaluation options** is closed by default and holds two switches:
+- **Start an evaluation** says in one sentence what a run does. **How this works** opens the
+  rest: where the photos come from, that each model is loaded in turn so live detections can be
+  slower, that the photos are not from your feeder, and what each column means. While one runs
+  the button reads **Evaluation running**, the phase and its count are shown above a progress bar,
+  and **Stop evaluation** asks before it stops.
+- **Show evaluation options** is closed by default and holds two switches:
   - **Keep each photo's result** adds `results.jsonl` to the run, offered afterwards as the
     **Each photo's result** download.
   - **Check every model on every provider** also validates each model on every provider this
     image can use. It downloads every bird model and bird finder that is not installed and leaves
     them installed, so the page reads the registry, states how many models and how large the
-    download is, and asks you to confirm that size before it starts.
+    download is, and asks you to confirm before it starts. A model the registry gives no size for
+    is counted apart from the total ("1 of them has no known size"), and no size is stated when
+    none is known. The page and the question both say that the download may take a while and that
+    downloaded models stay on disk until you delete their files in **Settings → Detection →
+    Models**.
 - **Results** shows one evaluation, chosen by its start time in the **Evaluation** list (newest
-  first, the 20 most recent). **Delete this evaluation** asks first and cannot be undone; it is
+  first, the 20 most recent). Models are shown by the names Settings uses. **Delete this
+  evaluation**, at the right of the panel's heading, asks first and cannot be undone; it is
   unavailable for the one that is running. On a narrow panel each model's figures are a labelled
   list instead of a table.
 - **Provider checks** appears for an evaluation that validated providers, with each result in
-  words: **Reference**, **Same on all 24 photos**, **Differs: same on 21 of 24 photos**, **Did not
-  load**, **Unusable output** or **Not tested**.
+  words beside a status dot: **Reference**, **Same on all 24 photos** (green), **Differs: same on
+  21 of 24 photos** (amber), **Did not load** or **Unusable output** (red), or **Not tested**.
 
 A read or an action that fails says what failed, the cause and the next step (for example that
 YA-WAMF did not answer, that the sign-in has expired, or that another evaluation is already
 running), with **Try again** where a read failed. A failed read is never shown as "no evaluations".
+
+An evaluation that stopped early, a model that was skipped and a model with no provider checks
+each say why from a code the server records (no installed model, no test photos, a failed request
+to iNaturalist, a model that could not be loaded), followed by what to do. A reason the page does
+not know is said to be unknown, and points to the container logs. The page never shows the text of
+an exception or of a server reply: that stays in the logs.
 
 | Column | What it measures | Field in `summary.json` |
 |---|---|---|
@@ -111,8 +123,8 @@ Only a species the catalogue proves is outside the model's outputs is set aside.
 
 ### Warnings
 
-The page states each warning as a sentence with its next step, under **Problem**, **Check** or
-**Note**. The codes below are what `summary.json` carries.
+The page states each warning as one line under the model's row, with its next step, marked
+**Needs a look**, **Worth a check** or **Note**. The codes below are what `summary.json` carries.
 
 | Code | What it means | What to do |
 |---|---|---|

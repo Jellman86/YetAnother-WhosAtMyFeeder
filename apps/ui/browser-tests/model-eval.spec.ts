@@ -159,8 +159,9 @@ test('an accuracy run keeps a genuinely measured zero, its latency spread and a 
     await expect(table).toContainText('Set the inference provider to CPU in Settings → Detection and evaluate again.');
     await expect(table).not.toContainText('latency_drift_high');
     await expect(table).not.toContainText('startup benchmark');
-    // A warning this page does not know keeps the server's words under its severity.
-    await expect(table).toContainText('words from the server');
+    // A warning this page does not know gets its own sentence; the server's words are never the copy.
+    await expect(table).toContainText('Flagged for a reason this version of the page cannot explain. The Summary download has the detail.');
+    await expect(table).not.toContainText('words from the server');
     await expect(page.getByText('Provider check only', { exact: true })).toHaveCount(0);
     await expect(downloadButton(page, 'Speed details', 'runtime.json')).toBeVisible();
 });
@@ -339,7 +340,7 @@ const INSTALLED = [{ id: 'convnext_large_inat21', ready: true }, { id: 'small_bi
 const withEvaluation = {
     '/api/diagnostics/model-eval/runs': { active: null, runs: [
         { run_id: RUN_ID, status: 'complete', started_at: fullRun.started_at },
-        { run_id: '20261110-070000', status: 'complete', error: 'stopped' }
+        { run_id: '20261110-070000', status: 'complete', error_code: 'no_test_photos' }
     ] },
     [`/api/diagnostics/model-eval/runs/${RUN_ID}`]: fullRun,
     [`/api/diagnostics/model-eval/runs/${RUN_ID}/device_matrix.json`]: fullMatrix,
@@ -359,7 +360,7 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
         test(`the page with results and its options open has no axe finding at ${viewport.width} in ${theme}`, async ({ page }) => {
             await page.setViewportSize(viewport);
             await openEvaluation(page, theme);
-            await page.getByRole('button', { name: /Evaluation options/ }).click();
+            await page.getByRole('button', { name: 'Show evaluation options', exact: true }).click();
             await page.getByRole('switch', { name: 'Check every model on every provider' }).click();
             await expect(page.locator('[data-model-eval-download]')).toContainText('2 models are not installed yet: a download of about 1.3 GB.');
             await expect(page.locator('[data-model-eval-skipped]')).toBeVisible();
@@ -378,17 +379,17 @@ test('the page names each thing once, in sentence case, with the kit and plain w
     await expect(page).toHaveTitle('Model evaluation · YA-WAMF');
     await expect(page.getByRole('heading', { name: 'Model evaluation', exact: true })).toHaveCount(1);
     await expect(page.getByRole('heading', { level: 2 })).toHaveText(['Start an evaluation', 'Results', 'Provider checks']);
-    // Models carry the names Settings shows, with the identifier beneath.
     const table = page.getByRole('region', { name: 'Results' }).getByRole('table');
-    await expect(table.getByRole('rowheader').first()).toContainText('ConvNeXt Large (High Accuracy)');
-    await expect(table.getByRole('rowheader').first()).toContainText('convnext_large_inat21');
+    // Models carry the names Settings shows; the identifier is in the downloaded files only.
+    await expect(table.getByRole('rowheader').first()).toHaveText('ConvNeXt Large (High Accuracy)');
+    await expect(page.locator('[data-model-evaluation]')).not.toContainText(/convnext_large_inat21|small_birds/);
     await expect(table.getByRole('columnheader')).toHaveText([
         'Model', 'First guess right', 'Right in top three', 'Common feeder birds', 'Birds near you',
         'Species it can name', 'Average time', 'Slow photos', 'Ran on'
     ]);
     await expect(table.getByRole('row', { name: /Small Birds/ }).first()).toContainText('115 of 141');
-    await expect(table).toContainText('Problem');
-    await expect(table).toContainText('Check');
+    await expect(table).toContainText('Needs a look');
+    await expect(table).toContainText('Worth a check');
     await expect(table).toContainText('Cannot name 26 of the 141 test species');
     await expect(page.locator('[data-model-eval-facts]')).toHaveText('141 species · 423 photos · Region GB-ENG · 16 minutes');
     await expect(page.locator('[data-model-eval-skipped]')).toContainText('EVA-02 Large (Elite Accuracy)');
@@ -400,6 +401,32 @@ test('the page names each thing once, in sentence case, with the kit and plain w
     await expect(checks.getByRole('row', { name: /Small Birds/ })).toContainText('Unusable output');
     await expect(checks.getByRole('row', { name: /Bird Crop Detector/ })).toContainText('Same boxes on all 27 photos');
     await expect(checks.getByRole('row', { name: /Bird Crop Detector/ })).toContainText('Not tested');
+
+    // One sentence opens the page; the rest waits behind "How this works".
+    const start = page.getByRole('region', { name: 'Start an evaluation' });
+    await expect(start.locator('p')).toHaveCount(1);
+    await expect(page.getByText('Each column is explained under How this works.')).toBeVisible();
+    const how = page.getByRole('button', { name: 'How this works', exact: true });
+    await expect(how).toHaveAttribute('aria-expanded', 'false');
+    await how.focus();
+    await page.keyboard.press('Enter');
+    await expect(how).toHaveAttribute('aria-expanded', 'true');
+    await expect(start.getByText('The time that 19 in 20 photos stayed under.')).toBeVisible();
+    await expect(start.getByText('The photos are not from your feeder.', { exact: false })).toBeVisible();
+    await how.click();
+    await expect(start.locator('p')).toHaveCount(1);
+
+    // A result is ordinary ink beside a status dot, so nothing in the table reads as a link.
+    const sameCell = checks.getByRole('cell', { name: 'Same on all 24 photos' }).first();
+    const ink = await sameCell.evaluate((cell) => getComputedStyle(cell).color);
+    expect(ink).toBe(await checks.getByRole('cell', { name: 'Not tested' }).first().evaluate((cell) => getComputedStyle(cell).color));
+    await expect(sameCell.locator('span[aria-hidden="true"]')).toHaveCount(1);
+    // Delete is a quiet action at the right of the Results header.
+    const results = page.getByRole('region', { name: 'Results' });
+    const heading = await results.getByRole('heading', { level: 2 }).boundingBox();
+    const remove = await results.getByRole('button', { name: 'Delete this evaluation', exact: true }).boundingBox();
+    expect(remove && heading && remove.x > heading.x + heading.width).toBe(true);
+    expect(remove && heading && Math.abs(remove.y + remove.height / 2 - (heading.y + heading.height / 2))).toBeLessThan(12);
 
     const page_ = page.locator('[data-model-evaluation]');
     await expect(page_).not.toContainText(/results\.jsonl|Sweep|artifact|top-1|NaN|baseline/i);
@@ -421,21 +448,24 @@ test('checking every model states the download first and asks before it starts',
         posts.push(route.request().postDataJSON());
         return route.fulfill({ status: 500, body: 'Internal Server Error' });
     });
-    const options = page.getByRole('button', { name: /Evaluation options/ });
+    const options = page.getByRole('button', { name: 'Show evaluation options', exact: true });
     await expect(options).toHaveAttribute('aria-expanded', 'false');
     await options.focus();
     await page.keyboard.press('Enter');
+    // The same control now says what pressing it again does.
+    await expect(page.getByRole('button', { name: 'Hide evaluation options', exact: true })).toHaveAttribute('aria-expanded', 'true');
     const everyModel = page.getByRole('switch', { name: 'Check every model on every provider' });
     await expect(page.getByText('Models you have not installed are downloaded first and stay installed.', { exact: false })).toBeVisible();
     await everyModel.focus();
     await page.keyboard.press('Space');
     await expect(everyModel).toHaveAttribute('aria-checked', 'true');
-    await expect(page.locator('[data-model-eval-download]')).toHaveText('2 models are not installed yet: a download of about 1.3 GB.');
+    await expect(page.locator('[data-model-eval-download]')).toContainText('2 models are not installed yet: a download of about 1.3 GB.');
 
     await page.getByRole('button', { name: 'Start evaluation', exact: true }).click();
     const dialog = page.getByRole('alertdialog');
     await expect(dialog).toContainText('Download 2 models?');
-    await expect(dialog).toContainText('about 1.3 GB');
+    await expect(dialog).toContainText('2 models are not installed yet: a download of about 1.3 GB.');
+    await expect(dialog).toContainText('The download may take a while, depending on your connection. Downloaded models stay on disk until you delete their files in Settings → Detection → Models.');
     await dialog.getByRole('button', { name: 'Go back', exact: true }).click();
     await expect(dialog).toHaveCount(0);
     expect(posts).toEqual([]);
@@ -445,6 +475,96 @@ test('checking every model states the download first and asks before it starts',
     await expect(page.getByRole('alert').filter({ hasText: 'The evaluation did not start.' })).toBeVisible();
     expect(posts).toEqual([expect.objectContaining({ sweep_devices: true, include_per_image: false })]);
 });
+
+test('a failure is shown by its cause and next step, and nothing an exception said reaches the page', async ({ page }) => {
+    const LEAK = 'Traceback 0x7f3a /config/models/x.onnx';
+    await page.route(EVAL_API, async (route) => {
+        const path = new URL(route.request().url()).pathname;
+        if (path.endsWith('/runs')) return route.fulfill({ json: { active: null, runs: [
+            { run_id: 'stopped-known', status: 'complete', error_code: 'no_test_photos' },
+            { run_id: 'stopped-unknown', status: 'complete', error_code: `ValueError: ${LEAK}` }
+        ] } });
+        if (path.endsWith('/device_matrix.json')) {
+            return route.fulfill({ json: { ...compatibilityMatrix, models: {
+                dinov2_location: { error: `provider_sweep_failed: ${LEAK}` },
+                small_birds: { error: 'activation_failed' },
+                odd_one: { error: LEAK }
+            } } });
+        }
+        // Fields a server might still send, or an older summary might hold, are not read.
+        const stray = { error: LEAK, detail: LEAK, message: LEAK };
+        if (path.endsWith('/runs/stopped-known')) {
+            return route.fulfill({ json: {
+                run_id: 'stopped-known', error_code: 'no_test_photos', ...stray, available_artifacts: ['summary.json', 'device_matrix.json'],
+                models: [{ ...accuracyModel, warnings: [{ code: 'provider_validation_failed', message: LEAK, severity: 'critical' }] }],
+                skipped_models: [{ model_id: 'eva02', reason: 'reload_failed', ...stray }, { model_id: 'rope', reason: LEAK }]
+            } });
+        }
+        return route.fulfill({ json: { run_id: 'stopped-unknown', error_code: `ValueError: ${LEAK}`, ...stray, models: [], available_artifacts: [] } });
+    });
+    await openFixture(page);
+    const stoppedBox = page.locator('[data-model-eval-stopped]');
+    await expect(stoppedBox).toContainText('This evaluation stopped before it finished, so some models may be missing.');
+    await expect(stoppedBox).toContainText('No test photo could be fetched from iNaturalist or Wikimedia Commons. Check the internet connection, then start again.');
+    const skipped = page.locator('[data-model-eval-skipped]');
+    await expect(skipped).toContainText('It could not be loaded. Use Repair download for this model in Settings → Detection; if that does not help, the container logs name the cause.');
+    await expect(skipped).toContainText('It was skipped for a reason this page cannot name. The container logs name the cause.');
+    await expect(page.getByRole('table').first()).toContainText('No provider gave usable answers that matched the CPU.');
+    const checks = page.getByRole('region', { name: 'Provider checks' });
+    await expect(checks).toContainText('The check failed before any provider gave a result. Run it again; if it fails again, the container logs name the cause.');
+    await expect(checks).toContainText('It could not be loaded, so no provider was checked. Use Repair download for this model in Settings → Detection.');
+    await expect(checks).toContainText('It was not checked, for a reason this page cannot name. The container logs name the cause.');
+    await expect(page.locator('body')).not.toContainText(/Traceback|0x7f3a|x\.onnx|ValueError|provider_sweep_failed|activation_failed|reload_failed/);
+
+    await page.getByLabel('Evaluation', { exact: true }).selectOption('stopped-unknown');
+    await expect(stoppedBox).toContainText('It stopped on an error this page cannot name. Start it again; if it stops again, the container logs name the cause.');
+    await expect(page.locator('body')).not.toContainText(/Traceback|0x7f3a|ValueError/);
+});
+
+test('a refused request names its cause without repeating what the server said', async ({ page }) => {
+    await page.route(EVAL_API, async (route) => {
+        const request = route.request();
+        if (request.method() === 'POST') return route.fulfill({ status: 422, json: { detail: 'Traceback 0x7f3a in start_run' } });
+        return route.fulfill({ json: { active: null, runs: [] } });
+    });
+    await openFixture(page);
+    await page.getByRole('button', { name: 'Start evaluation', exact: true }).click();
+    const alert = page.getByRole('alert');
+    await expect(alert).toContainText('The evaluation did not start.');
+    await expect(alert).toContainText('YA-WAMF refused the request. Refresh the page and try again; if it is refused again, the container logs name the cause.');
+    await expect(page.locator('body')).not.toContainText(/Traceback|0x7f3a|start_run/);
+});
+
+for (const { name, registry, line } of [
+    {
+        name: 'some sizes are not known',
+        registry: [...REGISTRY, { id: 'bundled', name: 'Bundled', file_size_mb: 0 }],
+        line: '3 models are not installed yet. 1 of them has no known size; the rest are a download of about 1.3 GB.'
+    },
+    {
+        name: 'no size is known',
+        registry: REGISTRY.map((model) => ({ ...model, file_size_mb: 0 })),
+        line: '2 models are not installed yet. Their size is not known.'
+    }
+]) {
+    test(`the download is stated honestly when ${name}, and the question says it takes time and stays on disk`, async ({ page }) => {
+        await page.setViewportSize({ width: 1440, height: 900 });
+        await openEvaluation(page, 'light', { ...withEvaluation, '/api/models/available': registry });
+        await page.getByRole('button', { name: 'Show evaluation options', exact: true }).click();
+        await page.getByRole('switch', { name: 'Check every model on every provider' }).click();
+        const stated = page.locator('[data-model-eval-download]');
+        await expect(stated).toContainText(line);
+        await expect(stated).toContainText('The download may take a while, depending on your connection. Downloaded models stay on disk until you delete their files in Settings → Detection → Models.');
+        await expect(stated).not.toContainText(/\b0 (MB|GB)\b/);
+        await page.getByRole('button', { name: 'Start evaluation', exact: true }).click();
+        const dialog = page.getByRole('alertdialog');
+        await expect(dialog).toContainText(line);
+        await expect(dialog).toContainText('The download may take a while, depending on your connection.');
+        await expect(dialog).toContainText('stay on disk until you delete their files in Settings → Detection → Models');
+        await expect(dialog).not.toContainText(/\b0 (MB|GB)\b/);
+        await dialog.getByRole('button', { name: 'Go back', exact: true }).click();
+    });
+}
 
 test('deleting an evaluation asks first, names it, and says it cannot be undone', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
@@ -472,9 +592,10 @@ test('a German owner gets a German page that fits a phone without scrolling side
     await page.goto('/diagnostics/model-eval');
     await expect(page.getByRole('heading', { level: 1, name: 'Modellbewertung', exact: true })).toBeVisible({ timeout: 15_000 });
     await settled(page);
-    await page.getByRole('button', { name: /Optionen für die Bewertung/ }).click();
+    await page.getByRole('button', { name: 'Optionen für die Bewertung anzeigen', exact: true }).click();
     await page.getByRole('switch', { name: 'Jedes Modell auf jedem Anbieter prüfen' }).click();
-    await expect(page.locator('[data-model-eval-download]')).toHaveText('2 Modelle sind noch nicht installiert: ein Download von etwa 1,3 GB.');
+    await expect(page.locator('[data-model-eval-download]')).toContainText('2 Modelle sind noch nicht installiert: ein Download von etwa 1,3 GB.');
+    await expect(page.locator('[data-model-eval-download]')).toContainText('Heruntergeladene Modelle bleiben auf der Festplatte, bis Sie ihre Dateien unter Einstellungen → Erkennung → Modelle löschen.');
     const content = page.locator('[data-model-evaluation]');
     await expect(content.getByRole('heading', { level: 2 })).toHaveText(['Bewertung starten', 'Ergebnisse', 'Anbieterprüfungen']);
     // On a phone the figures are a labelled list, not a table to scroll.

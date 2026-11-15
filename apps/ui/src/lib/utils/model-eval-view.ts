@@ -52,31 +52,47 @@ export function evaluationProgress(active: Pick<ModelEvalActiveStatus, 'phase' |
 export type EvaluationAction = 'history' | 'results' | 'start' | 'stop' | 'delete' | 'download';
 type ProblemCause = 'already_running' | 'signed_out' | 'gone' | 'server_fault' | 'unreachable' | 'refused';
 
+/**
+ * What failed and why, as two keys the page translates. It holds nothing the server or the
+ * browser said: that text can name paths, addresses and internals, and belongs in the logs.
+ */
 export interface EvaluationProblem {
     what: EvaluationAction;
     cause: ProblemCause;
-    /** What the server said, kept only when it adds something to the cause. */
-    detail: string | null;
-}
-
-// A status phrase restates the cause without adding to it.
-const BARE_STATUS = /^(HTTP \d{3}|internal server error|bad gateway|service unavailable|gateway timeout)$/i;
-
-function specificDetail(message: string): string | null {
-    const text = message.trim();
-    return text && !BARE_STATUS.test(text) ? text : null;
 }
 
 export function evaluationProblem(what: EvaluationAction, error: unknown): EvaluationProblem {
     if (error instanceof ApiRequestError) {
-        if (error.status === 409 && what === 'start') return { what, cause: 'already_running', detail: null };
-        if (error.status === 401 || error.status === 403) return { what, cause: 'signed_out', detail: null };
-        if (error.status === 404) return { what, cause: 'gone', detail: null };
-        if (error.status >= 500) return { what, cause: 'server_fault', detail: specificDetail(error.message) };
-        return { what, cause: 'refused', detail: specificDetail(error.message) };
+        if (error.status === 409 && what === 'start') return { what, cause: 'already_running' };
+        if (error.status === 401 || error.status === 403) return { what, cause: 'signed_out' };
+        if (error.status === 404) return { what, cause: 'gone' };
+        return { what, cause: error.status >= 500 ? 'server_fault' : 'refused' };
     }
-    if (isTransientRequestError(error) || error instanceof TypeError) return { what, cause: 'unreachable', detail: null };
-    return { what, cause: 'refused', detail: error instanceof Error ? specificDetail(error.message) : null };
+    if (isTransientRequestError(error) || error instanceof TypeError) return { what, cause: 'unreachable' };
+    return { what, cause: 'refused' };
+}
+
+const STOP_CAUSES = ['no_models', 'models_not_ready', 'finder_needs_provider_check', 'no_test_birds', 'no_test_photos', 'network'] as const;
+export type StopCause = (typeof STOP_CAUSES)[number] | 'unexpected';
+
+/** Why an evaluation stopped early, from the server's code. An unknown code is the honest unknown. */
+export function stopCause(code: string | null | undefined): StopCause | null {
+    if (!code) return null;
+    return (STOP_CAUSES as readonly string[]).includes(code) ? (code as StopCause) : 'unexpected';
+}
+
+export type CheckRowProblem = 'activation_failed' | 'provider_sweep_failed' | 'unknown';
+
+/** Why a model has no provider checks. Older files put raised text after the code. */
+export function checkRowProblem(error: string): CheckRowProblem {
+    const code = error.split(':', 1)[0].trim();
+    return code === 'activation_failed' || code === 'provider_sweep_failed' ? code : 'unknown';
+}
+
+export type SkipReason = 'activation_failed' | 'reload_failed' | 'other';
+
+export function skipReason(reason: string): SkipReason {
+    return reason === 'activation_failed' || reason === 'reload_failed' ? reason : 'other';
 }
 
 export type EvaluationFileLabel = 'summary' | 'mix_ups' | 'speed' | 'each_photo' | 'provider_checks';
@@ -96,17 +112,18 @@ export function evaluationFiles(available: readonly string[] | undefined): Array
 }
 
 const PLAIN_WARNINGS: ReadonlySet<string> = new Set([
-    'low_shared_core', 'provider_fallback_active', 'incomplete_install', 'inference_health_unhealthy', 'region_mismatch'
+    'low_shared_core', 'provider_fallback_active', 'incomplete_install', 'inference_health_unhealthy', 'region_mismatch',
+    'provider_validation_failed', 'provider_validation_partial'
 ]);
 
 /**
  * The translated sentence for a model's warning, with the figures the row measured. A code the
- * page does not know has no key, and the caller shows the server's own words.
+ * page does not know has its own sentence: the server's message is never the copy.
  */
 export function warningCopy(
     model: ModelEvalModelSummary,
     warning: ModelEvalWarning
-): { key: string | null; values: Record<string, number> } {
+): { key: string; values: Record<string, number> } {
     if (warning.code === 'latency_drift_high') {
         const measured = model.mean_latency_ms;
         const loaded = model.startup_benchmark_ms;
@@ -120,9 +137,9 @@ export function warningCopy(
         return { key: 'partial_vocabulary', values: { outside, total } };
     }
     if (warning.code === 'high_abstention') {
-        return { key: 'high_abstention', values: { share: Math.round(model.abstention_rate * 100) } };
+        return { key: 'high_abstention', values: { share: Math.round((model.abstention_rate ?? 0) * 100) } };
     }
-    return { key: PLAIN_WARNINGS.has(warning.code) ? warning.code : null, values: {} };
+    return { key: PLAIN_WARNINGS.has(warning.code) ? warning.code : 'unknown', values: {} };
 }
 
 type MatrixRow = DeviceMatrix['models'][string] | NonNullable<DeviceMatrix['crop_detectors']>[string];
@@ -156,13 +173,32 @@ export function providerCheck(row: MatrixRow | undefined, provider: string): Pro
 
 const DOWNLOADED_KINDS: ReadonlySet<string> = new Set(['classifier', 'crop_detector']);
 
+export interface DownloadEstimate {
+    /** Bird models and bird finders that are not installed and ready. */
+    count: number;
+    /** The total of the sizes the registry knows. */
+    megabytes: number;
+    /** How many of them the registry gives no size for, so they are named apart from the total. */
+    unknownSizes: number;
+}
+
 /** What "check every model" fetches first: the bird models and bird finders not yet installed. */
 export function missingModelDownload(
     registry: ReadonlyArray<{ id: string; file_size_mb: number; artifact_kind?: string }>,
     installed: ReadonlyArray<{ id: string; ready?: boolean }>
-): { count: number; megabytes: number } {
+): DownloadEstimate {
     const ready = new Set(installed.filter((model) => model.ready).map((model) => model.id));
     const missing = registry.filter((model) => DOWNLOADED_KINDS.has(model.artifact_kind ?? 'classifier') && !ready.has(model.id));
-    const megabytes = missing.reduce((sum, model) => sum + (model.file_size_mb || 0), 0);
-    return { count: missing.length, megabytes: Math.round(megabytes * 10) / 10 };
+    const sized = missing.filter((model) => model.file_size_mb > 0);
+    const megabytes = sized.reduce((sum, model) => sum + model.file_size_mb, 0);
+    return { count: missing.length, megabytes: Math.round(megabytes * 10) / 10, unknownSizes: missing.length - sized.length };
+}
+
+export type DownloadStatement = 'nothing' | 'sized' | 'partly_sized' | 'unsized';
+
+/** Which sentence states the download. A size is stated only for the models that have one. */
+export function downloadStatement(estimate: DownloadEstimate): DownloadStatement {
+    if (estimate.count === 0) return 'nothing';
+    if (estimate.unknownSizes === 0) return 'sized';
+    return estimate.unknownSizes < estimate.count ? 'partly_sized' : 'unsized';
 }
