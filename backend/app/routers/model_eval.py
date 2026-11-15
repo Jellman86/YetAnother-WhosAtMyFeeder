@@ -9,6 +9,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field, JsonValue
 
 from app.auth import AuthContext, require_owner
+from app.models.model_eval import ModelEvalListResponse, ModelEvalRunResponse
 from app.services.model_eval_service import (
     CONFUSIONS_FILENAME,
     DEVICE_MATRIX_FILENAME,
@@ -56,20 +57,23 @@ async def start_run(
     return StartRunResponse(run_id=run_id)
 
 
-@router.get("/runs", response_model=dict[str, JsonValue])
-async def list_runs(_auth: AuthContext = Depends(require_owner)) -> dict[str, JsonValue]:
-    return {
-        "active": model_eval_runner.active_status() if model_eval_runner.is_running() else None,
-        "runs": model_eval_runner.list_runs(),
-    }
+@router.get("/runs", response_model=ModelEvalListResponse)
+async def list_runs(_auth: AuthContext = Depends(require_owner)) -> ModelEvalListResponse:
+    return ModelEvalListResponse.model_validate(
+        {
+            "active": model_eval_runner.active_status() if model_eval_runner.is_running() else None,
+            "runs": model_eval_runner.list_runs(),
+        }
+    )
 
 
-@router.get("/runs/{run_id}", response_model=dict[str, JsonValue])
-async def get_run(run_id: str, _auth: AuthContext = Depends(require_owner)) -> dict[str, JsonValue]:
+@router.get("/runs/{run_id}", response_model=ModelEvalRunResponse)
+async def get_run(run_id: str, _auth: AuthContext = Depends(require_owner)) -> ModelEvalRunResponse:
     payload = model_eval_runner.get_run(run_id)
     if payload is None:
         raise HTTPException(status_code=404, detail="run not found")
-    return payload
+    # Validating into the declared shape drops everything else the summary file holds.
+    return ModelEvalRunResponse.model_validate(payload)
 
 
 @router.get("/runs/{run_id}/{artifact}", response_class=FileResponse)

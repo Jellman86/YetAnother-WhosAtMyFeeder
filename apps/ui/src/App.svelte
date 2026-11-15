@@ -96,7 +96,7 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
           case 'notifications': return $_('nav.notifications', { default: 'Notifications' });
           case 'health': return $_('nav.health', { default: 'Health' });
           case 'settings': return $_('settings.title', { default: 'Settings' });
-          case 'model_evaluation': return 'Model Evaluation';
+          case 'model_evaluation': return $_('model_eval.page_title', { default: 'Model evaluation' });
           case 'about': return $_('nav.about', { default: 'About' });
           default: return '';
       }
@@ -111,7 +111,7 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
           case 'notifications': return $_('page_subtitle.notifications', { default: 'Visits, alerts and background work, newest first.' });
           case 'health': return $_('page_subtitle.health', { default: 'Whether YA-WAMF is working, what the host is doing, and what happened.' });
           case 'settings': return $_('page_subtitle.settings', { default: 'Connections, identification, integrations and personalisation.' });
-          case 'model_evaluation': return 'Benchmark every installed classifier against verified bird images.';
+          case 'model_evaluation': return $_('page_subtitle.model_evaluation', { default: 'How often each installed model names a bird correctly, and how fast.' });
           case 'about': return $_('page_subtitle.about', { default: 'Version, changelog, contributors, and support links.' });
           default: return '';
       }

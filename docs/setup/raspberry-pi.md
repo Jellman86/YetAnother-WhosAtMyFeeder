@@ -114,7 +114,7 @@ Evaluation. This proves CPU execution, not accuracy on your feeder species.
 
 You should see the selected model pass CPU validation before **Continue** becomes available. If the
 download or validation fails, keep MobileNet selected, retry from the same step, and review
-**Diagnostics → Model evaluation** for the detailed provider result.
+**Settings → Debug → Model evaluation** for the detailed provider result.
 
 ## Known Limitations
 

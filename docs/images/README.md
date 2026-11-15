@@ -106,7 +106,7 @@ example counts or runtime values into product guarantees.
 | `settings-media-retention.png` | Always-kept photos/video and optional storage limits |
 | `settings-health.png` | System status and recorded visits in the What happened timeline |
 | `support-bundle.png` | Fresh diagnostics capture, issue notes and download controls |
-| `model-evaluation-compatibility.png` | Compatibility-only result, provider median and actual artifacts |
+| `model-evaluation-compatibility.png` | A provider check only: fastest passing provider, typical time, provider checks in words and the files it wrote |
 | `setup-wizard.png` | First-run welcome and setup stages |
 | `setup-wizard-account.png` | Admin account, password rules and authentication choice |
 | `setup-wizard-dino.png` | DINO provider selection and blank paired feeder coordinates |

@@ -30,7 +30,7 @@ const ROUTE_PREFIXES: ReadonlyArray<[prefix: string, id: RouteId]> = [
 
 // Pages that register a refresh action once their code has loaded. The header holds the control's
 // place from the start, so it does not arrive with the page and move the controls beside it.
-const REFRESHABLE_ROUTES: ReadonlySet<RouteId> = new Set(['dashboard', 'explorer', 'leaderboard', 'settings', 'health']);
+const REFRESHABLE_ROUTES: ReadonlySet<RouteId> = new Set(['dashboard', 'explorer', 'leaderboard', 'settings', 'health', 'model_evaluation']);
 
 const PRODUCT_NAME = 'YA-WAMF';
 

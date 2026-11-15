@@ -7,5 +7,6 @@
   "notifications": "Besuche, Hinweise und Hintergrundarbeiten, neueste zuerst.",
   "settings": "Verbindungen, Bestimmung, Integrationen und Personalisierung.",
   "species": "Welche Vögel am häufigsten kommen, wie oft und wann.",
-  "health": "Ob YA-WAMF funktioniert, was der Rechner gerade tut und was passiert ist."
+  "health": "Ob YA-WAMF funktioniert, was der Rechner gerade tut und was passiert ist.",
+  "model_evaluation": "Wie oft jedes installierte Modell einen Vogel richtig benennt und wie schnell."
 }
