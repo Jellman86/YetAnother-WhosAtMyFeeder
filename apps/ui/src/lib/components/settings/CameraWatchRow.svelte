@@ -81,9 +81,10 @@
                     {$_('settings.cameras.not_found_help', { default: 'Frigate does not list this camera now. Its choices are kept until you change them; choose Off to remove it.' })}
                 </p>
             {:else}
+                <!-- A link-styled action, so it never reads as a label; the chevron turns while the preview shows. -->
                 <button
                     type="button"
-                    class="btn btn-ghost -ml-3 min-h-11 px-3 text-sm"
+                    class="focus-ring inline-flex min-h-11 items-center gap-1 rounded-sm text-sm font-medium text-brand-700 underline-offset-2 hover:underline disabled:cursor-not-allowed disabled:text-slate-600 disabled:no-underline dark:text-brand-300 dark:disabled:text-slate-400"
                     aria-expanded={previewOpen}
                     aria-describedby={previewUnavailableId}
                     disabled={!!previewUnavailableId}
@@ -92,6 +93,7 @@
                     {previewOpen
                         ? $_('settings.cameras.preview_hide', { default: 'Hide preview' })
                         : $_('settings.cameras.preview_show', { default: 'Preview' })}<span class="sr-only"> {camera}</span>
+                    <span class="inline-block transition-transform motion-reduce:transition-none {previewOpen ? 'rotate-90' : ''}" aria-hidden="true">›</span>
                 </button>
             {/if}
         </div>

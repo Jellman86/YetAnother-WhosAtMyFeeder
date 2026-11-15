@@ -650,40 +650,49 @@
             tabindex="-1"
             data-camera-list
         >
-            <div class="flex flex-wrap items-center justify-between gap-3">
-                <p class="min-w-0 flex-1 basis-56 text-sm text-slate-600 dark:text-slate-400">{$_('settings.cameras.sync_help', { default: 'The list comes from Frigate. Sync again after adding a camera there.' })}</p>
-                <button
-                    type="button"
-                    onclick={loadCameras}
-                    disabled={camerasLoading}
-                    class="btn btn-secondary min-h-11 max-w-full px-4 whitespace-normal"
-                >
-                    {camerasLoading ? $_('settings.cameras.syncing') : $_('settings.frigate.sync_cameras')}
-                </button>
-            </div>
-            <div class="flex flex-wrap items-center justify-between gap-3" data-bird-scope>
-                {#if watchesEveryCameraForBirds(watchSettings)}
-                    <p class="min-w-0 flex-1 basis-56 text-sm text-slate-600 dark:text-slate-400">{$_('settings.cameras.every_camera_on', { default: 'Every Frigate camera is watched for birds, including cameras added to Frigate later.' })}</p>
-                {:else}
-                    <p id="camera-bird-scope-chosen" class="min-w-0 flex-1 basis-56 text-sm text-slate-600 dark:text-slate-400">{$_('settings.cameras.every_camera_off', { default: 'Only the cameras chosen here are watched for birds. A camera added to Frigate later is not watched until you choose it.' })}</p>
+            <!-- One header row: what the list is and whom it watches on the left, its two actions on the right. -->
+            <div class="flex flex-wrap items-start justify-between gap-3" data-camera-list-header>
+                <p class="min-w-0 flex-1 basis-56 text-sm text-slate-600 dark:text-slate-400" data-bird-scope>
+                    {$_('settings.cameras.sync_help', { default: 'The list comes from Frigate. Sync again after adding a camera there.' })}
+                    {#if watchesEveryCameraForBirds(watchSettings)}
+                        {$_('settings.cameras.every_camera_on', { default: 'Every Frigate camera is watched for birds, including cameras added to Frigate later.' })}
+                    {:else}
+                        <span id="camera-bird-scope-chosen">{$_('settings.cameras.every_camera_off', { default: 'Only the cameras chosen here are watched for birds. A camera added to Frigate later is not watched until you choose it.' })}</span>
+                    {/if}
+                </p>
+                <div class="flex max-w-full flex-wrap gap-2">
                     <button
                         type="button"
-                        class="btn btn-secondary min-h-11 max-w-full px-3 py-2 whitespace-normal"
-                        aria-describedby="camera-bird-scope-chosen"
-                        onclick={() => commitWatch(watchEveryCameraForBirds(watchSettings))}
+                        onclick={loadCameras}
+                        disabled={camerasLoading}
+                        class="btn btn-secondary min-h-11 max-w-full px-4 whitespace-normal"
                     >
-                        {$_('settings.cameras.watch_every_camera', { default: 'Watch every camera for birds' })}
+                        {camerasLoading ? $_('settings.cameras.syncing') : $_('settings.frigate.sync_cameras')}
                     </button>
-                {/if}
+                    {#if !watchesEveryCameraForBirds(watchSettings)}
+                        <button
+                            type="button"
+                            class="btn btn-secondary min-h-11 max-w-full px-4 whitespace-normal"
+                            aria-describedby="camera-bird-scope-chosen"
+                            onclick={() => commitWatch(watchEveryCameraForBirds(watchSettings))}
+                        >
+                            {$_('settings.cameras.watch_every_camera', { default: 'Watch every camera for birds' })}
+                        </button>
+                    {/if}
+                </div>
             </div>
             {#if !betaGardenAnimals}
-                <p class="text-xs text-slate-600 dark:text-slate-400" data-camera-garden-hint>{$_('settings.cameras.garden_beta_hint', { default: 'To watch for Garden animals as well, turn on Garden animals in Settings → Beta features.' })}</p>
+                <p class="text-sm text-slate-600 dark:text-slate-400" data-camera-garden-hint>{$_('settings.cameras.garden_beta_hint', { default: 'To watch for Garden animals as well, turn on Garden animals in Settings → Beta features.' })}</p>
             {/if}
             {#if frigateCameras === null}
-                <p class="text-xs text-slate-600 dark:text-slate-400" role="status" data-camera-list-state>
-                    {frigateCamerasFailed
-                        ? $_('settings.cameras.list_unread', { default: 'The camera list could not be read from Frigate. Saved cameras are shown; choose Sync cameras to try again.' })
-                        : $_('settings.cameras.list_loading', { default: 'Reading the camera list from Frigate…' })}
+                <!-- One neutral notice: the list is being read, or could not be, and saved cameras are shown. -->
+                <p class="flex items-start gap-2 text-sm text-slate-700 dark:text-slate-300" role="status" data-camera-list-state>
+                    <svg class="mt-0.5 h-4 w-4 shrink-0 text-slate-600 dark:text-slate-400" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="10" cy="10" r="7.5" /><path d="M10 9v4.5M10 6.5h.01" /></svg>
+                    <span class="min-w-0">
+                        {frigateCamerasFailed
+                            ? $_('settings.cameras.list_unread', { default: 'The camera list could not be read from Frigate. Saved cameras are shown; choose Sync cameras to try again.' })
+                            : $_('settings.cameras.list_loading', { default: 'Reading the camera list from Frigate…' })}
+                    </span>
                 </p>
             {/if}
             {#if watchRows.length > 0 && !frigateUrl}
