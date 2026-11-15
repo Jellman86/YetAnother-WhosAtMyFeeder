@@ -13,16 +13,27 @@ import { routeOffersRefresh } from '../app/route-title';
  */
 const markup = source.slice(source.indexOf('</script>') + '</script>'.length);
 
-/** The markup with every `{…}` expression and every tag removed: what is left is typed text. */
+/**
+ * The markup with every `{…}` expression, comment and tag left out: what remains is typed text.
+ * Read one character at a time, because an expression may hold a `>` and a tag may hold braces.
+ */
 function typedText(component: string): string {
-    let depth = 0;
     let text = '';
-    for (const char of component) {
-        if (char === '{') depth += 1;
-        else if (char === '}') depth -= 1;
-        else if (depth === 0) text += char;
+    let braces = 0;
+    let inTag = false;
+    for (let index = 0; index < component.length; index += 1) {
+        const char = component[index];
+        if (braces === 0 && !inTag && component.startsWith('<!--', index)) {
+            const end = component.indexOf('-->', index);
+            index = end === -1 ? component.length : end + 2;
+        } else if (char === '{') braces += 1;
+        else if (char === '}') braces -= 1;
+        else if (braces > 0) continue;
+        else if (char === '<') inTag = true;
+        else if (char === '>') inTag = false;
+        else if (!inTag) text += char;
     }
-    return text.replace(/<!--[\s\S]*?-->/g, '').replace(/<[^>]*>/g, '');
+    return text;
 }
 
 /** Each opening tag of one element, read to its own closing bracket. */
