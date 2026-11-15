@@ -179,6 +179,11 @@ const NAMES = new Set(
         .filter(Boolean)
 );
 const SENTENCE_CASE_LOCALES = ['en', 'es', 'fr', 'it', 'pt', 'ru'];
+/**
+ * Never lowered to sentence case: German capitalises every noun ("YA-WAMF Bot", not "YA-WAMF bot"),
+ * and Japanese and Chinese have no letter case. A copy pass must leave their capitals alone.
+ */
+const CASE_EXEMPT_LOCALES = ['de', 'ja', 'zh'];
 /** Names a language spells its own way: places, units and the Garden feature. */
 const LOCALE_NAMES: Record<string, string[]> = {
     es: ['Unidos', 'Unido', 'Norte', 'Jardín'],
@@ -214,6 +219,16 @@ function titleCasedWords(value: string, names: Set<string>): string[] {
 }
 
 describe('sentence case', () => {
+    it('checks every language or names why it is exempt', () => {
+        const covered = [...SENTENCE_CASE_LOCALES, ...CASE_EXEMPT_LOCALES].sort();
+        expect(covered).toEqual(LOCALES.map(([name]) => name).sort());
+    });
+
+    it('keeps German nouns capitalised where a copy pass touched them', () => {
+        const german = new Map(stringLeaves(de as LocaleRoot));
+        expect(german.get('settings.discord.bot_placeholder')).toBe('YA-WAMF Bot');
+    });
+
     for (const name of SENTENCE_CASE_LOCALES) {
         const locale = LOCALES.find(([localeName]) => localeName === name)?.[1] ?? {};
         const names = new Set([...interfaceNames(locale), ...(LOCALE_NAMES[name] ?? [])]);

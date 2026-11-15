@@ -414,7 +414,7 @@
   "audio_pause": "音声クリップを一時停止",
   "audio_play": "音声クリップを再生",
   "audio_seek_spectrogram_aria": "クリックして音声クリップの再生位置を移動",
-  "audio_spectrogram_unavailable": "この一致のスペクトログラムは利用できません",
+  "audio_spectrogram_unavailable": "この鳴き声のスペクトログラムはありません。再生はできます。",
   "manual_upload": "アップロードから追加",
   "search_species": "種を検索",
   "species_updated": "種を更新しました",

@@ -642,7 +642,7 @@
                     {#each availableCameras as camera}
                         <div class="py-3 first:pt-0 space-y-2">
                             <div class="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
-                                <span class="inline-flex max-w-full items-center break-all rounded-md bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-xs font-bold uppercase tracking-widest text-slate-600 dark:text-slate-300">{camera}</span>
+                                <span class="inline-flex max-w-full items-center break-all rounded-md bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-xs font-bold text-slate-600 dark:text-slate-300">{camera}</span>
                                 {#if mappingTokensFor(camera).length > 0}
                                     <span class="text-xs font-bold text-slate-600 dark:text-slate-400">{$_('settings.integrations.birdnet.sensor_mapped_count', { values: { count: mappingTokensFor(camera).length }, default: '{count, plural, one {# mapped} other {# mapped}}' })}</span>
                                 {/if}

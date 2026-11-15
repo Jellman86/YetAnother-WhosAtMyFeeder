@@ -6,6 +6,10 @@ import { themeStore } from '../src/lib/stores/theme.svelte';
 import { detectionsStore } from '../src/lib/stores/detections.svelte';
 import Species from '../src/lib/pages/Species.svelte';
 import '../src/app.css';
+import { installMediaFallback } from '../src/lib/app/media-fallback';
+
+// As the app entry does, so failed pictures degrade here the way they do in the app.
+installMediaFallback(document);
 
 await i18nReady;
 authStore.statusLoaded = true;

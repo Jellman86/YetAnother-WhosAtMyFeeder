@@ -414,7 +414,7 @@
   "audio_pause": "暂停音频片段",
   "audio_play": "播放音频片段",
   "audio_seek_spectrogram_aria": "点击可跳转到音频片段的对应位置",
-  "audio_spectrogram_unavailable": "此匹配没有可用的频谱图",
+  "audio_spectrogram_unavailable": "此鸣叫没有声谱图，但仍可播放。",
   "manual_upload": "通过上传添加",
   "search_species": "搜索物种",
   "species_updated": "物种已更新",

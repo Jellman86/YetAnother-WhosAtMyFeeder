@@ -697,7 +697,7 @@
                             <span class="block">
                                 {names.primary}
                                 {#if alreadyBlocked}
-                                    <span class="ml-2 inline-flex items-center rounded-full bg-red-500/10 px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-red-700 dark:text-red-300">
+                                    <span class="ml-2 inline-flex items-center rounded-full bg-red-500/10 px-2 py-0.5 text-xs font-bold text-red-700 dark:text-red-300">
                                         {$_('common.added', { default: 'Added' })}
                                     </span>
                                 {/if}
@@ -1150,7 +1150,7 @@
                     </h3>
                     <div class="mt-2 overflow-x-auto">
                         <table class="w-full text-xs">
-                            <thead class="border-b border-slate-200 text-xs uppercase text-slate-600 dark:border-slate-700 dark:text-slate-400">
+                            <thead class="border-b border-slate-200 text-xs text-slate-600 dark:border-slate-700 dark:text-slate-400">
                                 <tr><th class="text-left py-1 pr-3">{$_('settings.detection.compat_model', { default: 'Model' })}</th>{#each (compatMatrix.providers?.length ? compatMatrix.providers : compatMatrix.devices) as dev}<th class="text-left px-2">{compatProviderLabel(dev)}</th>{/each}</tr>
                             </thead>
                             <tbody>

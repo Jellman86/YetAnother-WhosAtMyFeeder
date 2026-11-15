@@ -931,7 +931,7 @@
                     {/if}
 
                     {#if shareToken}
-                        <div class="pointer-events-none absolute left-3 bottom-3 rounded-md border border-white/25 bg-black/45 px-2 py-1 text-3xs font-semibold uppercase tracking-wide text-white/85">
+                        <div class="pointer-events-none absolute left-3 bottom-3 rounded-md border border-white/25 bg-black/45 px-2 py-1 text-3xs font-semibold text-white/85">
                             {shareWatermarkLabel ?? $_('video_player.shared_watermark', { default: 'Shared clip' })}
                         </div>
                     {/if}
@@ -1002,7 +1002,7 @@
             {#if canManageShareLinks && shareManagerOpen}
                 <div id="video-share-manager" class="mt-2 rounded-xl border border-slate-700/70 bg-slate-900/55 p-3 text-xs text-slate-200">
                     <div class="flex items-center justify-between gap-2 mb-2">
-                        <p class="font-semibold tracking-wide uppercase text-2xs text-slate-300">{$_('video_player.share_manage_title', { default: 'Active share links' })}</p>
+                        <p class="font-semibold text-2xs text-slate-300">{$_('video_player.share_manage_title', { default: 'Active share links' })}</p>
                         <span class="text-2xs text-slate-400">{activeShareLinks.length}</span>
                     </div>
 

@@ -549,7 +549,7 @@
                                     x={position({ depth: heading.depth, row: 0 }).x}
                                     y={INSET * unit}
                                     text-anchor="middle"
-                                    class="fill-slate-500 text-3xs font-semibold uppercase tracking-widest dark:fill-slate-400"
+                                    class="fill-slate-500 text-3xs font-semibold dark:fill-slate-400"
                                     aria-hidden="true"
                                     data-family-tree-rank-heading
                                 >{heading.label}</text>
@@ -634,7 +634,7 @@
                                         y={1 * unit}
                                         text-anchor={before ? 'end' : 'start'}
                                         class="tree-label fill-slate-500 text-3xs dark:fill-slate-400"
-                                    >{#if mode === 'fan'}<tspan class="font-semibold uppercase tracking-widest">{rankLabel(item.taxon.rank)}</tspan>{:else if names.secondary}{@render svgName(names.secondary.parts)}{/if}{#if counts}{#if mode === 'fan' || names.secondary}<tspan>{' · '}</tspan>{/if}<tspan class="tabular-nums {item.kind === 'taxon' && (item.taxon.seen_species ?? 0) > 0 ? 'fill-success-700 dark:fill-success-300' : ''}">{counts}</tspan>{/if}{#if heardHere(item.taxon)}{#if mode === 'fan' || names.secondary || counts}<tspan>{' · '}</tspan>{/if}<tspan data-family-tree-heard>{$_('taxonomy.heard_word', { default: 'heard' })}</tspan>{/if}</text>
+                                    >{#if mode === 'fan'}<tspan class="font-semibold ">{rankLabel(item.taxon.rank)}</tspan>{:else if names.secondary}{@render svgName(names.secondary.parts)}{/if}{#if counts}{#if mode === 'fan' || names.secondary}<tspan>{' · '}</tspan>{/if}<tspan class="tabular-nums {item.kind === 'taxon' && (item.taxon.seen_species ?? 0) > 0 ? 'fill-success-700 dark:fill-success-300' : ''}">{counts}</tspan>{/if}{#if heardHere(item.taxon)}{#if mode === 'fan' || names.secondary || counts}<tspan>{' · '}</tspan>{/if}<tspan data-family-tree-heard>{$_('taxonomy.heard_word', { default: 'heard' })}</tspan>{/if}</text>
                                 {/if}
                             </g>
                         {/each}

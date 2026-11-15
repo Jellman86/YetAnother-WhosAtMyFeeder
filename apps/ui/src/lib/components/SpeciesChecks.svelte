@@ -45,7 +45,7 @@
     <section class="panel flex flex-col gap-5" aria-labelledby="spotlight-checks-title" data-spotlight-checks>
         <div class="flex flex-col gap-5 lg:flex-row lg:items-center">
             <div class="min-w-0 lg:w-96 lg:shrink-0">
-                <p class="flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-attention-700 dark:text-attention-300">
+                <p class="flex items-center gap-2 text-sm font-bold text-attention-700 dark:text-attention-300">
                     <span class="h-2 w-2 rounded-full bg-attention-500" aria-hidden="true"></span>{$_('leaderboard.spotlight_needs_check', { default: 'Needs a check' })}
                 </p>
                 <h3 id="spotlight-checks-title" class="mt-1 font-display text-2xl font-bold text-slate-900 dark:text-white">

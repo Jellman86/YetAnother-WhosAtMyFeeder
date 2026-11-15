@@ -909,7 +909,7 @@
                                     </div>
                                     <div>
                                         <dt class="font-semibold text-slate-600 dark:text-slate-400">{$_('settings.detection.model_manager_runtime', { default: 'Runtime' })}</dt>
-                                        <dd class="mt-1 font-medium uppercase text-slate-800 dark:text-slate-100">{model.runtime}</dd>
+                                        <dd class="mt-1 font-medium text-slate-800 dark:text-slate-100">{model.runtime}</dd>
                                     </div>
                                     <div>
                                         <dt class="font-semibold text-slate-600 dark:text-slate-400">{$_('settings.detection.model_manager_accuracy', { default: 'Accuracy' })}</dt>

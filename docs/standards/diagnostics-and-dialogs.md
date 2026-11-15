@@ -26,7 +26,8 @@ This is the depth behind [`CLAUDE.md`](../../CLAUDE.md) §5. When this page and
 - **Shell:** `rounded-2xl`, `max-w-2xl`, `bg-surface`, `border border-white/10`, `shadow-2xl`,
   on a `fixed inset-0` dimmed + `backdrop-blur-sm` scrim.
 - **Header band:** `bg-surface-raised`, so it follows the active theme. A `YA-WAMF` eyebrow in
-  `text-3xs font-bold uppercase tracking-[0.22em] text-brand-700` (dark: `text-brand-300`), then a
+  `text-xs font-semibold text-brand-700` (dark: `text-brand-300`), the product name as written and
+  never tracked-out capitals, then a
   `text-2xl font-bold` title and a calm `text-sm` subtitle.
 - **Progress:** a row of equal-width segments — brand for passed, amber for warnings,
   red for failed, pulsing brand for the running step, slate for pending/skipped. A visually-hidden

@@ -2,6 +2,9 @@ import './app.css'
 import { i18nReady } from './lib/i18n'
 import { mount } from 'svelte'
 import App from './App.svelte'
+import { installMediaFallback } from './lib/app/media-fallback'
+
+installMediaFallback(document)
 
 // Safari/WebKit has a bug where its internal autofill scanner throws a null
 // reference on any page with password-type inputs, surfaced as an unhandled

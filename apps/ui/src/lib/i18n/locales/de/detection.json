@@ -414,7 +414,7 @@
   "audio_pause": "Audioclip pausieren",
   "audio_play": "Audioclip abspielen",
   "audio_seek_spectrogram_aria": "Klicken, um im Audioclip zu springen",
-  "audio_spectrogram_unavailable": "Spektrogramm für diese Übereinstimmung nicht verfügbar",
+  "audio_spectrogram_unavailable": "Für diesen Ruf gibt es kein Spektrogramm. Abspielen lässt er sich trotzdem.",
   "manual_upload": "Aus einem Upload hinzugefügt",
   "search_species": "Art suchen",
   "species_updated": "Art aktualisiert",

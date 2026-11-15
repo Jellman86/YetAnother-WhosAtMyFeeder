@@ -753,7 +753,7 @@
                             <div class="px-5 py-4 space-y-1">
                                 <div class="flex items-center justify-between gap-3">
                                     <p class="text-sm font-bold text-slate-900 dark:text-white truncate">{candidate.display_name || candidate.frigate_event}</p>
-                                    <span class="text-xs font-bold uppercase tracking-widest {candidate.status === 'repair_candidate' ? 'text-attention-600 dark:text-attention-400' : 'text-slate-600 dark:text-slate-400'}">{candidate.status.replace(/_/g, ' ')}</span>
+                                    <span class="text-xs font-bold {candidate.status === 'repair_candidate' ? 'text-attention-600 dark:text-attention-400' : 'text-slate-600 dark:text-slate-400'}">{candidate.status.replace(/_/g, ' ')}</span>
                                 </div>
                                 <p class="text-xs text-slate-600 dark:text-slate-400 truncate">{candidate.frigate_event}</p>
                                 <div class="text-xs text-slate-600 dark:text-slate-300">

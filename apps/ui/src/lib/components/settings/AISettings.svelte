@@ -429,7 +429,7 @@
                             {#each usage.breakdown as item}
                                 <tr class="text-slate-700 dark:text-slate-300 transition-colors hover:bg-slate-50/70 dark:hover:bg-slate-900/40">
                                     <td class="px-4 py-3 font-bold">
-                                        <span class="opacity-50 font-bold uppercase text-xs mr-1">{item.provider}</span>
+                                        <span class="opacity-50 font-bold text-xs mr-1">{item.provider}</span>
                                         {item.model}
                                     </td>
                                     <td class="px-4 py-3 capitalize">{item.feature}</td>

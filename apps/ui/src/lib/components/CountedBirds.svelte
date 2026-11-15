@@ -234,7 +234,7 @@
 {#if error || regenerating || birds.length > 0 || (countingAvailable && !loading)}
     <section bind:this={sectionEl} class="space-y-3 wrap-break-word border-t border-slate-200 pt-5 dark:border-slate-700" data-counted-birds aria-labelledby="counted-birds-title-{eventId}">
         <div class="flex items-baseline justify-between gap-3">
-            <h4 id="counted-birds-title-{eventId}" class="text-xs font-semibold uppercase tracking-[0.12em] text-slate-600 dark:text-slate-400">
+            <h4 id="counted-birds-title-{eventId}" class="text-xs font-semibold text-slate-600 dark:text-slate-400">
                 {$_('detection.counted_birds.title', { default: 'Birds found in this capture' })}
             </h4>
             {#if birds.length > 0}
@@ -376,7 +376,7 @@
                     {@const unknown = isUnknownBird(bird)}
                     {@const position = positionText(bird)}
                     {#if bird.id === firstExcludedId}
-                        <li class="pb-1 pt-3 text-xs font-semibold uppercase tracking-[0.12em] text-slate-600 dark:text-slate-400" data-counted-birds-excluded-heading>
+                        <li class="pb-1 pt-3 text-xs font-semibold text-slate-600 dark:text-slate-400" data-counted-birds-excluded-heading>
                             {$_('detection.counted_birds.excluded_heading', { default: 'Excluded, not counted' })}
                         </li>
                     {/if}

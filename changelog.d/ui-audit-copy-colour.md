@@ -22,3 +22,10 @@
   wrong", empty states say what to do next, Audio history's filters show "Any species" and "Any
   source" instead of sample values, notifications say "Only you see this" in place of a padlock
   and "owner", and a model whose device is not known yet says so in plain words.
+- Small labels above headings and groups ("Identified as", the sidebar's "Observe" and "Manage",
+  "System status") are no longer spaced-out capitals. They read in sentence case like every other
+  label, and the sidebar's group headings now match the Settings rail. A test keeps CSS from forcing
+  capitals anywhere.
+- A picture that fails to load keeps its place and shows nothing broken: no alt text spilling over
+  the controls on it, no broken-image icon. The record's spectrogram keeps its size, says quietly
+  that there is no spectrogram for the call, and the call can still be played.

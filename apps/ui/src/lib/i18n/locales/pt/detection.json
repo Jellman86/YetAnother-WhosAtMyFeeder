@@ -414,7 +414,7 @@
   "audio_pause": "Pausar clipe de áudio",
   "audio_play": "Reproduzir clipe de áudio",
   "audio_seek_spectrogram_aria": "Clique para ir a um ponto do clipe de áudio",
-  "audio_spectrogram_unavailable": "Espectrograma indisponível para esta correspondência",
+  "audio_spectrogram_unavailable": "Não há espectrograma deste canto. Ainda assim pode ser reproduzido.",
   "manual_upload": "Adicionado por upload",
   "search_species": "Procurar espécie",
   "species_updated": "Espécie atualizada",

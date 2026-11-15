@@ -319,7 +319,7 @@
         {:else}
             <div class="flex items-start justify-between gap-4 border-b border-line-soft px-5 pb-4 pt-5 sm:px-8 sm:pt-7">
                 <div class="min-w-0">
-                    <p class="flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-attention-700 dark:text-attention-300">
+                    <p class="flex items-center gap-2 text-sm font-bold text-attention-700 dark:text-attention-300">
                         <span class="h-2 w-2 rounded-full bg-attention-500" aria-hidden="true"></span>
                         {$_('leaderboard.check.position', { values: { at: handled + 1, total }, default: 'Needs a check · {at} of {total}' })}
                     </p>

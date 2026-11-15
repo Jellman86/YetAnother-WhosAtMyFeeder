@@ -384,18 +384,19 @@ html[data-theme='dark'] {
 /* The kit. Each class is a utility, so it takes variants (sm:panel) and sits in the same layer
    as the utilities written beside it: a later utility of equal weight overrides it, while its own
    dark and hover styles keep the extra weight they have always had. */
-/* A small uppercase label above a heading or a group: names the window, the camera, the section. */
+/* A small label above a heading or a group: names the window, the camera, the section. Sentence
+   case at normal tracking, like every other label; it stays subordinate to its heading by size,
+   weight and a muted ink, never by capitals. */
 @utility eyebrow {
-  @apply text-xs font-semibold uppercase tracking-widest text-slate-600 dark:text-slate-400;
-  /* Wide-tracked capitals are the first thing to outgrow a narrow column at a large text size:
-     the word may break rather than push its row past the edge. */
+  @apply text-xs font-semibold text-slate-600 dark:text-slate-400;
+  /* A long translated label may break rather than push its row past the edge. */
   overflow-wrap: anywhere;
 }
 
-/* A taxonomic rank named beside a name: small tracked capitals, muted, the same wherever a rank
-   appears so the eye learns one label. Slate 600 and 400 keep AA contrast on a panel, a well and the page. */
+/* A taxonomic rank named beside a name: small and muted, the same wherever a rank appears so the
+   eye learns one label. Slate 600 and 400 keep AA contrast on a panel, a well and the page. */
 @utility taxon-rank {
-  @apply text-3xs font-semibold uppercase tracking-widest text-slate-600 dark:text-slate-400;
+  @apply text-3xs font-semibold text-slate-600 dark:text-slate-400;
 }
 
 /* A figure set in the display face with lining, tabular digits so columns of numbers align. */
@@ -574,14 +575,10 @@ html[data-theme='dark'] {
   @apply inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border;
 }
 
-/* Controls speak in sentence case. Small capitals with wide tracking are for labels that name a
-   group (the eyebrow); on a button they shout, and the serif faces set them poorly. Element plus
-   class outranks the utilities, so every control follows without editing each one. */
-button.uppercase,
-a.btn.uppercase,
-label.uppercase.cursor-pointer {
-  text-transform: none;
-  letter-spacing: normal;
+/* A picture that failed to load keeps its box and shows the ground behind it: no alt text spilling
+   over the controls on top, no broken-image glyph (installMediaFallback marks it). */
+img[data-media-failed] {
+  visibility: hidden;
 }
 
 /* Chart heights. A chart on a wide screen should not flatten into a strip that hides its slopes,

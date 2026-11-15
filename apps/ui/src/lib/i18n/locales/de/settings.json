@@ -926,7 +926,7 @@
     "bot_username": "Bot-Name",
     "test_notification": "Testbenachrichtigung senden",
     "test_sending": "Senden…",
-    "bot_placeholder": "YA-WAMF bot",
+    "bot_placeholder": "YA-WAMF Bot",
     "test_needs": "Geben Sie die Webhook-URL ein, um einen Test zu senden."
   },
   "pushover": {

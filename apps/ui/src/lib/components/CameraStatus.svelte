@@ -381,7 +381,7 @@
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-slate-500 dark:text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M3 3l18 18M10.73 5H5a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-3m0-4l2.553-1.276A1 1 0 0121 9.618v4.764a1 1 0 01-.553.894M15 8v-.999a2 2 0 00-2-2h-1" />
                             </svg>
-                            <span class="text-xs font-bold uppercase tracking-widest">
+                            <span class="text-xs font-bold">
                                 {selectedFrame?.error
                                     ? $_('header.cameras_frame_unavailable', { default: 'Frame unavailable' })
                                     : $_('header.cameras_no_frame', { default: 'No frame' })}

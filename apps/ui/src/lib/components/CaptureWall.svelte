@@ -381,7 +381,7 @@
     {#if leader}
         <header class="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
             <div class="min-w-0">
-                <p class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-600 dark:text-slate-400">{eyebrow}</p>
+                <p class="text-xs font-semibold text-slate-600 dark:text-slate-400">{eyebrow}</p>
                 <div class="mt-1 flex flex-wrap items-baseline gap-x-4 gap-y-1">
                     <h2 class="font-display text-3xl font-bold leading-tight text-slate-900 dark:text-white sm:text-4xl sm:leading-10">{leader.displayName}</h2>
                     <p class="text-sm tabular-nums text-slate-600 dark:text-slate-300">

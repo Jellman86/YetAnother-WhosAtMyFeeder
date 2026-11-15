@@ -232,7 +232,7 @@
     {:else}
         <div class="card-base p-4 sm:p-5">
             {#each groups as group (group.key)}
-                <h3 class="mb-1 mt-5 text-3xs font-bold uppercase tracking-[0.14em] text-slate-600 first:mt-0 dark:text-slate-400">
+                <h3 class="mb-1 mt-5 text-3xs font-bold text-slate-600 first:mt-0 dark:text-slate-400">
                     {$_(`notifications.group_${group.key}`)}
                 </h3>
                 <ol class="ml-1">

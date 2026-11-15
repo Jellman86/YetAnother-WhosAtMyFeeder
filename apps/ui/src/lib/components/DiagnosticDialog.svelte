@@ -10,7 +10,7 @@
     interface Props {
         title: string;
         subtitle?: string;
-        // Small uppercase brand label above the title. Defaults to the product name.
+        // Small label above the title. Defaults to the product name.
         eyebrow?: string;
         // The ordered checks. Callers own the truth: a stage only becomes
         // `passed`/`failed` when its check actually resolved that way.
@@ -153,7 +153,7 @@
         <div class="space-y-4 bg-surface-raised px-6 py-5">
             <div class="flex items-start justify-between gap-4">
                 <div class="space-y-1">
-                    <p class="text-3xs font-bold uppercase tracking-[0.22em] text-brand-700 dark:text-brand-300">{eyebrow}</p>
+                    <p class="text-xs font-semibold text-brand-700 dark:text-brand-300">{eyebrow}</p>
                     <h2 id="diagnostic-title" class="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
                         {title}
                     </h2>
@@ -191,7 +191,7 @@
                             <div class="flex flex-wrap items-center gap-2">
                                 <h3 class="text-sm font-bold text-slate-900 dark:text-white">{stage.label}</h3>
                                 {#if stage.state === 'running'}
-                                    <span class="text-3xs font-bold uppercase tracking-widest text-brand-700 dark:text-brand-300">{runningLabel ?? $_('common.testing', { default: 'Testing' })}</span>
+                                    <span class="text-3xs font-bold text-brand-700 dark:text-brand-300">{runningLabel ?? $_('common.testing', { default: 'Testing' })}</span>
                                 {/if}
                             </div>
                             {#if stage.state !== 'pending'}

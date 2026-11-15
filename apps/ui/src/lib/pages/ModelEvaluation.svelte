@@ -361,7 +361,7 @@
                 </div>
                 <div class="mt-4 overflow-x-auto">
                     <table class="min-w-full text-sm">
-                        <thead class="text-xs uppercase text-slate-600 dark:text-slate-400 border-b border-slate-200 dark:border-slate-700">
+                        <thead class="text-xs text-slate-600 dark:text-slate-400 border-b border-slate-200 dark:border-slate-700">
                             <tr>
                                 <th class="text-left py-2 pr-4">{$_('model_eval.col_model', { default: 'Model' })}</th>
                                 <th class="text-left px-2">{$_('model_eval.col_best_provider', { default: 'Best validated provider' })}</th>
@@ -398,7 +398,7 @@
             {:else if selectedRun.models && selectedRun.models.length > 0}
                 <div class="mt-4 overflow-x-auto">
                     <table class="min-w-full text-sm">
-                        <thead class="text-xs uppercase text-slate-600 dark:text-slate-400 border-b border-slate-200 dark:border-slate-700">
+                        <thead class="text-xs text-slate-600 dark:text-slate-400 border-b border-slate-200 dark:border-slate-700">
                             <tr>
                                 <th class="text-left py-2 pr-4">Model</th>
                                 <th class="text-right px-2">Top-1</th>
@@ -484,7 +484,7 @@
             </p>
             <div class="mt-3 overflow-x-auto">
                 <table class="w-full text-sm">
-                    <thead class="text-xs uppercase text-slate-600 dark:text-slate-400 border-b border-slate-200 dark:border-slate-700">
+                    <thead class="text-xs text-slate-600 dark:text-slate-400 border-b border-slate-200 dark:border-slate-700">
                         <tr>
                             <th class="text-left py-2 pr-4">Model</th>
                             {#each matrixProviders(deviceMatrix) as dev}

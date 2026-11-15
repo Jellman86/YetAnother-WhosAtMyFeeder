@@ -63,7 +63,7 @@
             <div class="absolute inset-0 border-y border-brand-200/25"></div>
         {/if}
 
-        <div class="absolute left-2 top-2 inline-flex items-center gap-1.5 rounded-md border border-brand-200/25 bg-black/55 px-2 py-1 text-3xs font-bold uppercase tracking-widest text-brand-100">
+        <div class="absolute left-2 top-2 inline-flex items-center gap-1.5 rounded-md border border-brand-200/25 bg-black/55 px-2 py-1 text-3xs font-bold text-brand-100">
             <span class="h-1.5 w-1.5 rounded-full bg-brand-300 {isComplete ? '' : 'motion-safe:animate-pulse'}"></span>
             {$_('detection.reclassification.snapshot_scanning', { default: 'Snapshot scan' })}
         </div>
@@ -72,7 +72,7 @@
             <div class="absolute inset-x-2 bottom-2 rounded-lg border border-white/10 bg-black/55 px-2 py-1.5 text-white">
                 <div class="truncate text-2xs font-bold">{latestLabel}</div>
                 {#if latestScore !== null}
-                    <div class="mt-0.5 text-3xs font-bold uppercase tracking-widest text-brand-200">{latestScore}%</div>
+                    <div class="mt-0.5 text-3xs font-bold text-brand-200">{latestScore}%</div>
                 {/if}
             </div>
         {/if}
@@ -87,10 +87,10 @@
 
     {#if showFooter}
         <div class="mt-2 flex items-center justify-between gap-3 px-1">
-            <span class="text-3xs font-bold uppercase tracking-widest text-slate-600 dark:text-slate-400">
+            <span class="text-3xs font-bold text-slate-600 dark:text-slate-400">
                 {$_('detection.reclassification.snapshot_fallback_badge', { default: 'Snapshot fallback' })}
             </span>
-            <span class="text-3xs font-bold uppercase tracking-widest text-brand-700 dark:text-brand-300">
+            <span class="text-3xs font-bold text-brand-700 dark:text-brand-300">
                 {$_('detection.reclassification.frame_progress', {
                     values: {
                         current: Math.min(safeCurrentFrame, safeTotalFrames),

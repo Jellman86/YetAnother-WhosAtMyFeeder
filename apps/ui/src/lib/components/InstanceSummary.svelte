@@ -172,7 +172,7 @@
 
         <div class="grid min-w-0 gap-6 sm:grid-cols-[minmax(0,0.7fr)_minmax(0,0.7fr)_minmax(0,1.6fr)]">
             <div class="min-w-0">
-                <p class="text-2xs font-semibold uppercase tracking-[0.12em] text-slate-600 wrap-anywhere dark:text-slate-400">
+                <p class="text-2xs font-semibold text-slate-600 wrap-anywhere dark:text-slate-400">
                     {$_('about.instance.acceleration', { default: 'Acceleration' })}
                 </p>
                 <p class="wrap-break-word font-display text-2xl font-bold text-slate-900 dark:text-white">{acceleration}</p>
@@ -184,7 +184,7 @@
             </div>
 
             <div data-instance-uptime class="min-w-0">
-                <p class="text-2xs font-semibold uppercase tracking-[0.12em] text-slate-600 wrap-anywhere dark:text-slate-400">
+                <p class="text-2xs font-semibold text-slate-600 wrap-anywhere dark:text-slate-400">
                     {$_('about.instance.uptime', { default: 'Running for' })}
                 </p>
                 <p class="font-display text-2xl font-bold text-slate-900 dark:text-white">
@@ -290,7 +290,7 @@
             </div>
 
             <div class="min-w-0" data-instance-report>
-                <p class="text-2xs font-semibold uppercase tracking-[0.12em] text-slate-600 wrap-anywhere dark:text-slate-400">
+                <p class="text-2xs font-semibold text-slate-600 wrap-anywhere dark:text-slate-400">
                     {$_('about.instance.for_issue', { default: 'For an issue report' })}
                 </p>
                 <div class="mt-1.5 flex min-w-0 flex-col items-stretch gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 sm:flex-row sm:items-center dark:border-slate-700 dark:bg-slate-900/50">

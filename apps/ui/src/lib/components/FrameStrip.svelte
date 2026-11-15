@@ -641,7 +641,7 @@
                                 />
                                 <div class="flex flex-col gap-1.5 p-3 text-[0.8125rem]">
                                     <div class="flex items-baseline justify-between gap-2">
-                                        <span class="text-3xs font-semibold uppercase tracking-[0.14em] text-slate-400">
+                                        <span class="text-3xs font-semibold text-slate-400">
                                             {positionLabel(moment)}
                                             &middot; {framingLabel(moment)}
                                         </span>

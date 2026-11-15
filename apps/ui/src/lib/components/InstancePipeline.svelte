@@ -262,7 +262,7 @@
                 {/if}
                 {#if step.state}
                     <!-- Seven narrow cards at a large text size: a word breaks rather than being cut by the card. -->
-                    <span class="relative block text-3xs font-bold uppercase tracking-[0.12em] wrap-anywhere {toneClass(step.tone)}">
+                    <span class="relative block text-3xs font-bold wrap-anywhere {toneClass(step.tone)}">
                         {step.state}
                     </span>
                 {/if}

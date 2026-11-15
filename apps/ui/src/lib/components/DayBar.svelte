@@ -108,7 +108,7 @@
              does not make the band taller. -->
         {#snippet figure(hook: string, label: string, value: number | null, pending: boolean, tone: 'plain' | 'attention' | 'clear' = 'plain', note: string = '', title: string = '', noted: boolean = false)}
             <div class="flex min-w-0 flex-col gap-1.5 px-5 py-4" {title} data-day-bar-figure={hook}>
-                <dt class="wrap-break-word text-sm text-slate-600 first-letter:uppercase dark:text-slate-400">{label}</dt>
+                <dt class="wrap-break-word text-sm text-slate-600 dark:text-slate-400">{label}</dt>
                 <dd class="flex min-w-0 flex-col gap-1">
                     <span
                         class="figure text-3xl {tone === 'attention'

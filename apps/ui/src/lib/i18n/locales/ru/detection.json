@@ -414,7 +414,7 @@
   "audio_pause": "Приостановить аудиоклип",
   "audio_play": "Воспроизвести аудиоклип",
   "audio_seek_spectrogram_aria": "Нажмите, чтобы перейти к нужному месту аудиоклипа",
-  "audio_spectrogram_unavailable": "Спектрограмма для этого совпадения недоступна",
+  "audio_spectrogram_unavailable": "Для этого голоса нет спектрограммы. Его всё равно можно прослушать.",
   "manual_upload": "Добавлено из загруженного файла",
   "search_species": "Поиск вида",
   "species_updated": "Вид обновлён",

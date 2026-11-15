@@ -1,4 +1,8 @@
 import { describe, expect, it } from 'vitest';
+// @ts-expect-error -- node:fs resolves at runtime, not in the app tsconfig
+import { readFileSync } from 'node:fs';
+
+const appCss = readFileSync(new URL('../app.css', import.meta.url), 'utf8');
 
 const sources = import.meta.glob(['./**/*.svelte', './**/*.ts', '!./**/*.test.ts', '!./i18n/locales/**'], {
     eager: true,
@@ -54,5 +58,32 @@ describe('fallback copy in the code', () => {
             }
         }
         expect(offenders).toEqual([]);
+    });
+});
+
+describe('case in the markup', () => {
+    // layout-patterns.md writing rules: labels, eyebrows and headings are sentence case, with
+    // hierarchy from size, weight and colour. Capitals forced by CSS turn a translated sentence into
+    // shouting, and wide tracking sets the serif faces poorly, so neither is drawn anywhere.
+    it('never forces capitals with a class', () => {
+        const offenders = Object.entries(sources)
+            .filter(([path, text]) => path.endsWith('.svelte') && /(?:^|[\s"'`{])uppercase(?=[\s"'`}])/m.test(text))
+            .map(([path]) => path);
+        expect(offenders).toEqual([]);
+    });
+
+    it('never forces capitals in the stylesheet or a component style block', () => {
+        expect(appCss).not.toMatch(/@apply[^;]*\buppercase\b/);
+        expect(appCss).not.toMatch(/text-transform:\s*uppercase/);
+        const styled = Object.entries(sources).filter(([, text]) => /text-transform:\s*uppercase/.test(text)).map(([path]) => path);
+        expect(styled).toEqual([]);
+    });
+
+    it('keeps the eyebrow and the taxonomic rank in sentence case at normal tracking', () => {
+        for (const name of ['eyebrow', 'taxon-rank']) {
+            const rule = appCss.match(new RegExp(`@utility ${name} \\{[^}]*\\}`))?.[0] ?? '';
+            expect(rule, name).not.toBe('');
+            expect(rule, name).not.toMatch(/uppercase|tracking-/);
+        }
     });
 });

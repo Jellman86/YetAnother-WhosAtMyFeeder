@@ -2335,7 +2335,7 @@
                 <p
                     id="events-timeline-scope"
                     data-events-timeline-scope
-                    class="mb-2 text-2xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-400"
+                    class="mb-2 text-2xs font-semibold text-slate-600 dark:text-slate-400"
                 >
                     {$_('events.timeline_scope', { default: 'Days on this page' })}
                 </p>
@@ -2400,7 +2400,7 @@
         {:else if pane.state === 'first-load'}
             <!-- The day strip's space, held while the first page is read, so the visits are not pushed down when it appears. -->
             <div class="pb-4 pt-1" aria-hidden="true" data-events-timeline-placeholder>
-                <p class="invisible mb-2 text-2xs font-semibold uppercase tracking-wide">{$_('events.timeline_scope', { default: 'Days on this page' })}</p>
+                <p class="invisible mb-2 text-2xs font-semibold">{$_('events.timeline_scope', { default: 'Days on this page' })}</p>
                 <div class="min-h-11"></div>
             </div>
         {/if}

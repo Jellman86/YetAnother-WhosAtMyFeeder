@@ -570,7 +570,7 @@
                             />
                         {/if}
                         <div class="min-w-0">
-                            <p class="text-3xs font-semibold uppercase tracking-[0.14em] text-slate-600 dark:text-slate-400">
+                            <p class="text-3xs font-semibold text-slate-600 dark:text-slate-400">
                                 {view.nameState === 'confirmed'
                                     ? viewer === 'owner'
                                         ? $_('detection.identified_by_you', { default: 'Identified by you' })
@@ -680,7 +680,7 @@
 
                 {#if referenceName && (speciesInfoLoading || speciesInfo || speciesInfoError)}
                     <section class="space-y-2" data-garden-species-info>
-                        <h4 class="text-xs font-semibold uppercase tracking-[0.12em] text-slate-600 dark:text-slate-400">
+                        <h4 class="text-xs font-semibold text-slate-600 dark:text-slate-400">
                             {$_('garden.explorer.about_species', { default: 'About {species}', values: { species: title } })}
                         </h4>
                         {#if speciesInfoLoading}

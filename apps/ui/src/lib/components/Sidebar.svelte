@@ -159,7 +159,8 @@
         {#each navSections as section, sectionIndex}
             <div data-sidebar-section={section.id} class={sectionIndex === 0 ? '' : 'mt-5'}>
                 {#if !collapsed}
-                    <div class="eyebrow px-3 pb-2">
+                    <!-- Headed like the Settings rail's groups, so the two navigations read as one. -->
+                    <div class="px-3 pb-1 text-sm font-semibold text-slate-900 dark:text-white">
                         {section.label}
                     </div>
                 {/if}

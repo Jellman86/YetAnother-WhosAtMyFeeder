@@ -648,8 +648,10 @@ build something better."*
   or gradient wash; `surface-raised` fills a well inside a panel. These tokens are set per mode and
   theme in `app.css`, so a component never names a theme. Gradients remain only where they do a
   job: a scrim that keeps a caption legible over a photo, a scroll fade, a loading shimmer.
-- **Labels and controls**: a small uppercase label with wide tracking (`.eyebrow`) names a group or
-  a window. Controls speak in sentence case; `app.css` holds every button to that.
+- **Labels and controls**: a small label (`.eyebrow`) names a group or a window. Like every control,
+  heading and label it is in sentence case at normal tracking: it stays below its heading by size,
+  weight and a muted ink, never by capitals. Nothing forces capitals with CSS
+  (`dialog-close-and-copy.layout.test.ts`), so a translated label reads as written.
 - **One object, one choice**: when one thing takes part in several subjects, as a camera can watch
   for birds and Garden animals, give it one row with one single-choice control that names the
   combinations (Off, Birds, Garden animals, Both). Options that belong to one subject appear under

@@ -738,7 +738,7 @@
                         />
                     </label>
 
-                    <p id="review-species-choices" class="-mb-1 text-2xs font-semibold uppercase tracking-[0.12em] text-slate-600 dark:text-slate-400">
+                    <p id="review-species-choices" class="-mb-1 text-2xs font-semibold text-slate-600 dark:text-slate-400">
                         {searching
                             ? $_('dashboard.review_session.all_species', { default: 'All species' })
                             : $_('dashboard.review_session.seen_here', { default: 'Seen at this feeder' })}
