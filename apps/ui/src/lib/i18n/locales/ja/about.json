@@ -82,7 +82,6 @@
   },
   "instance": {
     "title": "このインスタンス",
-    "acceleration": "アクセラレーション",
     "for_issue": "不具合報告用",
     "copy": "コピー",
     "copied": "コピーしました",
@@ -106,7 +105,12 @@
     "history_loading": "稼働状況を読み込んでいます…",
     "history_unavailable": "稼働状況を取得できませんでした。",
     "availability_partial": "記録された {hours} 時間のうち {percent}% 稼働",
-    "no_gaps_since": "{when} の記録開始以降、途切れはありません。"
+    "no_gaps_since": "{when} の記録開始以降、途切れはありません。",
+    "runtime": "鳥の識別に使用中",
+    "runtime_on": "{runtime}（{device}）",
+    "runtime_unread": "まだ読み取れていません。モデルの読み込みが終わると表示されます。",
+    "uptime_unmeasured": "未計測です。バックエンドから起動時刻を読み取れませんでした。",
+    "availability_heading": "稼働率（過去{hours}時間）"
   },
   "close": {
     "title": "データ、プライバシー、クレジット"

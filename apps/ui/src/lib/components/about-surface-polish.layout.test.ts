@@ -99,4 +99,22 @@ describe('About surface polish', () => {
             expect(value).not.toContain('—');
         }
     });
+
+    it('never puts an unmeasured running time beside a measured availability', () => {
+        // "Running for Unknown" above "100% up" claimed a measurement that was not made.
+        expect(instanceSource).not.toMatch(/uptime \?\? \$_\('about\.pipeline\.unknown'/);
+        expect(instanceSource).toContain('data-instance-running-unmeasured');
+        // The availability figure names its own window, apart from the running time.
+        expect(instanceSource).toContain("about.instance.availability_heading");
+        expect(instanceSource.indexOf('data-instance-running-for')).toBeLessThan(
+            instanceSource.indexOf('about.instance.availability_heading')
+        );
+        // The start time is read from the probes, never assumed.
+        expect(instanceSource).toContain('startedAtFrom(readiness) ?? startedAtFrom(await checkHealth()');
+    });
+
+    it('names the runtime and its device rather than a bare runtime token', () => {
+        expect(instanceSource).toContain('describeRuntime(classifier)');
+        expect(instanceSource).not.toContain('about.instance.acceleration');
+    });
 });

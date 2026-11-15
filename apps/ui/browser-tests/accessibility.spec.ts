@@ -75,6 +75,7 @@ async function openRecord(page: Page): Promise<void> {
     await expect(page.locator('[data-field-log-row]').first()).toBeVisible(READY);
     await page.locator('[data-field-log-row] [data-field-log-action]').first().click();
     // The record is a lazy chunk: its actions are the last thing it draws.
+    await page.locator('[data-detection-more-actions]').click(READY);
     await expect(page.locator('[data-detection-delete]')).toBeVisible(READY);
 }
 

@@ -82,7 +82,6 @@
   },
   "instance": {
     "title": "Diese Instanz",
-    "acceleration": "Beschleunigung",
     "for_issue": "Für eine Fehlermeldung",
     "copy": "Kopieren",
     "copied": "Kopiert",
@@ -106,7 +105,12 @@
     "history_loading": "Verfügbarkeit wird geladen…",
     "history_unavailable": "Verfügbarkeit konnte nicht abgerufen werden.",
     "availability_partial": "{percent}% verfügbar in den {hours} h mit Aufzeichnung",
-    "no_gaps_since": "Keine Lücken seit Beginn der Aufzeichnung um {when}."
+    "no_gaps_since": "Keine Lücken seit Beginn der Aufzeichnung um {when}.",
+    "runtime": "Vogelbestimmung mit",
+    "runtime_on": "{runtime} auf {device}",
+    "runtime_unread": "Noch nicht gelesen. Das Modell meldet dies, sobald es geladen ist.",
+    "uptime_unmeasured": "Nicht gemessen. Die Startzeit konnte nicht vom Backend gelesen werden.",
+    "availability_heading": "Verfügbarkeit, letzte {hours} Stunden"
   },
   "close": {
     "title": "Daten, Datenschutz und Danksagungen"

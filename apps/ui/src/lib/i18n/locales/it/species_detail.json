@@ -25,5 +25,8 @@
   "copy_diagnostics_bundle": "Copia pacchetto diagnostico",
   "no_local_visits_title": "Ancora nessuna visita alla tua mangiatoia",
   "no_local_visits_body": "Le tue telecamere non hanno registrato questo uccello. Tutto ciò che segue proviene da fonti di riferimento pubbliche.",
-  "reclassify_clip": "Riclassifica dal clip"
+  "reclassify_clip": "Riclassifica dal clip",
+  "detections_all_time": "Rilevamenti, da sempre",
+  "detections_shared": "Rilevamenti, cronologia condivisa",
+  "detections_note": "Ogni fotogramma identificato conta una volta. Una visita può contenere più fotogrammi, quindi i conteggi delle visite in classifica sono più bassi."
 }

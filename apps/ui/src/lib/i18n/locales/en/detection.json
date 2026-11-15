@@ -495,5 +495,11 @@
   "domestic_bird_declared": "This is a {bird}, a domestic bird you keep. Move it to Garden to record it as a Garden animal. This bird record is hidden, not deleted.",
   "move_to_garden": "Move to Garden",
   "range_fallback": "Range filter: the model first said {original} ({score}%), which eBird has never recorded in {region}, so its next answer in range was kept.",
-  "audio_context_all": "All calls heard around this visit"
+  "audio_context_all": "All calls heard around this visit",
+  "record_label": "Detection record",
+  "more_actions": "More actions",
+  "reference_read_more_on": "Read more on {source}",
+  "reference_read_more": "Read more",
+  "reference_source": "Source: {source}",
+  "reference_conservation": "Conservation status: {status}"
 }

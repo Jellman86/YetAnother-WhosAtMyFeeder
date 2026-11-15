@@ -495,5 +495,11 @@
   "domestic_bird_declared": "这是您饲养的家禽（{bird}）。将其移至花园即可记录为花园动物。此鸟类记录会被隐藏，而不是删除。",
   "move_to_garden": "移至花园",
   "range_fallback": "分布范围筛选：模型最初给出的是 {original}（{score}%），eBird 从未在 {region} 记录过，因此保留了它在分布范围内的下一个答案。",
-  "audio_context_all": "此次到访前后听到的所有鸣叫"
+  "audio_context_all": "此次到访前后听到的所有鸣叫",
+  "record_label": "检测记录",
+  "more_actions": "更多操作",
+  "reference_read_more_on": "在 {source} 阅读更多",
+  "reference_read_more": "阅读更多",
+  "reference_source": "来源：{source}",
+  "reference_conservation": "保护状况：{status}"
 }

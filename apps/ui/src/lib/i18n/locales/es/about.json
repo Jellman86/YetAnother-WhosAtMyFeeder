@@ -82,7 +82,6 @@
   },
   "instance": {
     "title": "Esta instancia",
-    "acceleration": "Aceleración",
     "for_issue": "Para informar de un problema",
     "copy": "Copiar",
     "copied": "Copiado",
@@ -106,7 +105,12 @@
     "history_loading": "Cargando disponibilidad…",
     "history_unavailable": "No se pudo consultar la disponibilidad.",
     "availability_partial": "{percent}% activo en las {hours} h registradas",
-    "no_gaps_since": "Sin interrupciones desde que empezó el registro a las {when}."
+    "no_gaps_since": "Sin interrupciones desde que empezó el registro a las {when}.",
+    "runtime": "Identifica aves con",
+    "runtime_on": "{runtime} en {device}",
+    "runtime_unread": "Aún no se ha leído. El modelo lo indica cuando termina de cargarse.",
+    "uptime_unmeasured": "Sin medir. No se pudo leer la hora de inicio del backend.",
+    "availability_heading": "Disponibilidad, últimas {hours} horas"
   },
   "close": {
     "title": "Datos, privacidad y créditos"

@@ -1,6 +1,6 @@
 <script lang="ts">
     import { onMount } from 'svelte';
-    import { fetchClassifierStatus, fetchReadiness, fetchUpdateStatus } from '../api';
+    import { checkHealth, fetchClassifierStatus, fetchReadiness, fetchUpdateStatus } from '../api';
     import type { UpdateStatus } from '../api';
     import { fetchUptimeWindow, type UptimeWindowResponse } from '../api/leaderboard';
     import type { ClassifierStatus, VersionInfo } from '../api';
@@ -8,6 +8,7 @@
     import { getErrorMessage, isTransientRequestError } from '../utils/error-handling';
     import { logger } from '../utils/logger';
     import { formatDate, formatTime } from '../utils/datetime';
+    import { describeRuntime, startedAtFrom } from '../utils/instance-facts';
     import { uptimeCoverage } from '../utils/uptime-coverage';
     import { _ } from 'svelte-i18n';
 
@@ -21,6 +22,7 @@
 
     let classifier = $state<ClassifierStatus | null>(null);
     let startedAt = $state<string | null>(null);
+    let startRead = $state(false);
     let uptimeWindow = $state<UptimeWindowResponse | null>(null);
     let uptimeLoadState = $state<UptimeLoadState>('loading');
     let updateStatus = $state<UpdateStatus | null>(null);
@@ -31,12 +33,11 @@
 
     onMount(() => {
         void (async () => {
-            try {
-                const readiness = await fetchReadiness();
-                startedAt = readiness.startup_started_at ?? null;
-            } catch {
-                // Uptime is supporting detail; the card stands without it.
-            }
+            // Both probes report the same process start; the second is asked only when the
+            // first could not be read, and with neither the card says it was not measured.
+            const readiness = await fetchReadiness().catch(() => null);
+            startedAt = startedAtFrom(readiness) ?? startedAtFrom(await checkHealth().catch(() => null));
+            startRead = true;
             try {
                 uptimeWindow = await fetchUptimeWindow(24);
                 uptimeLoadState = 'ready';
@@ -64,14 +65,20 @@
         })();
     });
 
-    const acceleration = $derived(
-        classifier?.active_provider ??
-            classifier?.inference_backend ??
-            $_('about.pipeline.unknown', { default: 'Unknown' })
+    const runtime = $derived(describeRuntime(classifier));
+    const runtimeLabel = $derived(
+        !runtime
+            ? null
+            : runtime.device
+              ? $_('about.instance.runtime_on', {
+                    values: { runtime: runtime.runtime, device: runtime.device },
+                    default: '{runtime} on {device}'
+                })
+              : runtime.runtime
     );
 
-    // The readiness probe records when this process started. There is no health history,
-    // so this is honestly "running since", not a 24-hour availability strip.
+    // Two separate measurements share this card and are never merged: how long this process
+    // has run (from its own start time), and the share of the last 24 hours it was recorded up.
     const availability = $derived.by(() => {
         const ratio = uptimeWindow?.uptime_ratio;
         if (ratio === null || ratio === undefined) return null;
@@ -109,7 +116,7 @@
             `v${versionInfo.base_version}`,
             versionInfo.branch,
             versionInfo.git_hash,
-            acceleration,
+            runtimeLabel,
             classifier?.effective_model_id ?? classifier?.active_model_id ?? 'no model'
         ]
             .filter(Boolean)
@@ -171,11 +178,17 @@
         </div>
 
         <div class="grid min-w-0 gap-6 sm:grid-cols-[minmax(0,0.7fr)_minmax(0,0.7fr)_minmax(0,1.6fr)]">
-            <div class="min-w-0">
+            <div class="min-w-0" data-instance-runtime>
                 <p class="text-2xs font-semibold text-slate-600 wrap-anywhere dark:text-slate-400">
-                    {$_('about.instance.acceleration', { default: 'Acceleration' })}
+                    {$_('about.instance.runtime', { default: 'Identifying birds with' })}
                 </p>
-                <p class="wrap-break-word font-display text-2xl font-bold text-slate-900 dark:text-white">{acceleration}</p>
+                {#if runtimeLabel}
+                    <p class="wrap-break-word font-display text-2xl font-bold text-slate-900 dark:text-white">{runtimeLabel}</p>
+                {:else}
+                    <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                        {$_('about.instance.runtime_unread', { default: 'Not read yet. The model reports this once it has loaded.' })}
+                    </p>
+                {/if}
                 {#if classifier?.fallback_reason}
                     <p class="mt-1 text-2xs leading-snug text-slate-600 dark:text-slate-400">
                         {classifier.fallback_reason}
@@ -187,14 +200,30 @@
                 <p class="text-2xs font-semibold text-slate-600 wrap-anywhere dark:text-slate-400">
                     {$_('about.instance.uptime', { default: 'Running for' })}
                 </p>
-                <p class="font-display text-2xl font-bold text-slate-900 dark:text-white">
-                    {uptime ?? $_('about.pipeline.unknown', { default: 'Unknown' })}
-                </p>
+                {#if uptime && startedAt}
+                    <p class="font-display text-2xl font-bold text-slate-900 dark:text-white" data-instance-running-for>{uptime}</p>
+                    <p class="text-2xs text-slate-600 dark:text-slate-400">
+                        {$_('about.instance.since', {
+                            values: { when: `${formatDate(startedAt)} ${formatTime(startedAt)}` },
+                            default: 'since {when}'
+                        })}
+                    </p>
+                {:else if startRead}
+                    <!-- Not measured is said in words, at body size: never a headline figure. -->
+                    <p class="mt-1 text-sm text-slate-600 dark:text-slate-400" data-instance-running-unmeasured>
+                        {$_('about.instance.uptime_unmeasured', { default: 'Not measured. The start time could not be read from the backend.' })}
+                    </p>
+                {:else}
+                    <p class="mt-1 text-sm text-slate-600 dark:text-slate-400" role="status">{$_('common.loading', { default: 'Loading…' })}</p>
+                {/if}
 
+                <p class="mt-4 text-2xs font-semibold text-slate-600 wrap-anywhere dark:text-slate-400">
+                    {$_('about.instance.availability_heading', { values: { hours: 24 }, default: 'Availability, last {hours} hours' })}
+                </p>
                 {#if uptimeLoadState === 'ready' && uptimeWindow}
                     {#if availability}
                         <!-- The percentage covers only the hours that were recorded, and says so. -->
-                        <p class="mt-0.5 text-xs font-semibold tabular-nums text-slate-600 dark:text-slate-300" data-uptime-availability>
+                        <p class="font-display text-2xl font-bold tabular-nums text-slate-900 dark:text-white" data-uptime-availability>
                             {#if coverage && !coverage.complete}
                                 {$_('about.instance.availability_partial', {
                                     values: { percent: availability, hours: coverage.recordedHours },
@@ -276,14 +305,6 @@
                     <p class="mt-1.5 text-2xs text-slate-600 dark:text-slate-400">
                         {$_('about.instance.history_unavailable', {
                             default: 'Availability could not be read.'
-                        })}
-                    </p>
-                {/if}
-                {#if startedAt}
-                    <p class="mt-1 text-2xs text-slate-600 dark:text-slate-400">
-                        {$_('about.instance.since', {
-                            values: { when: `${formatDate(startedAt)} ${formatTime(startedAt)}` },
-                            default: 'since {when}'
                         })}
                     </p>
                 {/if}

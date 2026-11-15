@@ -25,5 +25,8 @@
   "copy_diagnostics_bundle": "复制诊断包",
   "no_local_visits_title": "您的喂食器尚无到访记录",
   "no_local_visits_body": "您的摄像头尚未记录到这种鸟。以下内容均来自公开参考资料。",
-  "reclassify_clip": "根据片段重新分类"
+  "reclassify_clip": "根据片段重新分类",
+  "detections_all_time": "检测次数（全部历史）",
+  "detections_shared": "检测次数（已共享的历史）",
+  "detections_note": "每个已识别的画面计一次。一次到访可能包含多个画面，因此排行榜中的到访次数会更少。"
 }

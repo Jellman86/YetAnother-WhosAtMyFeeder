@@ -32,6 +32,7 @@
     import LazyModal from '../components/LazyModal.svelte';
     import { loadSpeciesDetailModal } from '../components/lazy-dialogs';
     import { doughnutInsightPlugin } from '../actions/chartjs-doughnut';
+    import { audioSpeciesMix } from './audio-species-mix';
     import { SCORE_TEXT, scoreBand } from '../utils/score-tone';
 
     const PAGE_SIZE = 25;
@@ -338,8 +339,14 @@
         };
     });
 
+    // The ring's slices total the page's "Heard" figure: the named species, then all the others.
+    let speciesMix = $derived(
+        audioSpeciesMix(summary?.top_species ?? [], summary?.total, $_('audio.chart.other_species', { default: 'Other species' }), 8)
+    );
+    let otherSpeciesColor = $derived(isDark ? '#64748b' : '#94a3b8');
+
     let speciesDonutConfig = $derived((): CanvasChartConfig => {
-        const top = (summary?.top_species ?? []).slice(0, 8);
+        const top = speciesMix;
         const values = top.map((species) => species.count);
         const totalLabel = $_('audio.chart.heard', { default: 'Heard' });
         const centerTotal = doughnutInsightPlugin('audioCenterTotal', values, totalLabel, isDark);
@@ -347,7 +354,7 @@
             type: 'doughnut',
             data: {
                 labels: top.map((species) => species.species),
-                datasets: [{ data: values, backgroundColor: top.map((_, index) => audioSpeciesColor(index)), borderColor: isDark ? '#1e293b' : '#ffffff', borderWidth: 1.5 }],
+                datasets: [{ data: values, backgroundColor: top.map((slice, index) => (slice.other ? otherSpeciesColor : audioSpeciesColor(index))), borderColor: isDark ? '#1e293b' : '#ffffff', borderWidth: 1.5 }],
             },
             plugins: [centerTotal],
             options: {
@@ -629,10 +636,10 @@
                     {#key `${applied.days}-${isDark}-${reduceMotion}`}
                         <div class="relative mt-3 chart-h w-full"><canvas use:chartjs={speciesDonutConfig()} bind:this={speciesChartEl} aria-label={$_('audio.chart.species_title', { default: 'Species mix' })}></canvas></div>
                         <div class="mt-2 flex flex-wrap justify-center gap-2" role="group" aria-label={$_('audio.chart.species_title', { default: 'Species mix' })}>
-                            {#each (summary?.top_species ?? []).slice(0, 8) as item, index}
+                            {#each speciesMix as item, index}
                                 <button type="button" class="btn btn-ghost min-h-9 gap-1.5 px-2 text-xs focus-visible:ring-2 focus-visible:ring-focus {hiddenChartSpecies.includes(index) ? 'opacity-45 line-through' : ''}"
                                     aria-pressed={!hiddenChartSpecies.includes(index)} aria-label="{hiddenChartSpecies.includes(index) ? $_('common.show') : $_('common.hide')} {item.species}" onclick={() => toggleSpeciesSlice(index)}>
-                                    <span class="h-2.5 w-2.5 rounded-xs" style="background-color: {audioSpeciesColor(index)}"></span>{item.species}
+                                    <span class="h-2.5 w-2.5 rounded-xs" style="background-color: {item.other ? otherSpeciesColor : audioSpeciesColor(index)}"></span>{item.species}
                                 </button>
                             {/each}
                         </div>

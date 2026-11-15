@@ -11,7 +11,9 @@ export function trapFocus(element: HTMLElement): () => void {
     let released = false;
     function getFocusableElements() {
         return Array.from(element.querySelectorAll<HTMLElement>(
-            'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])'
+            // A disclosure's summary is a tab stop too: left out, one placed last in a dialog
+            // could never be reached, because the wrap fired on the control before it.
+            'a[href], button:not([disabled]), textarea, input, select, details > summary:first-of-type, [tabindex]:not([tabindex="-1"])'
         )).filter((candidate) =>
             candidate.getAttribute('aria-hidden') !== 'true'
             && !candidate.matches(':disabled')

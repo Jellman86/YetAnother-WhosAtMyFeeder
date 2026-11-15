@@ -23,6 +23,7 @@ from app.routers.about import (
     REEL_IMAGE_MAX_EDGE,
     REEL_TILE_MAX_EDGE,
     is_crop_source,
+    newest_photographed_visit,
     resize_for_reel,
     stored_crops,
 )
@@ -91,6 +92,31 @@ async def test_the_walk_is_bounded_by_reads_and_by_the_limit():
     kept = await stored_crops(rows, limit=1, read_source=reads)
     assert [d.frigate_event for d in kept] == ["robin_new"]
     assert reads.await_count == 2  # stopped as soon as the reel was full
+
+
+@pytest.mark.asyncio
+async def test_the_latest_visit_prefers_a_crop_but_never_claims_no_picture_while_one_is_stored():
+    rows = [
+        _detection("unphotographed", "Wren", "2026-09-11T13:00"),
+        _detection("greattit", "Great Tit", "2026-09-11T12:00"),
+        _detection("pigeon", "Pigeon", "2026-09-11T11:00"),
+        _detection("robin_new", "Robin", "2026-09-11T10:00"),
+    ]
+
+    async def stored(event_id: str) -> bool:
+        return event_id in SOURCES
+
+    newest = await newest_photographed_visit(rows, max_reads=20, read_source=_source, has_photograph=stored)
+    assert newest is not None and newest.frigate_event == "robin_new"
+
+    # No crop in reach: the newest whole-scene photograph stands in, rather than "no picture".
+    newest = await newest_photographed_visit(rows[:3], max_reads=20, read_source=_source, has_photograph=stored)
+    assert newest is not None and newest.frigate_event == "greattit"
+
+    # Nothing stored at all is the only case with no picture, and the walk stays bounded.
+    checks = AsyncMock(return_value=False)
+    assert await newest_photographed_visit(rows, max_reads=2, read_source=_source, has_photograph=checks) is None
+    assert checks.await_count == 2
 
 
 def test_a_crop_is_whatever_the_classifier_provenance_calls_a_crop():

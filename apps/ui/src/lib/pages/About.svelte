@@ -205,7 +205,8 @@
                 class="max-w-full shrink-0 truncate rounded-full border border-slate-200/80 px-3 py-1 font-mono text-xs sm:ml-auto text-slate-600 transition-colors hover:border-brand-300/60 focus-ring dark:border-slate-700 dark:text-slate-300"
                 title={$_('about.view_changelog')}
             >
-                v{versionInfo.base_version}
+                <!-- The same full version string the footer shows, so the page never names two. -->
+                v{versionInfo.version}
             </a>
         </div>
 
@@ -289,14 +290,15 @@
                 <p class="mt-4 text-xs font-semibold text-slate-800 dark:text-slate-100">
                     {$_('about.thanks_to', { default: 'Thanks to' })}
                 </p>
-                <ul class="mt-1 space-y-1 text-xs text-slate-600 dark:text-slate-300">
+                <ul class="mt-1 text-xs text-slate-600 dark:text-slate-300">
                     {#each creditsLinks as credit}
                         <li>
                             {credit.parts.before}<a href={credit.href} target="_blank" rel="noopener noreferrer" class="inline-flex min-h-11 items-center font-medium text-brand-700 underline underline-offset-2 focus-ring rounded-sm dark:text-brand-400">{credit.label}</a>{credit.parts.after}
                         </li>
                     {/each}
-                    <li>{$_('about.credits_list.ai_assistants')}</li>
-                    <li>{$_('about.flaticon_credit')}</li>
+                    <!-- The rows above are a touch target tall; these match, so the list keeps one rhythm. -->
+                    <li class="flex min-h-11 items-center">{$_('about.credits_list.ai_assistants')}</li>
+                    <li class="flex min-h-11 items-center">{$_('about.flaticon_credit')}</li>
                 </ul>
                 <p class="mt-3 text-2xs text-slate-600 dark:text-slate-400">
                     {$_('about.license_notice', { values: { year: new Date().getFullYear(), license: $_('common.mit_license') } })}

@@ -147,10 +147,6 @@ const PALETTE_EXCEPTIONS: Record<string, { families: string[]; reason: string }>
     'pages/Species.svelte': {
         families: ['sky'],
         reason: 'the precipitation overlay draws rain as a sky band on the activity chart, and its legend matches it'
-    },
-    'components/RecordTechnicalDetails.svelte': {
-        families: ['amber', 'emerald'],
-        reason: "the technical details are drawn as the viewer's own terminal, window controls and all"
     }
 };
 

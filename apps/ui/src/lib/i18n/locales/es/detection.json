@@ -495,5 +495,11 @@
   "domestic_bird_declared": "Es un ave de tipo {bird}, un ave doméstica que tienes. Muévela al jardín para registrarla como animal del jardín. Este registro de ave se oculta, no se borra.",
   "move_to_garden": "Mover al jardín",
   "range_fallback": "Filtro de área: el modelo dijo primero {original} ({score} %), que eBird nunca ha registrado en {region}, así que se mantuvo su siguiente respuesta dentro del área.",
-  "audio_context_all": "Todos los cantos oídos en torno a esta visita"
+  "audio_context_all": "Todos los cantos oídos en torno a esta visita",
+  "record_label": "Registro de detección",
+  "more_actions": "Más acciones",
+  "reference_read_more_on": "Leer más en {source}",
+  "reference_read_more": "Leer más",
+  "reference_source": "Fuente: {source}",
+  "reference_conservation": "Estado de conservación: {status}"
 }

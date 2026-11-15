@@ -168,6 +168,32 @@ async def stored_crops(
     return kept
 
 
+async def newest_photographed_visit(
+    detections: list[Detection],
+    *,
+    max_reads: int,
+    read_source: Optional[Callable[[str], Awaitable[Optional[str]]]] = None,
+    has_photograph: Optional[Callable[[str], Awaitable[bool]]] = None,
+) -> Detection | None:
+    """The newest crop in reach, else the newest visit with any stored photograph.
+
+    A crop shows the bird, so it is preferred. But a feeder whose stored photographs are all
+    whole scenes still has pictures, and saying it has none would be untrue.
+    """
+    crops = await stored_crops(detections, limit=1, max_reads=max_reads, read_source=read_source)
+    if crops:
+        return crops[0]
+    stored = has_photograph or _has_stored_photograph
+    for detection in detections[:max_reads]:
+        if await stored(detection.frigate_event):
+            return detection
+    return None
+
+
+async def _has_stored_photograph(event_id: str) -> bool:
+    return await media_cache.get_snapshot_path(event_id) is not None
+
+
 async def _snapshot_source(event_id: str) -> str | None:
     metadata = await media_cache.get_snapshot_metadata(event_id)
     return (metadata or {}).get("source")
@@ -308,8 +334,7 @@ async def get_feeder_portrait(
             recent = await DetectionRepository(db).get_all(
                 limit=40, start_date=media_start, end_date=media_end, sort="newest"
             )
-            picks = await stored_crops(recent, limit=1, max_reads=20)
-            visit = picks[0] if picks else None
+            visit = await newest_photographed_visit(recent, max_reads=20)
             visit_name = await _localized_name(visit.taxa_id, lang, db) if visit else None
         if visit is not None:
             film_url = None

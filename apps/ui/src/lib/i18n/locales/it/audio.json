@@ -5,7 +5,8 @@
     "daily_sub": "Rilevamenti BirdNET-Go ascoltati al giorno",
     "hourly_title": "Ora del giorno",
     "species_title": "Distribuzione delle specie",
-    "empty": "Nessuna attività in questo periodo."
+    "empty": "Nessuna attività in questo periodo.",
+    "other_species": "Altre specie"
   },
   "stat": {
     "heard": "Ascoltate",

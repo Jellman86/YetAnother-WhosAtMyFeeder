@@ -82,7 +82,6 @@
   },
   "instance": {
     "title": "本实例",
-    "acceleration": "加速方式",
     "for_issue": "用于问题反馈",
     "copy": "复制",
     "copied": "已复制",
@@ -106,7 +105,12 @@
     "history_loading": "正在加载可用性…",
     "history_unavailable": "无法读取可用性。",
     "availability_partial": "已记录的 {hours} 小时内运行 {percent}%",
-    "no_gaps_since": "自 {when} 开始记录以来没有中断。"
+    "no_gaps_since": "自 {when} 开始记录以来没有中断。",
+    "runtime": "识别鸟类所用",
+    "runtime_on": "{runtime}（{device}）",
+    "runtime_unread": "尚未读取。模型加载完成后会报告。",
+    "uptime_unmeasured": "未测量。无法从后端读取启动时间。",
+    "availability_heading": "可用性（过去 {hours} 小时）"
   },
   "close": {
     "title": "数据、隐私与致谢"
