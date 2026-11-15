@@ -90,7 +90,7 @@ setup and can recover only bird events Frigate still retains, not missing BirdNE
 In **Classifier model & hardware**, download missing models before validating them.
 **Continue** waits for the check to finish. It measures provider compatibility and
 speed, not species accuracy; review any fallback explanation. After setup, check
-**Settings → Detection → Runtime diagnostics** for the actual active provider.
+**Settings → Models → Runtime diagnostics** for the actual active provider.
 
 ![DINOv2 model setup with optional feeder coordinates, an inference provider selector and a hardware compatibility check](../images/setup-wizard-dino.png)
 

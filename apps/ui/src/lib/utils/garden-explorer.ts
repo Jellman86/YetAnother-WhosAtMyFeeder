@@ -173,7 +173,7 @@ export function gardenEntryText(capture: GardenCapture, view: GardenEntryView, t
     if (capture.status === 'pending' && !view.review) return { title, state: t('garden.explorer.state_waiting_automatic', 'Waiting for automatic identification') };
     if (view.review === 'presence') {
         const reason = capture.automatic_check?.decision_reason;
-        if (reason === 'location_required') return { title, state: t('garden.automatic_location_required', 'Animal detected. Set a country in Settings → Location so the model can name it automatically.') };
+        if (reason === 'location_required') return { title, state: t('garden.automatic_location_required', 'Animal detected. Set a country in Settings → Integrations → Location so the model can name it automatically.') };
         if (reason === 'identity_unavailable') return { title, state: t('garden.automatic_identity_unavailable', 'Animal detected, but its name could not be bound to the local catalogue. No automatic name was saved.') };
         if (reason === 'below_threshold') return { title, state: t('garden.explorer.state_below_threshold', 'Animal detected; species below the naming threshold') };
         return { title, state: t('garden.explorer.state_manual', 'Manual review: automatic naming is off or an owner override is active') };

@@ -25,7 +25,7 @@ check; ordinary CPU fallback can continue until it succeeds. A successful check 
 classifier without changing your selected model or provider.
 
 The Dashboard shows an owner-only warning when the selected provider falls back, plus progress
-while automatic validation runs. Use **Review model and provider** to open **Settings → Detection**.
+while automatic validation runs. Use **Review model and provider** to open **Settings → Models**.
 A failed or interrupted check does not retry on every restart: validate the model manually there.
 A different runtime or model artifact permits a new automatic attempt. New, never-validated
 accelerators still require manual validation.
@@ -78,7 +78,7 @@ every image uses the same `/config` and `/data` volume contract.
 
 An image flavor states what is **packaged**, not what the host can execute. Intel
 devices still need device passthrough and host support; NVIDIA still needs its
-driver and Container Toolkit. **Settings → Detection → Runtime diagnostics** is
+driver and Container Toolkit. **Settings → Models → Runtime diagnostics** is
 the source of truth for what is actually available and active.
 
 ## Switch safely between flavors
@@ -99,7 +99,7 @@ tag**; do not create new mount paths or copy data into the container filesystem.
    additional precaution for production data.
 3. Change only `YAWAMF_MONALITHIC_TAG`, pull the selected image, and recreate the
    existing `yawamf` service with the existing Compose project.
-4. Check **Settings → Detection → Runtime diagnostics**. Confirm **Image**,
+4. Check **Settings → Models → Runtime diagnostics**. Confirm **Image**,
    **Packaged**, **Selected**, and **Active** before comparing inference.
 5. To roll back, restore the recorded tag and recreate the same service. No
    config import or database rollback is required for a same-commit flavor
@@ -118,7 +118,7 @@ directly on the Docker host.
 
 ## Providers
 
-Set the provider at **Settings → Detection → Inference Provider**. The values map
+Set the provider at **Settings → Models → Hardware → Inference provider**. The values map
 to `classification.inference_provider` (`auto|cpu|cuda|intel_gpu|intel_cpu|intel_npu`,
 also settable via the `CLASSIFICATION__INFERENCE_PROVIDER` environment variable):
 
@@ -158,7 +158,7 @@ selected again.
 
 ## Validate this host
 
-The **Setup wizard**, guided Model Manager flow, and **Settings → Detection → Hardware →
+The **Setup wizard**, guided Model Manager flow, and **Settings → Models → Hardware →
 Check devices on this host** use the same provider-validation engine. Candidates are the exact
 intersection of:
 
@@ -173,12 +173,12 @@ accelerator's top prediction with the CPU baseline, and records median inference
 latency. The measured passing order is persisted without treating a merely installed runtime as
 working hardware.
 
-When the check finishes, **Settings → Detection** reads the classifier status back from the
+When the check finishes, **Settings → Models** reads the classifier status back from the
 backend, so the **Runtime** cell, the runtime report and the Models card show the provider the
 workers actually report, not the check's recommendation. Unsaved edits on the page are kept. Until a
 worker has loaded the model, the provider is shown as planned (**loads on first detection**)
 rather than active. If the status cannot be read, the page says so and asks you to reload.
-The visible Detection tab also refreshes runtime status every five seconds and when the browser
+The visible Models tab also refreshes runtime status every five seconds and when the browser
 becomes visible again. This catches a check finishing elsewhere or a worker starting later;
 it does not reload your settings. **Models → Refresh** reads the runtime too.
 
@@ -235,19 +235,19 @@ fallback cannot be mistaken for successful validation of the selected ONNX model
    docker compose -f docker-compose.monolith.yml up -d
    ```
 
-5. Open **Settings → Detection**, download the classifier if needed, and run its
+5. Open **Settings → Models**, download the classifier if needed, and run its
    device compatibility check. After it passes, select the supported device under
    **Inference Provider** (or keep **Auto**) and select **Save changes**.
    Downloading alone does not authorize a host-gated GPU/NPU.
 
 ## Expected result
 
-Under **Settings → Detection → Hardware → Runtime report**, the accelerator status pills reflect what YA-WAMF
+Under **Settings → Models → Hardware → Runtime report**, the accelerator status pills reflect what YA-WAMF
 found. For example **Intel NPU: Auto-detected · verified ✓** means the NPU was
 detected and has passed validation for the loaded model. A device that is present
 but not yet proven for the current model shows **unverified**.
 
-Select the active model under **Settings → Detection → Models** to inspect it. **Current runtime**
+Select the active model under **Settings → Models** to inspect it. **Current runtime**
 shows the provider that is running now, and **Automatic order** lists its verified
 fallbacks in the order YA-WAMF will try them. **Best fit** describes the model's
 accuracy and use case; it does not claim which device is active.
@@ -309,7 +309,7 @@ Repository tag instead.
 ### Optional RF-DETR bird finder
 
 RF-DETR Nano is a CUDA candidate in the `full` and `cuda` images. Under
-**Settings → Detection → Models → Bird finder**, select RF-DETR Nano, download it and
+**Settings → Models → Bird finder**, select RF-DETR Nano, download it and
 select **Save changes**, then run **Hardware → Check devices on this host** with it installed.
 The crop detector needs its own passing CPU/CUDA box comparison; selecting CUDA
 for the species classifier does not validate the bird finder.
@@ -346,7 +346,7 @@ counting accuracy. See the [validation evidence and limits](../reviews/2026-10-2
 ## Next steps
 
 - Confirm the active backend and per-device diagnostics under
-  **Settings → Detection → Runtime diagnostics**.
+  **Settings → Models → Runtime diagnostics**.
 - See [`configuration.md`](configuration.md) for all detection settings and
   [`../troubleshooting/diagnostics.md`](../troubleshooting/diagnostics.md) if
   inference is falling back unexpectedly.
@@ -355,7 +355,7 @@ counting accuracy. See the [validation evidence and limits](../reviews/2026-10-2
 
 If saved native crash evidence blocks the selected model/provider, choose a
 concrete provider and subprocess image execution, save the settings, then open
-**Settings → Detection → Check quarantined profile**. On Linux, an owner can
+**Settings → Models → Check quarantined profile**. On Linux, an owner can
 upload three different bird photos and a short clip, acknowledge the native
 execution risk and run a bounded disposable-worker check. Keep the host idle;
 classification demand aborts the check. Cancel waits for child cleanup.

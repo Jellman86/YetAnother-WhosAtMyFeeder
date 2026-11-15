@@ -514,7 +514,9 @@ class GardenIdentificationService:
             raise HTTPException(409, "Dismiss the confirmed identification before requesting another suggestion")
         country = normalize_country(settings.location.country)
         if country is None:
-            raise HTTPException(409, "Set a recognised country or ISO country code in Settings → Location first")
+            raise HTTPException(
+                409, "Set a recognised country or ISO country code in Settings → Integrations → Location first"
+            )
         bundle = await asyncio.to_thread(self.catalog.load)
         path = self.model_path(request.variant)
         if not await asyncio.to_thread(path.is_file):

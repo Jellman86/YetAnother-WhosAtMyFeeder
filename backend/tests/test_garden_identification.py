@@ -463,3 +463,24 @@ async def test_an_accelerator_stays_loaded_only_when_the_next_check_is_confirmed
 
     await service.settle_worker(due)
     assert service.worker.retired == []
+
+
+@pytest.mark.asyncio
+async def test_a_missing_country_points_at_the_settings_tab_that_holds_location(monkeypatch):
+    from types import SimpleNamespace
+
+    from fastapi import HTTPException
+    from app.models.garden import GardenIdentifyRequest
+    from app.services import garden_identification
+    from app.services.garden_identification import GardenIdentificationService
+
+    capture = SimpleNamespace(camera="garden", status="confirmed", identification=None)
+    monkeypatch.setattr(garden_identification.garden_capture_service, "get", AsyncMock(return_value=capture))
+    monkeypatch.setattr(garden_identification.settings.frigate, "garden_cameras", ["garden"])
+    monkeypatch.setattr(garden_identification.settings.location, "country", None)
+
+    with pytest.raises(HTTPException) as failure:
+        await GardenIdentificationService()._identify("capture", GardenIdentifyRequest())
+
+    assert failure.value.status_code == 409
+    assert "Settings → Integrations → Location" in failure.value.detail

@@ -79,10 +79,33 @@ test('open issues are counted on the link, and the Health page counts the same',
     await openShell(page, 'light', TWO_ISSUES);
     await expect(link(page)).toHaveAttribute('data-health-attention', 'true');
     await expect(card(page).locator('[data-health-issues]')).toHaveText('2 issues need attention');
-    await expect(link(page)).toHaveAccessibleName('2 issues need attention System health');
+    await expect(link(page)).toHaveAccessibleName('System health: 2 issues need attention');
     expect(await openItemsOnHealth(page)).toBe(2);
     // A fault that repeated is one entry there, with how often and over what span.
     await expect(page.locator('[data-diagnostic-repeats]').first()).toContainText('×14, first');
+});
+
+test('the count is the link: one line, with the way in at its end', async ({ page }) => {
+    await openShell(page, 'light', workspace([event('weather', 'request_failed')]));
+    const issues = link(page).locator('[data-health-issues]');
+    await expect(issues).toHaveText('1 issue needs attention');
+    await expect(link(page)).toHaveAccessibleName('System health: 1 issue needs attention');
+    // The count is the only visible wording, so nothing is left to drop onto a second line.
+    await expect(link(page).getByText('System health', { exact: true })).toHaveCount(0);
+    const line = await link(page).evaluate(node => {
+        const words = node.querySelector('[data-health-issues]') as HTMLElement;
+        const chevron = node.querySelector('[data-health-chevron]') as SVGElement;
+        const wordsBox = words.getBoundingClientRect();
+        const chevronBox = chevron.getBoundingClientRect();
+        return {
+            wordsLines: Math.round(wordsBox.height / parseFloat(getComputedStyle(words).lineHeight)),
+            chevronOnTheWordsLine: chevronBox.top >= wordsBox.top - 1 && chevronBox.bottom <= wordsBox.bottom + 1,
+            chevronAfterWords: chevronBox.left >= wordsBox.right
+        };
+    });
+    expect(line).toEqual({ wordsLines: 1, chevronOnTheWordsLine: true, chevronAfterWords: true });
+    await issues.click();
+    await expect(page).toHaveURL(/\/system-health$/);
 });
 
 test('the card is a plain neutral surface with the readings as text, not a link', async ({ page }) => {
