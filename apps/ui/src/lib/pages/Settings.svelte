@@ -2973,7 +2973,7 @@
                     onopenlocationsettings={() => openIntegrationField('#location-lat', '#setting-location-mode + div input[type="radio"]:not(:checked)')}
                     bind:rangeFilterEnabled
                     bind:rangeFilterRegionLevel
-                    onopenebirdsettings={() => openIntegrationField('#ebird-api-key', '[role="switch"][aria-labelledby="integration-ebird-title"]')}
+                    onopenebirdsettings={() => openIntegrationField('#ebird-api-key', 'button[aria-labelledby="integration-ebird-title"]')}
                     onopenactivitylog={onNavigate ? () => onNavigate('/system-health') : undefined}
                     onopenmanualobservation={onNavigate ? () => onNavigate('/observations/new') : undefined}
                     onopenmodels={() => handleTabChange('models')}
@@ -3151,7 +3151,7 @@
                     label={$_('settings.enrichment.title')}
                     props={{
                         ...enrichmentDraft,
-                        onOpenEbird: () => openIntegrationField('#ebird-api-key', '[role="switch"][aria-labelledby="integration-ebird-title"]')
+                        onOpenEbird: () => openIntegrationField('#ebird-api-key', 'button[aria-labelledby="integration-ebird-title"]')
                     }}
                 />
             {/if}
