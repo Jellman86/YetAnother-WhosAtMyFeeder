@@ -72,12 +72,12 @@
     "places": "{count, plural, one {# lieu} other {# lieux}}"
   },
   "day_bar": {
-    "birds_found": "oiseaux repérés",
+    "birds_found": "Oiseaux repérés",
     "birds_scope": "Sur {count, plural, one {# capture analysée} other {# captures analysées}} ; des oiseaux peuvent être manqués",
-    "visits": "visites",
-    "unresolved": "non résolues",
-    "calls_heard": "chants entendus",
-    "cross_confirmed": "confirmés par les deux",
+    "visits": "Visites",
+    "unresolved": "Non résolues",
+    "calls_heard": "Chants entendus",
+    "cross_confirmed": "Confirmés par les deux",
     "reconnecting": "Reconnexion…",
     "window": "Dernières 24 heures",
     "loading": "chargement en cours",

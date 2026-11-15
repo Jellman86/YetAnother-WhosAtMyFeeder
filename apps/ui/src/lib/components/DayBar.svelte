@@ -128,11 +128,11 @@
             </div>
         {/snippet}
 
-        {@render figure('visits', $_('dashboard.day_bar.visits', { default: 'visits' }), visitCount, loading)}
+        {@render figure('visits', $_('dashboard.day_bar.visits', { default: 'Visits' }), visitCount, loading)}
         {#if slots.countedBirds}
             {@render figure(
                 'counted-birds',
-                $_('dashboard.day_bar.birds_found', { default: 'birds found' }),
+                $_('dashboard.day_bar.birds_found', { default: 'Birds found' }),
                 countedBirds,
                 loading,
                 'plain',
@@ -144,7 +144,7 @@
         {@render figure('species', $_('dashboard.stats.species'), speciesCount, loading)}
         {@render figure(
             'unresolved',
-            $_('dashboard.day_bar.unresolved', { default: 'unresolved' }),
+            $_('dashboard.day_bar.unresolved', { default: 'Unresolved' }),
             unresolvedCount,
             loading,
             unresolvedCount !== null && unresolvedCount > 0 ? 'attention' : 'clear',
@@ -153,10 +153,10 @@
             true
         )}
         {#if slots.audio}
-            {@render figure('calls-heard', $_('dashboard.day_bar.calls_heard', { default: 'calls heard' }), audioCalls, audioLoading)}
+            {@render figure('calls-heard', $_('dashboard.day_bar.calls_heard', { default: 'Calls heard' }), audioCalls, audioLoading)}
             {@render figure(
                 'cross-confirmed',
-                $_('dashboard.day_bar.cross_confirmed', { default: 'cross-confirmed' }),
+                $_('dashboard.day_bar.cross_confirmed', { default: 'Cross-confirmed' }),
                 audioConfirmations,
                 loading,
                 'plain',

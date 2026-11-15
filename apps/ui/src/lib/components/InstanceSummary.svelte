@@ -67,7 +67,7 @@
     const acceleration = $derived(
         classifier?.active_provider ??
             classifier?.inference_backend ??
-            $_('about.pipeline.unknown', { default: 'unknown' })
+            $_('about.pipeline.unknown', { default: 'Unknown' })
     );
 
     // The readiness probe records when this process started. There is no health history,
@@ -188,7 +188,7 @@
                     {$_('about.instance.uptime', { default: 'Running for' })}
                 </p>
                 <p class="font-display text-2xl font-bold text-slate-900 dark:text-white">
-                    {uptime ?? $_('about.pipeline.unknown', { default: 'unknown' })}
+                    {uptime ?? $_('about.pipeline.unknown', { default: 'Unknown' })}
                 </p>
 
                 {#if uptimeLoadState === 'ready' && uptimeWindow}
