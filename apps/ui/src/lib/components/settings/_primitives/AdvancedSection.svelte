@@ -34,7 +34,7 @@
         <span class="min-w-0 wrap-break-word">
             {open
                 ? $_('settings.common.hide_advanced', { default: 'Hide advanced options' })
-                : $_('settings.common.show_advanced', { default: 'Show advanced options' })}{#if title}{' '}<span class="font-normal text-slate-600 dark:text-slate-400">({title})</span>{/if}
+                : $_('settings.common.show_advanced', { default: 'Show advanced options' })}{#if title}<span class="font-normal text-slate-600 dark:text-slate-400">{' · '}{title}</span>{/if}
         </span>
         <svg
             class="h-4 w-4 shrink-0 transition-transform duration-200 motion-reduce:transition-none {open ? 'rotate-180' : ''}"

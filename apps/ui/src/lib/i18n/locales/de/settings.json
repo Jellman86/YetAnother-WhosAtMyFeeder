@@ -240,7 +240,7 @@
     "mqtt_title": "Der Broker, an den Frigate seine Ereignisse sendet. YA-WAMF empfängt dort neue Erkennungen.",
     "simulating": "Simulation läuft…",
     "advanced_title": "Feineinstellungen",
-    "full_visit_advanced_title": "Vollbesuch-Clips (aus Aufzeichnungen)",
+    "full_visit_advanced_title": "Vollbesuch-Clips",
     "mqtt_host": "Adresse",
     "mqtt_section": "MQTT-Broker",
     "mqtt_where": "Adresse und Port"

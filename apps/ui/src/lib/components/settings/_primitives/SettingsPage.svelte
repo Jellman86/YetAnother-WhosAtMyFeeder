@@ -108,7 +108,7 @@
 <!-- The shell sets the width; a narrower column here sat inside the full-width header. The page is
      a container so the rail is chosen by room measured in rem: with the reader's text doubled the
      rail would squeeze the settings, so they stack as on a phone instead. -->
-<div class="settings-ui @container space-y-6">
+<div class="@container space-y-6">
     {#if onRefresh}
         <div class="flex items-center justify-end gap-3 -mt-2">
             <button

@@ -201,9 +201,6 @@
 
 :root {
   --font-body: 'Instrument Sans', 'Segoe UI', system-ui, -apple-system, sans-serif;
-  /* Forms read in the interface sans whatever the reading font theme is: a serif body (the shipped
-     classic pairing) makes labels, values and hints harder to scan in a column of settings. */
-  --font-ui: 'Instrument Sans', 'Segoe UI', system-ui, -apple-system, sans-serif;
   --font-display: 'Bricolage Grotesque', 'Instrument Sans', sans-serif;
   --app-bg: #f8fafc;
   --app-fg: #334155;
@@ -578,17 +575,9 @@ html[data-theme='dark'] {
   @apply choice-active border-brand-300 hover:bg-brand-50 dark:border-brand-700 dark:hover:bg-brand-950/60;
 }
 
-/* Settings: calm rows of label and control. The page sets the interface sans; a section is a plain
-   heading over one card whose direct children are rows split by hairlines; at 768px and wider a row
-   puts its label and hint left and its control right, every control on the same column edge. */
-@utility settings-ui {
-  font-family: var(--font-ui);
-
-  & :is(h2, h3, h4, input, select, textarea, button) {
-    font-family: var(--font-ui);
-    letter-spacing: normal;
-  }
-}
+/* Settings: calm rows of label and control, in the app's own fonts. A section is a plain heading
+   over one card whose direct children are rows split by hairlines; at 768px and wider a row puts its
+   label and hint left and its control right, every control on the same column edge. */
 
 @utility settings-section-body {
   @apply divide-y divide-line-soft px-4 md:px-6;

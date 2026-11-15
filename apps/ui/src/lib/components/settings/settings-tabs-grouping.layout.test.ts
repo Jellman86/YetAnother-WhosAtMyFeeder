@@ -27,7 +27,7 @@ describe('Settings navigation', () => {
 
     it('is a compact rail beside the settings when there is room for it in rem, with a skip link to them', () => {
         // Measured on the page as a container in rem, so doubled text gets the stacked layout.
-        expect(settingsPageSource).toContain('<div class="settings-ui @container space-y-6">');
+        expect(settingsPageSource).toContain('<div class="@container space-y-6">');
         expect(settingsTabsSource).toContain('data-settings-navigation class="hidden @4xl:block"');
         expect(settingsTabsSource).toContain('data-settings-skip-link');
         expect(settingsPageSource).toContain('@4xl:flex @4xl:items-start');

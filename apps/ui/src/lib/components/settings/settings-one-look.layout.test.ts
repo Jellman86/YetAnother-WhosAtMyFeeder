@@ -9,6 +9,7 @@ import integrationSource from './IntegrationSettings.svelte?raw';
 import authenticationSource from './AuthenticationSettings.svelte?raw';
 import modelManagerSource from '../../pages/models/ModelManager.svelte?raw';
 import telemetrySource from './TelemetrySettings.svelte?raw';
+import connectionSource from './ConnectionSettings.svelte?raw';
 // @ts-expect-error -- node:fs resolves at runtime, not in the app tsconfig
 import { readFileSync } from 'node:fs';
 
@@ -69,6 +70,15 @@ describe('Settings has one look across tabs', () => {
         expect(telemetrySource).not.toContain("label={$_('settings.telemetry.title')}");
     });
 
+    it('reads in the app\'s own fonts, like every other page', () => {
+        expect(appCss).not.toContain('settings-ui');
+        expect(appCss).not.toContain('--font-ui');
+        expect(pageSource).not.toMatch(/font-(sans|serif|mono|ui|body)\b/);
+        for (const [file, source] of Object.entries(tabSources)) {
+            expect(source, file).not.toMatch(/font-family|font-\[/);
+        }
+    });
+
     it('draws no colour bar along one edge of a note', () => {
         for (const [file, source] of Object.entries(tabSources)) {
             expect(source, file).not.toMatch(/\bborder-l-[24]\b/);
@@ -78,6 +88,12 @@ describe('Settings has one look across tabs', () => {
     it('ends every two-column control on the right edge, a switch included', () => {
         const columns = appCss.slice(appCss.indexOf('@utility settings-row-columns'));
         expect(columns.slice(0, columns.indexOf('\n}\n'))).toMatch(/\.switch-track:first-child \{\s*display: flex;\s*margin-inline-start: auto;/);
+    });
+
+    it('names a disclosure "Show advanced options · title", never in nested brackets', () => {
+        expect(advancedSource).toContain("{' · '}");
+        expect(advancedSource).not.toContain('({title})');
+        expect(connectionSource).toContain("default: 'Full-visit clips' })");
     });
 
     it('shows no "Advanced" chip: a disclosure is named by its own title', () => {

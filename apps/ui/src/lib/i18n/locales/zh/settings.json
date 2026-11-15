@@ -240,7 +240,7 @@
     "mqtt_title": "Frigate 发布事件的代理服务器。YA-WAMF 在此接收新的检测。",
     "simulating": "模拟中…",
     "advanced_title": "调优",
-    "full_visit_advanced_title": "完整到访剪辑（来自录像）",
+    "full_visit_advanced_title": "完整到访剪辑",
     "mqtt_host": "地址",
     "mqtt_section": "MQTT 代理",
     "mqtt_where": "地址和端口"

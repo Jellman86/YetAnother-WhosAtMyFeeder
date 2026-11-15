@@ -240,7 +240,7 @@
     "mqtt_title": "Брокер, в который Frigate публикует события. YA-WAMF получает там новые обнаружения.",
     "simulating": "Симуляция…",
     "advanced_title": "Тонкая настройка",
-    "full_visit_advanced_title": "Клипы полного визита (из записей)",
+    "full_visit_advanced_title": "Клипы полного визита",
     "mqtt_host": "Адрес",
     "mqtt_section": "MQTT-брокер",
     "mqtt_where": "Адрес и порт"

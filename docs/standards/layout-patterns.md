@@ -681,8 +681,7 @@ build something better."*
   right, so every field, select and switch ends on the card's right edge, a section's own switch
   included; on a phone the row stacks. A button that acts at once sits in its own row at its own
   width, never stretched across the card. Extra fields hide behind a plain "Show advanced options"
-  disclosure at the end of the section. Settings sets its headings and controls in the sans
-  (`settings-ui`) even under a serif theme, so values and labels read as form text.
+  disclosure at the end of the section. Settings uses the app's own fonts, like every other page.
 - **Charts**: a line or bar chart takes `chart-h` or `chart-h-tall`, a height between a floor and
   a cap that follows the window width, so a wide screen neither flattens it into a strip nor
   stretches it without bound (keep it under about 4.5:1). Bars take their width from their slot

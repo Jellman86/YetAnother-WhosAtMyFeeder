@@ -240,7 +240,7 @@
     "mqtt_title": "Frigate がイベントを送るブローカーです。YA-WAMF はここで新しい検出を受け取ります。",
     "simulating": "シミュレーション中…",
     "advanced_title": "調整",
-    "full_visit_advanced_title": "フル訪問クリップ（録画から）",
+    "full_visit_advanced_title": "フル訪問クリップ",
     "mqtt_host": "アドレス",
     "mqtt_section": "MQTT ブローカー",
     "mqtt_where": "アドレスとポート"

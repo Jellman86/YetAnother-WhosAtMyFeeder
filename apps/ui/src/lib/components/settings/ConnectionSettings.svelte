@@ -415,7 +415,7 @@
 
         <AdvancedSection
             id="connection-full-visit"
-            title={$_('settings.connection.full_visit_advanced_title', { default: 'Full-visit clips (from recordings)' })}
+            title={$_('settings.connection.full_visit_advanced_title', { default: 'Full-visit clips' })}
         >
         <SettingsRow
             labelId="setting-recording-clips"

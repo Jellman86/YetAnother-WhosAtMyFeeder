@@ -240,7 +240,7 @@
     "mqtt_title": "El bróker al que Frigate publica sus eventos. YA-WAMF escucha ahí las nuevas detecciones.",
     "simulating": "Simulando…",
     "advanced_title": "Ajuste fino",
-    "full_visit_advanced_title": "Clips de visita completa (desde grabaciones)",
+    "full_visit_advanced_title": "Clips de visita completa",
     "mqtt_host": "Dirección",
     "mqtt_section": "Broker MQTT",
     "mqtt_where": "Dirección y puerto"
