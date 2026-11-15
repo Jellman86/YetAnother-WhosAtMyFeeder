@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import detectionSettingsSource from './DetectionSettings.svelte?raw';
 import modelManagerSource from '../../pages/models/ModelManager.svelte?raw';
+import finderDevicePanelSource from '../../pages/models/FinderDevicePanel.svelte?raw';
 import settingsPageSource from '../../pages/Settings.svelte?raw';
 
 describe('automatic model crop policy', () => {
@@ -34,7 +35,7 @@ describe('automatic model crop policy', () => {
         expect(modelManagerSource).toContain('cropDetectorModels');
         expect(modelManagerSource).toContain('cropDetectorStatus');
         expect(modelManagerSource).toContain('bird_finder_title');
-        expect(modelManagerSource).toContain('bird_finder_backup');
+        expect(finderDevicePanelSource).toContain('bird_finder_backup');
         expect(modelManagerSource).not.toContain('id="thumbnail-crop-quality"');
         expect(modelManagerSource).not.toContain('value="fast"');
         expect(modelManagerSource).not.toContain('value="accurate"');

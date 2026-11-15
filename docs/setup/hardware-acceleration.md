@@ -324,11 +324,13 @@ its own current host validation; the species classifier's selected device does
 not choose the crop detector's device. The compatibility API can check only the
 installed RF-DETR artifact using `compat_only`, `sweep_devices` and its `model_ids`
 entry, as shown in the [API reference](../api.md#model-evaluation-owner).
-The bird finder card's **Check *devices* for *finder*** button runs that scoped check.
-The fastest passing crop provider is recommended. **Finder device** can instead
-keep a specific validated device, such as **Intel NPU (OpenVINO)**. Save it with
-**Save changes**. If its evidence expires or the device fails, the accurate
-finder uses CPU rather than switching to another accelerator. The fast fallback
+The bird finder card's **Check devices** button runs that scoped check.
+**Automatic** uses the fastest passing crop provider. **Device** can instead
+keep a specific device, such as **Intel NPU**. Save it with
+**Save changes**. If its evidence expires or the device fails its check, the accurate
+finder uses CPU rather than switching to another accelerator, the **Runs on** row says
+so with the date of the failed check, and the device stays saved, listed as
+**not passed on this host**, until it passes again or you choose **Automatic**. The fast fallback
 finder keeps its own device evidence. Startup re-checks respect the saved choice;
 manual **Check devices** still checks all supported devices, so do not use it to
 retry a known failing GPU during an NPU-only investigation. Existing worker crop sessions
