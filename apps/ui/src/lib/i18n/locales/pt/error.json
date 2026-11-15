@@ -1,6 +1,6 @@
 {
-  "boundary_title": "Algo correu mal",
-  "boundary_subtitle": "Ocorreu um erro inesperado. Tente novamente ou contacte o suporte se o problema persistir.",
+  "boundary_title": "Esta página deixou de funcionar",
+  "boundary_subtitle": "Uma parte da página encontrou um erro do qual não conseguiu recuperar. O seu histórico e as suas configurações não foram alterados. Recarregue a página; se voltar a acontecer, copie os detalhes do erro para uma issue no GitHub.",
   "show_details": "Mostrar detalhes do erro",
   "try_again": "Tentar novamente",
   "copy_details": "Copiar detalhes do erro",

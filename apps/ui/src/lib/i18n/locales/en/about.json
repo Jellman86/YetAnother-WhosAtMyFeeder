@@ -7,7 +7,7 @@
   "project_desc_1": "I started this to find out how far I could get building with AI assistance. The original {link} had stopped being maintained, so there was something real to rebuild rather than a toy project. It has been running at my own feeder ever since.",
   "project_desc_2": "Frigate watches the feeder and flags anything that looks like a bird. YA-WAMF classifies it, checks it against BirdNET-Go audio, and stores the result. Every photo on this page came off that camera.",
   "links": {
-    "repo": "GitHub Repository",
+    "repo": "GitHub repository",
     "docs": "Documentation",
     "issues": "Report an issue",
     "frigate": "Frigate NVR",

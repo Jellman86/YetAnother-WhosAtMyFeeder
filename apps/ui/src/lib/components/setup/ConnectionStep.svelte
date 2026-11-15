@@ -192,7 +192,7 @@
         {/if}
 
         {#each [frigateResult, mqttResult].filter(Boolean) as result}
-            <div role="status" class="flex items-start gap-2 rounded-md p-2 text-sm {result?.ok ? 'bg-success-50 text-success-800 dark:bg-success-900/20 dark:text-success-200' : 'bg-amber-50 text-amber-800 dark:bg-amber-900/20 dark:text-amber-200'}">
+            <div role="status" class="flex items-start gap-2 rounded-md p-2 text-sm {result?.ok ? 'bg-success-50 text-success-800 dark:bg-success-900/20 dark:text-success-200' : 'bg-attention-50 text-attention-800 dark:bg-attention-900/20 dark:text-attention-200'}">
                 {#if result?.ok}
                     <svg class="mt-0.5 h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m5 12 4 4L19 6" /></svg>
                 {:else}

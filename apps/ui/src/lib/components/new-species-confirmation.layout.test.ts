@@ -26,13 +26,15 @@ describe('a new species asks for one human call in the review queue (#310)', () 
         expect(cardSource).toMatch(/<span class="hidden sm:inline"[^>]*data-review-queue-camera>/);
     });
 
-    it('the modal offers confirm and block only for a new species', () => {
-        expect(modalSource).toContain('data-review-new-species-actions');
+    it("the modal offers the model's own species in one step, and blocking only for a new species", () => {
+        expect(modalSource).toContain('data-review-suggestion-actions');
         expect(modalSource).toContain('dashboard.review_session.confirm_species');
         expect(modalSource).toContain('dashboard.review_session.block_species');
+        expect(modalSource).toContain('{#if isNewSpecies && onblock}');
         // Confirm is the detection's own species through the same identify
         // path, which the backend records as a manual confirmation.
-        expect(modalSource).toContain('identify(current.display_name)');
+        expect(modalSource).toContain('reviewSuggestion(current, reason)');
+        expect(modalSource).toContain('identify(suggestion)');
     });
 
     it('blocking appends to the settings list and refreshes the queue', () => {

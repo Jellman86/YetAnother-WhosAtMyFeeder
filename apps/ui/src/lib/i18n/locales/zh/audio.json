@@ -9,9 +9,9 @@
   },
   "stat": {
     "heard": "听测",
-    "heard_sub": "当前显示的 BirdNET 检测",
+    "heard_sub": "此时段内的 BirdNET-Go 检测",
     "species": "物种",
-    "species_sub": "通过音频识别的物种",
+    "species_sub": "此时段内听到的物种",
     "peak_hour": "高峰时段",
     "peak_hour_sub": "{count, plural, other {# 次检测}}",
     "no_activity": "尚无活动",
@@ -28,7 +28,9 @@
     "species": "物种",
     "source": "来源",
     "min_confidence": "最低置信度",
-    "changed": "筛选条件已更改。请应用以更新列表。"
+    "changed": "筛选条件已更改。请应用以更新列表。",
+    "species_placeholder": "任意物种",
+    "source_placeholder": "任意来源"
   },
   "top_species": "听测次数最多的物种",
   "card": {
@@ -38,10 +40,10 @@
   },
   "history": {
     "title": "检测历史",
-    "sub": "已保存的 BirdNET-Go 检测，与视觉访问记录分开。",
+    "sub": "BirdNET-Go 报告的每一次鸣叫，与摄像头到访分开记录。",
     "empty": "没有符合这些筛选条件的 BirdNET 检测。",
     "showing": "显示第 {from}-{to} 项，共 {total} 项",
-    "hide": "在本地隐藏",
+    "hide": "在 YA-WAMF 中隐藏",
     "undo": "撤销",
     "hidden_message": "音频检测已隐藏。",
     "local_only": "隐藏后，该条目将从YA-WAMF历史记录和未来的音频匹配中排除。BirdNET-Go不会更改；上游删除不会自动同步。"

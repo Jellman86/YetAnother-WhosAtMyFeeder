@@ -63,7 +63,7 @@
   "audio_context_empty": "附近没有音频检测",
   "audio_context_suppressed": "附近检测到音频，但来自未与此摄像头关联的麦克风。请在设置中修改传感器映射以包含该麦克风。",
   "common_name_override": "常用名",
-  "common_name_override_edit": "编辑名称",
+  "common_name_override_edit": "更改通用名称",
   "common_name_override_reset": "使用提供方名称",
   "common_name_override_saved": "常用名已更新",
   "common_name_override_cleared": "已恢复提供方常用名",
@@ -150,7 +150,7 @@
   "video_analysis": {
     "queued": "视频分析已排队",
     "preparing": "正在准备视频分析",
-    "title": "深度视频分析",
+    "title": "视频分析",
     "match": "{score}% 匹配",
     "verified_desc": "由视频中的多次观察支持。",
     "in_progress": "视频分析进行中…",
@@ -296,7 +296,7 @@
     "conversation_loading": "正在加载对话…",
     "conversation_empty": "还没有对话。向 AI 提一个后续问题吧。",
     "conversation_placeholder": "提出一个后续问题…",
-    "conversation_error": "对话失败。请重试。",
+    "conversation_error": "AI 没有回应。请在“设置 → 人工智能”中检查提供商和密钥，然后再问一次。",
     "assistant": "助手",
     "user": "你",
     "send": "发送",
@@ -474,7 +474,6 @@
     "recording": "根据录像帧中 Frigate 跟踪的鸟识别",
     "snapshot": "根据快照中 Frigate 跟踪的鸟识别",
     "crop": "根据鸟类裁剪图像识别",
-    "unknown": "未记录识别来源",
     "original": "最初识别"
   },
   "frame_scan": {

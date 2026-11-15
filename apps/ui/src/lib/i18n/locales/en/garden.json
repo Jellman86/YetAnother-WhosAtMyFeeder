@@ -93,7 +93,7 @@
     "photo_expired_short": "Photo expired",
     "photo_expired": "The photo has expired. The confirmed record is kept.",
     "model_busy": "The Garden model is busy with another photo. Try again shortly.",
-    "dismissed": "Capture dismissed. Find it under Garden animals, Dismissed.",
+    "dismissed": "Capture dismissed. Find it under Garden animals › Dismissed.",
     "identification_box": "Box: the crop the species model read.",
     "review_presence": "Needs review: check that an animal is in the photo.",
     "review_species": "Needs review: the species was suggested, not confirmed.",
@@ -232,7 +232,7 @@
       "quail": "Quail"
     },
     "suggestion": "This looks like a domestic bird: {birds}. If you keep them, add them under Domestic birds you keep to record them as Garden animals, not wild birds.",
-    "suggestion_open": "Open Domestic birds you keep",
+    "suggestion_open": "Open “Domestic birds you keep”",
     "suggestion_dismiss": "Not now"
   },
   "automatic_animal_below_threshold_dismissed": "Animal detected, but its species score is below the naming threshold. Moved to Dismissed; return it to review if you want to name it yourself.",

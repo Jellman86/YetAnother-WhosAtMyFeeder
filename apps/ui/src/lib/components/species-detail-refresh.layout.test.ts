@@ -9,7 +9,7 @@ describe('species detail field-record layout', () => {
         expect(speciesDetailSource).toContain('max-w-6xl');
         expect(speciesDetailSource).toContain('h-dvh');
         expect(speciesDetailSource).not.toContain('max-w-4xl');
-        expect(speciesDetailSource).toContain('min-h-11 min-w-11');
+        expect(speciesDetailSource).toContain('<DialogCloseButton onclick={onclose} />');
     });
 
     it('prioritizes the owner record before reference and activity detail', () => {

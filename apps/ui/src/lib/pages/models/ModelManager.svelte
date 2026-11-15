@@ -134,23 +134,9 @@
         return formatMetadataLabel(status ?? 'stable');
     }
 
-    // A tier describes the model; none needs a person, so none is coloured as a warning.
-    function tierChipClass(_tier: string): string {
-        return 'bg-slate-500/10 text-slate-700 dark:text-slate-300 border-slate-500/20';
-    }
-
-    function statusChipClass(status: string | undefined): string {
-        switch (status ?? 'stable') {
-            case 'stable':
-                return 'bg-success-500/10 text-success-700 dark:text-success-300 border-success-500/20';
-            case 'beta':
-                return 'bg-sky-500/10 text-sky-700 dark:text-sky-300 border-sky-500/20';
-            case 'experimental':
-                return 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/20';
-            default:
-                return 'bg-slate-500/10 text-slate-700 dark:text-slate-300 border-slate-500/20';
-        }
-    }
+    // Tier, maturity and execution provider are facts about the model, so every chip is neutral and the
+    // word carries the meaning. None of them needs a person, and none is a second accent.
+    const FACT_CHIP = 'bg-slate-500/10 text-slate-700 dark:text-slate-300 border-slate-500/20';
 
     function formatRamLabel(model: ModelMetadata): string | null {
         if (model.estimated_ram_mb == null) return null;
@@ -313,21 +299,6 @@
                 return t('settings.detection.model_manager_provider_intel_npu', 'Intel NPU (OpenVINO)');
             default:
                 return formatMetadataLabel(provider);
-        }
-    }
-
-    function providerChipClass(provider: string): string {
-        switch (provider) {
-            case 'cuda':
-                return 'bg-accent-500/10 text-accent-700 dark:text-accent-300 border-accent-500/20';
-            case 'intel_gpu':
-                return 'bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 border-cyan-500/20';
-            case 'intel_npu':
-                return 'bg-violet-500/10 text-violet-700 dark:text-violet-300 border-violet-500/20';
-            case 'intel_cpu':
-                return 'bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/20';
-            default:
-                return 'bg-slate-500/10 text-slate-700 dark:text-slate-300 border-slate-500/20';
         }
     }
 
@@ -625,7 +596,7 @@
             case 'active':
                 return 'border-brand-500/30 bg-brand-100 text-brand-800 dark:bg-brand-950/60 dark:text-brand-200';
             case 'repair':
-                return 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300';
+                return 'border-attention-500/30 bg-attention-500/10 text-attention-700 dark:text-attention-300';
             case 'installed':
                 return 'border-slate-400/30 bg-slate-500/10 text-slate-700 dark:text-slate-300';
             default:
@@ -783,10 +754,10 @@
                                     <p class="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">{model.description}</p>
                                 </div>
                                 <div class="flex flex-wrap gap-2">
-                                    <span class="rounded-full border px-2.5 py-1 text-xs font-semibold {tierChipClass(model.tier)}">
+                                    <span class="rounded-full border px-2.5 py-1 text-xs font-semibold {FACT_CHIP}">
                                         {tierLabel(model.tier)}
                                     </span>
-                                    <span class="rounded-full border px-2.5 py-1 text-xs font-semibold {statusChipClass(model.status)}">
+                                    <span class="rounded-full border px-2.5 py-1 text-xs font-semibold {FACT_CHIP}">
                                         {statusLabel(model.status)}
                                     </span>
                                 </div>
@@ -800,7 +771,7 @@
                                             : $_('settings.detection.model_manager_current_runtime', { default: 'Current runtime' })}
                                     </span>
                                     <span class="inline-flex items-center gap-2 font-semibold">
-                                        <span class="h-2 w-2 rounded-full {runtimePlanned ? 'bg-slate-400' : 'bg-accent-500'}" aria-hidden="true"></span>
+                                        <span class="h-2 w-2 rounded-full {runtimePlanned ? 'bg-slate-400' : 'bg-brand-500'}" aria-hidden="true"></span>
                                         {providerLabel(classifierStatus.active_provider)}
                                     </span>
                                     {#if runtimePlanned}
@@ -864,14 +835,14 @@
                             {/if}
 
                             {#if model.recommended_threshold != null}
-                                <div class="mt-4 border-l-2 border-amber-400 pl-3 text-sm text-slate-600 dark:text-slate-300">
+                                <div class="mt-4 border-l-2 border-slate-300 pl-3 text-sm text-slate-600 dark:border-slate-600 dark:text-slate-300">
                                     {$_('settings.detection.model_manager_threshold_hint', { default: 'Recommended confidence threshold for this model:' })}
                                     <strong class="text-slate-900 dark:text-white">{Math.round(model.recommended_threshold * 100)}%</strong>
                                 </div>
                             {/if}
 
                             {#if usesSavedFeederLocation(model)}
-                                <div class="mt-4 border-l-2 border-sky-400 pl-3 text-sm text-slate-600 dark:text-slate-300">
+                                <div class="mt-4 border-l-2 border-slate-300 pl-3 text-sm text-slate-600 dark:border-slate-600 dark:text-slate-300">
                                     <p class="font-semibold text-slate-900 dark:text-white">
                                         {$_('settings.detection.model_manager_location_title', { default: 'Uses your feeder location' })}
                                     </p>
@@ -889,11 +860,11 @@
                             {/if}
 
                             {#if installed && !ready}
-                                <div class="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-800 dark:border-amber-800/60 dark:bg-amber-900/20 dark:text-amber-200" role="alert">
+                                <div class="mt-4 rounded-xl border border-attention-200 bg-attention-50 p-3 text-sm font-semibold text-attention-800 dark:border-attention-800/60 dark:bg-attention-900/20 dark:text-attention-200" role="alert">
                                     {$_('settings.detection.model_manager_repair_needed', { default: 'This model install is incomplete. Re-download it to restore the missing species names or model configuration before activation.' })}
                                 </div>
                             {:else if installed && !active && !validated}
-                                <div class="mt-4 rounded-xl border border-sky-200 bg-sky-50 p-3 text-sm text-sky-800 dark:border-sky-800/60 dark:bg-sky-900/20 dark:text-sky-200">
+                                <div class="mt-4 rounded-xl border border-brand-200 bg-brand-50 p-3 text-sm text-brand-900 dark:border-brand-800/60 dark:bg-brand-950/30 dark:text-brand-100">
                                     {$_('settings.detection.model_manager_validation_needed', { default: 'Downloaded but not yet validated on your hardware. Validate it to confirm it runs here before you select it.' })}
                                 </div>
                             {/if}
@@ -967,7 +938,7 @@
                                             {/each}
                                         {:else}
                                             {#each getProviderSupport(model) as provider}
-                                                <span class="rounded-full border px-2.5 py-1 text-xs font-semibold {providerChipClass(provider)}">{providerLabel(provider)}</span>
+                                                <span class="rounded-full border px-2.5 py-1 text-xs font-semibold {FACT_CHIP}">{providerLabel(provider)}</span>
                                             {/each}
                                         {/if}
                                     </div>
@@ -1125,7 +1096,7 @@
                                 {$_('settings.detection.bird_finder_pending', { default: 'Save changes to switch the bird finder. The current finder keeps running until then.' })}
                             </p>
                         {:else if cropDetectorStatus?.reason === 'fallback_default_accurate'}
-                            <p class="text-sm font-semibold text-amber-700 dark:text-amber-300" role="status">
+                            <p class="text-sm font-semibold text-attention-700 dark:text-attention-300" role="status">
                                 {$_('settings.detection.bird_finder_fallback', { default: 'The wide-frame finder is not downloaded yet, so the standard finder is still in use. Download it below to switch.' })}
                             </p>
                         {/if}
@@ -1148,7 +1119,7 @@
                                 </select>
                             </label>
                             {#if birdFinderProvider !== 'auto' && birdFinderProvider !== 'cpu' && !(getInstalledModel(chosenFinder.model.id)?.provider_preference_order ?? []).includes(birdFinderProvider)}
-                                <p class="text-sm text-amber-800 dark:text-amber-300" role="status">
+                                <p class="text-sm text-attention-800 dark:text-attention-300" role="status">
                                     {t('settings.detection.provider_saved_unavailable', '{provider} is saved but is not available in this image, on this host, or for the active model. Choose an available provider or Auto.', { provider: providerLabel(birdFinderProvider) })}
                                 </p>
                             {/if}

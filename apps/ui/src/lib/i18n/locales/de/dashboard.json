@@ -2,7 +2,7 @@
   "title": "Dashboard",
   "live_feed": "Live-Feed",
   "showing_last_3_days": "Zeige letzte 3 Tage",
-  "no_detections": "Noch keine Erkennungen",
+  "no_detections": "Keine Besuche in den letzten 24 Stunden.",
   "waiting_first_visitor": "Keine Besuche in den letzten 24 Stunden. Neue Besuche erscheinen hier, sobald sie eintreffen.",
   "discovery_feed": "Entdeckungs-Feed",
   "see_full_history": "Vollständigen Verlauf anzeigen",
@@ -23,7 +23,7 @@
     "audio": "Audio"
   },
   "histogram": {
-    "title": "Aktivitäts-Puls",
+    "title": "Aktivität",
     "visits_per_hour": "Besuche pro Stunde, letzte 24 Stunden",
     "peak": "Am meisten los um {time}, {count, plural, one {# Besuch} other {# Besuche}}",
     "now": "jetzt",

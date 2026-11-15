@@ -400,12 +400,12 @@
             <div class="border-b border-r border-slate-200/80 px-3 py-4 dark:border-slate-800 sm:px-5 lg:border-b-0">
                 <dt class="text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('audio.stat.heard', { default: 'Heard' })}</dt>
                 <dd class="mt-1 text-2xl font-bold tabular-nums text-slate-900 dark:text-white">{(summary?.total ?? 0).toLocaleString()}</dd>
-                <dd class="mt-1 text-xs text-slate-600 dark:text-slate-400">{$_('audio.stat.heard_sub', { default: 'BirdNET detections in view' })}</dd>
+                <dd class="mt-1 text-xs text-slate-600 dark:text-slate-400">{$_('audio.stat.heard_sub', { default: 'BirdNET-Go detections in this window' })}</dd>
             </div>
             <div class="border-b border-slate-200/80 px-3 py-4 dark:border-slate-800 sm:px-5 lg:border-b-0 lg:border-r">
                 <dt class="text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('audio.stat.species', { default: 'Species' })}</dt>
                 <dd class="mt-1 text-2xl font-bold tabular-nums text-slate-900 dark:text-white">{summary?.species_count ?? 0}</dd>
-                <dd class="mt-1 text-xs text-slate-600 dark:text-slate-400">{$_('audio.stat.species_sub', { default: 'Audio-derived species' })}</dd>
+                <dd class="mt-1 text-xs text-slate-600 dark:text-slate-400">{$_('audio.stat.species_sub', { default: 'Heard in this window' })}</dd>
             </div>
             <div class="border-r border-slate-200/80 px-3 py-4 dark:border-slate-800 sm:px-5">
                 <dt class="text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('audio.stat.peak_hour', { default: 'Peak hour' })}</dt>
@@ -434,11 +434,11 @@
             </label>
             <label class="space-y-1.5">
                 <span class="text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('audio.filter.species', { default: 'Species' })}</span>
-                <input bind:value={speciesFilter} class="input-base min-h-11 focus-visible:ring-2 focus-visible:ring-focus" placeholder="Dunnock" />
+                <input bind:value={speciesFilter} class="input-base min-h-11 focus-visible:ring-2 focus-visible:ring-focus" placeholder={$_('audio.filter.species_placeholder', { default: 'Any species' })} />
             </label>
             <label class="space-y-1.5">
                 <span class="text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('audio.filter.source', { default: 'Source' })}</span>
-                <input bind:value={sourceFilter} class="input-base min-h-11 focus-visible:ring-2 focus-visible:ring-focus" placeholder="BirdCam" />
+                <input bind:value={sourceFilter} class="input-base min-h-11 focus-visible:ring-2 focus-visible:ring-focus" placeholder={$_('audio.filter.source_placeholder', { default: 'Any source' })} />
             </label>
             <label class="space-y-1.5">
                 <span class="flex justify-between gap-2 text-xs font-semibold text-slate-600 dark:text-slate-400">
@@ -452,7 +452,7 @@
                 <button type="button" class="btn btn-secondary min-h-11 flex-1 px-4 focus-visible:ring-2 focus-visible:ring-focus xl:flex-none" onclick={clearFilters} disabled={loading}>{$_('common.clear', { default: 'Clear' })}</button>
             </div>
         </form>
-        <p class="{filtersChanged ? 'mt-3' : ''} text-sm font-semibold text-amber-800 dark:text-amber-200" role="status" data-audio-filters-changed>{filtersChanged ? $_('audio.filter.changed', { default: 'Filters changed. Apply to update the list.' }) : ''}</p>
+        <p class="{filtersChanged ? 'mt-3' : ''} text-sm font-semibold text-attention-800 dark:text-attention-200" role="status" data-audio-filters-changed>{filtersChanged ? $_('audio.filter.changed', { default: 'Filters changed. Apply to update the list.' }) : ''}</p>
     </section>
 
     <section class="space-y-5" data-audio-history-log>
@@ -476,7 +476,7 @@
                 </div>
                 <div>
                     <h2 class="text-xl font-bold text-slate-900 dark:text-white">{$_('audio.history.title', { default: 'Detection history' })}</h2>
-                    <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">{$_('audio.history.sub', { default: 'Persisted BirdNET-Go detections, separate from visual visits.' })}</p>
+                    <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">{$_('audio.history.sub', { default: 'Every call BirdNET-Go reported, kept apart from camera visits.' })}</p>
                 </div>
             </div>
             <button type="button" class="btn btn-secondary min-h-11 flex-none px-4 text-sm focus-visible:ring-2 focus-visible:ring-focus" onclick={() => void loadAudioHistory()} disabled={loading}>
@@ -584,7 +584,7 @@
 
     <section class="min-w-0 space-y-8 border-t border-slate-200/80 pt-8 dark:border-slate-800" data-audio-history-analytics>
         <div class="flex items-start gap-3">
-            <div class="mt-0.5 flex h-9 w-9 flex-none items-center justify-center rounded-full bg-sky-50 text-sky-700 dark:bg-sky-950/50 dark:text-sky-300">
+            <div class="mt-0.5 flex h-9 w-9 flex-none items-center justify-center rounded-full bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200">
                 <svg data-audio-section-icon aria-hidden="true" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M4 19V9m5 10V5m5 14v-7m5 7V3" />
                 </svg>

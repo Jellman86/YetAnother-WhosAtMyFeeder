@@ -1,12 +1,12 @@
 {
   "no_wiki": "No hay información de Wikipedia disponible para esta especie.",
   "no_info": "No hay información de referencia disponible para esta especie.",
-  "avg_confidence": "Confianza Promedio",
+  "avg_confidence": "Confianza promedio",
   "first_seen": "Visto por primera vez",
   "last_seen": "Visto por última vez",
-  "activity_patterns": "Patrones de Actividad",
-  "camera_breakdown": "Desglose por Cámara",
-  "recent_sightings": "Avistamientos Recientes",
+  "activity_patterns": "Patrones de actividad",
+  "camera_breakdown": "Desglose por cámara",
+  "recent_sightings": "Avistamientos recientes",
   "ebird_disabled_title": "eBird no habilitado",
   "ebird_disabled_body": "Activa eBird en Configuración para ver avistamientos cercanos de esta especie.",
   "seasonality_local": "Estacionalidad local",
@@ -24,5 +24,6 @@
   "month": "Mes",
   "copy_diagnostics_bundle": "Copiar paquete de diagnósticos",
   "no_local_visits_title": "Aún no hay visitas en tu comedero",
-  "no_local_visits_body": "Tus cámaras no han registrado esta ave. Todo lo siguiente proviene de fuentes de referencia públicas."
+  "no_local_visits_body": "Tus cámaras no han registrado esta ave. Todo lo siguiente proviene de fuentes de referencia públicas.",
+  "reclassify_clip": "Reclasificar desde el clip"
 }

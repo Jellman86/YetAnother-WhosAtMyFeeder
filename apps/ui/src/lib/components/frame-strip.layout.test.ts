@@ -229,7 +229,8 @@ describe('the record uses the strip and drops the framing toggle (#256)', () => 
     it('stacks its controls full width on a phone and lets the rail name the bird', () => {
         expect(modalSource).toContain('class="flex flex-col gap-2 sm:flex-row sm:flex-wrap" data-detection-identification-actions');
         expect(modalSource).toContain('class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center" data-detection-whole-scene-actions');
-        // The hero title repeats the rail's "Identified as" while covering the bird on a phone.
-        expect(modalSource).toContain('class="hidden sm:block" data-detection-media-title');
+        // The rail's "Identified as" names the bird, and titles the dialog; the photograph never repeats it.
+        expect(modalSource).not.toContain('data-detection-media-title');
+        expect(modalSource).toContain('<h3 id="detection-modal-title" class="font-display text-2xl font-bold text-slate-900 dark:text-white">{primaryName}</h3>');
     });
 });

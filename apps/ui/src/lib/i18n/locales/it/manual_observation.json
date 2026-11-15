@@ -56,7 +56,7 @@
     "video": "Filmato",
     "image": "Foto",
     "title": "Ricerca della prova migliore",
-    "body": "Il classificatore di produzione confronta fotogrammi e ritagli. Puoi lasciare questa pagina; la bozza verrà ripristinata al tuo ritorno.",
+    "body": "YA-WAMF sta confrontando i fotogrammi e i ritagli di uccelli trovati. Puoi lasciare la pagina; la bozza tornerà quando rientri.",
     "progress": "Avanzamento dell’analisi",
     "failed_title": "Analisi interrotta in sicurezza",
     "failed_body": "Il file originale è ancora conservato. Riprova quando il modello sarà disponibile.",

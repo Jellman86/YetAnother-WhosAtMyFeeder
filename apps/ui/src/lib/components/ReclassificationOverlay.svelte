@@ -172,18 +172,12 @@
 </script>
 
 <div 
-    class="absolute inset-0 z-20 flex flex-col items-center {small ? 'justify-center overflow-hidden p-3' : 'justify-start overflow-y-auto overflow-x-hidden p-4 sm:p-6'} bg-white/35 dark:bg-slate-900/45 border border-slate-200/60 dark:border-slate-700/50 backdrop-blur-xl rounded-xl"
+    class="absolute inset-0 z-20 flex flex-col items-center {small ? 'justify-center overflow-hidden p-3' : 'justify-start overflow-y-auto overflow-x-hidden p-4 sm:p-6'} border border-slate-200/60 dark:border-slate-700/50 rounded-xl"
     transition:fade={{ duration: 200 }}
 >
     <!-- Current frame backdrop -->
-    {#if backdropImageUrl}
-        <div
-            class="absolute inset-0 bg-center bg-cover opacity-60 blur-2xl scale-110"
-            style="background-image: url({backdropImageUrl})"
-        ></div>
-    {/if}
-    <div class="absolute inset-0 bg-linear-to-br/srgb from-white/55 via-white/35 to-slate-100/50 dark:from-slate-950/70 dark:via-slate-950/55 dark:to-slate-900/70"></div>
-    <div class="absolute inset-0 bg-linear-to-t/srgb from-slate-950/45 via-transparent to-transparent dark:from-black/60 dark:via-black/30"></div>
+    <!-- One flat veil, so the words over the record stay legible without a wash or a blurred copy of the frame. -->
+    <div class="absolute inset-0 bg-white/80 dark:bg-slate-950/80"></div>
 
     <div class="relative w-full {small ? '' : 'max-w-4xl h-full'} flex flex-col items-center {small ? 'gap-2' : 'gap-5'}">
         
@@ -248,8 +242,8 @@
                                     <span>{$_('detection.reclassification.frame_progress', { values: { current: displayFrameIndex, total: displayClipTotal } })}</span>
                                 </span>
                                 {#if progress.ramUsage}
-                                    <span class="px-2 py-0.5 rounded-md bg-indigo-500/15 border border-indigo-500/30 text-3xs font-bold text-indigo-700 dark:text-indigo-300 uppercase tracking-widest flex items-center gap-1.5" title={$_('jobs.system_ram_usage', { default: 'System RAM Usage' })}>
-                                        <svg class="w-3 h-3 text-indigo-600 dark:text-indigo-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                    <span class="px-2 py-0.5 rounded-md bg-slate-500/10 border border-slate-300/70 dark:border-slate-600/70 text-3xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-widest flex items-center gap-1.5" title={$_('jobs.system_ram_usage', { default: 'System RAM usage' })}>
+                                        <svg class="w-3 h-3 text-slate-600 dark:text-slate-300 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                             <path d="M4 6h16a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"/>
                                             <path d="M6 22v-4"/>
                                             <path d="M10 22v-4"/>
@@ -267,14 +261,14 @@
                         {/if}
                         {#if isAutoVideoReclassification}
                             <span
-                                class="px-2 py-0.5 rounded-md bg-cyan-500/10 border border-cyan-500/25 text-3xs font-bold text-cyan-700 dark:text-cyan-300 uppercase tracking-widest mb-1.5"
+                                class="px-2 py-0.5 rounded-md bg-slate-500/10 border border-slate-300/70 dark:border-slate-600/70 text-3xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-widest mb-1.5"
                                 title={$_('detection.reclassification.auto_video_source_hint', { default: 'Automatic video reclassification queue (including Analyze Unknowns).' })}
                             >
                                 {$_('detection.reclassification.auto_video_source', { default: 'Auto Video' })}
                             </span>
                         {/if}
                         {#if hasFallenBackToSnapshot && !isComplete}
-                            <div class="w-full max-w-md px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-200 mb-2 flex items-start gap-2" role="status">
+                            <div class="w-full max-w-md px-3 py-2 rounded-lg bg-slate-500/10 border border-slate-300/70 dark:border-slate-600/70 text-slate-800 dark:text-slate-100 mb-2 flex items-start gap-2" role="status">
                                 <svg class="w-4 h-4 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                     <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
                                     <line x1="12" y1="9" x2="12" y2="13"/>
@@ -291,9 +285,9 @@
                             </div>
                         {/if}
                         {#if isNoResult}
-                            <div class="w-full max-w-md border-y border-amber-300/70 dark:border-amber-400/25 py-3 text-left" role="status">
+                            <div class="w-full max-w-md border-y border-slate-300/70 dark:border-slate-600/50 py-3 text-left" role="status">
                                 <div class="flex items-start gap-3">
-                                    <svg class="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                    <svg class="mt-0.5 h-5 w-5 shrink-0 text-slate-600 dark:text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                         <path d="M8 12h8"/>
                                         <circle cx="12" cy="12" r="9"/>
                                     </svg>
@@ -333,8 +327,8 @@
                         {#if displayLabel}
                             <div class="flex flex-col items-center" transition:fade>
                                 {#if isComplete && hasFinalResult}
-                                    <span class="px-2 py-0.5 rounded-md bg-accent-500/15 border border-accent-500/30 text-3xs font-bold text-accent-700 dark:text-accent-300 uppercase tracking-widest mb-1.5">
-                                        {$_('detection.reclassification.final_result', { default: 'Final Result' })}
+                                    <span class="px-2 py-0.5 rounded-md bg-success-500/15 border border-success-500/30 text-3xs font-bold text-success-800 dark:text-success-200 uppercase tracking-widest mb-1.5">
+                                        {$_('detection.reclassification.final_result', { default: 'Final result' })}
                                     </span>
                                 {/if}
                                 <span class="text-base font-bold text-slate-900 dark:text-white truncate max-w-[260px] drop-shadow-md text-center">
@@ -395,7 +389,7 @@
                     </span>
                     {#if hasFallenBackToSnapshot}
                         <span
-                            class="px-1.5 py-0.5 rounded-md border border-amber-400/30 bg-amber-400/10 text-3xs font-bold uppercase tracking-widest text-amber-700 dark:text-amber-300"
+                            class="px-1.5 py-0.5 rounded-md border border-slate-300/70 bg-slate-500/10 text-3xs font-bold uppercase tracking-widest text-slate-700 dark:border-slate-600/70 dark:text-slate-200"
                             title={formatFallbackReason(progress.fallbackReason)}
                         >
                             {$_('detection.reclassification.snapshot_fallback_badge', { default: 'Snapshot fallback' })}
@@ -403,7 +397,7 @@
                     {/if}
                     {#if isAutoVideoReclassification}
                         <span
-                            class="px-1.5 py-0.5 rounded-md border border-cyan-400/30 bg-cyan-400/10 text-3xs font-bold uppercase tracking-widest text-cyan-700 dark:text-cyan-300"
+                            class="px-1.5 py-0.5 rounded-md border border-slate-300/70 bg-slate-500/10 text-3xs font-bold uppercase tracking-widest text-slate-700 dark:border-slate-600/70 dark:text-slate-200"
                             title={$_('detection.reclassification.auto_video_source_hint', { default: 'Automatic video reclassification queue (including Analyze Unknowns).' })}
                         >
                             {$_('detection.reclassification.auto_video_source', { default: 'Auto Video' })}
@@ -439,8 +433,8 @@
                                 <span>{$_('detection.reclassification.frame_progress', { values: { current: displayFrameIndex, total: displayClipTotal } })}</span>
                             </span>
                             {#if progress.ramUsage}
-                                <span class="px-2 py-0.5 rounded-md bg-indigo-500/15 border border-indigo-500/30 text-3xs font-bold text-indigo-700 dark:text-indigo-300 uppercase tracking-widest flex items-center gap-1.5" title={$_('jobs.system_ram_usage', { default: 'System RAM Usage' })}>
-                                    <svg class="w-3 h-3 text-indigo-600 dark:text-indigo-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <span class="px-2 py-0.5 rounded-md bg-slate-500/10 border border-slate-300/70 dark:border-slate-600/70 text-3xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-widest flex items-center gap-1.5" title={$_('jobs.system_ram_usage', { default: 'System RAM usage' })}>
+                                    <svg class="w-3 h-3 text-slate-600 dark:text-slate-300 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                         <path d="M4 6h16a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"/>
                                         <path d="M6 22v-4"/>
                                         <path d="M10 22v-4"/>
@@ -457,8 +451,8 @@
                         </div>
                     {/if}
                     {#if !small && isComplete && hasFinalResult}
-                        <span class="px-2 py-0.5 rounded-md bg-accent-500/15 border border-accent-500/30 text-3xs font-bold text-accent-700 dark:text-accent-300 uppercase tracking-widest mb-1.5">
-                            {$_('detection.reclassification.final_result', { default: 'Final Result' })}
+                        <span class="px-2 py-0.5 rounded-md bg-success-500/15 border border-success-500/30 text-3xs font-bold text-success-800 dark:text-success-200 uppercase tracking-widest mb-1.5">
+                            {$_('detection.reclassification.final_result', { default: 'Final result' })}
                         </span>
                     {/if}
                     <span class="{small ? 'text-3xs' : 'text-base'} font-bold text-slate-900 dark:text-white truncate max-w-[200px] drop-shadow-md">

@@ -232,7 +232,7 @@
       "quail": "Cailles"
     },
     "suggestion": "Cela ressemble à un oiseau domestique : {birds}. Si vous en élevez, ajoutez-les dans Oiseaux domestiques que vous élevez pour les enregistrer comme animaux du jardin, et non comme oiseaux sauvages.",
-    "suggestion_open": "Ouvrir Oiseaux domestiques que vous élevez",
+    "suggestion_open": "Ouvrir « Oiseaux domestiques que vous élevez »",
     "suggestion_dismiss": "Pas maintenant"
   },
   "automatic_animal_below_threshold_dismissed": "Animal détecté, mais son score d’espèce est sous le seuil de nommage. Déplacé dans Rejetés ; remettez-le à vérifier si vous voulez le nommer vous-même.",

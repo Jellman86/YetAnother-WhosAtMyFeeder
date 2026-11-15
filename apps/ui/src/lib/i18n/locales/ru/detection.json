@@ -63,7 +63,7 @@
   "audio_context_empty": "Нет ближайших аудио обнаружений",
   "audio_context_suppressed": "Рядом обнаружен звук, но с микрофона, не сопоставленного с этой камерой. Измените сопоставление датчиков в настройках, чтобы включить его.",
   "common_name_override": "Обычное название",
-  "common_name_override_edit": "Изменить название",
+  "common_name_override_edit": "Изменить обиходное название",
   "common_name_override_reset": "Использовать название поставщика",
   "common_name_override_saved": "Обычное название обновлено",
   "common_name_override_cleared": "Название поставщика восстановлено",
@@ -145,12 +145,12 @@
   },
   "review_in_explorer": "Открыть в обозревателе",
   "review_in_explorer_hint": "Откройте обозреватель, чтобы проверить и пометить неизвестные обнаружения.",
-  "birdnet_confirmed": "BirdNET Подтверждено",
-  "frigate_verified": "Frigate Проверено",
+  "birdnet_confirmed": "Подтверждено BirdNET",
+  "frigate_verified": "Проверено Frigate",
   "video_analysis": {
     "queued": "Анализ видео в очереди",
     "preparing": "Подготовка анализа видео",
-    "title": "Глубокий видеоанализ",
+    "title": "Анализ видео",
     "match": "{score}% Совпадение",
     "verified_desc": "Подтверждено наблюдениями в видео.",
     "in_progress": "Видеоанализ в процессе…",
@@ -253,7 +253,7 @@
   "reclassification": {
     "unchanged_reason_non_bird": "Модель определила объект, не являющийся птицей, поэтому прежнее определение сохранено.",
     "analysis": "Анализ",
-    "ai_analysis": "ИИ Анализ",
+    "ai_analysis": "Анализ ИИ",
     "frame_progress": "Кадр {current}/{total}",
     "model": "Модель: {name}",
     "done": "Готово",
@@ -286,8 +286,8 @@
     "unchanged_reason_out_of_range": "Модель назвала вид, который eBird ни разу не отмечал в вашем регионе, поэтому прежнее определение сохранено."
   },
   "ai": {
-    "insight": "ИИ Натуралист Инсайт",
-    "ask": "Спросить ИИ Натуралиста",
+    "insight": "Мнение ИИ-натуралиста",
+    "ask": "Спросить ИИ-натуралиста",
     "analyzing": "Анализ поведения…",
     "regenerating": "Регенерация…",
     "regenerate": "Регенерировать анализ",
@@ -296,7 +296,7 @@
     "conversation_loading": "Загрузка диалога…",
     "conversation_empty": "Диалога пока нет. Задайте ИИ уточняющий вопрос.",
     "conversation_placeholder": "Задайте уточняющий вопрос…",
-    "conversation_error": "Диалог завершился ошибкой. Попробуйте ещё раз.",
+    "conversation_error": "ИИ не ответил. Проверьте провайдера и ключ в «Настройки → ИИ» и спросите снова.",
     "assistant": "Ассистент",
     "user": "Вы",
     "send": "Отправить",
@@ -312,8 +312,8 @@
   "ebird": {
     "valid_observation": "Действительное наблюдение"
   },
-  "card_label": "{species} обнаружен(а) на {camera}",
-  "image_alt": "{species} обнаружен(а) на {camera}",
+  "card_label": "{species} на камере {camera}",
+  "image_alt": "{species} на камере {camera}",
   "play_video": "Воспроизвести видео {species}",
   "play_full_visit": "Воспроизвести полный клип визита: {species}",
   "reclassify": "Реклассифицировать обнаружение {species}",
@@ -474,7 +474,6 @@
     "recording": "Определено по птице, отслеживаемой Frigate в кадре записи",
     "snapshot": "Определено по птице, отслеживаемой Frigate на снимке",
     "crop": "Определено по фрагменту изображения птицы",
-    "unknown": "Источник определения не был сохранён",
     "original": "Первоначальное определение"
   },
   "frame_scan": {

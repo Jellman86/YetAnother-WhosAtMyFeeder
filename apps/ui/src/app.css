@@ -109,6 +109,11 @@
   --color-attention-600: rgb(var(--attention-600)); --color-attention-700: rgb(var(--attention-700)); --color-attention-800: rgb(var(--attention-800));
   --color-attention-900: rgb(var(--attention-900)); --color-attention-950: rgb(var(--attention-950));
 
+  /* An outline drawn on a photograph (a counted bird, the chosen frame, a detector's box): one light
+     colour that holds against plumage and foliage in every theme. It marks evidence, not a state, so
+     it is neither the brand nor the attention colour. */
+  --color-evidence: #7dd3fc;
+
   /* Panels and the fills inside them; set per mode and theme below. */
   --color-surface: rgb(var(--surface));
   --color-surface-raised: rgb(var(--surface-raised));

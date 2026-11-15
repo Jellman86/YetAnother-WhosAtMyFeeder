@@ -20,7 +20,7 @@
     const feedTile = $derived.by(() => {
         switch (feed) {
             case 'live':
-                return { on: true, slashed: false, onClass: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300', short: $_('status.tile_live', { default: 'Live' }), state: $_('status.feed_live', { default: 'Receiving camera events' }) };
+                return { on: true, slashed: false, onClass: 'bg-success-500/15 text-success-700 dark:text-success-300', short: $_('status.tile_live', { default: 'Live' }), state: $_('status.feed_live', { default: 'Receiving camera events' }) };
             case 'connecting':
                 return { on: false, slashed: false, onClass: NEUTRAL_CLASS, short: $_('status.tile_connecting', { default: 'Connecting' }), state: $_('status.feed_connecting', { default: 'Connecting to the MQTT broker' }) };
             case 'broker_down':
@@ -67,7 +67,7 @@
                 short: $_('status.tile_alerts', { default: 'Alerts' }),
                 name: $_('status.notifications'),
                 state: notificationsActive ? $_('common.enabled') : $_('common.disabled'),
-                onClass: 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-300',
+                onClass: 'bg-brand-500/15 text-brand-700 dark:text-brand-300',
                 icon: 'M15 17h5l-1.4-1.4a2 2 0 0 1-.6-1.4V11a6 6 0 1 0-12 0v3.2a2 2 0 0 1-.6 1.4L4 17h5m6 0a3 3 0 1 1-6 0m6 0H9'
             }])
     ]);
@@ -93,7 +93,7 @@
         >
             <span class="relative grid h-8 w-8 place-items-center rounded-full {tile.emphasised ? tile.onClass : 'bg-slate-200/70 text-slate-600 dark:bg-slate-700/50 dark:text-slate-400'}">
                 {#if tile.key === 'live' && tile.on}
-                    <span class="absolute inset-0 animate-ping rounded-full bg-emerald-400/20 motion-reduce:animate-none" aria-hidden="true"></span>
+                    <span class="absolute inset-0 animate-ping rounded-full bg-success-400/20 motion-reduce:animate-none" aria-hidden="true"></span>
                 {/if}
                 <svg class="relative h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <path d={tile.icon} />

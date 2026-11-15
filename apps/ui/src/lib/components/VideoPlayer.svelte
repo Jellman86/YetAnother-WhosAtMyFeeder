@@ -1,4 +1,5 @@
 <script lang="ts">
+    import DialogCloseButton from './DialogCloseButton.svelte';
     import { onDestroy, onMount } from 'svelte';
     import { _ } from 'svelte-i18n';
     import type Hls from 'hls.js';
@@ -19,6 +20,8 @@
     import { toastStore } from '../stores/toast.svelte';
     import { logger } from '../utils/logger';
     import { toAppPath } from '../app/url-base';
+    import { formatDateTime } from '../utils/datetime';
+    import type { VideoHeading } from './video-heading';
 
     interface Props {
         frigateEvent: string;
@@ -26,6 +29,8 @@
         playIntent?: 'auto' | 'user';
         shareToken?: string | null;
         initialFullVisitPromoted?: boolean;
+        /** What the clip shows, so the player is titled by the bird and the time rather than an event id. */
+        heading?: VideoHeading | null;
     }
 
     type ProbeCache = {
@@ -43,7 +48,8 @@
         onClose,
         playIntent = 'auto',
         shareToken = null,
-        initialFullVisitPromoted = false
+        initialFullVisitPromoted = false,
+        heading = null
     }: Props = $props();
 
     let videoElement = $state<HTMLVideoElement | null>(null);
@@ -853,17 +859,19 @@
     onkeydown={(event) => event.key === 'Escape' && onClose()}
     role="dialog"
     aria-modal="true"
-    aria-label={$_('video_player.aria_label', { default: 'Video player' })}
+    aria-labelledby="video-player-title"
     tabindex="-1"
 >
     <div class="relative w-full max-w-4xl mx-auto animate-in fade-in zoom-in-95 duration-200 max-h-[calc(100dvh-2rem)] sm:max-h-[calc(100dvh-3rem)] overflow-y-auto overscroll-contain">
         <div class="rounded-2xl overflow-hidden ring-1 ring-white/10 bg-black shadow-2xl">
             <div class="flex items-center justify-between gap-2 px-3 py-2 bg-slate-900/75 border-b border-slate-700/60">
-                <div class="flex items-center gap-2 min-w-0">
-                    <span class="inline-flex items-center rounded-full border border-slate-600 bg-slate-800/80 px-2 py-0.5 text-3xs uppercase tracking-wider text-slate-200 font-semibold">
-                        {clipVariantLabel}
-                    </span>
-                    <span class="text-xs text-slate-300 truncate font-mono">{shortEventId}</span>
+                <div class="min-w-0">
+                    <h2 id="video-player-title" class="truncate text-sm font-semibold text-white" title={heading ? undefined : frigateEvent}>
+                        {heading?.name ?? $_('video_player.detection_clip_title', { default: 'Detection clip' })}
+                    </h2>
+                    <p class="truncate text-xs text-slate-300">
+                        {clipVariantLabel}{#if heading?.at} · {formatDateTime(heading.at)}{/if}
+                    </p>
                 </div>
                 <div class="flex items-center gap-1.5 shrink-0">
                     <!-- The state is the word. One neutral chip for every state: none of them is work
@@ -871,17 +879,7 @@
                     <span class="inline-flex items-center rounded-full border border-white/30 bg-white/10 px-2.5 py-1 text-3xs font-semibold text-white" data-video-playback-state>
                         {playbackLabel}
                     </span>
-                    <button
-                        bind:this={closeButton}
-                        type="button"
-                        onclick={onClose}
-                        class="btn btn-on-dark h-11 w-11 rounded-full p-0"
-                        aria-label={$_('video_player.close', { default: 'Close video' })}
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    </button>
+                    <DialogCloseButton tone="media" bind:element={closeButton} label={$_('video_player.close', { default: 'Close video' })} onclick={onClose} />
                 </div>
                 {#if shareToken && shareExpiresAt}
                     <div class="mt-1 text-2xs text-slate-300/90 px-1">
@@ -892,12 +890,12 @@
             {#if videoError}
                 <div class="aspect-video bg-slate-900 flex flex-col items-center justify-center text-center p-8">
                     {#if videoForbidden}
-                        <h2 class="text-xl font-semibold text-white mb-2">{$_('video_player.clip_fetching_disabled', { default: 'Clip Fetching Disabled' })}</h2>
+                        <h2 class="text-xl font-semibold text-white mb-2">{$_('video_player.clip_fetching_disabled', { default: 'Clip fetching is off' })}</h2>
                         <p class="text-slate-400 max-w-sm">
-                            {$_('video_player.clip_fetching_disabled_hint', { default: 'Enable "Fetch Video Clips" in Settings to view this recording.' })}
+                            {$_('video_player.clip_fetching_disabled_hint', { default: 'Turn on “Fetch video clips” in Settings → Connection to watch this recording.' })}
                         </p>
                     {:else}
-                        <h2 class="text-xl font-semibold text-white mb-2">{$_('video_player.video_unavailable', { default: 'Video Unavailable' })}</h2>
+                        <h2 class="text-xl font-semibold text-white mb-2">{$_('video_player.video_unavailable', { default: 'Video unavailable' })}</h2>
                         <p class="text-slate-400 max-w-sm mb-6">
                             {$_('video_player.video_unavailable_hint', { default: 'The recording could not be loaded from Frigate. It may have been deleted or is not yet available.' })}
                         </p>
@@ -994,7 +992,7 @@
                 </div>
             </div>
             {#if playbackState === 'buffering'}
-                <div class="mt-1 text-2xs text-amber-200/90 px-1">
+                <div class="mt-1 text-2xs text-slate-300 px-1">
                     {$_('video_player.buffering_hint', { default: 'Buffering video stream...' })}
                 </div>
             {/if}

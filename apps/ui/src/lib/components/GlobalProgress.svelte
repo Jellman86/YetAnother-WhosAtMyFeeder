@@ -66,9 +66,9 @@
     function kindLabel(kind: string): string {
         if (kind === 'reclassify') return $_('jobs.kind_reclassify', { default: 'Reclassification' });
         if (kind === 'reclassify_batch') return $_('settings.data.batch_analysis_title', { default: 'Batch Analysis' });
-        if (kind === 'backfill') return $_('jobs.kind_backfill', { default: 'Detection Backfill' });
-        if (kind === 'weather_backfill') return $_('jobs.kind_weather_backfill', { default: 'Weather Backfill' });
-        if (kind === 'taxonomy_sync') return $_('jobs.kind_taxonomy_sync', { default: 'Taxonomy Sync' });
+        if (kind === 'backfill') return $_('jobs.kind_backfill', { default: 'Detection backfill' });
+        if (kind === 'weather_backfill') return $_('jobs.kind_weather_backfill', { default: 'Weather backfill' });
+        if (kind === 'taxonomy_sync') return $_('jobs.kind_taxonomy_sync', { default: 'Taxonomy sync' });
         if (kind === 'video_analysis') return $_('jobs.kind_video_analysis', { default: 'Video analysis' });
         return kind.replace(/_/g, ' ').replace(/\b\w/g, (ch) => ch.toUpperCase());
     }
@@ -176,7 +176,7 @@
                                     {/if}
                                 </p>
                                 {#if presentation.batchLabel || presentation.blockerLabel || presentation.candidateLabel}
-                                    <p class="mt-1 text-3xs font-semibold {presentation.blockerLabel ? 'text-amber-700 dark:text-amber-300' : 'text-slate-600 dark:text-slate-400'} truncate">
+                                    <p class="mt-1 text-3xs font-semibold {presentation.blockerLabel ? 'text-attention-700 dark:text-attention-300' : 'text-slate-600 dark:text-slate-400'} truncate">
                                         {presentation.blockerLabel ?? presentation.batchLabel}
                                         {#if presentation.candidateLabel && !presentation.blockerLabel}
                                             · {presentation.candidateLabel}

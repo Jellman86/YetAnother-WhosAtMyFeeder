@@ -86,7 +86,7 @@
     >
         <div class="flex max-w-2xl items-start gap-4">
             <div
-                class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
+                class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-attention-50 text-attention-700 dark:bg-attention-950/40 dark:text-attention-300"
                 aria-hidden="true"
             >
                 <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

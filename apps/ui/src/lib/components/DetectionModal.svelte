@@ -1,4 +1,5 @@
 <script lang="ts">
+    import DialogCloseButton from './DialogCloseButton.svelte';
     import ClassificationSource from './ClassificationSource.svelte';
     import RecordTechnicalDetails from './RecordTechnicalDetails.svelte';
     import RangeFallbackNote from './RangeFallbackNote.svelte';
@@ -195,7 +196,7 @@
     });
     let hideActionLabel = $derived(
         detection.is_hidden
-            ? $_('actions.unhide_detection', { default: 'Unhide Detection' })
+            ? $_('actions.unhide_detection', { default: 'Unhide detection' })
             : $_('actions.hide_detection')
     );
 
@@ -1067,7 +1068,7 @@
         const status = (detection.video_classification_status || '').trim().toLowerCase();
         // "rose" reserved for the genuinely-stuck cases where there's no
         // recovered classification to fall back on.  When the snapshot path
-        // already produced a real result we tier amber/slate based on
+        // already produced a real result we tier attention/slate based on
         // confidence so we don't over-alarm successful classifications.
         if (status === 'failed' && !videoAnalysisAbstained && currentClassificationSource !== 'snapshot') {
             return {
@@ -1087,10 +1088,10 @@
             };
         }
         return {
-            kind: 'amber' as const,
-            container: 'bg-amber-50/80 dark:bg-amber-500/10 border-amber-200/80 dark:border-amber-500/30 text-amber-900 dark:text-amber-200',
-            detailsContainer: 'border-amber-200/70 dark:border-amber-500/30',
-            detailsSummary: 'text-amber-700 dark:text-amber-300',
+            kind: 'attention' as const,
+            container: 'bg-attention-50/80 dark:bg-attention-500/10 border-attention-200/80 dark:border-attention-500/30 text-attention-900 dark:text-attention-200',
+            detailsContainer: 'border-attention-200/70 dark:border-attention-500/30',
+            detailsSummary: 'text-attention-700 dark:text-attention-300',
         };
     });
     const videoStatusNoticeTitle = $derived.by(() => {
@@ -1820,6 +1821,17 @@
         }
     });
 
+    // The band under the photograph holds only actions; with none to show it takes no room, so the
+    // photograph is not left floating above an empty dark strip.
+    const mediaFooterHasActions = $derived(
+        (wholeScene.pinned && wholeSceneReady) ||
+            canShowFavoriteAction ||
+            canPlayVideo ||
+            showFetchFullVisitAction ||
+            isManualObservation ||
+            frigateIssueBadgeVisible
+    );
+
     function handleSpeciesInfo() {
         onViewSpecies(detection.display_name);
         onClose();
@@ -2324,16 +2336,7 @@
             <ReclassificationOverlay progress={reclassifyProgress} />
         {/if}
 
-        <button
-            data-detection-modal-close
-            onclick={onClose}
-            class="absolute top-4 right-4 z-40 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/25 bg-black/45 text-white shadow-lg backdrop-blur-xs transition-colors hover:bg-black/60 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-white"
-            aria-label={$_('common.close')}
-        >
-            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-        </button>
+        <DialogCloseButton tone="media" class="absolute top-4 right-4 z-40" onclick={onClose} data-detection-modal-close />
 
         <div class="flex-1 overflow-y-auto flex flex-col lg:overflow-hidden lg:grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
                 <div class="flex min-h-0 shrink-0 flex-col bg-slate-950 lg:shrink lg:overflow-y-auto lg:border-r lg:border-slate-200/70 dark:lg:border-slate-700/60">
@@ -2387,11 +2390,11 @@
                             ></button>
                             {#if wholeSceneReady && wholeScene.outline}
                                 <div
-                                    class="pointer-events-none absolute z-20 rounded-xs border-2 border-solid border-sky-300 {wholeScene.otherOutlines.length === 0 ? 'shadow-[0_0_0_9999px_rgba(2,6,23,0.35)]' : ''}"
+                                    class="pointer-events-none absolute z-20 rounded-xs border-2 border-solid border-evidence {wholeScene.otherOutlines.length === 0 ? 'shadow-[0_0_0_9999px_rgba(2,6,23,0.35)]' : ''}"
                                     style="left: {wholeScene.outline.left}px; top: {wholeScene.outline.top}px; width: {wholeScene.outline.width}px; height: {wholeScene.outline.height}px;"
                                     data-detection-whole-scene-outline
                                     aria-hidden="true"
-                                ><span class="absolute left-0 top-0 rounded-sm bg-sky-300 px-1.5 py-0.5 text-3xs font-bold text-slate-950">{$_('detection.frame_chosen_badge', { default: 'Chosen' })}</span></div>
+                                ><span class="absolute left-0 top-0 rounded-sm bg-evidence px-1.5 py-0.5 text-3xs font-bold text-slate-950">{$_('detection.frame_chosen_badge', { default: 'Chosen' })}</span></div>
                                 {#each wholeScene.otherOutlines as outline}
                                     <div
                                         class="pointer-events-none absolute z-10 rounded-xs border-2 border-dashed border-white/90"
@@ -2416,22 +2419,11 @@
                         {/if}
                     </div>
                         <div
-                            class="relative flex shrink-0 flex-col bg-slate-950 pt-4"
+                            class="relative flex shrink-0 flex-col bg-slate-950 {mediaFooterHasActions ? 'pt-4' : ''}"
                             data-detection-media-footer
                         >
+                            {#if mediaFooterHasActions}
                             <div class="flex flex-col gap-3 px-5 {showInlineFramePicker ? 'pb-2' : 'pb-5'}">
-                                <!-- On a phone the rail's "Identified as" sits right under the picture, so the
-                                     hero title would say it twice while covering the bird. -->
-                                <div class="hidden sm:block" data-detection-media-title>
-                                    <h3 id="detection-modal-title" class="wrap-break-word text-xl font-bold leading-tight text-white drop-shadow-lg">{primaryName}</h3>
-                                    {#if subName && subName !== primaryName}
-                                        <p class="-mt-0.5 mb-0.5 wrap-break-word text-sm italic text-white/70 drop-shadow-sm">{subName}</p>
-                                    {/if}
-                                    <p class="mt-2 text-3xs font-semibold text-white/80">
-                                        {formatDateTime(detection.detection_time)}
-                                    </p>
-                                </div>
-
                                 {#if wholeScene.pinned && wholeSceneReady}
                                     <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center" data-detection-whole-scene-actions>
                                         <button
@@ -2462,7 +2454,7 @@
                                                 type="button"
                                                 onclick={handleFavoriteToggle}
                                                 disabled={favoritePending}
-                                                class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border shadow-lg backdrop-blur-xs transition-colors disabled:opacity-60 focus-ring-on-dark {detection.is_favorite ? 'border-amber-300 bg-amber-500/90 text-white hover:bg-amber-500' : 'border-white/35 bg-black/45 text-white hover:bg-black/60'}"
+                                                class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border shadow-lg backdrop-blur-xs transition-colors disabled:opacity-60 focus-ring-on-dark {detection.is_favorite ? 'border-brand-300 bg-brand-700/95 text-white hover:bg-brand-800' : 'border-white/35 bg-black/45 text-white hover:bg-black/60'}"
                                                 title={detection.is_favorite ? $_('detection.favorite_remove', { default: 'Remove favorite' }) : $_('detection.favorite_add', { default: 'Add favorite' })}
                                                 aria-label={detection.is_favorite ? $_('detection.favorite_remove', { default: 'Remove favorite' }) : $_('detection.favorite_add', { default: 'Add favorite' })}
                                             >
@@ -2572,6 +2564,7 @@
                                     </div>
                                 {/if}
                             </div>
+                            {/if}
 
                             {#if hasOwnerDetectionActions}
                                 <BirdScanControl
@@ -2641,7 +2634,7 @@
                 </div>
             {/if}
             {#if isManualObservation && detection.observation_latitude != null && detection.observation_longitude != null}
-                <div data-manual-observation-location class="border-l-2 border-accent-300 pl-3 dark:border-accent-700">
+                <div data-manual-observation-location class="border-l-2 border-slate-300 pl-3 dark:border-slate-600">
                     <div class="flex items-center justify-between gap-3">
                         <div>
                             <div class="text-3xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400">{$_('manual_observation.location.title', { default: 'Sighting location' })}</div>
@@ -2697,7 +2690,7 @@
                             {$_('detection.identified_as', { default: 'Identified as' })}
                         {/if}
                         </p>
-                        <h3 class="font-display text-2xl font-bold text-slate-900 dark:text-white">{primaryName}</h3>
+                        <h3 id="detection-modal-title" class="font-display text-2xl font-bold text-slate-900 dark:text-white">{primaryName}</h3>
                         {#if hasOwnerDetectionActions}
                             <ClassificationSource evidence={detection.classification_input} />
                             {#if detection.initial_classification_input && JSON.stringify(detection.initial_classification_input) !== JSON.stringify(detection.classification_input)}
@@ -2759,7 +2752,7 @@
                  wasn't updated. Manual reclassify is the documented path here, so we
                  wire the existing handler in directly. -->
             {#if videoPromotionGated && hasOwnerDetectionActions && onReclassify}
-                <div class="p-3 rounded-xl bg-indigo-50/80 dark:bg-indigo-500/10 border border-indigo-200/80 dark:border-indigo-500/30 text-indigo-900 dark:text-indigo-200 flex items-start gap-3" role="status">
+                <div class="p-3 rounded-xl bg-attention-50/80 dark:bg-attention-500/10 border border-attention-200/80 dark:border-attention-500/30 text-attention-900 dark:text-attention-100 flex items-start gap-3" role="status">
                     <svg class="w-4 h-4 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                         <circle cx="12" cy="12" r="10"/>
                         <line x1="12" y1="16" x2="12" y2="12"/>
@@ -2798,13 +2791,13 @@
 
             <!-- Video Classification Results -->
             {#if detection.video_classification_status === 'completed' || (detection.video_classification_label && detection.video_classification_label !== detection.display_name)}
-                <div class="p-4 rounded-2xl bg-indigo-50/80 dark:bg-indigo-500/10 border border-indigo-200/80 dark:border-indigo-500/20 animate-in fade-in slide-in-from-top-2">
+                <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 animate-in fade-in slide-in-from-top-2">
                     <div class="flex items-center justify-between mb-2">
-                        <p class="text-3xs font-bold text-indigo-600 dark:text-indigo-400">
+                        <p class="text-3xs font-bold text-slate-700 dark:text-slate-200">
                             {completedClassificationTitle}
                         </p>
                         {#if detection.video_classification_score}
-                            <span class="px-2 py-0.5 bg-indigo-700 text-white text-3xs font-bold rounded-sm uppercase">
+                            <span class="px-2 py-0.5 bg-slate-700 text-white text-3xs font-bold rounded-sm dark:bg-slate-600">
                                 {$_('detection.video_analysis.match', { values: { score: (detection.video_classification_score * 100).toFixed(0) } })}
                             </span>
                         {/if}
@@ -2815,7 +2808,7 @@
                             : detection.video_classification_label}
                     </p>
                     {#if detection.video_result_blocked}
-                        <p class="text-3xs font-bold text-amber-700 dark:text-amber-400 mt-0.5">
+                        <p class="text-3xs font-bold text-slate-700 dark:text-slate-300 mt-0.5">
                             {$_('detection.video_analysis.blocked_label', { default: 'Matched a blocked species: not applied' })}
                         </p>
                     {/if}
@@ -2829,12 +2822,12 @@
                             </span>
                         {/if}
                         {#if completedVideoInferenceBadge.kind}
-                            <div class="flex items-center gap-1.5 px-1.5 py-0.5 rounded-sm border border-indigo-200/50 dark:border-indigo-500/30 bg-white/60 dark:bg-slate-900/40">
+                            <div class="flex items-center gap-1.5 px-1.5 py-0.5 rounded-sm border border-slate-200/70 dark:border-slate-600/60 bg-white/60 dark:bg-slate-900/40">
                                 {#if completedVideoInferenceBadge.kind === 'gpu'}
-                                    <svg class="h-3 w-3 text-indigo-500" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                    <svg class="h-3 w-3 text-slate-500 dark:text-slate-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                                         <path d="M10 2.5 16.5 9 10 15.5 3.5 9 10 2.5Zm0 2.12L5.62 9 10 13.38 14.38 9 10 4.62Z" />
                                     </svg>
-                                    <span class="text-3xs font-bold text-indigo-700 dark:text-indigo-300" title={detection.video_classification_provider ?? undefined}>
+                                    <span class="text-3xs font-bold text-slate-600 dark:text-slate-300" title={detection.video_classification_provider ?? undefined}>
                                         {completedVideoInferenceBadge.label}
                                     </span>
                                 {:else}
@@ -2909,7 +2902,7 @@
                 {#if weatherSummary}
                     <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-2" data-detection-weather-row>
                         <dt class="flex items-center gap-2 text-slate-600 dark:text-slate-400">
-                            <svg class="h-3.5 w-3.5 shrink-0 text-sky-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 15a4 4 0 004 4h9a4 4 0 100-8h-1a5 5 0 10-9 4H7a4 4 0 00-4 4z" /></svg>
+                            <svg class="h-3.5 w-3.5 shrink-0 text-slate-500 dark:text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 15a4 4 0 004 4h9a4 4 0 100-8h-1a5 5 0 10-9 4H7a4 4 0 00-4 4z" /></svg>
                             {$_('detection.fact_conditions', { default: 'Conditions' })}
                         </dt>
                         <dd class="min-w-0 max-w-full text-right font-medium text-slate-800 dark:text-slate-100">
@@ -2926,7 +2919,7 @@
                                     'How sure the camera was that it had seen a bird at all, before the species was worked out. Separate from the species match above, so the two percentages will differ.'
                             })}
                         >
-                            <svg class="h-3.5 w-3.5 shrink-0 text-indigo-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2" /></svg>
+                            <svg class="h-3.5 w-3.5 shrink-0 text-slate-500 dark:text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2" /></svg>
                             {$_('detection.fact_frigate', { default: 'Spotted as a bird' })}
                         </dt>
                         <dd class="min-w-0 max-w-full text-right font-medium text-slate-800 dark:text-slate-100">
@@ -2937,10 +2930,10 @@
                 {#if birdnetEnabled && !isManualObservation}
                 <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-2">
                     <dt class="flex items-center gap-2 text-slate-600 dark:text-slate-400">
-                        <svg class="h-3.5 w-3.5 shrink-0 text-emerald-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 3h6v11a3 3 0 01-6 0zM5 11a7 7 0 0014 0M12 18v3" /></svg>
+                        <svg class="h-3.5 w-3.5 shrink-0 text-success-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 3h6v11a3 3 0 01-6 0zM5 11a7 7 0 0014 0M12 18v3" /></svg>
                         {$_('detection.fact_heard', { default: 'Heard nearby' })}
                     </dt>
-                    <dd class="min-w-0 max-w-full text-right font-medium {effectiveAudioConfirmed ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-600 dark:text-slate-400'}">
+                    <dd class="min-w-0 max-w-full text-right font-medium {effectiveAudioConfirmed ? 'text-success-700 dark:text-success-300' : 'text-slate-600 dark:text-slate-400'}">
                         {audioFactValue}
                     </dd>
                 </div>
@@ -2957,7 +2950,7 @@
                             <circle cx="12" cy="12" r="10"/>
                             <line x1="12" y1="8" x2="12" y2="12"/>
                             <line x1="12" y1="16" x2="12.01" y2="16"/>
-                        {:else if videoStatusNoticeTone.kind === 'amber'}
+                        {:else if videoStatusNoticeTone.kind === 'attention'}
                             <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
                             <line x1="12" y1="9" x2="12" y2="13"/>
                             <line x1="12" y1="17" x2="12.01" y2="17"/>
@@ -3129,12 +3122,12 @@
                                              behind the playhead so the eye traces motion -->
                                         <div
                                             class="absolute top-0 bottom-0 w-12 max-w-[15%] pointer-events-none transition-[left] duration-75"
-                                            style="left: calc({audioProgressPct}% - 3rem); background: linear-gradient(to right, transparent, rgba(252, 211, 77, 0.18) 55%, rgba(252, 211, 77, 0.45));"
+                                            style="left: calc({audioProgressPct}% - 3rem); background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.12) 55%, rgba(255, 255, 255, 0.3));"
                                             aria-hidden="true"
                                         ></div>
                                         <!-- Playhead cursor -->
                                         <div
-                                            class="absolute top-0 bottom-0 w-px bg-amber-300 shadow-[0_0_6px_rgba(252,211,77,1)] pointer-events-none transition-[left] duration-75"
+                                            class="absolute top-0 bottom-0 w-px bg-white pointer-events-none transition-[left] duration-75"
                                             style="left: {audioProgressPct}%"
                                             aria-hidden="true"
                                         ></div>
@@ -3275,15 +3268,7 @@
                 <div class="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
                     {#if enrichmentSummaryProvider !== 'disabled'}
                         <div class="group relative overflow-hidden rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/50 dark:bg-slate-900/30 p-5 hover:bg-white/80 dark:hover:bg-slate-900/50 transition-all duration-300">
-                            <div class="relative flex flex-wrap items-center justify-between gap-3 mb-3">
-                                <div class="flex min-w-0 items-center gap-2">
-                                    <div class="p-1.5 rounded-lg bg-brand-500/10 text-brand-700 dark:text-brand-400">
-                                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                        </svg>
-                                    </div>
-                                    <p class="min-w-0 wrap-break-word text-3xs font-semibold text-slate-600 dark:text-slate-400">{$_('actions.species_info')}</p>
-                                </div>
+                            <div class="relative flex flex-wrap items-center justify-end gap-3 mb-3">
                                 {#if speciesInfo}
                                     {@const summaryLabel = speciesInfo.summary_source || speciesInfo.source || 'Source'}
                                     {#if speciesInfo.summary_source_url}
@@ -3340,7 +3325,7 @@
                                                 </span>
                                             {/if}
                                             {#if speciesInfo.conservation_status}
-                                                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-accent-50 dark:bg-accent-900/20 text-3xs font-bold text-accent-700 dark:text-accent-400">
+                                                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-3xs font-bold text-slate-700 dark:text-slate-200">
                                                     <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                                                     </svg>
@@ -3355,20 +3340,14 @@
                     {/if}
 
                     {#if showEbirdNearby}
-                        <div class="group relative overflow-hidden rounded-2xl border border-sky-200/60 dark:border-sky-800/40 bg-sky-50/30 dark:bg-sky-900/10 p-5 hover:bg-sky-50/50 dark:hover:bg-sky-900/20 transition-all duration-300">
+                        <div class="rounded-2xl border border-line-soft p-5">
                             <div class="flex items-center justify-between gap-3 mb-4">
                                 <div class="flex items-center gap-2">
-                                    <div class="p-1.5 rounded-lg bg-sky-500/10 text-sky-700 dark:text-sky-400">
-                                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                                        </svg>
-                                    </div>
                                     <div class="flex flex-col">
-                                        <p class="text-3xs font-semibold text-sky-700 dark:text-sky-400">{$_('species_detail.recent_sightings')}</p>
+                                        <p class="text-3xs font-semibold text-slate-700 dark:text-slate-200">{$_('species_detail.recent_sightings')}</p>
                                         <div class="flex items-center gap-1.5 mt-0.5">
-                                            <span class="text-3xs font-bold text-sky-700 dark:text-sky-300">eBird</span>
-                                            <span class="w-0.5 h-0.5 rounded-full bg-sky-300"></span>
+                                            <span class="text-3xs font-bold text-slate-700 dark:text-slate-200">eBird</span>
+                                            <span class="w-0.5 h-0.5 rounded-full bg-slate-400"></span>
                                             <span class="text-3xs font-medium text-slate-600 dark:text-slate-400">{ebirdRadiusLabel} · {ebirdDaysBack}d</span>
                                         </div>
                                     </div>
@@ -3376,16 +3355,16 @@
                             </div>
 
                             {#if !ebirdEnabled}
-                                <div class="text-center py-4 rounded-xl bg-white/50 dark:bg-slate-900/30 border border-dashed border-sky-200 dark:border-sky-800/30">
+                                <div class="text-center py-4 rounded-xl bg-white/50 dark:bg-slate-900/30 border border-dashed border-slate-300 dark:border-slate-700">
                                     <p class="text-xs font-medium text-slate-600 dark:text-slate-400">{$_('detection.ebird_enable_sightings')}</p>
-                                    <a href="/settings/integrations" class="mt-2 inline-flex min-h-6 items-center text-3xs font-bold text-sky-700 underline underline-offset-2 focus-ring rounded-sm dark:text-sky-300">{$_('detection.ebird_configure_settings')}</a>
+                                    <a href="/settings/integrations" class="mt-2 inline-flex min-h-6 items-center text-3xs font-bold text-brand-700 underline underline-offset-2 focus-ring rounded-sm dark:text-brand-300">{$_('detection.ebird_configure_settings')}</a>
                                 </div>
                             {:else if ebirdNearbyLoading}
                                 <div class="space-y-3">
                                     {#each [1, 2, 3] as _}
                                         <div class="flex justify-between gap-4">
-                                            <div class="h-3 w-2/3 bg-sky-100 dark:bg-sky-900/30 rounded-sm animate-pulse"></div>
-                                            <div class="h-3 w-1/4 bg-sky-100 dark:bg-sky-900/30 rounded-sm animate-pulse"></div>
+                                            <div class="h-3 w-2/3 bg-slate-200 dark:bg-slate-700 rounded-sm animate-pulse"></div>
+                                            <div class="h-3 w-1/4 bg-slate-200 dark:bg-slate-700 rounded-sm animate-pulse"></div>
                                         </div>
                                     {/each}
                                 </div>
@@ -3401,7 +3380,7 @@
                                 </div>
                             {:else if ebirdNearby}
                                 {#if ebirdNearby.results.some(r => r.lat && r.lng)}
-                                    <div class="h-48 mb-4 rounded-xl overflow-hidden border border-sky-100 dark:border-sky-900/30 shadow-xs relative z-0">
+                                    <div class="h-48 mb-4 rounded-xl overflow-hidden border border-line-soft relative z-0">
                                         <Map
                                             markers={ebirdNearby.results
                                                 .filter(r => r.lat && r.lng)
@@ -3423,21 +3402,21 @@
                                 {/if}
                                 <div class="space-y-2">
                                     {#each ebirdNearby.results.slice(0, 5) as obs}
-                                        <div class="flex items-start justify-between gap-3 p-2.5 rounded-xl bg-white/60 dark:bg-slate-900/40 border border-sky-100 dark:border-sky-900/30 hover:border-sky-300 dark:hover:border-sky-700/50 transition-colors">
+                                        <div class="flex items-start justify-between gap-3 p-2.5 rounded-xl bg-white/60 dark:bg-slate-900/40 border border-line-soft transition-colors">
                                             <div class="min-w-0">
                                                 <p class="text-xs font-bold text-slate-700 dark:text-slate-200 wrap-break-word">{obs.location_name || $_('common.unknown_location')}</p>
                                                 <div class="flex items-center gap-2 mt-0.5">
                                                     <p class="text-3xs font-medium text-slate-600 dark:text-slate-400">{formatEbirdDate(obs.observed_at)}</p>
                                                     {#if obs.obs_valid}
                                                         <span
-                                                            class="w-1 h-1 rounded-full bg-accent-400"
+                                                            class="w-1 h-1 rounded-full bg-success-500"
                                                             title={$_('detection.ebird.valid_observation', { default: 'Valid observation' })}
                                                         ></span>
                                                     {/if}
                                                 </div>
                                             </div>
                                             {#if obs.how_many}
-                                                <span class="shrink-0 px-2 py-1 rounded-lg bg-sky-100 dark:bg-sky-900/40 text-3xs font-bold text-sky-700 dark:text-sky-300">
+                                                <span class="shrink-0 px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-3xs font-bold text-slate-700 dark:text-slate-200">
                                                     x{obs.how_many}
                                                 </span>
                                             {/if}
@@ -3453,16 +3432,11 @@
             {/if}
 
             {#if canShowInat}
-                <div class="p-4 rounded-2xl bg-accent-50/70 dark:bg-slate-900/40 border border-accent-100/80 dark:border-slate-700/60 space-y-3">
+                <div class="p-4 rounded-2xl border border-line-soft space-y-3">
                     <div class="flex items-center justify-between gap-3">
                         <div class="flex items-center gap-3">
-                            <div class="w-9 h-9 rounded-xl bg-accent-500/20 flex items-center justify-center text-accent-600 dark:text-accent-300">
-                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v4m0 0a4 4 0 110 8m0-8a4 4 0 10-4 4m4-4v4m0 0a4 4 0 010 8m0-8a4 4 0 10-4 4" />
-                                </svg>
-                            </div>
                             <div>
-                                <p class="text-3xs font-semibold text-accent-700 dark:text-accent-300">{$_('detection.inat.title')}</p>
+                                <p class="text-3xs font-semibold text-slate-700 dark:text-slate-200">{$_('detection.inat.title')}</p>
                                 {#if inatConnectedUser}
                                     <p class="text-xs font-semibold text-slate-700 dark:text-slate-200">{$_('detection.inat.connected', { values: { user: inatConnectedUser } })}</p>
                                 {/if}
@@ -3471,7 +3445,7 @@
                         <button
                             type="button"
                             onclick={openInatPanel}
-                            class="px-3 py-2 text-3xs font-semibold rounded-xl bg-accent-500 hover:bg-accent-600 text-white transition-all"
+                            class="btn btn-secondary min-h-11 px-3 text-xs"
                             aria-label={$_('detection.inat.open_label')}
                         >
                             {inatPanelOpen ? $_('detection.inat.close') : $_('detection.inat.open')}
@@ -3481,7 +3455,7 @@
                     {#if inatPanelOpen}
                         <div class="space-y-3">
                             {#if inatLoading}
-                                <div class="text-xs font-semibold text-accent-700">{$_('detection.inat.loading')}</div>
+                                <div class="text-xs font-semibold text-slate-600 dark:text-slate-300" role="status">{$_('detection.inat.loading')}</div>
                             {:else}
                                 {#if inatError}
                                     <div class="text-xs font-semibold text-rose-600">{inatError}</div>
@@ -3505,7 +3479,7 @@
                                                 type="number"
                                                 step="0.0001"
                                                 bind:value={inatLat}
-                                                class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/50 text-xs font-bold"
+                                                class="input-base"
                                             />
                                         </div>
                                         <div>
@@ -3515,7 +3489,7 @@
                                                 type="number"
                                                 step="0.0001"
                                                 bind:value={inatLon}
-                                                class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/50 text-xs font-bold"
+                                                class="input-base"
                                             />
                                         </div>
                                     </div>
@@ -3525,7 +3499,7 @@
                                             id="inat-place"
                                             type="text"
                                             bind:value={inatPlace}
-                                            class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/50 text-xs font-bold"
+                                            class="input-base"
                                         />
                                     </div>
                                     <div>
@@ -3534,14 +3508,14 @@
                                             id="inat-notes"
                                             rows="3"
                                             bind:value={inatNotes}
-                                            class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/50 text-xs font-bold"
+                                            class="input-base"
                                         ></textarea>
                                     </div>
                                     <button
                                         type="button"
                                         onclick={submitInat}
                                         disabled={inatSubmitting}
-                                        class="w-full py-2 px-4 rounded-xl bg-accent-500 hover:bg-accent-600 text-white text-xs font-semibold disabled:opacity-50"
+                                        class="btn btn-primary min-h-11 w-full px-4 text-xs"
                                     >
                                         {inatSubmitting ? $_('detection.inat.submitting') : $_('detection.inat.submit')}
                                     </button>
@@ -3661,28 +3635,18 @@
 
             <!-- Actions -->
             {#if hasOwnerDetectionActions && detection.scientific_name}
-                <div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-800/50 p-3">
-                    <div class="flex items-center justify-between gap-3">
-                        <div class="min-w-0">
-                            <p class="text-3xs font-semibold text-slate-600 dark:text-slate-400">
-                                {$_('detection.common_name_override', { default: 'Common name' })}
-                            </p>
-                            <p class="wrap-break-word text-sm font-bold text-slate-800 dark:text-slate-100">
-                                {commonNameOverride ?? detection.common_name ?? $_('common.unknown_species')}
-                            </p>
-                        </div>
-                        <button
-                            type="button"
-                            onclick={() => {
-                                commonNameOverrideInput = commonNameOverride ?? detection.common_name ?? '';
-                                commonNameEditorOpen = !commonNameEditorOpen;
-                            }}
-                            aria-expanded={commonNameEditorOpen}
-                            class="inline-flex min-h-11 shrink-0 items-center rounded-lg bg-white px-3 py-2 text-xs font-semibold text-brand-700 shadow-xs focus-ring dark:bg-slate-700 dark:text-brand-300"
-                        >
-                            {$_('detection.common_name_override_edit', { default: 'Edit name' })}
-                        </button>
-                    </div>
+                <div class="rounded-xl border border-line-soft p-3">
+                    <button
+                        type="button"
+                        onclick={() => {
+                            commonNameOverrideInput = commonNameOverride ?? detection.common_name ?? '';
+                            commonNameEditorOpen = !commonNameEditorOpen;
+                        }}
+                        aria-expanded={commonNameEditorOpen}
+                        class="btn btn-ghost min-h-11 px-3 text-xs"
+                    >
+                        {$_('detection.common_name_override_edit', { default: 'Change the common name' })}
+                    </button>
                     {#if commonNameEditorOpen}
                         <div class="mt-3 flex flex-col gap-2 sm:flex-row">
                             <input
@@ -3830,7 +3794,7 @@
                 {/if}
                 <button
                     onclick={handleSpeciesInfo}
-                    class="btn btn-primary flex-1 px-3 py-2.5 text-xs shadow-lg shadow-brand-500/20 min-h-11 min-w-11 wrap-break-word"
+                    class="btn btn-secondary flex-1 px-3 py-2.5 text-xs min-h-11 min-w-11 wrap-break-word"
                 >
                     {$_('actions.species_info')}
                 </button>
@@ -3866,7 +3830,7 @@
                 >
                     <div class="flex shrink-0 items-center justify-between border-b border-slate-100 px-5 py-2 dark:border-slate-700">
                         <h4 id="manual-tag-dialog-title" class="text-sm font-bold text-slate-800 dark:text-slate-100">
-                            {$_('actions.manual_tag')}
+                            {$_('actions.pick_species')}
                         </h4>
                         <button
                             type="button"

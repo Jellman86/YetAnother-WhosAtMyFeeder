@@ -165,7 +165,7 @@ describe('review queue walk-through', () => {
     });
 
     it('closes from a labelled icon button and shows progress on every screen size', () => {
-        expect(modalSource).toContain("aria-label={$_('common.close', { default: 'Close' })}");
+        expect(modalSource).toContain('<DialogCloseButton class="ml-auto" onclick={onclose} />');
         expect(modalSource).toContain('absolute inset-x-0 -bottom-px h-0.5');
         expect(modalSource).not.toContain('hidden h-1.5 w-32');
     });

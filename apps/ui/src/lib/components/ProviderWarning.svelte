@@ -42,8 +42,8 @@
 </script>
 
 {#if authStore.hasOwnerAccess && (checking || fallback)}
-    <aside class="card-base border-amber-400/50 p-4" role="status" data-provider-warning>
-        <p class="font-semibold text-amber-800 dark:text-amber-200">
+    <aside class="card-base border-attention-400/50 p-4" role="status" data-provider-warning>
+        <p class="font-semibold text-attention-800 dark:text-attention-200">
             {checking
                 ? $_('dashboard.provider_checking', { default: 'Checking your accelerator after a runtime change' })
                 : $_('dashboard.provider_fallback', { default: 'Your selected inference provider is not running' })}

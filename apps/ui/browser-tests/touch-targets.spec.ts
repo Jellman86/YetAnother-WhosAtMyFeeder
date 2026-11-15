@@ -40,7 +40,7 @@ test(`navigation targets fit narrow phones and keep distinct hit regions (${text
     await targetSizes(page.getByRole('button', { name: /^(Open menu|Switch theme)$/ }));
     await page.getByRole('button', { name: 'Open menu' }).click();
     const sidebar = page.locator('aside');
-    await expect(sidebar.getByRole('button', { name: 'Log Out', exact: true })).toBeVisible();
+    await expect(sidebar.getByRole('button', { name: 'Log out', exact: true })).toBeVisible();
     await targetSizes(sidebar.locator('button:visible'));
     await sidebar.getByRole('button', { name: 'English', exact: true }).click();
     await targetSizes(sidebar.getByRole('menuitem'));
@@ -161,7 +161,7 @@ test('the record’s audio context and edit-name controls clear the touch floor'
     await expect(modal).toBeVisible({ timeout: 15000 });
     const audio = modal.getByRole('button', { name: /^Audio context/ });
     await expect(audio).toHaveAttribute('aria-expanded', 'false');
-    const editName = modal.getByRole('button', { name: 'Edit name' });
+    const editName = modal.getByRole('button', { name: 'Change the common name' });
     await targetHeights(audio);
     await targetHeights(editName);
     await audio.click();

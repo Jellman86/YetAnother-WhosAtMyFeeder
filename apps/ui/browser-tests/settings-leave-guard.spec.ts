@@ -52,7 +52,7 @@ async function signIn(page: Page): Promise<void> {
 }
 
 async function signOut(page: Page): Promise<void> {
-    await page.locator('aside').getByRole('button', { name: 'Log Out', exact: true }).first().click();
+    await page.locator('aside').getByRole('button', { name: 'Log out', exact: true }).first().click();
     await expect(page.getByRole('heading', { level: 1, name: 'Sign in' })).toBeVisible();
 }
 

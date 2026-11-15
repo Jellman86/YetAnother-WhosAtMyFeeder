@@ -159,3 +159,72 @@ describe('locale editorial quality', () => {
         });
     }
 });
+
+/**
+ * docs/standards/layout-patterns.md, writing rules: controls, headings and labels are in sentence
+ * case. A short label whose later words are capitalised ("Clear History", "Test AI Connection")
+ * fails unless the word is a name: a product, a place, a model, or a page or tab of the app.
+ * German capitalises its nouns and Japanese and Chinese have no case, so they are not checked.
+ */
+const NAMES = new Set(
+    `YA-WAMF Yet Another WhosAtMyFeeder Frigate MQTT BirdNET BirdNET-Go eBird iNaturalist BirdWeather Home Assistant
+    GitHub YouTube Freepik Flaticon Jellman86 Wikipedia Wikimedia Gmail Outlook Google Microsoft OAuth Discord Telegram
+    Pushover Apprise Gemini OpenAI OpenRouter Anthropic Claude OpenDyslexic MegaDetector Cedar SpeciesNet RF-DETR Nano YOLOX YOLOX-Tiny
+    MobileNet EfficientNet ConvNeXt ONNX Runtime TFLite OpenVINO CUDA Intel NVIDIA Hailo Coral Docker Leaflet OpenStreetMap
+    Open-Meteo HACS MIT License Record Format Token Northern Cardinal United States Kingdom North America Europe
+    Unknown Bird Tit NaN Celsius Fahrenheit
+    Dashboard Explorer Leaderboard Settings Notifications Events Species Garden Health Connection Detection Integrations
+    Enrichment Security Data Appearance Accessibility Advanced Beta Debug Explore Jobs About`
+        .split(/\s+/)
+        .filter(Boolean)
+);
+const SENTENCE_CASE_LOCALES = ['en', 'es', 'fr', 'it', 'pt', 'ru'];
+/** Names a language spells its own way: places, units and the Garden feature. */
+const LOCALE_NAMES: Record<string, string[]> = {
+    es: ['Unidos', 'Unido', 'Norte', 'Jardín'],
+    fr: ['Jardin', 'Wikipédia', 'Mo', 'Go', 'Nord', 'Uni', 'Unis'],
+    it: ['Uniti', 'Unito', 'Nord', 'Giardino'],
+    pt: ['Unidos', 'Unido', 'Norte', 'Jardim'],
+    ru: ['Сад', 'Северная', 'Америка', 'Википедии']
+};
+
+/** A page or tab is a name in every language, so its own label may be capitalised where it is cited. */
+function interfaceNames(locale: LocaleRoot): Set<string> {
+    const settings = (locale.settings ?? {}) as LocaleRoot;
+    const labels = [...stringLeaves((locale.nav ?? {}) as LocaleRoot), ...stringLeaves((settings.tabs ?? {}) as LocaleRoot)].map(([, value]) => value);
+    return new Set(labels.flatMap((label) => label.match(/[\p{L}][\p{L}\p{N}'’.-]*/gu) ?? []));
+}
+
+function titleCasedWords(value: string, names: Set<string>): string[] {
+    const plain = value.replace(/\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/g, ' ');
+    const words = plain.match(/[\p{L}][\p{L}\p{N}'’.-]*/gu) ?? [];
+    if (words.length < 2 || words.length > 6) return [];
+    const offenders: string[] = [];
+    let index = 0;
+    for (const match of plain.matchAll(/[\p{L}][\p{L}\p{N}'’.-]*/gu)) {
+        const word = match[0];
+        const before = plain.slice(0, match.index).trimEnd();
+        const startsClause = index === 0 || /[.:!?·•|/(“"«›→-]$/.test(before);
+        index += 1;
+        if (startsClause || !/^\p{Lu}\p{Ll}/u.test(word)) continue;
+        const bare = word.replace(/[’'](?:s)?$/u, '').replace(/[.]$/, '');
+        if (!NAMES.has(bare) && !names.has(bare)) offenders.push(word);
+    }
+    return offenders;
+}
+
+describe('sentence case', () => {
+    for (const name of SENTENCE_CASE_LOCALES) {
+        const locale = LOCALES.find(([localeName]) => localeName === name)?.[1] ?? {};
+        const names = new Set([...interfaceNames(locale), ...(LOCALE_NAMES[name] ?? [])]);
+        it(`${name} labels capitalise only their first word and names`, () => {
+            expect(
+                stringLeaves(locale)
+                    .filter(([path]) => !path.startsWith('footer.'))
+                    .map(([path, value]) => [path, value, titleCasedWords(value, names)] as const)
+                    .filter(([, , words]) => words.length > 0)
+                    .map(([path, value]) => `${path}: ${value}`)
+            ).toEqual([]);
+        });
+    }
+});

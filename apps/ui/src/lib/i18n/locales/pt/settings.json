@@ -926,7 +926,7 @@
     "bot_username": "Nome do bot",
     "test_notification": "Enviar notificação de teste",
     "test_sending": "Enviando…",
-    "bot_placeholder": "YA-WAMF Bird Bot",
+    "bot_placeholder": "YA-WAMF bot",
     "test_needs": "Insira o URL do webhook para enviar um teste."
   },
   "pushover": {
@@ -941,7 +941,7 @@
     "priority_normal": "Normal",
     "priority_high": "Alta",
     "priority_emergency": "Emergência",
-    "device": "Dispositivo(s)",
+    "device": "Dispositivos",
     "device_placeholder": "ex. iphone,nexus5 (deixe em branco para todos)",
     "device_hint": "Nomes de dispositivos separados por vírgula. Deixe em branco para enviar para todos os dispositivos ativos.",
     "test_notification": "Enviar notificação de teste",

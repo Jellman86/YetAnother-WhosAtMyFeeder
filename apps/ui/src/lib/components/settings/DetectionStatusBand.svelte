@@ -80,7 +80,7 @@
         <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.detection.band_runtime')}</span>
         <span class="text-sm font-bold text-slate-900 dark:text-white">{activeProviderLabel}</span>
         {#if classifierStatus?.fallback_reason}
-            <span class="text-xs font-semibold text-amber-700 dark:text-amber-300">{$_('settings.detection.band_fallback_active')}</span>
+            <span class="text-xs font-semibold text-attention-700 dark:text-attention-300">{$_('settings.detection.band_fallback_active')}</span>
         {:else if runtimePlanned}
             <span class="text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('settings.detection.band_runtime_planned', { default: 'loads on first detection' })}</span>
         {:else if providerVerified}
@@ -101,8 +101,8 @@
         {:else if workerFallbackActive}
             <!-- Work that needs a person, stated in words: the isolated workers
                  keep dying and classification is running in-process meanwhile. -->
-            <span class="text-sm font-bold text-amber-700 dark:text-amber-300">{$_('settings.detection.band_worker_fallback')}</span>
-            <span class="text-xs font-semibold text-amber-700/80 dark:text-amber-300/80">{$_('settings.detection.band_worker_fallback_detail')}</span>
+            <span class="text-sm font-bold text-attention-700 dark:text-attention-300">{$_('settings.detection.band_worker_fallback')}</span>
+            <span class="text-xs font-semibold text-attention-700/80 dark:text-attention-300/80">{$_('settings.detection.band_worker_fallback_detail')}</span>
         {:else}
             <span class="text-sm font-bold text-slate-900 dark:text-white">
                 {#if autoVideoEnabled}
@@ -120,7 +120,7 @@
             </span>
         {/if}
         {#if runtimeState.restartRecommended}
-            <span class="text-xs font-semibold text-amber-700 dark:text-amber-300">
+            <span class="text-xs font-semibold text-attention-700 dark:text-attention-300">
                 {runtimeState.recovering
                     ? $_('settings.detection.band_native_recovering', { default: 'Waiting for isolated workers to resume classification.' })
                     : $_('settings.detection.band_native_recovered', { default: 'Classification resumed in isolated workers.' })}
@@ -136,7 +136,7 @@
     >
         <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.detection.band_health')}</span>
         {#if issueCount > 0 || runtimeState.restartRecommended}
-            <span class="text-sm font-bold text-amber-700 dark:text-amber-300">
+            <span class="text-sm font-bold text-attention-700 dark:text-attention-300">
                 {$_('settings.detection.band_needs_attention', { values: { count: Math.max(issueCount, 1) } })}
             </span>
         {:else}

@@ -299,7 +299,7 @@
                 />
             </SettingsRow>
 
-            <div class="rounded-2xl border border-amber-200/70 bg-amber-50/80 px-4 py-3 text-xs font-bold text-amber-900 dark:border-amber-500/40 dark:bg-amber-900/20 dark:text-amber-200">
+            <div class="rounded-2xl border border-attention-200/70 bg-attention-50/80 px-4 py-3 text-xs font-bold text-attention-900 dark:border-attention-500/40 dark:bg-attention-900/20 dark:text-attention-200">
                 {$_('settings.auth.proxy_trust_note', { default: 'Proxy headers are trusted from all hosts by default. If you run behind a reverse proxy, set trusted proxy hosts to prevent spoofed client IPs.' })}
             </div>
 

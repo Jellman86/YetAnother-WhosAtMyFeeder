@@ -23,7 +23,7 @@ test('a connected page with the broker down is never shown as live', async ({ pa
     // The state is a word and a slashed icon, not only a colour.
     await expect(tile(page).locator('path[d="M4 4l16 16"]')).toHaveCount(1);
     await expect(line(page)).toHaveText('Not receiving camera events. The MQTT broker is not connected.');
-    await expect(page.getByText('Live Feed')).toHaveCount(0);
+    await expect(page.getByText('Live feed')).toHaveCount(0);
     expect(errors).toEqual([]);
 });
 
@@ -37,7 +37,7 @@ test('live means the page stream and the broker session are both up', async ({ p
     await open(page, 'stream=1&mqtt=connected&frigate=reachable');
     await expect(tile(page)).toHaveAttribute('data-status-on', 'true');
     await expect(tile(page)).toContainText('Live');
-    await expect(line(page)).toHaveText('Live Feed');
+    await expect(line(page)).toHaveText('Live feed');
 });
 
 test('without a measurement only the page connection is claimed, as a guest sees it', async ({ page }) => {

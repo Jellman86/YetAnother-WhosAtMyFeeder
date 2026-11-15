@@ -72,6 +72,7 @@
     import ExplorerPlaceholders from '../components/ExplorerPlaceholders.svelte';
 
     import { getBirdNames } from '../naming';
+    import { videoHeadingFor, type VideoHeading } from '../components/video-heading';
     import { createEventMetadataRefresh } from './event-metadata-refresh';
     import { EVENTS_PAGE_REQUEST_KEYS } from './events-request-keys';
     import { createLatestRequest } from '../utils/latest-request';
@@ -1050,6 +1051,7 @@
 
     let showVideo = $state(false);
     let videoEventId = $state<string | null>(null);
+    let videoHeading = $state<VideoHeading | null>(null);
     let videoShareToken = $state<string | null>(null);
     let videoPlayIntent = $state<'auto' | 'user'>('auto');
 
@@ -1281,6 +1283,7 @@
     function playGardenClip(capture: GardenCapture): void {
         if (!capture.clip_event) return;
         videoEventId = capture.clip_event;
+        videoHeading = null;
         videoShareToken = null;
         videoPlayIntent = 'user';
         showVideo = true;
@@ -1289,6 +1292,7 @@
 
     function playClip(detection: Detection) {
         videoEventId = detection.frigate_event;
+        videoHeading = videoHeadingFor(detection, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary);
         videoShareToken = null;
         videoPlayIntent = 'user';
         showVideo = true;
@@ -1360,7 +1364,7 @@
 
             const names = speciesPickerNames(selection);
             toastStore.success(
-                `${$_('actions.manual_tag')}: ${names.primary || appliedSpecies} (${result.updated_count})`
+                $_('events.bulk_tag_applied', { values: { species: names.primary || appliedSpecies, count: result.updated_count } })
             );
             if (result.failed_count > 0 || result.missing_count > 0) {
                 toastStore.warning(
@@ -1382,12 +1386,12 @@
         if (selectedEventIds.length === 0) return;
         const count = selectedEventIds.length;
         const confirmed = await confirmAction({
-            title: $_('actions.delete_selected', { default: 'Delete Selected' }),
+            title: $_('actions.delete_selected', { default: 'Delete selected' }),
             message: $_('events.bulk_delete_confirm', {
                 values: { count },
                 default: 'Delete {count, plural, one {# detection} other {# detections}}? This cannot be undone.'
             }),
-            confirmLabel: $_('actions.delete_selected', { default: 'Delete Selected' })
+            confirmLabel: $_('actions.delete_selected', { default: 'Delete selected' })
         });
         if (!confirmed) return;
         bulkDeleting = true;
@@ -2037,9 +2041,6 @@
         {#if wideExplorer.current}
             <div class="min-w-0 max-w-2xl flex-1 basis-80" data-explorer-header-search>{@render explorerSearch()}</div>
         {/if}
-        <!-- A key for the source badges on cards; a phone's narrow toolbar needs the room more. Beneath the
-             search and toolbar on a desktop, where the search takes the start of the row. -->
-        <p class="hidden text-xs text-slate-600 sm:block lg:order-last lg:basis-full dark:text-slate-400">{$_('events.classification_legend')}</p>
         <div class="flex flex-wrap items-center gap-2">
             <!-- A count is stated only once measured; paging moves focus here so the new page is announced. -->
             <div
@@ -2193,7 +2194,7 @@
                     onclick={handleBulkReclassify}
                     disabled={selectedEventIds.length === 0 || bulkReclassifying || bulkDeleting}
                 >
-                    {bulkReclassifying ? $_('common.working', { default: 'Working…' }) : $_('actions.reclassify_selected', { default: 'Reclassify Selected' })}
+                    {bulkReclassifying ? $_('common.working', { default: 'Working…' }) : $_('actions.reclassify_selected', { default: 'Reclassify selected' })}
                 </button>
                 <button
                     type="button"
@@ -2209,7 +2210,7 @@
                     onclick={handleBulkDelete}
                     disabled={selectedEventIds.length === 0 || bulkDeleting || bulkReclassifying}
                 >
-                    {bulkDeleting ? $_('common.working', { default: 'Working…' }) : $_('actions.delete_selected', { default: 'Delete Selected' })}
+                    {bulkDeleting ? $_('common.working', { default: 'Working…' }) : $_('actions.delete_selected', { default: 'Delete selected' })}
                 </button>
             </div>
         </div>
@@ -2395,23 +2396,12 @@
                         </button>
                     {/each}
                 </div>
-                <p class="mt-2 hidden items-center gap-1.5 text-2xs text-slate-600 dark:text-slate-400 sm:inline-flex">
-                    <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
-                        <path d="M6 7h8M6 10h8M6 13h5"></path>
-                        <rect x="3" y="4" width="14" height="12" rx="2"></rect>
-                    </svg>
-                    {$_('events.timeline_keyboard_hint', { default: 'Timeline keyboard: [ previous day, ] next day, 0 reset' })}
-                </p>
             </section>
         {:else if pane.state === 'first-load'}
             <!-- The day strip's space, held while the first page is read, so the visits are not pushed down when it appears. -->
             <div class="pb-4 pt-1" aria-hidden="true" data-events-timeline-placeholder>
                 <p class="invisible mb-2 text-2xs font-semibold uppercase tracking-wide">{$_('events.timeline_scope', { default: 'Days on this page' })}</p>
                 <div class="min-h-11"></div>
-                <p class="invisible mt-2 hidden items-center gap-1.5 text-2xs sm:inline-flex">
-                    <span class="h-3.5 w-3.5"></span>
-                    {$_('events.timeline_keyboard_hint', { default: 'Timeline keyboard: [ previous day, ] next day, 0 reset' })}
-                </p>
             </div>
         {/if}
 
@@ -2708,6 +2698,7 @@
                     }}
                     onPlayVideo={(frigateEvent: string, playIntent: 'auto' | 'user' = 'auto') => {
                         videoEventId = frigateEvent;
+                        videoHeading = selectedEvent ? videoHeadingFor(selectedEvent, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary) : null;
                         videoShareToken = null;
                         videoPlayIntent = playIntent;
                         showVideo = true;
@@ -2836,6 +2827,7 @@
             {#if videoEventId}
                 <VideoPlayer
                     frigateEvent={videoEventId}
+                    heading={videoHeading}
                     shareToken={videoShareToken}
                     playIntent={videoPlayIntent}
                     initialFullVisitPromoted={fullVisitFetchState[videoEventId] === 'ready'}

@@ -86,7 +86,7 @@
                     </button>
                 {/each}
                 {#if languageError}
-                    <p class="px-3 py-2 text-xs font-medium leading-5 text-amber-700 dark:text-amber-300" role="alert">
+                    <p class="px-3 py-2 text-xs font-medium leading-5 text-attention-700 dark:text-attention-300" role="alert">
                         {$_('common.language_load_error', { default: 'That language could not be loaded. Check your connection and try again.' })}
                     </p>
                 {/if}

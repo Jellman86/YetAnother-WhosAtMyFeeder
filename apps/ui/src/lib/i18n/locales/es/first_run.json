@@ -2,7 +2,7 @@
   "title": "Bienvenido a YA-WAMF",
   "subtitle": "Protege tu instalación estableciendo una contraseña de administrador.",
   "language_label": "Idioma",
-  "language_desc": "Puedes cambiarlo más tarde en Configuración.",
+  "language_desc": "Puedes cambiarlo más tarde en Ajustes.",
   "admin_username": "Usuario administrador",
   "password": "Contraseña",
   "password_hint": "Mínimo 8 caracteres",

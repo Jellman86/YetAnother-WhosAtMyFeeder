@@ -322,7 +322,7 @@
                                         class="pointer-events-none absolute rounded-xs motion-safe:transition-[border-color,box-shadow] motion-safe:duration-150 {lit
                                             ? bird.is_hidden
                                                 ? 'z-20 border-2 border-dashed border-slate-200 shadow-[0_0_0_9999px_rgba(2,6,23,0.45)]'
-                                                : 'z-20 border-2 border-sky-300 shadow-[0_0_0_9999px_rgba(2,6,23,0.45)]'
+                                                : 'z-20 border-2 border-evidence shadow-[0_0_0_9999px_rgba(2,6,23,0.45)]'
                                             : bird.tracked
                                               ? 'z-10 border-2 border-white shadow-[0_0_0_1px_rgba(15,23,42,0.6)]'
                                               : 'z-10 border border-white/80 shadow-[0_0_0_1px_rgba(15,23,42,0.6)]'}"
@@ -332,7 +332,7 @@
                                         data-lit={lit ? 'true' : 'false'}
                                     >
                                         {#if lit}
-                                            <span class="absolute bottom-full left-0 mb-1 max-w-48 truncate rounded-sm bg-sky-300 px-1.5 py-0.5 text-xs font-bold leading-tight text-slate-950" data-counted-bird-tag>
+                                            <span class="absolute bottom-full left-0 mb-1 max-w-48 truncate rounded-sm bg-evidence px-1.5 py-0.5 text-xs font-bold leading-tight text-slate-950" data-counted-bird-tag>
                                                 {bird.is_hidden ? $_('detection.counted_birds.excluded_tag', { values: { bird: birdLabel(bird) }, default: '{bird}, excluded' }) : birdLabel(bird)}
                                             </span>
                                         {:else if bird.tracked && !bird.is_hidden}
@@ -394,7 +394,7 @@
                             data-counted-bird-select
                         >
                             <span
-                                class="relative shrink-0 overflow-hidden rounded-md bg-slate-200 bg-no-repeat dark:bg-slate-700 {bird.id === highlightedId ? 'ring-2 ring-sky-400' : ''} {bird.is_hidden ? 'opacity-50 grayscale' : ''}"
+                                class="relative shrink-0 overflow-hidden rounded-md bg-slate-200 bg-no-repeat dark:bg-slate-700 {bird.id === highlightedId ? 'ring-2 ring-evidence' : ''} {bird.is_hidden ? 'opacity-50 grayscale' : ''}"
                                 style={cropStyle(bird)}
                                 aria-hidden="true"
                                 data-counted-bird-crop={outlined ? 'scene' : 'placeholder'}

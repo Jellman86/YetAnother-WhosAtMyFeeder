@@ -1,5 +1,5 @@
 {
-  "title": "Scorciatoie Tastiera",
+  "title": "Scorciatoie da tastiera",
   "navigation": "Navigazione",
   "actions": "Azioni",
   "open_panel": "Apri pannello scorciatoie",
@@ -7,7 +7,10 @@
   "go_events": "Vai a Eventi",
   "go_species": "Vai a Classifica",
   "go_settings": "Vai a Impostazioni",
-  "close_modal": "Chiudi modale",
+  "close_modal": "Chiudi la finestra di dialogo",
   "refresh": "Aggiorna pagina",
-  "go_notifications": "Vai a Notifiche"
+  "go_notifications": "Vai a Notifiche",
+  "previous_day": "Giorno precedente",
+  "next_day": "Giorno successivo",
+  "all_days": "Mostra tutti i giorni"
 }

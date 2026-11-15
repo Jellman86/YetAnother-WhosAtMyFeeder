@@ -1585,8 +1585,8 @@
 </script>
 
 {#snippet unlikelyReason(radiusKm: number)}
-    <span class="mt-1 flex items-center gap-1.5 text-xs font-semibold text-amber-800 dark:text-amber-300" data-leaderboard-unlikely-reason>
-        <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" aria-hidden="true"></span>
+    <span class="mt-1 flex items-center gap-1.5 text-xs font-semibold text-attention-800 dark:text-attention-300" data-leaderboard-unlikely-reason>
+        <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-attention-500" aria-hidden="true"></span>
         {$_('leaderboard.unlikely_reason', { values: { distance: displayDistance(radiusKm, $_) }, default: 'Not reported within {distance}' })}
     </span>
 {/snippet}
@@ -1845,8 +1845,8 @@
                 </p>
             {/if}
             {#if unlikelyRows.length > 0 && nearbyCheck}
-                <div class="flex items-start gap-3 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:bg-amber-500/10 dark:text-amber-100" role="note" data-leaderboard-unlikely-note>
-                    <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-amber-500" aria-hidden="true"></span>
+                <div class="flex items-start gap-3 rounded-xl bg-attention-50 px-4 py-3 text-sm text-attention-900 dark:bg-attention-500/10 dark:text-attention-100" role="note" data-leaderboard-unlikely-note>
+                    <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-attention-500" aria-hidden="true"></span>
                     <p>
                         {$_('leaderboard.unlikely_note', {
                             values: { count: unlikelyRows.length, distance: displayDistance(nearbyCheck.radiusKm, $_), days: nearbyCheck.daysBack },
@@ -1866,7 +1866,7 @@
                     <button
                         type="button"
                         onclick={() => selectedSpecies = item.species}
-                        class="group flex min-h-20 w-full flex-wrap items-center gap-x-3 gap-y-1 py-3 text-left transition hover:bg-slate-50 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus dark:hover:bg-slate-800/40 {unlikelyHere(item) ? 'bg-amber-50/70 dark:bg-amber-500/10' : ''}"
+                        class="group flex min-h-20 w-full flex-wrap items-center gap-x-3 gap-y-1 py-3 text-left transition hover:bg-slate-50 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus dark:hover:bg-slate-800/40 {unlikelyHere(item) ? 'bg-attention-50/70 dark:bg-attention-500/10' : ''}"
                         title={item.species === "Unknown Bird" ? $_('leaderboard.unidentified_desc') : ""}
                     >
                         <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold tabular-nums {index < 3 ? 'bg-brand-100 text-brand-800 dark:bg-brand-900/50 dark:text-brand-200' : 'text-slate-600 dark:text-slate-400'}" aria-label={`${$_('leaderboard.rank')} ${index + 1}`}>{index + 1}</span>
@@ -1917,7 +1917,7 @@
                             {@const rowCountPct = maxCount > 0 ? Math.round((item.count / maxCount) * 100) : 0}
                             {@const rowHeardPct = maxHeard > 0 ? Math.round((item.heard_count / maxHeard) * 100) : 0}
                             {@const evidence = evidenceOf(item)}
-                            <tr class="transition hover:bg-slate-50/80 dark:hover:bg-slate-800/35 {unlikelyHere(item) ? 'bg-amber-50/70 dark:bg-amber-500/10' : ''}" data-leaderboard-unlikely={unlikelyHere(item) ? 'true' : undefined}>
+                            <tr class="transition hover:bg-slate-50/80 dark:hover:bg-slate-800/35 {unlikelyHere(item) ? 'bg-attention-50/70 dark:bg-attention-500/10' : ''}" data-leaderboard-unlikely={unlikelyHere(item) ? 'true' : undefined}>
                                 <td class="px-3 py-3 text-center"><span class="inline-flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold tabular-nums {index < 3 ? 'bg-brand-100 text-brand-800 dark:bg-brand-900/50 dark:text-brand-200' : 'text-slate-600 dark:text-slate-400'}" aria-label={`${$_('leaderboard.rank')} ${index + 1}`}>{index + 1}</span></td>
                                 <td class="px-3 py-3">
                                     <button type="button" onclick={() => selectedSpecies = item.species} class="group flex min-h-11 max-w-full items-center gap-3 text-left focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus">
@@ -2040,7 +2040,7 @@
                             <div class="mt-2 space-y-2">
                                 {#each leaderboardAiBlocks() as block}
                                     {#if block.type === 'heading'}
-                                        <p class="text-xs font-semibold text-accent-700 dark:text-accent-300">{block.text}</p>
+                                        <p class="text-xs font-semibold text-slate-800 dark:text-slate-200">{block.text}</p>
                                     {:else}
                                         <p class="text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">{block.text}</p>
                                     {/if}
@@ -2061,10 +2061,10 @@
                             <path d="M6 8l4 4 4-4"></path>
                         </svg>
                         {#if timeline?.sunrise_range}
-                            <span class="font-semibold normal-case tracking-normal text-amber-700 dark:text-amber-400">{$_('leaderboard.sunrise')} {timeline.sunrise_range}</span>
+                            <span class="font-semibold normal-case tracking-normal text-slate-700 dark:text-slate-300">{$_('leaderboard.sunrise')} {timeline.sunrise_range}</span>
                         {/if}
                         {#if timeline?.sunset_range}
-                            <span class="font-semibold normal-case tracking-normal text-orange-700 dark:text-orange-400">{$_('leaderboard.sunset')} {timeline.sunset_range}</span>
+                            <span class="font-semibold normal-case tracking-normal text-slate-700 dark:text-slate-300">{$_('leaderboard.sunset')} {timeline.sunset_range}</span>
                         {/if}
                     </summary>
                     <div class="mt-2 flex flex-wrap items-center gap-2 text-xs">
@@ -2102,7 +2102,7 @@
                             onclick={() => showPrecip = !showPrecip}
                             disabled={!hasWeather()}
                             class="inline-flex min-h-11 items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-not-allowed disabled:opacity-45
-                                {showPrecip ? 'border-blue-300 dark:border-blue-600 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' : 'border-slate-200/70 dark:border-slate-700/60 text-slate-600 dark:text-slate-400'}"
+                                {showPrecip ? 'border-brand-300 dark:border-brand-600 bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300' : 'border-slate-200/70 dark:border-slate-700/60 text-slate-600 dark:text-slate-400'}"
                         >
                             <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
                                 <path d="M6 9a4 4 0 1 1 7.5-1.8A2.8 2.8 0 1 1 14 13H6.5"></path>
@@ -2121,7 +2121,7 @@
                             <span class="text-xs text-slate-600 dark:text-slate-400">
                                 {weatherOverlayEligible()
                                     ? $_('leaderboard.weather_overlay_no_data', { default: 'No weather data in this range yet.' })
-                                    : $_('leaderboard.weather_overlay_range_limited', { default: 'Weather overlays available on Day/Week/Month ranges.' })}
+                                    : $_('leaderboard.weather_overlay_range_limited', { default: 'Weather overlays are available for the day, week and month spans.' })}
                             </span>
                         {/if}
                     </div>
@@ -2142,10 +2142,10 @@
                             </div>
                             <div>
                                 <p class="text-xs font-semibold text-brand-700 dark:text-brand-300">
-                                    {$_('leaderboard.activity_heatmap_title', { default: 'Activity Heatmap' })}
+                                    {$_('leaderboard.activity_heatmap_title', { default: 'Activity heatmap' })}
                                 </p>
                                 <h4 class="mt-1 text-lg font-bold text-slate-900 dark:text-white md:text-xl">
-                                    {$_('leaderboard.activity_heatmap_subtitle', { default: 'Hour x weekday activity' })}
+                                    {$_('leaderboard.activity_heatmap_subtitle', { default: 'Activity by hour and weekday' })}
                                 </h4>
                             </div>
                         </div>
@@ -2223,7 +2223,7 @@
                             </div>
                             <div>
                                 <p class="text-xs font-semibold text-brand-700 dark:text-brand-300">
-                                    {$_('leaderboard.detection_breakdown_title', { default: 'Detection Breakdown' })}
+                                    {$_('leaderboard.detection_breakdown_title', { default: 'Detection breakdown' })}
                                 </p>
                                 <h4 class="mt-1 text-lg font-bold text-slate-900 dark:text-white md:text-xl">
                                     {$_('leaderboard.detection_breakdown_subtitle', { default: 'Species composition' })}

@@ -1,7 +1,7 @@
 {
   "reclassify_fallback": "⚠️ 视频不可用 - 改用快照",
   "reclassify_no_result": "未找到可信结果，已保留现有识别结果。",
-  "reclassify_failed": "重新分类失败：{message}",
+  "reclassify_failed": "重新分类未运行：{message}。请在记录中重试。",
   "hide_failed": "无法隐藏此访问：{message}",
   "delete_failed": "无法删除此访问：{message}",
   "settings_saved": "设置保存成功！",
@@ -58,7 +58,7 @@
   "window_label": "今天",
   "count_events": "{count, plural, other {条}}",
   "count_unread": "未读",
-  "owner_only": "管理员",
+  "owner_only": "仅你可见",
   "empty_title": "目前还没有任何动静",
   "empty_body": "分类器识别出的访客，以及正在运行的后台任务，都会按从新到旧的顺序显示在这里。",
   "empty_action": "打开观察日志",

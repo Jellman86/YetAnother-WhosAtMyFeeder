@@ -1,4 +1,5 @@
 <script lang="ts">
+    import DialogCloseButton from './DialogCloseButton.svelte';
     import { _ } from 'svelte-i18n';
     import { onMount, onDestroy } from 'svelte';
     import { REFRESH_CADENCE_MS } from '../app/refresh-cadence';
@@ -61,8 +62,8 @@
 
     let toneDotClass = $derived.by(() => {
         switch (statusTone) {
-            case 'ok': return 'bg-emerald-500 ring-emerald-500/35';
-            case 'mixed': return 'bg-amber-400 ring-amber-400/35';
+            case 'ok': return 'bg-success-500 ring-success-500/35';
+            case 'mixed': return 'bg-attention-400 ring-attention-400/35';
             case 'down': return 'bg-rose-500 ring-rose-500/35';
             default: return 'bg-slate-400 ring-slate-400/35';
         }
@@ -70,7 +71,7 @@
 
     let selectedDotClass = $derived.by(() => {
         switch (selectedHealthState) {
-            case 'online': return 'bg-emerald-400';
+            case 'online': return 'bg-success-400';
             case 'offline': return 'bg-rose-400';
             default: return 'bg-slate-400';
         }
@@ -413,17 +414,7 @@
                         </span>
                     </div>
 
-                    <button
-                        type="button"
-                        onclick={() => close(true)}
-                        class="absolute right-2 top-2 flex min-h-11 min-w-11 items-center justify-center rounded-full border border-white/15 bg-slate-950/45 text-white/85 shadow-lg backdrop-blur-md transition-colors hover:bg-slate-950/75 hover:text-white focus-ring motion-reduce:transition-none"
-                        aria-label={$_('common.close')}
-                        title={$_('common.close')}
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    </button>
+                    <DialogCloseButton tone="media" class="absolute right-2 top-2" onclick={() => close(true)} />
 
                     {#if cameras.length > 1}
                         <button

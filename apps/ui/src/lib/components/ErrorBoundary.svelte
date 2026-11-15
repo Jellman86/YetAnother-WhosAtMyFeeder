@@ -87,12 +87,12 @@
 
                 <!-- Error Title -->
                 <h1 class="text-2xl font-bold text-center text-slate-900 dark:text-white mb-2">
-                    {$_('error.boundary_title', { default: 'Something went wrong' })}
+                    {$_('error.boundary_title', { default: 'This page stopped working' })}
                 </h1>
 
                 <!-- Error Message -->
                 <p class="text-center text-slate-600 dark:text-slate-400 mb-6">
-                    {$_('error.boundary_subtitle', { default: 'An unexpected error occurred. Please try again or contact support if the problem persists.' })}
+                    {$_('error.boundary_subtitle', { default: 'Part of the page hit an error it could not recover from. Your history and settings are unchanged. Reload the page; if it happens again, copy the error details into a GitHub issue.' })}
                 </p>
 
                 <!-- Error Details (collapsed) -->
@@ -126,19 +126,19 @@
                         onclick={resetError}
                         class="flex-1 px-6 py-3 bg-brand-700 hover:bg-brand-800 text-white font-medium rounded-xl transition-colors focus-ring"
                     >
-                        {$_('error.try_again', { default: 'Try Again' })}
+                        {$_('error.try_again', { default: 'Try again' })}
                     </button>
                     <button
                         onclick={copyErrorToClipboard}
                         class="flex-1 px-6 py-3 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-900 dark:text-white font-medium rounded-xl transition-colors focus-ring"
                     >
-                        {copied ? $_('error.copied', { default: 'Copied' }) : $_('error.copy_details', { default: 'Copy Error Details' })}
+                        {copied ? $_('error.copied', { default: 'Copied' }) : $_('error.copy_details', { default: 'Copy error details' })}
                     </button>
                     <button
                         onclick={() => window.location.reload()}
                         class="flex-1 px-6 py-3 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-900 dark:text-white font-medium rounded-xl transition-colors focus-ring"
                     >
-                        {$_('error.reload_page', { default: 'Reload Page' })}
+                        {$_('error.reload_page', { default: 'Reload page' })}
                     </button>
                 </div>
             </div>

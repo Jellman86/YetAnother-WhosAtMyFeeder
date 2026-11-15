@@ -63,7 +63,7 @@
   "audio_context_empty": "近くの音声検出はありません",
   "audio_context_suppressed": "近くで音声が検出されましたが、このカメラに割り当てられていないマイクによるものです。設定でセンサーの割り当てを変更して含めてください。",
   "common_name_override": "一般名",
-  "common_name_override_edit": "名前を編集",
+  "common_name_override_edit": "一般名を変更",
   "common_name_override_reset": "プロバイダー名を使用",
   "common_name_override_saved": "一般名を更新しました",
   "common_name_override_cleared": "プロバイダーの一般名に戻しました",
@@ -150,7 +150,7 @@
   "video_analysis": {
     "queued": "動画解析は待機中です",
     "preparing": "動画解析を準備しています",
-    "title": "詳細なビデオ分析",
+    "title": "動画解析",
     "match": "{score}% 一致",
     "verified_desc": "動画内の観察に基づく結果です。",
     "in_progress": "ビデオ分析が進行中です…",
@@ -296,7 +296,7 @@
     "conversation_loading": "会話を読み込み中…",
     "conversation_empty": "まだ会話はありません。AI に追加の質問をしてください。",
     "conversation_placeholder": "追加の質問をしてください…",
-    "conversation_error": "会話に失敗しました。もう一度お試しください。",
+    "conversation_error": "AI から応答がありませんでした。設定 → AI でプロバイダーとキーを確認してから、もう一度質問してください。",
     "assistant": "アシスタント",
     "user": "あなた",
     "send": "送信",
@@ -474,7 +474,6 @@
     "recording": "録画フレーム内でFrigateが追跡した鳥から識別",
     "snapshot": "スナップショット内でFrigateが追跡した鳥から識別",
     "crop": "鳥の切り抜き画像から識別",
-    "unknown": "識別元は記録されていません",
     "original": "最初の識別"
   },
   "frame_scan": {

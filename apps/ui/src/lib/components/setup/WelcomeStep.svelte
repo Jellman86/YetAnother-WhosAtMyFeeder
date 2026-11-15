@@ -70,7 +70,7 @@
             {$_('first_run.language_desc', { default: 'You can change this later in Settings.' })}
         </p>
         {#if languageError}
-            <p class="text-xs font-medium text-amber-700 dark:text-amber-300" role="alert">
+            <p class="text-xs font-medium text-attention-700 dark:text-attention-300" role="alert">
                 {$_('common.language_load_error', { default: 'That language could not be loaded. Check your connection and try again.' })}
             </p>
         {/if}

@@ -1,4 +1,5 @@
 <script lang="ts">
+    import DialogCloseButton from './DialogCloseButton.svelte';
     import type { Snippet } from 'svelte';
     import { onMount } from 'svelte';
     import { _ } from 'svelte-i18n';
@@ -160,14 +161,12 @@
                         <p id="diagnostic-description" class="text-sm text-slate-600 dark:text-slate-300">{subtitle}</p>
                     {/if}
                 </div>
-                <button type="button" class="btn btn-ghost flex h-11 w-11 items-center justify-center rounded-full p-0" aria-label={closeLabel ?? $_('common.close', { default: 'Close' })} onclick={onClose}>
-                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg>
-                </button>
+                <DialogCloseButton label={closeLabel} onclick={onClose} />
             </div>
 
             <div class="flex items-center gap-1.5" aria-hidden="true">
                 {#each displayStages as stage}
-                    <span class="h-1.5 flex-1 rounded-full transition-colors duration-300 {stage.state === 'passed' ? 'bg-brand-500' : stage.state === 'failed' ? 'bg-red-500' : stage.state === 'warning' ? 'bg-amber-500' : stage.state === 'running' ? 'animate-pulse bg-brand-400' : 'bg-slate-200 dark:bg-slate-700'}"></span>
+                    <span class="h-1.5 flex-1 rounded-full transition-colors duration-300 {stage.state === 'passed' ? 'bg-brand-500' : stage.state === 'failed' ? 'bg-red-500' : stage.state === 'warning' ? 'bg-attention-500' : stage.state === 'running' ? 'animate-pulse bg-brand-400' : 'bg-slate-200 dark:bg-slate-700'}"></span>
                 {/each}
             </div>
             <span class="sr-only" role="progressbar" aria-labelledby="diagnostic-title" aria-valuenow={progress} aria-valuemin="0" aria-valuemax="100">{progress}%</span>
@@ -184,8 +183,8 @@
 
             <ol class="divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200 dark:divide-slate-800 dark:border-slate-700">
                 {#each displayStages as stage, index}
-                    <li class="flex items-start gap-3 p-3.5 {stage.state === 'failed' ? 'bg-red-50/70 dark:bg-red-950/20' : stage.state === 'warning' ? 'bg-amber-50/70 dark:bg-amber-950/20' : stage.state === 'running' ? 'bg-brand-50/60 dark:bg-brand-950/15' : ''}">
-                        <span class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold {stage.state === 'failed' ? 'bg-red-600 text-white' : stage.state === 'warning' ? 'bg-amber-500 text-white' : stage.state === 'passed' ? 'bg-success-600 text-white' : stage.state === 'running' ? 'animate-pulse bg-brand-700 text-white' : 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300'}">
+                    <li class="flex items-start gap-3 p-3.5 {stage.state === 'failed' ? 'bg-red-50/70 dark:bg-red-950/20' : stage.state === 'warning' ? 'bg-attention-50/70 dark:bg-attention-950/20' : stage.state === 'running' ? 'bg-brand-50/60 dark:bg-brand-950/15' : ''}">
+                        <span class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold {stage.state === 'failed' ? 'bg-red-600 text-white' : stage.state === 'warning' ? 'bg-attention-500 text-white' : stage.state === 'passed' ? 'bg-success-600 text-white' : stage.state === 'running' ? 'animate-pulse bg-brand-700 text-white' : 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300'}">
                             {stageIcon(stage.state) || index + 1}
                         </span>
                         <div class="min-w-0 flex-1 space-y-0.5">
@@ -204,7 +203,7 @@
             </ol>
 
             {#if result && resultShown}
-                <div data-diagnostic-result class="rounded-2xl border p-4 {result.ok ? 'border-success-200 bg-success-50 text-success-900 dark:border-success-900/60 dark:bg-success-950/20 dark:text-success-100' : 'border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/20 dark:text-amber-100'}">
+                <div data-diagnostic-result class="rounded-2xl border p-4 {result.ok ? 'border-success-200 bg-success-50 text-success-900 dark:border-success-900/60 dark:bg-success-950/20 dark:text-success-100' : 'border-attention-200 bg-attention-50 text-attention-900 dark:border-attention-900/60 dark:bg-attention-950/20 dark:text-attention-100'}">
                     <p class="font-bold">{diagnosticHeadline(result, displayStages)}</p>
                     {#if result.hint}
                         <p class="mt-1 text-sm">{result.hint}</p>

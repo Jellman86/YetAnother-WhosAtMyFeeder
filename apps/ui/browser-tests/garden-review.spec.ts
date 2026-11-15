@@ -834,7 +834,7 @@ for (const [reason, text] of [
         await expect(record(page).locator('[data-garden-automatic-check]')).toContainText(text);
         const suggestion = record(page).locator('[data-domestic-suggestion="chicken"]');
         await expect(suggestion).toContainText('This looks like a domestic bird: Chickens.');
-        await expect(suggestion.getByRole('link', { name: 'Open Domestic birds you keep' })).toHaveAttribute('href', /\/settings\/beta$/);
+        await expect(suggestion.getByRole('link', { name: 'Open “Domestic birds you keep”' })).toHaveAttribute('href', /\/settings\/beta$/);
         await suggestion.getByRole('button', { name: 'Not now' }).click();
         await expect(suggestion).toHaveCount(0);
         await page.reload();

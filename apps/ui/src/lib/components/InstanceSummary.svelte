@@ -140,14 +140,14 @@
             {#if updateStatus?.enabled}
                 <span
                     class="ml-auto inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-2xs font-semibold {updateStatus.update_available
-                        ? 'border-accent-300 text-accent-800 dark:border-accent-800 dark:text-accent-200'
+                        ? 'border-brand-300 text-brand-800 dark:border-brand-700 dark:text-brand-200'
                         : 'border-slate-200 text-slate-600 dark:border-slate-700 dark:text-slate-300'}"
                     data-instance-update
                 >
                     <span
                         class="h-1.5 w-1.5 rounded-full {updateStatus.update_available
-                            ? 'bg-accent-500'
-                            : 'bg-emerald-500'}"
+                            ? 'bg-brand-500'
+                            : 'bg-success-500'}"
                         aria-hidden="true"
                     ></span>
                     {#if updateStatus.update_available}
@@ -220,9 +220,9 @@
                         {#each uptimeWindow.buckets as bucket (bucket.start)}
                             <span
                                 class="h-4 min-w-0 flex-1 rounded-[2px] {bucket.state === 'up'
-                                    ? 'bg-emerald-500/80'
+                                    ? 'bg-success-500/80'
                                     : bucket.state === 'down'
-                                      ? 'bg-accent-500'
+                                      ? 'bg-rose-500'
                                       : 'bg-slate-200 dark:bg-slate-700'}"
                                 title={`${formatTime(bucket.start)} · ${bucket.state}`}
                             ></span>

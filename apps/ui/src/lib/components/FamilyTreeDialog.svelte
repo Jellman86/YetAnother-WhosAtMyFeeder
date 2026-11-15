@@ -634,7 +634,7 @@
                                         y={1 * unit}
                                         text-anchor={before ? 'end' : 'start'}
                                         class="tree-label fill-slate-500 text-3xs dark:fill-slate-400"
-                                    >{#if mode === 'fan'}<tspan class="font-semibold uppercase tracking-widest">{rankLabel(item.taxon.rank)}</tspan>{:else if names.secondary}{@render svgName(names.secondary.parts)}{/if}{#if counts}{#if mode === 'fan' || names.secondary}<tspan>{' · '}</tspan>{/if}<tspan class="tabular-nums {item.kind === 'taxon' && (item.taxon.seen_species ?? 0) > 0 ? 'fill-emerald-700 dark:fill-emerald-300' : ''}">{counts}</tspan>{/if}{#if heardHere(item.taxon)}{#if mode === 'fan' || names.secondary || counts}<tspan>{' · '}</tspan>{/if}<tspan data-family-tree-heard>{$_('taxonomy.heard_word', { default: 'heard' })}</tspan>{/if}</text>
+                                    >{#if mode === 'fan'}<tspan class="font-semibold uppercase tracking-widest">{rankLabel(item.taxon.rank)}</tspan>{:else if names.secondary}{@render svgName(names.secondary.parts)}{/if}{#if counts}{#if mode === 'fan' || names.secondary}<tspan>{' · '}</tspan>{/if}<tspan class="tabular-nums {item.kind === 'taxon' && (item.taxon.seen_species ?? 0) > 0 ? 'fill-success-700 dark:fill-success-300' : ''}">{counts}</tspan>{/if}{#if heardHere(item.taxon)}{#if mode === 'fan' || names.secondary || counts}<tspan>{' · '}</tspan>{/if}<tspan data-family-tree-heard>{$_('taxonomy.heard_word', { default: 'heard' })}</tspan>{/if}</text>
                                 {/if}
                             </g>
                         {/each}
@@ -645,7 +645,7 @@
 
         <div class="border-t border-line-soft px-4 py-2 text-2xs text-slate-600 dark:text-slate-400 sm:px-6" data-family-tree-source>
             {#if failed}
-                <span class="mr-2 font-semibold text-amber-700 dark:text-amber-300">{$_('taxonomy.branch_failed', { default: 'Part of the tree could not load. Open it again to retry.' })}</span>
+                <span class="mr-2 font-semibold text-attention-700 dark:text-attention-300">{$_('taxonomy.branch_failed', { default: 'Part of the tree could not load. Open it again to retry.' })}</span>
             {/if}
             {subject === 'animal'
                 ? $_('taxonomy.source_note_animal', { default: 'Classification from the SpeciesNet taxonomy for Garden animals. It shows how species are grouped, not when they diverged.' })

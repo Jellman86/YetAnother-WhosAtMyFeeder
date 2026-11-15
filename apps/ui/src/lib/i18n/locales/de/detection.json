@@ -63,7 +63,7 @@
   "audio_context_empty": "Keine Audio-Detektionen in der Nähe",
   "audio_context_suppressed": "In der Nähe wurde Audio erkannt, aber über ein Mikrofon, das dieser Kamera nicht zugeordnet ist. Ändern Sie die Sensorzuordnung in den Einstellungen, um es einzubeziehen.",
   "common_name_override": "Allgemeiner Name",
-  "common_name_override_edit": "Name bearbeiten",
+  "common_name_override_edit": "Gebräuchlichen Namen ändern",
   "common_name_override_reset": "Anbieternamen verwenden",
   "common_name_override_saved": "Allgemeiner Name aktualisiert",
   "common_name_override_cleared": "Allgemeiner Name des Anbieters wiederhergestellt",
@@ -150,7 +150,7 @@
   "video_analysis": {
     "queued": "Videoanalyse in der Warteschlange",
     "preparing": "Videoanalyse wird vorbereitet",
-    "title": "Tiefe Video-Analyse",
+    "title": "Videoanalyse",
     "match": "{score}% Übereinstimmung",
     "verified_desc": "Durch Beobachtungen im Video gestützt.",
     "in_progress": "Video-Analyse läuft…",
@@ -296,7 +296,7 @@
     "conversation_loading": "Konversation wird geladen…",
     "conversation_empty": "Noch keine Konversation. Stelle der KI eine Anschlussfrage.",
     "conversation_placeholder": "Stelle eine Anschlussfrage…",
-    "conversation_error": "Die Konversation ist fehlgeschlagen. Bitte versuche es erneut.",
+    "conversation_error": "Die KI hat nicht geantwortet. Prüfe Anbieter und Schlüssel unter Einstellungen → KI und frage erneut.",
     "assistant": "Assistent",
     "user": "Sie",
     "send": "Senden",
@@ -474,7 +474,6 @@
     "recording": "Aus Frigates verfolgtem Vogel im Aufnahmebild bestimmt",
     "snapshot": "Aus Frigates verfolgtem Vogel im Schnappschuss bestimmt",
     "crop": "Aus einem Vogelausschnitt bestimmt",
-    "unknown": "Die Quelle der Bestimmung wurde nicht gespeichert",
     "original": "Ursprüngliche Bestimmung"
   },
   "frame_scan": {

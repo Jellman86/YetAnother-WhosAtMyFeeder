@@ -9,9 +9,9 @@
   },
   "stat": {
     "heard": "Oídas",
-    "heard_sub": "Detecciones de BirdNET mostradas",
+    "heard_sub": "Detecciones de BirdNET-Go en este periodo",
     "species": "Especies",
-    "species_sub": "Especies identificadas por audio",
+    "species_sub": "Oídas en este periodo",
     "peak_hour": "Hora de mayor actividad",
     "peak_hour_sub": "{count, plural, one {# detección} other {# detecciones}}",
     "no_activity": "Aún no hay actividad",
@@ -28,7 +28,9 @@
     "species": "Especie",
     "source": "Fuente",
     "min_confidence": "Confianza mínima",
-    "changed": "Filtros cambiados. Aplique para actualizar la lista."
+    "changed": "Filtros cambiados. Aplique para actualizar la lista.",
+    "species_placeholder": "Cualquier especie",
+    "source_placeholder": "Cualquier fuente"
   },
   "top_species": "Especies más oídas",
   "card": {
@@ -38,10 +40,10 @@
   },
   "history": {
     "title": "Historial de detecciones",
-    "sub": "Detecciones persistentes de BirdNET-Go, separadas de las visitas visuales.",
+    "sub": "Cada canto que BirdNET-Go ha registrado, separado de las visitas de cámara.",
     "empty": "Ninguna detección de BirdNET coincide con estos filtros.",
     "showing": "Mostrando {from}-{to} de {total}",
-    "hide": "Ocultar localmente",
+    "hide": "Ocultar en YA-WAMF",
     "undo": "Deshacer",
     "hidden_message": "Detección de audio oculta.",
     "local_only": "Ocultar elimina la entrada del historial de YA-WAMF y de futuras coincidencias de audio. BirdNET-Go no cambia; sus eliminaciones no se sincronizan automáticamente."

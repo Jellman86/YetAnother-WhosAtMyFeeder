@@ -4,6 +4,7 @@ import {
     buildReviewQueue,
     readingFromResponse,
     reviewReasonMessage,
+    reviewSuggestion,
     visibleUnresolvedCount,
     withoutEvent,
     type QueuedDetection,
@@ -208,5 +209,26 @@ describe('reviewReasonMessage', () => {
             default: 'New species · {count, plural, one {# sighting} other {# sightings}}',
             values: { count: 3 }
         });
+    });
+});
+
+describe('reviewSuggestion', () => {
+    it("offers the model's own name for a visit below the naming threshold", () => {
+        expect(reviewSuggestion(detection({ frigate_event: 'a', display_name: 'Eurasian Bullfinch' }), 'low_score')).toBe('Eurasian Bullfinch');
+    });
+
+    it('offers the name of a species seen here for the first time', () => {
+        expect(reviewSuggestion(detection({ frigate_event: 'a', display_name: 'Mallard' }), 'new_species')).toBe('Mallard');
+    });
+
+    it('offers nothing when the visit has no species to confirm', () => {
+        expect(reviewSuggestion(detection({ frigate_event: 'a', display_name: 'Unknown Bird' }), 'unknown_species')).toBeNull();
+        expect(reviewSuggestion(detection({ frigate_event: 'a', display_name: 'Unknown Bird' }), 'low_score')).toBeNull();
+        expect(reviewSuggestion(detection({ frigate_event: 'a', display_name: '  ' }), 'low_score')).toBeNull();
+        expect(reviewSuggestion(detection({ frigate_event: 'a', display_name: 'Not a bird' }), 'new_species')).toBeNull();
+    });
+
+    it('offers nothing for an unknown visit even if a label is attached', () => {
+        expect(reviewSuggestion(detection({ frigate_event: 'a', display_name: 'Dunnock' }), 'unknown_species')).toBeNull();
     });
 });

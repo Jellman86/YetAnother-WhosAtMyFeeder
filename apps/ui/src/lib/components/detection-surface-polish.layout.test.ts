@@ -31,7 +31,7 @@ describe('detection surface polish', () => {
         expect(detectionModalSource).toContain('data-detection-photograph');
         expect(detectionModalSource).not.toContain('from-black/80 via-black/25');
         expect(detectionModalSource).not.toContain('absolute inset-x-0 bottom-0 z-20 flex flex-col');
-        expect(detectionModalSource).toContain('class="absolute top-4 right-4 z-40 inline-flex h-11 w-11');
+        expect(detectionModalSource).toContain('<DialogCloseButton tone="media" class="absolute top-4 right-4 z-40"');
     });
 
     it('offers the originating Frigate event to the owner, honestly', () => {
@@ -115,7 +115,8 @@ describe('detection surface polish', () => {
         // The Best crop / Full frame switch is gone (#256); the whole scene is a peek on the photograph.
         expect(detectionModalSource).not.toContain('data-detection-media-toggle');
         expect(detectionModalSource).toContain('data-detection-whole-scene-peek');
-        expect(detectionModalSource).toContain('data-detection-media-title');
+        // The rail names the bird; the photograph does not say it a second time.
+        expect(detectionModalSource).not.toContain('data-detection-media-title');
         expect(detectionModalSource).toContain('flex flex-wrap items-center gap-2');
         expect(detectionModalSource).toContain('aspect-4/3 min-h-72');
         expect(detectionModalSource).not.toContain("absolute bottom-0 left-0 right-0 p-5 {showInlineFramePicker ? 'pb-28' : ''}");
@@ -185,11 +186,13 @@ describe('detection surface polish', () => {
         expect(detectionModalSource).not.toContain('.snapshot-strip {');
     });
 
-    it('gives the species info button real padding', () => {
+    it('gives the species details button real padding, and leaves the primary action to the identification', () => {
         // It carried no padding class at all, so with its siblings hidden for a guest it
-        // collapsed to the height of its own text.
+        // collapsed to the height of its own text. As a second primary it competed with Confirm.
         expect(detectionModalSource).not.toContain('flex-1 bg-brand-500 hover:bg-brand-600 text-white font-semibold text-xs rounded-xl');
-        expect(detectionModalSource).toContain('btn btn-primary flex-1 px-3 py-2.5 text-xs');
+        expect(detectionModalSource).toContain('btn btn-secondary flex-1 px-3 py-2.5 text-xs');
+        expect(detectionModalSource).not.toContain('btn btn-primary flex-1 px-3 py-2.5 text-xs');
+        expect(detectionModalSource.match(/\{\$_\('actions\.species_info'\)\}/g)).toHaveLength(1);
     });
 
     it('keeps location-level notable reports out of individual detections', () => {

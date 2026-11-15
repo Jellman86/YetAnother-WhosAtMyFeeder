@@ -56,7 +56,7 @@
     "video": "Video",
     "image": "Photo",
     "title": "Finding the strongest evidence",
-    "body": "The production classifier is comparing frames and crop candidates. You can leave this page; the draft will be restored when you return.",
+    "body": "YA-WAMF is comparing the frames and the bird crops it found. You can leave this page; your draft comes back when you return.",
     "progress": "Analysis progress",
     "failed_title": "Analysis stopped safely",
     "failed_body": "Your original media is still stored. Retry when the model is available.",

@@ -76,20 +76,20 @@
         const n = e.images_compared;
         if (row.comparison_kind === 'crop_box' && e.matches_cpu && n) {
             const iou = e.mean_box_iou;
-            return { label: `✓ ${n}/${n} boxes${iou != null ? ` (${iou.toFixed(2)} IoU)` : ''}`, cls: 'text-accent-700 dark:text-accent-400' };
+            return { label: `✓ ${n}/${n} boxes${iou != null ? ` (${iou.toFixed(2)} IoU)` : ''}`, cls: 'text-success-700 dark:text-success-300' };
         }
-        if (e.matches_cpu && n) return { label: `✓ ${n}/${n} top-1`, cls: 'text-accent-700 dark:text-accent-400' };
+        if (e.matches_cpu && n) return { label: `✓ ${n}/${n} top-1`, cls: 'text-success-700 dark:text-success-300' };
         if (typeof e.detection_match_rate === 'number' && n) {
             const hits = Math.round(e.detection_match_rate * n);
             const iou = e.mean_box_iou;
-            return { label: `⚠ ${hits}/${n} boxes${iou != null ? ` (${iou.toFixed(2)} IoU)` : ''}`, cls: 'text-amber-700 dark:text-amber-400' };
+            return { label: `⚠ ${hits}/${n} boxes${iou != null ? ` (${iou.toFixed(2)} IoU)` : ''}`, cls: 'text-attention-700 dark:text-attention-400' };
         }
         if (typeof e.top1_match_rate === 'number' && n) {
             const hits = Math.round(e.top1_match_rate * n);
             const ov = e.mean_top5_overlap;
-            return { label: `⚠ ${hits}/${n} top-1${ov != null ? ` (${ov}/5)` : ''}`, cls: 'text-amber-700 dark:text-amber-400' };
+            return { label: `⚠ ${hits}/${n} top-1${ov != null ? ` (${ov}/5)` : ''}`, cls: 'text-attention-700 dark:text-attention-400' };
         }
-        return { label: '✓ runs', cls: 'text-accent-700 dark:text-accent-400' };
+        return { label: '✓ runs', cls: 'text-success-700 dark:text-success-300' };
     }
 
     function providerName(provider: string | null | undefined): string {
@@ -125,7 +125,7 @@
     }
     function severityColor(severity: ModelEvalWarning['severity']): string {
         if (severity === 'critical') return 'text-red-700 dark:text-red-400';
-        if (severity === 'warning') return 'text-amber-700 dark:text-amber-400';
+        if (severity === 'warning') return 'text-attention-700 dark:text-attention-400';
         return 'text-brand-700 dark:text-brand-400';
     }
 
@@ -457,13 +457,13 @@
             {/if}
 
             {#if selectedRun.skipped_models && selectedRun.skipped_models.length > 0}
-                <div class="mt-4 rounded-lg border border-amber-200 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 p-3">
-                    <h4 class="text-sm font-semibold text-amber-900 dark:text-amber-200">Skipped models</h4>
-                    <ul class="mt-1 text-xs text-amber-800 dark:text-amber-300 space-y-1">
+                <div class="mt-4 rounded-lg border border-attention-200 dark:border-attention-700 bg-attention-50 dark:bg-attention-900/20 p-3">
+                    <h4 class="text-sm font-semibold text-attention-900 dark:text-attention-200">Skipped models</h4>
+                    <ul class="mt-1 text-xs text-attention-800 dark:text-attention-300 space-y-1">
                         {#each selectedRun.skipped_models as s}
                             <li>
                                 <span class="font-mono">{s.model_id}</span>: {s.reason}
-                                {#if s.detail}<span class="text-amber-700 dark:text-amber-400 italic"> ({s.detail})</span>{/if}
+                                {#if s.detail}<span class="text-attention-700 dark:text-attention-400 italic"> ({s.detail})</span>{/if}
                             </li>
                         {/each}
                     </ul>

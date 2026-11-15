@@ -24,5 +24,6 @@
   "month": "Mois",
   "copy_diagnostics_bundle": "Copier le lot de diagnostics",
   "no_local_visits_title": "Aucune visite à votre mangeoire pour l'instant",
-  "no_local_visits_body": "Vos caméras n'ont pas encore enregistré cet oiseau. Tout ce qui suit provient de sources de référence publiques."
+  "no_local_visits_body": "Vos caméras n'ont pas encore enregistré cet oiseau. Tout ce qui suit provient de sources de référence publiques.",
+  "reclassify_clip": "Reclasser à partir du clip"
 }

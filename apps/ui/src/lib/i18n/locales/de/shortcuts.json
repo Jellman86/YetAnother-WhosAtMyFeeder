@@ -7,7 +7,10 @@
   "go_events": "Zu Ereignissen",
   "go_species": "Zur Bestenliste",
   "go_settings": "Zu Einstellungen",
-  "close_modal": "Modal schließen",
+  "close_modal": "Dialog schließen",
   "refresh": "Seite aktualisieren",
-  "go_notifications": "Zu Benachrichtigungen"
+  "go_notifications": "Zu Benachrichtigungen",
+  "previous_day": "Vorheriger Tag",
+  "next_day": "Nächster Tag",
+  "all_days": "Alle Tage zeigen"
 }

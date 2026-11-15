@@ -1,6 +1,6 @@
 {
-  "boundary_title": "Un problème est survenu",
-  "boundary_subtitle": "Une erreur inattendue s’est produite. Veuillez réessayer ou contacter le support si le problème persiste.",
+  "boundary_title": "Cette page a cessé de fonctionner",
+  "boundary_subtitle": "Une partie de la page a rencontré une erreur dont elle n’a pas pu se remettre. Votre historique et vos réglages sont inchangés. Rechargez la page ; si cela se reproduit, copiez les détails de l’erreur dans un ticket GitHub.",
   "show_details": "Afficher les détails de l’erreur",
   "try_again": "Réessayer",
   "copy_details": "Copier les détails de l’erreur",

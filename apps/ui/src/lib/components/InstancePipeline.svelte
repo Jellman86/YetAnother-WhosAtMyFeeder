@@ -228,7 +228,7 @@
     ]);
 
     function toneClass(tone: Tone): string {
-        if (tone === 'ok') return 'text-emerald-700 dark:text-emerald-300';
+        if (tone === 'ok') return 'text-success-700 dark:text-success-300';
         if (tone === 'off') return 'text-slate-600 dark:text-slate-400';
         return 'text-slate-600 dark:text-slate-400';
     }

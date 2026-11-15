@@ -63,7 +63,7 @@
   "audio_context_empty": "Aucune détection audio à proximité",
   "audio_context_suppressed": "Un son a été détecté à proximité, mais sur un microphone qui n'est pas associé à cette caméra. Modifiez l'association des capteurs dans les Paramètres pour l'inclure.",
   "common_name_override": "Nom commun",
-  "common_name_override_edit": "Modifier le nom",
+  "common_name_override_edit": "Modifier le nom commun",
   "common_name_override_reset": "Utiliser le nom du fournisseur",
   "common_name_override_saved": "Nom commun mis à jour",
   "common_name_override_cleared": "Nom commun du fournisseur restauré",
@@ -145,12 +145,12 @@
   },
   "review_in_explorer": "Voir dans l'explorateur",
   "review_in_explorer_hint": "Ouvrez l'explorateur pour revoir et taguer les détections inconnues.",
-  "birdnet_confirmed": "BirdNET Confirmé",
-  "frigate_verified": "Frigate Vérifié",
+  "birdnet_confirmed": "Confirmé par BirdNET",
+  "frigate_verified": "Vérifié par Frigate",
   "video_analysis": {
     "queued": "Analyse vidéo en attente",
     "preparing": "Préparation de l’analyse vidéo",
-    "title": "Analyse vidéo profonde",
+    "title": "Analyse vidéo",
     "match": "{score}% de correspondance",
     "verified_desc": "Appuyé par des observations dans la vidéo.",
     "in_progress": "Analyse vidéo en cours…",
@@ -286,8 +286,8 @@
     "unchanged_reason_out_of_range": "Le modèle a nommé une espèce qu'eBird n'a jamais signalée dans votre région. L'identification existante a été conservée."
   },
   "ai": {
-    "insight": "Aperçu de l'IA Naturaliste",
-    "ask": "Demander à l'IA Naturaliste",
+    "insight": "Aperçu du naturaliste IA",
+    "ask": "Demander au naturaliste IA",
     "analyzing": "Analyse du comportement…",
     "regenerating": "Régénération…",
     "regenerate": "Régénérer l'analyse",
@@ -296,7 +296,7 @@
     "conversation_loading": "Chargement de la conversation…",
     "conversation_empty": "Aucune conversation pour le moment. Posez une question de suivi à l’IA.",
     "conversation_placeholder": "Posez une question de suivi…",
-    "conversation_error": "La conversation a échoué. Veuillez réessayer.",
+    "conversation_error": "L’IA n’a pas répondu. Vérifiez le fournisseur et la clé dans Paramètres → IA, puis reposez la question.",
     "assistant": "Assistant",
     "user": "Vous",
     "send": "Envoyer",
@@ -474,7 +474,6 @@
     "recording": "Identifié à partir de l’oiseau suivi par Frigate dans l’image de l’enregistrement",
     "snapshot": "Identifié à partir de l’oiseau suivi par Frigate dans la capture",
     "crop": "Identifié à partir d’un recadrage de l’oiseau",
-    "unknown": "La source de l’identification n’a pas été enregistrée",
     "original": "Identification initiale"
   },
   "frame_scan": {

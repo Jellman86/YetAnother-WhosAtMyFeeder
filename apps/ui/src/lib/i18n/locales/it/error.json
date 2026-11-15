@@ -1,6 +1,6 @@
 {
-  "boundary_title": "Qualcosa è andato storto",
-  "boundary_subtitle": "Si è verificato un errore imprevisto. Riprova oppure contatta il supporto se il problema persiste.",
+  "boundary_title": "Questa pagina ha smesso di funzionare",
+  "boundary_subtitle": "Una parte della pagina ha incontrato un errore da cui non è riuscita a riprendersi. Cronologia e impostazioni non sono cambiate. Ricarica la pagina; se succede di nuovo, copia i dettagli dell'errore in una segnalazione su GitHub.",
   "show_details": "Mostra dettagli errore",
   "try_again": "Riprova",
   "copy_details": "Copia dettagli errore",

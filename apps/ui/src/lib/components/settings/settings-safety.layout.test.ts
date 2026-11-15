@@ -74,7 +74,7 @@ describe('the HTTPS warning', () => {
         const markup = band.slice(0, band.indexOf('{/if}'));
         expect(markup).not.toContain('Security Warning:');
         expect(markup).toContain("settings.security.https_warning'");
-        expect(markup).toContain('dark:bg-amber-950/30');
+        expect(markup).toContain('dark:bg-attention-950/30');
         expect(en.settings.security.https_warning).toContain('Serve YA-WAMF over HTTPS, for example behind your reverse proxy.');
     });
 });

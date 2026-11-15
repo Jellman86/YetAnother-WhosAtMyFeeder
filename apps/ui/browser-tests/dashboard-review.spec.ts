@@ -184,3 +184,43 @@ test('finishing a walkthrough that could not hold everything says more are waiti
     await expect(modal.getByRole('heading', { name: 'Queue clear' })).toHaveCount(0);
 });
 
+
+test("a visit below the naming threshold can be confirmed as the model's own species in one step", async ({ page }) => {
+    const at = (minutes: number): string => new Date(Date.now() - minutes * 60000).toISOString();
+    const lowScore = { frigate_event: 'review-low', display_name: 'Eurasian Bullfinch', common_name: 'Eurasian Bullfinch', category_name: 'Eurasian Bullfinch',
+        camera_name: 'birdcam', detection_time: at(3), score: 0.57, manual_tagged: false, classification_input: { source: 'recording_frame', is_cropped: false } };
+    const unknown = { frigate_event: 'review-unknown', display_name: 'Unknown Bird', common_name: null, category_name: 'Unknown Bird',
+        camera_name: 'birdcam', detection_time: at(2), score: 0.31, manual_tagged: false, classification_input: { source: 'recording_frame', is_cropped: false } };
+    const writes: Array<{ id: string; body: string }> = [];
+    await page.route(url => url.pathname.startsWith('/api/'), route => {
+        const request = route.request();
+        const path = new URL(request.url()).pathname;
+        if (request.method() === 'PATCH' && path.startsWith('/api/events/')) {
+            const id = path.split('/').at(-1) ?? '';
+            writes.push({ id, body: request.postData() ?? '' });
+            return route.fulfill({ json: { status: 'updated', event_id: id, new_species: 'Eurasian Bullfinch', category_name: 'Eurasian Bullfinch', manual_tagged: true } });
+        }
+        if (path === '/api/events') return route.fulfill({ json: [lowScore, unknown] });
+        if (path === '/api/events/review-queue') {
+            return route.fulfill({ json: { items: [{ event: lowScore, reason: 'low_score' }, { event: unknown, reason: 'unknown_species' }], total: 2 } });
+        }
+        if (path.endsWith('/snapshot/candidates')) return route.fulfill({ json: { candidates: [], birds: [] } });
+        if (/\/snapshot(?:\/thumbnail)?$/.test(path)) return route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"/>' });
+        if (path === '/api/species/feeder') return route.fulfill({ json: [] });
+        if (path === '/api/leaderboard/species') return route.fulfill({ json: noSpeciesChecks });
+        return route.fulfill({ status: 503, json: { detail: 'Supporting fixture reading unavailable.' } });
+    });
+    await page.goto('/browser-tests/dashboard-review.html');
+    const card = page.locator('[data-dashboard-review-queue]');
+    await expect(card.locator('[data-review-queue-count]')).toHaveText('2');
+    await card.getByRole('button', { name: 'Work through the queue' }).click();
+    const modal = page.locator('[data-review-queue-modal]');
+    const confirm = modal.getByRole('button', { name: 'Confirm Eurasian Bullfinch', exact: true });
+    await expect(confirm).toBeVisible();
+    await confirm.click();
+    await expect.poll(() => writes.map(write => write.id)).toEqual(['review-low']);
+    expect(writes[0].body).toContain('Eurasian Bullfinch');
+    // A visit with no species has nothing to confirm; the owner picks one or hides it.
+    await expect(modal.locator('[data-review-position]')).toHaveText('2 of 2');
+    await expect(modal.getByRole('button', { name: /^Confirm / })).toHaveCount(0);
+});

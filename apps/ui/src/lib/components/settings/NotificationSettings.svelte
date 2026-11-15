@@ -530,7 +530,7 @@
                     </label>
                 </div>
                 {#if frigateUrlMissing}
-                    <div class="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-dashed border-amber-400/70 bg-amber-50/60 px-4 py-3 text-sm text-slate-700 dark:bg-amber-900/20 dark:text-slate-200" role="status">
+                    <div class="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-dashed border-attention-400/70 bg-attention-50/60 px-4 py-3 text-sm text-slate-700 dark:bg-attention-900/20 dark:text-slate-200" role="status">
                         <span>{$_('settings.notifications.link_frigate_url_missing')}</span>
                         <button type="button" class="btn btn-ghost text-xs" onclick={onOpenIntegrations}>{$_('settings.notifications.link_open_integrations')}</button>
                     </div>
@@ -653,7 +653,7 @@
         <section class="card-base rounded-2xl p-8 flex flex-col">
             <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 {discordEnabled ? 'mb-6' : ''}">
                 <div class="flex min-w-0 items-center gap-3">
-                    <div class="w-10 h-10 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+                    <div class="w-10 h-10 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-700 dark:bg-slate-800 dark:text-slate-200">
                         <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
                             <path d="M20.317 4.37a19.791 19.791 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.736 19.736 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028 14.09 14.09 0 001.226-1.994.076.076 0 00-.041-.106 13.107 13.107 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.299 12.299 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.839 19.839 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
                         </svg>
@@ -713,7 +713,7 @@
         <section class="card-base rounded-2xl p-8 flex flex-col">
             <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 {pushoverEnabled ? 'mb-6' : ''}">
                 <div class="flex min-w-0 items-center gap-3">
-                    <div class="w-10 h-10 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-600 dark:text-blue-400">
+                    <div class="w-10 h-10 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-700 dark:bg-slate-800 dark:text-slate-200">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
                     </div>
                     <h3 id="pushover-channel-label" class="min-w-0 break-words text-xl font-bold text-slate-900 dark:text-white tracking-tight">{$_('settings.pushover.title')}</h3>
@@ -792,7 +792,7 @@
                             bind:value={pushoverDevice}
                             placeholder={$_('settings.pushover.device_placeholder')}
                             aria-label={$_('settings.pushover.device')}
-                            class="block w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-blue-500 outline-hidden transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500"
+                            class="block w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-focus outline-hidden transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500"
                         />
                         <p class="mt-1.5 text-xs text-slate-600 dark:text-slate-400 ml-1">{$_('settings.pushover.device_hint')}</p>
                     </div>
@@ -805,7 +805,7 @@
         <section class="card-base rounded-2xl p-8 flex flex-col">
             <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 {telegramEnabled ? 'mb-6' : ''}">
                 <div class="flex min-w-0 items-center gap-3">
-                    <div class="w-10 h-10 rounded-2xl bg-sky-500/10 flex items-center justify-center text-sky-600 dark:text-sky-400">
+                    <div class="w-10 h-10 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-700 dark:bg-slate-800 dark:text-slate-200">
                         <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
                             <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.161c-.18 1.897-.962 6.502-1.359 8.627-.168.9-.5 1.201-.82 1.23-.697.064-1.226-.461-1.901-.903-1.056-.693-1.653-1.124-2.678-1.8-1.185-.781-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.831-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/>
                         </svg>
@@ -865,7 +865,7 @@
         <section class="card-base rounded-2xl p-8 flex flex-col">
             <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 {emailEnabled ? 'mb-6' : ''}">
                 <div class="flex min-w-0 items-center gap-3">
-                    <div class="w-10 h-10 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+                    <div class="w-10 h-10 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-700 dark:bg-slate-800 dark:text-slate-200">
                         <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                         </svg>
@@ -890,7 +890,7 @@
                             onclick={() => emailUseOAuth = true}
                             aria-label={$_('settings.email.oauth')}
                             aria-pressed={emailUseOAuth}
-                            class="flex-1 px-4 py-2 rounded-xl text-sm font-bold transition-all {emailUseOAuth ? 'bg-indigo-500 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'}"
+                            class="flex-1 px-4 py-2 rounded-xl text-sm font-bold transition-all {emailUseOAuth ? 'bg-brand-700 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'}"
                         >
                             {$_('settings.email.oauth')}
                         </button>
@@ -898,7 +898,7 @@
                             onclick={() => emailUseOAuth = false}
                             aria-label={$_('settings.email.smtp')}
                             aria-pressed={!emailUseOAuth}
-                            class="flex-1 px-4 py-2 rounded-xl text-sm font-bold transition-all {!emailUseOAuth ? 'bg-indigo-500 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'}"
+                            class="flex-1 px-4 py-2 rounded-xl text-sm font-bold transition-all {!emailUseOAuth ? 'bg-brand-700 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'}"
                         >
                             {$_('settings.email.smtp')}
                         </button>
@@ -985,7 +985,7 @@
                                 }}
                                 aria-label={$_('settings.email.connect_gmail')}
                                 disabled={connectingGmail || connectingOutlook || disconnectingEmailOAuth}
-                                class="flex-1 px-4 py-2 rounded-xl bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 hover:border-indigo-500 dark:hover:border-indigo-500 text-sm font-bold transition-all"
+                                class="flex-1 px-4 py-2 rounded-xl bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 hover:border-brand-500 dark:hover:border-brand-400 text-sm font-bold transition-all"
                             >
                                 {connectingGmail ? $_('common.testing') : $_('settings.email.connect_gmail')}
                             </button>
@@ -1004,14 +1004,14 @@
                                 }}
                                 aria-label={$_('settings.email.connect_outlook')}
                                 disabled={connectingOutlook || connectingGmail || disconnectingEmailOAuth}
-                                class="flex-1 px-4 py-2 rounded-xl bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 hover:border-indigo-500 dark:hover:border-indigo-500 text-sm font-bold transition-all"
+                                class="flex-1 px-4 py-2 rounded-xl bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 hover:border-brand-500 dark:hover:border-brand-400 text-sm font-bold transition-all"
                             >
                                 {connectingOutlook ? $_('common.testing') : $_('settings.email.connect_outlook')}
                             </button>
                         </div>
                         {#if emailConnectedEmail}
-                            <div class="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 rounded-xl">
-                                <span class="text-sm text-green-700 dark:text-green-300">{$_('settings.email.connected', { values: { email: emailConnectedEmail } })}</span>
+                            <div class="flex items-center justify-between p-3 bg-success-50 dark:bg-success-900/20 rounded-xl">
+                                <span class="text-sm text-success-700 dark:text-success-300">{$_('settings.email.connected', { values: { email: emailConnectedEmail } })}</span>
                                 <button
                                     onclick={async () => {
                                         try {

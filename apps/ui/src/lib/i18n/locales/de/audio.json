@@ -9,9 +9,9 @@
   },
   "stat": {
     "heard": "Gehört",
-    "heard_sub": "Angezeigte BirdNET-Erkennungen",
+    "heard_sub": "BirdNET-Go-Erkennungen in diesem Zeitraum",
     "species": "Arten",
-    "species_sub": "Durch Audio erkannte Arten",
+    "species_sub": "In diesem Zeitraum gehört",
     "peak_hour": "Aktivste Stunde",
     "peak_hour_sub": "{count, plural, one {# Erkennung} other {# Erkennungen}}",
     "no_activity": "Noch keine Aktivität",
@@ -28,7 +28,9 @@
     "species": "Art",
     "source": "Quelle",
     "min_confidence": "Mindestkonfidenz",
-    "changed": "Filter geändert. Übernehmen, um die Liste zu aktualisieren."
+    "changed": "Filter geändert. Übernehmen, um die Liste zu aktualisieren.",
+    "species_placeholder": "Jede Art",
+    "source_placeholder": "Jede Quelle"
   },
   "top_species": "Am häufigsten gehörte Arten",
   "card": {
@@ -38,10 +40,10 @@
   },
   "history": {
     "title": "Erkennungsverlauf",
-    "sub": "Gespeicherte BirdNET-Go-Erkennungen, getrennt von visuellen Besuchen.",
+    "sub": "Jeder Ruf, den BirdNET-Go gemeldet hat, getrennt von den Kamerabesuchen.",
     "empty": "Keine BirdNET-Erkennungen entsprechen diesen Filtern.",
     "showing": "{from}–{to} von {total} werden angezeigt",
-    "hide": "Lokal ausblenden",
+    "hide": "In YA-WAMF ausblenden",
     "undo": "Rückgängig",
     "hidden_message": "Audioerkennung ausgeblendet.",
     "local_only": "Ausblenden entfernt einen Eintrag aus dem YA-WAMF-Verlauf und zukünftigen Audioabgleichen. BirdNET-Go bleibt unverändert; dortige Löschungen werden nicht automatisch synchronisiert."

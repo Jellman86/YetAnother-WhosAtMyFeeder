@@ -24,5 +24,6 @@
   "month": "月",
   "copy_diagnostics_bundle": "診断バンドルをコピー",
   "no_local_visits_title": "あなたのフィーダーへの来訪はまだありません",
-  "no_local_visits_body": "カメラはこの鳥をまだ記録していません。以下の情報はすべて公開されている参考資料によるものです。"
+  "no_local_visits_body": "カメラはこの鳥をまだ記録していません。以下の情報はすべて公開されている参考資料によるものです。",
+  "reclassify_clip": "クリップから再分類"
 }

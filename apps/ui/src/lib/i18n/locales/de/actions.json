@@ -1,10 +1,10 @@
 {
   "confirm_delete": "Diesen gesamten {species}-Besuch löschen? Der Eintrag und seine Medien verschwinden dauerhaft aus der Historie. Ausblenden behält den Eintrag stattdessen.",
   "play_video": "Video abspielen",
-  "deep_reclassify": "Tiefen-Reklassifizierung",
-  "manual_tag": "Manuelles Tag",
+  "deep_reclassify": "Schnappschuss neu klassifizieren",
+  "manual_tag": "Art wählen",
   "reclassify": "Reklassifizieren",
-  "species_info": "Spezies-Info",
+  "species_info": "Artdetails",
   "delete_detection": "Diesen Besuch dauerhaft löschen",
   "hide_detection": "Erkennung ausblenden",
   "unhide_detection": "Erkennung einblenden",

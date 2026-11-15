@@ -63,7 +63,7 @@
   "audio_context_empty": "Nessuna rilevazione audio vicina",
   "audio_context_suppressed": "È stato rilevato audio nelle vicinanze, ma su un microfono non associato a questa telecamera. Modifica l'associazione dei sensori nelle Impostazioni per includerlo.",
   "common_name_override": "Nome comune",
-  "common_name_override_edit": "Modifica nome",
+  "common_name_override_edit": "Cambia il nome comune",
   "common_name_override_reset": "Usa nome del fornitore",
   "common_name_override_saved": "Nome comune aggiornato",
   "common_name_override_cleared": "Nome comune del fornitore ripristinato",
@@ -150,11 +150,11 @@
   "video_analysis": {
     "queued": "Analisi video in coda",
     "preparing": "Preparazione dell’analisi video",
-    "title": "Analisi Video Profonda",
+    "title": "Analisi video",
     "match": "{score}% Corrispondenza",
     "verified_desc": "Supportato da osservazioni nel video.",
-    "in_progress": "Analisi Video in corso…",
-    "failed_title": "Analisi Video Fallita",
+    "in_progress": "Analisi video in corso…",
+    "failed_title": "Analisi video non riuscita",
     "errors": {
       "clip_unavailable": "Clip non disponibile. Usata analisi snapshot.",
       "clip_invalid": "Formato clip non valido. Usata analisi snapshot.",
@@ -286,8 +286,8 @@
     "unchanged_reason_out_of_range": "Il modello ha indicato una specie che eBird non ha mai registrato nella tua regione, quindi l'identificazione esistente è stata mantenuta."
   },
   "ai": {
-    "insight": "Insight Naturalista IA",
-    "ask": "Chiedi a Naturalista IA",
+    "insight": "Insight del naturalista IA",
+    "ask": "Chiedi al naturalista IA",
     "analyzing": "Analisi comportamento…",
     "regenerating": "Rigenerazione…",
     "regenerate": "Rigenera Analisi",
@@ -296,7 +296,7 @@
     "conversation_loading": "Caricamento conversazione…",
     "conversation_empty": "Nessuna conversazione ancora. Fai una domanda di approfondimento all'IA.",
     "conversation_placeholder": "Fai una domanda di approfondimento…",
-    "conversation_error": "La conversazione non è riuscita. Riprova.",
+    "conversation_error": "L'IA non ha risposto. Controlla fornitore e chiave in Impostazioni → IA, poi chiedi di nuovo.",
     "assistant": "Assistente",
     "user": "Tu",
     "send": "Invia",
@@ -474,7 +474,6 @@
     "recording": "Identificato dall’uccello seguito da Frigate nel fotogramma della registrazione",
     "snapshot": "Identificato dall’uccello seguito da Frigate nell’istantanea",
     "crop": "Identificato da un ritaglio dell’uccello",
-    "unknown": "La fonte dell’identificazione non è stata registrata",
     "original": "Identificazione originale"
   },
   "frame_scan": {

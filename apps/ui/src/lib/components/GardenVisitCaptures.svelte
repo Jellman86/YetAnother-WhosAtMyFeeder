@@ -85,7 +85,7 @@
     }
 
     function scoreTone(score: number, needsReview: boolean): string {
-        if (needsReview) return 'text-amber-800 dark:text-amber-300';
+        if (needsReview) return 'text-attention-800 dark:text-attention-300';
         if (score < 0.85) return 'text-brand-700 dark:text-brand-300';
         return 'text-success-700 dark:text-success-300';
     }
@@ -172,7 +172,7 @@
                                         <span class="font-medium text-brand-700 dark:text-brand-300">{$_('visits.shown_photo', { default: 'Visit photo' })}</span>
                                         <span aria-hidden="true">&middot;</span>
                                     {/if}
-                                    <span class={facts.review ? 'font-medium text-amber-800 dark:text-amber-300' : ''}>{text.state}</span>
+                                    <span class={facts.review ? 'font-medium text-attention-800 dark:text-attention-300' : ''}>{text.state}</span>
                                     {#if facts.motion}
                                         <span aria-hidden="true">&middot;</span>
                                         <span>{$_('garden.explorer.capture_motion', { default: 'Motion footage' })}</span>

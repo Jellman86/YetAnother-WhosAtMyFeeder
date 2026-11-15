@@ -46,7 +46,7 @@
     );
 </script>
 
-<div class="snapshot-analysis-scanner w-full border border-amber-300/40 bg-white/65 dark:bg-black/35 backdrop-blur-md shadow-xl {panelClass}">
+<div class="snapshot-analysis-scanner w-full border border-slate-200/70 bg-white/80 dark:border-slate-700/60 dark:bg-slate-950/80 {panelClass}">
     <div class="relative overflow-hidden border border-white/20 bg-slate-950 {imageClass}">
         {#if imageUrl}
             <div
@@ -55,17 +55,16 @@
             ></div>
             <div class="absolute inset-0 bg-linear-to-t/srgb from-black/65 via-black/10 to-transparent"></div>
         {:else}
-            <div class="absolute inset-0 bg-linear-to-br/srgb from-slate-800 via-slate-950 to-black"></div>
-            <div class="absolute inset-0 opacity-40" style="background-image: linear-gradient(135deg, rgba(255,255,255,.12) 0 1px, transparent 1px 12px);"></div>
+            <div class="absolute inset-0 bg-slate-900"></div>
         {/if}
 
         {#if !isComplete}
-            <div class="snapshot-analysis-sweep motion-reduce:animate-none absolute inset-x-0 -top-1/3 h-1/3 bg-linear-to-b/srgb from-transparent via-amber-200/55 to-transparent"></div>
-            <div class="absolute inset-0 border-y border-amber-200/25"></div>
+            <div class="snapshot-analysis-sweep motion-reduce:animate-none absolute inset-x-0 -top-1/3 h-1/3 bg-linear-to-b/srgb from-transparent via-brand-200/55 to-transparent"></div>
+            <div class="absolute inset-0 border-y border-brand-200/25"></div>
         {/if}
 
-        <div class="absolute left-2 top-2 inline-flex items-center gap-1.5 rounded-md border border-amber-200/25 bg-black/55 px-2 py-1 text-3xs font-bold uppercase tracking-widest text-amber-100">
-            <span class="h-1.5 w-1.5 rounded-full bg-amber-300 {isComplete ? '' : 'motion-safe:animate-pulse'}"></span>
+        <div class="absolute left-2 top-2 inline-flex items-center gap-1.5 rounded-md border border-brand-200/25 bg-black/55 px-2 py-1 text-3xs font-bold uppercase tracking-widest text-brand-100">
+            <span class="h-1.5 w-1.5 rounded-full bg-brand-300 {isComplete ? '' : 'motion-safe:animate-pulse'}"></span>
             {$_('detection.reclassification.snapshot_scanning', { default: 'Snapshot scan' })}
         </div>
 
@@ -73,13 +72,13 @@
             <div class="absolute inset-x-2 bottom-2 rounded-lg border border-white/10 bg-black/55 px-2 py-1.5 text-white">
                 <div class="truncate text-2xs font-bold">{latestLabel}</div>
                 {#if latestScore !== null}
-                    <div class="mt-0.5 text-3xs font-bold uppercase tracking-widest text-amber-200">{latestScore}%</div>
+                    <div class="mt-0.5 text-3xs font-bold uppercase tracking-widest text-brand-200">{latestScore}%</div>
                 {/if}
             </div>
         {/if}
     </div>
 
-    <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-amber-100/70 dark:bg-white/10">
+    <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-brand-100/70 dark:bg-white/10">
         <div
             class="h-full rounded-full bg-brand-400 transition-all duration-300 ease-out motion-reduce:transition-none"
             style={`width: ${progressPercent}%`}
@@ -91,7 +90,7 @@
             <span class="text-3xs font-bold uppercase tracking-widest text-slate-600 dark:text-slate-400">
                 {$_('detection.reclassification.snapshot_fallback_badge', { default: 'Snapshot fallback' })}
             </span>
-            <span class="text-3xs font-bold uppercase tracking-widest text-amber-700 dark:text-amber-300">
+            <span class="text-3xs font-bold uppercase tracking-widest text-brand-700 dark:text-brand-300">
                 {$_('detection.reclassification.frame_progress', {
                     values: {
                         current: Math.min(safeCurrentFrame, safeTotalFrames),

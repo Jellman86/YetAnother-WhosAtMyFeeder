@@ -4,6 +4,7 @@
     import { shareSegments, spotlightGroups, type ShowcaseRow } from '../leaderboard/showcase';
     import { packTiles, readableInk, WALL_MINIMUM, type WallTile } from '../leaderboard/wall';
     import { formatDateTime } from '../utils/datetime';
+    import { SCORE_FILL, scoreBand } from '../utils/score-tone';
     import VisitFilm from './VisitFilm.svelte';
 
     /**
@@ -570,7 +571,7 @@
                         <dd class="flex items-center gap-2 font-semibold tabular-nums text-slate-900 dark:text-white">
                             {percent(open.score)}
                             <span class="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700" aria-hidden="true">
-                                <span class="block h-full rounded-full bg-accent-500" style:width={percent(open.score)}></span>
+                                <span class="block h-full rounded-full {SCORE_FILL[scoreBand(open.score)]}" style:width={percent(open.score)}></span>
                             </span>
                         </dd>
                         <dt class="text-slate-600 dark:text-slate-400">{$_('leaderboard.wall_seen', { default: 'Seen' })}</dt>

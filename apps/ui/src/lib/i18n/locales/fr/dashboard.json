@@ -2,7 +2,7 @@
   "title": "Tableau de bord",
   "live_feed": "Flux en direct",
   "showing_last_3_days": "Affichage des 3 derniers jours",
-  "no_detections": "Aucune détection pour le moment",
+  "no_detections": "Aucune visite au cours des dernières 24 heures.",
   "waiting_first_visitor": "Aucune visite ces dernières 24 heures. Les nouvelles visites apparaîtront ici dès leur arrivée.",
   "discovery_feed": "Fil de découverte",
   "see_full_history": "Voir l'historique complet",
@@ -23,7 +23,7 @@
     "audio": "Audio"
   },
   "histogram": {
-    "title": "Pulse d’activité",
+    "title": "Activité",
     "visits_per_hour": "Visites par heure, dernières 24 heures",
     "peak": "Pic à {time}, {count, plural, one {# visite} other {# visites}}",
     "now": "maintenant",

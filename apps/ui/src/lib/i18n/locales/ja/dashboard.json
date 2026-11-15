@@ -2,7 +2,7 @@
   "title": "ダッシュボード",
   "live_feed": "ライブフィード",
   "showing_last_3_days": "過去3日間を表示",
-  "no_detections": "検出はまだありません",
+  "no_detections": "過去24時間に訪問はありません。",
   "waiting_first_visitor": "過去24時間に訪問はありません。新しい訪問は届きしだいここに表示されます。",
   "discovery_feed": "ディスカバリーフィード",
   "see_full_history": "すべての履歴を表示",
@@ -23,7 +23,7 @@
     "audio": "音声"
   },
   "histogram": {
-    "title": "活動パルス",
+    "title": "アクティビティ",
     "visits_per_hour": "1時間ごとの訪問数（過去24時間）",
     "peak": "{count, plural, other {最も多いのは {time}（# 回）}}",
     "now": "現在",

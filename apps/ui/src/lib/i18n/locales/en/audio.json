@@ -9,9 +9,9 @@
   },
   "stat": {
     "heard": "Heard",
-    "heard_sub": "BirdNET detections in view",
+    "heard_sub": "BirdNET-Go detections in this window",
     "species": "Species",
-    "species_sub": "Audio-derived species",
+    "species_sub": "Heard in this window",
     "peak_hour": "Peak hour",
     "peak_hour_sub": "{count, plural, one {# detection} other {# detections}}",
     "no_activity": "No activity yet",
@@ -28,7 +28,9 @@
     "species": "Species",
     "source": "Source",
     "min_confidence": "Min confidence",
-    "changed": "Filters changed. Apply to update the list."
+    "changed": "Filters changed. Apply to update the list.",
+    "species_placeholder": "Any species",
+    "source_placeholder": "Any source"
   },
   "top_species": "Top heard species",
   "card": {
@@ -38,10 +40,10 @@
   },
   "history": {
     "title": "Detection history",
-    "sub": "Persisted BirdNET-Go detections, separate from visual visits.",
+    "sub": "Every call BirdNET-Go reported, kept apart from camera visits.",
     "empty": "No BirdNET detections match these filters.",
     "showing": "Showing {from}-{to} of {total}",
-    "hide": "Hide locally",
+    "hide": "Hide from YA-WAMF",
     "undo": "Undo",
     "hidden_message": "Audio detection hidden.",
     "local_only": "Hiding removes an entry from YA-WAMF history and future audio matches. BirdNET-Go is unchanged; upstream deletions are not automatically synced."

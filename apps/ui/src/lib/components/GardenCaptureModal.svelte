@@ -1,4 +1,5 @@
 <script lang="ts">
+    import DialogCloseButton from './DialogCloseButton.svelte';
     /**
      * One Garden capture opened from the Explorer, in the record's shape: the photograph with
      * the animal crop takes the larger half, the decisions the smaller one.
@@ -321,7 +322,7 @@
         const message = action === 'confirm'
             ? $_('garden.photo_confirmed', { default: 'Photo confirmed.' })
             : action === 'dismiss'
-              ? $_('garden.explorer.dismissed', { default: 'Capture dismissed. Find it under Garden animals, Dismissed.' })
+              ? $_('garden.explorer.dismissed', { default: 'Capture dismissed. Find it under Garden animals › Dismissed.' })
               : $_('garden.photo_restored', { default: 'Photo returned to review.' });
         // Similar photos stay; saying so keeps one decision from reading as the whole stack's.
         const remaining = groupTotal > 1 && action !== 'restore'
@@ -440,15 +441,7 @@
         tabindex="-1"
         data-garden-capture-modal
     >
-        <button
-            type="button"
-            class="absolute right-4 top-4 z-40 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/25 bg-black/45 text-white shadow-lg backdrop-blur-xs transition-colors hover:bg-black/60 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-white"
-            onclick={onclose}
-            disabled={saving}
-            aria-label={$_('common.close', { default: 'Close' })}
-        >
-            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
-        </button>
+        <DialogCloseButton tone="media" class="absolute right-4 top-4 z-40" onclick={onclose} disabled={saving} />
 
         <div class="flex flex-1 flex-col overflow-y-auto overscroll-contain lg:grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:overflow-hidden">
             <div class="flex min-h-0 shrink-0 flex-col bg-slate-950 lg:shrink lg:overflow-y-auto lg:border-r lg:border-slate-200/70 dark:lg:border-slate-700/60" data-garden-capture-media>
@@ -475,7 +468,7 @@
                         {#if outline && !cropStyle}
                             {@const box = outline.box}
                             {@const frame = outline.size}
-                            <svg class="pointer-events-none absolute inset-0 h-full w-full text-amber-400" viewBox={`0 0 ${frame[0]} ${frame[1]}`} preserveAspectRatio="xMidYMid meet" aria-hidden="true" data-garden-capture-box>
+                            <svg class="pointer-events-none absolute inset-0 h-full w-full text-evidence" viewBox={`0 0 ${frame[0]} ${frame[1]}`} preserveAspectRatio="xMidYMid meet" aria-hidden="true" data-garden-capture-box>
                                 <rect x={box[0] * frame[0]} y={box[1] * frame[1]} width={box[2] * frame[0]} height={box[3] * frame[1]} fill="none" stroke="black" stroke-width="4" vector-effect="non-scaling-stroke" />
                                 <rect x={box[0] * frame[0]} y={box[1] * frame[1]} width={box[2] * frame[0]} height={box[3] * frame[1]} fill="none" stroke="currentColor" stroke-width="2" vector-effect="non-scaling-stroke" />
                             </svg>

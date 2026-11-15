@@ -48,7 +48,7 @@
     "confidence": "置信度"
   },
   "empty_title": "暂无事件",
-  "empty_desc": "运行回填或等待新的检测。",
+  "empty_desc": "当摄像头识别出鸟类时，到访会显示在这里。要导入较早的 Frigate 事件，请在“设置 → 数据”中运行回填。",
   "load_failed": "无法加载到访记录。您的历史记录没有变化。",
   "bulk_tag_partial": "{count, plural, other {# 个已选事件未能更新。}}",
   "bulk_delete_confirm": "{count, plural, other {删除 # 条检测？此操作无法撤销。}}",
@@ -57,9 +57,7 @@
   "bulk_delete_failed": "删除失败：{message}",
   "bulk_reclassify_success": "{count, plural, other {已将 # 条检测加入视频分析队列。}}",
   "bulk_reclassify_partial": "已加入队列 {queued} 条；{failed} 条加入失败。",
-  "classification_legend": "分类来源：手动、视频、快照",
   "timeline_scope": "本页的日期",
-  "timeline_keyboard_hint": "时间线快捷键：[ 前一天，] 后一天，0 重置",
   "row_open": "打开 {species}",
   "row_select": "选择 {species}",
   "row_below_threshold": "低于命名阈值",
@@ -139,5 +137,6 @@
   "count_unavailable": "数量不可用",
   "results_loading": "正在加载结果…",
   "selection_count": "{count, plural, =0 {未选择拍摄} other {已选择 # 次拍摄}}",
-  "settings_unavailable": "无法加载您的设置，因此“探索”无法确定要显示哪些访客。未做任何更改。请稍后重试。"
+  "settings_unavailable": "无法加载您的设置，因此“探索”无法确定要显示哪些访客。未做任何更改。请稍后重试。",
+  "bulk_tag_applied": "已将 {count, plural, other {# 条记录}}设为{species}"
 }

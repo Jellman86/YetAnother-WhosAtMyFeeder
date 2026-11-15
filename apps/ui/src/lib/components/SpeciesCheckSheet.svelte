@@ -319,8 +319,8 @@
         {:else}
             <div class="flex items-start justify-between gap-4 border-b border-line-soft px-5 pb-4 pt-5 sm:px-8 sm:pt-7">
                 <div class="min-w-0">
-                    <p class="flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-amber-700 dark:text-amber-300">
-                        <span class="h-2 w-2 rounded-full bg-amber-500" aria-hidden="true"></span>
+                    <p class="flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-attention-700 dark:text-attention-300">
+                        <span class="h-2 w-2 rounded-full bg-attention-500" aria-hidden="true"></span>
                         {$_('leaderboard.check.position', { values: { at: handled + 1, total }, default: 'Needs a check · {at} of {total}' })}
                     </p>
                     <h2 id="species-check-title" class="mt-1 font-display text-2xl font-bold leading-tight sm:text-4xl sm:leading-10">{current.displayName}</h2>
@@ -332,7 +332,7 @@
                             {$_('leaderboard.check.why_not_bird', { values: { count: visitTotal }, default: '{count} visits. Birders report birds, so the nearby check cannot speak for this one.' })}
                         {:else}
                             {$_('leaderboard.check.why', { values: { count: visitTotal }, default: '{count} visits, all from the camera alone.' })}
-                            {#if nearbyRadiusKm}<strong class="font-semibold text-amber-800 dark:text-amber-200">{' '}{$_('leaderboard.check.why_nearby', { values: { distance: displayDistance(nearbyRadiusKm, $_) }, default: 'No birder has reported it within {distance}.' })}</strong>{/if}
+                            {#if nearbyRadiusKm}<strong class="font-semibold text-attention-800 dark:text-attention-200">{' '}{$_('leaderboard.check.why_nearby', { values: { distance: displayDistance(nearbyRadiusKm, $_) }, default: 'No birder has reported it within {distance}.' })}</strong>{/if}
                         {/if}
                     </p>
                 </div>
@@ -340,7 +340,7 @@
                     <button type="button" class="btn btn-secondary min-h-11 px-4" onclick={onclose}>{$_('common.close', { default: 'Close' })}</button>
                     <div class="flex gap-1.5" aria-hidden="true">
                         {#each Array.from({ length: total }, (_, index) => index) as index (index)}
-                            <span class="h-1.5 w-6 rounded-full {index < handled ? 'bg-success-500' : index === handled ? 'bg-amber-500' : 'bg-slate-200 dark:bg-slate-700'}"></span>
+                            <span class="h-1.5 w-6 rounded-full {index < handled ? 'bg-success-500' : index === handled ? 'bg-attention-500' : 'bg-slate-200 dark:bg-slate-700'}"></span>
                         {/each}
                     </div>
                 </div>

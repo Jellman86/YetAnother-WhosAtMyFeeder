@@ -127,8 +127,8 @@ describe('leaderboard field-journal layout', () => {
         expect(leaderboardSource).toContain('data-leaderboard-unlikely-note');
         expect(leaderboardSource).toContain('data-leaderboard-unlikely-reason');
         // Wash, dot and words together, never a coloured rule on the row's edge.
-        expect(leaderboardSource).toContain("bg-amber-50/70 dark:bg-amber-500/10");
-        expect(leaderboardSource).not.toMatch(/border-l-(2|4)[^"]*amber/);
+        expect(leaderboardSource).toContain("bg-attention-50/70 dark:bg-attention-500/10");
+        expect(leaderboardSource).not.toMatch(/border-l-(2|4)[^"]*attention/);
     });
 
     it('fits the weekday heatmap to its column instead of scrolling it sideways', () => {

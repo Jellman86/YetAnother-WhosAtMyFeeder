@@ -377,7 +377,7 @@
 
                         <section class="space-y-1.5 border-t border-line-soft pt-3" aria-label={$_('taxonomy.facts.heading', { default: 'Recorded here' })} data-taxon-card-facts>
                             {#if seenLine()}
-                                <p class="text-xs tabular-nums {seenSpecies > 0 ? 'font-semibold text-emerald-700 dark:text-emerald-300' : 'text-slate-600 dark:text-slate-400'}" data-taxon-card-seen>{seenLine()}</p>
+                                <p class="text-xs tabular-nums {seenSpecies > 0 ? 'font-semibold text-success-700 dark:text-success-300' : 'text-slate-600 dark:text-slate-400'}" data-taxon-card-seen>{seenLine()}</p>
                             {/if}
                             {#if visits.kind === 'loading'}
                                 <div class="space-y-1.5" aria-busy="true" data-taxon-card-facts-loading>

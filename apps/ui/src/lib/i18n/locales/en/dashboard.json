@@ -1,29 +1,29 @@
 {
   "title": "Dashboard",
-  "live_feed": "Live Feed",
+  "live_feed": "Live feed",
   "showing_last_3_days": "Showing last 3 days",
-  "no_detections": "No detections yet",
+  "no_detections": "No visits in the last 24 hours.",
   "waiting_first_visitor": "No visits in the last 24 hours. New visits appear here as they arrive.",
-  "discovery_feed": "Discovery Feed",
+  "discovery_feed": "Discovery feed",
   "see_full_history": "See full history",
-  "audio_confirmations": "Audio Confirmations",
+  "audio_confirmations": "Audio confirmations",
   "hero": {
-    "just_discovered": "Just Discovered",
+    "just_discovered": "Just discovered",
     "one_hour_ago": "1 hour ago",
     "one_day_ago": "1 day ago",
-    "audio_confirmed": "Audio Confirmed",
+    "audio_confirmed": "Confirmed by audio",
     "heard": "Heard: {species}",
-    "view_details": "View Details",
+    "view_details": "View details",
     "conf": "Conf"
   },
   "stats": {
     "today": "Today",
     "species": "Species",
-    "top_visitor": "Top Visitor",
+    "top_visitor": "Top visitor",
     "audio": "Audio"
   },
   "histogram": {
-    "title": "Activity Pulse",
+    "title": "Activity",
     "visits_per_hour": "Visits per hour, last 24 hours",
     "peak": "Busiest at {time}, {count, plural, one {# visit} other {# visits}}",
     "now": "now",
@@ -34,7 +34,7 @@
     "open_history": "Open audio history",
     "open_birdnet": "Open BirdNET-Go"
   },
-  "top_visitors_title": "Top Visitors",
+  "top_visitors_title": "Top visitors",
   "top_visitors_count": "{count, plural, one {# visit} other {# visits}}",
   "field_log": {
     "title": "Field log",

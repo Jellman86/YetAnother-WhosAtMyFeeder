@@ -1,10 +1,10 @@
 {
-  "audio_history": "Gespeicherte BirdNET-Go-Erkennungen und reine Audioaktivität durchsuchen.",
+  "audio_history": "Rufe, die BirdNET-Go gehört hat, nach Art und Quelle.",
   "about": "Version, Changelog, Mitwirkende und Support-Links.",
-  "dashboard": "Live-Erkennungen, jüngste Aktivität und Futterstellen-Status auf einen Blick.",
+  "dashboard": "Die letzten 24 Stunden an deiner Futterstelle und alles, was auf dich wartet.",
   "events": "Jeden klassifizierten Besuch durchsuchen, filtern und verwalten.",
   "add_observation": "Ein eigenes Foto oder Video klassifizieren, die Hinweise prüfen und zum Verlauf hinzufügen.",
-  "notifications": "Benachrichtigungen, Erinnerungen und aktive Hintergrundaufgaben.",
+  "notifications": "Besuche, Hinweise und Hintergrundarbeiten, neueste zuerst.",
   "settings": "Verbindungen, Klassifizierung, Integrationen und Personalisierung.",
-  "species": "Bestenliste, Gesamtzahlen und Taxonomie-Details für die gesehenen Vögel."
+  "species": "Welche Vögel am häufigsten kommen, wie oft und wann."
 }

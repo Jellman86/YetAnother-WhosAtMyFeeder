@@ -503,11 +503,11 @@
                     <p class="mt-1 text-2xs font-semibold text-slate-600 dark:text-slate-400">{selectedModelSummary.labels.join(' · ')}</p>
                 {/if}
                 {#if selectedInstalledModel?.ready === false}
-                    <p role="status" class="mt-1 text-xs font-semibold text-amber-700 dark:text-amber-300">{$_('setup.model.incomplete_install', { default: 'This model install is incomplete. Download and verify it again before continuing.' })}</p>
+                    <p role="status" class="mt-1 text-xs font-semibold text-attention-700 dark:text-attention-300">{$_('setup.model.incomplete_install', { default: 'This model install is incomplete. Download and verify it again before continuing.' })}</p>
                 {:else if needsDownload}
-                    <p class="mt-1 text-xs font-semibold text-amber-700 dark:text-amber-300">{$_('setup.model.download_required', { default: 'Download and verify this model here before validating it on this hardware.' })}</p>
+                    <p class="mt-1 text-xs font-semibold text-attention-700 dark:text-attention-300">{$_('setup.model.download_required', { default: 'Download and verify this model here before validating it on this hardware.' })}</p>
                 {:else if !selectedModelReady}
-                    <p class="mt-1 text-xs font-semibold text-amber-700 dark:text-amber-300">{$_('setup.model.validation_required', { default: 'Validate this model on the current image and hardware before continuing.' })}</p>
+                    <p class="mt-1 text-xs font-semibold text-attention-700 dark:text-attention-300">{$_('setup.model.validation_required', { default: 'Validate this model on the current image and hardware before continuing.' })}</p>
                 {/if}
             {/if}
         </div>
@@ -532,7 +532,7 @@
                 <p
                     id="setup-model-region-status"
                     role="status"
-                    class="mt-1 text-xs leading-relaxed {regionNotice.kind === 'no_country' ? 'font-semibold text-amber-700 dark:text-amber-300' : 'text-slate-600 dark:text-slate-400'}"
+                    class="mt-1 text-xs leading-relaxed {regionNotice.kind === 'no_country' ? 'font-semibold text-attention-700 dark:text-attention-300' : 'text-slate-600 dark:text-slate-400'}"
                 >
                     {#if regionNotice.kind === 'no_country'}
                         {$_('setup.model.region_no_country', { default: 'No country is saved, so Auto uses the North American species list. Choose Europe if your feeder is in Europe.' })}
@@ -566,7 +566,7 @@
                 </p>
             {/if}
             {#if configuredProviderUnavailable}
-                <p role="status" class="mt-1 border-l-2 border-amber-400 py-1 pl-3 text-xs font-semibold leading-relaxed text-amber-800 dark:border-amber-500 dark:text-amber-200">
+                <p role="status" class="mt-1 border-l-2 border-attention-400 py-1 pl-3 text-xs font-semibold leading-relaxed text-attention-800 dark:border-attention-500 dark:text-attention-200">
                     {$_('settings.detection.provider_saved_unavailable', {
                         values: { provider: providerLabel(selectedProvider as InferenceProvider) },
                         default: `${providerLabel(selectedProvider as InferenceProvider)} is saved but unavailable. Choose an available provider or Auto.`
@@ -609,7 +609,7 @@
                 {#if accelerators.length}
                     <div class="mt-1.5 flex flex-wrap gap-2">
                         {#each accelerators as acc (acc.id)}
-                            <span class="inline-flex items-center gap-1 rounded-full bg-accent-100 px-2.5 py-1 text-xs font-semibold text-accent-800 dark:bg-accent-900/30 dark:text-accent-200">
+                            <span class="inline-flex items-center gap-1 rounded-full bg-success-100 px-2.5 py-1 text-xs font-semibold text-success-800 dark:bg-success-900/30 dark:text-success-200">
                                 <span aria-hidden="true">✓</span> {acc.label}
                             </span>
                         {/each}
@@ -670,10 +670,10 @@
             <p role="status" class="text-xs leading-relaxed text-slate-600 dark:text-slate-400">{$_('setup.model.check_running', { default: 'Continue is available when the check finishes. Leaving this step does not stop the check. Return later to read the saved results.' })}</p>
         {/if}
         {#if providerMessage}
-            <p role="status" class="text-xs font-semibold text-amber-700 dark:text-amber-300">{providerMessage}</p>
+            <p role="status" class="text-xs font-semibold text-attention-700 dark:text-attention-300">{providerMessage}</p>
         {/if}
         {#if errorMsg}
-            <div role="alert" class="rounded-md bg-amber-50 p-2 text-sm text-amber-800 dark:bg-amber-900/20 dark:text-amber-200">{errorMsg}</div>
+            <div role="alert" class="rounded-md bg-attention-50 p-2 text-sm text-attention-800 dark:bg-attention-900/20 dark:text-attention-200">{errorMsg}</div>
         {/if}
         {#if validationMsg}
             <div role="status" class="rounded-md bg-success-50 p-2 text-sm text-success-800 dark:bg-success-900/20 dark:text-success-200">{validationMsg}</div>
@@ -698,13 +698,13 @@
                                 </p>
                                 {#if !rowOk(m)}
                                     {@const reason = m.warnings?.find((warning) => warning.severity === 'critical')?.message}
-                                    {#if reason}<p class="text-xs text-amber-700 dark:text-amber-300" data-setup-model-warning>{reason}</p>{/if}
+                                    {#if reason}<p class="text-xs text-attention-700 dark:text-attention-300" data-setup-model-warning>{reason}</p>{/if}
                                 {/if}
                                 {#if m.failed_providers?.length}
-                                    <p class="text-xs text-amber-700 dark:text-amber-300">{$_('setup.model.failed_providers', { values: { providers: m.failed_providers.map((value) => providerLabel(parseInferenceProvider(value) ?? 'auto')).join(', ') }, default: `Failed: ${m.failed_providers.join(', ')}` })}</p>
+                                    <p class="text-xs text-attention-700 dark:text-attention-300">{$_('setup.model.failed_providers', { values: { providers: m.failed_providers.map((value) => providerLabel(parseInferenceProvider(value) ?? 'auto')).join(', ') }, default: `Failed: ${m.failed_providers.join(', ')}` })}</p>
                                 {/if}
                             </div>
-                            <span class="shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold {rowOk(m) ? 'bg-success-100 text-success-800 dark:bg-success-900/30 dark:text-success-200' : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200'}">
+                            <span class="shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold {rowOk(m) ? 'bg-success-100 text-success-800 dark:bg-success-900/30 dark:text-success-200' : 'bg-attention-100 text-attention-800 dark:bg-attention-900/30 dark:text-attention-200'}">
                                 {rowOk(m) ? $_('setup.model.row_ok', { default: 'Runs' }) : $_('setup.model.row_warn', { default: 'Check' })}
                             </span>
                         </li>

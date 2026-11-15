@@ -1,10 +1,10 @@
 {
-  "audio_history": "Consulte as detecções do BirdNET-Go armazenadas e a atividade apenas de áudio.",
+  "audio_history": "Cantos que o BirdNET-Go ouviu, por espécie e fonte.",
   "about": "Versão, registro de alterações, colaboradores e links de suporte.",
-  "dashboard": "Detecções em direto, atividade recente e estado do comedouro num relance.",
+  "dashboard": "As últimas 24 horas no seu comedouro e tudo o que aguarda a sua decisão.",
   "events": "Procura, filtra e gere cada visita classificada.",
   "add_observation": "Classifica uma foto ou vídeo, revê as evidências e adiciona-o ao histórico.",
-  "notifications": "Alertas, lembretes e tarefas em segundo plano ativas.",
+  "notifications": "Visitas, alertas e trabalho em segundo plano, os mais recentes primeiro.",
   "settings": "Conexões, classificação, integrações e personalização.",
-  "species": "Tabela, totais e detalhes taxonómicos das aves que viste."
+  "species": "Que aves visitam mais, com que frequência e quando."
 }
