@@ -294,5 +294,12 @@
   "errors_clear_effect": "Supprime tout de suite les erreurs et incidents enregistrés. Les vérifications en direct continuent.",
   "earlier_incidents_title": "Incidents précédents",
   "earlier_incidents_desc": "Problèmes qui se sont résolus depuis. Ce qui est ouvert maintenant figure plus haut, avec l’état du système.",
-  "earlier_incidents_empty": "Rien ne s’est résolu depuis le dernier effacement de l’historique des erreurs."
+  "earlier_incidents_empty": "Rien ne s’est résolu depuis le dernier effacement de l’historique des erreurs.",
+  "global_queued_only": "{count, plural, one {# tâche en file d’attente} other {# tâches en file d’attente}}",
+  "global_breakdown": "{count, plural, one {# tâche} other {# tâches}} : {parts}",
+  "global_summary_activity": "{kind} : {activity}",
+  "activity_waiting_for_frigate": "En attente d’une réponse de Frigate",
+  "phase_waiting_for_frigate": "En attente d’une réponse de Frigate",
+  "lane_running_count": "{count} en cours",
+  "lane_queued_count": "{count} en file d’attente"
 }

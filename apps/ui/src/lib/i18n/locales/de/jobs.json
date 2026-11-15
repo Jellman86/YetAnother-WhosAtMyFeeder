@@ -294,5 +294,12 @@
   "errors_clear_effect": "Entfernt aufgezeichnete Fehler und Vorfälle sofort. Laufende Prüfungen gehen weiter.",
   "earlier_incidents_title": "Frühere Vorfälle",
   "earlier_incidents_desc": "Probleme, die inzwischen behoben sind. Was jetzt offen ist, steht oben beim Systemstatus.",
-  "earlier_incidents_empty": "Seit dem letzten Löschen des Fehlerverlaufs wurde nichts behoben."
+  "earlier_incidents_empty": "Seit dem letzten Löschen des Fehlerverlaufs wurde nichts behoben.",
+  "global_queued_only": "{count, plural, one {# Job in der Warteschlange} other {# Jobs in der Warteschlange}}",
+  "global_breakdown": "{count, plural, one {# Job} other {# Jobs}}: {parts}",
+  "global_summary_activity": "{kind}: {activity}",
+  "activity_waiting_for_frigate": "Wartet, bis Frigate antwortet",
+  "phase_waiting_for_frigate": "Wartet, bis Frigate antwortet",
+  "lane_running_count": "{count} laufen",
+  "lane_queued_count": "{count} in der Warteschlange"
 }

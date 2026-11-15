@@ -294,5 +294,12 @@
   "errors_clear_effect": "Сразу удаляет записанные ошибки и инциденты. Текущие проверки продолжаются.",
   "earlier_incidents_title": "Прошлые инциденты",
   "earlier_incidents_desc": "Проблемы, которые уже устранены. Открытые сейчас перечислены выше, вместе с состоянием системы.",
-  "earlier_incidents_empty": "С последней очистки журнала ошибок ничего не было устранено."
+  "earlier_incidents_empty": "С последней очистки журнала ошибок ничего не было устранено.",
+  "global_queued_only": "{count, plural, one {# задание в очереди} few {# задания в очереди} many {# заданий в очереди} other {# задания в очереди}}",
+  "global_breakdown": "{count, plural, one {# задание} few {# задания} many {# заданий} other {# задания}}: {parts}",
+  "global_summary_activity": "{kind}: {activity}",
+  "activity_waiting_for_frigate": "Ожидание ответа Frigate",
+  "phase_waiting_for_frigate": "Ожидание ответа Frigate",
+  "lane_running_count": "выполняется: {count}",
+  "lane_queued_count": "в очереди: {count}"
 }

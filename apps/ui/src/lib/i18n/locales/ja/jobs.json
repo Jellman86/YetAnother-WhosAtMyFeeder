@@ -294,5 +294,12 @@
   "errors_clear_effect": "記録されたエラーとインシデントを今すぐ削除します。ライブのチェックは続きます。",
   "earlier_incidents_title": "過去のインシデント",
   "earlier_incidents_desc": "その後解消した問題です。現在の未解決の問題は上のシステム状態に表示されます。",
-  "earlier_incidents_empty": "前回エラー履歴を消去してから解消したものはありません。"
+  "earlier_incidents_empty": "前回エラー履歴を消去してから解消したものはありません。",
+  "global_queued_only": "{count, plural, other {# 件のジョブが待機中}}",
+  "global_breakdown": "{count, plural, other {# 件のジョブ}}: {parts}",
+  "global_summary_activity": "{kind}: {activity}",
+  "activity_waiting_for_frigate": "Frigate の応答を待機中",
+  "phase_waiting_for_frigate": "Frigate の応答を待機中",
+  "lane_running_count": "{count} 件実行中",
+  "lane_queued_count": "{count} 件待機中"
 }

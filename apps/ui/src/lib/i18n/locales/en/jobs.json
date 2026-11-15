@@ -294,5 +294,12 @@
   "errors_clear_effect": "Removes recorded errors and incidents now. Live checks carry on.",
   "earlier_incidents_title": "Earlier incidents",
   "earlier_incidents_desc": "Problems that have since cleared. What is open now is listed with the system status above.",
-  "earlier_incidents_empty": "Nothing has cleared since the error history was last cleared."
+  "earlier_incidents_empty": "Nothing has cleared since the error history was last cleared.",
+  "global_queued_only": "{count, plural, one {# job queued} other {# jobs queued}}",
+  "global_breakdown": "{count, plural, one {# job} other {# jobs}}: {parts}",
+  "global_summary_activity": "{kind}: {activity}",
+  "activity_waiting_for_frigate": "Waiting for Frigate to answer",
+  "phase_waiting_for_frigate": "Waiting for Frigate to answer",
+  "lane_running_count": "{count} running",
+  "lane_queued_count": "{count} queued"
 }

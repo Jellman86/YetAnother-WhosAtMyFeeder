@@ -52,6 +52,21 @@ describe('Global progress layout', () => {
     });
 });
 
+describe('global progress honesty', () => {
+    it('draws a bar only for a measured total, never a fixed block standing in for progress', () => {
+        expect(progressSource).not.toContain('w-2/5');
+        expect(progressSource).toContain('{#if aggregate.determinate && aggregate.percent !== null}');
+        expect(progressSource).toContain('data-global-progress-bar');
+    });
+
+    it('wraps the headline and the reason rather than cutting them off, on a flat banner', () => {
+        expect(progressSource).toContain('data-global-progress-headline');
+        expect(progressSource).not.toMatch(/data-global-progress-(headline|subline)[^>]*truncate/);
+        expect(progressSource).not.toMatch(/class="[^"]*truncate[^"]*"[^>]*>\s*\{aggregate\./);
+        expect(progressSource).not.toContain('bg-brand-500/5');
+    });
+});
+
 describe('global progress colour', () => {
     it('keeps amber for a blocked lane and runs work in flight on the brand colour', () => {
         // layout-patterns 1.3: amber says "this needs a person"; a job in flight needs nobody.

@@ -294,5 +294,12 @@
   "errors_clear_effect": "立即删除已记录的错误和事件。实时检查会继续。",
   "earlier_incidents_title": "以往的事件",
   "earlier_incidents_desc": "已经解除的问题。当前未解决的问题列在上方的系统状态中。",
-  "earlier_incidents_empty": "自上次清除错误记录以来，没有已解除的问题。"
+  "earlier_incidents_empty": "自上次清除错误记录以来，没有已解除的问题。",
+  "global_queued_only": "{count, plural, other {# 个任务排队中}}",
+  "global_breakdown": "{count, plural, other {# 个任务}}：{parts}",
+  "global_summary_activity": "{kind}：{activity}",
+  "activity_waiting_for_frigate": "正在等待 Frigate 响应",
+  "phase_waiting_for_frigate": "正在等待 Frigate 响应",
+  "lane_running_count": "{count} 个运行中",
+  "lane_queued_count": "{count} 个排队中"
 }

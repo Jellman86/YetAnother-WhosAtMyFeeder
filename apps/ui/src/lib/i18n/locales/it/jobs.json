@@ -294,5 +294,12 @@
   "errors_clear_effect": "Rimuove subito errori e incidenti registrati. I controlli in tempo reale continuano.",
   "earlier_incidents_title": "Incidenti precedenti",
   "earlier_incidents_desc": "Problemi che nel frattempo si sono risolti. Ciò che è aperto ora è elencato sopra, con lo stato del sistema.",
-  "earlier_incidents_empty": "Nulla si è risolto dall’ultima cancellazione della cronologia errori."
+  "earlier_incidents_empty": "Nulla si è risolto dall’ultima cancellazione della cronologia errori.",
+  "global_queued_only": "{count, plural, one {# attività in coda} other {# attività in coda}}",
+  "global_breakdown": "{count, plural, one {# attività} other {# attività}}: {parts}",
+  "global_summary_activity": "{kind}: {activity}",
+  "activity_waiting_for_frigate": "In attesa che Frigate risponda",
+  "phase_waiting_for_frigate": "In attesa che Frigate risponda",
+  "lane_running_count": "{count} in corso",
+  "lane_queued_count": "{count} in coda"
 }
