@@ -9,6 +9,7 @@
     import { getErrorMessage } from '../../utils/error-handling';
     import { getLlmModelOptions, getRecommendedLlmModel } from '../../settings/llm-models';
     import type { AiDraft } from '../../settings/ai-section';
+    import { costReading, formatUsd } from '../../settings/ai-cost';
     import { matchingPromptStyle, promptTemplatesFor } from '../../settings/llm-prompt-templates';
     import SettingsCard from './_primitives/SettingsCard.svelte';
     import SettingsRow from './_primitives/SettingsRow.svelte';
@@ -138,11 +139,8 @@
         return n.toString();
     };
 
-    // Cents are the precision a bill has; below a cent says so rather than printing $0.0000.
-    const formatEstimatedCost = (value: number | null | undefined) => {
-        const cost = value ?? 0;
-        return cost > 0 && cost < 0.01 ? '< 0.01' : cost.toFixed(2);
-    };
+    // What the cost tile may say: an amount only for priced usage, with the requests it covers.
+    const cost = $derived(usage ? costReading(usage) : null);
 
     const metricCardClass = 'p-6 rounded-2xl border transition-all duration-200 hover:-translate-y-0.5';
     const buttonPrimaryClass = 'btn btn-primary min-h-11 px-6 py-3';
@@ -395,12 +393,37 @@
                     </div>
                     <div class="{metricCardClass} bg-slate-50 dark:bg-slate-900/50 border-slate-100 dark:border-slate-700/50">
                         <p class="text-sm font-semibold text-slate-700 mb-1 dark:text-slate-200">{$_('settings.ai.estimated_cost', { default: 'Estimated Cost' })}</p>
-                        <p class="text-2xl font-bold text-slate-900 dark:text-white">
-                            ${formatEstimatedCost(usage.estimated_cost_usd)}
-                            <span class="text-xs ml-1 font-semibold text-slate-600 dark:text-slate-300">USD</span>
-                        </p>
-                        {#if !usage.pricing_configured}
-                            <p class="mt-1 text-xs text-slate-600 dark:text-slate-300">{$_('settings.ai.pricing_not_configured', { default: 'Configure pricing below for accuracy' })}</p>
+                        <!-- An amount is shown only for usage that has a price, with the share of requests it
+                             covers. A missing price is said in words at body size, never as a zero amount. -->
+                        {#if cost?.kind === 'not_estimated'}
+                            <p class="text-base font-semibold text-slate-900 dark:text-white" data-ai-cost="not_estimated">
+                                {$_('settings.ai.cost_not_estimated', { default: 'Cost not estimated: add prices' })}
+                            </p>
+                            <p class="mt-1 text-xs text-slate-600 dark:text-slate-300" data-ai-cost-coverage>
+                                {cost.unpricedModels.length > 0
+                                    ? $_('settings.ai.cost_unpriced_models', { values: { models: cost.unpricedModels.join(', ') }, default: 'No price is set for {models}. Add one under Pricing and prompt templates.' })
+                                    : $_('settings.ai.pricing_not_configured', { default: 'Set prices under Pricing and prompt templates for an accurate cost.' })}
+                            </p>
+                        {:else if cost?.kind === 'partial'}
+                            <p class="text-2xl font-bold text-slate-900 dark:text-white" data-ai-cost="partial">
+                                {formatUsd(cost.cost)}
+                                <span class="text-xs ml-1 font-semibold text-slate-600 dark:text-slate-300">USD</span>
+                            </p>
+                            <p class="mt-1 text-xs text-slate-600 dark:text-slate-300" data-ai-cost-coverage>
+                                {$_('settings.ai.cost_coverage_partial', { values: { priced: cost.pricedCalls, total: cost.totalCalls, models: cost.unpricedModels.join(', ') }, default: 'Covers {priced} of {total, plural, one {# request} other {# requests}}. Not priced, so not included: {models}.' })}
+                            </p>
+                        {:else if cost?.kind === 'estimated'}
+                            <p class="text-2xl font-bold text-slate-900 dark:text-white" data-ai-cost="estimated">
+                                {formatUsd(cost.cost)}
+                                <span class="text-xs ml-1 font-semibold text-slate-600 dark:text-slate-300">USD</span>
+                            </p>
+                            <p class="mt-1 text-xs text-slate-600 dark:text-slate-300" data-ai-cost-coverage>
+                                {$_('settings.ai.cost_coverage_all', { values: { total: cost.totalCalls }, default: '{total, plural, one {Covers the # request made.} other {Covers all # requests.}}' })}
+                            </p>
+                        {:else}
+                            <p class="text-base font-semibold text-slate-900 dark:text-white" data-ai-cost="no_usage">
+                                {$_('settings.ai.cost_no_usage', { default: 'No requests, so nothing to cost.' })}
+                            </p>
                         {/if}
                     </div>
                 </div>
@@ -427,7 +450,7 @@
                                         <td class="px-4 py-3 capitalize">{item.feature}</td>
                                         <td class="px-4 py-3 text-right">{item.calls}</td>
                                         <td class="px-4 py-3 text-right font-mono">{formatTokens(item.total_tokens)}</td>
-                                        <td class="px-4 py-3 text-right font-semibold text-slate-900 dark:text-white">${formatEstimatedCost(item.estimated_cost_usd)}</td>
+                                        <td class="px-4 py-3 text-right font-semibold text-slate-900 dark:text-white" data-ai-cost-row={item.priced ? 'priced' : 'not_priced'}>{item.estimated_cost_usd === null || item.estimated_cost_usd === undefined ? $_('settings.ai.cost_not_priced', { default: 'Not priced' }) : formatUsd(item.estimated_cost_usd)}</td>
                                     </tr>
                                 {/each}
                             </tbody>

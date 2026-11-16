@@ -26,9 +26,15 @@
             "type": "integer"
           },
           "estimated_cost_usd": {
-            "default": 0.0,
-            "title": "Estimated Cost Usd",
-            "type": "number"
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estimated Cost Usd"
           },
           "feature": {
             "title": "Feature",
@@ -45,6 +51,11 @@
           "output_tokens": {
             "title": "Output Tokens",
             "type": "integer"
+          },
+          "priced": {
+            "default": false,
+            "title": "Priced",
+            "type": "boolean"
           },
           "provider": {
             "title": "Provider",
@@ -95,11 +106,6 @@
             "title": "Day",
             "type": "string"
           },
-          "estimated_cost_usd": {
-            "default": 0.0,
-            "title": "Estimated Cost Usd",
-            "type": "number"
-          },
           "input_tokens": {
             "title": "Input Tokens",
             "type": "integer"
@@ -144,9 +150,15 @@
             "type": "array"
           },
           "estimated_cost_usd": {
-            "default": 0.0,
-            "title": "Estimated Cost Usd",
-            "type": "number"
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estimated Cost Usd"
           },
           "from_date": {
             "title": "From Date",
@@ -158,6 +170,16 @@
           },
           "output_tokens": {
             "title": "Output Tokens",
+            "type": "integer"
+          },
+          "priced_calls": {
+            "default": 0,
+            "title": "Priced Calls",
+            "type": "integer"
+          },
+          "priced_tokens": {
+            "default": 0,
+            "title": "Priced Tokens",
             "type": "integer"
           },
           "pricing_configured": {
@@ -175,6 +197,24 @@
           },
           "total_tokens": {
             "title": "Total Tokens",
+            "type": "integer"
+          },
+          "unpriced_calls": {
+            "default": 0,
+            "title": "Unpriced Calls",
+            "type": "integer"
+          },
+          "unpriced_models": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Unpriced Models",
+            "type": "array"
+          },
+          "unpriced_tokens": {
+            "default": 0,
+            "title": "Unpriced Tokens",
             "type": "integer"
           }
         },
