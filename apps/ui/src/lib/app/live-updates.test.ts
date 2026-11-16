@@ -564,6 +564,15 @@ describe('LiveUpdateCoordinator reclassify fallback', () => {
         expect(calls.remove).toContain('reclassify:progress');
     });
 
+    it('marks a queued reclassification as the server\'s job, and a snapshot one as this browser\'s', () => {
+        const { coordinator, calls } = buildCoordinator();
+        coordinator.handlePayload({ type: 'reclassification_started', data: { event_id: 'evt-q', strategy: 'video', job_id: 'reclassify:evt-q' } });
+        coordinator.handlePayload({ type: 'reclassification_started', data: { event_id: 'evt-s', strategy: 'snapshot' } });
+        const byId = new Map(calls.upsertRunning.map((input) => [input.id, input]));
+        expect(byId.get('reclassify:evt-q')?.serverJobId).toBe('reclassify:evt-q');
+        expect(byId.get('reclassify:evt-s')?.serverJobId).toBeUndefined();
+    });
+
     it('does not track reclassification jobs for guest/public sessions', () => {
         const { coordinator, calls } = buildCoordinator({ shouldNotify: false });
 

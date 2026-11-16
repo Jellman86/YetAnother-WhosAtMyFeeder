@@ -25,6 +25,9 @@ from tests import process_globals
 from tests.model_fixture_support import group_model_cases
 from tests.pure_lane import PURE_ONLY_SESSION, is_pure_test
 
+# pytester runs a test session inside a test, for checks on the suite's own fixtures.
+pytest_plugins = ("pytester",)
+
 BACKEND_DIR = Path(__file__).parent.parent.resolve()
 
 _suite_dir: Path | None = None

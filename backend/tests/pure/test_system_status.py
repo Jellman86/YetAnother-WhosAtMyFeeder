@@ -449,10 +449,7 @@ def test_a_closed_video_circuit_moves_the_incident_revision_so_its_incident_can_
 
     tripped = snapshot(circuit_open=True, open_until="2026-11-16T09:10:00Z", failure_count=5)
     recovered = snapshot(circuit_open=False, failure_count=0)
-    maintenance_tripped = snapshot(circuit_open=False, maintenance_circuit_open=True)
-
     assert tripped.incident_revision != recovered.incident_revision
-    assert maintenance_tripped.incident_revision != recovered.incident_revision
     assert tripped.health_revision != recovered.health_revision
 
 
@@ -468,3 +465,57 @@ def test_the_incident_revision_ignores_counters_that_only_health_shows():
     assert base.incident_revision == counted.incident_revision
     assert base.health_revision != counted.health_revision
     assert base.incident_revision != critical.incident_revision
+
+
+def _set_path(tree: dict, path: str, value) -> dict:
+    head, _, rest = path.partition(".")
+    node = dict(tree.get(head) or {})
+    tree = {**tree, head: _set_path(node, rest, value) if rest else value}
+    return tree
+
+
+def test_every_incident_signal_moves_the_incident_revision():
+    from app.services.system_status import INCIDENT_SIGNAL_PATHS
+
+    base_health = {"ml": {"status": "ok", "live_image": {"status": "ok"}, "bird_finder": {"model_id": "y"}}}
+
+    def revision(health: dict) -> str:
+        inputs = healthy(incident_health=health)
+        return derive_system_status(inputs, revision=1, now=NOW).incident_revision
+
+    base = revision(base_health)
+    for path in INCIDENT_SIGNAL_PATHS:
+        value = 3 if path.endswith(".queued") else True
+        assert revision(_set_path(base_health, path, value)) != base, path
+
+
+def test_the_incident_signals_are_the_ones_the_incident_workspace_resolves_from():
+    import re
+    from pathlib import Path
+
+    from app.services.system_status import INCIDENT_SIGNAL_PATHS
+
+    source = (Path(__file__).resolve().parents[3] / "apps/ui/src/lib/stores/incident-signals.ts").read_text()
+    block = re.search(r"INCIDENT_SIGNAL_PATHS = \[(.*?)\] as const", source, re.S)
+    assert block, "the frontend list is declared as INCIDENT_SIGNAL_PATHS = [...] as const"
+    assert tuple(re.findall(r"'([^']+)'", block.group(1))) == INCIDENT_SIGNAL_PATHS
+
+
+@pytest.mark.parametrize(
+    "before,after",
+    [
+        (
+            {"ml": {"worker_pools": {"background": {"circuit_open": True}}}},
+            {"ml": {"worker_pools": {"background": {"circuit_open": False}}}},
+        ),
+        (
+            {"ml": {"background_image": {"background_throttled": True, "queued": 4}}},
+            {"ml": {"background_image": {"background_throttled": False, "queued": 0}}},
+        ),
+    ],
+)
+def test_a_stateful_recovery_moves_both_revisions(before, after):
+    first = derive_system_status(healthy(incident_health=before), revision=1, now=NOW)
+    second = derive_system_status(healthy(incident_health=after), revision=1, now=NOW)
+    assert first.incident_revision != second.incident_revision
+    assert first.health_revision != second.health_revision

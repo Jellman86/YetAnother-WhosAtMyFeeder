@@ -85,23 +85,6 @@ function correlationEventId(job: JobProgressItem): string | null {
     return null;
 }
 
-/**
- * Kinds of work the server's jobs snapshot reports and counts in its lanes. The browser's own
- * names for the same work are here too: a per-event reclassification is a video analysis, and the
- * batch row stands for the analysis queue.
- */
-const SERVER_COUNTED_KINDS: ReadonlySet<string> = new Set([
-    'video_analysis',
-    'auto_video',
-    'reclassify',
-    'reclassify_batch',
-    'high_quality_snapshot',
-    'full_visit',
-    'favorite_archive',
-    'backfill',
-    'weather_backfill'
-]);
-
 /** The server's jobs, as the pushed status snapshot last reported them. */
 export class ServerJobsStore {
     snapshot = $state.raw<JobsSnapshot | null>(null);
@@ -197,13 +180,13 @@ export class ServerJobsStore {
     }
 
     /**
-     * The jobs only this browser owns, decided by what the work is rather than by its absence from
-     * the server's list: that list stops at a hundred while its lane totals count every job, so a
-     * job the server counts but did not list would otherwise be counted twice. The banner adds
-     * these to the server's own totals.
+     * The jobs only this browser owns: rows that follow no server job. Ownership is carried by the
+     * row (`serverJobId`, set where the row starts following server work), never inferred from a
+     * job's absence in the server's list, which stops at a hundred while its lane totals count
+     * every job. The banner adds these to the server's own totals.
      */
     browserOnlyActive(localJobs: JobProgressItem[]): JobProgressItem[] {
-        return localJobs.filter((job) => !SERVER_COUNTED_KINDS.has(job.kind));
+        return localJobs.filter((job) => !job.serverJobId);
     }
 
     private withoutServerJobs(localJobs: JobProgressItem[], serverJobs: JobProgressItem[]): JobProgressItem[] {

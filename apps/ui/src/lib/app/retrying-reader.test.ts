@@ -72,3 +72,20 @@ describe('createRetryingReader', () => {
         expect(read).toHaveBeenCalledTimes(3);
     });
 });
+
+describe('createRetryingReader after a failure', () => {
+    it('folds new requests into the read at the retry deadline instead of reading at once', async () => {
+        vi.useFakeTimers();
+        const read = vi.fn(async () => false);
+        const reader = createRetryingReader({ read, active: () => true });
+        reader.request();
+        await vi.advanceTimersByTimeAsync(0);
+        for (let second = 0; second < 20; second += 1) {
+            reader.request();
+            await vi.advanceTimersByTimeAsync(1_000);
+        }
+        // 0 s, then 5 s and 20 s on the schedule: three reads in twenty seconds, never twenty-one.
+        expect(read).toHaveBeenCalledTimes(3);
+        reader.cancel();
+    });
+});

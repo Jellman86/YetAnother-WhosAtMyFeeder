@@ -643,6 +643,8 @@
             jobProgressStore.markFailed({
                 id,
                 kind: kind === 'weather' ? 'weather_backfill' : 'backfill',
+                // A backfill row carries the server's own job id, so the server's count already includes it.
+                serverJobId: id,
                 title: progressTitle,
                 message,
                 route: '/settings',
@@ -654,6 +656,8 @@
             jobProgressStore.markCompleted({
                 id,
                 kind: kind === 'weather' ? 'weather_backfill' : 'backfill',
+                // A backfill row carries the server's own job id, so the server's count already includes it.
+                serverJobId: id,
                 title: progressTitle,
                 message,
                 route: '/settings',
@@ -665,6 +669,8 @@
             jobProgressStore.upsertRunning({
                 id,
                 kind: kind === 'weather' ? 'weather_backfill' : 'backfill',
+                // A backfill row carries the server's own job id, so the server's count already includes it.
+                serverJobId: id,
                 title: progressTitle,
                 message,
                 route: '/settings',

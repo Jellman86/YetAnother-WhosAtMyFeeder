@@ -135,6 +135,7 @@ class SystemStatusReadings:
             analysis=build_analysis_status(),
             mqtt_health=mqtt_service.get_status(),
             classifier_health=classifier_health,
+            incident_health={"ml": classifier_health},
             classifier_status=classifier_status,
             provider_validation_state=str(validation.get("state") or "idle"),
             media_storage_available=bool(media_cache.available),

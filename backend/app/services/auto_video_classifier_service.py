@@ -16,6 +16,7 @@ from io import BytesIO
 from PIL import Image
 
 from app.config import settings
+from app.services.video_job_identity import reclassification_started_message, video_job_id
 from app.services.frigate_client import frigate_client
 from app.services.frigate_readiness import FRIGATE_NOT_READY
 from app.services.high_quality_snapshot_service import high_quality_snapshot_service
@@ -1067,7 +1068,7 @@ class AutoVideoClassifierService:
             kind = "reclassify" if source == "manual" else "auto_video" if source == "live" else "video_analysis"
             jobs.append(
                 {
-                    "id": f"reclassify:{event_id}" if source == "manual" else f"video:{event_id}",
+                    "id": video_job_id(event_id, source),
                     "event_id": event_id,
                     "kind": kind,
                     "source": source,
@@ -1102,7 +1103,7 @@ class AutoVideoClassifierService:
             )
             jobs.append(
                 {
-                    "id": f"reclassify:{event_id}" if source == "manual" else f"video:{event_id}",
+                    "id": video_job_id(event_id, source),
                     "event_id": event_id,
                     "kind": kind,
                     "source": source,
@@ -1610,17 +1611,9 @@ class AutoVideoClassifierService:
 
             # Broadcast start
             await broadcaster.broadcast(
-                {
-                    "type": "reclassification_started",
-                    "data": {
-                        "event_id": frigate_event,
-                        "strategy": (
-                            "video"
-                            if source == "manual" or frigate_event in self._manual_requested_ids
-                            else "auto_video"
-                        ),
-                    },
-                }
+                reclassification_started_message(
+                    frigate_event, manual=manual_reclassification_requested(), source=source
+                )
             )
 
             # Retry precheck on event_not_found to handle the Frigate race condition

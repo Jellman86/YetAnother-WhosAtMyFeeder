@@ -9,38 +9,30 @@ interface RetryingReaderOptions {
 }
 
 export interface RetryingReader {
-    /** Read now, or once more after a read already in flight. */
+    /** Read now; or, while a read or a retry wait is under way, once more when it ends. */
     request(): void;
     /** Drop any pending retry and ignore the result of a read in flight; later requests start afresh. */
     cancel(): void;
 }
 
 /**
- * A reading that is retried after a failure with a growing, capped wait, for as long as it is
- * still wanted. Shared by every read that follows a pushed revision, so none of them can stop at
- * one failed attempt and none can retry past a logout or an unmounted page.
+ * A reading retried after a failure with a growing, capped wait for as long as it is still wanted.
+ * At most one read is in flight. A request made meanwhile is folded into one more read: right
+ * after a read that succeeded, or at the retry deadline after one that failed, so a burst of new
+ * revisions can never bring a retry forward.
  */
 export function createRetryingReader({ read, active }: RetryingReaderOptions): RetryingReader {
     let generation = 0;
     let reading = false;
-    let again = false;
+    let wanted = false;
     let failures = 0;
-    let timer: ReturnType<typeof setTimeout> | null = null;
-
-    function clearTimer(): void {
-        if (timer !== null) clearTimeout(timer);
-        timer = null;
-    }
+    let retry: ReturnType<typeof setTimeout> | null = null;
 
     async function run(): Promise<void> {
-        if (reading) {
-            again = true;
-            return;
-        }
-        clearTimer();
         const mine = generation;
         reading = true;
-        let ok = false;
+        wanted = false;
+        let ok: boolean;
         try {
             ok = await read();
         } catch {
@@ -48,31 +40,37 @@ export function createRetryingReader({ read, active }: RetryingReaderOptions): R
         }
         if (mine !== generation) return;
         reading = false;
-        if (again) {
-            again = false;
-            void run();
-            return;
-        }
         if (ok) {
             failures = 0;
+            if (wanted) void run();
             return;
         }
-        if (!active()) return;
+        if (!active()) {
+            wanted = false;
+            return;
+        }
         const wait = READ_RETRY_MS[Math.min(failures, READ_RETRY_MS.length - 1)];
         failures += 1;
-        timer = setTimeout(() => {
-            timer = null;
+        retry = setTimeout(() => {
+            retry = null;
             if (mine === generation && active()) void run();
         }, wait);
     }
 
     return {
-        request: () => void run(),
+        request(): void {
+            if (reading || retry !== null) {
+                wanted = true;
+                return;
+            }
+            void run();
+        },
         cancel(): void {
             generation += 1;
-            clearTimer();
+            if (retry !== null) clearTimeout(retry);
+            retry = null;
             reading = false;
-            again = false;
+            wanted = false;
             failures = 0;
         }
     };

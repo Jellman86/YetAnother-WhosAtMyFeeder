@@ -98,7 +98,7 @@ type Verdict = { key: string; state: string; cause: string };
  * the connections, and the workspace's own health report. A failure in either is never smoothed
  * into a healthy status, and connections nobody supplied stay unmeasured.
  */
-export function judgedStatus(connections: ConnectionsLike, health: HealthLike | undefined): {
+function judgedStatus(connections: ConnectionsLike, health: HealthLike | undefined): {
     overall: { state: string; cause: string; subsystem: string | null };
     subsystems: Verdict[];
 } {
@@ -147,10 +147,12 @@ function replayedTelemetry(): unknown {
 function replayedStatus(overrides: Record<string, unknown>): unknown {
     const workspace = (overrides['/api/diagnostics/workspace'] ?? recordedJson('/api/diagnostics/workspace')) as
         { connections?: ConnectionsLike; health?: HealthLike } | undefined;
-    const connections = (overrides['/api/diagnostics/connections'] as ConnectionsLike | undefined)
-        ?? workspace?.connections
-        ?? (recordedJson('/api/diagnostics/connections') as ConnectionsLike | undefined)
-        ?? UNMEASURED_CONNECTIONS;
+    // A test that passes null connections means "nobody has measured them".
+    const connections = '/api/diagnostics/connections' in overrides
+        ? (overrides['/api/diagnostics/connections'] as ConnectionsLike | null) ?? UNMEASURED_CONNECTIONS
+        : workspace?.connections
+            ?? (recordedJson('/api/diagnostics/connections') as ConnectionsLike | undefined)
+            ?? UNMEASURED_CONNECTIONS;
     const jobs = overrides['/api/jobs'] ?? recordedJson('/api/jobs?include_routine=true')
         ?? { captured_at: new Date().toISOString(), items: [], lanes: [] };
     const lanes = (jobs as { lanes?: { kind: string; running?: number; queued?: number }[] }).lanes ?? [];

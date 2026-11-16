@@ -193,7 +193,7 @@ describe('ServerJobsStore', () => {
 });
 
 describe('ServerJobsStore browser-only work', () => {
-    it('keeps only the browser\'s jobs that the server does not report, by id or by event', () => {
+    it('keeps only the rows that follow no server job', () => {
         const store = new ServerJobsStore();
         store.ingest({
             captured_at: '2026-11-16T10:00:00Z',
@@ -203,31 +203,39 @@ describe('ServerJobsStore browser-only work', () => {
             ],
             lanes: []
         });
-        const local = (id: string, kind: string) => ({ id, kind, title: kind, status: 'running' as const, current: 0, total: 0, startedAt: 1, updatedAt: 1, source: 'sse' as const });
+        const local = (id: string, kind: string, serverJobId?: string) => ({ id, kind, title: kind, status: 'running' as const, current: 0, total: 0, startedAt: 1, updatedAt: 1, source: 'sse' as const, serverJobId });
         const only = store.browserOnlyActive([
-            local('reclassify:evt-1', 'reclassify'),
-            local('backfill:detections:b1', 'backfill'),
+            local('reclassify:evt-1', 'reclassify', 'video:evt-1'),
+            local('backfill:detections:b1', 'backfill', 'backfill:detections:b1'),
             local('model-download:x', 'model_download')
         ]);
         expect(only.map((job) => job.id)).toEqual(['model-download:x']);
     });
 });
 
-describe('ServerJobsStore browser-owned work, by identity', () => {
-    it('does not count work of a kind the server reports, even when the server\'s capped list leaves it out', () => {
+describe('ServerJobsStore browser-owned work, by the server job a row mirrors', () => {
+    const local = (id: string, kind: string, serverJobId?: string) => ({
+        id, kind, title: kind, status: 'running' as const, current: 0, total: 0, startedAt: 1, updatedAt: 1, source: 'sse' as const,
+        ...(serverJobId ? { serverJobId } : {})
+    });
+
+    it('does not count a row that mirrors a server job, even when the capped list leaves that job out', () => {
         const store = new ServerJobsStore();
         const listed = Array.from({ length: 100 }, (_, index) => ({
-            id: `video:evt-${index}`, event_id: `evt-${index}`, kind: 'video_analysis', source: 'maintenance',
+            id: `reclassify:evt-${index}`, event_id: `evt-${index}`, kind: 'reclassify', source: 'manual',
             status: 'queued' as const, phase: 'waiting', current: 0, total: 0, unit: 'frames', visibility: 'prominent' as const
         }));
-        store.ingest({ captured_at: 't', items: listed, lanes: [{ kind: 'video_analysis', queued: 151, running: 0 }] } as never);
-        const local = (id: string, kind: string) => ({ id, kind, title: kind, status: 'running' as const, current: 0, total: 0, startedAt: 1, updatedAt: 1, source: 'sse' as const });
-        // The 151st analysis, not in the server's hundred, followed here too: still the server's work.
+        store.ingest({ captured_at: 't', items: listed, lanes: [{ kind: 'reclassify', queued: 151, running: 0 }] } as never);
         const only = store.browserOnlyActive([
-            local('reclassify:evt-150', 'reclassify'),
-            local('backfill:weather:w9', 'weather_backfill'),
+            local('reclassify:evt-150', 'reclassify', 'reclassify:evt-150'),
             local('model-download:large', 'model_download')
         ]);
         expect(only.map((job) => job.id)).toEqual(['model-download:large']);
+    });
+
+    it('counts a snapshot reclassification, which runs outside the video queue and has no server job', () => {
+        const store = new ServerJobsStore();
+        store.ingest({ captured_at: 't', items: [], lanes: [] });
+        expect(store.browserOnlyActive([local('reclassify:evt-9', 'reclassify')]).map((job) => job.id)).toEqual(['reclassify:evt-9']);
     });
 });

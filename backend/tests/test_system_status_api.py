@@ -113,14 +113,13 @@ async def test_a_stream_the_broadcaster_drops_for_backpressure_is_closed_so_the_
         await response.body_iterator.aclose()
 
 
-# These two run in this order (pytest keeps a file's order): the first leaves the process-wide
-# status state dirty on purpose, the second proves the autouse fixture gave it a clean one.
-_LEFT_BEHIND: dict[str, object] = {}
+_INNER_TESTS = """
+from app.services import system_status_runtime
+
+LEFT_BEHIND = {}
 
 
-def test_status_state_left_dirty_by_one_test():
-    from app.services import system_status_runtime
-
+def test_dirty():
     service = system_status_runtime.system_status_service
     readings = system_status_runtime._readings
     readings._saved_jobs = [{"id": "high_quality_snapshot:left-over"}]
@@ -129,16 +128,28 @@ def test_status_state_left_dirty_by_one_test():
     service._revision = 7
     service._published_key = "left-over"
     service._published_at = 1.0
-    _LEFT_BEHIND["readings"] = readings
+    LEFT_BEHIND["readings"] = readings
 
 
-def test_status_state_is_clean_for_the_next_test():
-    from app.services import system_status_runtime
-
+def test_clean():
     service = system_status_runtime.system_status_service
     readings = system_status_runtime._readings
-    assert "readings" in _LEFT_BEHIND, "runs after the test that leaves state behind"
-    assert readings is not _LEFT_BEHIND["readings"]
+    assert readings is not LEFT_BEHIND["readings"]
     assert readings._saved_jobs is None and readings._saved_jobs_read_at is None
     assert readings._cameras is None and readings._cameras_read_at is None
     assert (service._revision, service._latest, service._published_key, service._published_at) == (0, None, None, None)
+"""
+
+
+def test_the_autouse_fixture_gives_every_test_a_fresh_status_collector_and_service(pytester):
+    """One session where a test leaves the status state dirty and the next must find it clean."""
+    pytester.makepyfile(test_inner=_INNER_TESTS)
+
+    pytester.makeconftest("from tests.conftest import isolate_system_status  # noqa: F401")
+    with_fixture = pytester.runpytest_inprocess("-p", "no:cacheprovider", "-p", "no:randomly", "test_inner.py")
+    with_fixture.assert_outcomes(passed=2)
+
+    # The same pair without the fixture proves it is the fixture that cleans up, not the test order.
+    pytester.makeconftest("")
+    without_fixture = pytester.runpytest_inprocess("-p", "no:cacheprovider", "-p", "no:randomly", "test_inner.py")
+    without_fixture.assert_outcomes(passed=1, failed=1)

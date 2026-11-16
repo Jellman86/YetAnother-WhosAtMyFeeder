@@ -190,8 +190,9 @@ curl -N "http://localhost:9852/api/sse?ticket=$TICKET"
   fresh figures. The snapshot is the body of `GET /api/status`. Guests never receive it. A
   stream that falls so far behind that the server stops queueing messages for it is closed, so
   the page reconnects and starts again from a fresh snapshot instead of trusting heartbeats alone;
-  the UI also treats a status older than 45 s as out of date, says so, and reads
-  `GET /api/status` until pushes resume.
+  the UI also treats a status as out of date once 90 s pass without one (counted from the
+  last accepted snapshot, or from sign-in before the first), says so, and reads `GET /api/status`
+  until one arrives. Reconnecting does not restart that count.
 - `GET /api/status` (owner): the one status reading the shell, Health, the Dashboard and
   Settings › Models all show, so none of them can disagree. Not cacheable. It holds:
   - `overall`: `state` (`ok`, `degraded` or `unknown`, the same judgement as `/health`'s

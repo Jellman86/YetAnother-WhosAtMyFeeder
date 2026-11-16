@@ -2,9 +2,9 @@ import { describe, expect, it, vi } from 'vitest';
 import { followRevisions } from './revision-follower';
 import { READ_RETRY_MS } from './retrying-reader';
 
-function deferred(): { promise: Promise<void>; resolve: () => void } {
+function deferred(): { promise: Promise<boolean>; resolve: () => void } {
     let resolve: () => void = () => undefined;
-    const promise = new Promise<void>((done) => { resolve = done; });
+    const promise = new Promise<boolean>((done) => { resolve = () => done(true); });
     return { promise, resolve };
 }
 

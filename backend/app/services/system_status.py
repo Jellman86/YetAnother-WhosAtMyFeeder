@@ -82,6 +82,8 @@ class SystemStatusInputs:
     telemetry: TelemetrySummary | None = None
     diagnostics_revision: int = 0
     version: str = "unknown"
+    # The health the incident workspace judges stateful incidents from (`ml`, as `/health` reports it).
+    incident_health: dict[str, Any] = field(default_factory=dict)
     # Configured secret values; free text in the snapshot is cleaned of them and of credential forms.
     secrets: tuple[str, ...] = ()
 
@@ -314,9 +316,33 @@ _PIPELINE_COUNTERS = (
     "incomplete_events",
     "critical_failures",
 )
-# Every breaker the video queue reports. A breaker that closes records no new fault, yet its
-# incident must close; so its state is part of what the incident workspace is judged from.
-_CIRCUIT_FIELDS = ("circuit_open", "open_until", "failure_count", "maintenance_circuit_open", "manual_circuit_open")
+# The health values the incident workspace resolves a stateful incident from
+# (`apps/ui/src/lib/stores/incident-signals.ts` holds the same list, and a test keeps the two
+# equal). A breaker closing or a queue draining records no new fault, so these, not the fault
+# history, are what lets an incident close: each one is part of the incident revision.
+INCIDENT_SIGNAL_PATHS: tuple[str, ...] = (
+    "video_classifier.circuit_open",
+    "ml.bird_finder.active",
+    "ml.live_image.recovery_active",
+    "ml.background_image.background_throttled",
+    "ml.background_image.queued",
+    "ml.worker_pools.live.circuit_open",
+    "ml.worker_pools.background.circuit_open",
+)
+
+
+def _read_path(tree: object, path: str) -> object:
+    for part in path.split("."):
+        if not isinstance(tree, dict):
+            return None
+        tree = tree.get(part)
+    return tree if isinstance(tree, (bool, int, float, str)) or tree is None else str(tree)
+
+
+def incident_signals(inputs: SystemStatusInputs) -> dict[str, object]:
+    """Each incident signal's current value, read from the same health the workspace reports."""
+    health = {"video_classifier": inputs.analysis.model_dump(), **inputs.incident_health}
+    return {path: _read_path(health, path) for path in INCIDENT_SIGNAL_PATHS}
 
 
 def _fingerprint(parts: object) -> str:
@@ -324,23 +350,15 @@ def _fingerprint(parts: object) -> str:
 
 
 def _incident_revision(inputs: SystemStatusInputs, overall: OverallVerdict, subsystems: list[SubsystemVerdict]) -> str:
-    """Moves whenever an incident can open or close: a verdict, a fault, a breaker, a recovery."""
+    """Moves whenever an incident can open or close: a verdict, a recorded fault, a stateful signal."""
     pipeline = inputs.event_pipeline or {}
-    analysis = inputs.analysis.model_dump()
-    live = (
-        inputs.classifier_health.get("live_image")
-        if isinstance(inputs.classifier_health.get("live_image"), dict)
-        else {}
-    )
     return _fingerprint(
         [
             overall.model_dump(),
             [verdict.model_dump() for verdict in subsystems],
-            {name: analysis.get(name) for name in _CIRCUIT_FIELDS},
+            incident_signals(inputs),
             pipeline.get("status"),
             bool(pipeline.get("critical_failure_active")),
-            bool(_finder_health(inputs).get("active")),
-            bool(live.get("recovery_active")),
             inputs.diagnostics_revision,
             inputs.startup_warning_count,
             inputs.db_pool_degraded,

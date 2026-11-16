@@ -563,4 +563,17 @@ describe('incident workspace across an access change', () => {
         await expect(pending).resolves.toBe(false);
         expect(store.workspacePayload).toBeNull();
     });
+
+    it('ignores a read that fails after the workspace was cleared for a new access', async () => {
+        type Payload = Awaited<ReturnType<typeof import('../api/diagnostics').fetchDiagnosticsWorkspace>>;
+        let fail: (error: Error) => void = () => undefined;
+        const store = createIncidentWorkspaceStore(() => new Promise<Payload>((_resolve, reject) => { fail = reject; }));
+        const pending = store.refresh();
+        store.clear();
+        const settledBefore = store.readSettled;
+        fail(new Error('HTTP 502 for the old session'));
+        await expect(pending).resolves.toBe(false);
+        expect(store.readSettled).toEqual(settledBefore);
+        expect(store.readFreshness).not.toBe('failed');
+    });
 });

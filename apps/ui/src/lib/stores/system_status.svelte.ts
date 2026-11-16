@@ -9,11 +9,12 @@ import { startVisiblePoll, type PollDocument } from '../app/visible-poll';
 export const STATUS_FALLBACK_READ_MS = 60_000;
 
 /**
- * The server pushes the status at least every 15 seconds. A live stream that has brought none for
- * this long has stopped delivering it (a proxy holding it, or a server that dropped the subscriber),
- * so the status is said to be out of date and is read directly until a push arrives again.
+ * The server pushes the status at least every 15 seconds, and a stream that is down is replaced by
+ * a read a minute. A status that has gone this long without a successor is out of date, however the
+ * stream has behaved meanwhile (a proxy holding it, a server that dropped the subscriber, a stream
+ * that reconnects without sending one): it says so and is read directly until one arrives.
  */
-export const STATUS_STALE_AFTER_MS = 45_000;
+export const STATUS_STALE_AFTER_MS = 90_000;
 
 /** Why the install is degraded, in the words the notification already has keys for. */
 export type HealthNotificationCause = 'mqtt_down' | 'mqtt_not_configured' | 'frigate_down' | 'pipeline_critical' | 'other';
@@ -21,7 +22,7 @@ export type HealthNotificationCause = 'mqtt_down' | 'mqtt_not_configured' | 'fri
 type StatusListener = (next: SystemStatus, previous: SystemStatus | null) => void;
 
 interface SystemStatusStoreOptions {
-    fetch?: () => Promise<SystemStatus>;
+    fetch?: (signal: AbortSignal) => Promise<SystemStatus>;
     tab?: PollDocument;
 }
 
@@ -33,23 +34,23 @@ export class SystemStatusStore {
     snapshot = $state.raw<SystemStatus | null>(null);
     /** True while the live stream is connected. */
     streamLive = $state(false);
-    /** When the last snapshot arrived, from a push or a read; null before the first. */
+    /** When the last snapshot was accepted, from a push or a read; null before the first. */
     receivedAt = $state<number | null>(null);
-    /** No snapshot has arrived for longer than the server's push interval allows. */
+    /** No snapshot has been accepted for `STATUS_STALE_AFTER_MS`, counted from the last one or from start. */
     stale = $state(false);
-    private readonly fetch: () => Promise<SystemStatus>;
+    private readonly fetch: (signal: AbortSignal) => Promise<SystemStatus>;
     private readonly tab: PollDocument | undefined;
     private readonly listeners = new Set<StatusListener>();
     private inFlight: Promise<void> | null = null;
+    private reading: AbortController | null = null;
     private generation = 0;
     private stopFallback: (() => void) | null = null;
     private active = false;
-    // A plain copy of `streamLive`, so deciding about the fallback read never subscribes the caller.
+    // Plain copies of reactive state, so deciding about reads never subscribes the caller.
     private live = false;
     private isStale = false;
-    // Plain, like `live`: whether any status has arrived since following began.
     private received = false;
-    private staleTimer: ReturnType<typeof setTimeout> | null = null;
+    private deadline: ReturnType<typeof setTimeout> | null = null;
 
     constructor(options: SystemStatusStoreOptions = {}) {
         this.fetch = options.fetch ?? fetchSystemStatus;
@@ -66,45 +67,33 @@ export class SystemStatusStore {
             return;
         }
         this.snapshot = next;
-        const first = !this.received;
+        this.receivedAt = Date.now();
         this.received = true;
-        this.markFresh();
-        // The first status is what lets a connected stream be trusted, so the fallback can stop.
-        if (first) this.syncFallback();
+        this.setStale(false);
+        this.armDeadline(this.receivedAt);
+        this.syncFallback();
         for (const listener of this.listeners) listener(next, previous);
     }
 
     /**
-     * How long a status may go without a successor before it is out of date: the push interval's
-     * margin on a live stream (or before any status at all), and one fallback read later than that
-     * while the stream is down and the status is being read once a minute.
+     * The one place freshness is counted from (the last accepted snapshot, or `start()` before one);
+     * nothing else moves the deadline.
      */
-    private staleAfterMs(): number {
-        return this.live || !this.received ? STATUS_STALE_AFTER_MS : STATUS_FALLBACK_READ_MS + STATUS_STALE_AFTER_MS;
-    }
-
-    private armWatchdog(): void {
-        if (this.staleTimer !== null) clearTimeout(this.staleTimer);
-        this.staleTimer = this.active
-            ? setTimeout(() => {
-                  this.staleTimer = null;
-                  this.isStale = true;
-                  this.stale = true;
-                  // Read at once, then on the fallback cadence until a status arrives.
-                  void this.load();
-                  this.syncFallback();
-              }, this.staleAfterMs())
-            : null;
-    }
-
-    private markFresh(): void {
-        this.receivedAt = Date.now();
-        this.armWatchdog();
-        if (this.isStale) {
-            this.isStale = false;
-            this.stale = false;
+    private armDeadline(since: number): void {
+        if (this.deadline !== null) clearTimeout(this.deadline);
+        this.deadline = null;
+        if (!this.active) return;
+        this.deadline = setTimeout(() => {
+            this.deadline = null;
+            this.setStale(true);
+            void this.load();
             this.syncFallback();
-        }
+        }, Math.max(0, since + STATUS_STALE_AFTER_MS - Date.now()));
+    }
+
+    private setStale(stale: boolean): void {
+        this.isStale = stale;
+        this.stale = stale;
     }
 
     /** Called with every accepted reading; returns the function that stops it. */
@@ -117,14 +106,19 @@ export class SystemStatusStore {
     load(): Promise<void> {
         if (this.inFlight) return this.inFlight;
         const generation = this.generation;
+        const controller = new AbortController();
+        this.reading = controller;
         this.inFlight = (async () => {
             try {
-                const reading = await this.fetch();
+                const reading = await this.fetch(controller.signal);
                 if (generation === this.generation) this.ingest(reading);
             } catch {
                 // The last reading stays; the stream or the next read replaces it.
             } finally {
-                if (generation === this.generation) this.inFlight = null;
+                if (generation === this.generation) {
+                    this.inFlight = null;
+                    this.reading = null;
+                }
             }
         })();
         return this.inFlight;
@@ -138,30 +132,28 @@ export class SystemStatusStore {
     /** Begin following the status for an owner: a first read, then the stream or the fallback read. */
     start(): void {
         this.active = true;
-        // Armed before any status: a failed first read and a stream that connects but sends
-        // nothing must still end in the status being called out of date and read again.
-        this.armWatchdog();
+        this.armDeadline(Date.now());
         void this.load();
         this.syncFallback();
     }
 
+    /** The stream connected or dropped. Only which reads are needed changes, never the deadline. */
     setStreamLive(live: boolean): void {
-        const changed = live !== this.live;
         this.live = live;
         this.streamLive = live;
-        // The time a status may stay unanswered depends on whether the stream is up.
-        if (changed && this.active && !this.isStale) this.armWatchdog();
         this.syncFallback();
     }
 
+    /**
+     * The fallback read runs unless a connected stream has delivered a status that is still fresh:
+     * while the stream is down, before any status has arrived, or once the status is out of date.
+     */
     private syncFallback(): void {
-        // A connected stream is trusted only once it, or a read, has brought a status.
-        const wanted = this.active && (!this.live || this.isStale || !this.received);
+        const wanted = this.active && (!this.live || !this.received || this.isStale);
         if (wanted && this.stopFallback === null) {
             this.stopFallback = startVisiblePoll({
                 read: () => this.load(),
                 delayMs: () => STATUS_FALLBACK_READ_MS,
-                // The watchdog reads at once when the status goes out of date; this keeps the cadence.
                 readAtStart: false,
                 tab: this.tab
             });
@@ -173,15 +165,17 @@ export class SystemStatusStore {
 
     clear(): void {
         this.generation += 1;
+        // A read made for the old session is abandoned, not left running beside the next one.
+        this.reading?.abort();
+        this.reading = null;
         this.inFlight = null;
         this.active = false;
         this.live = false;
-        this.streamLive = false;
-        this.isStale = false;
-        this.stale = false;
         this.received = false;
-        if (this.staleTimer !== null) clearTimeout(this.staleTimer);
-        this.staleTimer = null;
+        this.streamLive = false;
+        this.setStale(false);
+        if (this.deadline !== null) clearTimeout(this.deadline);
+        this.deadline = null;
         this.syncFallback();
         this.snapshot = null;
         this.receivedAt = null;

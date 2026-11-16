@@ -7,8 +7,8 @@ export type SubsystemVerdict = components['schemas']['SubsystemVerdict'];
 export type SubsystemKey = SubsystemVerdict['key'];
 export type StatusTelemetry = components['schemas']['TelemetrySummary'];
 
-export async function fetchSystemStatus(): Promise<SystemStatus> {
-    const response = await apiFetch(`${API_BASE}/status`, { cache: 'no-store', timeoutMs: 10_000 });
+export async function fetchSystemStatus(signal?: AbortSignal): Promise<SystemStatus> {
+    const response = await apiFetch(`${API_BASE}/status`, { cache: 'no-store', timeoutMs: 10_000, signal });
     return handleResponse<SystemStatus>(response);
 }
 

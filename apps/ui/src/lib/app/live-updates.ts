@@ -140,6 +140,7 @@ interface JobProgressLike {
         current?: number;
         total?: number;
         source?: 'sse' | 'poll' | 'ui' | 'system';
+        serverJobId?: string;
     }): void;
     markCompleted(input: {
         id: string;
@@ -150,6 +151,7 @@ interface JobProgressLike {
         current?: number;
         total?: number;
         source?: 'sse' | 'poll' | 'ui' | 'system';
+        serverJobId?: string;
     }): void;
     markFailed(input: {
         id: string;
@@ -160,6 +162,7 @@ interface JobProgressLike {
         current?: number;
         total?: number;
         source?: 'sse' | 'poll' | 'ui' | 'system';
+        serverJobId?: string;
     }): void;
     markStale(maxIdleMs: number, perKindIdleMs?: Record<string, number>): void;
     expireStale?(maxStaleMs: number): void;
@@ -492,6 +495,8 @@ export class LiveUpdateCoordinator {
                 if (!isBatch) {
                     this.deps.jobProgress.upsertRunning({
                         id: `reclassify:${payload.data.event_id}`,
+                        // Set only for a run in the video queue; a snapshot run has no server job.
+                        serverJobId: typeof payload.data.job_id === 'string' ? payload.data.job_id : undefined,
                         kind: 'reclassify',
                         title: this.deps.t('actions.reclassify'),
                         route: `/events?event=${encodeURIComponent(payload.data.event_id)}`,
@@ -907,6 +912,8 @@ export class LiveUpdateCoordinator {
             } else {
                 this.deps.jobProgress.upsertRunning({
                     id: RECLASSIFY_PROGRESS_ID,
+                    // The batch row stands for the analysis queue, which the server counts in its lanes.
+                    serverJobId: 'lane:video_analysis',
                     kind: 'reclassify_batch',
                     title: this.deps.t('settings.data.batch_analysis_title'),
                     message,
@@ -1278,6 +1285,8 @@ export class LiveUpdateCoordinator {
             this.deps.jobProgress.markFailed({
                 id,
                 kind: isWeather ? 'weather_backfill' : 'backfill',
+                // A backfill row carries the server's own job id, so the server's count already includes it.
+                serverJobId: id,
                 title: jobTitle,
                 message,
                 route: '/settings',
@@ -1289,6 +1298,8 @@ export class LiveUpdateCoordinator {
             this.deps.jobProgress.markCompleted({
                 id,
                 kind: isWeather ? 'weather_backfill' : 'backfill',
+                // A backfill row carries the server's own job id, so the server's count already includes it.
+                serverJobId: id,
                 title: jobTitle,
                 message,
                 route: '/settings',
@@ -1300,6 +1311,8 @@ export class LiveUpdateCoordinator {
             this.deps.jobProgress.upsertRunning({
                 id,
                 kind: isWeather ? 'weather_backfill' : 'backfill',
+                // A backfill row carries the server's own job id, so the server's count already includes it.
+                serverJobId: id,
                 title: jobTitle,
                 message: progressMessage,
                 route: '/settings',

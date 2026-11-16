@@ -1,6 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
-import { HEALTHY_CONNECTIONS, judgedStatus, replayFeeder, settled, type Theme } from './accessibility-mock';
+import { HEALTHY_CONNECTIONS, replayFeeder, settled, type Theme } from './accessibility-mock';
 
 /**
  * The sidebar's System status card in the real app shell: a neutral list of measured states,
@@ -190,17 +190,23 @@ test('at 200% text the card loses nothing', async ({ page }) => {
     await expect(card(page).locator('[data-health-issues]')).toBeVisible();
 });
 
-test('the fixture status keeps every failure it is given and never assumes a healthy connection', () => {
-    const critical = judgedStatus(HEALTHY_CONNECTIONS, {
-        status: 'degraded',
-        event_pipeline: { status: 'degraded', critical_failure_active: true }
-    });
-    expect(critical.overall).toEqual({ state: 'degraded', cause: 'pipeline_critical', subsystem: null });
+/** The status the replayed backend serves the page, read the way the page reads it. */
+async function servedStatus(page: Page, overrides: Record<string, unknown>): Promise<{ overall: { state: string; cause: string; subsystem: string | null }; subsystems: { key: string; state: string }[] }> {
+    await replayFeeder(page, 'light', overrides);
+    await page.goto('/about');
+    return page.evaluate(async () => (await fetch('/api/status')).json());
+}
 
-    const unmeasured = judgedStatus({}, { status: 'ok' });
-    expect(unmeasured.overall.state).toBe('unknown');
-    expect(unmeasured.subsystems.map((verdict) => verdict.state)).toEqual(['unknown', 'unknown']);
+test('the replayed status keeps a failed workspace\'s failure', async ({ page }) => {
+    const failing = workspace([]);
+    const payload = failing['/api/diagnostics/workspace'] as Record<string, unknown>;
+    payload.health = { status: 'degraded', event_pipeline: { status: 'degraded', critical_failure_active: true } };
+    const status = await servedStatus(page, failing);
+    expect(status.overall).toEqual({ state: 'degraded', cause: 'pipeline_critical', subsystem: null });
+});
 
-    const down = judgedStatus({ mqtt: { state: 'disconnected' }, frigate: { state: 'reachable' } }, { status: 'ok' });
-    expect(down.overall).toEqual({ state: 'degraded', cause: 'disconnected', subsystem: 'mqtt' });
+test('the replayed status never calls unmeasured connections healthy', async ({ page }) => {
+    const status = await servedStatus(page, { '/api/diagnostics/connections': null });
+    expect(status.overall.state).toBe('unknown');
+    expect(status.subsystems.map((verdict) => verdict.state)).toEqual(['unknown', 'unknown']);
 });
