@@ -39,6 +39,9 @@
     import { fullVisitStore } from '../stores/full-visit.svelte';
     import { authStore } from '../stores/auth.svelte';
     import { guestRecentAudioPollDelayMs } from '../app/public-refresh-budget';
+    import { REFRESH_CADENCE_MS } from '../app/refresh-cadence';
+    import { startLiveReading, type LiveReading } from '../app/live-reading';
+    import { audioActivity } from '../stores/audio_activity.svelte';
     import { _ } from 'svelte-i18n';
     import { getErrorMessage, isTransientRequestError } from '../utils/error-handling';
     import { logger } from '../utils/logger';
@@ -395,8 +398,26 @@
         countedCaptures: summary?.counted_captures ?? null
     }));
 
+    // An owner's Garden switch is in their settings. The day waits for them on a cold load, so the log
+    // is read once with the right contents instead of once without Garden and again when they arrive.
+    let awaitingSettings = false;
+    async function settleGardenSwitch(signal: AbortSignal): Promise<void> {
+        if (!authStore.hasOwnerAccess || settingsStore.settings !== null) return;
+        awaitingSettings = true;
+        try {
+            await settingsStore.read();
+        } catch {
+            // Without settings the log reads birds only; it is read again if the switch arrives on.
+        } finally {
+            awaitingSettings = false;
+        }
+        if (signal.aborted) throw new DOMException('The read was aborted.', 'AbortError');
+    }
+
     const summaryLoader = createObservationProjectionLoader({
         fetch: async (signal) => {
+            await settleGardenSwitch(signal);
+            readGardenAvailable = gardenAvailable;
             const now = new Date();
             const window = { startTime: new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString(), endTime: now.toISOString() };
             // A Garden failure is stated beside the birds rather than taking the whole log down.
@@ -462,31 +483,66 @@
         checkCount: checksView.names.length
     }));
 
-    const SUMMARY_POLL_MS = 60_000;
+    const DAY_POLL_MS = REFRESH_CADENCE_MS.dashboardDay;
+
+    // The live stream announces every visit, correction and Garden review, and the effects below read
+    // the day again for each, so while it is connected the timer is only a slow safety read. Without
+    // it, the day is polled every minute as before.
+    let daySafetyReading: LiveReading | undefined;
+    let dayAudioReading: LiveReading | undefined;
+    // New calls are announced to the owner only; a guest's Heard figures poll within the visitor budget.
+    const audioFollowsLiveStream = $derived(authStore.hasOwnerAccess && detectionsStore.connected);
 
     onMount(() => {
         void loadSummary();
-        const interval = setInterval(() => {
-            if (document.visibilityState !== 'visible') return;
-            void loadSummary();
-            loadSpeciesChecks();
-            loadReviewQueue();
-        }, SUMMARY_POLL_MS);
+        daySafetyReading = startLiveReading({
+            read: () => {
+                void loadSummary();
+                loadSpeciesChecks();
+                loadReviewQueue();
+            },
+            live: () => detectionsStore.connected,
+            pollMs: () => DAY_POLL_MS,
+            quietMs: REFRESH_CADENCE_MS.liveSafetyRead,
+            readAtStart: false
+        });
         // The day bar and the Heard card share this one reading, kept within a visitor's request budget.
-        const audioPollMs = authStore.isGuest
-            ? Math.max(SUMMARY_POLL_MS, guestRecentAudioPollDelayMs(authStore.publicAccessRateLimitPerMinute))
-            : SUMMARY_POLL_MS;
-        const audioInterval = setInterval(() => {
-            if (document.visibilityState === 'visible' && birdnetEnabled) void audioSummaryLoader.load();
-        }, audioPollMs);
-        return () => { clearInterval(interval); clearInterval(audioInterval); summaryLoader.dispose(); audioSummaryLoader.dispose(); reviewQueueLoader.dispose(); };
+        dayAudioReading = startLiveReading({
+            read: () => { if (birdnetEnabled) void audioSummaryLoader.load(); },
+            live: () => audioFollowsLiveStream,
+            pollMs: () => authStore.isGuest
+                ? Math.max(DAY_POLL_MS, guestRecentAudioPollDelayMs(authStore.publicAccessRateLimitPerMinute))
+                : DAY_POLL_MS,
+            quietMs: REFRESH_CADENCE_MS.liveSafetyRead,
+            readAtStart: false
+        });
+        return () => { daySafetyReading?.stop(); dayAudioReading?.stop(); summaryLoader.dispose(); audioSummaryLoader.dispose(); reviewQueueLoader.dispose(); };
     });
 
-    // Turning Garden on or off, or signing in as the owner, changes what the log may hold.
+    $effect(() => {
+        void detectionsStore.connected;
+        daySafetyReading?.liveChanged();
+    });
+
+    $effect(() => {
+        void audioFollowsLiveStream;
+        dayAudioReading?.liveChanged();
+    });
+
+    let handledAudioActivity = audioActivity.version;
+    $effect(() => {
+        const version = audioActivity.version;
+        if (version === handledAudioActivity) return;
+        handledAudioActivity = version;
+        dayAudioReading?.changed();
+    });
+
+    // Turning Garden on or off, or signing in as the owner, changes what the log may hold. A read
+    // still waiting for the owner's settings decides with them, so it is not started twice.
     let readGardenAvailable = untrack(() => gardenAvailable);
     $effect(() => {
         const available = gardenAvailable;
-        if (available === readGardenAvailable) return;
+        if (available === readGardenAvailable || awaitingSettings) return;
         readGardenAvailable = available;
         if (!available) gardenViewer.close();
         untrack(() => { void loadSummary(); });

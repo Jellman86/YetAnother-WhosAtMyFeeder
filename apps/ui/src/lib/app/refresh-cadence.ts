@@ -18,8 +18,18 @@ export const REFRESH_CADENCE_MS = {
     ownerSystemChecks: 120_000,
     /** Whether the media folder is writable. It needs a storage measurement, so it is read rarely. */
     mediaStorageCheck: 600_000,
-    /** BirdNET-Go reports a call a few seconds after it happens; the Heard card follows closely. */
+    /**
+     * BirdNET-Go reports a call a few seconds after it happens; the Heard card follows closely. With the
+     * live stream connected, an owner's card reads when a call is announced, no more often than this.
+     */
     recentAudio: 15_000,
+    /** The Dashboard's day: the 24-hour summary, visit log, species checks and the review queue. */
+    dashboardDay: 60_000,
+    /**
+     * While the live stream announces every change to a reading, the one read it still takes: the
+     * 24-hour window moving on, or an announcement lost on the way.
+     */
+    liveSafetyRead: 300_000,
     /** The Dashboard's accelerator warning, and the faster rate while a one-off check is running. */
     providerWarning: 60_000,
     providerWarningChecking: 15_000,

@@ -44,6 +44,7 @@ function buildCoordinator(options?: {
     refreshOwnerHistory?: () => Promise<void>;
     onGardenHistoryChanged?: () => void;
     onServiceConnectionsChanged?: () => void;
+    onAudioDetected?: () => void;
 }) {
     const calls = {
         upsertRunning: [] as any[],
@@ -82,6 +83,7 @@ function buildCoordinator(options?: {
         refreshOwnerHistory: options?.refreshOwnerHistory,
         onGardenHistoryChanged: options?.onGardenHistoryChanged,
         onServiceConnectionsChanged: options?.onServiceConnectionsChanged,
+        onAudioDetected: options?.onAudioDetected,
         applyNotificationPolicy: () => true,
         notificationCenter: {
             items: notificationItems,
@@ -796,6 +798,14 @@ describe('private Garden live updates', () => {
         coordinator.handlePayload({ type: 'garden_history_changed' });
         expect(onGardenHistoryChanged).toHaveBeenCalledTimes(owner ? 1 : 0);
         expect(calls.addDetection).toEqual([]);
+        expect(calls.notificationUpserts).toEqual([]);
+    });
+
+    it.each([true, false])('passes on a newly heard call only with owner access (%s)', (owner) => {
+        const onAudioDetected = vi.fn();
+        const { coordinator, calls } = buildCoordinator({ hasOwnerAccess: owner, shouldNotify: false, onAudioDetected });
+        coordinator.handlePayload({ type: 'audio_detected' });
+        expect(onAudioDetected).toHaveBeenCalledTimes(owner ? 1 : 0);
         expect(calls.notificationUpserts).toEqual([]);
     });
 

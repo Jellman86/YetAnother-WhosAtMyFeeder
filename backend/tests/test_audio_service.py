@@ -636,3 +636,47 @@ async def test_undo_preserves_chronological_buffer_expiry(audio_service):
     audio_service._buffer_duration = timedelta(minutes=2)
     audio_service._cleanup_buffer()
     assert [item.species for item in audio_service._buffer] == ["Recent Robin"]
+
+
+@pytest.mark.asyncio
+async def test_a_new_call_is_announced_to_open_pages_once(audio_service):
+    payload = {
+        "detectionId": 9101,
+        "nm": "BirdCam",
+        "CommonName": "Wren",
+        "ScientificName": "Troglodytes troglodytes",
+        "Confidence": 0.88,
+        "BeginTime": datetime.now(timezone.utc).isoformat(),
+    }
+    with patch("app.services.audio.audio_service.broadcaster.broadcast", new_callable=AsyncMock) as broadcast:
+        assert await audio_service.add_detection(payload) is True
+        # A redelivery of the same call is not a new call.
+        assert await audio_service.add_detection(payload) is True
+
+    broadcast.assert_awaited_once_with({"type": "audio_detected"})
+
+
+@pytest.mark.asyncio
+async def test_a_diagnostic_or_ignored_call_is_not_announced(audio_service):
+    with patch("app.services.audio.audio_service.broadcaster.broadcast", new_callable=AsyncMock) as broadcast:
+        await audio_service.add_detection(
+            {"species": "Diagnostic-only Wren", "confidence": 0.9, "timestamp": datetime.now(timezone.utc).timestamp()},
+            diagnostic=True,
+        )
+        with patch("app.services.audio.audio_service.settings") as strict_settings:
+            strict_settings.frigate.audio_min_confidence = 0.5
+            await audio_service.add_detection({"species": "Faint Wren", "confidence": 0.1})
+
+    broadcast.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_a_failed_announcement_does_not_fail_the_ingest(audio_service):
+    with patch(
+        "app.services.audio.audio_service.broadcaster.broadcast",
+        new_callable=AsyncMock,
+        side_effect=RuntimeError("stream gone"),
+    ):
+        assert await audio_service.add_detection({"species": "Robin", "confidence": 0.8, "sensor_id": "mic1"}) is True
+
+    assert len(audio_service._buffer) == 1

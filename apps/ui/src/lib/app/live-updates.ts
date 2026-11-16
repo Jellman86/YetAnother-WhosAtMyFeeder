@@ -212,6 +212,8 @@ interface LiveUpdateDeps {
     onGardenHistoryChanged?: () => void;
     /** The broker or Frigate changed state; the server sends this to owners only. */
     onServiceConnectionsChanged?: () => void;
+    /** BirdNET-Go reported a new call; the server sends this to owners only. */
+    onAudioDetected?: () => void;
     onPublicAccessChanged?: () => void;
 }
 
@@ -459,6 +461,11 @@ export class LiveUpdateCoordinator {
 
             if (payload.type === 'garden_history_changed') {
                 if (this.deps.hasOwnerAccess?.()) this.deps.onGardenHistoryChanged?.();
+                return;
+            }
+
+            if (payload.type === 'audio_detected') {
+                if (this.deps.hasOwnerAccess?.()) this.deps.onAudioDetected?.();
                 return;
             }
 

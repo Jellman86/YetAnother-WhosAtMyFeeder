@@ -1697,7 +1697,9 @@ length oracle.
    carry detailed messages. `garden_history_changed` is an owner-only invalidation
    emitted after an automatic Garden result is committed, including removal for person
    evidence. It contains no capture ID or metadata; reread the owner-only Garden history
-   with the current filters. Guest streams carry only `public_history_changed` and
+   with the current filters. `audio_detected` is an owner-only invalidation sent when a new
+   BirdNET-Go call is stored (not for a redelivered call or a diagnostic); it carries no
+   detection, so reread `GET /api/audio/recent` or `GET /api/audio/summary`. Guest streams carry only `public_history_changed` and
    `public_access_changed` invalidations, in addition to connection/heartbeat frames;
    fetch allowed data through the public HTTP API and refresh sharing preferences.
 
