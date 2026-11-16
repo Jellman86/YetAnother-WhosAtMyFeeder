@@ -62,6 +62,9 @@ class ErrorDiagnosticsHistory:
         self._events: OrderedDict[GroupKey, dict[str, Any]] = OrderedDict()
         self._lock = Lock()
         self._counter = 0
+        # Rises with every record and every clear, so a reader can tell the history changed
+        # without copying it.
+        self._revision = 0
         self._secret_provider = secret_provider
 
     def _secrets(self) -> Sequence[str] | None:
@@ -106,6 +109,10 @@ class ErrorDiagnosticsHistory:
         }
 
     @property
+    def revision(self) -> int:
+        return self._revision
+
+    @property
     def capacity(self) -> int:
         return self._capacity
 
@@ -114,6 +121,7 @@ class ErrorDiagnosticsHistory:
             cleared = len(self._events)
             self._events.clear()
             self._counter = 0
+            self._revision += 1
             return cleared
 
     def record(
@@ -158,6 +166,7 @@ class ErrorDiagnosticsHistory:
         )
         with self._lock:
             self._counter += 1
+            self._revision += 1
             earlier = self._events.pop(group_key, None)
             record = {
                 "id": earlier["id"] if earlier else f"diag:{int(time.time() * 1000)}:{self._counter}",

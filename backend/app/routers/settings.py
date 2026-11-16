@@ -7,13 +7,19 @@ from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Response
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, create_model, field_validator
+from pydantic import BaseModel, Field, ValidationError, create_model, field_validator
 import structlog
 
 from app.utils.diagnostic_redaction import redact_address, safe_connection_error, safe_error_message
 from app.services.connection_failure import classify_connection_failure, connection_failure_payload
 from app.services.settings_update import apply_update, prepare_update, run_settings_writer
 from app.services.cache_stats_measurements import CacheStatsMeasurements
+from app.services.analysis_status import (
+    BATCH_ANALYSIS_MAX_QUEUE_PER_RUN,
+    BATCH_ANALYSIS_MAX_SCAN_PER_RUN,
+    AnalysisStatusResponse,
+    build_analysis_status,
+)
 from app.config import CONFIG_PATH, Settings as AppSettings, settings
 from app.config_loader import migrate_imported_media_controls
 from app.auth import (
@@ -73,8 +79,6 @@ def _validated_birdnet_base_url(value: str | None) -> str:
 log = structlog.get_logger()
 PURGE_CHECK_CONCURRENCY = 8
 BATCH_ANALYSIS_CHECK_CONCURRENCY = 8
-BATCH_ANALYSIS_MAX_QUEUE_PER_RUN = 50
-BATCH_ANALYSIS_MAX_SCAN_PER_RUN = 200
 BATCH_ANALYSIS_RETRY_AFTER_SECONDS = 120
 AUTH_PASSWORD_REQUIRED_TO_ENABLE_MESSAGE = "Password is required when enabling authentication"
 CONFIG_BACKUP_FORMAT = "yawamf.config.backup"
@@ -457,40 +461,6 @@ class AnalyzeUnknownsResponse(BaseModel):
     pending_maintenance: Optional[int] = None
     active_maintenance: Optional[int] = None
     retry_after_seconds: Optional[int] = None
-
-
-class AnalysisStatusResponse(BaseModel):
-    model_config = ConfigDict(extra="allow")
-
-    status: Optional[str] = None
-    pending: int
-    active: int
-    circuit_open: bool
-    open_until: Optional[str] = None
-    failure_count: Optional[int] = None
-    pending_capacity: Optional[int] = None
-    pending_available: Optional[int] = None
-    max_concurrent_configured: Optional[int] = None
-    max_concurrent_effective: Optional[int] = None
-    mqtt_pressure_level: Optional[str] = None
-    throttled_for_mqtt_pressure: Optional[bool] = None
-    throttled_for_live_pressure: Optional[bool] = None
-    maintenance_starvation_relief_active: Optional[bool] = None
-    live_pressure_active: Optional[bool] = None
-    live_in_flight: Optional[int] = None
-    live_queued: Optional[int] = None
-    mqtt_in_flight: Optional[int] = None
-    mqtt_in_flight_capacity: Optional[int] = None
-    oldest_maintenance_pending_age_seconds: Optional[float] = None
-    pending_maintenance: Optional[int] = None
-    active_maintenance: Optional[int] = None
-    queue_limit: Optional[int] = None
-    scan_limit: Optional[int] = None
-    scan_truncated: Optional[bool] = None
-    remaining_candidates: Optional[int] = None
-    maintenance_state: Optional[str] = None
-    maintenance_status_message: Optional[str] = None
-    maintenance_seconds_since_progress: Optional[float] = None
 
 
 class CacheStatsResponse(BaseModel):
@@ -2617,11 +2587,7 @@ async def get_analysis_status(response: Response, auth: AuthContext = Depends(re
     """Get status of auto video classification queue. Owner only."""
     response.headers["Cache-Control"] = "no-store, max-age=0"
     response.headers["Pragma"] = "no-cache"
-    return {
-        **auto_video_classifier.get_status(),
-        "queue_limit": BATCH_ANALYSIS_MAX_QUEUE_PER_RUN,
-        "scan_limit": BATCH_ANALYSIS_MAX_SCAN_PER_RUN,
-    }
+    return build_analysis_status()
 
 
 # =============================================================================

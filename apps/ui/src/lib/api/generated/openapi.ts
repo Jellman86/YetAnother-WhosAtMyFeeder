@@ -500,6 +500,17 @@ export interface components {
     total_size_bytes: number;
     total_size_mb: number;
 };
+    CameraHealth: {
+    camera: string;
+    camera_fps?: number | null;
+    detection_fps?: number | null;
+    process_fps?: number | null;
+    status: "online" | "offline" | "unknown";
+};
+    CameraHealthReading: {
+    cameras: Array<components['schemas']['CameraHealth']>;
+    checked_at: string;
+};
     CameraStats: {
     camera_name: string;
     count: number;
@@ -1682,10 +1693,20 @@ export interface components {
     updated_at?: string | null;
     visibility?: "prominent" | "routine";
 };
+    JobsProgress: {
+    current: number;
+    total: number;
+    unit: string;
+};
     JobsSnapshotResponse: {
     captured_at: string;
     items: Array<components['schemas']['JobSnapshotItem']>;
     lanes: Array<components['schemas']['JobLaneSnapshot']>;
+};
+    JobsSummary: {
+    progress?: components['schemas']['JobsProgress'] | null;
+    queued: number;
+    running: number;
 };
     JsonValue: unknown;
     LeaderboardAnalysisRequest: {
@@ -2025,6 +2046,19 @@ export interface components {
     weights_sha256?: string | null;
     weights_url?: string | null;
 };
+    ModelState: {
+    active_provider?: string | null;
+    cause: string;
+    enabled?: boolean;
+    fallback_reason?: string | null;
+    model_id?: string | null;
+    model_name?: string | null;
+    provider_fallback?: boolean;
+    revision: string;
+    selected_provider?: string | null;
+    state: "ok" | "degraded" | "error" | "off" | "unknown";
+    validation_state?: string;
+};
     ModelValidateDevice: {
     backend?: string | null;
     baseline?: boolean;
@@ -2109,6 +2143,11 @@ export interface components {
     OAuthAuthorizeResponse: {
     authorization_url: string;
     state?: string | null;
+};
+    OverallVerdict: {
+    cause: string;
+    state: "ok" | "degraded" | "unknown";
+    subsystem?: "mqtt" | "frigate" | "classifier" | "finder" | "audio" | "storage" | "notifications" | null;
 };
     PortraitDay: {
     date: string;
@@ -2948,6 +2987,11 @@ export interface components {
     expires_in_seconds: number;
     ticket: string;
 };
+    SubsystemVerdict: {
+    cause: string;
+    key: "mqtt" | "frigate" | "classifier" | "finder" | "audio" | "storage" | "notifications";
+    state: "ok" | "degraded" | "error" | "off" | "unknown";
+};
     SystemAcceleratorIdentity: {
     kind: "npu" | "gpu";
     label: string;
@@ -2992,6 +3036,21 @@ export interface components {
     pid: number;
     role: "main" | "live_worker" | "background_worker" | "video_worker" | "ffmpeg" | "other_child";
     rss_bytes?: number | null;
+};
+    SystemStatusSnapshot: {
+    analysis: components['schemas']['AnalysisStatusResponse'];
+    cameras?: components['schemas']['CameraHealthReading'] | null;
+    connections: components['schemas']['ServiceConnectionsResponse'];
+    diagnostics_revision: number;
+    generated_at: string;
+    jobs: components['schemas']['JobsSnapshotResponse'];
+    jobs_summary: components['schemas']['JobsSummary'];
+    model: components['schemas']['ModelState'];
+    overall: components['schemas']['OverallVerdict'];
+    revision: number;
+    startup_instance_id: string;
+    subsystems: Array<components['schemas']['SubsystemVerdict']>;
+    telemetry?: components['schemas']['TelemetrySummary'] | null;
 };
     SystemTelemetryHistoryResponse: {
     accelerator?: components['schemas']['SystemAcceleratorIdentity'] | null;
@@ -3079,6 +3138,13 @@ export interface components {
     progress_state?: string | null;
     seconds_since_progress?: number | null;
     total: number;
+};
+    TelemetrySummary: {
+    accelerator_kind?: "npu" | "gpu" | null;
+    accelerator_label?: string | null;
+    accelerator_percent?: number | null;
+    cpu_percent?: number | null;
+    sampled_at: number;
 };
     TestEmailRequest: {
     test_message?: string;
@@ -5690,6 +5756,15 @@ export interface paths {
 };
       requestBody: unknown;
       response: components['schemas']['UptimeWindowResponse'];
+    };
+  };
+  "/api/status": {
+    get: {
+      operationId: "get_system_status_api_status_get";
+      path: never;
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['SystemStatusSnapshot'];
     };
   };
   "/api/system-telemetry": {

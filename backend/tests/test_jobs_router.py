@@ -1,11 +1,12 @@
 import pytest
 
-from app.routers.jobs import JobSnapshotItem, _build_lanes, get_jobs_snapshot
+from app.routers.jobs import get_jobs_snapshot
+from app.services.jobs_snapshot import JobSnapshotItem, build_lanes
 
 
 def test_build_lanes_keeps_distinct_video_and_media_work(monkeypatch):
     monkeypatch.setattr(
-        "app.routers.jobs.auto_video_classifier.get_status",
+        "app.services.jobs_snapshot.auto_video_classifier.get_status",
         lambda: {
             "pending_capacity": 1000,
             "max_concurrent_configured": 3,
@@ -16,11 +17,11 @@ def test_build_lanes_keeps_distinct_video_and_media_work(monkeypatch):
         },
     )
     monkeypatch.setattr(
-        "app.routers.jobs.high_quality_snapshot_service.get_status",
+        "app.services.jobs_snapshot.high_quality_snapshot_service.get_status",
         lambda: {"deferred": 1},
     )
     monkeypatch.setattr(
-        "app.routers.jobs.full_visit_clip_service.get_status",
+        "app.services.jobs_snapshot.full_visit_clip_service.get_status",
         lambda: {"queue_capacity": 128, "queued": 0, "workers": 2, "queue_full_rejections": 0},
     )
     items = [
@@ -42,7 +43,7 @@ def test_build_lanes_keeps_distinct_video_and_media_work(monkeypatch):
         ),
     ]
 
-    lanes = {lane.kind: lane for lane in _build_lanes(items)}
+    lanes = {lane.kind: lane for lane in build_lanes(items)}
 
     assert lanes["video_analysis"].queued == 1
     assert lanes["video_analysis"].blocker == "waiting_for_live_detections"
@@ -56,7 +57,7 @@ def test_build_lanes_keeps_distinct_video_and_media_work(monkeypatch):
 @pytest.mark.asyncio
 async def test_jobs_snapshot_applies_item_limit_after_lane_totals(monkeypatch):
     monkeypatch.setattr(
-        "app.routers.jobs.auto_video_classifier.get_jobs_snapshot",
+        "app.services.jobs_snapshot.auto_video_classifier.get_jobs_snapshot",
         lambda: [
             {
                 "id": "video:1",
@@ -77,18 +78,18 @@ async def test_jobs_snapshot_applies_item_limit_after_lane_totals(monkeypatch):
         ],
     )
     monkeypatch.setattr(
-        "app.routers.jobs.auto_video_classifier.get_status",
+        "app.services.jobs_snapshot.auto_video_classifier.get_status",
         lambda: {
             "pending_capacity": 1000,
             "max_concurrent_configured": 2,
             "max_concurrent_effective": 2,
         },
     )
-    monkeypatch.setattr("app.routers.jobs.high_quality_snapshot_service.get_jobs_snapshot", lambda: [])
-    monkeypatch.setattr("app.routers.jobs.high_quality_snapshot_service.get_status", lambda: {})
-    monkeypatch.setattr("app.routers.jobs.full_visit_clip_service.get_jobs_snapshot", lambda: [])
-    monkeypatch.setattr("app.routers.jobs.full_visit_clip_service.get_status", lambda: {})
-    monkeypatch.setattr("app.routers.jobs._backfill_job_snapshots", lambda: [])
+    monkeypatch.setattr("app.services.jobs_snapshot.high_quality_snapshot_service.get_jobs_snapshot", lambda: [])
+    monkeypatch.setattr("app.services.jobs_snapshot.high_quality_snapshot_service.get_status", lambda: {})
+    monkeypatch.setattr("app.services.jobs_snapshot.full_visit_clip_service.get_jobs_snapshot", lambda: [])
+    monkeypatch.setattr("app.services.jobs_snapshot.full_visit_clip_service.get_status", lambda: {})
+    monkeypatch.setattr("app.services.jobs_snapshot._backfill_job_snapshots", lambda: [])
 
     response = await get_jobs_snapshot(include_routine=True, limit=1, _auth=object())
 
@@ -99,7 +100,7 @@ async def test_jobs_snapshot_applies_item_limit_after_lane_totals(monkeypatch):
 @pytest.mark.asyncio
 async def test_jobs_snapshot_limit_keeps_newest_completed_work(monkeypatch):
     monkeypatch.setattr(
-        "app.routers.jobs.auto_video_classifier.get_jobs_snapshot",
+        "app.services.jobs_snapshot.auto_video_classifier.get_jobs_snapshot",
         lambda: [
             {
                 "id": "video:older",
@@ -121,12 +122,12 @@ async def test_jobs_snapshot_limit_keeps_newest_completed_work(monkeypatch):
             },
         ],
     )
-    monkeypatch.setattr("app.routers.jobs.auto_video_classifier.get_status", lambda: {})
-    monkeypatch.setattr("app.routers.jobs.high_quality_snapshot_service.get_jobs_snapshot", lambda: [])
-    monkeypatch.setattr("app.routers.jobs.high_quality_snapshot_service.get_status", lambda: {})
-    monkeypatch.setattr("app.routers.jobs.full_visit_clip_service.get_jobs_snapshot", lambda: [])
-    monkeypatch.setattr("app.routers.jobs.full_visit_clip_service.get_status", lambda: {})
-    monkeypatch.setattr("app.routers.jobs._backfill_job_snapshots", lambda: [])
+    monkeypatch.setattr("app.services.jobs_snapshot.auto_video_classifier.get_status", lambda: {})
+    monkeypatch.setattr("app.services.jobs_snapshot.high_quality_snapshot_service.get_jobs_snapshot", lambda: [])
+    monkeypatch.setattr("app.services.jobs_snapshot.high_quality_snapshot_service.get_status", lambda: {})
+    monkeypatch.setattr("app.services.jobs_snapshot.full_visit_clip_service.get_jobs_snapshot", lambda: [])
+    monkeypatch.setattr("app.services.jobs_snapshot.full_visit_clip_service.get_status", lambda: {})
+    monkeypatch.setattr("app.services.jobs_snapshot._backfill_job_snapshots", lambda: [])
 
     response = await get_jobs_snapshot(include_routine=True, limit=1, _auth=object())
 
@@ -136,7 +137,7 @@ async def test_jobs_snapshot_limit_keeps_newest_completed_work(monkeypatch):
 def test_a_backfill_is_named_the_way_the_browser_names_it(monkeypatch):
     """The stream-driven row and the snapshot row must be one job, not two."""
     from app.routers.backfill import BackfillJobStatus
-    from app.routers.jobs import _backfill_job_snapshots
+    from app.services.jobs_snapshot import _backfill_job_snapshots
 
     weather = BackfillJobStatus(
         id="da620f73",

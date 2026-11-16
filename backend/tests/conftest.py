@@ -248,6 +248,24 @@ def isolate_service_connections(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def isolate_system_status(monkeypatch):
+    """The status snapshot is read for real in tests, except Frigate's camera stats, and no reading
+    carries over from one test to the next."""
+    from app.services import system_status_readings
+    from app.services.system_status_runtime import system_status_service
+
+    async def frigate_does_not_answer():
+        raise ConnectionError("Frigate is not reachable from tests")
+
+    monkeypatch.setattr(system_status_readings, "read_camera_health", frigate_does_not_answer)
+    system_status_service._latest = None
+    system_status_service._latest_at = None
+    yield
+    system_status_service._latest = None
+    system_status_service._latest_at = None
+
+
+@pytest.fixture(autouse=True)
 def disable_rate_limiting():
     """Disable rate limiting for all tests by default."""
     from app.ratelimit import limiter
