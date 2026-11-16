@@ -219,6 +219,44 @@ for (const theme of ['light', 'dark'] as Theme[]) {
     });
 }
 
+/** Opens every closed section of a Settings tab, nested ones too; popover triggers are left alone. */
+async function openEverySection(page: Page): Promise<void> {
+    for (let round = 0; round < 6; round += 1) {
+        const closed = page.locator('[data-settings-content] button[aria-expanded="false"]:visible:not([aria-haspopup])');
+        const count = await closed.count();
+        if (count === 0) return;
+        for (let index = count - 1; index >= 0; index -= 1) await closed.nth(index).click().catch(() => undefined);
+    }
+}
+
+for (const theme of ['light', 'dark'] as Theme[]) {
+    for (const tab of ['models', 'maintenance', 'data', 'beta', 'detection']) {
+        test(`high contrast over the ${theme} theme keeps Settings ${tab} at 7:1 with every section open`, async ({ page }) => {
+            await replayFeeder(page, theme, HIGH_CONTRAST);
+            await page.setViewportSize({ width: 1440, height: 900 });
+            await page.goto(`/settings/${tab}`);
+            await expect(page.locator('[data-settings-content]')).toBeVisible(READY);
+            await settled(page);
+            await openEverySection(page);
+            await settled(page);
+            expect(await faintText(page, 7)).toEqual([]);
+        });
+    }
+
+    test(`high contrast over the ${theme} theme keeps a refused storage limit and its reason at 7:1`, async ({ page }) => {
+        await replayFeeder(page, theme, HIGH_CONTRAST);
+        await page.setViewportSize({ width: 1440, height: 900 });
+        await page.goto('/settings/data');
+        await expect(page.locator('[data-settings-content]')).toBeVisible(READY);
+        const limit = page.locator('#cache-max-size-gb');
+        if (await limit.count() === 0) await page.getByRole('switch', { name: 'Limit the space photos and video use' }).click();
+        await limit.fill('');
+        await limit.press('Tab');
+        await expect(page.locator('[data-storage-limit-error]')).toBeVisible();
+        expect(await faintText(page, 7)).toEqual([]);
+    });
+}
+
 test('an unknown bird is renamed on screen the moment the language changes', async ({ page }) => {
     await replayFeeder(page, 'light');
     await page.setViewportSize({ width: 1440, height: 900 });

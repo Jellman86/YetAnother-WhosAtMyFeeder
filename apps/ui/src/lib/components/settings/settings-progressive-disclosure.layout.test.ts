@@ -62,14 +62,16 @@ describe('Settings progressive disclosure', () => {
         expect(security).toContain('<TelemetrySettings');
         expect(aiSource).toContain('id="ai-usage"');
         expect(appearanceSource).toContain('id="appearance-typography-and-colour"');
-        // Repairs and deletions have their own tab; the deletions are a closed card at its end.
+        // Repairs and deletions have their own tab; the deletions are the last section, a plain
+        // heading like every other, each behind its own confirmation.
         expect(dataSource).not.toContain('id="data-danger"');
         expect(maintenanceSource).toContain('id="data-danger"');
-        expect(maintenanceSource).toMatch(/<SettingsCard\s+collapsible\s+id="data-danger"/);
+        expect(maintenanceSource).not.toMatch(/<SettingsCard\s+collapsible/);
         expect(dataSource).not.toContain('settings.data.setup_wizard_title');
         expect(maintenanceSource.indexOf('id="data-danger"')).toBeLessThan(maintenanceSource.indexOf('settings.danger.reset_desc'));
-        // Testing the models is a closed card at the end of Models.
-        expect(modelSource).toContain('id="models-testing"');
+        // Testing the models is one row that opens Model evaluation, not a section of its own.
+        expect(modelSource).toContain('labelId="setting-model-evaluation"');
+        expect(modelSource).not.toContain('id="models-testing"');
         expect(modelSource).toContain('<SettingsToggle');
         expect(settingsPageSource).not.toContain('role="switch"');
         expect(advancedSectionSource).toContain('openByDefault?: boolean');

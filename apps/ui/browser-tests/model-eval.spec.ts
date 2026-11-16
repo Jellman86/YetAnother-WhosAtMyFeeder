@@ -657,12 +657,9 @@ test('Settings opens the page from the Models tab, where models are chosen', asy
     await page.setViewportSize({ width: 1440, height: 900 });
     await replayFeeder(page, 'light', withEvaluation);
     await page.goto('/settings/models');
-    // The Models tab keeps testing in a closed section beside the model choice.
-    const section = page.getByRole('button', { name: 'Testing the models', exact: true });
-    await expect(section).toBeVisible({ timeout: 15_000 });
-    await section.click();
+    // The Models tab links to testing in one row beside the model choice.
     const link = page.getByRole('link', { name: 'Open model evaluation', exact: true });
-    await expect(link).toBeVisible();
+    await expect(link).toBeVisible({ timeout: 15_000 });
     await expect(link).toHaveAttribute('href', '/diagnostics/model-eval');
     await link.focus();
     await page.keyboard.press('Enter');

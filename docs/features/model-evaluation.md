@@ -2,7 +2,7 @@
 
 Use the owner-only **Model evaluation** page at `/diagnostics/model-eval` to compare installed
 classifiers on taxonomy-verified images or check which providers run correctly on your hardware.
-Open it from **Settings → Models → Testing the models** (**Open model evaluation**). Accuracy evaluation and compatibility checks answer
+Open it from **Settings → Models → Compare the installed models** (**Open model evaluation**). Accuracy evaluation and compatibility checks answer
 different questions; a passing provider check does not establish correct species identification at
 your feeder.
 

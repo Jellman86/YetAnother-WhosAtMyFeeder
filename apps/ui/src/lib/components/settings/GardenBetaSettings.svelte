@@ -192,7 +192,7 @@
                                 </button>
                             {:else if step.kind === 'download_model'}
                                 <button type="button" class="btn btn-secondary min-h-11 max-w-full px-3 py-2 whitespace-normal" onclick={openModels}>
-                                    {$_('settings.beta.garden_step_model_open', { default: 'Open Models' })}
+                                    {$_('settings.beta.garden_step_model_open', { default: 'Set up Garden models' })}
                                 </button>
                             {:else if step.kind === 'set_location' && onOpenLocation}
                                 <button type="button" class="btn btn-secondary min-h-11 max-w-full px-3 py-2 whitespace-normal" onclick={onOpenLocation}>
@@ -246,8 +246,8 @@
                 <SettingsSlider
                     id="garden-motion-confidence"
                     field="garden_motion_confidence"
-                    label={$_('garden.confidence', { default: 'How sure before an animal is suggested' })}
-                    description={$_('garden.confidence_help', { default: 'A motion photo becomes a suggestion for you to review only when the check is at least this sure. Higher means fewer suggestions, and more animals missed.' })}
+                    label={$_('garden.confidence', { default: 'Suggest a motion photo when this sure it shows an animal' })}
+                    description={$_('garden.confidence_help', { default: 'This decides which motion photos reach Needs review. Photos below it are not kept. Higher means fewer suggestions, and more animals missed.' })}
                     bind:value={motionConfidence}
                     min={0.5}
                     max={0.95}
@@ -276,8 +276,8 @@
                         <SettingsSlider
                             id="garden-naming-threshold"
                             field="garden_naming_threshold"
-                            label={$_('settings.beta.garden_naming_threshold', { default: 'How sure before an animal is named' })}
-                            description={$_('settings.beta.garden_naming_threshold_help', { default: 'At or above this, an animal is confirmed and named for you. Below it, its photo goes to Dismissed, where you can restore it.' })}
+                            label={$_('settings.beta.garden_naming_threshold', { default: 'Name an animal when this sure which one it is' })}
+                            description={$_('settings.beta.garden_naming_threshold_help', { default: 'This is a second check, on which animal it is. At or above it, the animal is confirmed and named for you. Below it, its photo goes to Dismissed, where you can restore it.' })}
                             bind:value={namingThreshold}
                             min={0.7}
                             max={0.99}
@@ -291,10 +291,10 @@
                     {/if}
                 </div>
 
-                <GardenCollectionStatus {service} />
+                <GardenCollectionStatus {service} blockedBy={summary.steps.some((step) => step.kind === 'download_model') ? 'model' : cameras.length === 0 ? 'camera' : null} />
 
                 <p class="text-xs text-slate-600 dark:text-slate-400">
-                    {$_('settings.beta.garden_device_note', { default: 'Automatic checks use your Detection device once it agrees with CPU, and fall back to CPU if it fails. Motion scans use CPU. Garden runs one job at a time while birds and cameras are idle.' })}
+                    {$_('settings.beta.garden_device_note', { default: 'Automatic checks use the device chosen under Settings › Models › Hardware once it agrees with the CPU, and fall back to the CPU if it fails. Motion scans use the CPU. Garden runs one job at a time while birds and cameras are idle.' })}
                     <a href={`${DOCS}#verify-which-device-ran-a-model`} target="_blank" rel="noopener noreferrer" class="focus-ring font-semibold text-brand-700 underline underline-offset-2 hover:text-brand-800 dark:text-brand-300 dark:hover:text-brand-200">
                         {$_('settings.beta.learn_more', { default: 'Learn more' })}
                     </a>

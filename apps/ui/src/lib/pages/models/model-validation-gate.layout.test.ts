@@ -47,7 +47,8 @@ describe('Model Manager guided install + selection gate', () => {
 
     it('separates live runtime state from hardware-neutral model guidance', () => {
         expect(modelManagerSource).toContain("getRuntimeProviderOrder(classifierStatus, getProviderSupport(model))");
-        expect(modelManagerSource).toContain('model_manager_current_runtime');
+        // The live device is stated once, in the status line above; the card keeps the order under technical details.
+        expect(modelManagerSource).not.toContain('model_manager_current_runtime');
         expect(modelManagerSource).toContain('model_manager_runtime_order');
         expect(modelManagerSource).toContain("case 'intel_npu':");
     });

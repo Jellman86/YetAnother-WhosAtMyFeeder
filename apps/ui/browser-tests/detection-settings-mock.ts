@@ -224,8 +224,6 @@ export async function openDetectionSettings(page: Page, options: DetectionMockOp
     if (await mobileNavigation.isVisible()) await mobileNavigation.selectOption(tab);
     else await page.getByRole('link', { name: tabName, exact: true }).click();
     if (tab === 'detection') return state;
-    // Hardware starts closed; these tests exercise what is inside it.
-    const hardware = page.getByRole('button', { name: 'Hardware', exact: true });
-    if ((await hardware.getAttribute('aria-expanded')) === 'false') await hardware.click();
+    await expect(page.getByRole('heading', { name: 'Hardware', exact: true })).toBeVisible();
     return state;
 }

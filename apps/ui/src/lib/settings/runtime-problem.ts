@@ -1,5 +1,5 @@
-/** Detection's Hardware card and its Runtime report: where a runtime problem is shown. */
-export const RUNTIME_DISCLOSURES = ['detection-hardware', 'detection-inference-advanced'] as const;
+/** The Models tab's Runtime report: where a runtime problem is shown. */
+export const RUNTIME_DISCLOSURES = ['detection-inference-advanced'] as const;
 
 /** The parts of the classifier status that report a problem the owner must act on. */
 interface RuntimeStatus {

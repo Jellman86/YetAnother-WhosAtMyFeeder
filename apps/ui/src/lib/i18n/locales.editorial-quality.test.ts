@@ -172,7 +172,7 @@ const NAMES = new Set(
     Pushover Apprise Gemini OpenAI OpenRouter Anthropic Claude OpenDyslexic MegaDetector Cedar SpeciesNet RF-DETR Nano YOLOX YOLOX-Tiny
     MobileNet EfficientNet ConvNeXt ONNX Runtime TFLite OpenVINO CUDA Intel NVIDIA Hailo Coral Docker Leaflet OpenStreetMap
     Open-Meteo HACS MIT License Record Format Token Northern Cardinal United States Kingdom North America Europe
-    Unknown Bird Tit NaN Celsius Fahrenheit
+    Unknown Bird Tit NaN Celsius Fahrenheit Israel European Arabian Peninsula
     Dashboard Explorer Leaderboard Settings Notifications Events Species Garden Health Connection Detection Integrations
     Enrichment Security Data Appearance Accessibility Advanced Beta Debug Explore Jobs About`
         .split(/\s+/)
@@ -184,13 +184,13 @@ const SENTENCE_CASE_LOCALES = ['en', 'es', 'fr', 'it', 'pt', 'ru'];
  * and Japanese and Chinese have no letter case. A copy pass must leave their capitals alone.
  */
 const CASE_EXEMPT_LOCALES = ['de', 'ja', 'zh'];
-/** Names a language spells its own way: places, units and the Garden feature. */
+/** Names a language spells its own way: places (including the regions models are made for), units and the Garden feature. */
 const LOCALE_NAMES: Record<string, string[]> = {
-    es: ['Unidos', 'Unido', 'Norte', 'Jardín'],
-    fr: ['Jardin', 'Wikipédia', 'Mo', 'Go', 'Nord', 'Uni', 'Unis'],
-    it: ['Uniti', 'Unito', 'Nord', 'Giardino'],
-    pt: ['Unidos', 'Unido', 'Norte', 'Jardim'],
-    ru: ['Сад', 'Северная', 'Америка', 'Википедии']
+    es: ['Unidos', 'Unido', 'Norte', 'Jardín', 'Israel', 'Europa'],
+    fr: ['Jardin', 'Wikipédia', 'Mo', 'Go', 'Nord', 'Uni', 'Unis', 'Arabique'],
+    it: ['Uniti', 'Unito', 'Nord', 'Giardino', 'Israele'],
+    pt: ['Unidos', 'Unido', 'Norte', 'Jardim', 'Israel', 'Europa', 'Península', 'Arábica'],
+    ru: ['Сад', 'Северная', 'Америка', 'Википедии', 'Европы', 'Израиля', 'Аравийского']
 };
 
 /** A page or tab is a name in every language, so its own label may be capitalised where it is cited. */

@@ -97,7 +97,7 @@
     "history_unavailable": "Verfügbarkeit konnte nicht abgerufen werden.",
     "availability_partial": "{percent}% verfügbar in den {hours} h mit Aufzeichnung",
     "no_gaps_since": "Keine Lücken seit Beginn der Aufzeichnung um {when}.",
-    "runtime": "Vogelbestimmung mit",
+    "runtime": "Vogelbestimmung",
     "runtime_on": "{runtime} auf {device}",
     "runtime_unread": "Noch nicht gelesen. Das Modell meldet dies, sobald es geladen ist.",
     "uptime_unmeasured": "Das Backend hat nicht gemeldet, wann es gestartet wurde.",

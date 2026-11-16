@@ -14,9 +14,11 @@
 
     interface Props {
         service: GardenServiceStatus;
+        /** What stops the first automatic check, from Garden's setup state; null when nothing does. */
+        blockedBy?: 'model' | 'camera' | null;
     }
 
-    let { service }: Props = $props();
+    let { service, blockedBy = null }: Props = $props();
 
     const savedEnabled = $derived(settingsStore.settings?.beta_garden_animals === true);
     const identification = $derived(service.identification);
@@ -24,20 +26,36 @@
     const facts = $derived(gardenCollectionFacts(identification, motion));
     const listLocale = $derived($locale ?? 'en');
 
-    function deviceText(fact: GardenDeviceFact): string {
-        if (fact.kind === 'not_used') return $_('settings.beta.garden_fact_not_used', { default: 'Not used yet' });
+    function deviceSentence(fact: GardenDeviceFact): string | null {
+        if (fact.kind === 'not_used') return null;
         const device = EXECUTION_DEVICE_LABEL[fact.provider];
-        if (fact.kind === 'preferred_used') return $_('settings.beta.garden_fact_device_checked', { default: '{device} (checked against CPU before first use)', values: { device } });
-        if (fact.kind === 'preferred_unused') return $_('settings.beta.garden_fact_device_unused', { default: '{device} preferred, not used yet', values: { device } });
-        return device;
+        if (fact.kind === 'preferred_used') return $_('settings.beta.garden_sentence_device_checked', { default: 'Automatic checks run on {device}, which matched the CPU before its first use.', values: { device } });
+        // A preferred CPU is nothing to try first: the last-check line already says no check has run.
+        if (fact.kind === 'preferred_unused' && fact.provider === 'cpu') return null;
+        if (fact.kind === 'preferred_unused') return $_('settings.beta.garden_sentence_device_unused', { default: 'Automatic checks will try {device} first. It has not run a check yet.', values: { device } });
+        return $_('settings.beta.garden_sentence_device_ran', { default: 'Automatic checks ran on {device}.', values: { device } });
     }
 
-    function lastCheckText(check: NonNullable<typeof facts.lastCheck>): string {
-        const values = { device: EXECUTION_DEVICE_LABEL[check.provider], time: formatDateTime(check.checkedAt) };
-        return check.fallback
-            ? $_('settings.beta.garden_fact_last_check_fallback', { default: '{device} · {time} (the preferred device failed, so CPU was used)', values })
-            : $_('settings.beta.garden_fact_last_check_value', { default: '{device} · {time}', values });
+    function lastCheckSentence(): string {
+        const check = facts.lastCheck;
+        if (check) {
+            const values = { device: EXECUTION_DEVICE_LABEL[check.provider], time: formatDateTime(check.checkedAt) };
+            return check.fallback
+                ? $_('settings.beta.garden_sentence_last_check_fallback', { default: 'Last check {time} on {device}, because the preferred device failed.', values })
+                : $_('settings.beta.garden_sentence_last_check', { default: 'Last check {time} on {device}.', values });
+        }
+        if (blockedBy === 'model') return $_('settings.beta.garden_sentence_blocked_model', { default: 'No check yet: the Garden model is not downloaded.' });
+        if (blockedBy === 'camera') return $_('settings.beta.garden_sentence_blocked_camera', { default: 'No check yet: no camera watches for Garden animals.' });
+        return $_('settings.beta.garden_sentence_no_check', { default: 'No check has run yet.' });
     }
+
+    const motionSentence = $derived(
+        facts.motionCameras === null
+            ? $_('settings.beta.garden_sentence_motion_unread', { default: 'Motion photo status could not be read. Refresh to try again.' })
+            : facts.motionCameras.length > 0
+                ? $_('settings.beta.garden_sentence_motion_on', { default: 'Motion photos are collected on {cameras}.', values: { cameras: formatCameraList(facts.motionCameras, listLocale) } })
+                : $_('settings.beta.garden_sentence_motion_off', { default: 'Motion photos are off.' })
+    );
 </script>
 
 {#if savedEnabled}
@@ -45,42 +63,24 @@
         <p class="text-xs text-slate-600 dark:text-slate-400" role="status">{$_('settings.beta.garden_status_loading', { default: 'Checking Garden status…' })}</p>
     {:else}
         <div class="border-t border-line-soft pt-4 space-y-2 text-slate-700 dark:text-slate-300" role="group" aria-labelledby="garden-collection-status" data-garden-collection-status>
-            <h4 id="garden-collection-status" class="text-sm font-semibold text-slate-900 dark:text-white">{$_('settings.beta.garden_status_title', { default: 'Collection status' })}</h4>
-            <dl class="space-y-1 text-xs">
+            <h4 id="garden-collection-status" class="text-sm font-medium text-slate-900 dark:text-white">{$_('settings.beta.garden_status_title', { default: 'Collection status' })}</h4>
+            <div class="space-y-1 text-sm leading-relaxed">
                 {#if identification}
-                    <div class="flex flex-wrap gap-x-2" data-garden-fact="device">
-                        <dt class="font-semibold text-slate-900 dark:text-white">{$_('settings.beta.garden_fact_device', { default: 'Device' })}</dt>
-                        <dd class="min-w-0 wrap-break-word">{deviceText(facts.device)}</dd>
-                    </div>
-                    <div class="flex flex-wrap gap-x-2" data-garden-fact="last_check">
-                        <dt class="font-semibold text-slate-900 dark:text-white">{$_('settings.beta.garden_fact_last_check', { default: 'Last check' })}</dt>
-                        <dd class="min-w-0 wrap-break-word">{facts.lastCheck ? lastCheckText(facts.lastCheck) : $_('settings.beta.garden_fact_none_yet', { default: 'None yet' })}</dd>
-                    </div>
-                    {#if identification.automatic_message}
+                    {@const device = deviceSentence(facts.device)}
+                    <p class="wrap-break-word" data-garden-fact="last_check">{lastCheckSentence()}</p>
+                    {#if device}
+                        <p class="wrap-break-word" data-garden-fact="device">{device}</p>
+                    {/if}
+                    {#if identification.automatic_message && !blockedBy}
                         <!-- The service words this itself and reports no count, so it is shown as sent. -->
-                        <div class="flex flex-wrap gap-x-2" data-garden-fact="automatic">
-                            <dt class="font-semibold text-slate-900 dark:text-white">{$_('settings.beta.garden_fact_checks', { default: 'Automatic checks' })}</dt>
-                            <dd class="min-w-0 wrap-break-word" data-garden-automatic-status>{identification.automatic_message}</dd>
-                        </div>
+                        <p class="wrap-break-word" data-garden-fact="automatic" data-garden-automatic-status>{identification.automatic_message}</p>
                     {/if}
                 {/if}
-                <div class="flex flex-wrap gap-x-2" data-garden-fact="motion">
-                    <dt class="font-semibold text-slate-900 dark:text-white">{$_('settings.beta.garden_fact_motion', { default: 'Motion photos' })}</dt>
-                    <dd class="min-w-0 wrap-break-word">
-                        {facts.motionCameras === null
-                            ? $_('settings.beta.garden_fact_unreadable', { default: 'Could not be read. Refresh to try again.' })
-                            : facts.motionCameras.length > 0
-                                ? $_('settings.beta.garden_fact_motion_on', { default: 'On for {cameras}', values: { cameras: formatCameraList(facts.motionCameras, listLocale) } })
-                                : $_('settings.beta.status_off', { default: 'Off' })}
-                    </dd>
-                </div>
+                <p class="wrap-break-word" data-garden-fact="motion">{motionSentence}</p>
                 {#if identification?.saved_crops}
-                    <div class="flex flex-wrap gap-x-2" data-garden-crop-storage>
-                        <dt class="font-semibold text-slate-900 dark:text-white">{$_('settings.beta.garden_fact_saved_crops', { default: 'Saved crops' })}</dt>
-                        <dd class="min-w-0 wrap-break-word">{$_('settings.beta.garden_fact_saved_crops_value', { default: '{count, plural, one {# crop} other {# crops}} of {limit, number}', values: { count: identification.saved_crops.count, limit: identification.saved_crops.limit } })}</dd>
-                    </div>
+                    <p class="wrap-break-word" data-garden-crop-storage>{$_('settings.beta.garden_sentence_saved_crops', { default: '{count, plural, one {# crop} other {# crops}} saved of {limit, number} allowed.', values: { count: identification.saved_crops.count, limit: identification.saved_crops.limit } })}</p>
                 {/if}
-            </dl>
+            </div>
             {#if motion && motion.cameras.length > 0}
                 <div class="space-y-1 border-t border-line-soft pt-2 text-xs text-slate-600 dark:text-slate-400">
                     <p class="text-slate-700 dark:text-slate-300" role="status" data-garden-motion-status>{motion.message}</p>

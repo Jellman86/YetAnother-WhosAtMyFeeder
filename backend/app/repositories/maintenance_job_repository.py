@@ -1,6 +1,7 @@
 """Durable, bounded maintenance summaries; interrupted jobs remain inspectable."""
 
 import json
+from collections.abc import Sequence
 from datetime import datetime, timezone
 from typing import Any
 
@@ -25,10 +26,11 @@ class MaintenanceJobRepository:
         )
         await self.db.commit()
 
-    async def recent(self, *, limit: int = 100) -> list[dict[str, Any]]:
+    async def recent(self, *, limit: int = 100, kinds: Sequence[str] | None = None) -> list[dict[str, Any]]:
+        condition, params = _kind_filter(kinds)
         async with self.db.execute(
-            "SELECT payload_json FROM maintenance_job_history ORDER BY updated_at DESC, rowid DESC LIMIT ?",
-            (limit,),
+            f"SELECT payload_json FROM maintenance_job_history {condition} ORDER BY updated_at DESC, rowid DESC LIMIT ?",
+            (*params, limit),
         ) as cursor:
             rows = await cursor.fetchall()
         return [json.loads(row[0]) for row in rows]
@@ -38,11 +40,11 @@ class MaintenanceJobRepository:
             row = await cursor.fetchone()
         return json.loads(row[0]) if row else None
 
-    async def latest(self, kind: str | None = None) -> dict[str, Any] | None:
-        condition = "WHERE kind=?" if kind else ""
+    async def latest(self, kind: str | None = None, *, kinds: Sequence[str] | None = None) -> dict[str, Any] | None:
+        condition, params = _kind_filter((kind,) if kind else kinds)
         async with self.db.execute(
             f"SELECT payload_json FROM maintenance_job_history {condition} ORDER BY updated_at DESC, rowid DESC LIMIT 1",
-            (kind,) if kind else (),
+            params,
         ) as cursor:
             row = await cursor.fetchone()
         return json.loads(row[0]) if row else None
@@ -60,3 +62,9 @@ class MaintenanceJobRepository:
                 message="Interrupted by application restart. Saved progress is retained.",
             )
             await self.save(payload)
+
+
+def _kind_filter(kinds: Sequence[str] | None) -> tuple[str, tuple[str, ...]]:
+    if not kinds:
+        return "", ()
+    return f"WHERE kind IN ({','.join('?' for _ in kinds)})", tuple(kinds)

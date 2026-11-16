@@ -74,7 +74,9 @@ test.describe('on a wide screen', () => {
 
         await page.getByRole('button', { name: 'Open Models', exact: true }).click();
         await expect(rail(page).getByRole('link', { name: 'Models', exact: true })).toHaveAttribute('aria-current', 'page');
-        await expect(page.getByRole('button', { name: 'Hardware', exact: true })).toHaveAttribute('aria-expanded', 'false');
+        // Hardware is a plain section like every other: its device choice is on the surface.
+        await expect(page.getByRole('heading', { name: 'Hardware', exact: true })).toBeVisible();
+        await expect(page.locator('#inference-provider')).toBeVisible();
         await expect(page.locator('#bird-model-region-override')).toBeVisible();
     });
 });
@@ -120,7 +122,7 @@ test.describe('a refused value inside a closed card', () => {
         await expect(delay).toHaveAttribute('aria-invalid', 'true');
     });
 
-    test('opens Hardware and its memory section for a refused worker count', async ({ page }) => {
+    test('opens the memory section for a refused worker count', async ({ page }) => {
         await openSettings(page, {}, {
             refuseWrite: () => ({
                 status: 422,
@@ -129,7 +131,6 @@ test.describe('a refused value inside a closed card', () => {
         });
         await page.locator('#mqtt-server').fill('broker.lan');
         await page.getByRole('button', { name: 'Save changes', exact: true }).click();
-        await expect(page.getByRole('button', { name: 'Hardware', exact: true })).toHaveAttribute('aria-expanded', 'true');
         await expect(page.getByRole('button', { name: /Memory and isolation/ })).toHaveAttribute('aria-expanded', 'true');
         await expect(page.locator('#live-worker-count')).toBeFocused();
     });
@@ -138,7 +139,7 @@ test.describe('a refused value inside a closed card', () => {
 test.describe('a refused value inside a closed card', () => {
     test.use({ viewport: { width: 1440, height: 900 } });
 
-    test('opens Maintenance and its Jobs at once card for a refused concurrency, and focuses the field', async ({ page }) => {
+    test('opens Maintenance at Jobs at once for a refused concurrency, and focuses the field', async ({ page }) => {
         await openSettings(page, {}, {
             refuseWrite: () => ({
                 status: 422,
@@ -148,7 +149,7 @@ test.describe('a refused value inside a closed card', () => {
         await page.locator('#mqtt-server').fill('broker.lan');
         await page.getByRole('button', { name: 'Save changes', exact: true }).click();
         await expect(rail(page).getByRole('link', { name: 'Maintenance', exact: true })).toHaveAttribute('aria-current', 'page');
-        await expect(page.getByRole('button', { name: 'Jobs at once', exact: true })).toHaveAttribute('aria-expanded', 'true');
+        await expect(page.getByRole('heading', { name: 'Jobs at once', exact: true })).toBeVisible();
         await expect(page.locator('#maintenance-max-concurrent')).toBeFocused();
     });
 });
@@ -156,10 +157,9 @@ test.describe('a refused value inside a closed card', () => {
 test.describe('the runtime report, after it was closed and the tab left', () => {
     test.use({ viewport: { width: 1440, height: 900 } });
     const report = (page: Page) => page.getByRole('button', { name: /Runtime report/ });
-    const hardware = (page: Page) => page.getByRole('button', { name: 'Hardware', exact: true });
+    const reportLink = (page: Page) => page.getByRole('button', { name: /to check in the runtime report/ });
 
     async function closeReportAndReturn(page: Page): Promise<void> {
-        if ((await hardware(page).getAttribute('aria-expanded')) === 'false') await hardware(page).click();
         if ((await report(page).getAttribute('aria-expanded')) === 'false') await report(page).click();
         await report(page).click();
         await expect(report(page)).toHaveAttribute('aria-expanded', 'false');
@@ -168,26 +168,24 @@ test.describe('the runtime report, after it was closed and the tab left', () => 
         await rail(page).getByRole('link', { name: 'Models', exact: true }).click();
     }
 
-    test('the health link opens Hardware and the report, whatever was remembered', async ({ page }) => {
+    test('with nothing to check, the status line has no report link', async ({ page }) => {
         await openDetectionSettings(page);
-        await closeReportAndReturn(page);
-        await page.getByRole('button', { name: /Full report/ }).click();
-        await expect(hardware(page)).toHaveAttribute('aria-expanded', 'true');
-        await expect(report(page)).toHaveAttribute('aria-expanded', 'true');
-        await expect(page.locator('#detection-runtime-report')).toBeInViewport();
+        await expect(page.locator('[data-identification-status]')).toBeVisible();
+        await expect(reportLink(page)).toHaveCount(0);
     });
 
     test('a runtime problem opens the report; once closed on it, the same problem keeps it closed on return', async ({ page }) => {
         await openDetectionSettings(page, { statusExtra: { fallback_reason: 'Intel GPU failed to compile the model' } });
-        // The problem arrives with the runtime status, after the page itself, and opens both.
-        await expect(page.getByRole('alert').filter({ hasText: 'Intel GPU failed to compile the model' }).first()).toBeVisible();
-        await expect(hardware(page)).toHaveAttribute('aria-expanded', 'true');
+        // The problem arrives with the runtime status, after the page itself: the status line says
+        // the chosen device failed, and the report opens with the raw reason in it.
+        await expect(page.locator('[data-identification-status]')).toContainText('because the chosen device failed its check');
         await expect(report(page)).toHaveAttribute('aria-expanded', 'true');
+        await expect(page.locator('#detection-runtime-report')).toContainText('Intel GPU failed to compile the model');
         await closeReportAndReturn(page);
-        await expect(hardware(page)).toHaveAttribute('aria-expanded', 'true');
         await expect(report(page)).toHaveAttribute('aria-expanded', 'false');
-        // The health link still opens it, whatever was remembered.
-        await page.getByRole('button', { name: /Full report/ }).click();
+        // The status line's link still opens it, whatever was remembered.
+        await reportLink(page).click();
         await expect(report(page)).toHaveAttribute('aria-expanded', 'true');
+        await expect(page.locator('#detection-runtime-report')).toBeInViewport();
     });
 });

@@ -71,8 +71,9 @@ test('the finder options state cost only, and where the finder runs is said once
     for (const option of await options.all()) {
         await expect(option).not.toContainText(/CPU until|Recommended|device check|accelerator/);
     }
-    await expect(options.first()).toContainText('19.3 MB download · ~512 MB RAM');
-    await expect(options.nth(1)).toContainText('102.8 MB download');
+    // One rounded size per model, the same figure the catalogue uses everywhere.
+    await expect(options.first()).toContainText('19 MB download · ~512 MB RAM');
+    await expect(options.nth(1)).toContainText('103 MB download');
     await expect(runsOn(page)).toHaveCount(1);
     // YOLOX-Tiny has no passing check here, so nothing is claimed for an accelerator.
     await expect(runsOn(page)).toHaveText('CPU · no accelerator has passed a check on this host yet');
@@ -153,7 +154,7 @@ test('Check devices is one short button with its hint under it, scoped to the ch
         runs.push(route.request().postDataJSON());
         return route.fulfill({ json: { run_id: 'finder-check' } });
     });
-    const check = finder(page).getByRole('button', { name: 'Check devices', exact: true });
+    const check = finder(page).getByRole('button', { name: 'Check devices for the bird finder', exact: true });
     await expect(check).toBeVisible();
     await expect(check).toHaveAccessibleDescription(/uses the fastest that matches\. The identification model is not changed\./);
     const order = await finder(page).evaluate(node => {

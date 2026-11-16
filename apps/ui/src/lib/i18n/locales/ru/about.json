@@ -97,7 +97,7 @@
     "history_unavailable": "Не удалось получить данные о доступности.",
     "availability_partial": "{percent}% доступности за {hours} ч записи",
     "no_gaps_since": "Пропусков нет с начала записи в {when}.",
-    "runtime": "Птицы определяются с помощью",
+    "runtime": "Определение птиц",
     "runtime_on": "{runtime} на {device}",
     "runtime_unread": "Пока не прочитано. Модель сообщит об этом после загрузки.",
     "uptime_unmeasured": "Бэкенд не сообщил, когда он был запущен.",
