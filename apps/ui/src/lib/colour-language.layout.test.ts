@@ -168,6 +168,7 @@ const ATTENTION_COMPONENTS: Record<string, string> = {
     'components/SpeciesDetailModal.svelte': 'an unidentified bird waiting for a decision, and an eBird warning',
     'pages/Species.svelte': 'species the range check flags as unlikely here',
     'components/DetectionModal.svelte': 'a video result held back until the owner confirms it',
+    'components/record/RecordVideoStatusNotice.svelte': 'an identification from a borderline snapshot, for the owner to check',
     'pages/ManualObservation.svelte': 'an observation with no species chosen yet',
     // Something is wrong or degraded and only the owner can put it right.
     'components/Toast.svelte': 'warning toasts',

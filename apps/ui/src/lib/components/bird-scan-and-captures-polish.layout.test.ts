@@ -9,7 +9,7 @@ import fieldLog from './FieldLogVisitRow.svelte?raw';
  */
 describe('the bird scan row', () => {
     it('is one recessed row, status first and the action after it', () => {
-        expect(scan).toContain('<div class="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl bg-slate-100');
+        expect(scan).toContain('<div class="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl bg-surface-raised');
         expect(scan).not.toContain('rounded-lg border border-slate-200 bg-white p-3');
         expect(scan.indexOf('role="status"')).toBeLessThan(scan.indexOf('class="btn btn-secondary'));
     });

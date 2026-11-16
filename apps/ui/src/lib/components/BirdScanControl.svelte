@@ -6,14 +6,20 @@
     import { birdScanElapsedSeconds, birdScanProgress } from '../utils/bird-scan-progress';
     import { birdCountDisclosure } from '../utils/bird-count-disclosure';
     import BirdScanRegions from './BirdScanRegions.svelte';
+    import { isStandingUnavailability } from '../utils/bird-scan-standing';
 
-    let { eventId, candidateId, imageVersion, sceneImageUrl = null, disabled = false, oncompleted }: {
+    let { eventId, candidateId, imageVersion, sceneImageUrl = null, disabled = false, oncompleted, onstanding }: {
         eventId: string;
         candidateId: string | null;
         imageVersion: string | null;
         sceneImageUrl?: string | null;
         disabled?: boolean;
         oncompleted: (eventId: string, candidateId: string) => void;
+        /**
+         * Given, a standing reason the finder cannot run is handed to the host to show elsewhere (the
+         * record's More actions) and this row steps aside; null when it can run again.
+         */
+        onstanding?: (reason: string | null) => void;
     } = $props();
     let view = $state<BirdScanView>({ response: null, pending: false, readError: false, startUnconfirmed: false });
     let controller: ReturnType<typeof createBirdScanController> | null = null;
@@ -63,6 +69,11 @@
           : unavailable === 'reviewed_other_frame'
           ? $_('detection.bird_scan.reviewed_other_frame', { default: 'Birds reviewed on another frame are kept. This frame cannot replace them.' })
           : $_('detection.bird_scan.scene_unavailable', { default: 'More birds cannot be looked for: the whole frame behind this photograph was not kept.' }));
+    const standing = $derived(Boolean(onstanding) && !active && !view.readError && isStandingUnavailability(unavailable));
+    // The host lays out the record, so it is told when the finder steps aside and why.
+    $effect(() => {
+        onstanding?.(standing ? unavailableText : null);
+    });
     const errorText = $derived(view.response?.error === 'ambiguous_localization'
         ? $_('detection.bird_scan.ambiguous_localization', { default: 'Could not distinguish separate birds in this frame. Existing findings are kept. Try another whole frame.' })
         : view.response?.error === 'media_changed'
@@ -101,8 +112,8 @@
 
 <!-- One quiet row under the photograph: what is known about this frame, then the action. On a
      phone the sentence takes the full width and the action sits beneath it. -->
-<div class="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl bg-slate-100 px-3 py-2 dark:bg-slate-800/60" data-bird-scan-control>
-    <div class="min-w-0 flex-1 basis-56 text-xs leading-5 text-slate-600 dark:text-slate-300" role="status" aria-live="polite" data-bird-scan-state={view.readError ? 'status_unavailable' : unavailable ? 'unavailable' : scanStatus ?? 'loading'}>
+<div class="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl bg-surface-raised px-3 py-2" hidden={standing} data-bird-scan-control>
+    <div class="min-w-0 flex-1 basis-56 text-xs leading-5 text-muted" role="status" aria-live="polite" data-bird-scan-state={view.readError ? 'status_unavailable' : unavailable ? 'unavailable' : scanStatus ?? 'loading'}>
         {#if view.readError}
             <p>{view.startUnconfirmed ? $_('detection.bird_scan.start_unconfirmed', { default: 'The scan request could not be confirmed. Checking its status before trying again.' }) : $_('detection.bird_scan.status_unavailable', { default: 'Scan status could not be loaded. Checking again shortly.' })}</p>
             <button type="button" class="btn btn-ghost min-h-11 min-w-11 focus-ring" disabled={view.pending} onclick={() => { void controller?.refresh(); }}>{$_('common.retry', { default: 'Retry' })}</button>
@@ -164,17 +175,17 @@
                                 </span>
                             {/if}
                         </span>
-                        <span class="mt-1 block truncate text-2xs font-semibold {current ? 'text-brand-700 dark:text-brand-300' : part >= 1 ? 'text-slate-600 dark:text-slate-300' : 'text-slate-600 dark:text-slate-400'}" aria-hidden="true">{stepLabels[index]}</span>
+                        <span class="mt-1 block truncate text-2xs font-semibold {current ? 'text-accent-ink' : part >= 1 ? 'text-muted' : 'text-muted'}" aria-hidden="true">{stepLabels[index]}</span>
                     </span>
                 {/each}
             </div>
             {#if elapsed !== null}
-                <span class="shrink-0 pt-px text-2xs font-semibold tabular-nums text-slate-600 dark:text-slate-400" aria-hidden="true">{$_('detection.bird_scan.elapsed', { values: { seconds: elapsed }, default: '{seconds}s' })}</span>
+                <span class="shrink-0 pt-px text-2xs font-semibold tabular-nums text-muted" aria-hidden="true">{$_('detection.bird_scan.elapsed', { values: { seconds: elapsed }, default: '{seconds}s' })}</span>
             {/if}
         </div>
     {/if}
     <!-- Disabled reads as disabled: a flat grey fill, muted words and no hover, with the reason in the line beside it. -->
-    <button type="button" class="btn btn-secondary min-h-11 min-w-11 max-w-full gap-2 px-3 text-sm focus-ring disabled:border-slate-200 disabled:bg-slate-200/70 disabled:text-slate-500 disabled:opacity-100 disabled:shadow-none disabled:hover:bg-slate-200/70 dark:disabled:border-slate-700 dark:disabled:bg-slate-800 dark:disabled:text-slate-400 dark:disabled:hover:bg-slate-800"
+    <button type="button" class="btn btn-secondary min-h-11 min-w-11 max-w-full gap-2 px-3 text-sm focus-ring disabled:border-line disabled:bg-surface-raised disabled:text-muted disabled:opacity-100 disabled:shadow-none disabled:hover:bg-surface-raised"
         aria-busy={active || view.pending}
         disabled={disabled || view.pending || active || !candidateId || !mediaRevision || !view.response?.available || view.readError}
         onclick={() => { void controller?.start(scanStatus === 'completed' || scanStatus === 'failed'); }}>

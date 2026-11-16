@@ -137,14 +137,14 @@ describe('the frame strip is one ordered set of moments (#256)', () => {
     });
 
     it('lifts the chosen moment like a dock item without using an active outline', () => {
-        expect(stripSource).toContain("'z-10 -translate-y-1 scale-105 bg-white/15 opacity-100 shadow-lg shadow-black/50'");
+        expect(stripSource).toContain("'z-10 -translate-y-1 scale-105 bg-on-media/15 opacity-100 shadow-lg shadow-media/50'");
         expect(stripSource).toContain('motion-reduce:translate-none motion-reduce:scale-none');
         expect(stripSource).not.toContain("? 'ring-2 ring-brand-400'");
     });
 
     it('degrades a missing thumbnail to a placeholder of the same size', () => {
         expect(stripSource).toContain("import MediaImage from './MediaImage.svelte'");
-        expect(stripSource).toContain('class=\"block h-9 w-12 rounded-md bg-slate-800 object-cover\"');
+        expect(stripSource).toContain('class=\"block h-9 w-12 rounded-md bg-media-raised object-cover\"');
     });
 });
 
@@ -235,6 +235,6 @@ describe('the record uses the strip and drops the framing toggle (#256)', () => 
         expect(modalSource).toContain('class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center" data-detection-whole-scene-actions');
         // The rail's "Identified as" names the bird, and titles the dialog; the photograph never repeats it.
         expect(modalSource).not.toContain('data-detection-media-title');
-        expect(modalSource).toContain('<h3 id="detection-modal-title" class="font-display text-2xl font-bold text-slate-900 dark:text-white">{primaryName}</h3>');
+        expect(modalSource).toContain('<h3 id="detection-modal-title" class="font-display text-2xl font-bold text-strong">{primaryName}</h3>');
     });
 });

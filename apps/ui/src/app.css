@@ -157,6 +157,12 @@
      (`text-on-media`, a scrim of `bg-media/75`) does not follow the theme either. */
   --color-media: rgb(var(--media));
   --color-on-media: rgb(var(--on-media));
+  /* A panel on that ground (the player's bars and sheets), and the brand where it marks a choice
+     on it: a light step that reads on the dark ground, yellow in high contrast. */
+  --color-media-raised: rgb(var(--media-raised));
+  --color-on-media-accent: rgb(var(--brand-400));
+  /* A failure said on the dark ground: a light rose, since the theme's own red is written for paper. */
+  --color-on-media-fail: rgb(var(--on-media-fail));
 
   /* Semantic success, deliberately NOT theme-driven. `accent` is a brand colour and the
      bluetit theme paints it amber, which is reserved for "needs a person"
@@ -331,6 +337,8 @@
   --status-neutral-soft: 241 245 249;
   --status-neutral-line: 100 116 139;
   --media: 0 0 0;
+  --media-raised: 15 23 42;
+  --on-media-fail: 253 164 175;
   --on-media: 255 255 255;
 }
 
@@ -996,6 +1004,7 @@ html.high-contrast.high-contrast.high-contrast {
   --status-neutral: 255 255 255;
   --status-neutral-soft: 0 0 0;
   --status-neutral-line: 255 255 255;
+  --media-raised: 0 0 0;
 
   /* The inks. Each is 7:1 or better on black; meaning still never rests on the hue alone. */
   --hc-ink: #ffffff;

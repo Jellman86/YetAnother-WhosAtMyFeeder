@@ -23,7 +23,16 @@ const COMBINATIONS: { name: string; colour: 'classic' | 'bluetit'; theme: Theme;
 
 const PAGES: { name: string; path: string; ready: (page: Page) => Promise<void> }[] = [
     { name: 'the Dashboard', path: '/', ready: (page) => expect(page.locator('[data-field-log-row]').first()).toBeVisible(READY) },
-    { name: 'the Leaderboard', path: '/species', ready: (page) => expect(page.locator('h1')).toBeVisible(READY) }
+    { name: 'the Leaderboard', path: '/species', ready: (page) => expect(page.locator('h1')).toBeVisible(READY) },
+    {
+        // The record's species-match bar, and any other score bar it draws, over the dialog's own ground.
+        name: 'the detection record',
+        path: '/',
+        ready: async (page) => {
+            await page.locator('[data-field-log-row]:not([data-field-log-garden]) button[data-field-log-action].btn-ghost').first().click(READY);
+            await expect(page.locator('[data-record-score-bar]')).toBeVisible(READY);
+        }
+    }
 ];
 
 for (const combination of COMBINATIONS) {

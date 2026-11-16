@@ -28,15 +28,29 @@ const DIALOGS = [
     'components/VideoPlayer.svelte',
     'components/KeyboardShortcuts.svelte',
     'components/CameraStatus.svelte',
-    'components/setup/WizardShell.svelte'
+    'components/setup/WizardShell.svelte',
+    'components/FamilyTreeDialog.svelte'
 ];
+
+/** The dialogs that already wear the shared header; the rest move to it with their own areas. */
+const SHARED_HEADER = ['components/DetectionModal.svelte', 'components/VideoPlayer.svelte', 'components/FamilyTreeDialog.svelte'];
 
 describe('one close button for every dialog', () => {
     it('closes through the shared button, not a cross drawn in place', () => {
         for (const file of DIALOGS) {
-            expect(source(file), file).toContain('<DialogCloseButton');
+            expect(source(file), file).toMatch(/<DialogCloseButton|<DialogHeader/);
             expect(source(file), file).not.toMatch(HAND_DRAWN_CROSS);
         }
+    });
+
+    it('heads the record, its player and its family tree with the one shared header', () => {
+        for (const file of SHARED_HEADER) {
+            expect(source(file), file).toContain("import DialogHeader from './ui/DialogHeader.svelte'");
+            // No "Close" text button beside it, and no status chip restating the player's own state.
+            expect(source(file), file).not.toMatch(/>\s*\{\$_\('common\.close'/);
+            expect(source(file), file).not.toContain('data-video-playback-state');
+        }
+        expect(source('components/ui/DialogHeader.svelte')).toContain('<DialogCloseButton');
     });
 
     it('draws the same round 44px target whatever it sits on', () => {

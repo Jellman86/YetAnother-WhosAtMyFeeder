@@ -73,7 +73,7 @@
 
 {#if loading}
     <div class={className} aria-hidden="true">
-        <div class="h-16 animate-pulse rounded-xl bg-slate-100 motion-reduce:animate-none dark:bg-slate-800"></div>
+        <div class="h-16 animate-pulse rounded-xl bg-surface-raised motion-reduce:animate-none"></div>
     </div>
 {:else if steps.length > 1}
     <section class="space-y-3 {className}" aria-labelledby="taxonomy-lineage-heading" data-taxonomy-lineage>
@@ -94,16 +94,16 @@
                     <span class="relative flex min-w-0 flex-1 items-center" style:padding-left="{index}rem">
                         {#if index > 0}
                             <span
-                                class="pointer-events-none absolute -top-1/2 bottom-1/2 w-4 border-b border-l border-slate-400 dark:border-slate-500"
+                                class="pointer-events-none absolute -top-1/2 bottom-1/2 w-4 border-b border-l border-line-strong "
                                 style:left="{index - 0.5}rem"
                                 aria-hidden="true"
                             ></span>
                         {/if}
                         <span class="relative flex w-4 shrink-0 items-center justify-center" aria-hidden="true">
                             {#if last}
-                                <span class="block h-2.5 w-2.5 rounded-full bg-slate-900 ring-2 ring-slate-900 ring-offset-2 ring-offset-surface dark:bg-white dark:ring-white" data-taxonomy-marker="current"></span>
+                                <span class="block h-2.5 w-2.5 rounded-full bg-strong ring-2 ring-strong ring-offset-2 ring-offset-surface " data-taxonomy-marker="current"></span>
                             {:else}
-                                <span class="block h-2 w-2 rounded-full bg-slate-500 dark:bg-slate-400" data-taxonomy-marker="path"></span>
+                                <span class="block h-2 w-2 rounded-full bg-subtle " data-taxonomy-marker="path"></span>
                             {/if}
                         </span>
                         <button
@@ -130,10 +130,10 @@
                         >
                             <TaxonNameText
                                 name={names.primary}
-                                class="truncate text-sm leading-5 {last ? 'font-bold text-slate-900 dark:text-white' : 'font-medium text-slate-700 dark:text-slate-200'}"
+                                class="truncate text-sm leading-5 {last ? 'font-bold text-strong' : 'font-medium text-ink'}"
                             />
                             {#if names.secondary}
-                                <TaxonNameText name={names.secondary} class="truncate text-2xs leading-4 text-slate-600 dark:text-slate-400" />
+                                <TaxonNameText name={names.secondary} class="truncate text-2xs leading-4 text-muted" />
                             {/if}
                         </button>
                     </span>
@@ -141,7 +141,7 @@
             {/each}
         </ol>
         {#if subject === 'bird' && family && family.species_count}
-            <p class="text-xs tabular-nums text-slate-600 dark:text-slate-400" data-taxonomy-lineage-context>
+            <p class="text-xs tabular-nums text-muted" data-taxonomy-lineage-context>
                 {$_('taxonomy.context', {
                     values: { group: taxonNames(family, style).primary.text, total: family.species_count, seen: family.seen_species ?? 0 },
                     default: '{group}: {total, plural, one {# species} other {# species}} worldwide, {seen} seen at this feeder.'
