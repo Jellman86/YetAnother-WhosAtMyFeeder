@@ -16,7 +16,10 @@ function portrait(event = 'dunnock', name = 'Dunnock') {
     };
 }
 
-async function open(page: Page, onPortrait: (route: Route) => Promise<void>) {
+// A default install's report: image work runs in worker processes that have started.
+const RUNNING = { runtime_source: 'worker', image_execution_mode: 'subprocess', active_model_installed: true, effective_model_id: 'Bird classifier', active_provider: 'CPU' };
+
+async function open(page: Page, onPortrait: (route: Route) => Promise<void>, classifier: Record<string, unknown> = RUNNING, activity: Record<string, string> = {}) {
     page.on('pageerror', error => { throw error; });
     await page.route('https://fonts.googleapis.com/**', route => route.fulfill({ body: '' }));
     await page.route('https://fonts.gstatic.com/**', route => route.abort());
@@ -28,7 +31,8 @@ async function open(page: Page, onPortrait: (route: Route) => Promise<void>) {
         if (path.endsWith('.webm')) return route.fulfill({ contentType: 'video/webm', body: 'fixture' });
         if (path === '/api/version') return route.fulfill({ json: { version: '2.9.15', base_version: '2.9.15', git_hash: 'fixture', branch: 'dev' } });
         if (path === '/api/about/community') return route.fulfill({ json: { enabled: true, active_installs: 812 } });
-        if (path === '/api/classifier/status') return route.fulfill({ json: { loaded: true, effective_model_id: 'Bird classifier', active_provider: 'CPU' } });
+        if (path === '/api/classifier/status') return route.fulfill({ json: classifier });
+        if (path === '/api/models/activity') return route.fulfill({ json: { activity } });
         if (path === '/api/stats/uptime') return route.fulfill({ json: { buckets: [], longest_gap_minutes: 0, availability_percent: 100 } });
         if (path === '/api/update-status') return route.fulfill({ json: { enabled: false, update_available: false } });
         throw new Error(`Unexpected About fixture API request: ${path}`);
@@ -168,4 +172,34 @@ test('a failed portrait read leaves one quiet line, not an empty gap or a stuck 
     await expect(page.locator('[data-feeder-portrait-unavailable]')).toHaveText("This feeder's facts could not be loaded.");
     await expect(page.locator('[data-feeder-portrait-loading]')).toHaveCount(0);
     await expect(page.locator('[data-feeder-portrait]')).toHaveCount(0);
+});
+
+// About states the model by the rule Settings, the wizard and Garden use, and reports inference
+// health beside it. Each report below is one the shared readiness fixture names.
+for (const [name, report, state, health] of [
+    ['running in workers', RUNNING, 'Running', null],
+    ['an in-app model still loading', { ...RUNNING, runtime_source: 'in_process', image_execution_mode: 'in_process' }, 'Loading', null],
+    ['an in-app model that could not load', { ...RUNNING, runtime_source: 'in_process', loaded: false, error: 'runtime could not open the model' }, 'Could not load', null],
+    ['a failed in-app fallback', { ...RUNNING, runtime_source: 'in_process_fallback', loaded: false, error: 'runtime could not open the model' }, 'Could not load', null],
+    ['files that are not on this install', { ...RUNNING, active_model_installed: false, runtime_source: 'planned' }, 'Needs a download', null],
+    ['a report with no evidence', { active_model_installed: true, effective_model_id: 'Bird classifier', image_execution_mode: 'subprocess' }, 'Not reported', null],
+    ['running with failing inferences', { ...RUNNING, inference_health: { status: 'unhealthy' } }, 'Running', 'Recent inferences are failing']
+] as const) {
+    test(`the pipeline's classifier step reads ${name} as ${state}`, async ({ page }) => {
+        await open(page, route => route.fulfill({ json: portrait() }), report);
+        const step = page.locator('[data-pipeline-step="classifier"]');
+        await expect(step).toContainText(state);
+        for (const other of ['Check', 'Unknown', 'Loaded', 'Not loaded yet']) await expect(step).not.toContainText(other);
+        if (health) await expect(step.locator('[data-pipeline-health]')).toHaveText(health);
+        else await expect(step.locator('[data-pipeline-health]')).toHaveCount(0);
+    });
+}
+
+test('a guest is told the model\'s own state and never asks for work in progress, which is the owner\'s to read', async ({ page }) => {
+    const asked: string[] = [];
+    page.on('request', request => { if (new URL(request.url()).pathname === '/api/models/activity') asked.push(request.url()); });
+    // The server is downloading the model, and this viewer is not signed in.
+    await open(page, route => route.fulfill({ json: portrait() }), { ...RUNNING, active_model_installed: false, runtime_source: 'planned' }, { 'Bird classifier': 'downloading' });
+    await expect(page.locator('[data-pipeline-step="classifier"]')).toContainText('Needs a download');
+    expect(asked).toEqual([]);
 });

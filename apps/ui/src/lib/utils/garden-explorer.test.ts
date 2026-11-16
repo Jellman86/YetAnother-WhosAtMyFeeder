@@ -317,3 +317,33 @@ describe('findRefreshedGardenVisit', () => {
         expect(findRefreshedGardenVisit([], null)).toBeNull();
     });
 });
+
+describe('why a pending capture is waiting', () => {
+    const t = (_key: string, fallback: string): string => fallback;
+    const pending = capture();
+    const state = (checkModel: Parameters<typeof gardenEntryText>[4]): string =>
+        gardenEntryText(pending, gardenEntryView(pending), t, 'owner', checkModel).state;
+
+    const model = (readiness: 'missing' | 'queued' | 'ready' | 'running' | 'checking') => ({ kind: 'model', readiness }) as const;
+
+    it('names the model when the model is what is missing', () => {
+        expect(state(model('missing'))).toBe('Waiting: the automatic check model is not downloaded, so nothing can identify this yet.');
+        expect(state(model('queued'))).toBe('Waiting: the automatic check model is downloading. Identification starts when it finishes.');
+    });
+
+    it('names what Garden measured when something else blocks the check, never a model that could not load', () => {
+        const speciesData = state({ kind: 'blocked', blocker: 'species_data', detail: null });
+        expect(speciesData).toBe('Waiting: Garden species data is unavailable, so nothing can identify this yet.');
+        const service = gardenEntryText(pending, gardenEntryView(pending), (_key, fallback, values) => fallback.replace('{detail}', String(values?.detail ?? '')), 'owner', {
+            kind: 'blocked', blocker: 'service', detail: 'Garden worker did not stop. Restart the application before running more Garden work.'
+        }).state;
+        expect(service).toBe('Waiting: Garden checks have stopped. Garden worker did not stop. Restart the application before running more Garden work.');
+        for (const text of [speciesData, service]) expect(text).not.toContain('could not load');
+    });
+
+    it('says only that it waits when the model is able to run, or its state is not known', () => {
+        for (const check of [model('ready'), model('running'), model('checking'), null, undefined]) {
+            expect(state(check)).toBe('Waiting for automatic identification');
+        }
+    });
+});

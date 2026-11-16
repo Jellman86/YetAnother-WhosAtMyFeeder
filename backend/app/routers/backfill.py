@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta, timezone, tzinfo
-from typing import Optional, List
+from typing import Literal, Optional, List
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 import structlog
@@ -70,6 +70,19 @@ class BackfillResetResponse(BaseModel):
     message: str
     deleted_count: int
     cache_stats: BackfillResetCacheStats
+
+
+class BackfillResetCountChanged(BaseModel):
+    """The count the owner confirmed no longer holds. Nothing was deleted."""
+
+    code: Literal["reset_count_changed"] = "reset_count_changed"
+    detection_count: int = Field(description="What a reset would delete now, to ask the owner again with.")
+
+
+class BackfillResetRefusal(BaseModel):
+    """A reset that did not run: the confirmed count changed, or another reset is under way."""
+
+    detail: BackfillResetCountChanged | str
 
 
 _JOB_STORE: dict[str, BackfillJobStatus] = {}
@@ -453,7 +466,20 @@ async def preview_reset(_auth: AuthContext = Depends(require_owner)) -> Backfill
         return BackfillResetPreviewResponse(detection_count=await DetectionRepository(db).count_all())
 
 
-@router.delete("/backfill/reset", response_model=BackfillResetResponse)
+@router.delete(
+    "/backfill/reset",
+    response_model=BackfillResetResponse,
+    responses={
+        409: {
+            "model": BackfillResetRefusal,
+            "description": (
+                "Nothing was deleted. Either `expected_count` is no longer the number of detections "
+                "(`detail.code` is `reset_count_changed` and `detail.detection_count` is the current "
+                "number), or a reset is already in progress (`detail` is a sentence)."
+            ),
+        }
+    },
+)
 async def reset_database(
     request: Request,
     expected_count: int | None = Query(
@@ -493,7 +519,7 @@ async def reset_database(
         if deleted_count is None:
             raise HTTPException(
                 status_code=409,
-                detail={"code": "reset_count_changed", "detection_count": current_count},
+                detail=BackfillResetCountChanged(detection_count=current_count).model_dump(),
             )
 
         # Clear media cache, and the favourite archive: a reset is the one action meant to leave nothing.

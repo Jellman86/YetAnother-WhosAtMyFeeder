@@ -9,7 +9,9 @@
     import { getErrorMessage, isTransientRequestError } from '../utils/error-handling';
     import { logger } from '../utils/logger';
     import { describeRuntime } from '../utils/instance-facts';
-    import { pipelineClassifierState, type PipelineClassifierState } from '../utils/pipeline-classifier-state';
+    import { pipelineClassifierStep } from '../utils/pipeline-classifier-state';
+    import { readinessLabel, reportedModelId } from '../settings/model-readiness';
+    import { modelActivityStore } from '../stores/model_activity.svelte';
     import { _ } from 'svelte-i18n';
 
     /**
@@ -26,6 +28,8 @@
         tone: Tone;
         /** A muted second line under the detail, such as the runtime a model runs on. */
         note?: string | null;
+        /** A second reading beside the state, such as inference health; never part of the state. */
+        health?: string | null;
     }
 
     let cameraStatus = $state<CameraStatusResponse | null>(null);
@@ -61,9 +65,10 @@
     onMount(() => {
         const controller = new AbortController();
 
-        void (async () => {
+        const readClassifier = async (): Promise<void> => {
             try {
                 classifier = await readClassifierStatus();
+                classifierFailed = false;
             } catch (error) {
                 if (controller.signal.aborted) return;
                 classifierFailed = true;
@@ -73,9 +78,16 @@
                     logger.error('Failed to fetch classifier status', error);
                 }
             }
-        })();
+        };
+        void readClassifier();
+        // Work on the model is the server's to report, and only an owner may read it. When a
+        // download or check ends, the model's own report is read again.
+        const stopWatching = isGuestView ? null : modelActivityStore.watch(() => void readClassifier());
 
-        return () => controller.abort();
+        return () => {
+            controller.abort();
+            stopWatching?.();
+        };
     });
 
     const unknown = $_('about.pipeline.unknown', { default: 'Unknown' });
@@ -135,18 +147,19 @@
         // The model's own name, as the Models tab shows it. Its file id belongs in the issue report.
         const modelName = classifier.effective_model_name?.trim() || null;
         const runtime = describeRuntime(classifier)?.runtime ?? null;
-        const reading = pipelineClassifierState(classifier);
-        const states: Record<PipelineClassifierState, { state: string; tone: Tone }> = {
-            loaded: { state: $_('about.pipeline.loaded', { default: 'Loaded' }), tone: 'ok' },
-            standby: { state: $_('about.pipeline.standby', { default: 'Not loaded yet' }), tone: 'off' },
-            missing: { state: $_('about.pipeline.missing', { default: 'Not installed' }), tone: 'off' },
-            check: { state: $_('about.pipeline.degraded', { default: 'Check' }), tone: 'off' },
-            unknown: { state: unknown, tone: 'unknown' }
-        };
+        // The model's state by the rule every other surface uses, with work this app started on it.
+        const step = pipelineClassifierStep(classifier, modelActivityStore.phase(reportedModelId(classifier)));
         return {
             detail: modelName ?? runtime ?? noReading,
             note: modelName ? runtime : null,
-            ...states[reading]
+            health: step.health === 'unhealthy'
+                ? $_('about.pipeline.inference_unhealthy', { default: 'Recent inferences are failing' })
+                : step.health === 'degraded'
+                  ? $_('about.pipeline.inference_degraded', { default: 'Some recent inferences failed' })
+                  : null,
+            state: readinessLabel(step.readiness, $_),
+            tone: step.tone as Tone,
+            readiness: step.readiness
         };
     });
 
@@ -181,6 +194,7 @@
             key: 'classifier',
             detail: classifierSummary.detail,
             note: 'note' in classifierSummary ? classifierSummary.note : null,
+            health: 'health' in classifierSummary ? classifierSummary.health : null,
             state: classifierSummary.state,
             tone: classifierSummary.tone
         },
@@ -246,6 +260,7 @@
             <li
                 class="pipeline-step relative overflow-hidden rounded-xl border border-line-soft p-3"
                 style="--flow-index: {index}"
+                data-pipeline-step={step.key}
             >
                 <!-- The pulse sweeps each card in turn, so the eye is carried along the chain in the
                      direction the data actually moves. Decorative: the order is already in the DOM. -->
@@ -275,6 +290,9 @@
                 </span>
                 {#if step.note}
                     <span class="relative block text-2xs leading-snug text-slate-600 wrap-anywhere dark:text-slate-400" data-pipeline-note>{step.note}</span>
+                {/if}
+                {#if step.health}
+                    <span class="relative block text-2xs font-medium leading-snug text-ink wrap-anywhere" data-pipeline-health>{step.health}</span>
                 {/if}
             </li>
         {/each}

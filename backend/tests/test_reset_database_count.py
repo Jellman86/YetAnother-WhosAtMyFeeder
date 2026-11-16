@@ -190,3 +190,29 @@ async def test_the_guarded_delete_removes_everything_when_the_count_holds(client
     async with get_db() as db:
         assert await DetectionRepository(db).delete_all_if_count_is(2) == (2, 2)
     assert await _rows() == 0
+
+
+def test_the_contract_declares_the_refusal_and_its_fresh_count():
+    schema = app.openapi()
+    refusal = schema["paths"]["/api/backfill/reset"]["delete"]["responses"]["409"]
+
+    name = refusal["content"]["application/json"]["schema"]["$ref"].rsplit("/", 1)[-1]
+    detail = schema["components"]["schemas"][name]["properties"]["detail"]
+    changed = next(option["$ref"].rsplit("/", 1)[-1] for option in detail["anyOf"] if "$ref" in option)
+    fields = schema["components"]["schemas"][changed]["properties"]
+
+    assert fields["code"]["const"] == "reset_count_changed"
+    assert fields["detection_count"]["type"] == "integer"
+    # A reset already under way is refused with the same status and a sentence.
+    assert {"type": "string"} in detail["anyOf"]
+
+
+@pytest.mark.asyncio
+async def test_the_refusal_sent_matches_the_declared_model(client):
+    await _add_detection("reset-declared", hidden=False)
+
+    refused = await client.delete("/api/backfill/reset", params={"expected_count": 4})
+
+    assert backfill_router.BackfillResetRefusal.model_validate(refused.json()).detail == (
+        backfill_router.BackfillResetCountChanged(detection_count=1)
+    )

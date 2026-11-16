@@ -31,7 +31,8 @@
     "browser": "你的浏览器",
     "unknown": "未知",
     "degraded": "需检查",
-    "loaded": "已加载",
+    "inference_unhealthy": "最近的推理失败",
+    "inference_degraded": "最近的部分推理失败",
     "cameras_count": "{total} 个摄像头中 {online} 个在线",
     "mqtt_detail": "frigate/events",
     "audio_detail": "与 BirdNET-Go 比对",
@@ -43,9 +44,7 @@
     "not_checked": "未检查",
     "no_reading": "无法从此处读取",
     "owner_only": "仅所有者",
-    "owner_only_detail": "仅所有者可见的读数",
-    "standby": "尚未加载",
-    "missing": "未安装"
+    "owner_only_detail": "仅所有者可见的读数"
   },
   "storage": {
     "title": "存储了什么",
