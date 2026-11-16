@@ -2,7 +2,14 @@
     import { settingsStore } from '../stores/settings.svelte';
     import { authStore } from '../stores/auth.svelte';
     import { _ } from 'svelte-i18n';
-    import { gardenAlertChannels, outboundRequests, type OutboundFacts, type OutboundState } from '../utils/outbound-requests';
+    import {
+        birdDeliveryChannels,
+        deliverableChannels,
+        gardenAlertChannels,
+        outboundRequests,
+        type OutboundFacts,
+        type OutboundState
+    } from '../utils/outbound-requests';
 
     const isOwner = $derived(authStore.showSettings);
 
@@ -19,16 +26,34 @@
     // A guest reads no settings, so only what the sign-in status reports is known to them; the
     // rest is said to be the owner's to see, never guessed as off.
     const settings = $derived(isOwner ? settingsStore.settings : null);
-    const birdChannels = $derived(
+    // A channel that is switched on without its credentials sends nothing, so it is not counted.
+    const deliverable = $derived(
         settings
-            ? [
-                settings.notifications_discord_enabled,
-                settings.notifications_telegram_enabled,
-                settings.notifications_pushover_enabled,
-                settings.notifications_email_enabled
-            ].filter(Boolean).length
+            ? deliverableChannels({
+                discord: { webhook_url: settings.notifications_discord_webhook_url },
+                telegram: { bot_token: settings.notifications_telegram_bot_token, chat_id: settings.notifications_telegram_chat_id },
+                pushover: { user_key: settings.notifications_pushover_user_key, api_token: settings.notifications_pushover_api_token },
+                email: {
+                    use_oauth: settings.notifications_email_use_oauth,
+                    oauth_provider: settings.notifications_email_oauth_provider,
+                    to_email: settings.notifications_email_to_email,
+                    smtp_host: settings.notifications_email_smtp_host,
+                    from_email: settings.notifications_email_from_email
+                }
+            })
             : null
     );
+    const birdEnabled = $derived(
+        settings
+            ? {
+                discord: Boolean(settings.notifications_discord_enabled),
+                telegram: Boolean(settings.notifications_telegram_enabled),
+                pushover: Boolean(settings.notifications_pushover_enabled),
+                email: Boolean(settings.notifications_email_enabled)
+            }
+            : null
+    );
+    const birdChannels = $derived(birdEnabled && deliverable ? birdDeliveryChannels(birdEnabled, deliverable).length : null);
     // A saved secret reaches the page as a placeholder, so "is one saved" is all that is read.
     const saved = (value: string | null | undefined): boolean => Boolean(value && value.trim());
     const facts = $derived<OutboundFacts>({
@@ -44,15 +69,17 @@
         inaturalistSubmissions: settings ? Boolean(settings.inaturalist_enabled) : null,
         inaturalistConnected: settings ? saved(settings.inaturalist_connected_user) : null,
         birdChannels,
-        gardenChannels: settings && birdChannels !== null
+        gardenChannels: settings && birdEnabled && deliverable
             ? gardenAlertChannels({
                 beta: Boolean(settings.beta_garden_animals),
                 enabled: Boolean(settings.garden_notifications_enabled),
                 useBirdChannels: settings.garden_notifications_use_bird_channels !== false,
                 selected: settings.garden_notification_channels ?? [],
-                birdChannels
+                birdEnabled,
+                deliverable
             })
             : null,
+        garden: settings ? Boolean(settings.beta_garden_animals) : null,
         locationSet: settings ? settings.location_latitude != null && settings.location_longitude != null : null,
         locationAutomatic: settings ? Boolean(settings.location_automatic) : null
     });

@@ -1,0 +1,65 @@
+{
+  "about": "Saved notification settings and the channels that can actually deliver with them. The server (channel_configured, which every send checks before any request) and the SPA (About's privacy list) both read this file in their tests, so About never says a channel is on when the sender would return without sending.",
+  "cases": [
+    {
+      "name": "nothing saved",
+      "notifications": {},
+      "can_deliver": {"discord": false, "telegram": false, "pushover": false, "email": false}
+    },
+    {
+      "name": "Discord with a webhook",
+      "notifications": {"discord": {"webhook_url": "https://discord.com/api/webhooks/1/abc"}},
+      "can_deliver": {"discord": true, "telegram": false, "pushover": false, "email": false}
+    },
+    {
+      "name": "Telegram with a token and no chat",
+      "notifications": {"telegram": {"bot_token": "123:abc"}},
+      "can_deliver": {"discord": false, "telegram": false, "pushover": false, "email": false}
+    },
+    {
+      "name": "Telegram with a chat and no token",
+      "notifications": {"telegram": {"chat_id": "42"}},
+      "can_deliver": {"discord": false, "telegram": false, "pushover": false, "email": false}
+    },
+    {
+      "name": "Telegram with both",
+      "notifications": {"telegram": {"bot_token": "123:abc", "chat_id": "42"}},
+      "can_deliver": {"discord": false, "telegram": true, "pushover": false, "email": false}
+    },
+    {
+      "name": "Pushover with only its user key",
+      "notifications": {"pushover": {"user_key": "u"}},
+      "can_deliver": {"discord": false, "telegram": false, "pushover": false, "email": false}
+    },
+    {
+      "name": "Pushover with both keys",
+      "notifications": {"pushover": {"user_key": "u", "api_token": "a"}},
+      "can_deliver": {"discord": false, "telegram": false, "pushover": true, "email": false}
+    },
+    {
+      "name": "email by SMTP with no recipient",
+      "notifications": {"email": {"use_oauth": false, "smtp_host": "smtp.example.org", "from_email": "feeder@example.org"}},
+      "can_deliver": {"discord": false, "telegram": false, "pushover": false, "email": false}
+    },
+    {
+      "name": "email by SMTP with no server",
+      "notifications": {"email": {"use_oauth": false, "to_email": "me@example.org", "from_email": "feeder@example.org"}},
+      "can_deliver": {"discord": false, "telegram": false, "pushover": false, "email": false}
+    },
+    {
+      "name": "email by SMTP, complete",
+      "notifications": {"email": {"use_oauth": false, "to_email": "me@example.org", "smtp_host": "smtp.example.org", "from_email": "feeder@example.org"}},
+      "can_deliver": {"discord": false, "telegram": false, "pushover": false, "email": true}
+    },
+    {
+      "name": "email by a connected account with no connection made",
+      "notifications": {"email": {"use_oauth": true, "to_email": "me@example.org", "smtp_host": "smtp.example.org", "from_email": "feeder@example.org"}},
+      "can_deliver": {"discord": false, "telegram": false, "pushover": false, "email": false}
+    },
+    {
+      "name": "email by a connected account",
+      "notifications": {"email": {"use_oauth": true, "oauth_provider": "gmail", "to_email": "me@example.org"}},
+      "can_deliver": {"discord": false, "telegram": false, "pushover": false, "email": true}
+    }
+  ]
+}

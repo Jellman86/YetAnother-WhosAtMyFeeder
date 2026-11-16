@@ -15,11 +15,16 @@ test('the list names the browser and server requests, and the map tiles do not f
             // Usage statistics off, health reports on: two opt-ins.
             telemetry_enabled: false, telemetry_health_enabled: true,
             inaturalist_enabled: false,
-            // Every bird channel off, and Garden alerts on a channel of their own.
-            notifications_discord_enabled: false, notifications_telegram_enabled: false,
+            // Discord is switched on with no webhook saved, so no bird notification can be sent.
+            notifications_discord_enabled: true, notifications_discord_webhook_url: '',
+            notifications_telegram_enabled: false,
             notifications_pushover_enabled: false, notifications_email_enabled: false,
+            // Garden alerts have channels of their own: Telegram, which holds its credentials,
+            // and Pushover, which holds none and so sends nothing.
+            notifications_telegram_bot_token: '***REDACTED***', notifications_telegram_chat_id: '42',
+            notifications_pushover_user_key: '', notifications_pushover_api_token: '',
             beta_garden_animals: true, garden_notifications_enabled: true,
-            garden_notifications_use_bird_channels: false, garden_notification_channels: ['telegram'],
+            garden_notifications_use_bird_channels: false, garden_notification_channels: ['telegram', 'pushover'],
             location_latitude: null, location_longitude: null, location_automatic: true
         }
         : json));
@@ -49,9 +54,16 @@ test('the list names the browser and server requests, and the map tiles do not f
     await expect(state('telemetry')).toHaveAttribute('data-outbound-state', 'off');
     await expect(state('telemetry_health')).toHaveAttribute('data-outbound-state', 'on');
     await expect(state('telemetry_health')).toContainText('installation ID');
-    // Garden alerts go out on their own channel while every bird channel is off.
+    // A bird channel switched on without its credentials sends nothing, so the row is off. Garden
+    // alerts go out on their own channel, the one that can deliver.
     await expect(state('notify')).toHaveAttribute('data-outbound-state', 'off');
     await expect(state('garden_notify')).toHaveAttribute('data-outbound-state', 'on');
+    await expect(state('garden_notify')).toContainText('a link to the record');
+    // Requests nobody presses a button for.
+    await expect(state('telemetry_forget')).toContainText('Sends the installation ID');
+    await expect(state('telemetry_forget')).toHaveAttribute('data-outbound-state', 'on_use');
+    await expect(state('garden_model')).toHaveAttribute('data-outbound-state', 'on');
+    await expect(state('garden_model')).toContainText('without anyone pressing a button');
     // A switch that cannot send is not shown as on: no AI key, no BirdWeather token.
     await expect(state('llm')).toHaveAttribute('data-outbound-state', 'off');
     await expect(state('birdweather')).toHaveAttribute('data-outbound-state', 'off');
@@ -65,7 +77,8 @@ test('the list names the browser and server requests, and the map tiles do not f
     for (const key of ['oauth_browser', 'oauth_server', 'tests', 'diagnostics']) {
         await expect(state(key)).toHaveAttribute('data-outbound-state', 'on_use');
     }
-    await expect(state('tests')).toContainText('placehold.co');
+    await expect(state('tests')).toContainText('placehold.co, which Discord loads as an image');
+    await expect(state('tests')).toContainText('The email test uses the saved email settings only');
 
     await section.scrollIntoViewIfNeeded();
     await section.screenshot({ path: testInfo.outputPath('about-outbound.png') });

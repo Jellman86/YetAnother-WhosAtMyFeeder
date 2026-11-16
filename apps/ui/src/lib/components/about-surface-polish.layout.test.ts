@@ -63,9 +63,9 @@ describe('About surface polish', () => {
         const everything = outboundRequests({
             owner: true, ebird: true, llm: true, llmKey: true, telemetryUsage: true, telemetryHealth: true, updateChecks: true,
             birdweather: true, birdweatherToken: true, inaturalistSubmissions: true, inaturalistConnected: true,
-            birdChannels: 1, gardenChannels: 1, locationSet: true, locationAutomatic: true
+            birdChannels: 1, gardenChannels: 1, garden: true, locationSet: true, locationAutomatic: true
         });
-        expect(everything.length).toBeGreaterThanOrEqual(26);
+        expect(everything.length).toBeGreaterThanOrEqual(28);
         for (const { key } of everything) {
             expect(outbound[key], key).toBeTruthy();
             expect(outbound[`${key}_desc`], key).toMatch(/Sends|sees|see |etch|installation ID|Asks|opens|exchanges|contacts/);

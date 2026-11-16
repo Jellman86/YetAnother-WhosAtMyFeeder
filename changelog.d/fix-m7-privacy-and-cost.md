@@ -15,6 +15,16 @@
     missing configuration file is listed;
   - states read On, Off, Always or When used, and a guest is told a setting is the owner's to see
     rather than that it is off.
+  - a notification channel reads On only when it can deliver: switched on and holding its
+    credentials (a Telegram token and chat, both Pushover keys, a recipient and a mail server or
+    connected account). Garden's own channels are counted the same way;
+  - the test buttons are described as they behave: the email test uses saved settings, needs email
+    on and sends no picture; the placeholder picture address belongs to the Discord, Telegram and
+    Pushover tests; the AI test runs only while AI is on;
+  - a Garden alert's link to the record is disclosed, with what it contains;
+  - two requests nobody presses a button for have their own rows: the deletion request sent when
+    the last telemetry opt-in is switched off, and the download of Garden's check model by a due
+    automatic check.
 - Settings → AI no longer shows `$0.00` for a model that has no price. A model without a rate reads
   "Not priced", usage with no prices at all reads "Cost not estimated: add prices", and a total
   states how many requests it covers and which models it leaves out. `/api/stats/ai/usage` reports

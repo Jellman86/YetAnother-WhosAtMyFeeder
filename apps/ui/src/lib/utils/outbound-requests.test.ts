@@ -1,5 +1,18 @@
+// @ts-expect-error -- node:fs resolves at runtime, not in the app tsconfig
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { gardenAlertChannels, outboundRequests, type OutboundFacts } from './outbound-requests';
+import {
+    birdDeliveryChannels,
+    deliverableChannels,
+    gardenAlertChannels,
+    outboundRequests,
+    type NotificationCredentials,
+    type OutboundFacts
+} from './outbound-requests';
+
+function backendJson<T>(path: string): T {
+    return JSON.parse(readFileSync(new URL(`../../../../../backend/${path}`, import.meta.url), 'utf8')) as T;
+}
 
 const owner: OutboundFacts = {
     owner: true,
@@ -15,6 +28,7 @@ const owner: OutboundFacts = {
     inaturalistConnected: false,
     birdChannels: 0,
     gardenChannels: 0,
+    garden: false,
     locationSet: false,
     locationAutomatic: true
 };
@@ -70,15 +84,73 @@ describe('notifications that send while the bird channels are off', () => {
         expect(states({ ...owner, birdChannels: 2, gardenChannels: 0 })).toMatchObject({ notify: 'on', garden_notify: 'off' });
     });
 
+    const none = { discord: false, telegram: false, pushover: false, email: false };
+
     it('counts the channels a Garden alert really goes to', () => {
-        const settings = { beta: true, enabled: true, useBirdChannels: false, selected: ['telegram'], birdChannels: 0 };
+        const settings = {
+            beta: true, enabled: true, useBirdChannels: false, selected: ['telegram'],
+            birdEnabled: none, deliverable: { ...none, telegram: true, discord: true }
+        };
         expect(gardenAlertChannels(settings)).toBe(1);
-        // Following the bird channels means those that are switched on.
+        // Following the bird channels means those that are switched on and can deliver.
         expect(gardenAlertChannels({ ...settings, useBirdChannels: true })).toBe(0);
-        expect(gardenAlertChannels({ ...settings, useBirdChannels: true, birdChannels: 2 })).toBe(2);
+        expect(gardenAlertChannels({ ...settings, useBirdChannels: true, birdEnabled: { ...none, telegram: true, discord: true, pushover: true } })).toBe(2);
         // Off is off: the feature or its alerts.
         expect(gardenAlertChannels({ ...settings, enabled: false })).toBe(0);
         expect(gardenAlertChannels({ ...settings, beta: false })).toBe(0);
+    });
+
+    it('does not count a chosen Garden channel that has no credentials: its sender returns before any request', () => {
+        const settings = { beta: true, enabled: true, useBirdChannels: false, selected: ['telegram', 'email'], birdEnabled: none, deliverable: none };
+        expect(gardenAlertChannels(settings)).toBe(0);
+        expect(gardenAlertChannels({ ...settings, deliverable: { ...none, email: true } })).toBe(1);
+    });
+});
+
+describe('a notification channel is on only when it can deliver', () => {
+    interface ChannelCase { name: string; notifications: NotificationCredentials; can_deliver: Record<string, boolean> }
+    // The cases the server's `channel_configured` is tested against (backend/tests/pure).
+    const shared = backendJson<{ cases: ChannelCase[] }>('tests/fixtures/notification_channel_cases.json');
+
+    it.each(shared.cases)('$name', ({ notifications, can_deliver }) => {
+        expect(deliverableChannels(notifications)).toEqual(can_deliver);
+    });
+
+    it('treats a blank or whitespace credential as not saved', () => {
+        expect(deliverableChannels({ telegram: { bot_token: '  ', chat_id: '42' } }).telegram).toBe(false);
+        expect(deliverableChannels({ discord: { webhook_url: '' } }).discord).toBe(false);
+    });
+
+    it('does not count Telegram switched on with no token or chat', () => {
+        const enabled = { discord: false, telegram: true, pushover: false, email: false };
+        expect(birdDeliveryChannels(enabled, deliverableChannels({}))).toEqual([]);
+        expect(birdDeliveryChannels(enabled, deliverableChannels({ telegram: { bot_token: 't', chat_id: '1' } }))).toEqual(['telegram']);
+        // Credentials alone send nothing while the channel is off.
+        expect(birdDeliveryChannels({ ...enabled, telegram: false }, deliverableChannels({ telegram: { bot_token: 't', chat_id: '1' } }))).toEqual([]);
+    });
+});
+
+describe('requests nobody presses a button for', () => {
+    it('lists the deletion request sent when the last telemetry opt-in is switched off', () => {
+        expect(groups(owner).telemetry_forget).toBe('server');
+        expect(states(owner).telemetry_forget).toBe('on_use');
+    });
+
+    it('lists the automatic download of Garden\'s check model, which follows Garden being on', () => {
+        expect(groups(owner).garden_model).toBe('server');
+        expect(states({ ...owner, garden: false }).garden_model).toBe('off');
+        expect(states({ ...owner, garden: true }).garden_model).toBe('on');
+        expect(states({ ...owner, garden: null }).garden_model).toBe('unknown');
+    });
+});
+
+describe('the list and the backend registry of outbound requests', () => {
+    const registry = backendJson<{ entries: Array<{ key: string; group: string }> }>('outbound_requests.json');
+
+    it('have the same rows in the same groups, so a registered request always has a row and a row a reason', () => {
+        const listed = Object.fromEntries(outboundRequests(owner).map((request) => [request.key, request.group]));
+        const registered = Object.fromEntries(registry.entries.map((entry) => [entry.key, entry.group]));
+        expect(listed).toEqual(registered);
     });
 });
 
@@ -115,7 +187,7 @@ describe('a viewer who cannot read the settings', () => {
     const guest: OutboundFacts = {
         owner: false, ebird: true, llm: false, llmKey: null, telemetryUsage: null, telemetryHealth: null, updateChecks: null,
         birdweather: null, birdweatherToken: null, inaturalistSubmissions: null, inaturalistConnected: null,
-        birdChannels: null, gardenChannels: null, locationSet: null, locationAutomatic: null
+        birdChannels: null, gardenChannels: null, garden: null, locationSet: null, locationAutomatic: null
     };
 
     it('is not told that a setting is off: it is the owner\'s to see', () => {

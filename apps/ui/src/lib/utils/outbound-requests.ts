@@ -7,6 +7,10 @@
  * cannot send, so it is not shown as on, and a feature with its own opt-in (health reports, Garden
  * alerts) has its own row. The page says who makes each request and what it sends, and it makes no
  * promise that the list is all there is.
+ *
+ * The rows are held to `backend/outbound_requests.json`, the registry a backend test holds every
+ * module that can send a request to. A new request therefore needs a registry entry, a row here
+ * and its wording in every locale before the tests pass.
  */
 
 /**
@@ -44,10 +48,12 @@ export interface OutboundFacts {
     birdweatherToken: boolean | null;
     inaturalistSubmissions: boolean | null;
     inaturalistConnected: boolean | null;
-    /** How many bird notification channels (Discord, Telegram, Pushover, email) are switched on. */
+    /** How many bird notification channels are switched on and hold the credentials to deliver. */
     birdChannels: number | null;
-    /** How many channels a Garden alert goes to; they can be its own, with every bird channel off. */
+    /** How many channels a Garden alert can reach; they can be its own, with every bird channel off. */
     gardenChannels: number | null;
+    /** Garden is on, so its automatic checks run and can download their model. */
+    garden: boolean | null;
     /** The feeder has coordinates saved. */
     locationSet: boolean | null;
     /** With no coordinates saved, the server looks the location up from its public IP address. */
@@ -66,19 +72,61 @@ function both(first: boolean | null, second: boolean | null): boolean | null {
     return true;
 }
 
+const NOTIFICATION_CHANNELS = ['discord', 'telegram', 'pushover', 'email'] as const;
+export type NotificationChannel = (typeof NOTIFICATION_CHANNELS)[number];
+type Saved = string | null | undefined;
+
+/** The saved credentials each channel's sender checks before it makes any request. */
+export interface NotificationCredentials {
+    discord?: { webhook_url?: Saved };
+    telegram?: { bot_token?: Saved; chat_id?: Saved };
+    pushover?: { user_key?: Saved; api_token?: Saved };
+    email?: { use_oauth?: boolean | null; oauth_provider?: Saved; to_email?: Saved; smtp_host?: Saved; from_email?: Saved };
+}
+
+// A saved secret reaches the page as a placeholder, so "is one saved" is all that is read.
+const saved = (value: Saved): boolean => Boolean(value && value.trim());
+
 /**
- * The channels a Garden alert is sent to, as the server decides it: its own chosen channels, or
- * the bird channels that are switched on. None while Garden or its alerts are off.
+ * Which channels can deliver with what is saved. This is the server's `channel_configured`, and
+ * both are held to `backend/tests/fixtures/notification_channel_cases.json`: a channel that is
+ * switched on without these sends nothing, because its sender returns before any request.
+ */
+export function deliverableChannels(credentials: NotificationCredentials): Record<NotificationChannel, boolean> {
+    const email = credentials.email ?? {};
+    const mailer = email.use_oauth ? saved(email.oauth_provider) : saved(email.smtp_host) && saved(email.from_email);
+    return {
+        discord: saved(credentials.discord?.webhook_url),
+        telegram: saved(credentials.telegram?.bot_token) && saved(credentials.telegram?.chat_id),
+        pushover: saved(credentials.pushover?.user_key) && saved(credentials.pushover?.api_token),
+        email: saved(email.to_email) && mailer
+    };
+}
+
+/** The bird channels that send: switched on, and able to deliver. */
+export function birdDeliveryChannels(
+    enabled: Record<NotificationChannel, boolean>,
+    deliverable: Record<NotificationChannel, boolean>
+): NotificationChannel[] {
+    return NOTIFICATION_CHANNELS.filter((channel) => enabled[channel] && deliverable[channel]);
+}
+
+/**
+ * How many channels a Garden alert really reaches: the bird channels that send, or its own chosen
+ * channels that hold credentials. None while Garden or its alerts are off.
  */
 export function gardenAlertChannels(settings: {
     beta: boolean;
     enabled: boolean;
     useBirdChannels: boolean;
     selected: readonly string[];
-    birdChannels: number;
+    birdEnabled: Record<NotificationChannel, boolean>;
+    deliverable: Record<NotificationChannel, boolean>;
 }): number {
     if (!settings.beta || !settings.enabled) return 0;
-    return settings.useBirdChannels ? settings.birdChannels : new Set(settings.selected).size;
+    if (settings.useBirdChannels) return birdDeliveryChannels(settings.birdEnabled, settings.deliverable).length;
+    const chosen = new Set(settings.selected);
+    return NOTIFICATION_CHANNELS.filter((channel) => chosen.has(channel) && settings.deliverable[channel]).length;
 }
 
 export function outboundRequests(facts: OutboundFacts): OutboundRequest[] {
@@ -104,8 +152,13 @@ export function outboundRequests(facts: OutboundFacts): OutboundRequest[] {
         ['garden_notify', follows(facts.gardenChannels === null ? null : facts.gardenChannels > 0)],
         ['telemetry', follows(facts.telemetryUsage)],
         ['telemetry_health', follows(facts.telemetryHealth)],
+        // Sent once, when the last of the two opt-ins is switched off.
+        ['telemetry_forget', 'on_use'],
         ['updates', follows(facts.updateChecks)],
         ['downloads', 'on_use'],
+        // Nobody starts this one either: a due automatic Garden check fetches its model when the
+        // file is missing or fails its checksum.
+        ['garden_model', follows(facts.garden)],
         // Nobody starts this one: at every start, an installed model without its configuration
         // file has it fetched.
         ['model_repair', 'always']

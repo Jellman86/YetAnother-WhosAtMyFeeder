@@ -1,0 +1,436 @@
+{
+  "about": "Every request this app sends, or has a viewer's browser send, to an address the owner did not enter. One entry per row of About's \"What leaves your network\" list (apps/ui/src/lib/utils/outbound-requests.ts), with the backend modules that make it and the hosts it reaches. backend/tests/pure/test_outbound_registry.py holds the backend to it: a module that can send a request, or a new outside host, has to be listed here; the SPA's tests hold the About list to the same keys. Adding an entry means adding its row and its wording in every locale.",
+  "entries": [
+    {
+      "key": "inat",
+      "group": "server",
+      "what": "Bird names, taxonomy and species details",
+      "modules": [
+        "app/routers/species.py",
+        "app/services/taxonomy/taxonomy_service.py"
+      ],
+      "hosts": [
+        "api.inaturalist.org",
+        "www.inaturalist.org"
+      ]
+    },
+    {
+      "key": "inat_local",
+      "group": "server",
+      "what": "Local seasonality and regional model evaluation, with the feeder's coordinates",
+      "modules": [
+        "app/routers/inaturalist.py",
+        "app/services/eval/species_panel.py"
+      ],
+      "hosts": [
+        "api.inaturalist.org"
+      ]
+    },
+    {
+      "key": "wikipedia",
+      "group": "server",
+      "what": "Species descriptions",
+      "modules": [
+        "app/routers/species.py"
+      ],
+      "hosts": [],
+      "dynamic_hosts": "<language>.wikipedia.org, built from the reader's language"
+    },
+    {
+      "key": "gbif",
+      "group": "server",
+      "what": "Range map lookup for a species",
+      "modules": [
+        "app/routers/species.py"
+      ],
+      "hosts": [
+        "api.gbif.org",
+        "www.gbif.org"
+      ]
+    },
+    {
+      "key": "weather",
+      "group": "server",
+      "what": "Weather for each detection",
+      "modules": [
+        "app/services/weather_service.py"
+      ],
+      "hosts": [
+        "api.open-meteo.com",
+        "archive-api.open-meteo.com",
+        "open-meteo.com"
+      ]
+    },
+    {
+      "key": "geolocate",
+      "group": "server",
+      "what": "Rough location from the server's public IP address",
+      "modules": [
+        "app/services/weather_service.py"
+      ],
+      "hosts": [
+        "ip-api.com"
+      ]
+    },
+    {
+      "key": "places",
+      "group": "server",
+      "what": "Place name for the feeder's coordinates",
+      "modules": [
+        "app/services/geocoding_service.py"
+      ],
+      "hosts": [
+        "nominatim.openstreetmap.org"
+      ]
+    },
+    {
+      "key": "ebird",
+      "group": "server",
+      "what": "Recent sightings and eBird names",
+      "modules": [
+        "app/routers/species.py",
+        "app/services/ebird_service.py"
+      ],
+      "hosts": [
+        "api.ebird.org",
+        "ebird.org"
+      ]
+    },
+    {
+      "key": "birdweather",
+      "group": "server",
+      "what": "Detections reported to the owner's station",
+      "modules": [
+        "app/services/birdweather_service.py"
+      ],
+      "hosts": [
+        "app.birdweather.com"
+      ]
+    },
+    {
+      "key": "inat_submit",
+      "group": "server",
+      "what": "Observations the owner submits",
+      "modules": [
+        "app/routers/inaturalist.py",
+        "app/services/inaturalist_service.py"
+      ],
+      "hosts": [
+        "api.inaturalist.org",
+        "www.inaturalist.org"
+      ]
+    },
+    {
+      "key": "llm",
+      "group": "server",
+      "what": "Behaviour notes, chart summaries and chat",
+      "modules": [
+        "app/services/ai_service.py"
+      ],
+      "hosts": [
+        "api.anthropic.com",
+        "api.openai.com",
+        "generativelanguage.googleapis.com",
+        "openrouter.ai"
+      ]
+    },
+    {
+      "key": "notify",
+      "group": "server",
+      "what": "Bird notifications by Discord, Telegram, Pushover or email",
+      "modules": [
+        "app/services/notification_service.py",
+        "app/services/notifications/transports/discord.py",
+        "app/services/notifications/transports/http_logging.py",
+        "app/services/notifications/transports/pushover.py",
+        "app/services/notifications/transports/telegram.py",
+        "app/services/smtp_service.py"
+      ],
+      "hosts": [
+        "api.pushover.net",
+        "api.telegram.org"
+      ],
+      "dynamic_hosts": "The Discord webhook address and the SMTP server are the owner's own settings"
+    },
+    {
+      "key": "garden_notify",
+      "group": "server",
+      "what": "Garden alerts, on their own channels or the bird channels",
+      "modules": [
+        "app/services/garden_notification_transport.py"
+      ],
+      "hosts": [],
+      "dynamic_hosts": "The same services as bird notifications"
+    },
+    {
+      "key": "telemetry",
+      "group": "server",
+      "what": "Anonymous usage statistics",
+      "modules": [
+        "app/services/telemetry_service.py"
+      ],
+      "hosts": [
+        "yawamf-telemetry.ya-wamf.workers.dev"
+      ]
+    },
+    {
+      "key": "telemetry_health",
+      "group": "server",
+      "what": "Health reports",
+      "modules": [
+        "app/services/telemetry_service.py"
+      ],
+      "hosts": [
+        "yawamf-telemetry.ya-wamf.workers.dev"
+      ]
+    },
+    {
+      "key": "telemetry_forget",
+      "group": "server",
+      "what": "The deletion request sent when the last telemetry opt-in is switched off",
+      "modules": [
+        "app/routers/settings.py",
+        "app/services/telemetry_service.py"
+      ],
+      "hosts": [
+        "yawamf-telemetry.ya-wamf.workers.dev"
+      ]
+    },
+    {
+      "key": "updates",
+      "group": "server",
+      "what": "Latest release and the anonymous install count",
+      "modules": [
+        "app/services/community_stats_service.py",
+        "app/services/update_service.py"
+      ],
+      "hosts": [
+        "github.com",
+        "yawamf-telemetry.ya-wamf.workers.dev"
+      ]
+    },
+    {
+      "key": "downloads",
+      "group": "server",
+      "what": "Model files and evaluation photos fetched when the owner asks",
+      "modules": [
+        "app/routers/classifier.py",
+        "app/services/eval/image_fetcher.py",
+        "app/services/eval/species_panel.py",
+        "app/services/garden_identification.py",
+        "app/services/garden_motion.py",
+        "app/services/model_eval_service.py",
+        "app/services/model_manager.py"
+      ],
+      "hosts": [
+        "api.inaturalist.org",
+        "commons.wikimedia.org",
+        "en.wikipedia.org",
+        "github.com",
+        "raw.githubusercontent.com",
+        "storage.googleapis.com"
+      ]
+    },
+    {
+      "key": "garden_model",
+      "group": "server",
+      "what": "Garden's check model, downloaded by a due automatic check when its file is missing or damaged",
+      "modules": [
+        "app/services/garden_automatic_review.py",
+        "app/services/garden_identification.py"
+      ],
+      "hosts": [
+        "github.com"
+      ]
+    },
+    {
+      "key": "model_repair",
+      "group": "server",
+      "what": "A missing model configuration file fetched at start",
+      "modules": [
+        "app/services/model_manager.py"
+      ],
+      "hosts": [
+        "github.com",
+        "raw.githubusercontent.com"
+      ]
+    },
+    {
+      "key": "fonts",
+      "group": "browser",
+      "what": "The app's typefaces",
+      "modules": [],
+      "hosts": [
+        "fonts.googleapis.com",
+        "fonts.gstatic.com"
+      ]
+    },
+    {
+      "key": "photos",
+      "group": "browser",
+      "what": "Reference photos from Wikimedia and iNaturalist",
+      "modules": [],
+      "hosts": []
+    },
+    {
+      "key": "osm",
+      "group": "browser",
+      "what": "Map tiles",
+      "modules": [],
+      "hosts": []
+    },
+    {
+      "key": "gbif_tiles",
+      "group": "browser",
+      "what": "Range overlay tiles",
+      "modules": [],
+      "hosts": []
+    },
+    {
+      "key": "oauth_browser",
+      "group": "on_demand",
+      "what": "A provider's sign-in page opened to connect an account",
+      "modules": [
+        "app/routers/email.py",
+        "app/routers/inaturalist.py"
+      ],
+      "hosts": [
+        "accounts.google.com",
+        "login.microsoftonline.com",
+        "www.inaturalist.org"
+      ]
+    },
+    {
+      "key": "oauth_server",
+      "group": "on_demand",
+      "what": "Token exchange and refresh, and the connected Google account's address",
+      "modules": [
+        "app/routers/email.py",
+        "app/routers/inaturalist.py",
+        "app/services/inaturalist_service.py",
+        "app/services/smtp_service.py"
+      ],
+      "hosts": [
+        "login.microsoftonline.com",
+        "mail.google.com",
+        "oauth2.googleapis.com",
+        "outlook.office.com",
+        "www.googleapis.com",
+        "www.inaturalist.org"
+      ]
+    },
+    {
+      "key": "tests",
+      "group": "on_demand",
+      "what": "Test buttons for notifications, email, BirdWeather and AI",
+      "modules": [
+        "app/routers/email.py",
+        "app/routers/settings.py"
+      ],
+      "hosts": [
+        "placehold.co"
+      ]
+    },
+    {
+      "key": "diagnostics",
+      "group": "on_demand",
+      "what": "Connectivity diagnostics",
+      "modules": [
+        "app/routers/debug.py"
+      ],
+      "hosts": [
+        "api.inaturalist.org"
+      ]
+    }
+  ],
+  "owner_addresses": [
+    {
+      "module": "app/routers/proxy.py",
+      "service": "Frigate"
+    },
+    {
+      "module": "app/services/frigate_client.py",
+      "service": "Frigate"
+    },
+    {
+      "module": "app/services/full_visit_clip_service.py",
+      "service": "Frigate"
+    },
+    {
+      "module": "app/services/media_probe.py",
+      "service": "Frigate"
+    },
+    {
+      "module": "app/services/garden_motion.py",
+      "service": "Frigate"
+    },
+    {
+      "module": "app/routers/debug.py",
+      "service": "Frigate"
+    },
+    {
+      "module": "app/routers/audio.py",
+      "service": "BirdNET-Go"
+    },
+    {
+      "module": "app/services/ha_weather.py",
+      "service": "Home Assistant"
+    },
+    {
+      "module": "app/services/mqtt_service.py",
+      "service": "The MQTT broker"
+    }
+  ],
+  "no_request": [
+    {
+      "module": "app/config_models.py",
+      "reason": "Resolves a configured hostname to refuse private addresses; sends no request"
+    },
+    {
+      "module": "app/services/connection_failure.py",
+      "reason": "Names socket error types to word a failure"
+    },
+    {
+      "module": "app/services/range_filter_service.py",
+      "reason": "Names httpx error types; its requests are made by the eBird and iNaturalist services"
+    },
+    {
+      "module": "app/services/garden_crop_service.py",
+      "reason": "Names httpx error types; its requests go through the Frigate client"
+    },
+    {
+      "module": "app/services/garden_media_cache.py",
+      "reason": "Names httpx error types; its requests go through the Frigate client"
+    },
+    {
+      "module": "app/utils/integration_url.py",
+      "reason": "Parses a URL; sends no request"
+    }
+  ],
+  "hosts_not_contacted": [
+    {
+      "host": "frigate.example.com",
+      "reason": "Example in a field description"
+    },
+    {
+      "host": "birdnet.example.com",
+      "reason": "Example in a field description"
+    },
+    {
+      "host": "feeder.example.com",
+      "reason": "Example in a field description"
+    },
+    {
+      "host": "homeassistant.local",
+      "reason": "Example in a field description"
+    },
+    {
+      "host": "cloudflareinsights.com",
+      "reason": "Allowed by the content security policy for installs served behind Cloudflare, which injects its own beacon; the app requests nothing from it"
+    },
+    {
+      "host": "static.cloudflareinsights.com",
+      "reason": "As above"
+    }
+  ]
+}
