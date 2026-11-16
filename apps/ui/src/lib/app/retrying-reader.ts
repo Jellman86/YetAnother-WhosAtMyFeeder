@@ -1,6 +1,12 @@
 /** The waits before a failed read is tried again; the last repeats, so retries never exceed one per five minutes. */
 export const READ_RETRY_MS: readonly number[] = [5_000, 15_000, 60_000, 300_000];
 
+/**
+ * The longest one reading may take, however its requests are chained; past it the read is aborted
+ * and counted as a failure. Each request has its own shorter deadline; this bounds the whole.
+ */
+export const READ_DEADLINE_MS = 60_000;
+
 import type { Guarded } from '../api/core';
 
 interface RetryingReaderOptions {
@@ -41,11 +47,15 @@ export function createRetryingReader({ read, active }: RetryingReaderOptions): R
         inFlight = controller;
         reading = true;
         wanted = false;
+        const deadline = setTimeout(() => controller.abort(new DOMException('The reading took too long', 'TimeoutError')), READ_DEADLINE_MS);
+        const abandoned = new Promise<false>((resolve) => controller.signal.addEventListener('abort', () => resolve(false), { once: true }));
         let ok: boolean;
         try {
-            ok = await read(controller.signal);
+            ok = await Promise.race([read(controller.signal), abandoned]);
         } catch {
             ok = false;
+        } finally {
+            clearTimeout(deadline);
         }
         if (mine !== generation) return;
         inFlight = null;

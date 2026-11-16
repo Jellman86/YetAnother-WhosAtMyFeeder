@@ -2188,12 +2188,12 @@
     let settingsFormLoads = 0;
 
     /** One classifier read, bounded body included (see `fetchClassifierStatus`); false when it failed. */
-    function loadClassifierStatus(): Guarded<boolean> {
+    function loadClassifierStatus(signal?: AbortSignal): Guarded<boolean> {
         const request = ++classifierStatusRequest;
         const formLoad = settingsFormLoads;
         classifierStatusReads += 1;
         return mapGuarded(
-            fetchClassifierStatus(),
+            fetchClassifierStatus(signal),
             (status) => {
                 classifierStatusReads -= 1;
                 if (request === classifierStatusRequest) {

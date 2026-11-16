@@ -6,20 +6,20 @@ import { createSharedRead, STATUS_SHARE_MS } from './shared-read';
 export type ClassifierStatus = components['schemas']['ClassifierStatusResponse'];
 
 /** Timed out after 10 s, body included, so Settings › Models is never left waiting on a stalled read. */
-function requestClassifierStatus(): Guarded<ClassifierStatus> {
-    return apiFetchJson<ClassifierStatus>(`${API_BASE}/classifier/status`, { timeoutMs: 10_000 });
+function requestClassifierStatus(signal?: AbortSignal): Guarded<ClassifierStatus> {
+    return apiFetchJson<ClassifierStatus>(`${API_BASE}/classifier/status`, { timeoutMs: 10_000, signal });
 }
 
 // The Dashboard's accelerator warning and About's summary and pipeline each show this reading.
-const sharedClassifierStatus = createSharedRead(requestClassifierStatus, { shareForMs: STATUS_SHARE_MS, scope: () => requestScope() });
+const sharedClassifierStatus = createSharedRead(() => requestClassifierStatus(), { shareForMs: STATUS_SHARE_MS, scope: () => requestScope() });
 
 /**
  * A fresh reading, for a view that has just changed the model or must not show an older one. It
  * also becomes the shared reading, so a view opened straight after shows the same.
  */
-export function fetchClassifierStatus(): Guarded<ClassifierStatus> {
+export function fetchClassifierStatus(signal?: AbortSignal): Guarded<ClassifierStatus> {
     const direct = sharedClassifierStatus.begin();
-    return mapGuarded(requestClassifierStatus(), (status) => {
+    return mapGuarded(requestClassifierStatus(signal), (status) => {
         direct.settle(status);
         return status;
     });
@@ -364,6 +364,9 @@ export async function validateModel(modelId: string): Promise<ModelValidateResul
     });
 }
 
+/** Several model calls of up to 30 s each on the server, with room to spare. */
+const ANALYSIS_TIMEOUT_MS = 180_000;
+
 export async function analyzeDetection(
     eventId: string,
     force: boolean = false,
@@ -374,7 +377,8 @@ export async function analyzeDetection(
     return fetchWithAbort<{ analysis: string; analysis_timestamp: string }>(
         `analyze-${eventId}`,
         url,
-        { method: 'POST' }
+        // The model can take a while, but not for ever: a stalled answer gives way to a retry.
+        { method: 'POST', timeoutMs: ANALYSIS_TIMEOUT_MS }
     );
 }
 

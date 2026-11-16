@@ -155,6 +155,13 @@ export function extractApiErrorMessage(payload: unknown, fallback: string): stri
     return fallback;
 }
 
+/** Cancels a response body nothing will read; one already read or being read is left alone. */
+export function discardBody(response: Response): void {
+    if (response.body && !response.bodyUsed && !response.body.locked) {
+        void response.body.cancel().catch(() => undefined);
+    }
+}
+
 export async function readApiErrorMessage(response: Response, fallback: string): Promise<string> {
     const contentType = response.headers.get('content-type') || '';
     // Without a reason from the server, a caller's own explanation stands; one that passed only
@@ -167,7 +174,9 @@ export async function readApiErrorMessage(response: Response, fallback: string):
     }
 
     // Anything else is a gateway page or a framework's bare status text ("Internal Server Error").
-    // Neither was written for a person, so the body is never shown.
+    // Neither was written for a person, so the body is never shown, and it is cancelled rather
+    // than left unread: a stalled one would hold the connection open past the caller's deadline.
+    discardBody(response);
     return unexplained;
 }
 

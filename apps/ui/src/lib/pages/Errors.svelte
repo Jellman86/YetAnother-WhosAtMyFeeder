@@ -230,7 +230,7 @@
                 return guardedValue(true);
             }
             const window = { startTime: started, endTime: new Date().toISOString() };
-            const visits = fetchVisits({ ...window, limit: 25, requestKey: 'health:visits', timeoutMs: HEALTH_VISITS_TIMEOUT_MS });
+            const visits = fetchVisits({ ...window, limit: 25, requestKey: 'health:visits', timeoutMs: HEALTH_VISITS_TIMEOUT_MS, signal });
             return mapGuarded(visits, (result) => {
                 serverVisits = result.visits.map((visit) => fromServerVisit(visit, window));
                 return true;

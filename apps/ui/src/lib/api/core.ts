@@ -2,7 +2,7 @@ import { appApiPath, normalizeBackendPath } from '../app/url-base';
 
 export const API_BASE = appApiPath('/api');
 
-import { readApiErrorMessage } from './error-message';
+import { discardBody, readApiErrorMessage } from './error-message';
 
 // API Key Management
 let apiKey: string | null = typeof localStorage !== 'undefined' ? localStorage.getItem('api_key') : null;
@@ -155,7 +155,13 @@ async function guardedRequest<T>(url: string, options: ApiFetchOptions, read: (r
         if (response.status === 401 && authErrorCallback) {
             authErrorCallback();
         }
-        return await read(response);
+        try {
+            return await read(response);
+        } catch (error) {
+            // A body left unread on the way out would hold the connection open with nothing timing it.
+            discardBody(response);
+            throw error;
+        }
     } finally {
         if (timeoutId) clearTimeout(timeoutId);
         callerSignal?.removeEventListener('abort', abortFromCaller);
@@ -169,6 +175,20 @@ async function guardedRequest<T>(url: string, options: ApiFetchOptions, read: (r
  */
 export function apiFetch(url: string, options: ApiFetchOptions = {}): Promise<Response> {
     return guardedRequest(url, options, async (response) => response);
+}
+
+/** The deadline a guarded read gets when the one it was given is not a positive, finite wait. */
+const GUARDED_READ_DEFAULT_TIMEOUT_MS = 30_000;
+
+/** Options for a guarded read: its deadline is required, so no guarded read can wait for ever. */
+export interface GuardedFetchOptions extends ApiFetchOptions {
+    timeoutMs: number;
+}
+
+function withDeadline(options: GuardedFetchOptions): GuardedFetchOptions {
+    const { timeoutMs } = options;
+    const bounded = Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : GUARDED_READ_DEFAULT_TIMEOUT_MS;
+    return { ...options, timeoutMs: bounded };
 }
 
 declare const guardedRead: unique symbol;
@@ -185,15 +205,26 @@ function guarded<T>(read: Promise<T>): Guarded<T> {
     return read as Guarded<T>;
 }
 
-/** A step after a guarded read that makes no request of its own: it may not return a promise. */
-type Settled<R> = R extends PromiseLike<unknown> ? never : R;
+/**
+ * A step after a guarded read that makes no request of its own: it may not return a promise. A
+ * result widened to `unknown` or `void` is refused too, since a promise would pass as either.
+ */
+type Settled<R> = unknown extends R ? never : void extends R ? never : R extends PromiseLike<unknown> ? never : R;
+
+/** The run-time half of `Settled`, for a promise a cast got past the compiler. */
+function settled<R>(value: R): R {
+    if (value !== null && (typeof value === 'object' || typeof value === 'function') && typeof (value as { then?: unknown }).then === 'function') {
+        throw new TypeError('A step after a guarded read may not start a request of its own');
+    }
+    return value;
+}
 
 /**
  * The parsed JSON body, with the timeout and the caller's abort covering the request until the
  * body has been read: a response that stalls after its headers is still timed out or cancelled.
  */
-export function apiFetchJson<T>(url: string, options: ApiFetchOptions = {}): Guarded<T> {
-    return guarded(guardedRequest(url, options, (response) => handleResponse<T>(response)));
+export function apiFetchJson<T>(url: string, options: GuardedFetchOptions): Guarded<T> {
+    return guarded(guardedRequest(url, withDeadline(options), (response) => handleResponse<T>(response)));
 }
 
 /** A guarded read's value put to use, by a step that makes no request; failures pass to `onError`. */
@@ -202,7 +233,7 @@ export function mapGuarded<T, R>(
     next: (value: T) => Settled<R>,
     onError?: (error: unknown) => Settled<R>
 ): Guarded<R> {
-    return guarded(read.then(next, onError));
+    return guarded(read.then((value) => settled(next(value)), onError && ((error: unknown) => settled(onError(error)))));
 }
 
 /** A guarded read followed by another guarded read; failures of either pass to `onError`. */
@@ -211,24 +242,24 @@ export function chainGuarded<T, R>(
     next: (value: T) => Guarded<R>,
     onError?: (error: unknown) => Settled<R>
 ): Guarded<R> {
-    return guarded(read.then(next).then(undefined, onError));
+    return guarded(read.then(next).then(undefined, onError && ((error: unknown) => settled(onError(error)))));
 }
 
 /** A settled value, for a branch of a guarded read that makes no request at all. */
 export function guardedValue<T>(value: Settled<T>): Guarded<T> {
-    return guarded(Promise.resolve(value));
+    return guarded(new Promise<T>((resolve) => resolve(settled(value))));
 }
 
 const abortControllers = new Map<string, AbortController>();
 
 /**
  * One read per `key`: a newer read with the same key cancels the older one, body included. The
- * timeout, when given, also covers the body.
+ * caller's signal cancels it as well, and the timeout also covers the body.
  */
 export function fetchWithAbort<T>(
     key: string | null,
     url: string,
-    options: ApiFetchOptions = {}
+    options: GuardedFetchOptions
 ): Guarded<T> {
     if (key && abortControllers.has(key)) {
         abortControllers.get(key)!.abort();
@@ -241,13 +272,22 @@ export function fetchWithAbort<T>(
         abortControllers.set(key, controller);
     }
 
+    // With a key, the caller's signal is forwarded to the key's controller, so either one cancels.
+    const callerSignal = options.signal ?? undefined;
+    const abortFromCaller = (): void => controller?.abort(callerSignal?.reason);
+    if (controller && callerSignal) {
+        if (callerSignal.aborted) abortFromCaller();
+        else callerSignal.addEventListener('abort', abortFromCaller, { once: true });
+    }
+
     const release = (): void => {
+        callerSignal?.removeEventListener('abort', abortFromCaller);
         if (key && abortControllers.get(key) === controller) {
             abortControllers.delete(key);
         }
     };
     return guarded(
-        guardedRequest(url, { ...options, signal: controller?.signal ?? options.signal }, (response) => handleResponse<T>(response)).then(
+        guardedRequest(url, withDeadline({ ...options, signal: controller?.signal ?? callerSignal }), (response) => handleResponse<T>(response)).then(
             (value) => {
                 release();
                 return value;

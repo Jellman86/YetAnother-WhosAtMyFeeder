@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { apiFetch, apiFetchJson, mapGuarded } from '../api/core';
+import { apiFetch, apiFetchJson, chainGuarded, guardedValue, mapGuarded, type Guarded } from '../api/core';
 import { createRetryingReader } from './retrying-reader';
 import { followRevisions } from './revision-follower';
 
@@ -11,7 +11,7 @@ import { followRevisions } from './revision-follower';
 describe('readers refuse an unguarded read', () => {
     it('type-checks only reads built from the guarded client', () => {
         const active = (): boolean => false;
-        const guardedRead = () => mapGuarded(apiFetchJson<{ ok: boolean }>('/api/status'), (body) => body.ok);
+        const guardedRead = () => mapGuarded(apiFetchJson<{ ok: boolean }>('/api/status', { timeoutMs: 10_000 }), (body) => body.ok);
         const reader = createRetryingReader({ read: guardedRead, active });
         const follower = followRevisions(guardedRead, null);
 
@@ -22,13 +22,53 @@ describe('readers refuse an unguarded read', () => {
         // @ts-expect-error apiFetch's timeout and cancel end at the headers
         createRetryingReader({ read: () => apiFetch('/api/status').then((response) => response.ok), active });
         // @ts-expect-error an async function is a plain promise, whatever it awaits
-        followRevisions(async () => (await apiFetchJson<{ ok: boolean }>('/api/status')).ok, null);
+        followRevisions(async () => (await apiFetchJson<{ ok: boolean }>('/api/status', { timeoutMs: 10_000 })).ok, null);
         // @ts-expect-error a step after a guarded read may not start an unguarded request of its own
-        mapGuarded(apiFetchJson<{ ok: boolean }>('/api/status'), () => apiFetch('/api/other'));
+        mapGuarded(apiFetchJson<{ ok: boolean }>('/api/status', { timeoutMs: 10_000 }), () => apiFetch('/api/other'));
+        // @ts-expect-error a guarded read has a deadline, so one must be given
+        apiFetchJson('/api/status');
+        // @ts-expect-error widening the step's result to unknown does not let a request through
+        mapGuarded<undefined, unknown>(guardedValue(undefined), () => fetch('/api/other'));
+        // @ts-expect-error nor does widening it to void, which a promise-returning callback satisfies
+        mapGuarded<undefined, void>(guardedValue(undefined), () => fetch('/api/other'));
+        // @ts-expect-error a failure handler may not start a request either
+        mapGuarded<boolean, unknown>(guardedValue(true), (ok) => ok, () => fetch('/api/other'));
+        // @ts-expect-error a settled value is not a request in flight
+        guardedValue<unknown>(fetch('/api/other'));
+        // @ts-expect-error nor when widened to void
+        guardedValue<void>(fetch('/api/other'));
         };
         expect(typeof refused).toBe('function');
 
         reader.cancel();
         follower.stop();
+    });
+});
+
+/** A cast or an `any` can still get a promise past the compiler; the combinators refuse it when it runs. */
+describe('the combinators refuse a promise at run time', () => {
+    const promise = (): never => Promise.resolve(true) as never;
+    const smuggled = <T>(value: unknown): T => value as T;
+
+    it('as a step after a guarded read', async () => {
+        await expect(mapGuarded(guardedValue(1), () => promise())).rejects.toBeInstanceOf(TypeError);
+    });
+
+    it('as a failure handler', async () => {
+        const failed: Guarded<number> = mapGuarded(guardedValue(1), () => {
+            throw new Error('HTTP 500');
+        });
+        await expect(mapGuarded(failed, (value) => value, () => promise())).rejects.toBeInstanceOf(TypeError);
+        await expect(chainGuarded(failed, () => guardedValue(2), () => promise())).rejects.toBeInstanceOf(TypeError);
+    });
+
+    it('as a settled value', async () => {
+        await expect(guardedValue(smuggled<number>(Promise.resolve(1)))).rejects.toBeInstanceOf(TypeError);
+        await expect(guardedValue(smuggled<number>({ then: () => undefined }))).rejects.toBeInstanceOf(TypeError);
+    });
+
+    it('lets plain values through, undefined included', async () => {
+        await expect(mapGuarded(guardedValue(1), (value) => value + 1)).resolves.toBe(2);
+        await expect(guardedValue(undefined)).resolves.toBeUndefined();
     });
 });

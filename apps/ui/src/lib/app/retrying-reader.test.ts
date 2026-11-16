@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { asGuarded } from '../test-support/guarded';
-import { READ_RETRY_MS, createRetryingReader } from './retrying-reader';
+import { READ_DEADLINE_MS, READ_RETRY_MS, createRetryingReader } from './retrying-reader';
 
 afterEach(() => vi.useRealTimers());
 
@@ -87,6 +87,28 @@ describe('createRetryingReader after a failure', () => {
         }
         // 0 s, then 5 s and 20 s on the schedule: three reads in twenty seconds, never twenty-one.
         expect(read).toHaveBeenCalledTimes(3);
+        reader.cancel();
+    });
+
+    it('gives up on a read that outlives its deadline, aborts it and retries on the backoff', async () => {
+        vi.useFakeTimers();
+        const signals: AbortSignal[] = [];
+        // Never settles, whatever its signal does: the reader's own deadline is what frees it.
+        const read = vi.fn((signal: AbortSignal) => {
+            signals.push(signal);
+            return asGuarded(new Promise<boolean>(() => undefined));
+        });
+        const reader = createRetryingReader({ read, active: () => true });
+        reader.request();
+        await vi.advanceTimersByTimeAsync(READ_DEADLINE_MS - 1);
+        expect(signals[0]?.aborted).toBe(false);
+        await vi.advanceTimersByTimeAsync(1);
+        expect(signals[0]?.aborted).toBe(true);
+        reader.request();
+        await vi.advanceTimersByTimeAsync(READ_RETRY_MS[0] - 1);
+        expect(read).toHaveBeenCalledTimes(1);
+        await vi.advanceTimersByTimeAsync(1);
+        expect(read).toHaveBeenCalledTimes(2);
         reader.cancel();
     });
 });

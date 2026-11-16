@@ -12,3 +12,7 @@
   status requests at all; Health reads its half-hour chart once a minute instead of four times.
   If the stream drops, the status is read once a minute until it is back. The new
   `GET /api/status` returns the same snapshot (owner only); see [the API notes](docs/api.md).
+- **A stalled answer no longer leaves a screen waiting.** Health, Settings › Models and the
+  sidebar's readings give up on a reply that stops halfway, including a proxy's error page that
+  never finishes, and try again on the usual backoff; closing the screen cancels its read. Every
+  such read now has a deadline: a bird analysis gives up after three minutes rather than never.
