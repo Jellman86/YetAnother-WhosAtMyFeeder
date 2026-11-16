@@ -78,6 +78,15 @@ export function getAuthToken(): string | null {
     return authToken;
 }
 
+/**
+ * Who is asking, and in which language. Readings shared between views are kept per scope, so a
+ * guest and the owner, or two languages, never share one. Kept in memory only.
+ */
+export function requestScope(): string {
+    const language = typeof localStorage !== 'undefined' ? localStorage.getItem('preferred-language') ?? '' : '';
+    return `${getAuthToken() ?? ''}|${apiKey ?? ''}|${language}`;
+}
+
 export function getHeaders(customHeaders: HeadersInit = {}): HeadersInit {
     const headers: Record<string, string> = { ...customHeaders as Record<string, string> };
     const token = getAuthToken();

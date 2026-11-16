@@ -10,6 +10,11 @@ describe('background refresh cadence', () => {
         expect(REFRESH_CADENCE_MS.analysisQueueActive).toBeLessThan(REFRESH_CADENCE_MS.analysisQueueIdle);
         expect(REFRESH_CADENCE_MS.providerWarningChecking).toBeLessThan(REFRESH_CADENCE_MS.providerWarning);
     });
+
+    it('reads far less often while the live stream announces changes than while it polls for them', () => {
+        expect(REFRESH_CADENCE_MS.liveSafetyRead).toBeGreaterThanOrEqual(5 * REFRESH_CADENCE_MS.dashboardDay);
+        expect(REFRESH_CADENCE_MS.liveSafetyRead).toBeGreaterThanOrEqual(5 * REFRESH_CADENCE_MS.recentAudio);
+    });
 });
 
 describe('readAtMostEvery', () => {

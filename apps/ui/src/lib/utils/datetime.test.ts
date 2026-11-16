@@ -130,6 +130,45 @@ describe('a day in a record names its year, so a span across years reads plainly
     });
 });
 
+describe('formatting reuses one formatter per format', () => {
+    beforeEach(() => {
+        settingsState.settings = null;
+        authState.dateFormat = 'locale';
+        authState.timeFormat = 'locale';
+    });
+
+    it.each(['locale', '12h', '24h'])('says exactly what the browser\'s own methods say with the %s clock', (timeFormat) => {
+        settingsState.settings = { time_format: timeFormat };
+        const hour12 = timeFormat === '24h' ? { hour12: false } : timeFormat === '12h' ? { hour12: true } : {};
+        for (const date of [AFTERNOON, new Date(2026, 0, 1, 0, 5, 9), new Date(2026, 11, 31, 23, 59, 59)]) {
+            expect(formatTime(date)).toBe(date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', ...hour12 }));
+            expect(formatTime(date, { hour: '2-digit', minute: '2-digit', second: '2-digit' }))
+                .toBe(date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', ...hour12 }));
+            expect(formatDateTime(date)).toBe(`${date.toLocaleDateString()} ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', ...hour12 })}`);
+        }
+    });
+
+    it('builds a formatter once for many dates in the same format instead of one per date', () => {
+        // `toLocale*String` with options builds a new formatter on every call; a wall of photographs
+        // or a long list formats dozens of times on one load.
+        settingsState.settings = { time_format: '24h' };
+        const built = vi.spyOn(Intl, 'DateTimeFormat');
+        const perCallTime = vi.spyOn(Date.prototype, 'toLocaleTimeString');
+        const perCallDate = vi.spyOn(Date.prototype, 'toLocaleDateString');
+        for (let minute = 0; minute < 50; minute += 1) formatDateTime(new Date(2026, 7, 22, 13, minute));
+        expect(perCallTime).not.toHaveBeenCalled();
+        expect(perCallDate).not.toHaveBeenCalled();
+        expect(built.mock.calls.length).toBeLessThanOrEqual(2);
+        built.mockRestore();
+        perCallTime.mockRestore();
+        perCallDate.mockRestore();
+    });
+
+    it('keeps a time format given without a clock field to the browser\'s own default', () => {
+        expect(formatTime(AFTERNOON, { weekday: 'long' })).toBe(AFTERNOON.toLocaleTimeString([], { weekday: 'long' }));
+    });
+});
+
 describe('a whole hour, on a chart axis or in a sentence, follows the same clock as every other time', () => {
     beforeEach(() => {
         settingsState.settings = null;

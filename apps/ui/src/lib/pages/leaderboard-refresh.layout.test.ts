@@ -25,9 +25,16 @@ describe('leaderboard field-journal layout', () => {
     });
 
     it('ranks in stacked rows or a table by the room its own box has in rem, not by the window in px', () => {
-        expect(leaderboardSource).toContain('<div class="@container" data-leaderboard-ranking-frame>');
-        expect(leaderboardSource).toMatch(/@4xl:hidden" data-leaderboard-stacked-rankings/);
-        expect(leaderboardSource).toMatch(/@4xl:block" data-leaderboard-table-rankings/);
+        expect(leaderboardSource).toContain('<div class="@container relative" data-leaderboard-ranking-frame use:roomFor={(fits) => (rankingTableFits = fits)}>');
+        // Only the arrangement that fits is built, measured against a 56rem ruler like the query.
+        expect(leaderboardSource).toContain('<div class="h-0 w-4xl" data-room-ruler></div>');
+        expect(leaderboardSource).toContain('{#if rankingTableFits === false}');
+        expect(leaderboardSource).toContain('{#if rankingTableFits === true}');
+        // One rule decides which is built: no container query also shows or hides either, which at a
+        // fractional width a pixel either side of the ruler could disagree with and hide both.
+        expect(leaderboardSource).not.toMatch(/@4xl:(?:hidden|block)/);
+        expect(leaderboardSource).toMatch(/dark:border-slate-700" data-leaderboard-stacked-rankings/);
+        expect(leaderboardSource).toMatch(/dark:border-slate-700" data-leaderboard-table-rankings/);
         // A column that appears by window width would stay while doubled text squeezed it.
         expect(leaderboardSource).not.toMatch(/\b(?:md|lg|xl):table-cell/);
         expect(leaderboardSource).not.toContain('min-w-[900px]');

@@ -23,11 +23,35 @@ describe('ServiceConnectionsStore', () => {
     });
 
     it('forgets the last reading when a refresh fails, rather than showing it as current', async () => {
+        let now = 0;
         const fetch = vi.fn().mockResolvedValueOnce(reading).mockRejectedValueOnce(new Error('HTTP 502'));
-        const store = new ServiceConnectionsStore({ fetch });
+        const store = new ServiceConnectionsStore({ fetch, now: () => now });
         await store.refresh();
+        now += 120_000;
         await store.refresh();
         expect(store.connections).toBeNull();
+    });
+
+    it('uses a reading taken moments ago instead of asking again, as when the live stream first connects', async () => {
+        let now = 0;
+        const fetch = vi.fn().mockResolvedValue(reading);
+        const store = new ServiceConnectionsStore({ fetch, now: () => now });
+        await store.refresh();
+        now += 1_000;
+        await store.refresh();
+        expect(fetch).toHaveBeenCalledTimes(1);
+    });
+
+    it('reads again at once when the server says the connections changed', async () => {
+        let now = 0;
+        const changed = { ...reading, mqtt: { ...reading.mqtt, state: 'connected' } } as ServiceConnections;
+        const fetch = vi.fn().mockResolvedValueOnce(reading).mockResolvedValueOnce(changed);
+        const store = new ServiceConnectionsStore({ fetch, now: () => now });
+        await store.refresh();
+        now += 1_000;
+        await store.refresh({ fresh: true });
+        expect(fetch).toHaveBeenCalledTimes(2);
+        expect(store.connections?.mqtt.state).toBe('connected');
     });
 
     it('takes a reading from elsewhere, and clears when access changes', () => {

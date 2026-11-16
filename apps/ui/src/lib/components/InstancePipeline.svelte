@@ -1,6 +1,6 @@
 <script lang="ts">
     import { onMount } from 'svelte';
-    import { fetchCameraStatuses, fetchClassifierStatus } from '../api';
+    import { readCameraStatuses, readClassifierStatus } from '../api';
     import type { CameraStatusResponse, ClassifierStatus } from '../api';
     import { detectionsStore } from '../stores/detections.svelte';
     import { settingsStore } from '../stores/settings.svelte';
@@ -43,7 +43,7 @@
 
         void (async () => {
             try {
-                cameraStatus = await fetchCameraStatuses(controller.signal);
+                cameraStatus = await readCameraStatuses(controller.signal);
             } catch (error) {
                 if (controller.signal.aborted) return;
                 cameraFailed = true;
@@ -63,7 +63,7 @@
 
         void (async () => {
             try {
-                classifier = await fetchClassifierStatus();
+                classifier = await readClassifierStatus();
             } catch (error) {
                 if (controller.signal.aborted) return;
                 classifierFailed = true;

@@ -800,7 +800,7 @@
 <div class="space-y-6">
     <!-- One card for the system: whether it is working, then what the host is doing, then the
          detail behind the verdict. What happened follows as its own card. -->
-    <SystemHealthPanel>
+    <SystemHealthPanel statusRead={readState !== 'reading'}>
         {#snippet status()}
             <div class="space-y-4" data-health-status data-health-read-state={readState}>
                 <!-- Held at its usual height while the first reading is on its way, so its arrival moves nothing. -->
@@ -1043,7 +1043,10 @@
         {/snippet}
     </SystemHealthPanel>
 
-    <!-- ── What happened: one thread of kept visits and filtered frames ── -->
+    <!-- Everything below the System card comes from the same reading as the verdict, or sits
+         beneath it, so it is shown with that reading: the verdict's length then moves nothing.
+         ── What happened: one thread of kept visits and filtered frames ── -->
+    {#if readState !== 'reading'}
     <section class="panel" data-health-timeline>
         <header class="flex flex-wrap items-end justify-between gap-3 pb-1">
             <div class="min-w-0">
@@ -1065,11 +1068,9 @@
         </header>
 
         {#if !workspacePayload}
-            <!-- Until the reading lands its start time is unknown; this holds the timeline's place. -->
-            <p class="mt-4 min-h-40 text-sm text-slate-600 dark:text-slate-400" data-health-timeline-pending>
-                {readState === 'failed'
-                    ? $_('jobs.errors_activity_unread', { default: 'Activity cannot be shown until a health reading has loaded.' })
-                    : $_('jobs.errors_reading', { default: 'Reading the latest health…' })}
+            <!-- Shown only after the first reading failed: without it the start time is unknown. -->
+            <p class="mt-4 text-sm text-slate-600 dark:text-slate-400" data-health-timeline-pending>
+                {$_('jobs.errors_activity_unread', { default: 'Activity cannot be shown until a health reading has loaded.' })}
             </p>
         {:else if instanceWindow === null}
             <p class="mt-4 text-sm text-slate-600 dark:text-slate-400">
@@ -1272,4 +1273,5 @@
             </button>
         {/if}
     </details>
+    {/if}
 </div>

@@ -28,7 +28,7 @@ describe('Health page', () => {
     it('opens on what the host is doing, with this app named and the rest an honest remainder', () => {
         // The health page builds the System card, so its verdict and detail live inside it.
         expect(settingsSource).not.toContain('<SystemHealthPanel');
-        expect(errorsSource).toContain('<SystemHealthPanel>');
+        expect(errorsSource).toContain("<SystemHealthPanel statusRead={readState !== 'reading'}>");
         expect(errorsSource).toContain('{#snippet status()}');
         expect(errorsSource).toContain('{#snippet details()}');
         expect(errorsSource.indexOf('</SystemHealthPanel>')).toBeLessThan(errorsSource.indexOf('data-health-timeline'));

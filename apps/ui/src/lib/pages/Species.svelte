@@ -30,6 +30,7 @@
     } from '../api';
     import { chartjsWhenNear, toggleChartSlice, type CanvasChartConfig, type MixedCanvasChartConfig } from '../actions/chartjs';
     import { whenNearViewport } from '../actions/near-viewport';
+    import { roomFor } from '../actions/box-width';
     import LazyModal from '../components/LazyModal.svelte';
     import { loadSpeciesDetailModal } from '../components/lazy-dialogs';
     import { defaultLeaderboardChartPreferences } from '../leaderboard/chart-defaults';
@@ -104,13 +105,17 @@
         audio_only: boolean;
     };
 
-    let species: LeaderboardRow[] = $state([]);
-    let audioSpecies = $state<AudioSpeciesLeaderboardItem[]>([]);
+    // Whole responses, replaced on each read and never edited in place: raw, so the page does not
+    // wrap hundreds of rows in reactive proxies on every load.
+    let species: LeaderboardRow[] = $state.raw([]);
+    let audioSpecies = $state.raw<AudioSpeciesLeaderboardItem[]>([]);
     let audioLoadState = $state<AudioLoadState>('disabled');
     let sourceMode = $state<SourceMode>('seen');
     let loading = $state(true);
     let pageElement: HTMLDivElement | undefined;
     let refreshHeight = $state(0);
+    // Null until the ranking frame has been laid out once; see `roomFor`.
+    let rankingTableFits = $state<boolean | null>(null);
     let error = $state<string | null>(null);
     // A link can ask for a window and for the checks card, as the Dashboard's "Needs your call" does.
     const pageLink = parseSpeciesPageLink(window.location.search, window.location.hash);
@@ -141,8 +146,8 @@
     let selectedSpecies = $state<string | null>(null);
     /** The flagged species the owner opened the check sheet on, or null when it is closed. */
     let checkStart = $state<string | null>(null);
-    let timeline = $state<DetectionsTimelineSpanResponse | null>(null);
-    let activityHeatmap = $state<DetectionsActivityHeatmapResponse | null>(null);
+    let timeline = $state.raw<DetectionsTimelineSpanResponse | null>(null);
+    let activityHeatmap = $state.raw<DetectionsActivityHeatmapResponse | null>(null);
     let speciesInfoCache = $state<Record<string, SpeciesInfo>>({});
     let speciesInfoPending = $state<Record<string, boolean>>({});
     let chartEl = $state<HTMLCanvasElement | null>(null);
@@ -247,7 +252,7 @@
     let sourceLeader = $derived(leaderboardRows[0] ?? null);
     // This feeder's own photograph of each leading species, fetched beside the standings and
     // never blocking them; a species without one shows its reference image, labelled.
-    let portraits = $state<LeaderboardPortrait[]>([]);
+    let portraits = $state.raw<LeaderboardPortrait[]>([]);
     $effect(() => {
         const requestedSpan = span;
         const publicVersion = authStore.isGuest ? detectionsStore.publicHistoryVersion : 0;
@@ -305,7 +310,7 @@
     const GUEST_WALL_TILES = 24;
     // The captures are kept with the span they were fetched for, so a wall never shows one window
     // under another's heading while the next load is in flight.
-    let wallFetched = $state<{ span: LeaderboardSpan | null; detections: Detection[] }>({ span: null, detections: [] });
+    let wallFetched = $state.raw<{ span: LeaderboardSpan | null; detections: Detection[] }>({ span: null, detections: [] });
     // Dates select whole days, so the captures are cut to the window's own start and end.
     let wallDetections = $derived.by(() => {
         if (wallFetched.span !== span) return [];
@@ -1854,9 +1859,13 @@
 
             {#key `${sourceMode}-${span}`}
                 <!-- The ranking is a table only where its columns have room at the reader's text size:
-                     the widths below are in rem of this box, so larger text reflows it into rows. -->
-                <div class="@container" data-leaderboard-ranking-frame>
-                <div class="divide-y divide-slate-200 border-y border-slate-200 dark:divide-slate-700 dark:border-slate-700 @4xl:hidden" data-leaderboard-stacked-rankings>
+                     the widths below are in rem of this box, so larger text reflows it into rows.
+                     Only the arrangement that fits is built: the ruler is the 56rem the table needs, in this
+                     reader's text size, and this one measurement alone decides, so no width can show neither. -->
+                <div class="@container relative" data-leaderboard-ranking-frame use:roomFor={(fits) => (rankingTableFits = fits)}>
+                <div class="pointer-events-none invisible absolute inset-x-0 top-0 h-0 overflow-hidden" aria-hidden="true"><div class="h-0 w-4xl" data-room-ruler></div></div>
+                {#if rankingTableFits === false}
+                <div class="divide-y divide-slate-200 border-y border-slate-200 dark:divide-slate-700 dark:border-slate-700" data-leaderboard-stacked-rankings>
                 {#each leaderboardRows as item, index (`mobile-${item.species}|${item.audio_only}|${index}`)}
                     {@const evidence = evidenceOf(item)}
                     <button
@@ -1892,8 +1901,10 @@
                     </button>
                 {/each}
                 </div>
+                {/if}
 
-                <div class="hidden overflow-hidden border-y border-slate-200 dark:border-slate-700 @4xl:block" data-leaderboard-table-rankings>
+                {#if rankingTableFits === true}
+                <div class="overflow-hidden border-y border-slate-200 dark:border-slate-700" data-leaderboard-table-rankings>
                 <table class="w-full table-fixed text-left text-sm" data-testid="leaderboard-table">
                     <thead class="border-b border-slate-200 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:text-slate-400">
                         <tr>
@@ -1935,6 +1946,7 @@
                     </tbody>
                 </table>
                 </div>
+                {/if}
                 </div>
             {/key}
         </section>

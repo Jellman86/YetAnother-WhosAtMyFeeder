@@ -11,8 +11,9 @@ describe('status the shell only claims once measured', () => {
     });
 
     it('reads the connections for owners only, and forgets them when access changes', () => {
-        expect(appSource).toContain('if (authStore.showSettings) void serviceConnectionsStore.refresh();');
-        expect(appSource).toContain('onServiceConnectionsChanged: () => refreshOwnerConnections()');
+        expect(appSource).toContain('if (authStore.showSettings) void serviceConnectionsStore.refresh(options);');
+        // A change the server announced is read at once, never answered with the reading just taken.
+        expect(appSource).toContain('onServiceConnectionsChanged: () => refreshOwnerConnections({ fresh: true })');
         expect(appSource.match(/serviceConnectionsStore\.clear\(\)/g)?.length).toBe(2);
     });
 

@@ -5,7 +5,7 @@
     import { REFRESH_CADENCE_MS } from '../app/refresh-cadence';
     import { startVisiblePoll } from '../app/visible-poll';
     import { authStore } from '../stores/auth.svelte';
-    import { fetchClassifierStatus, fetchProviderValidationStatus, type ClassifierStatus, type ProviderValidationStatus } from '../api/classifier';
+    import { fetchProviderValidationStatus, readClassifierStatus, type ClassifierStatus, type ProviderValidationStatus } from '../api/classifier';
 
     let { onnavigate }: { onnavigate?: (path: string) => void } = $props();
     let classifier = $state<ClassifierStatus | null>(null);
@@ -18,7 +18,7 @@
         let cancelled = false;
         async function refresh(): Promise<void> {
             try {
-                const [nextClassifier, nextValidation] = await Promise.all([fetchClassifierStatus(), fetchProviderValidationStatus()]);
+                const [nextClassifier, nextValidation] = await Promise.all([readClassifierStatus(), fetchProviderValidationStatus()]);
                 if (!cancelled) {
                     classifier = nextClassifier;
                     validation = nextValidation;

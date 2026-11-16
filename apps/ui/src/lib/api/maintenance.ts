@@ -1,5 +1,6 @@
-import { API_BASE, apiFetch, handleResponse } from './core';
+import { API_BASE, apiFetch, handleResponse, requestScope } from './core';
 import type { components, paths } from './generated/openapi';
+import { createSharedRead, STATUS_SHARE_MS } from './shared-read';
 
 export type CacheStats = paths['/api/cache/stats']['get']['response'];
 
@@ -72,6 +73,19 @@ export async function fetchAnalysisStatus(): Promise<AnalysisStatus> {
         timeoutMs: 10_000
     });
     return handleResponse<AnalysisStatus>(response);
+}
+
+// The shell's queue reading and the Notifications banner both read this as a page opens.
+const sharedAnalysisStatus = createSharedRead(fetchAnalysisStatus, { shareForMs: STATUS_SHARE_MS, scope: () => requestScope() });
+
+/** The analysis queue as it stands; readers asking at the same moment share one request. */
+export function readAnalysisStatus(): Promise<AnalysisStatus> {
+    return sharedAnalysisStatus.read();
+}
+
+/** The owner changed the queue: the next reader asks the server. */
+export function invalidateAnalysisStatus(): void {
+    sharedAnalysisStatus.invalidate();
 }
 
 export async function resetVideoCircuit(): Promise<{ status: string; message: string }> {

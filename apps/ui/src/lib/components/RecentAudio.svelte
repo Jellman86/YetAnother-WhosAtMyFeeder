@@ -3,7 +3,8 @@
     import { _ } from 'svelte-i18n';
     import { fetchRecentAudio, type AudioDetection, type AudioSummaryResponse } from '../api';
     import { REFRESH_CADENCE_MS } from '../app/refresh-cadence';
-    import { startVisiblePoll } from '../app/visible-poll';
+    import { startLiveReading, type LiveReading } from '../app/live-reading';
+    import { audioActivity } from '../stores/audio_activity.svelte';
     import { settingsStore } from '../stores/settings.svelte';
     import { detectionsStore } from '../stores/detections.svelte';
     import { guestRecentAudioPollDelayMs } from '../app/public-refresh-budget';
@@ -53,7 +54,8 @@
         settled: () => { loading = false; }
     });
 
-    async function loadAudio() { await audioLoader.load(); }
+    /** True when the latest call was read, so a failed read is retried instead of taken as fresh. */
+    async function loadAudio(): Promise<boolean> { return audioLoader.load(); }
 
     let handledPublicHistoryVersion = detectionsStore.publicHistoryVersion;
     $effect(() => {
@@ -82,20 +84,38 @@
 
 
 
-    let stopAudioPoll: (() => void) | undefined;
+    // The owner's live stream announces every new call, so the card reads when one is heard
+    // instead of every 15 seconds; a guest, or an owner whose stream is down, polls as before.
+    const followsLiveStream = $derived(authStore.hasOwnerAccess && detectionsStore.connected);
+    let latestCallReading: LiveReading | undefined;
 
     onMount(() => {
-        stopAudioPoll = startVisiblePoll({
+        latestCallReading = startLiveReading({
             read: loadAudio,
-            delayMs: () => authStore.isGuest
+            live: () => followsLiveStream,
+            pollMs: () => authStore.isGuest
                 ? guestRecentAudioPollDelayMs(authStore.publicAccessRateLimitPerMinute)
-                : RECENT_AUDIO_POLL_MS
+                : RECENT_AUDIO_POLL_MS,
+            quietMs: REFRESH_CADENCE_MS.liveSafetyRead
         });
         void loadBirdnetUrl();
     });
 
+    let handledAudioActivity = audioActivity.version;
+    $effect(() => {
+        const version = audioActivity.version;
+        if (version === handledAudioActivity) return;
+        handledAudioActivity = version;
+        latestCallReading?.changed();
+    });
+
+    $effect(() => {
+        void followsLiveStream;
+        latestCallReading?.liveChanged();
+    });
+
     onDestroy(() => {
-        stopAudioPoll?.();
+        latestCallReading?.stop();
         audioLoader.dispose();
     });
 

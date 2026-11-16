@@ -2,7 +2,7 @@
     import Separator from './Separator.svelte';
     import BrandMark from './BrandMark.svelte';
     import { _ } from 'svelte-i18n';
-    import { fetchVersion, type VersionInfo } from '../api';
+    import { readVersion, type VersionInfo } from '../api';
     import { docsRefForBranch } from '../app/app-version';
 
     const appVersion = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : 'unknown';
@@ -19,7 +19,7 @@
     $effect(() => {
         (async () => {
             try {
-                const info = await fetchVersion();
+                const info = await readVersion();
                 versionInfo = info;
                 // Show clean version - hide "+unknown" suffix if git hash isn't available
                 version = info.git_hash === "unknown" ? info.base_version : info.version;

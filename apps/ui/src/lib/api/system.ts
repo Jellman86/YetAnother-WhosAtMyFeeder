@@ -1,5 +1,6 @@
-import { API_BASE, apiFetch, handleResponse } from './core';
+import { API_BASE, apiFetch, handleResponse, requestScope } from './core';
 import type { paths } from './generated/openapi';
+import { createSharedRead, STATUS_SHARE_MS } from './shared-read';
 
 export type VersionInfo = paths['/api/version']['get']['response'] & {
     git_hash: string;   // resolved from build-time constant; not returned by the API
@@ -93,28 +94,36 @@ export type FrigateTestResult = paths['/api/frigate/test']['get']['response'];
 
 export type RecordingClipCapability = paths['/api/frigate/recording-clip-capability']['get']['response'];
 
-export async function fetchVersion(): Promise<VersionInfo> {
-    const gitHash = typeof __GIT_HASH__ === 'string' ? __GIT_HASH__ : 'unknown';
-    const appBranch = typeof __APP_BRANCH__ === 'string' ? __APP_BRANCH__ : 'unknown';
-    try {
-        const response = await apiFetch(`${API_BASE}/version`);
-        if (response.ok) {
-            const data = await response.json();
-            // git_hash and branch are no longer returned by the API (reconnaissance
-            // surface reduction) — fill them from build-time constants instead.
-            return { ...data, git_hash: gitHash, branch: appBranch };
-        }
-    } catch {
-        // Ignore errors and return fallback below.
-    }
+/** The server's version; throws when it cannot be read, so a failure is never shared as a reading. */
+async function requestVersion(): Promise<VersionInfo> {
+    const response = await apiFetch(`${API_BASE}/version`);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    // git_hash and branch are no longer returned by the API (reconnaissance
+    // surface reduction) — fill them from build-time constants instead.
+    return { ...data, ...buildIdentity() };
+}
+
+function buildIdentity(): Pick<VersionInfo, 'git_hash' | 'branch'> {
+    return {
+        git_hash: typeof __GIT_HASH__ === 'string' ? __GIT_HASH__ : 'unknown',
+        branch: typeof __APP_BRANCH__ === 'string' ? __APP_BRANCH__ : 'unknown'
+    };
+}
+
+/** What the build itself says, shown while the server's own answer cannot be read. */
+function buildVersion(): VersionInfo {
     const appVersion = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : 'unknown';
     const appVersionBase = appVersion.includes('+') ? appVersion.split('+')[0] : appVersion;
-    return {
-        version: appVersion,
-        base_version: appVersionBase,
-        git_hash: gitHash,
-        branch: appBranch
-    };
+    return { version: appVersion, base_version: appVersionBase, ...buildIdentity() };
+}
+
+// The footer names the version on every page, and About and Settings name it again.
+const sharedVersion = createSharedRead(requestVersion, { shareForMs: STATUS_SHARE_MS, scope: () => requestScope() });
+
+/** The running version for a view that shows it; views mounting together share one request. */
+export function readVersion(): Promise<VersionInfo> {
+    return sharedVersion.read().catch(() => buildVersion());
 }
 
 export async function checkHealth(): Promise<HealthStatus> {
@@ -157,6 +166,14 @@ export interface UpdateStatus {
 export async function fetchUpdateStatus(): Promise<UpdateStatus> {
     const response = await apiFetch(`${API_BASE}/update-status`, { cache: 'no-store' });
     return handleResponse<UpdateStatus>(response);
+}
+
+// The shell's update banner and About's instance summary both show this reading.
+const sharedUpdateStatus = createSharedRead(fetchUpdateStatus, { shareForMs: STATUS_SHARE_MS, scope: () => requestScope() });
+
+/** Whether an update is out, for a view that shows it; views mounting together share one request. */
+export function readUpdateStatus(): Promise<UpdateStatus> {
+    return sharedUpdateStatus.read();
 }
 
 /**

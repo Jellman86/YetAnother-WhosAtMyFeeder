@@ -34,7 +34,18 @@ async function countColdLoadReads(page: Page, path: string, status: Record<strin
             '/api/audio/summary': audioSummary,
             '/api/audio/recent': [],
             '/api/classifier/labels': { labels: ['Dunnock'] },
-            '/api/update-status': { update_available: false }
+            '/api/update-status': { update_available: false },
+            // Shared status readings answer, as on a working install: a failed read is never reused,
+            // so a 503 here would rightly be asked again by the next view.
+            '/api/frigate/cameras/status': { cameras: [] },
+            '/api/diagnostics/connections': {
+                mqtt: { state: 'connected', server: 'mqtt://broker', port: 1883, last_error: null },
+                frigate: { state: 'reachable', url: 'http://frigate:5000', availability: 'online', last_failure: null },
+                generated_at: '2026-11-16T00:00:00Z'
+            },
+            '/api/maintenance/analysis/status': { pending: 0, active: 0, circuit_open: false },
+            '/api/classifier/status': { loaded: true },
+            '/api/version': { version: '2.23.2-dev+r4bench', base_version: '2.23.2' }
         };
         if (pathname === '/api/sse') return route.abort();
         // The recent history is the slowest first read, so it settles after the route has mounted.
@@ -65,3 +76,32 @@ for (const [visitor, status] of [['owner', owner], ['guest', guest]] as const) {
         expect(reads.get('/api/classifier/labels') ?? 0).toBe(0);
     });
 }
+
+test('a cold Dashboard load as the owner asks the shell and its cards\' shared status questions once', async ({ page }) => {
+    const reads = await countColdLoadReads(page, '/', owner);
+    expect(reads.get('/api/frigate/cameras/status')).toBe(1);
+    expect(reads.get('/api/diagnostics/connections')).toBe(1);
+    expect(reads.get('/api/version')).toBe(1);
+    expect(reads.get('/api/maintenance/analysis/status')).toBe(1);
+});
+
+test('a cold About load reads the version, update, classifier and camera status once each', async ({ page }) => {
+    const reads = await countColdLoadReads(page, '/about', owner);
+    expect(reads.get('/api/version')).toBe(1);
+    expect(reads.get('/api/update-status')).toBe(1);
+    expect(reads.get('/api/classifier/status')).toBe(1);
+    expect(reads.get('/api/frigate/cameras/status')).toBe(1);
+});
+
+test('a cold Notifications load reads the analysis queue once for the shell and its banner', async ({ page }) => {
+    const reads = await countColdLoadReads(page, '/notifications', owner);
+    expect(reads.get('/api/maintenance/analysis/status')).toBe(1);
+});
+
+test('a cold Settings › Appearance load reads none of the other tabs\' operational data', async ({ page }) => {
+    const reads = await countColdLoadReads(page, '/settings/appearance', owner);
+    for (const endpoint of ['/api/frigate/config', '/api/classifier/status', '/api/maintenance/stats', '/api/maintenance/taxonomy/status']) {
+        expect(reads.get(endpoint) ?? 0, endpoint).toBe(0);
+    }
+    expect(reads.get('/api/version')).toBe(1);
+});

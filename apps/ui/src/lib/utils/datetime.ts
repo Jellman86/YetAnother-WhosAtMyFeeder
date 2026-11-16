@@ -59,9 +59,29 @@ function formatDateParts(date: Date, format: DateFormat): string {
         case 'ymd':
             return `${year}-${month}-${day}`;
         default:
-            return date.toLocaleDateString();
+            return localeDate(date);
     }
 }
+
+// `toLocale*String` builds a formatter on every call, which a wall of photographs or a long list pays
+// dozens of times per load. One formatter per set of options says exactly the same thing.
+const formatters = new Map<string, Intl.DateTimeFormat>();
+function formatterFor(options: Intl.DateTimeFormatOptions): Intl.DateTimeFormat {
+    const key = JSON.stringify(options);
+    let formatter = formatters.get(key);
+    if (!formatter) {
+        formatter = new Intl.DateTimeFormat(undefined, options);
+        formatters.set(key, formatter);
+    }
+    return formatter;
+}
+
+/** The locale's own short date, as `toLocaleDateString()` gives it. */
+function localeDate(date: Date): string {
+    return formatterFor({}).format(date);
+}
+
+const CLOCK_FIELDS = ['hour', 'minute', 'second', 'dayPeriod', 'fractionalSecondDigits', 'timeStyle'] as const;
 
 function toDate(value: DateInput): Date | null {
     if (!value) return null;
@@ -127,7 +147,7 @@ export function formatDateTime(value: DateInput): string {
     // a precision the observation never had.
     const time = formatTime(date);
     if (format === 'locale') {
-        return `${date.toLocaleDateString()} ${time}`;
+        return `${localeDate(date)} ${time}`;
     }
 
     return `${formatDateParts(date, format)} ${time}`;
@@ -136,10 +156,13 @@ export function formatDateTime(value: DateInput): string {
 export function formatTime(value: DateInput, options?: Intl.DateTimeFormatOptions): string {
     const date = toDate(value);
     if (!date) return typeof value === 'string' ? value : '';
-    return date.toLocaleTimeString([], {
+    const resolved: Intl.DateTimeFormatOptions = {
         ...(options ?? { hour: '2-digit', minute: '2-digit' }),
         ...hourCycleOptions(),
-    });
+    };
+    // Without a clock field `toLocaleTimeString` adds its own, which a plain formatter would not.
+    if (!CLOCK_FIELDS.some((field) => field in resolved)) return date.toLocaleTimeString([], resolved);
+    return formatterFor(resolved).format(date);
 }
 
 /**

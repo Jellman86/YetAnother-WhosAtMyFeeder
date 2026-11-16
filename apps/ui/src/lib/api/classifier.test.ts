@@ -10,10 +10,15 @@ vi.mock('./core', () => ({
     apiFetch: apiFetchMock,
     handleResponse: handleResponseMock,
     fetchWithAbort: vi.fn(),
+    requestScope: () => 'owner|en',
 }));
 
 import {
+    activateModel,
     fetchAvailableModels,
+    fetchClassifierStatus,
+    invalidateClassifierStatus,
+    readClassifierStatus,
     getVisibleTieredModelLineup,
     groupTieredModelLineup,
     categorizeModel,
@@ -528,5 +533,44 @@ describe('ClassifierStatus', () => {
 
         expect(status.crop_detector?.model_id).toBe('bird_crop_detector');
         expect(status.crop_detector?.enabled_for_runtime).toBe(false);
+    });
+});
+
+describe('the shared reading of what names birds', () => {
+    beforeEach(() => {
+        apiFetchMock.mockReset();
+        handleResponseMock.mockReset();
+        apiFetchMock.mockResolvedValue({ ok: true });
+        invalidateClassifierStatus();
+    });
+
+    it('is the reading a view just took directly, so About opened next shows the change', async () => {
+        handleResponseMock.mockResolvedValueOnce({ loaded: true, active_model_id: 'after' });
+        await fetchClassifierStatus();
+        await expect(readClassifierStatus()).resolves.toMatchObject({ active_model_id: 'after' });
+        expect(apiFetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('is read again after a model change, never handed out from before it', async () => {
+        handleResponseMock
+            .mockResolvedValueOnce({ loaded: true, active_model_id: 'before' })
+            .mockResolvedValueOnce({ status: 'ok' })
+            .mockResolvedValueOnce({ loaded: true, active_model_id: 'after' });
+        await readClassifierStatus();
+        await activateModel('after');
+        await expect(readClassifierStatus()).resolves.toMatchObject({ active_model_id: 'after' });
+    });
+
+    it('drops a direct reading that began before a model change, so it cannot bring back the old model', async () => {
+        let answer: (status: unknown) => void = () => {};
+        handleResponseMock
+            .mockImplementationOnce(() => new Promise((done) => { answer = done; }))
+            .mockResolvedValueOnce({ status: 'ok' })
+            .mockResolvedValueOnce({ loaded: true, active_model_id: 'after' });
+        const direct = fetchClassifierStatus();
+        await activateModel('after');
+        answer({ loaded: true, active_model_id: 'before' });
+        await direct;
+        await expect(readClassifierStatus()).resolves.toMatchObject({ active_model_id: 'after' });
     });
 });
