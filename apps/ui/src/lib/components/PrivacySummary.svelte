@@ -77,22 +77,22 @@
 </script>
 
     <section aria-labelledby="about-stores-title">
-        <h3 id="about-stores-title" class="text-sm font-bold text-slate-900 dark:text-white">
+        <h3 id="about-stores-title" class="text-sm font-bold text-strong">
             {$_('about.storage.title', { default: 'What it stores' })}
         </h3>
-        <dl class="mt-2 divide-y divide-slate-200/70 text-xs dark:divide-slate-700/50">
+        <dl class="mt-2 divide-y divide-line-soft text-xs">
             {#each storageTables as row (row.key)}
                 <div class="py-1.5">
                     <dt class="font-mono text-2xs font-semibold text-slate-800 dark:text-slate-100">
                         {row.table}
                     </dt>
-                    <dd class="text-slate-600 dark:text-slate-400">
+                    <dd class="text-muted">
                         {$_(`about.storage.${row.key}_desc`)}
                     </dd>
                 </div>
             {/each}
         </dl>
-        <p class="mt-2 text-2xs text-slate-600 dark:text-slate-400">
+        <p class="mt-2 text-2xs text-muted">
             {$_('about.storage.note', {
                 default: 'SQLite under /data. Schema changes ship reversible migrations.'
             })}
@@ -100,29 +100,29 @@
     </section>
 
     <section aria-labelledby="about-outbound-title">
-        <h3 id="about-outbound-title" class="text-sm font-bold text-slate-900 dark:text-white">
+        <h3 id="about-outbound-title" class="text-sm font-bold text-strong">
             {$_('about.outbound.title', { default: 'What leaves your network' })}
         </h3>
-        <p class="mt-1 text-xs text-slate-600 dark:text-slate-400" data-outbound-intro>
+        <p class="mt-1 text-xs text-muted" data-outbound-intro>
             {$_('about.outbound.intro', { default: 'Each request, who makes it and what it sends. Features you add later may make others.' })}
         </p>
         {#each groups as group (group.group)}
             <h4 class="eyebrow mt-3" data-outbound-origin={group.group}>{groupTitle[group.group]}</h4>
-            <dl class="mt-1 divide-y divide-slate-200/70 text-xs dark:divide-slate-700/50">
+            <dl class="mt-1 divide-y divide-line-soft text-xs">
                 {#each group.requests as item (item.key)}
                     <!-- Each group is a term and two descriptions (what it is for and sends, and whether it
                          happens) as direct children, which is the only shape a definition list reads correctly in. -->
                     <div class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 py-1.5" data-outbound={item.key} data-outbound-state={item.state}>
-                        <dt class="col-start-1 min-w-0 font-semibold text-slate-800 wrap-break-word dark:text-slate-100">
+                        <dt class="col-start-1 min-w-0 font-semibold text-strong wrap-break-word">
                             {$_(`about.outbound.${item.key}`)}
                         </dt>
-                        <dd class="col-start-1 min-w-0 text-slate-600 wrap-break-word dark:text-slate-400">
+                        <dd class="col-start-1 min-w-0 text-muted wrap-break-word">
                             {$_(`about.outbound.${item.key}_desc`)}
                         </dd>
                         <dd
                             class="col-start-2 row-span-2 row-start-1 shrink-0 rounded-sm px-1.5 py-0.5 text-3xs font-bold {item.state === 'on'
                                 ? 'bg-success-100 text-success-800 dark:bg-success-950/50 dark:text-success-300'
-                                : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'}"
+                                : 'bg-surface-raised text-muted'}"
                         >
                             {stateLabel(item.state)}
                         </dd>
@@ -131,7 +131,7 @@
             </dl>
         {/each}
         {#if !isOwner}
-            <p class="mt-2 text-2xs text-slate-600 dark:text-slate-400">
+            <p class="mt-2 text-2xs text-muted">
                 {$_('about.outbound.guest_note', {
                     default: 'Shown for transparency. Only the owner can change these.'
                 })}

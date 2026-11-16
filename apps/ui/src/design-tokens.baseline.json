@@ -350,8 +350,8 @@
     "arbitrary": 0
   },
   "lib/components/PrivacySummary.svelte": {
-    "palette": 28,
-    "dark": 14,
+    "palette": 6,
+    "dark": 3,
     "arbitrary": 1
   },
   "lib/components/ProviderWarning.svelte": {
@@ -450,8 +450,8 @@
     "arbitrary": 2
   },
   "lib/components/settings/AISettings.svelte": {
-    "palette": 68,
-    "dark": 33,
+    "palette": 50,
+    "dark": 24,
     "arbitrary": 1
   },
   "lib/components/settings/AITestModal.svelte": {
