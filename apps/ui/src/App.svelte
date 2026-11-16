@@ -39,6 +39,7 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
   import { toastStore } from './lib/stores/toast.svelte';
   import { notificationPolicy } from './lib/notifications/policy';
   import { announcer } from './lib/components/Announcer.svelte';
+  import { installAnalysisAnnouncements } from './lib/app/install-analysis-announcements';
   import Announcer from './lib/components/Announcer.svelte';
   import GlobalProgress from './lib/components/GlobalProgress.svelte';
   import { initKeyboardShortcuts } from './lib/utils/keyboard-shortcuts';
@@ -63,6 +64,9 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
   import { pageRefreshAction } from './lib/stores/page_refresh_action.svelte';
   import { appApiPath, fromAppPath, toAppPath } from './lib/app/url-base';
   import { documentTitle, routeIdFor, routeOffersRefresh, type RouteId } from './lib/app/route-title';
+
+  // Card analyses are spoken once for the page, aggregated, through the shared announcer below.
+  installAnalysisAnnouncements();
 
   const loadDashboardPage = lazyComponent(() => import('./lib/pages/Dashboard.svelte'));
   const loadEventsPage = lazyComponent(() => import('./lib/pages/Events.svelte'));

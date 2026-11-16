@@ -76,15 +76,6 @@
     let naming = $derived($birdNames(detection, showCommon, preferSci));
 
     let primaryName = $derived(mixed ? $_('events.multiple_species', { default: 'Multiple species' }) : naming.primary);
-    // Said once when an analysis starts and once when it finishes, never per frame: the words
-    // depend only on whether it is running or done.
-    const analysisAnnouncement = $derived(
-        !reclassifyProgress
-            ? ''
-            : reclassifyProgress.status === 'completed'
-              ? $_('detection.card_analysis.announce_finished', { values: { species: primaryName }, default: 'Analysis finished for {species}' })
-              : $_('detection.card_analysis.announce_started', { values: { species: primaryName }, default: 'Analysing {species}' })
-    );
     let subName = $derived(mixed ? null : naming.secondary);
     // While selecting, the card is a toggle named by what it picks, as a list row is.
     const selectSubject = $derived(`${primaryName}, ${formatTime(detection.detection_time)}`);
@@ -189,10 +180,6 @@
         onclick={onclick}
         class="absolute inset-0 z-10 {footer ? 'rounded-t-2xl' : 'rounded-2xl'} focus:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus"
     ></button>
-
-    <!-- One polite region per card, present whether or not an analysis runs, so its start and its
-         end are each announced once. -->
-    <p class="sr-only" role="status" aria-live="polite" data-card-analysis-status>{analysisAnnouncement}</p>
 
     <!-- Reclassification Overlay -->
     {#if analysisActive && reclassifyProgress}

@@ -20,8 +20,8 @@
     "arbitrary": 0
   },
   "lib/components/BirdScanControl.svelte": {
-    "palette": 24,
-    "dark": 11,
+    "palette": 20,
+    "dark": 10,
     "arbitrary": 1
   },
   "lib/components/BirdScanRegions.svelte": {

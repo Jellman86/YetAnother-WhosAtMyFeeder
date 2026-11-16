@@ -1,6 +1,8 @@
 <script lang="ts">
     import DetectionCardAnalysisOverlay from '../src/lib/components/DetectionCardAnalysisOverlay.svelte';
+    import Announcer from '../src/lib/components/Announcer.svelte';
     import DetectionCard from '../src/lib/components/DetectionCard.svelte';
+    import { installAnalysisAnnouncements } from '../src/lib/app/install-analysis-announcements';
     import DetectionRow from '../src/lib/components/DetectionRow.svelte';
     import FrameScanRibbon from '../src/lib/components/FrameScanRibbon.svelte';
     import { detectionsStore, type ReclassificationProgress } from '../src/lib/stores/detections.svelte';
@@ -16,6 +18,15 @@
     // same frames through it.
     function row(id: string, name: string): Detection {
         return { frigate_event: id, display_name: name, common_name: name, camera_name: 'birdcam', detection_time: '2026-10-01T12:00:00Z', score: 0.94, has_clip: true };
+    }
+    // Thirty visits analysed together, as a bulk reclassification does, spoken through the page's announcer.
+    installAnalysisAnnouncements();
+    const bulk = Array.from({ length: 30 }, (_, index) => row(`bulk-${index}`, index % 2 ? 'Great Tit' : 'Robin'));
+    function startBulk(): void {
+        for (const item of bulk) detectionsStore.startReclassification(item.frigate_event, 4, 'video');
+    }
+    function finishBulk(): void {
+        for (const item of bulk) detectionsStore.completeReclassification(item.frigate_event, [], 'success');
     }
     let opened = $state('none');
     let played = $state('none');
@@ -86,6 +97,14 @@
     <DetectionCard detection={markedCard} ownerConfirmation="visit" onclick={() => (opened = 'marked')} onPlay={() => (played = 'marked')} />
 </div>
 <button type="button" class="btn btn-secondary" onclick={() => detectionsStore.dismissReclassification(scanningRow.frigate_event)}>End the analysis</button>
+<button type="button" class="btn btn-secondary" onclick={startBulk}>Analyse thirty</button>
+<button type="button" class="btn btn-secondary" onclick={finishBulk}>Finish thirty</button>
+<div class="grid grid-cols-6 gap-2" data-fixture="bulk-cards">
+    {#each bulk as item (item.frigate_event)}
+        <div class="w-40"><DetectionCard detection={item} /></div>
+    {/each}
+</div>
+<Announcer />
 <p data-fixture-opened={opened} data-fixture-played={played}>Opened {opened}, played {played}</p>
 
 <section data-fixture="row" class="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">

@@ -54,11 +54,12 @@
         >
             {#each bars as bar (bar.hour)}
                 <div
+                    data-chart-bar
                     class="min-h-px flex-1 rounded-t-xs {bar.isNow
-                        ? 'bg-accent-line'
+                        ? 'bg-accent-ink'
                         : bar.value > 0
-                          ? 'bg-accent-line/60'
-                          : 'bg-track'}"
+                          ? 'bg-accent-line'
+                          : 'bg-line-strong'}"
                     style:height="{Math.max((bar.value / maxVal) * 100, bar.value > 0 ? 6 : 2)}%"
                     title={$_('dashboard.histogram.tooltip_visits', {
                         values: { count: bar.value, time: formatHour(bar.hour) },

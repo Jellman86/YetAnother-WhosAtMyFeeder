@@ -9,6 +9,7 @@ import { getErrorMessage, isTransientRequestError } from '../utils/error-handlin
 import { toLocalYMD } from '../utils/date-only';
 import { StaleTracker } from '../utils/stale_tracker';
 import { refreshCoordinator } from './refresh_coordinator.svelte';
+import type { AnalysisAnnouncements } from '../app/analysis-announcements';
 
 interface FrameResult {
     score: number;
@@ -333,6 +334,13 @@ export class DetectionsStore {
         return Math.max(min, Math.floor(parsed));
     }
 
+    private reclassificationListener: AnalysisAnnouncements | null = null;
+
+    /** Hears each analysis run start and end (by its event and start time), for the page's announcer. */
+    setReclassificationListener(listener: AnalysisAnnouncements | null) {
+        this.reclassificationListener = listener;
+    }
+
     startReclassification(eventId: string, totalFrames: number = 15, strategy: string | null = null) {
         if (!eventId || typeof eventId !== 'string') return;
         const now = Date.now();
@@ -363,6 +371,7 @@ export class DetectionsStore {
             completedAt: null
         });
         this.progressMap = newMap;
+        this.reclassificationListener?.started(eventId, now);
     }
 
     updateReclassificationProgress(
@@ -466,6 +475,7 @@ export class DetectionsStore {
         const existing = newMap.get(eventId);
         // A repeated completion for a run already shown as finished has no new work to read.
         if (existing?.status !== 'completed') this.noteReclassificationSettled(eventId);
+        if (existing) this.reclassificationListener?.finished(eventId, existing.startedAt);
         if (existing) {
             newMap.set(eventId, {
                 ...existing,
@@ -489,6 +499,8 @@ export class DetectionsStore {
         for (const [eventId, progress] of newMap.entries()) {
             if (progress.status === 'running') {
                 if (now - progress.lastUpdateAt > runningTimeoutMs) {
+                    // A run that went silent has ended for whoever was listening.
+                    this.reclassificationListener?.finished(eventId, progress.startedAt);
                     newMap.delete(eventId);
                     changed = true;
                 }
@@ -565,6 +577,8 @@ export class DetectionsStore {
     }
 
     dismissReclassification(eventId: string) {
+        const existing = this.progressMap.get(eventId);
+        if (existing) this.reclassificationListener?.finished(eventId, existing.startedAt);
         const newMap = new Map(this.progressMap);
         newMap.delete(eventId);
         this.progressMap = newMap;

@@ -258,7 +258,9 @@
     "finalizing_subtitle": "Application de la meilleure correspondance",
     "closing_soon": "Fermeture imminente",
     "announce_started": "Analyse de {species} en cours",
-    "announce_finished": "Analyse terminée pour {species}"
+    "announce_finished": "Analyse terminée pour {species}",
+    "announce_started_count": "{count, plural, one {Analyse de # visite en cours} other {Analyse de # visites en cours}}",
+    "announce_finished_count": "{count, plural, one {Analyse terminée pour # visite} other {Analyse terminée pour # visites}}"
   },
   "reclassification": {
     "unchanged_reason_non_bird": "Le modèle a identifié autre chose qu’un oiseau. L’identification existante a été conservée.",

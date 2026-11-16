@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { replayFeeder, settled, type Theme } from './accessibility-mock';
+import { measureMeters } from './meter-contrast';
 import recording from './fixtures/accessibility-api.json' with { type: 'json' };
 
 /**
@@ -24,51 +25,6 @@ const PAGES: { name: string; path: string; ready: (page: Page) => Promise<void> 
     { name: 'the Dashboard', path: '/', ready: (page) => expect(page.locator('[data-field-log-row]').first()).toBeVisible(READY) },
     { name: 'the Leaderboard', path: '/species', ready: (page) => expect(page.locator('h1')).toBeVisible(READY) }
 ];
-
-type Measured = { meters: number; failures: string[] };
-
-async function measureMeters(page: Page): Promise<Measured> {
-    return page.evaluate(() => {
-        // Any computed colour (rgb, oklab from a colour-mix) as sRGB with its alpha, through a canvas.
-        const canvas = document.createElement('canvas');
-        canvas.width = 1;
-        canvas.height = 1;
-        const context = canvas.getContext('2d', { willReadFrequently: true });
-        if (!context) throw new Error('no 2d canvas');
-        const parse = (value: string): [number, number, number, number] => {
-            context.clearRect(0, 0, 1, 1);
-            context.fillStyle = '#000';
-            context.fillStyle = value;
-            context.fillRect(0, 0, 1, 1);
-            const [r, g, b, a] = context.getImageData(0, 0, 1, 1).data;
-            return [r, g, b, a / 255];
-        };
-        const luminance = ([r, g, b]: number[]) => {
-            const channel = (c: number) => { const s = c / 255; return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4; };
-            return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
-        };
-        const contrast = (a: number[], b: number[]) => {
-            const [x, y] = [luminance(a), luminance(b)];
-            return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
-        };
-        const failures: string[] = [];
-        let meters = 0;
-        for (const track of document.querySelectorAll<HTMLElement>('.bg-track')) {
-            const fill = [...track.children].find((child) => (child as HTMLElement).style.width) as HTMLElement | undefined;
-            if (!fill || fill.getBoundingClientRect().width < 1) continue;
-            meters += 1;
-            const ground = parse(getComputedStyle(track).backgroundColor);
-            const [r, g, b, a] = parse(getComputedStyle(fill).backgroundColor);
-            const drawn = [r * a + ground[0] * (1 - a), g * a + ground[1] * (1 - a), b * a + ground[2] * (1 - a)];
-            const ratio = contrast(drawn, ground);
-            if (ratio < 3) {
-                const where = fill.closest('[data-field-log-row], tr, li, section')?.textContent?.trim().slice(0, 40) ?? '';
-                failures.push(`${getComputedStyle(fill).backgroundColor} on ${getComputedStyle(track).backgroundColor}: ${ratio.toFixed(2)} (${where})`);
-            }
-        }
-        return { meters, failures };
-    });
-}
 
 for (const combination of COMBINATIONS) {
     for (const surface of PAGES) {

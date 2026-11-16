@@ -23,4 +23,7 @@
   every theme and in high contrast; they had been faint enough to read as almost empty.
 - A card being re-analysed keeps its size, marks included, and so does a card you select, so
   nothing in the grid moves when an analysis ends or a choice is made. A screen reader hears once
-  that the analysis started and once that it finished.
+  that analysis started and once that it finished, for the whole page: "Analysing 30 visits", then
+  "Analysis finished for 30 visits", or the bird's name when there is one, never once per card.
+- The Dashboard's visits-per-hour bars and the bird scan's progress in the record are solid
+  colours that stand out clearly in every theme and in high contrast.

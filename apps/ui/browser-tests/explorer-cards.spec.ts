@@ -133,27 +133,38 @@ test('keyboard focus is visible on the card and on its captures bar, each inside
     expect(errors).toEqual([]);
 });
 
-test('selection switches to individual captures and keeps one card outline', async ({ page }) => {
-    const errors = await openExplorer(page);
-    const raw = page.waitForResponse(response => new URL(response.url()).pathname === '/api/events');
-    await page.getByRole('button', { name: 'Multi-select' }).click();
-    await raw;
-    // While selecting, each card is a toggle named by the capture it picks.
-    const item = page.locator('[data-detection-card]').filter({ has: page.getByRole('button', { name: /^Select Dunnock, / }) }).first().locator('..').locator('..');
-    const frame = item.locator('[data-detection-card]');
-    const toggle = frame.getByRole('button', { name: /^Select Dunnock, / });
-    const before = await frame.boundingBox();
-    await toggle.click();
-    await expect(toggle).toHaveAttribute('aria-pressed', 'true');
-    // Chosen is the accent ring around a one-pixel edge, so choosing a card never changes its size.
-    await expect.poll(() => frame.evaluate(node => getComputedStyle(node).boxShadow)).not.toBe('none');
-    expect(await frame.evaluate(node => getComputedStyle(node).borderTopWidth)).toBe('1px');
-    expect((await frame.boundingBox())?.height).toBe(before?.height);
-    await expectOneOutline(item);
-    await expect(frame.locator('[data-visit-captures-toggle]')).toHaveCount(0);
-    if (shots) await item.screenshot({ path: `${shots}/explorer-card-selected.png` });
-    expect(errors).toEqual([]);
-});
+for (const mode of ['normal', 'high contrast'] as const) {
+    test(`selection switches to individual captures and keeps one card outline (${mode})`, async ({ page }) => {
+        const errors = await openExplorer(page);
+        // The app turns the mode on with these two classes; the fixture page does it by hand.
+        if (mode === 'high contrast') await page.evaluate(() => document.documentElement.classList.add('high-contrast', 'dark'));
+        const raw = page.waitForResponse(response => new URL(response.url()).pathname === '/api/events');
+        await page.getByRole('button', { name: 'Multi-select' }).click();
+        await raw;
+        // While selecting, each card is a toggle named by the capture it picks.
+        const item = page.locator('[data-detection-card]').filter({ has: page.getByRole('button', { name: /^Select Dunnock, / }) }).first().locator('..').locator('..');
+        const frame = item.locator('[data-detection-card]');
+        const toggle = frame.getByRole('button', { name: /^Select Dunnock, / });
+        // The ring is the accent's edge colour, two pixels wide, as the mode resolves it.
+        const ring = await page.evaluate(() => `rgb(${getComputedStyle(document.documentElement).getPropertyValue('--accent-line').trim().split(/\s+/).join(', ')}) 0px 0px 0px 2px`);
+        const shadow = () => frame.evaluate(node => getComputedStyle(node).boxShadow);
+        const before = await frame.boundingBox();
+        expect(await shadow()).not.toContain(ring);
+        await expect(frame.locator('[data-detection-card-check="selected"]')).toHaveCount(0);
+
+        await toggle.click();
+        await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+        await expect.poll(shadow).toContain(ring);
+        await expect(frame.locator('[data-detection-card-check="selected"]')).toBeVisible();
+        // A one-pixel edge in every state, so choosing a card never changes its size.
+        expect(await frame.evaluate(node => getComputedStyle(node).borderTopWidth)).toBe('1px');
+        expect((await frame.boundingBox())?.height).toBe(before?.height);
+        await expectOneOutline(item);
+        await expect(frame.locator('[data-visit-captures-toggle]')).toHaveCount(0);
+        if (shots) await item.screenshot({ path: `${shots}/explorer-card-selected-${mode === 'normal' ? 'normal' : 'high-contrast'}.png` });
+        expect(errors).toEqual([]);
+    });
+}
 
 for (const theme of ['light', 'dark']) {
     test(`phone width keeps one outline, collapsed and expanded (${theme})`, async ({ page }) => {

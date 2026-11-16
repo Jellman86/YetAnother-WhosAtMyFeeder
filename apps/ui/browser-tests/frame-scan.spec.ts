@@ -170,20 +170,34 @@ test('an analysed card keeps its height, wrapping marks and all, and lands at th
     expect(after?.height).toBe(during?.height);
 });
 
-test('an analysed card says once that its analysis started and once that it finished, never each frame', async ({ page }) => {
+test('thirty analysed cards are spoken as one start and one finish through the page announcer, and never again', async ({ page }) => {
     await open(page);
-    const status = page.locator('[data-fixture="card-analysing"] [data-card-analysis-status]');
-    await expect(status).toHaveAttribute('role', 'status');
-    await expect(status).toHaveAttribute('aria-live', 'polite');
-    await expect(status).toHaveText('Analysing Great Tit');
-    // Frames arriving change nothing that is announced.
-    await page.getByRole('button', { name: 'Read next frame' }).click();
-    await page.getByRole('button', { name: 'Read four frames' }).click();
-    await expect(status).toHaveText('Analysing Great Tit');
-    for (let step = 0; step < 3; step += 1) await page.getByRole('button', { name: 'Read four frames' }).click();
-    await expect(status).toHaveText('Analysis finished for Great Tit');
-    // The region stays in the card when the analysis is gone, so the next one is heard too.
+    // Every text the shared live region is given, in order.
+    await page.evaluate(() => {
+        const said: string[] = [];
+        (window as unknown as { said: string[] }).said = said;
+        const region = document.querySelector('[aria-live]');
+        if (!region) throw new Error('no announcer');
+        new MutationObserver(() => {
+            const text = region.textContent?.trim() ?? '';
+            if (text) said.push(text);
+        }).observe(region, { childList: true, subtree: true, characterData: true });
+    });
+    const said = () => page.evaluate(() => [...new Set((window as unknown as { said: string[] }).said)]);
+    // The fixture's own scanning card is analysing at load: end it, let its lines pass, and start clean.
     await page.getByRole('button', { name: 'End the analysis' }).click();
-    await expect(status).toHaveCount(1);
-    await expect(status).toHaveText('');
+    await page.waitForTimeout(800);
+    await page.evaluate(() => { (window as unknown as { said: string[] }).said.length = 0; });
+    // Cards hold no live region of their own.
+    await expect(page.locator('[data-fixture="bulk-cards"] [role="status"], [data-fixture="bulk-cards"] [aria-live]')).toHaveCount(0);
+    await expect(page.locator('[aria-live]')).toHaveCount(1);
+
+    await page.getByRole('button', { name: 'Analyse thirty' }).click();
+    await expect.poll(said).toEqual(['Analysing 30 visits']);
+    await page.getByRole('button', { name: 'Finish thirty' }).click();
+    await expect.poll(said).toEqual(['Analysing 30 visits', 'Analysis finished for 30 visits']);
+    // A second completion of the same runs (as a species correction sends) says nothing more.
+    await page.getByRole('button', { name: 'Finish thirty' }).click();
+    await page.waitForTimeout(800);
+    expect(await said()).toEqual(['Analysing 30 visits', 'Analysis finished for 30 visits']);
 });
