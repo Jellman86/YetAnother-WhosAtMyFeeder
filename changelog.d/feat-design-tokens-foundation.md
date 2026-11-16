@@ -11,6 +11,9 @@
   typeface no longer sets "08:00" as "o8:oo" or "100%" as "1oo%".
 - The language menu marks the chosen language with a check and as the checked choice for screen
   readers, and keeps its highlight in high contrast, where every language used to look the same.
+  It now works fully from the keyboard: it opens on the current language, the arrow keys, Home
+  and End move through the list, Enter or Space chooses, and Escape closes it and returns to the
+  button.
 - A test that warned now shows amber in the dialog's progress bar and green for a passed step,
   where a passed step used to be the brand colour.
 - Under the hood, colour now comes from semantic tokens (surface, text, muted, status tones and

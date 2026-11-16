@@ -101,7 +101,10 @@ npm run tokens:baseline    # lower the baseline after migrating a file; refuses 
 The few places that genuinely need a literal colour sit in the test's `ALLOWLIST`, each with its
 reason: the colour-theme picker's swatches, and the categorical load series on the Health chart.
 In `app.css` only the high-contrast repaint selectors are skipped (`STYLESHEET_EXCEPTIONS`): they
-name the older classes in order to override them and paint nothing themselves.
+name the older classes in order to override them and paint nothing themselves. A selector list is
+skipped only when every selector in it starts at the high-contrast root (`.high-contrast …` or
+`html.high-contrast…`); an ordinary rule placed in that section, or a list that mixes one in, is
+counted like any other.
 Add to it only with a reason a reviewer accepts.
 
 ### Migrating a file

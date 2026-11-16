@@ -109,14 +109,43 @@ const STYLESHEET_EXCEPTIONS: Record<string, { from: string; to: string; reason: 
     }
 };
 
+/** Split a selector list at its top-level commas, leaving those inside `:is(...)` or `[...]` alone. */
+function selectorsOf(list: string): string[] {
+    const parts: string[] = [];
+    let depth = 0;
+    let current = '';
+    for (const char of list) {
+        if (char === '(' || char === '[') depth += 1;
+        if (char === ')' || char === ']') depth -= 1;
+        if (char === ',' && depth === 0) {
+            parts.push(current.trim());
+            current = '';
+        } else current += char;
+    }
+    parts.push(current.trim());
+    return parts.filter(Boolean);
+}
+
+/** Scoped to the high-contrast root: `.high-contrast …` or `html.high-contrast…`. */
+const HIGH_CONTRAST_SCOPE = /^(?:html)?\.high-contrast(?![\w-])/;
+
 function withoutExceptions(source: string, file: string): string {
     const exception = STYLESHEET_EXCEPTIONS[file];
     if (!exception) return source;
     const from = source.indexOf(exception.from);
     const to = source.indexOf(exception.to, from);
     if (from < 0 || to < 0) throw new Error(`${file}: the ${exception.from} section the ratchet skips has moved`);
-    // Only the selectors are skipped: an @apply inside the section still counts.
-    const section = source.slice(from, to).replace(/[^{}]*\{/g, (selector) => (selector.includes('@apply') ? selector : '{'));
+    // Comments are words, not rules. A selector list is skipped only when every selector in it is
+    // scoped to the high-contrast root; an ordinary rule placed in the section, or a list that mixes
+    // one in, is counted like any other. Declarations, and so any @apply, always count.
+    const section = source
+        .slice(from, to)
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/([^{}]*)\{/g, (whole, list: string) => {
+            const selectors = selectorsOf(list);
+            const scoped = selectors.length > 0 && selectors.every((selector) => HIGH_CONTRAST_SCOPE.test(selector));
+            return scoped ? '{' : whole;
+        });
     return source.slice(0, from) + section + source.slice(to);
 }
 
@@ -186,6 +215,27 @@ describe('a stylesheet', () => {
         const css = '.a { @apply text-amber-600; }\n/* High Contrast Mode */\n.high-contrast .bg-white, .high-contrast .dark\\:bg-slate-800 { color: #fff; }\n.high-contrast .b { @apply bg-slate-900; }\n/* Respect user motion preferences */';
         expect(countBypasses(css, 'app.css').palette).toBe(2);
         expect(countBypasses(css, 'lib/other.css').palette).toBe(4);
+    });
+
+    const hcSection = (rules: string) => `/* High Contrast Mode */\n${rules}\n/* Respect user motion preferences */`;
+
+    it('counts an ordinary rule placed between the high-contrast markers', () => {
+        expect(countBypasses(hcSection('.text-amber-600 { color: #d97706; }'), 'app.css').palette).toBe(1);
+    });
+
+    it('counts a selector list that mixes a high-contrast selector with an unscoped one', () => {
+        expect(countBypasses(hcSection('.high-contrast .bg-white, .bg-slate-900 { color: #fff; }'), 'app.css').palette).toBe(2);
+    });
+
+    it('skips a selector scoped to the high-contrast root, by class or on html, and ignores comments', () => {
+        const rules = '/* repaints [class*=text-slate-500] */\nhtml.high-contrast.high-contrast .bg-white, .high-contrast :is(.bg-brand-700, [class~=\'bg-red-600\']) * { color: #fff; }';
+        expect(countBypasses(hcSection(rules), 'app.css').palette).toBe(0);
+    });
+
+    it('scans the authored stylesheets, app.css among them', () => {
+        const scanned = sourceFiles(SOURCE_ROOT).map((path) => relative(SOURCE_ROOT, path).replaceAll('\\', '/'));
+        expect(scanned).toContain('app.css');
+        expect(scanned).toContain('tailwind-3-parity.css');
     });
 });
 
