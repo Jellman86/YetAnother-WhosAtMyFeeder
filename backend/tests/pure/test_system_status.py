@@ -439,3 +439,32 @@ def test_the_job_count_is_the_lane_total_when_the_list_is_cut_at_a_hundred():
     summary = summarise_jobs(jobs)
 
     assert (summary.running, summary.queued) == (0, 151)
+
+
+def test_a_closed_video_circuit_moves_the_incident_revision_so_its_incident_can_close():
+    def snapshot(**analysis):
+        return derive_system_status(
+            healthy(analysis=AnalysisStatusResponse(pending=0, active=0, **analysis)), revision=1, now=NOW
+        )
+
+    tripped = snapshot(circuit_open=True, open_until="2026-11-16T09:10:00Z", failure_count=5)
+    recovered = snapshot(circuit_open=False, failure_count=0)
+    maintenance_tripped = snapshot(circuit_open=False, maintenance_circuit_open=True)
+
+    assert tripped.incident_revision != recovered.incident_revision
+    assert maintenance_tripped.incident_revision != recovered.incident_revision
+    assert tripped.health_revision != recovered.health_revision
+
+
+def test_the_incident_revision_ignores_counters_that_only_health_shows():
+    base = derive_system_status(healthy(event_pipeline={"status": "ok", "started_events": 1}), revision=1, now=NOW)
+    counted = derive_system_status(healthy(event_pipeline={"status": "ok", "started_events": 2}), revision=1, now=NOW)
+    critical = derive_system_status(
+        healthy(event_pipeline={"status": "degraded", "started_events": 2, "critical_failure_active": True}),
+        revision=1,
+        now=NOW,
+    )
+
+    assert base.incident_revision == counted.incident_revision
+    assert base.health_revision != counted.health_revision
+    assert base.incident_revision != critical.incident_revision

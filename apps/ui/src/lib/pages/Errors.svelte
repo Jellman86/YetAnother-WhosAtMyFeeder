@@ -196,10 +196,11 @@
 
     onMount(() => {
         void detectionsStore.loadInitial();
-        void refreshWorkspace();
         // The counters, verdicts and incidents move without a new fault being recorded (a recovery,
-        // events counted). The pushed status names them by a revision; Health reads again when it moves.
+        // events counted). The pushed status names them by a revision; Health reads on opening and
+        // again when it moves, and a failed read is retried with the shared backoff until it lands.
         const follower = followRevisions(refreshWorkspace, systemStatusStore.snapshot?.health_revision ?? null);
+        follower.start();
         const stop = systemStatusStore.subscribe((snapshot) => follower.observe(snapshot.health_revision));
         return () => {
             stop();
@@ -208,10 +209,11 @@
     });
 
     $effect(() => {
-        return pageRefreshAction.register(refreshWorkspace);
+        return pageRefreshAction.register(async () => { await refreshWorkspace(); });
     });
 
-    async function refreshWorkspace() {
+    /** Reads the workspace and the visits beside it; false when either read failed, so it is retried. */
+    async function refreshWorkspace(): Promise<boolean> {
         refreshing = true;
         try {
             await incidentWorkspaceStore.refresh();
@@ -222,6 +224,7 @@
                 const result = await fetchVisits({ ...window, limit: 25, requestKey: 'health:visits' });
                 serverVisits = result.visits.map((visit) => fromServerVisit(visit, window));
             } else serverVisits = [];
+            return true;
         } catch (error) {
             const message = error instanceof Error ? error.message : 'Failed to refresh incident workspace';
             jobDiagnosticsStore.recordError({
@@ -232,6 +235,7 @@
                 severity: 'warning',
                 context: { scope: 'Errors.svelte' }
             });
+            return false;
         } finally {
             refreshing = false;
         }

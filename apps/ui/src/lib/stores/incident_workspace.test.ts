@@ -551,3 +551,16 @@ describe('incident workspace refresh', () => {
         expect(store.readFreshness).toBe('read');
     });
 });
+
+describe('incident workspace across an access change', () => {
+    it('ignores a read that lands after the workspace was cleared for a new access', async () => {
+        type Payload = Awaited<ReturnType<typeof import('../api/diagnostics').fetchDiagnosticsWorkspace>>;
+        let answer: (payload: Payload) => void = () => undefined;
+        const store = createIncidentWorkspaceStore(() => new Promise<Payload>((resolve) => { answer = resolve; }));
+        const pending = store.refresh();
+        store.clear();
+        answer({ backend_diagnostics: { events: [] }, health: { status: 'ok' } } as unknown as Payload);
+        await expect(pending).resolves.toBe(false);
+        expect(store.workspacePayload).toBeNull();
+    });
+});

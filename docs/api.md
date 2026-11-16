@@ -213,9 +213,12 @@ curl -N "http://localhost:9852/api/sse?ticket=$TICKET"
     `cameras` (per-camera health from Frigate's stats, read at most once a minute; null while
     Frigate does not answer), `telemetry` (the latest host sample), `version`,
     `startup_instance_id`, a `revision` that rises with every material change,
-    `diagnostics_revision`, which moves when the server records a fault, and `health_revision`,
-    which moves with the pipeline's counters, any verdict and the finder (Health reads its workspace
-    again when it changes; it does not cause a push by itself).
+    `diagnostics_revision`, which moves when the server records a fault, `incident_revision`,
+    which moves whenever an incident can open or close (a verdict, a recorded fault, a video
+    breaker opening or closing, the finder or live classifier recovering; every owner page reads
+    the incident workspace again when it moves), and `health_revision`, which also follows the
+    pipeline's running totals (Health reads its workspace again when it changes; the totals alone
+    do not cause a push).
   The snapshot carries no secret: every field is a declared state, count, model name or redacted
   address, and free text (a job's phase and error, the queue's message, the provider's fallback
   reason) is cleaned of configured secrets, credential URLs and `name=value` tokens. The same

@@ -113,22 +113,32 @@ async def test_a_stream_the_broadcaster_drops_for_backpressure_is_closed_so_the_
         await response.body_iterator.aclose()
 
 
-def test_every_test_starts_from_a_fresh_collector_and_an_unpublished_service(monkeypatch):
+# These two run in this order (pytest keeps a file's order): the first leaves the process-wide
+# status state dirty on purpose, the second proves the autouse fixture gave it a clean one.
+_LEFT_BEHIND: dict[str, object] = {}
+
+
+def test_status_state_left_dirty_by_one_test():
     from app.services import system_status_runtime
-    from tests.status_isolation import fresh_system_status_state
 
     service = system_status_runtime.system_status_service
-    stale = system_status_runtime._readings
-    stale._saved_jobs = [{"id": "high_quality_snapshot:left-over"}]
-    stale._saved_jobs_read_at = 1.0
-    stale._cameras_read_at = 1.0
+    readings = system_status_runtime._readings
+    readings._saved_jobs = [{"id": "high_quality_snapshot:left-over"}]
+    readings._saved_jobs_read_at = 1.0
+    readings._cameras_read_at = 1.0
     service._revision = 7
     service._published_key = "left-over"
     service._published_at = 1.0
+    _LEFT_BEHIND["readings"] = readings
 
-    readings = fresh_system_status_state(monkeypatch)
 
-    assert readings is not stale and system_status_runtime._readings is readings
+def test_status_state_is_clean_for_the_next_test():
+    from app.services import system_status_runtime
+
+    service = system_status_runtime.system_status_service
+    readings = system_status_runtime._readings
+    assert "readings" in _LEFT_BEHIND, "runs after the test that leaves state behind"
+    assert readings is not _LEFT_BEHIND["readings"]
     assert readings._saved_jobs is None and readings._saved_jobs_read_at is None
     assert readings._cameras is None and readings._cameras_read_at is None
     assert (service._revision, service._latest, service._published_key, service._published_at) == (0, None, None, None)

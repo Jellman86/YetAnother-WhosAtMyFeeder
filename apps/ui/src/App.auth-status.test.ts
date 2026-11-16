@@ -41,6 +41,9 @@ describe('App auth status failure handling', () => {
         // Owner status never outlives the session that read it.
         expect(appSource.match(/untrack\(\(\) => systemStatusStore\.clear\(\)\)/g)?.length).toBe(2);
         expect(appSource.match(/untrack\(\(\) => serverJobsStore\.clear\(\)\)/g)?.length).toBe(2);
+        // Nothing read for the old access continues: workspace retries stop and late answers are dropped.
+        expect(appSource.match(/liveUpdates\.resetForAccessChange\(\);/g)?.length).toBe(2);
+        expect(appSource.match(/untrack\(\(\) => incidentWorkspaceStore\.clear\(\)\)/g)?.length).toBe(2);
         expect(appSource).toContain("{#key `${authStore.isAuthenticated ? 'owner' : 'guest'}:${authStore.token ?? 'anonymous'}`}");
     });
 

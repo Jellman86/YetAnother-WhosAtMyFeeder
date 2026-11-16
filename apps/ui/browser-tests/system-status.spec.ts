@@ -1,6 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
-import { replayFeeder, settled, type Theme } from './accessibility-mock';
+import { HEALTHY_CONNECTIONS, judgedStatus, replayFeeder, settled, type Theme } from './accessibility-mock';
 
 /**
  * The sidebar's System status card in the real app shell: a neutral list of measured states,
@@ -37,6 +37,8 @@ function workspace(events: ReturnType<typeof event>[]): Record<string, unknown> 
             },
             focused_diagnostics: {},
             health: { status: 'healthy' },
+            // These cases are about incidents, so both connections are asked to be up.
+            connections: HEALTHY_CONNECTIONS,
             classifier: {},
             taxonomy_repair: {},
             maintenance_coordinator: {},
@@ -186,4 +188,19 @@ test('at 200% text the card loses nothing', async ({ page }) => {
     });
     expect(tooWide).toEqual([]);
     await expect(card(page).locator('[data-health-issues]')).toBeVisible();
+});
+
+test('the fixture status keeps every failure it is given and never assumes a healthy connection', () => {
+    const critical = judgedStatus(HEALTHY_CONNECTIONS, {
+        status: 'degraded',
+        event_pipeline: { status: 'degraded', critical_failure_active: true }
+    });
+    expect(critical.overall).toEqual({ state: 'degraded', cause: 'pipeline_critical', subsystem: null });
+
+    const unmeasured = judgedStatus({}, { status: 'ok' });
+    expect(unmeasured.overall.state).toBe('unknown');
+    expect(unmeasured.subsystems.map((verdict) => verdict.state)).toEqual(['unknown', 'unknown']);
+
+    const down = judgedStatus({ mqtt: { state: 'disconnected' }, frigate: { state: 'reachable' } }, { status: 'ok' });
+    expect(down.overall).toEqual({ state: 'degraded', cause: 'disconnected', subsystem: 'mqtt' });
 });

@@ -47,6 +47,8 @@ export class SystemStatusStore {
     // A plain copy of `streamLive`, so deciding about the fallback read never subscribes the caller.
     private live = false;
     private isStale = false;
+    // Plain, like `live`: whether any status has arrived since following began.
+    private received = false;
     private staleTimer: ReturnType<typeof setTimeout> | null = null;
 
     constructor(options: SystemStatusStoreOptions = {}) {
@@ -64,21 +66,40 @@ export class SystemStatusStore {
             return;
         }
         this.snapshot = next;
+        const first = !this.received;
+        this.received = true;
         this.markFresh();
+        // The first status is what lets a connected stream be trusted, so the fallback can stop.
+        if (first) this.syncFallback();
         for (const listener of this.listeners) listener(next, previous);
     }
 
-    private markFresh(): void {
-        this.receivedAt = Date.now();
+    /**
+     * How long a status may go without a successor before it is out of date: the push interval's
+     * margin on a live stream (or before any status at all), and one fallback read later than that
+     * while the stream is down and the status is being read once a minute.
+     */
+    private staleAfterMs(): number {
+        return this.live || !this.received ? STATUS_STALE_AFTER_MS : STATUS_FALLBACK_READ_MS + STATUS_STALE_AFTER_MS;
+    }
+
+    private armWatchdog(): void {
         if (this.staleTimer !== null) clearTimeout(this.staleTimer);
         this.staleTimer = this.active
             ? setTimeout(() => {
                   this.staleTimer = null;
                   this.isStale = true;
                   this.stale = true;
+                  // Read at once, then on the fallback cadence until a status arrives.
+                  void this.load();
                   this.syncFallback();
-              }, STATUS_STALE_AFTER_MS)
+              }, this.staleAfterMs())
             : null;
+    }
+
+    private markFresh(): void {
+        this.receivedAt = Date.now();
+        this.armWatchdog();
         if (this.isStale) {
             this.isStale = false;
             this.stale = false;
@@ -117,24 +138,31 @@ export class SystemStatusStore {
     /** Begin following the status for an owner: a first read, then the stream or the fallback read. */
     start(): void {
         this.active = true;
+        // Armed before any status: a failed first read and a stream that connects but sends
+        // nothing must still end in the status being called out of date and read again.
+        this.armWatchdog();
         void this.load();
         this.syncFallback();
     }
 
     setStreamLive(live: boolean): void {
+        const changed = live !== this.live;
         this.live = live;
         this.streamLive = live;
+        // The time a status may stay unanswered depends on whether the stream is up.
+        if (changed && this.active && !this.isStale) this.armWatchdog();
         this.syncFallback();
     }
 
     private syncFallback(): void {
-        const wanted = this.active && (!this.live || this.isStale);
+        // A connected stream is trusted only once it, or a read, has brought a status.
+        const wanted = this.active && (!this.live || this.isStale || !this.received);
         if (wanted && this.stopFallback === null) {
             this.stopFallback = startVisiblePoll({
                 read: () => this.load(),
                 delayMs: () => STATUS_FALLBACK_READ_MS,
-                // A status found out of date is read at once; a stream that is simply down waits a minute.
-                readAtStart: this.isStale,
+                // The watchdog reads at once when the status goes out of date; this keeps the cadence.
+                readAtStart: false,
                 tab: this.tab
             });
         } else if (!wanted && this.stopFallback !== null) {
@@ -151,6 +179,7 @@ export class SystemStatusStore {
         this.streamLive = false;
         this.isStale = false;
         this.stale = false;
+        this.received = false;
         if (this.staleTimer !== null) clearTimeout(this.staleTimer);
         this.staleTimer = null;
         this.syncFallback();

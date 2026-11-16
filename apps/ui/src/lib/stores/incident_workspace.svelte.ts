@@ -291,6 +291,8 @@ class IncidentWorkspaceStore {
     }
 
     clear(): void {
+        // A read still in flight was made for whoever was signed in before; it must not land now.
+        this.refreshGeneration += 1;
         this.workspacePayload = null;
         // Nothing is read now, so nothing is failed either; late answers to older reads stay ignored.
         this.readSettled = { ...INITIAL_READ, token: this.readSettled.token };

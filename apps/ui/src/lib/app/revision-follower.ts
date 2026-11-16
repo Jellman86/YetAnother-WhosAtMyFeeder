@@ -1,52 +1,37 @@
+import { createRetryingReader } from './retrying-reader';
+
 interface RevisionFollower {
     /** Read now, whatever revision is already known: a view that just opened has read nothing. */
     start(): void;
     /** A revision was pushed; read again if it is new, after any read already in flight. */
     observe(revision: string): void;
+    /** The view closed: no more reads, and no pending retry. */
     stop(): void;
 }
 
 /**
  * Keeps a detail reading in step with a pushed revision. A revision that arrives while a read is
  * in flight is not marked seen and dropped: one follow-up read is queued for it, since the read in
- * flight may have started before the change it names.
+ * flight may have started before the change it names. A failed read is retried with the shared
+ * capped backoff until one succeeds or the view stops following.
  */
-export function followRevisions(read: () => Promise<unknown>, knownRevision: string | null): RevisionFollower {
+export function followRevisions(read: () => Promise<boolean>, knownRevision: string | null): RevisionFollower {
     let seen = knownRevision;
-    let reading = false;
-    let again = false;
     let stopped = false;
-
-    async function readNow(): Promise<void> {
-        if (stopped) return;
-        if (reading) {
-            again = true;
-            return;
-        }
-        reading = true;
-        try {
-            await read();
-        } catch {
-            // The reader reports its own failure; the next revision reads again.
-        } finally {
-            reading = false;
-            if (again && !stopped) {
-                again = false;
-                void readNow();
-            }
-        }
-    }
+    const reader = createRetryingReader({ read, active: () => !stopped });
 
     return {
-        start: () => void readNow(),
+        start(): void {
+            if (!stopped) reader.request();
+        },
         observe(revision: string): void {
-            if (revision === seen) return;
+            if (stopped || revision === seen) return;
             seen = revision;
-            void readNow();
+            reader.request();
         },
         stop(): void {
             stopped = true;
-            again = false;
+            reader.cancel();
         }
     };
 }

@@ -306,34 +306,53 @@ def _redacted_analysis(analysis: AnalysisStatusResponse, secrets: tuple[str, ...
     )
 
 
+# The pipeline's running totals: Health shows them, an incident never depends on them.
 _PIPELINE_COUNTERS = (
-    "status",
     "started_events",
     "completed_events",
     "dropped_events",
     "incomplete_events",
     "critical_failures",
-    "critical_failure_active",
 )
+# Every breaker the video queue reports. A breaker that closes records no new fault, yet its
+# incident must close; so its state is part of what the incident workspace is judged from.
+_CIRCUIT_FIELDS = ("circuit_open", "open_until", "failure_count", "maintenance_circuit_open", "manual_circuit_open")
 
 
-def _health_revision(inputs: SystemStatusInputs, overall: OverallVerdict, subsystems: list[SubsystemVerdict]) -> str:
+def _fingerprint(parts: object) -> str:
+    return hashlib.sha256(json.dumps(parts, sort_keys=True, default=str).encode()).hexdigest()[:16]
+
+
+def _incident_revision(inputs: SystemStatusInputs, overall: OverallVerdict, subsystems: list[SubsystemVerdict]) -> str:
+    """Moves whenever an incident can open or close: a verdict, a fault, a breaker, a recovery."""
     pipeline = inputs.event_pipeline or {}
-    finder = _finder_health(inputs)
-    fingerprint = json.dumps(
+    analysis = inputs.analysis.model_dump()
+    live = (
+        inputs.classifier_health.get("live_image")
+        if isinstance(inputs.classifier_health.get("live_image"), dict)
+        else {}
+    )
+    return _fingerprint(
         [
             overall.model_dump(),
             [verdict.model_dump() for verdict in subsystems],
-            {name: pipeline.get(name) for name in _PIPELINE_COUNTERS},
-            bool(finder.get("active")),
+            {name: analysis.get(name) for name in _CIRCUIT_FIELDS},
+            pipeline.get("status"),
+            bool(pipeline.get("critical_failure_active")),
+            bool(_finder_health(inputs).get("active")),
+            bool(live.get("recovery_active")),
             inputs.diagnostics_revision,
             inputs.startup_warning_count,
             inputs.db_pool_degraded,
-        ],
-        sort_keys=True,
-        default=str,
+            inputs.notification_dropped_jobs,
+        ]
     )
-    return hashlib.sha256(fingerprint.encode()).hexdigest()[:16]
+
+
+def _health_revision(inputs: SystemStatusInputs, incident_revision: str) -> str:
+    """Everything Health shows that moves: the incidents, and the pipeline's running totals."""
+    pipeline = inputs.event_pipeline or {}
+    return _fingerprint([incident_revision, {name: pipeline.get(name) for name in _PIPELINE_COUNTERS}])
 
 
 def derive_system_status(inputs: SystemStatusInputs, *, revision: int, now: datetime) -> SystemStatusSnapshot:
@@ -353,6 +372,7 @@ def derive_system_status(inputs: SystemStatusInputs, *, revision: int, now: date
     ]
     classifier = next(verdict for verdict in subsystems if verdict.key == "classifier")
     overall = _overall_verdict(inputs, subsystems)
+    incident_revision = _incident_revision(inputs, overall, subsystems)
     return SystemStatusSnapshot(
         revision=revision,
         generated_at=now.astimezone(timezone.utc).isoformat(),
@@ -368,7 +388,8 @@ def derive_system_status(inputs: SystemStatusInputs, *, revision: int, now: date
         cameras=inputs.cameras,
         telemetry=inputs.telemetry,
         diagnostics_revision=inputs.diagnostics_revision,
-        health_revision=_health_revision(inputs, overall, subsystems),
+        incident_revision=incident_revision,
+        health_revision=_health_revision(inputs, incident_revision),
     )
 
 
@@ -412,6 +433,7 @@ def material_key(snapshot: SystemStatusSnapshot) -> str:
         if snapshot.cameras
         else None,
         "diagnostics": snapshot.diagnostics_revision,
+        "incident": snapshot.incident_revision,
     }
     return json.dumps(material, sort_keys=True, default=str)
 

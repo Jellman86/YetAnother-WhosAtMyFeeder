@@ -58,7 +58,7 @@ async function countColdLoadReads(page: Page, path: string, status: Record<strin
                     generated_at: '2026-11-16T00:00:00Z'
                 },
                 cameras: { cameras: [], checked_at: '2026-11-16T00:00:00Z' },
-                diagnostics_revision: 0, health_revision: 'fixture'
+                diagnostics_revision: 0, incident_revision: 'fixture', health_revision: 'fixture'
             },
             '/api/classifier/status': { loaded: true },
             '/api/version': { version: '2.23.2-dev+r4bench', base_version: '2.23.2' }

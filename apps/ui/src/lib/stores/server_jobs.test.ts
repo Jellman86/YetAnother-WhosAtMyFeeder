@@ -212,3 +212,22 @@ describe('ServerJobsStore browser-only work', () => {
         expect(only.map((job) => job.id)).toEqual(['model-download:x']);
     });
 });
+
+describe('ServerJobsStore browser-owned work, by identity', () => {
+    it('does not count work of a kind the server reports, even when the server\'s capped list leaves it out', () => {
+        const store = new ServerJobsStore();
+        const listed = Array.from({ length: 100 }, (_, index) => ({
+            id: `video:evt-${index}`, event_id: `evt-${index}`, kind: 'video_analysis', source: 'maintenance',
+            status: 'queued' as const, phase: 'waiting', current: 0, total: 0, unit: 'frames', visibility: 'prominent' as const
+        }));
+        store.ingest({ captured_at: 't', items: listed, lanes: [{ kind: 'video_analysis', queued: 151, running: 0 }] } as never);
+        const local = (id: string, kind: string) => ({ id, kind, title: kind, status: 'running' as const, current: 0, total: 0, startedAt: 1, updatedAt: 1, source: 'sse' as const });
+        // The 151st analysis, not in the server's hundred, followed here too: still the server's work.
+        const only = store.browserOnlyActive([
+            local('reclassify:evt-150', 'reclassify'),
+            local('backfill:weather:w9', 'weather_backfill'),
+            local('model-download:large', 'model_download')
+        ]);
+        expect(only.map((job) => job.id)).toEqual(['model-download:large']);
+    });
+});

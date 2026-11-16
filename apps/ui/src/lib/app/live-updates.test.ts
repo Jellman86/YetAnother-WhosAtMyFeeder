@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { SystemStatus } from '../api/status';
-import { LiveUpdateCoordinator, WORKSPACE_RETRY_MS, toDetection } from './live-updates';
+import { LiveUpdateCoordinator, toDetection } from './live-updates';
+import { READ_RETRY_MS as WORKSPACE_RETRY_MS } from './retrying-reader';
 
 describe('toDetection', () => {
     it('normalizes required fields at the untrusted SSE boundary', () => {
@@ -38,7 +39,7 @@ describe('toDetection', () => {
 function buildCoordinator(options?: {
     activeJobs?: any[];
     shouldNotify?: boolean;
-    hasOwnerAccess?: boolean;
+    hasOwnerAccess?: boolean | (() => boolean);
     refreshOwnerHistory?: () => Promise<void>;
     onGardenHistoryChanged?: () => void;
     onStatus?: (snapshot: unknown) => void;
@@ -78,7 +79,7 @@ function buildCoordinator(options?: {
     const coordinator = new LiveUpdateCoordinator({
         t: (key: string) => key,
         shouldNotify: () => options?.shouldNotify ?? true,
-        hasOwnerAccess: () => options?.hasOwnerAccess ?? true,
+        hasOwnerAccess: typeof options?.hasOwnerAccess === 'function' ? options.hasOwnerAccess : () => (options?.hasOwnerAccess as boolean | undefined) ?? true,
         refreshOwnerHistory: options?.refreshOwnerHistory,
         onGardenHistoryChanged: options?.onGardenHistoryChanged,
         onStatus: options?.onStatus,
@@ -172,6 +173,7 @@ function status(overrides: Partial<SystemStatus> & { storage?: 'ok' | 'error' } 
             generated_at: '2026-11-16T09:00:00Z'
         },
         diagnostics_revision: 0,
+        incident_revision: 'i1',
         health_revision: 'h1',
         ...rest
     };
@@ -357,24 +359,26 @@ describe('LiveUpdateCoordinator reclassify fallback', () => {
         expect(notificationItems.some((item) => String(item.id).startsWith('system:health'))).toBe(false);
     });
 
-    it('reads the incident workspace on the first status and when the server records a new fault, not on every push', () => {
+    it('reads the incident workspace on the first status and when the server records a new fault, not on every push', async () => {
         const { coordinator, calls } = buildCoordinator();
         const first = status();
         coordinator.applySystemStatus(first, null);
+        await vi.waitFor(() => expect(calls.syncDiagnosticsWorkspace).toHaveLength(1));
         const figures = status({ generated_at: '2026-11-16T09:00:15Z' });
         coordinator.applySystemStatus(figures, first);
+        await Promise.resolve();
         expect(calls.syncDiagnosticsWorkspace).toHaveLength(1);
         coordinator.applySystemStatus(status({ revision: 2, diagnostics_revision: 4 }), figures);
-        expect(calls.syncDiagnosticsWorkspace).toHaveLength(2);
+        await vi.waitFor(() => expect(calls.syncDiagnosticsWorkspace).toHaveLength(2));
     });
 
-    it('reads the incident workspace again when a verdict changes, so a recovery closes its incident', () => {
+    it('reads the incident workspace again when a verdict changes, so a recovery closes its incident', async () => {
         const { coordinator, calls } = buildCoordinator();
-        const onCpu = status({ subsystems: [{ key: 'finder', state: 'degraded', cause: 'cpu_fallback' }] });
+        const onCpu = status({ incident_revision: 'finder-cpu', subsystems: [{ key: 'finder', state: 'degraded', cause: 'cpu_fallback' }] });
         coordinator.applySystemStatus(onCpu, null);
         // The finder is back on its accelerator; no new fault was recorded for that.
-        coordinator.applySystemStatus(status({ revision: 2, subsystems: [{ key: 'finder', state: 'ok', cause: 'ready' }] }), onCpu);
-        expect(calls.syncDiagnosticsWorkspace).toHaveLength(2);
+        coordinator.applySystemStatus(status({ revision: 2, incident_revision: 'finder-ok', subsystems: [{ key: 'finder', state: 'ok', cause: 'ready' }] }), onCpu);
+        await vi.waitFor(() => expect(calls.syncDiagnosticsWorkspace).toHaveLength(2));
     });
 
     it('retries a failed workspace read with a growing wait until one succeeds', async () => {
@@ -396,6 +400,56 @@ describe('LiveUpdateCoordinator reclassify fallback', () => {
             expect(sync).toHaveBeenCalledTimes(3);
             await vi.advanceTimersByTimeAsync(10 * WORKSPACE_RETRY_MS[WORKSPACE_RETRY_MS.length - 1]);
             expect(sync).toHaveBeenCalledTimes(3);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('reads the incident workspace again when a video breaker closes, though nothing else changed', async () => {
+        const { coordinator, calls } = buildCoordinator();
+        const tripped = status({ incident_revision: 'breaker-open' });
+        coordinator.applySystemStatus(tripped, null);
+        coordinator.applySystemStatus(status({ revision: 2, incident_revision: 'breaker-closed' }), tripped);
+        await vi.waitFor(() => expect(calls.syncDiagnosticsWorkspace).toHaveLength(2));
+    });
+
+    it('stops retrying the workspace once owner access is gone, and after an access change', async () => {
+        vi.useFakeTimers();
+        try {
+            let owner = true;
+            const sync = vi.fn<() => Promise<void>>().mockRejectedValue(new Error('HTTP 502'));
+            const { coordinator } = buildCoordinator({ syncDiagnosticsWorkspace: sync, hasOwnerAccess: () => owner });
+            coordinator.applySystemStatus(status(), null);
+            await vi.advanceTimersByTimeAsync(0);
+            owner = false;
+            await vi.advanceTimersByTimeAsync(10 * WORKSPACE_RETRY_MS[WORKSPACE_RETRY_MS.length - 1]);
+            expect(sync).toHaveBeenCalledTimes(1);
+
+            owner = true;
+            coordinator.applySystemStatus(status({ revision: 2, diagnostics_revision: 3 }), status());
+            await vi.advanceTimersByTimeAsync(0);
+            expect(sync).toHaveBeenCalledTimes(2);
+            coordinator.resetForAccessChange();
+            await vi.advanceTimersByTimeAsync(10 * WORKSPACE_RETRY_MS[WORKSPACE_RETRY_MS.length - 1]);
+            expect(sync).toHaveBeenCalledTimes(2);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('ignores a workspace read that fails after the access it was made for has gone', async () => {
+        vi.useFakeTimers();
+        try {
+            let fail: (error: Error) => void = () => undefined;
+            const sync = vi.fn<() => Promise<void>>()
+                .mockImplementationOnce(() => new Promise((_resolve, reject) => { fail = reject; }))
+                .mockResolvedValue(undefined);
+            const { coordinator } = buildCoordinator({ syncDiagnosticsWorkspace: sync });
+            coordinator.applySystemStatus(status(), null);
+            coordinator.resetForAccessChange();
+            fail(new Error('HTTP 502'));
+            await vi.advanceTimersByTimeAsync(10 * WORKSPACE_RETRY_MS[WORKSPACE_RETRY_MS.length - 1]);
+            expect(sync).toHaveBeenCalledTimes(1);
         } finally {
             vi.useRealTimers();
         }

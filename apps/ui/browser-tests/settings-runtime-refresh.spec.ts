@@ -129,6 +129,7 @@ async function pushModelRevision(page: Page, revision: string) {
                 generated_at: new Date().toISOString()
             },
             diagnostics_revision: 0,
+            incident_revision: 'fixture',
             health_revision: 'fixture'
         });
     }, revision);

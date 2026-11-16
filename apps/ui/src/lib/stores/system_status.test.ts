@@ -34,6 +34,7 @@ function snapshot(overrides: Partial<SystemStatus> = {}): SystemStatus {
         cameras: null,
         telemetry: null,
         diagnostics_revision: 0,
+        incident_revision: 'i1',
         health_revision: 'h1',
         ...overrides
     };
@@ -151,6 +152,36 @@ describe('SystemStatusStore', () => {
         await vi.advanceTimersByTimeAsync(STATUS_FALLBACK_READ_MS * 2);
         expect(fetch.mock.calls.length).toBe(afterStale + 2);
         expect(store.stale).toBe(true);
+    });
+
+    it('keeps reading when the first read failed and the stream connected without sending a status', async () => {
+        vi.useFakeTimers();
+        const fetch = vi.fn().mockRejectedValue(new Error('HTTP 502'));
+        const store = new SystemStatusStore({ fetch, tab: fakeTab() });
+        store.start();
+        await vi.advanceTimersByTimeAsync(0);
+        expect(fetch).toHaveBeenCalledTimes(1);
+        store.setStreamLive(true);
+        await vi.advanceTimersByTimeAsync(STATUS_STALE_AFTER_MS);
+        expect(store.stale).toBe(true);
+        expect(fetch.mock.calls.length).toBeGreaterThanOrEqual(2);
+        const before = fetch.mock.calls.length;
+        await vi.advanceTimersByTimeAsync(3 * STATUS_FALLBACK_READ_MS);
+        expect(fetch.mock.calls.length).toBe(before + 3);
+    });
+
+    it('trusts a live stream only once a status has actually arrived', async () => {
+        vi.useFakeTimers();
+        const fetch = vi.fn().mockRejectedValueOnce(new Error('HTTP 502')).mockResolvedValue(snapshot());
+        const store = new SystemStatusStore({ fetch, tab: fakeTab() });
+        store.start();
+        store.setStreamLive(true);
+        await vi.advanceTimersByTimeAsync(STATUS_FALLBACK_READ_MS);
+        // No status yet: the fallback read went ahead despite the open stream, and brought one.
+        expect(fetch).toHaveBeenCalledTimes(2);
+        expect(store.snapshot).not.toBeNull();
+        await pushEvery15s(store, 3 * STATUS_FALLBACK_READ_MS);
+        expect(fetch).toHaveBeenCalledTimes(2);
     });
 
     it('says it is following only between start and clear', () => {

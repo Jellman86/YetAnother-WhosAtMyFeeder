@@ -23204,8 +23204,13 @@
             "type": "string"
           },
           "health_revision": {
-            "description": "Changes when Health's details change: the pipeline's counters, a verdict, the finder, or a recorded fault. It travels with the next push rather than causing one; Health reads its workspace again when it moves.",
+            "description": "Changes with `incident_revision` and with the pipeline's running totals, which only Health shows. The totals travel with the next push rather than causing one; Health reads its workspace again when this moves.",
             "title": "Health Revision",
+            "type": "string"
+          },
+          "incident_revision": {
+            "description": "Changes whenever an incident can open or close: a verdict, a recorded fault, a video breaker opening or closing, the finder or the live classifier recovering. Every owner page reads the incident workspace again when it moves.",
+            "title": "Incident Revision",
             "type": "string"
           },
           "jobs": {
@@ -23266,6 +23271,7 @@
           "model",
           "connections",
           "diagnostics_revision",
+          "incident_revision",
           "health_revision"
         ],
         "title": "SystemStatusSnapshot",
