@@ -51,6 +51,8 @@ class Services:
         self.articles = {_linked_title(bird).casefold(): bird["summary"] for bird in BIRDS}
         self.articles.update({bird["summary"]["title"].casefold(): bird["summary"] for bird in BIRDS})
         self.other_languages: dict[tuple[str, str], str] = {}
+        self.language_links_time_out = False
+        self.translations_time_out = False
         self.search: list[str] = []
         self.requests: list[str] = []
 
@@ -59,8 +61,12 @@ class Services:
         if request.url.host == "api.inaturalist.org":
             return self._inaturalist(request)
         if request.url.path.endswith("/w/api.php"):
+            if request.url.params.get("prop") == "langlinks" and self.language_links_time_out:
+                raise httpx.ReadTimeout("language links timed out", request=request)
             return self._wikipedia_query(request)
         language = request.url.host.split(".")[0]
+        if language != "en" and self.translations_time_out:
+            raise httpx.ReadTimeout("translated article timed out", request=request)
         title = unquote(request.url.path.split("/")[-1]).replace("_", " ").casefold()
         found = self.articles.get(title) if language == "en" else self.articles.get(f"{language}:{title}")
         return httpx.Response(200, json=found) if found else httpx.Response(404)
@@ -546,3 +552,26 @@ def test_a_description_with_no_wikipedia_address_claims_no_language():
         ).summary_language
         is None
     )
+
+
+@pytest.mark.parametrize("by_scientific_name", [False, True], ids=["by bird name", "by scientific name"])
+@pytest.mark.parametrize("stage", ["language_links_time_out", "translations_time_out"])
+def test_a_translation_that_times_out_keeps_the_verified_source_article(
+    info_api, monkeypatch, by_scientific_name, stage
+):
+    api, services = info_api
+    monkeypatch.setattr(router, "_lookup_scientific_name", AsyncMock(return_value="Passer domesticus"))
+    monkeypatch.setattr(router, "get_user_language", lambda _request: "de")
+    sparrow = next(bird for bird in BIRDS if bird["species"] == "House Sparrow")
+    _german(services, "House sparrow", "Haussperling", "Der Haussperling ist eine Vogelart.")
+    setattr(services, stage, True)
+    params = {"scientific_name": "Passer domesticus"} if by_scientific_name else {}
+
+    body = api.get("/api/species/Haussperling/info", params=params).json()
+
+    # The English article was read and verified before the translation was asked for: it is kept.
+    assert body["extract"] == _shown(sparrow)
+    assert body["summary_language"] == "en"
+    assert body["summary_source_url"] == "https://en.wikipedia.org/wiki/House_sparrow"
+    if not by_scientific_name:
+        assert router._save_species_info.await_args.args[3].identity_checked

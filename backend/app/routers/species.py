@@ -1915,9 +1915,20 @@ async def _fetch_linked_article(
                 )
                 return None
             if language != lang:
-                # Asked of the article that answered, now that it is known to be the taxon's.
-                local = await _article_in_language(client, language, info.title, lang)
-                translated = await _get_wikipedia_summary(client, local, species_name, lang) if local else None
+                # The translation is optional and the article in hand is already verified, so
+                # nothing that goes wrong here may cost the description: on any failure it stands.
+                try:
+                    # Asked of the article that answered, now that it is known to be the taxon's.
+                    local = await _article_in_language(client, language, info.title, lang)
+                    translated = await _get_wikipedia_summary(client, local, species_name, lang) if local else None
+                except (httpx.HTTPError, ValueError) as error:
+                    log.warning(
+                        "Translated Wikipedia article could not be read; keeping the linked one",
+                        species=species_name,
+                        language=lang,
+                        error=type(error).__name__,
+                    )
+                    translated = None
                 if translated is not None and still_the_taxon(local, translated):
                     info = translated
     except httpx.HTTPError as error:
