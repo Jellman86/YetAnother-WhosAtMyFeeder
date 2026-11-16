@@ -12,11 +12,18 @@ export interface SettingsHarness {
     moduleRequests: (fileName: string) => number;
 }
 
+type HarnessAnswer = { status?: number; json: unknown };
+
 export interface SettingsHarnessOptions {
-    /** Answers a request the harness would otherwise answer with an empty body; undefined passes. */
-    respond?: (path: string, method: string) => { status?: number; json: unknown } | undefined;
+    /**
+     * Answers a request the harness would otherwise answer with an empty body; undefined passes.
+     * A promise holds the answer until it settles, as a slow upstream does.
+     */
+    respond?: (path: string, method: string) => HarnessAnswer | undefined | Promise<HarnessAnswer | undefined>;
     /** Answers a settings write instead of accepting it, e.g. to refuse it; undefined accepts it. */
     refuseWrite?: (payload: FixtureSettings) => { status: number; json: unknown } | undefined;
+    /** The tab to open on, as its route; Connection when omitted. */
+    route?: string;
 }
 
 export async function openSettings(page: Page, saved: FixtureSettings = {}, options: SettingsHarnessOptions = {}): Promise<SettingsHarness> {
@@ -42,17 +49,19 @@ export async function openSettings(page: Page, saved: FixtureSettings = {}, opti
             }
             return route.fulfill({ json: settings });
         }
-        const answer = options.respond?.(path, request.method());
-        if (answer) return route.fulfill(answer);
+        const answer = await options.respond?.(path, request.method());
+        // A held answer can outlive the request: the page may have cancelled it meanwhile.
+        if (answer) return route.fulfill(answer).catch(() => undefined);
         if (path === '/api/models/installed' || path === '/api/models/available') return route.fulfill({ json: [] });
         if (path.endsWith('/audio/sources')) return route.fulfill({ json: [] });
         if (path.endsWith('/frigate/config')) return route.fulfill({ json: { cameras: {} } });
         if (path.endsWith('/backfill/status')) return route.fulfill({ json: null });
         return route.fulfill({ json: {} });
     });
-    await page.goto('/browser-tests/settings-backfill.html');
+    await page.goto(`/browser-tests/settings-backfill.html${options.route ? `?route=${encodeURIComponent(options.route)}` : ''}`);
     // The first open compiles the page and its tab on the dev server, which is slow under load.
-    await expect(page.locator('#mqtt-server')).toHaveValue('mqtt', { timeout: 15_000 });
+    if (options.route) await expect(page.locator('[data-settings-navigation]')).toBeVisible({ timeout: 15_000 });
+    else await expect(page.locator('#mqtt-server')).toHaveValue('mqtt', { timeout: 15_000 });
     return {
         writes,
         moduleRequests: fileName => requestedPaths.filter(path => path.endsWith(`/${fileName}`)).length

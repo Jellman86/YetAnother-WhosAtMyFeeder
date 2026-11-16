@@ -344,7 +344,8 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
       if (!authStore.isGuest) return;
       const previousIds = new Set(detectionsStore.detections.map((item) => item.frigate_event));
       try {
-          await detectionsStore.refreshPublicHistory();
+          // A live announcement needs the list to tell what is new; otherwise only views showing it read it.
+          await detectionsStore.refreshPublicHistory({ includeList: settingsStore.liveAnnouncements });
           if (settingsStore.liveAnnouncements) {
               const added = detectionsStore.detections.find((item) => !previousIds.has(item.frigate_event));
               if (added) announcer.announce(`New bird detected: ${added.display_name} at ${added.camera_name}`);
@@ -629,7 +630,7 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
               // Everyone reads the public projection, so a guest sees the interface the
               // owner configured rather than the built-in defaults.
               void publicSettingsStore.load();
-              detectionsStore.loadInitial();
+              // Recent history is read by the views that show it (the Dashboard), not on every route.
               void connectSSE();
               // The first paint's status; the stream keeps it current from then on.
               if (authStore.showSettings) untrack(() => systemStatusStore.start());

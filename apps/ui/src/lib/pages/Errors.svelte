@@ -30,7 +30,6 @@
     import { systemStatusStore } from '../stores/system_status.svelte';
     import { followRevisions } from '../app/revision-follower';
     import { pageRefreshAction } from '../stores/page_refresh_action.svelte';
-    import { detectionsStore } from '../stores/detections.svelte';
     import { settingsStore } from '../stores/settings.svelte';
     import { fromServerVisit } from '../utils/visit-grouping';
     import {
@@ -198,8 +197,9 @@
         )
     );
 
+    // The timeline is the server's visits and the pipeline's own records, read with the workspace;
+    // Health shows no part of the recent history list, so it never reads it.
     onMount(() => {
-        void detectionsStore.loadInitial();
         // The counters, verdicts and incidents move without a new fault being recorded (a recovery,
         // events counted). The pushed status names them by a revision; Health reads on opening and
         // again when it moves, and a failed read is retried with the shared backoff until it lands.
@@ -1124,7 +1124,7 @@
                         values: { count: timelineHidden },
                         default: '{count, plural, one {# earlier event in this window} other {# earlier events in this window}}'
                     })}
-                    loading={detectionsStore.isLoading && timelineRows.length === 0}
+                    loading={refreshing && timelineRows.length === 0}
                     onselect={(detection) => goToDetection(detection.frigate_event)}
                 />
             </div>

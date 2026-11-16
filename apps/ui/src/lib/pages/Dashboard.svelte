@@ -515,6 +515,7 @@
     const audioFollowsLiveStream = $derived(authStore.hasOwnerAccess && detectionsStore.connected);
 
     onMount(() => {
+        const stopFollowingHistory = detectionsStore.follow();
         void loadSummary();
         daySafetyReading = startLiveReading({
             read: async () => {
@@ -545,7 +546,7 @@
             quietMs: REFRESH_CADENCE_MS.liveSafetyRead,
             readAtStart: false
         });
-        return () => { daySafetyReading?.stop(); dayAudioReading?.stop(); summaryLoader.dispose(); audioSummaryLoader.dispose(); reviewQueueLoader.dispose(); };
+        return () => { stopFollowingHistory(); daySafetyReading?.stop(); dayAudioReading?.stop(); summaryLoader.dispose(); audioSummaryLoader.dispose(); reviewQueueLoader.dispose(); };
     });
 
     $effect(() => {

@@ -129,9 +129,30 @@ export class DetectionsStore {
         this.markMutated();
     }
 
+    /** How many open views show the recent history; it is read only while there is one. */
+    private consumers = 0;
+
+    /**
+     * A view that shows the recent history opened: it is read the first time in this access, then
+     * only when stale, while at least one such view is open. Returns the call that closes the view.
+     * Pages that do not show it never call this, so a cold visit to About or a Settings tab, or a
+     * route visited after the Dashboard, asks nothing about recent detections.
+     */
+    follow(): () => void {
+        this.consumers += 1;
+        if (this.historyStatus === 'pending') void this.loadInitial();
+        else void this.refreshIfStale();
+        let open = true;
+        return () => {
+            if (!open) return;
+            open = false;
+            this.consumers -= 1;
+        };
+    }
+
     async refreshIfStale(): Promise<void> {
         // The first read of an access is the app's to start; a refresh sweep must not race it.
-        if (this.isLoading || this.historyStatus === 'pending' || !this.staleTracker.isStale()) return;
+        if (this.consumers === 0 || this.isLoading || this.historyStatus === 'pending' || !this.staleTracker.isStale()) return;
         await this.loadInitial();
     }
 
@@ -157,12 +178,26 @@ export class DetectionsStore {
         if (hadHistory) this.markMutated();
     }
 
-    async refreshPublicHistory(): Promise<void> {
+    /**
+     * A visitor's history changed. Views that show the recent list read it again; a visitor whose
+     * page does not show it reads it only for live announcements (`includeList`).
+     */
+    async refreshPublicHistory({ includeList = false }: { includeList?: boolean } = {}): Promise<void> {
         const generation = this.accessGeneration;
         // A notification during an existing fetch must cause a new fetch after it,
         // rather than joining a response that predates an owner visibility change.
         if (this.loadPromise) await this.loadPromise;
         if (generation !== this.accessGeneration) return;
+        // Whether a view shows the list is decided after that wait: the Dashboard may have closed
+        // during it. With none open, anything held is withdrawn rather than kept past a visibility
+        // change, and the next view to open reads it afresh; open guest modals and the Explorer
+        // revalidate from the version. A live announcement reads the list regardless.
+        if (this.consumers === 0 && !includeList) {
+            this.clearHistory();
+            this.historyStatus = 'pending';
+            this.publicHistoryVersion += 1;
+            return;
+        }
         const loaded = await this.loadInitial();
         if (generation !== this.accessGeneration) return;
         if (!loaded) {

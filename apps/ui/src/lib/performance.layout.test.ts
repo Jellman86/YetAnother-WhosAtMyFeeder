@@ -173,7 +173,7 @@ describe('Settings reads operational data only for the tab that shows it', () =>
         for (const tab of ['appearance', 'accessibility', 'notifications', 'ai', 'beta', 'detection']) {
             expect(map).not.toContain(`${tab}:`);
         }
-        expect(settingsSource).toContain('untrack(() => readForTab(tab));');
+        expect(settingsSource).toContain('untrack(() => readForTab(tab, controller.signal));');
     });
 
     it('reads the storage figures before asking about a retention change saved from another tab', () => {
