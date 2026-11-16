@@ -307,7 +307,6 @@
   "errors_read_failed_next": "刷新以重试。如果仍然失败，请检查 YA-WAMF 后端是否正在运行。",
   "errors_read_stale": "最近一次刷新失败，因此显示的是 {at} 的读数。请刷新重试。",
   "errors_read_at": "读取于 {at}",
-  "errors_technical_details": "技术详情",
   "errors_pipeline_unmeasured": "MQTT 代理未连接时什么都无法到达，因此这些计数无法说明处理管道是否正常。",
   "errors_mqtt_cause_unknown": "代理客户端给出了 YA-WAMF 无法识别的原因，显示在“技术详情”中。",
   "errors_video_paused_until": "连续 {count, plural, other {# 次}}失败后，视频分析暂停至 {at}。",

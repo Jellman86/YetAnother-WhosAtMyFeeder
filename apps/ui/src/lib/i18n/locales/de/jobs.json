@@ -307,7 +307,6 @@
   "errors_read_failed_next": "Aktualisieren Sie, um es erneut zu versuchen. Wenn es weiter fehlschlägt, prüfen Sie, ob das YA-WAMF-Backend läuft.",
   "errors_read_stale": "Die letzte Aktualisierung ist fehlgeschlagen, dies ist der Stand von {at}. Aktualisieren Sie, um es erneut zu versuchen.",
   "errors_read_at": "Gelesen um {at}",
-  "errors_technical_details": "Technische Details",
   "errors_pipeline_unmeasured": "Solange der MQTT-Broker nicht verbunden ist, kann nichts ankommen. Diese Zahlen zeigen daher nicht, ob die Pipeline funktioniert.",
   "errors_mqtt_cause_unknown": "Der Broker-Client nannte einen Grund, den YA-WAMF nicht kennt. Er steht unter Technische Details.",
   "errors_video_paused_until": "Die Videoanalyse ist bis {at} pausiert, nach {count, plural, one {# Fehlschlag} other {# Fehlschlägen}} in Folge.",

@@ -307,7 +307,6 @@
   "errors_read_failed_next": "Actualisez pour réessayer. Si l’échec persiste, vérifiez que le backend de YA-WAMF fonctionne.",
   "errors_read_stale": "La dernière actualisation a échoué : voici la lecture de {at}. Actualisez pour réessayer.",
   "errors_read_at": "Lu à {at}",
-  "errors_technical_details": "Détails techniques",
   "errors_pipeline_unmeasured": "Rien ne peut arriver tant que le broker MQTT n’est pas connecté : ces chiffres ne montrent donc pas si la chaîne fonctionne.",
   "errors_mqtt_cause_unknown": "Le client du broker a donné une raison que YA-WAMF ne reconnaît pas. Elle figure dans Détails techniques.",
   "errors_video_paused_until": "L’analyse vidéo est en pause jusqu’à {at}, après {count, plural, one {# échec} other {# échecs}} d’affilée.",

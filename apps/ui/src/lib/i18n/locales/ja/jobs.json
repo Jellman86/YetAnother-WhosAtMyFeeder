@@ -307,7 +307,6 @@
   "errors_read_failed_next": "更新して再試行してください。失敗が続く場合は、YA-WAMF のバックエンドが動作していることを確認してください。",
   "errors_read_stale": "最新の更新に失敗したため、{at} 時点の読み取りを表示しています。更新して再試行してください。",
   "errors_read_at": "{at} に読み取り",
-  "errors_technical_details": "技術的な詳細",
   "errors_pipeline_unmeasured": "MQTT ブローカーに接続されていない間は何も届かないため、これらの数ではパイプラインが動作しているかどうかは分かりません。",
   "errors_mqtt_cause_unknown": "ブローカーのクライアントが YA-WAMF の認識できない理由を返しました。技術的な詳細に表示しています。",
   "errors_video_paused_until": "{count, plural, other {# 回}}連続で失敗したため、ビデオ解析は {at} まで一時停止しています。",

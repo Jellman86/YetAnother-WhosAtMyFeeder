@@ -307,7 +307,6 @@
   "errors_read_failed_next": "Atualize para tentar de novo. Se continuar a falhar, verifique se o backend do YA-WAMF está a funcionar.",
   "errors_read_stale": "A última atualização falhou, por isso esta é a leitura de {at}. Atualize para tentar de novo.",
   "errors_read_at": "Lido às {at}",
-  "errors_technical_details": "Detalhes técnicos",
   "errors_pipeline_unmeasured": "Nada pode chegar enquanto o broker MQTT não estiver ligado, por isso estas contagens não mostram se o pipeline funciona.",
   "errors_mqtt_cause_unknown": "O cliente do broker deu um motivo que o YA-WAMF não reconhece. Aparece em Detalhes técnicos.",
   "errors_video_paused_until": "A análise de vídeo está em pausa até às {at}, após {count, plural, one {# falha} other {# falhas}} seguidas.",

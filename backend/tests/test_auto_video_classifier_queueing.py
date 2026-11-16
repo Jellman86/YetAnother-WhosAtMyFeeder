@@ -1737,7 +1737,9 @@ async def test_a_job_waiting_for_frigate_says_so_until_frigate_answers(monkeypat
     monkeypatch.setattr(service, "_auto_delete_if_missing", AsyncMock())
     monkeypatch.setattr(service, "_record_diagnostic", lambda *args, **kwargs: None)
     monkeypatch.setattr(service, "_record_failure", lambda *args, **kwargs: None)
-    monkeypatch.setattr(service, "_load_preferred_clip", AsyncMock(return_value=(None, "clip_not_retained", "event", None)))
+    monkeypatch.setattr(
+        service, "_load_preferred_clip", AsyncMock(return_value=(None, "clip_not_retained", "event", None))
+    )
     monkeypatch.setattr(service, "_classify_from_snapshot", AsyncMock(return_value=None))
 
     await service._process_event("evt-waiting", "cam1", skip_delay=True, fallback_to_snapshot=True)

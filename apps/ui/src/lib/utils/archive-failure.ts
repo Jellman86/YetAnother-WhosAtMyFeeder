@@ -3,9 +3,9 @@
  * stored (`backend/app/services/archive_service.py`), so the record can say what was not kept,
  * the cause and the next step instead of a bare "Archive failed".
  */
-export type ArchiveLoss = 'both' | 'photo' | 'clip';
+type ArchiveLoss = 'both' | 'photo' | 'clip';
 
-export type ArchiveFailureCause =
+type ArchiveFailureCause =
     | 'frigate_unreachable'
     | 'frigate_timeout'
     | 'frigate_refused'

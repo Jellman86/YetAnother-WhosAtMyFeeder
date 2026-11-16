@@ -72,5 +72,6 @@
   "diagnostic_state_passed": "合格",
   "diagnostic_state_failed": "失敗",
   "diagnostic_state_warning": "警告付きで合格",
-  "diagnostic_state_skipped": "未実行"
+  "diagnostic_state_skipped": "未実行",
+  "technical_details": "技術的な詳細"
 }

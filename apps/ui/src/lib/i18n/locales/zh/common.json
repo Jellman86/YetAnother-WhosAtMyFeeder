@@ -72,5 +72,6 @@
   "diagnostic_state_passed": "已通过",
   "diagnostic_state_failed": "未通过",
   "diagnostic_state_warning": "通过但有警告",
-  "diagnostic_state_skipped": "未运行"
+  "diagnostic_state_skipped": "未运行",
+  "technical_details": "技术详情"
 }

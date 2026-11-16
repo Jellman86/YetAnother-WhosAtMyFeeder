@@ -783,7 +783,7 @@
     <details class="group mt-1">
         <summary class="flex min-h-11 cursor-pointer items-center gap-1.5 text-xs font-semibold text-slate-700 focus-ring dark:text-slate-300">
             <svg class="h-3.5 w-3.5 shrink-0 transition-transform duration-200 group-open:rotate-90" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m8 5 5 5-5 5" /></svg>
-            {$_('jobs.errors_technical_details', { default: 'Technical details' })}
+            {$_('common.technical_details', { default: 'Technical details' })}
         </summary>
         <div class="space-y-1 pb-1 font-mono text-xs wrap-anywhere text-slate-700 dark:text-slate-300">
             {#each lines as line, index (index)}
