@@ -216,19 +216,13 @@
     const checkSetupNeeded = $derived(
         capture.status === 'pending' && view.review === null && checkState?.kind === 'model' && checkState.readiness === 'missing'
     );
-    // Why the secondary decisions on a waiting capture are not offered yet. They are a way round the
-    // automatic check, so they open once that check can run; until then the cause is stated, as
-    // measured. A status that could not be read blocks nothing, because nothing was measured.
-    const secondaryBlocked = $derived.by((): string | null => {
-        if (capture.status !== 'pending' || !checkState || gardenCheckAvailable(checkState)) return null;
-        if (checkState.kind === 'blocked') {
-            return checkState.blocker === 'species_data'
-                ? $_('garden.catalogue_unavailable', { default: 'Garden species data is unavailable. Check the application startup diagnostics.' })
-                : checkState.detail;
-        }
-        if (checkState.readiness === 'missing') return $_('garden.explorer.reason_model_missing', { default: 'The automatic check model is not downloaded.' });
-        if (checkState.readiness === 'queued') return $_('garden.explorer.reason_model_queued', { default: 'The automatic check model is still downloading.' });
-        return null;
+    // Whether the secondary decisions on a waiting capture are closed. They are a way round the
+    // automatic check, so they open once that check can run. The cause is stated once, in the
+    // waiting line above them. A status that could not be read closes nothing, because nothing was
+    // measured, and a model that is only being checked is about to be able to run.
+    const secondaryBlocked = $derived.by((): boolean => {
+        if (capture.status !== 'pending' || !checkState || gardenCheckAvailable(checkState)) return false;
+        return checkState.kind === 'blocked' || checkState.readiness === 'missing' || checkState.readiness === 'queued';
     });
     const status = $derived.by((): { text: string; tone: 'review' | 'confirmed' | 'neutral' } => {
         const entry = gardenEntryText(capture, view, (key, fallback, values) => get(_)(key, { values, default: fallback }), viewer, checkState);
@@ -399,7 +393,7 @@
     }
 
     function dismissEntry(): Promise<void> {
-        if (secondaryBlocked !== null) return Promise.resolve();
+        if (secondaryBlocked) return Promise.resolve();
         if (entryKind === 'capture') return review('dismiss');
         if (entryBlocked) return Promise.resolve();
         return group.every((item) => item.status === 'pending') ? dismissGroup() : dismissVisit();
@@ -565,7 +559,7 @@
                                 <span class="text-xs tabular-nums text-white/80" aria-live="polite">{$_('garden.photo_count', { default: 'Photo {index} of {count}', values: { index: groupOffset + index + 1, count: groupTotal } })}</span>
                                 {#if canReview && capture.status !== 'dismissed'}
                                     <!-- One capture out of the group, as a bird's photo is removed from its strip. -->
-                                    <button type="button" class="btn btn-ghost min-h-11 px-3 text-xs text-white hover:bg-white/10" disabled={saving || secondaryBlocked !== null} aria-describedby={secondaryBlocked ? 'garden-capture-secondary-note' : undefined} onclick={() => review('dismiss')} data-garden-capture-dismiss>
+                                    <button type="button" class="btn btn-ghost min-h-11 px-3 text-xs text-white hover:bg-white/10" disabled={saving || secondaryBlocked} aria-describedby={secondaryBlocked ? 'garden-capture-secondary-note' : undefined} onclick={() => review('dismiss')} data-garden-capture-dismiss>
                                         {$_('garden.dismiss', { default: 'Dismiss capture' })}
                                     </button>
                                 {/if}
@@ -740,12 +734,12 @@
                 <!-- The decisions, in the bird record's row: the main one first, each named by its effect. -->
                 {#if canReview}
                     <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap" data-garden-capture-actions>
-                        {#if capture.status === 'pending' && secondaryBlocked !== null}
-                            <!-- Named, so the owner knows the control exists, and closed with its cause. -->
+                        {#if capture.status === 'pending' && secondaryBlocked}
+                            <!-- Named, so the owner knows the control exists. The cause is in the waiting line above. -->
                             <div class="w-full py-3" data-garden-secondary-blocked>
                                 <p class="text-sm font-semibold text-muted">{$_('garden.manual_override', { default: 'Manual override' })}</p>
                                 <p id="garden-capture-secondary-note" class="mt-1 text-xs text-muted">
-                                    {$_('garden.explorer.secondary_blocked', { default: 'Manual override and dismissal open once Garden’s automatic check can run. {reason}', values: { reason: secondaryBlocked } })}
+                                    {$_('garden.explorer.secondary_blocked', { default: 'Opens once the automatic check can run.' })}
                                 </p>
                             </div>
                         {:else if capture.status === 'pending'}
@@ -831,7 +825,7 @@
                         <button
                             type="button"
                             class="btn btn-secondary min-h-11 min-w-0 gap-2 whitespace-normal px-4 text-sm"
-                            disabled={saving || entryBlocked !== null || secondaryBlocked !== null}
+                            disabled={saving || entryBlocked !== null || secondaryBlocked}
                             onclick={dismissEntry}
                             aria-describedby={entryBlocked ? 'garden-entry-dismiss-note' : secondaryBlocked ? 'garden-capture-secondary-note' : undefined}
                             data-garden-entry-dismiss={entryKind}

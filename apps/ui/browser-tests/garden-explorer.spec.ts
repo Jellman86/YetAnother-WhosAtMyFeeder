@@ -1027,16 +1027,16 @@ for (const [checkModel, installed, extra] of [
         if ('catalogue_ready' in extra || 'error' in extra) {
             // What Garden measured, in its own words: never a model that "could not load", and no
             // model-setup link, because setting a model up would not clear it.
-            const cause = 'error' in extra ? WORKER_STUCK : 'Garden species data is unavailable. Check the application startup diagnostics.';
             await expect(status).toHaveText('error' in extra
                 ? `Waiting: Garden checks have stopped. ${WORKER_STUCK}`
                 : 'Waiting: Garden species data is unavailable, so nothing can identify this yet.');
             await expect(dialog).not.toContainText('could not load');
             await expect(setup).toHaveCount(0);
-            // The secondary decisions are named and closed, with the cause.
+            // The secondary decisions are named and closed. The cause is said once, in the waiting line.
             await expect(override).toHaveCount(0);
             await expect(closed).toContainText('Manual override');
-            await expect(closed).toContainText(`Manual override and dismissal open once Garden’s automatic check can run. ${cause}`);
+            await expect(closed).toContainText('Opens once the automatic check can run.');
+            await expect(closed).not.toContainText('Garden');
             await page.screenshot({ path: testInfo.outputPath(`garden-pending-${'error' in extra ? 'worker-stopped' : 'species-data'}.png`) });
         } else if (installed) {
             await expect(status).toHaveText('Waiting for automatic identification');
@@ -1046,7 +1046,8 @@ for (const [checkModel, installed, extra] of [
             await expect(override).toBeVisible();
         } else {
             await expect(override).toHaveCount(0);
-            await expect(closed).toContainText('The automatic check model is not downloaded.');
+            await expect(closed).toContainText('Opens once the automatic check can run.');
+            await expect(closed).not.toContainText('not downloaded');
             // The wait has a cause the owner can act on, and the one action that clears it.
             await expect(status).toHaveText('Waiting: the automatic check model is not downloaded, so nothing can identify this yet.');
             await expect(setup).toHaveText('Set up the automatic check model');
