@@ -253,9 +253,9 @@ const CPU_STYLE: SeriesStyle = {
 // Enough for the accelerators one host can present at once; the list repeats rather
 // than running out, and the dash pattern carries the difference either way.
 const ACCELERATOR_STYLES: SeriesStyle[] = [
-    { stroke: 'stroke-brand-700 dark:stroke-brand-300', text: 'text-brand-700 dark:text-brand-300', dash: '7 4' },
+    { stroke: 'stroke-accent-ink', text: 'text-accent-ink', dash: '7 4' },
     { stroke: 'stroke-violet-600 dark:stroke-violet-400', text: 'text-violet-700 dark:text-violet-300', dash: '2 3' },
-    { stroke: 'stroke-slate-600 dark:stroke-slate-300', text: 'text-slate-700 dark:text-slate-300', dash: '11 4 2 4' }
+    { stroke: 'stroke-ink', text: 'text-ink', dash: '11 4 2 4' }
 ];
 
 type HistoryLike = Pick<SystemTelemetryHistory, 'points'> & { accelerators?: Accelerator[] };
@@ -282,6 +282,23 @@ export function chartSeries(history: HistoryLike, cpuLabel: string): ChartSeries
         });
     });
     return series;
+}
+
+/**
+ * The chart in words: one row per sample, at the time it was taken, oldest first, with every
+ * series' reading. Nothing is borrowed from a neighbouring sample, so a short history shows only
+ * what was read and a peak between two axis ticks is still there. A reading a series could not
+ * take is said in words.
+ */
+export function sampleTable(
+    points: readonly HistoryPoint[],
+    series: readonly Pick<ChartSeries, 'load'>[],
+    timeOf: (at: number) => string,
+    notMeasured: string
+): string[][] {
+    return [...points]
+        .sort((a, b) => a.at - b.at)
+        .map((point) => [timeOf(point.at), ...series.map((line) => formatPercent(line.load(point)) ?? notMeasured)]);
 }
 
 /** Accelerators this host has but cannot measure, so the panel can say so by name. */

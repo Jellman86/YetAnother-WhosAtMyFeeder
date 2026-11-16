@@ -102,7 +102,7 @@ describe('content that arrives late has its space held', () => {
 
     it('holds the system chart and the status line on the Health page', () => {
         expect(systemHealthPanelSource).toMatch(/class="min-h-96 [^"]*md:min-h-80[^"]*" data-system-health-loading/);
-        expect(errorsSource).toContain('min-h-8 text-xs text-slate-700 sm:min-h-4');
+        expect(errorsSource).toContain('min-h-8 text-xs text-ink sm:min-h-4');
         // The verdict holds its height while the first reading is on its way.
         expect(errorsSource).toContain('flex min-h-28 flex-wrap');
     });
@@ -184,7 +184,7 @@ describe('Settings reads operational data only for the tab that shows it', () =>
 describe('a reading whose length is only known once it lands moves nothing beneath it', () => {
     it('shows the Health page beneath the verdict once the verdict has its first reading', () => {
         expect(errorsSource).toContain("<SystemHealthPanel statusRead={readState !== 'reading'}>");
-        expect(errorsSource).toContain("{#if readState !== 'reading'}\n    <section class=\"panel\" data-health-timeline>");
+        expect(errorsSource).toMatch(/\{#if readState !== 'reading'\}\n    <Panel\n[^>]*data-health-timeline/);
         expect(systemHealthPanelSource).toContain('{#if !statusRead}');
         expect(systemHealthPanelSource).toContain('{#if details && statusRead}');
     });

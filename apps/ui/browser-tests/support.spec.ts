@@ -91,8 +91,10 @@ for (const percent of [null, 0]) {
         await page.goto('/browser-tests/support.html');
         await page.getByRole('link', { name: 'Open Health', exact: true }).click();
         const now = page.locator('[data-system-health-now]');
+        // This reading carries no memory figure, so the memory reading says so in words as well.
+        await expect(now.locator('div', { hasText: 'This app in memory' }).getByText('Not measured', { exact: true })).toBeVisible();
         if (percent === null) {
-            await expect(now.getByText('Not measured', { exact: true })).toBeVisible();
+            await expect(now.locator('div', { hasText: 'Intel GPU now' }).getByText('Not measured', { exact: true })).toBeVisible();
             await expect(now.locator('[data-system-health-measurement-gap]')).toContainText('does not establish a CPU fallback');
         } else {
             await expect(now.getByText('0.0%', { exact: true })).toBeVisible();
@@ -100,3 +102,41 @@ for (const percent of [null, 0]) {
         }
     });
 }
+
+test('Health says an empty list in one plain sentence and lists every sample it read', async ({ page }) => {
+    await page.route(url => url.pathname.startsWith('/api/'), async route => {
+        const path = new URL(route.request().url()).pathname;
+        if (path.endsWith('/system-telemetry/history')) return route.fulfill({ json: {
+            // One sample, just after start-up: the table may show only it, whatever times the axis names.
+            points: [{ at: 1_790_000_000, cpu_percent: 25, app_cpu_percent: 8, other_cpu_percent: 17, accelerators: { gpu: null } }],
+            accelerators: [{ id: 'gpu', kind: 'gpu', label: 'Intel GPU', scope: 'app', unreadable: null }],
+            processes: [], host: { memory_total_bytes: 4096, cpu_count: 4 }, window_seconds: 1800
+        } });
+        if (path.endsWith('/diagnostics/workspace')) return route.fulfill({ json: {
+            health: { status: 'ok' }, backend_diagnostics: { events: [] }, classifier: {}, startup_warnings: []
+        } });
+        return route.fulfill({ json: { items: [] } });
+    });
+    await page.goto('/browser-tests/support.html');
+    await page.getByRole('link', { name: 'Open Health', exact: true }).click();
+
+    const backend = page.locator('[data-health-backend-diagnostics]');
+    const empty = backend.locator('[data-read-state="empty"]');
+    await expect(empty).toContainText('recorded no warnings or errors');
+    // Inside a panel the state is a line of text, not a box within the card, and has no filler heading.
+    await expect(empty).toHaveCSS('border-top-width', '0px');
+    await expect(empty).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+    await expect(backend.getByText('Nothing here yet')).toHaveCount(0);
+
+    // Figures are lining and tabular everywhere, also where a utility such as tabular-nums sets its own
+    // spacing: the display face's old-style figures read "o8:oo" and "1oo%".
+    const cpuNow = page.locator('[data-system-health-now] dd').first();
+    await expect(cpuNow).toHaveCSS('font-variant-numeric', 'lining-nums tabular-nums');
+    await expect(page.locator('[data-system-health]').locator('p').first()).toHaveCSS('font-variant-numeric', 'lining-nums tabular-nums');
+
+    await page.getByText('Show the data as a table').click();
+    const rows = page.locator('[data-system-health] figure table tbody tr');
+    await expect(rows).toHaveCount(1);
+    await expect(rows.first().locator('td').nth(1)).toHaveText('25.0%');
+    await expect(rows.first().locator('td').nth(2)).toHaveText('Not measured');
+});

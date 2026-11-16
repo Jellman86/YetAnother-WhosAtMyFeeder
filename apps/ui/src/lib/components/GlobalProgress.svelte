@@ -101,7 +101,7 @@
     <section
         bind:this={container}
         aria-label={$_('jobs.title', { default: 'Jobs' })}
-        class="w-full bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 overflow-hidden relative shrink-0"
+        class="w-full bg-surface border-b border-line-soft overflow-hidden relative shrink-0"
         transition:slide={{ duration: 300 }}
     >
         <div class="px-4 sm:px-6 lg:px-8 2xl:px-12 py-3 relative z-10">
@@ -114,17 +114,17 @@
                         aria-expanded={showDetails}
                         aria-controls="global-progress-details"
                     >
-                        <div class="w-6 h-6 rounded-lg bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center text-brand-600 dark:text-brand-400 shrink-0">
+                        <div class="w-6 h-6 rounded-lg bg-accent-soft flex items-center justify-center text-accent-ink shrink-0">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 {pipeline.lanes.running > 0 ? 'motion-safe:animate-spin' : ''}" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                             </svg>
                         </div>
                         <!-- Wraps rather than truncates: the reason a job is waiting is the useful part. -->
                         <div class="min-w-0 wrap-break-word">
-                            <p class="text-xs font-bold text-slate-900 dark:text-white" data-global-progress-headline>
+                            <p class="text-xs font-bold text-strong" data-global-progress-headline>
                                 {aggregate.headline}
                             </p>
-                            <p class="text-xs text-slate-600 dark:text-slate-300" data-global-progress-subline>
+                            <p class="text-xs text-muted" data-global-progress-subline>
                                 {aggregate.subline}
                             </p>
                         </div>
@@ -140,14 +140,14 @@
                 </div>
 
                 {#if aggregate.progressLabel}
-                    <p class="text-xs font-semibold text-slate-600 dark:text-slate-300">{aggregate.progressLabel}</p>
+                    <p class="text-xs font-semibold text-muted">{aggregate.progressLabel}</p>
                 {/if}
 
                 <!-- A bar only for a measured total. Work without one gets no bar at all, because any
                      fixed fill would read as a share done. -->
                 {#if aggregate.determinate && aggregate.percent !== null}
                     <div
-                        class="h-2 w-full bg-brand-100 dark:bg-brand-950/60 rounded-full overflow-hidden relative"
+                        class="h-2 w-full bg-accent-soft rounded-full overflow-hidden relative"
                         role="progressbar"
                         aria-label={aggregate.progressLabel ?? aggregate.headline}
                         aria-valuemin={0}
@@ -156,31 +156,31 @@
                         data-global-progress-bar
                     >
                         <div
-                            class="h-full w-full origin-left bg-brand-500 transition-transform duration-200 ease-out motion-reduce:transition-none"
+                            class="h-full w-full origin-left bg-status-info-line transition-transform duration-200 ease-out motion-reduce:transition-none"
                             style="transform: scaleX({aggregate.percent / 100})"
                         ></div>
                     </div>
                 {/if}
 
                 {#if showDetails}
-                    <div id="global-progress-details" class="pt-2 border-t border-slate-100 dark:border-slate-800/50 mt-1 grid grid-cols-1 gap-2 max-h-[40vh] overflow-auto pr-1">
+                    <div id="global-progress-details" class="pt-2 border-t border-line-soft mt-1 grid grid-cols-1 gap-2 max-h-[40vh] overflow-auto pr-1">
                         {#each detailLanes as item (item.row.kind)}
                             {@const presentation = item.presentation}
-                            <div class="rounded-xl border border-slate-200/80 dark:border-slate-700/60 px-3 py-2 bg-white/80 dark:bg-slate-900/60">
+                            <div class="rounded-xl border border-line px-3 py-2 bg-surface">
                                 <div class="flex flex-wrap items-center justify-between gap-x-2">
-                                    <p class="text-3xs font-bold text-slate-800 dark:text-slate-100">{presentation.title}</p>
-                                    <span class="text-3xs font-bold {item.row.running > 0 ? 'text-brand-700 dark:text-brand-300' : 'text-slate-600 dark:text-slate-400'}">
+                                    <p class="text-3xs font-bold text-strong">{presentation.title}</p>
+                                    <span class="text-3xs font-bold {item.row.running > 0 ? 'text-accent-ink' : 'text-muted'}">
                                         {presentation.stateLabel}
                                     </span>
                                 </div>
-                                <p class="mt-1 text-3xs font-semibold text-slate-700 dark:text-slate-200">
+                                <p class="mt-1 text-3xs font-semibold text-ink">
                                     {presentation.runningLabel} · {presentation.queuedLabel}
                                     {#if presentation.capacityLabel}
                                         · {presentation.capacityLabel}
                                     {/if}
                                 </p>
                                 {#if presentation.batchLabel || presentation.blockerLabel || presentation.candidateLabel}
-                                    <p class="mt-1 text-3xs font-semibold {presentation.blockerLabel ? 'text-attention-700 dark:text-attention-300' : 'text-slate-600 dark:text-slate-400'}">
+                                    <p class="mt-1 text-3xs font-semibold {presentation.blockerLabel ? 'text-status-attention' : 'text-muted'}">
                                         {presentation.blockerLabel ?? presentation.batchLabel}
                                         {#if presentation.candidateLabel && !presentation.blockerLabel}
                                             · {presentation.candidateLabel}
@@ -192,7 +192,7 @@
                         {#if pipeline.kinds.length > detailLimit}
                             <button
                                 type="button"
-                                class="text-left text-3xs font-bold text-brand-700 dark:text-brand-300 hover:underline"
+                                class="text-left text-3xs font-bold text-accent-ink hover:underline"
                                 onclick={openJobsPage}
                             >
                                 {$_('jobs.more_lanes', { values: { count: pipeline.kinds.length - detailLimit }, default: '+{count, plural, one {# more work lane} other {# more work lanes}}' })}

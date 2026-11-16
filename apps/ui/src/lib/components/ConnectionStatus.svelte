@@ -42,9 +42,9 @@
     // Each tone has its own shape as well as its own colour: a filled circle is working, a
     // diamond needs a person, and a ring is off by choice or not yet known.
     const DOT: Record<StatusTone, string> = {
-        ok: 'rounded-full bg-success-600 dark:bg-success-400',
-        attention: 'rotate-45 bg-attention-600 dark:bg-attention-400',
-        neutral: 'rounded-full border-2 border-slate-500 dark:border-slate-400'
+        ok: 'rounded-full bg-status-ok-line',
+        attention: 'rotate-45 bg-status-attention-line',
+        neutral: 'rounded-full border-2 border-status-neutral-line'
     };
 
     const ICON: Record<StatusRow['id'], string> = {
@@ -65,7 +65,7 @@
         <ul class="flex flex-col items-center gap-1" data-status-list data-status-collapsed>
             {#each rows as row (row.id)}
                 <li
-                    class="relative grid h-9 w-9 place-items-center rounded-lg text-slate-700 dark:text-slate-300"
+                    class="relative grid h-9 w-9 place-items-center rounded-lg text-ink"
                     title={`${say(row.label)}: ${say(row.state)}`}
                     aria-atomic="true"
                     data-status-row={row.id}
@@ -96,9 +96,9 @@
                     </span>
                     <!-- A state too long for the row drops under its label instead of being cut. -->
                     <span class="flex min-w-0 flex-wrap items-baseline justify-between gap-x-2 text-xs leading-4">
-                        <span class="text-slate-600 dark:text-slate-400" data-status-label>{say(row.label)}</span>
+                        <span class="text-muted" data-status-label>{say(row.label)}</span>
                         <span
-                            class="font-semibold {row.tone === 'attention' ? 'text-attention-800 dark:text-attention-300' : 'text-slate-900 dark:text-slate-100'}"
+                            class="font-semibold {row.tone === 'attention' ? 'text-status-attention' : 'text-strong'}"
                             data-status-state
                         >{say(row.state)}</span>
                     </span>

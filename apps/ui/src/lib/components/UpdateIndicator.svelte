@@ -24,8 +24,8 @@
         target="_blank"
         rel="noopener noreferrer"
         class={collapsed
-            ? 'focus-ring mx-auto grid h-11 w-11 place-items-center rounded-lg text-brand-700 transition-colors hover:bg-brand-50 dark:text-brand-300 dark:hover:bg-brand-950/40'
-            : 'focus-ring mt-1.5 flex min-h-7 items-center gap-2 rounded-md text-xs font-semibold leading-4 text-brand-700 transition-colors hover:text-brand-800 dark:text-brand-300 dark:hover:text-brand-200'}
+            ? 'focus-ring mx-auto grid h-11 w-11 place-items-center rounded-lg text-accent-ink transition-colors hover:bg-accent-soft'
+            : 'focus-ring mt-1.5 flex min-h-7 items-center gap-2 rounded-md text-xs font-semibold leading-4 text-accent-ink transition-colors hover:text-accent-ink'}
         title={collapsed ? label : undefined}
         aria-label={collapsed ? label : undefined}
         data-update-indicator

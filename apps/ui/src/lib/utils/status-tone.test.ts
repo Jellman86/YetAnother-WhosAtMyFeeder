@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import enJobs from '../i18n/locales/en/jobs.json';
-import { KNOWN_STATUSES, STATUS_PILL, STATUS_SURFACE, statusLabelKey, statusTone, type StatusTone } from './status-tone';
+import { KNOWN_STATUSES, STATUS_SURFACE, STATUS_TONE, statusLabelKey, statusTone, type StatusTone } from './status-tone';
 
 const en = { jobs: enJobs };
 
@@ -60,14 +60,17 @@ describe('statusLabelKey', () => {
 describe('status classes', () => {
     const tones: StatusTone[] = ['running', 'attention', 'failure', 'healthy', 'unknown'];
 
-    it('uses brand for running, attention for amber, success for healthy, rose for failure and slate for unknown', () => {
-        for (const map of [STATUS_PILL, STATUS_SURFACE]) {
-            for (const tone of tones) expect(map[tone]).not.toMatch(/accent-|emerald-|amber-/);
-            expect(map.running).toMatch(/brand-/);
-            expect(map.attention).toMatch(/attention-/);
-            expect(map.failure).toMatch(/rose-/);
-            expect(map.healthy).toMatch(/success-/);
-            expect(map.unknown).toMatch(/slate-/);
+    it('maps running to info, attention to amber, healthy to ok, failure to fail and unknown to neutral', () => {
+        expect(STATUS_TONE).toEqual({ running: 'info', attention: 'attention', failure: 'fail', healthy: 'ok', unknown: 'neutral' });
+    });
+
+    it('paints the verdict card with the semantic tokens only, so every mode resolves it', () => {
+        for (const tone of tones) {
+            expect(STATUS_SURFACE[tone]).not.toMatch(/(?:slate|rose|brand|success|attention|amber|emerald)-\d/);
+            expect(STATUS_SURFACE[tone]).not.toContain('dark:');
         }
+        expect(STATUS_SURFACE.attention).toContain('bg-status-attention-soft');
+        expect(STATUS_SURFACE.failure).toContain('bg-status-fail-soft');
+        expect(STATUS_SURFACE.healthy).toContain('bg-status-ok-soft');
     });
 });

@@ -70,8 +70,8 @@ describe('global progress honesty', () => {
 describe('global progress colour', () => {
     it('keeps amber for a blocked lane and runs work in flight on the brand colour', () => {
         // layout-patterns 1.3: amber says "this needs a person"; a job in flight needs nobody.
-        expect(progressSource).not.toContain('accent-');
-        expect(progressSource).toContain('bg-brand-500');
-        expect(progressSource).toContain('text-attention-700');
+        expect(progressSource).not.toMatch(/\baccent-\d/);
+        expect(progressSource).toContain('bg-status-info-line');
+        expect(progressSource).toContain("presentation.blockerLabel ? 'text-status-attention'");
     });
 });

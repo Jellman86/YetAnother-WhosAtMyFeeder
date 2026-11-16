@@ -62,7 +62,7 @@
   "errors_clear": "Cancella cronologia errori",
   "errors_summary": "{groups} gruppi • {events} eventi • {snapshots} snapshot di salute",
   "errors_latest_health": "Stato più recente: {status} alle {at}",
-  "errors_empty": "Nessuno registrato.",
+  "errors_backend_empty": "Il backend non ha registrato avvisi né errori dall’ultima volta che la cronologia degli errori è stata cancellata.",
   "errors_count": "{count}x",
   "errors_first_seen": "Visto per la prima volta",
   "errors_last_seen": "Visto l’ultima volta",

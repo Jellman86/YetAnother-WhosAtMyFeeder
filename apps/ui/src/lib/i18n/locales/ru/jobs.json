@@ -62,7 +62,7 @@
   "errors_clear": "Очистить журнал ошибок",
   "errors_summary": "{groups} групп • {events} событий • {snapshots} снимков состояния",
   "errors_latest_health": "Последнее состояние: {status} в {at}",
-  "errors_empty": "Записей нет.",
+  "errors_backend_empty": "С момента последней очистки журнала ошибок бэкенд не записал ни предупреждений, ни ошибок.",
   "errors_count": "{count}×",
   "errors_first_seen": "Впервые обнаружено",
   "errors_last_seen": "Последнее обнаружение",

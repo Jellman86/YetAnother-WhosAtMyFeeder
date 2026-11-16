@@ -1,6 +1,7 @@
 <script lang="ts">
     import type { Snippet } from 'svelte';
     import { useDisclosure } from '../../../settings/disclosures.svelte';
+    import { markInsideCard } from '../../ui/surface';
 
     interface Props {
         title: string;
@@ -23,6 +24,7 @@
     let { title, description, actions, collapsible = false, openByDefault = false, id, titleId, children }: Props = $props();
 
     const uid = $props.id();
+    markInsideCard();
     const headingId = $derived(titleId ?? `${id ?? uid}-title`);
 
     // With an id, the Settings page holds the open state, so it survives leaving the tab and the

@@ -1473,7 +1473,9 @@
     "measurement_gap": "此采样没有利用率读数。下方的工作进程行显示已加载的加速器；缺少读数并不代表已回退到 CPU。",
     "unreadable_nvidia": "检测到 {label}，但其驱动不公布容器可读取的利用率计数器。",
     "unreadable_accelerator": "检测到 {label}，但无法从容器内部读取其计数器。",
-    "table_region": "按进程的负载"
+    "table_region": "按进程的负载",
+    "chart_title": "过去 30 分钟的负载",
+    "col_time": "时间"
   },
   "text_size": {
     "label": "文字大小",

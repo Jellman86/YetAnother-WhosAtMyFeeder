@@ -39,13 +39,13 @@
 
 {#if circuitOpen}
     <div
-        class="rounded-2xl border border-attention-200/80 dark:border-attention-800/60 bg-attention-50/80 dark:bg-attention-950/30 px-4 py-3"
+        class="rounded-2xl border border-status-attention-line bg-status-attention-soft px-4 py-3"
         data-job-circuit-banner
     >
-        <p class="text-sm font-semibold text-attention-900 dark:text-attention-100">
+        <p class="text-sm font-semibold text-status-attention">
             {$_('jobs.circuit_open_message', { default: 'Reclassification queue paused by circuit breaker.' })}
         </p>
-        <p class="mt-1 text-xs text-attention-700 dark:text-attention-300">
+        <p class="mt-1 text-xs text-status-attention">
             {$_('jobs.circuit_open_detail', {
                 values: {
                     queued: queuedJobs.toLocaleString(),
@@ -73,11 +73,11 @@
                 {/if}
                 {$_('jobs.circuit_reset_button', { default: 'Try again' })}
             </button>
-            <p class="mt-1 text-3xs text-attention-700 dark:text-attention-300">
+            <p class="mt-1 text-3xs text-status-attention">
                 {$_('jobs.circuit_reset_confirm', { default: 'This will reopen the video classification queue immediately. Queued jobs will retry.' })}
             </p>
             {#if resetError}
-                <p class="mt-2 text-xs font-semibold text-rose-700 dark:text-rose-300" role="alert">{resetError}</p>
+                <p class="mt-2 text-xs font-semibold text-status-fail" role="alert">{resetError}</p>
             {/if}
         </div>
     </div>

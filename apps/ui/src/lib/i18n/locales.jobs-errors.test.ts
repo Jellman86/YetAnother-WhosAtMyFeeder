@@ -68,7 +68,7 @@ const REQUIRED_KEYS = [
     'jobs.errors_clear',
     'jobs.errors_summary',
     'jobs.errors_latest_health',
-    'jobs.errors_empty',
+    'jobs.errors_backend_empty',
     'jobs.errors_count',
     'jobs.errors_first_seen',
     'jobs.errors_last_seen',

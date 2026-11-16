@@ -62,10 +62,10 @@
 
     let toneDotClass = $derived.by(() => {
         switch (statusTone) {
-            case 'ok': return 'bg-success-500 ring-success-500/35';
-            case 'mixed': return 'bg-attention-400 ring-attention-400/35';
-            case 'down': return 'bg-rose-500 ring-rose-500/35';
-            default: return 'bg-slate-400 ring-slate-400/35';
+            case 'ok': return 'bg-status-ok-line ring-status-ok-line/35';
+            case 'mixed': return 'bg-status-attention-line ring-status-attention-line/35';
+            case 'down': return 'bg-status-fail-line ring-status-fail-line/35';
+            default: return 'bg-status-neutral-line ring-status-neutral-line/35';
         }
     });
 
@@ -316,7 +316,7 @@
         type="button"
         bind:this={triggerEl}
         onclick={toggle}
-        class="relative p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 transition-colors duration-200 motion-reduce:transition-none focus-ring"
+        class="relative p-2.5 rounded-xl hover:bg-surface-raised text-muted transition-colors duration-200 motion-reduce:transition-none focus-ring"
         aria-haspopup="dialog"
         aria-expanded={popoverOpen}
         aria-controls={menuId}
@@ -358,7 +358,7 @@
     {#if popoverOpen}
         <div
             bind:this={viewerEl}
-            class="group/viewer fixed inset-x-4 top-35 w-auto overflow-hidden rounded-2xl border border-slate-200/70 bg-slate-950 shadow-2xl shadow-slate-950/25 z-60 animate-in fade-in zoom-in-95 md:absolute md:left-auto md:right-0 md:top-full md:mt-2 md:w-[min(34rem,calc(100vw-2rem))] dark:border-slate-700"
+            class="group/viewer fixed inset-x-4 top-35 w-auto overflow-hidden rounded-2xl border border-line bg-slate-950 shadow-2xl shadow-slate-950/25 z-60 animate-in fade-in zoom-in-95 md:absolute md:left-auto md:right-0 md:top-full md:mt-2 md:w-[min(34rem,calc(100vw-2rem))]"
             id={menuId}
             role="dialog"
             aria-modal="false"
@@ -367,7 +367,7 @@
         >
             {#if cameras.length === 0}
                 <div class="flex aspect-video max-h-[calc(100dvh-9.75rem)] flex-col items-center justify-center gap-3 px-6 text-center text-slate-300">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-slate-500 dark:text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                     </svg>
                     <p class="max-w-sm text-sm font-semibold">
@@ -388,7 +388,7 @@
                         </div>
                     {:else}
                         <div class="absolute inset-0 flex flex-col items-center justify-center gap-3 text-slate-300">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-slate-500 dark:text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M3 3l18 18M10.73 5H5a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-3m0-4l2.553-1.276A1 1 0 0121 9.618v4.764a1 1 0 01-.553.894M15 8v-.999a2 2 0 00-2-2h-1" />
                             </svg>
                             <span class="text-xs font-bold">
