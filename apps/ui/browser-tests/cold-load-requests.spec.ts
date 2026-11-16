@@ -34,7 +34,17 @@ async function countColdLoadReads(page: Page, path: string, status: Record<strin
             '/api/audio/summary': audioSummary,
             '/api/audio/recent': [],
             '/api/classifier/labels': { labels: ['Dunnock'] },
-            '/api/update-status': { update_available: false }
+            '/api/update-status': { update_available: false },
+            // Shared status readings answer, as on a working install: a failed read is never reused,
+            // so a 503 here would rightly be asked again by the next view.
+            '/api/frigate/cameras/status': { cameras: [] },
+            '/api/diagnostics/connections': {
+                mqtt: { state: 'connected', server: 'mqtt://broker', port: 1883, last_error: null },
+                frigate: { state: 'reachable', url: 'http://frigate:5000', availability: 'online', last_failure: null },
+                generated_at: '2026-11-16T00:00:00Z'
+            },
+            '/api/maintenance/analysis/status': { pending: 0, active: 0, circuit_open: false },
+            '/api/classifier/status': { loaded: true }
         };
         if (pathname === '/api/sse') return route.abort();
         // The recent history is the slowest first read, so it settles after the route has mounted.
@@ -89,7 +99,7 @@ test('a cold Notifications load reads the analysis queue once for the shell and 
 
 test('a cold Settings › Appearance load reads none of the other tabs\' operational data', async ({ page }) => {
     const reads = await countColdLoadReads(page, '/settings/appearance', owner);
-    for (const endpoint of ['/api/frigate/config', '/api/classifier/status', '/api/maintenance/stats', '/api/maintenance/taxonomy/status', '/api/backfill/status']) {
+    for (const endpoint of ['/api/frigate/config', '/api/classifier/status', '/api/maintenance/stats', '/api/maintenance/taxonomy/status']) {
         expect(reads.get(endpoint) ?? 0, endpoint).toBe(0);
     }
     expect(reads.get('/api/version')).toBe(1);

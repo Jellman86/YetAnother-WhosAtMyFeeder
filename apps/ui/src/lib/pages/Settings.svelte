@@ -1218,9 +1218,17 @@
 
             // The shell has usually just read the settings; opening this page joins that read,
             // unless a kept draft waits: that is compared with a fresh read, never an older copy.
-            await loadSettings(false, !unsavedDraft.pendingFor(currentAccessIdentity()));
+            // A repair job started earlier is followed on every tab, so its end is announced wherever you are.
+            await Promise.all([
+                loadSettings(false, !unsavedDraft.pendingFor(currentAccessIdentity())),
+                loadBackfillStatus()
+            ]);
         // A quick Back can leave before the read returns; a page already gone must not take the draft.
         if (!destroyed) restoreKeptDraft();
+
+        if ((backfillJob && backfillJob.status === 'running') || (weatherBackfillJob && weatherBackfillJob.status === 'running')) {
+            startBackfillPolling();
+        }
 
         // Taxonomy status for the Maintenance tab is read by the activeTab $effect below.
     });
@@ -1228,13 +1236,12 @@
     // Each operational reading belongs to the tabs that show it, so opening Appearance does not ask
     // Frigate, the classifier, storage and the repair jobs. A tab's readings are taken the first time
     // it opens in this visit; the page's own refresh and the actions on a tab read them again.
-    type TabReading = 'cameras' | 'classifier' | 'storage' | 'cache' | 'version' | 'backfill';
+    type TabReading = 'cameras' | 'classifier' | 'storage' | 'cache' | 'version';
     const READINGS_BY_TAB: Partial<Record<SettingsTab, readonly TabReading[]>> = {
         connection: ['cameras'],
         integrations: ['cameras'],
         // Models reads the classifier itself, on its runtime poll.
         data: ['classifier', 'storage', 'cache'],
-        maintenance: ['backfill'],
         security: ['version']
     };
     const readingsTaken = new Set<TabReading>();
@@ -1246,11 +1253,6 @@
             case 'storage': return loadMaintenanceStats();
             case 'cache': return loadCacheStats();
             case 'version': return loadVersion();
-            case 'backfill':
-                await loadBackfillStatus();
-                if ((backfillJob && backfillJob.status === 'running') || (weatherBackfillJob && weatherBackfillJob.status === 'running')) {
-                    startBackfillPolling();
-                }
         }
     }
 

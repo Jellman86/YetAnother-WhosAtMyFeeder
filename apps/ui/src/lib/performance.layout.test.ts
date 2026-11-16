@@ -150,7 +150,7 @@ describe('the live stream replaces polling where it announces changes', () => {
 describe('Settings reads operational data only for the tab that shows it', () => {
     it('takes each tab\'s readings when it opens, not every reading on every tab', () => {
         const mount = settingsSource.slice(settingsSource.indexOf('onMount(async () => {'), settingsSource.indexOf('type TabReading'));
-        for (const read of ['loadCameras()', 'loadClassifierStatus()', 'loadMaintenanceStats()', 'loadCacheStats()', 'loadTaxonomyStatus()', 'loadVersion()', 'loadBackfillStatus()']) {
+        for (const read of ['loadCameras()', 'loadClassifierStatus()', 'loadMaintenanceStats()', 'loadCacheStats()', 'loadTaxonomyStatus()', 'loadVersion()']) {
             expect(mount).not.toContain(read);
         }
         const map = settingsSource.slice(settingsSource.indexOf('const READINGS_BY_TAB'), settingsSource.indexOf('const readingsTaken'));
