@@ -26,6 +26,7 @@ here to be there.
 """
 
 import ast
+import functools
 import json
 from pathlib import Path
 import re
@@ -195,13 +196,17 @@ def _module_name(path: str) -> str:
 def analyse(sources: dict[str, str], registry: dict = REGISTRY) -> dict[str, ModuleFacts]:
     """Each module's facts, keyed by its path under `backend/`."""
     roots = _outbound_roots(registry)
-    facts: dict[str, ModuleFacts] = {}
-    for path, source in sources.items():
-        module = ModuleFacts(_module_name(path))
-        module.roots = roots
-        module.visit(ast.parse(source, filename=path))
-        facts[path] = module
-    return facts
+    return {path: _facts(path, source, roots) for path, source in sources.items()}
+
+
+@functools.cache
+def _facts(path: str, source: str, roots: frozenset[str]) -> ModuleFacts:
+    """One module's facts. Read once per text: the probes below add a module to the whole backend
+    many times over, and parsing four hundred files for each would take the suite past its bound."""
+    module = ModuleFacts(_module_name(path))
+    module.roots = roots
+    module.visit(ast.parse(source, filename=path))
+    return module
 
 
 def _resolve(origin: str, by_name: dict[str, ModuleFacts], hops: int = 6) -> tuple[ModuleFacts, list[str]] | None:
@@ -301,8 +306,13 @@ def sending_through_others(facts: dict[str, ModuleFacts]) -> set[str]:
     return {path for path, module in facts.items() if module.helper_calls or borrows_a_client(module, facts)}
 
 
+@functools.cache
+def _read_sources() -> tuple[tuple[str, str], ...]:
+    return tuple((path.relative_to(BACKEND).as_posix(), path.read_text("utf-8")) for path in sorted(APP.rglob("*.py")))
+
+
 def _sources() -> dict[str, str]:
-    return {path.relative_to(BACKEND).as_posix(): path.read_text("utf-8") for path in sorted(APP.rglob("*.py"))}
+    return dict(_read_sources())
 
 
 def _entry_modules(registry: dict = REGISTRY) -> set[str]:
@@ -922,5 +932,5 @@ def test_each_failure_says_what_to_add_and_where():
     assert "dynamic_imports" in message and "app/services/plugin_loader.py" in message
     # A new sender and a new host each get their own instruction.
     assert "app/services/new_fetcher.py" in message and "entries" in message
-    assert "collector.example.org" in message and "hosts_not_contacted" in message
+    assert "  collector.example.org" in message.splitlines() and "hosts_not_contacted" in message
     assert explain(unregistered(_sources())) == ""
