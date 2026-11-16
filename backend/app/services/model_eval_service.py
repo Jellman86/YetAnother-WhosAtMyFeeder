@@ -139,6 +139,15 @@ def select_evaluation_models(
     return classifiers, crop_detectors
 
 
+async def _note_owner_finder_check_waiting(model_id: str) -> None:
+    from app.services.bird_finder_revalidation import bird_finder_revalidation
+
+    try:
+        await bird_finder_revalidation.note_owner_check_waiting(model_id)
+    except Exception as exc:
+        log.warning("model_eval_owner_finder_wait_note_failed", model_id=model_id, error_type=type(exc).__name__)
+
+
 async def _remember_owner_finder_check(model_id: str, artifact: str | None, result: dict[str, Any] | None) -> None:
     """Spare the automatic finder check from repeating a sweep the owner just ran."""
     from app.services.bird_finder_revalidation import bird_finder_revalidation
@@ -1037,6 +1046,13 @@ class ModelEvalRunner:
             )
 
         crop_matrix: dict[str, Any] = {}
+        # Bird finders are judged on this host's own full camera frames, the same
+        # panel as the automatic check; downloaded species photos are close crops.
+        finder_frames: list[str] = []
+        if crop_detectors:
+            from app.services.bird_finder_revalidation import recent_bird_photos
+
+            finder_frames = await asyncio.to_thread(recent_bird_photos)
         for crop_idx, model in enumerate(crop_detectors):
             artifact_sha256 = (
                 str(getattr(getattr(model, "metadata", None), "sha256", None) or "").strip().lower() or None
@@ -1051,10 +1067,14 @@ class ModelEvalRunner:
                     "label": f"sweeping crop detector {model.id}",
                 },
             )
+            if not finder_frames:
+                crop_matrix[model.id] = {"inconclusive": True, "error": "no_full_frames"}
+                await _note_owner_finder_check_waiting(model.id)
+                continue
             try:
                 result = await sweep_crop_model_devices(
                     model.id,
-                    image_paths=image_paths,
+                    image_paths=finder_frames,
                     discover_providers=discover_providers,
                 )
             except Exception as exc:

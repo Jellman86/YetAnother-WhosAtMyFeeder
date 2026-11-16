@@ -42,6 +42,16 @@ from app.services.model_eval_service import (
 from app.services.eval.species_panel import SpeciesEntry
 
 
+@pytest.fixture(autouse=True)
+def saved_full_frames(monkeypatch):
+    """Bird finder sweeps use this host's saved full frames; tests supply a stand-in panel."""
+    from app.services import bird_finder_revalidation
+
+    frames = ["/frames/a.jpg", "/frames/b.jpg", "/frames/c.jpg"]
+    monkeypatch.setattr(bird_finder_revalidation, "recent_bird_photos", lambda: frames)
+    return frames
+
+
 def _set_runs_dir(monkeypatch, path: Path) -> None:
     monkeypatch.setenv("YAWAMF_EVAL_RUNS_DIR", str(path))
 
@@ -950,3 +960,33 @@ async def test_owner_crop_sweeps_are_recorded_for_the_automatic_finder_check(tmp
         "run-1", tmp_path, [], [SimpleNamespace(id=finder, metadata=SimpleNamespace(sha256="abc"))]
     )
     record.assert_awaited_once_with(finder, "abc", None if crash else result)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("frames", [["/frames/a.jpg", "/frames/b.jpg", "/frames/c.jpg"], []])
+async def test_owner_finder_checks_use_the_automatic_checks_full_frame_panel(tmp_path, monkeypatch, frames):
+    from app.services import bird_finder_revalidation, model_validation
+    from unittest.mock import AsyncMock
+
+    monkeypatch.setenv("YAWAMF_EVAL_RUNS_DIR", str(tmp_path))
+    monkeypatch.setenv("YAWAMF_IMAGE_FLAVOR", "intel")
+    finder = "bird_crop_detector_accurate_rfdetr_nano"
+    model_validation.write_eligibility_entry(finder, ["cpu", "intel_npu"], image_flavor="intel", artifact_sha256="abc")
+    monkeypatch.setattr(bird_finder_revalidation, "recent_bird_photos", lambda: frames)
+    monkeypatch.setattr(bird_finder_revalidation, "saved_bird_photos_present", lambda: True)
+    monkeypatch.setattr(bird_finder_revalidation.bird_finder_revalidation, "record_owner_check", AsyncMock())
+    result = {"baseline_status": "usable", "eligible_providers": ["cpu", "intel_npu"], "providers": []}
+    sweep = AsyncMock(return_value=result)
+    monkeypatch.setattr(model_validation, "sweep_crop_model_devices", sweep)
+    runner = ModelEvalRunner()
+    monkeypatch.setattr(runner, "_emit", AsyncMock())
+    payload = await runner._device_sweep(
+        "run-1", tmp_path, [], [SimpleNamespace(id=finder, metadata=SimpleNamespace(sha256="abc"))]
+    )
+    if frames:
+        assert sweep.await_args.kwargs["image_paths"] == frames
+    else:
+        sweep.assert_not_awaited()
+        assert payload["crop_detectors"][finder]["inconclusive"] is True
+        assert payload["crop_detectors"][finder]["error"] == "no_full_frames"
+        assert set(model_validation.host_eligible_providers(finder, artifact_sha256="abc")) == {"cpu", "intel_npu"}

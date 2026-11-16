@@ -49,9 +49,20 @@ _MIN_VALID_CLIP_BYTES = 512
 RecordingClipListener = Callable[[str], Awaitable[None]]
 
 
+def image_sha256_hex(image_bytes: bytes) -> str:
+    return hashlib.sha256(image_bytes).hexdigest()
+
+
 def validate_film_alignment(alignment: Any, image_bytes: bytes) -> dict | None:
     """Accept only absolute snapshot coordinates sealed to these exact photograph bytes."""
-    if not isinstance(alignment, dict) or not image_bytes:
+    if not image_bytes:
+        return None
+    return film_alignment_for_digest(alignment, image_sha256_hex(image_bytes))
+
+
+def film_alignment_for_digest(alignment: Any, digest: str) -> dict | None:
+    """``validate_film_alignment`` for a caller that already hashed the photograph."""
+    if not isinstance(alignment, dict):
         return None
     try:
         moment = alignment["frame_time"]
@@ -67,7 +78,6 @@ def validate_film_alignment(alignment: Any, image_bytes: bytes) -> dict | None:
             return None
         if width <= 0 or height <= 0 or x + width > 1.000001 or y + height > 1.000001:
             return None
-        digest = hashlib.sha256(image_bytes).hexdigest()
         if alignment.get("image_sha256") != digest:
             return None
         return {"frame_time": float(moment), "box": [x, y, width, height], "image_sha256": digest}
@@ -107,6 +117,11 @@ def cache_file_event_id(path: Path) -> str:
             return candidate.group(1) if candidate else owner
     except (OSError, ValueError, TypeError):
         pass
+    return cache_name_event_id(name)
+
+
+def cache_name_event_id(name: str) -> str:
+    """The visit a cache file name belongs to, read from the name alone."""
     for suffix in (".jpg.meta.json", ".mp4.meta.json", ".jpg", ".mp4", ".json"):
         if name.endswith(suffix):
             name = name[: -len(suffix)]
@@ -587,13 +602,18 @@ class MediaCacheService:
         if isinstance(event_hints, dict):
             metadata["event_hints"] = event_hints
         if image_bytes is not None:
+            # One digest, hashed off the event loop, serves every field below.
+            digest = await asyncio.to_thread(image_sha256_hex, image_bytes)
+            # Binds this sidecar's provenance to the exact photograph it describes.
+            # The image is written before its sidecar, so a reader that checks
+            # this against the bytes it decoded can never pair new pixels with
+            # old provenance. Hint-only updates keep the existing identity.
+            metadata["image_sha256"] = digest
             # Localization refreshed without writing the image cannot redefine its origin.
             metadata["snapshot_photo_hints"] = (
-                {"image_sha256": hashlib.sha256(image_bytes).hexdigest(), "event_hints": event_hints}
-                if isinstance(event_hints, dict)
-                else None
+                {"image_sha256": digest, "event_hints": event_hints} if isinstance(event_hints, dict) else None
             )
-            metadata["film_alignment"] = validate_film_alignment(film_alignment, image_bytes)
+            metadata["film_alignment"] = film_alignment_for_digest(film_alignment, digest) if image_bytes else None
         metadata.pop("recording_alignment", None)
         if source == "frigate_recording_snapshot" and isinstance(recording_alignment, dict):
             metadata["recording_alignment"] = recording_alignment

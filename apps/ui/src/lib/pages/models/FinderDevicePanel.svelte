@@ -114,6 +114,8 @@
                 return $_('settings.detection.bird_finder_runs_interrupted', { default: 'CPU · the last check of {devices} was interrupted', values: { devices: deviceNames(runsOn.devices) } });
             case 'waiting':
                 return $_('settings.detection.bird_finder_runs_waiting', { default: 'CPU · waiting for saved bird photos to check {devices}', values: { devices: deviceNames(runsOn.devices) } });
+            case 'waiting_full_frames':
+                return $_('settings.detection.bird_finder_runs_waiting_full_frames', { default: 'CPU · waiting for full camera frames to check {devices}. The saved bird photos are close crops, and a finder cannot be checked on those.', values: { devices: deviceNames(runsOn.devices) } });
             case 'never_checked':
                 return $_('settings.detection.bird_finder_runs_never', { default: 'CPU · no accelerator has passed a check on this host yet' });
             case 'cpu_only':

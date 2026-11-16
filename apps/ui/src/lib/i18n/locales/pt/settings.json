@@ -1346,6 +1346,7 @@
     "bird_finder_runs_cause_unfinished": "{fact} (a verificação não pôde terminar)",
     "bird_finder_runs_interrupted": "CPU · a última verificação de {devices} foi interrompida",
     "bird_finder_runs_waiting": "CPU · aguardando fotos de aves salvas para verificar {devices}",
+    "bird_finder_runs_waiting_full_frames": "CPU · aguardando quadros completos da câmera para verificar {devices}. As fotos de aves salvas são recortes próximos, e um localizador não pode ser verificado nelas.",
     "bird_finder_runs_never": "CPU · nenhum acelerador passou ainda em uma verificação neste servidor",
     "bird_finder_runs_cpu_only": "CPU · este servidor não oferece nenhum acelerador ao localizador",
     "bird_finder_device_not_passed": "{provider} · não passou neste servidor",

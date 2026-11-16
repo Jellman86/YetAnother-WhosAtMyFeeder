@@ -137,16 +137,314 @@ async def test_interrupted_finder_recheck_is_recorded_without_retry(environment)
     assert sweep.await_count == 1
 
 
-def test_recent_bird_photos_takes_newest_full_snapshots_only(tmp_path):
-    for index, name in enumerate(["old.jpg", "new.jpg", "new_thumb.jpg", "notes.txt", "middle.jpg"]):
-        path = tmp_path / name
-        path.write_bytes(b"x")
-        os.utime(path, (1_000 + index, 1_000 + index))
-    (tmp_path / "new.jpg").touch()
-    os.utime(tmp_path / "new.jpg", (5_000, 5_000))
+def _jpeg(path, size, mtime):
+    from PIL import Image
 
-    assert recovery.newest_snapshots(tmp_path, limit=2) == [str(tmp_path / "new.jpg"), str(tmp_path / "middle.jpg")]
-    assert recovery.newest_snapshots(tmp_path / "missing", limit=2) == []
+    Image.new("RGB", size, (90, 120, 60)).save(path, "JPEG", quality=60)
+    os.utime(path, (mtime, mtime))
+
+
+def test_the_check_panel_takes_full_camera_frames_and_never_bird_crops(tmp_path):
+    # Mirrors a host that keeps model crops and cropped HQ snapshots beside its full frames.
+    files = {
+        "v1.jpg": ((640, 480), 100),
+        "v1_thumb.jpg": ((640, 480), 101),
+        "v1__model_crop__f10__c3__aaaaaaaaaa__image.jpg": ((640, 640), 102),
+        "v1__model_crop__f10__c3__aaaaaaaaab__thumb_thumb.jpg": ((160, 160), 102),
+        "v1__retained_snapshot__bbbbbbbbbbbb__image.jpg": ((800, 600), 103),
+        "v1__frigate_hint_crop__f10__cccccccccc__image.jpg": ((800, 600), 104),
+        "v1__full_frame__f10__dddddddddd__image.jpg": ((1280, 720), 105),
+        "v1__full_frame__f20__eeeeeeeeee__image.jpg": ((1280, 720), 106),
+        "v1__full_frame__f30__ffffffffff__image.jpg": ((1280, 720), 107),
+        "v2.jpg": ((160, 160), 110),
+        "v2__full_frame__f5__1111111111__image.jpg": ((1280, 720), 111),
+        "v3__full_frame__f5__2222222222__image.jpg": ((300, 200), 120),
+        "v4__full_frame__f5__3333333333__image.jpg": ((1280, 720), 130),
+    }
+    for name, (size, mtime) in files.items():
+        _jpeg(tmp_path / name, size, mtime)
+    (tmp_path / "notes.txt").write_text("x")
+
+    chosen = [os.path.basename(path) for path in recovery.select_check_frames(tmp_path, limit=12)]
+
+    # One frame per visit first, newest visit first; then a second from the same visit.
+    # v1's model crop at f10 puts that full frame ahead of its newer ones.
+    assert chosen == [
+        "v4__full_frame__f5__3333333333__image.jpg",
+        "v2__full_frame__f5__1111111111__image.jpg",
+        "v1__full_frame__f10__dddddddddd__image.jpg",
+        "v1__full_frame__f30__ffffffffff__image.jpg",
+    ]
+    assert [os.path.basename(path) for path in recovery.select_check_frames(tmp_path, limit=3)] == chosen[:3]
+
+
+def test_frames_where_a_bird_was_cropped_come_before_other_frames_of_the_visit(tmp_path):
+    # A model crop at f510 means production found a bird in that exact frame.
+    for name, size, mtime in [
+        ("v1__full_frame__f900__aaaaaaaaaa__image.jpg", (1280, 720), 109),
+        ("v1__full_frame__f510__bbbbbbbbbb__image.jpg", (1280, 720), 101),
+        ("v1__model_crop__f510__c3__cccccccccc__image.jpg", (160, 160), 102),
+        ("v1__full_frame__f0__dddddddddd__image.jpg", (1280, 720), 105),
+        ("v2__full_frame__f1__eeeeeeeeee__image.jpg", (1280, 720), 90),
+        ("v3__full_frame__f1__ffffffffff__image.jpg", (1280, 720), 80),
+    ]:
+        _jpeg(tmp_path / name, size, mtime)
+    chosen = [os.path.basename(path) for path in recovery.select_check_frames(tmp_path, limit=12)]
+    assert chosen[0] == "v1__full_frame__f510__bbbbbbbbbb__image.jpg"
+    assert chosen[3] == "v1__full_frame__f900__aaaaaaaaaa__image.jpg"
+
+
+def _meta(path, source, *, bound=True):
+    import hashlib
+    import json
+
+    metadata = {"event_id": path.stem, "source": source}
+    if bound:
+        metadata["image_sha256"] = hashlib.sha256(path.read_bytes()).hexdigest()
+    (path.parent / f"{path.name}.meta.json").write_text(json.dumps(metadata))
+
+
+def test_an_original_event_snapshot_counts_only_when_its_provenance_is_uncropped(tmp_path):
+    for index in range(3):
+        _jpeg(tmp_path / f"full{index}.jpg", (2688, 1512), 100 + index)
+        _meta(tmp_path / f"full{index}.jpg", "frigate_snapshot")
+    assert len(recovery.select_check_frames(tmp_path, limit=12)) == 3
+
+
+@pytest.mark.parametrize("source", ["high_quality_bird_crop", "hq_candidate_model_crop", None])
+def test_large_bird_crops_that_replaced_the_event_snapshot_never_qualify(tmp_path, source):
+    # HQ processing replaces <event>.jpg with the chosen crop; a 600 px crop passes any size rule.
+    for index in range(3):
+        path = tmp_path / f"crop{index}.jpg"
+        _jpeg(path, (600, 600), 100 + index)
+        if source is not None:
+            _meta(path, source)
+    assert recovery.select_check_frames(tmp_path, limit=12) == []
+
+
+def test_provenance_for_an_earlier_image_never_vouches_for_its_replacement(tmp_path):
+    # HQ processing replaces the image before its sidecar: old full-frame
+    # provenance must not admit the new bird crop that now sits beside it.
+    for index in range(3):
+        path = tmp_path / f"visit{index}.jpg"
+        _jpeg(path, (1280, 720), 100 + index)
+        _meta(path, "frigate_snapshot")
+        _jpeg(path, (600, 600), 100 + index)
+    assert recovery.select_check_frames(tmp_path, limit=12) == []
+
+
+def test_an_event_snapshot_replaced_during_the_check_is_judged_on_the_bytes_it_decoded(tmp_path, monkeypatch):
+    for index in range(3):
+        path = tmp_path / f"visit{index}.jpg"
+        _jpeg(path, (1280, 720), 100 + index)
+        _meta(path, "frigate_snapshot")
+    real_read = recovery._read_regular_file
+
+    def replace_after_header(path, limit):
+        # Swap in a crop between the provenance read and the full image read.
+        if path.endswith(".jpg") and limit > recovery.MAX_HEADER_BYTES:
+            _jpeg(tmp_path / os.path.basename(path), (800, 800), 100)
+        return real_read(path, limit)
+
+    monkeypatch.setattr(recovery, "_read_regular_file", replace_after_header)
+    assert recovery.select_check_frames(tmp_path, limit=12) == []
+
+
+def test_older_snapshots_without_a_recorded_identity_are_not_event_frames(tmp_path):
+    for index in range(3):
+        path = tmp_path / f"visit{index}.jpg"
+        _jpeg(path, (1280, 720), 100 + index)
+        _meta(path, "frigate_snapshot", bound=False)
+    assert recovery.select_check_frames(tmp_path, limit=12) == []
+
+
+def test_visits_with_one_saved_frame_still_add_their_proven_event_snapshot(tmp_path):
+    for visit in ("v1", "v2"):
+        _jpeg(tmp_path / f"{visit}__full_frame__f1__{'a' * 10}__image.jpg", (1280, 720), 100)
+        snapshot = tmp_path / f"{visit}.jpg"
+        _jpeg(snapshot, (1280, 720), 101)
+        _meta(snapshot, "frigate_snapshot")
+    assert len(recovery.select_check_frames(tmp_path, limit=12)) == 4
+
+
+def test_a_cached_panel_expires_even_when_the_directory_time_does_not_change(tmp_path, monkeypatch):
+    from app.services import media_cache
+
+    monkeypatch.setattr(media_cache, "SNAPSHOTS_DIR", tmp_path)
+    now = [1000.0]
+    monkeypatch.setattr(recovery, "_monotonic", lambda: now[0])
+    for index in range(3):
+        _jpeg(tmp_path / f"v{index}__full_frame__f1__{index:010x}__image.jpg", (1280, 720), 100 + index)
+    assert len(recovery.recent_bird_photos()) == 3
+    # A coarse-timestamp filesystem: a new file lands without moving the directory mtime.
+    listed = os.stat(tmp_path)
+    _jpeg(tmp_path / "v9__full_frame__f1__9999999999__image.jpg", (1280, 720), 200)
+    os.utime(tmp_path, ns=(listed.st_atime_ns, listed.st_mtime_ns))
+    assert len(recovery.recent_bird_photos()) == 3
+    now[0] += recovery.SELECTION_CACHE_MAX_AGE_SECONDS
+    assert len(recovery.recent_bird_photos()) == 4
+
+
+def test_final_full_frames_are_full_frames_too(tmp_path):
+    for index in range(3):
+        _jpeg(tmp_path / f"v{index}__full_frame__final__{index:010x}__image.jpg", (1280, 720), 100 + index)
+    _jpeg(tmp_path / "v2__model_crop__final__c3__aaaaaaaaaa__image.jpg", (160, 160), 99)
+    _jpeg(tmp_path / "v2__full_frame__f7__bbbbbbbbbb__image.jpg", (1280, 720), 103)
+    chosen = [os.path.basename(path) for path in recovery.select_check_frames(tmp_path, limit=12)]
+    assert len(chosen) == 4
+    # v2 had a bird cropped from its final frame, so that frame leads its visit.
+    assert chosen.index("v2__full_frame__final__0000000002__image.jpg") < chosen.index(
+        "v2__full_frame__f7__bbbbbbbbbb__image.jpg"
+    )
+
+
+def test_many_newer_small_snapshots_cannot_use_up_the_budget_before_older_full_frames(tmp_path):
+    for index in range(recovery.MAX_FRAME_HEADER_READS + 10):
+        path = tmp_path / f"new{index:04d}.jpg"
+        _jpeg(path, (160, 160), 10_000 + index)
+        _meta(path, "frigate_snapshot")
+    for index in range(3):
+        _jpeg(tmp_path / f"old{index}__full_frame__f1__{index:010x}__image.jpg", (1280, 720), 100 + index)
+    assert len(recovery.select_check_frames(tmp_path, limit=12)) == 3
+
+
+def test_selection_never_follows_symlinks(tmp_path):
+    real = tmp_path / "elsewhere"
+    real.mkdir()
+    snapshots = tmp_path / "snapshots"
+    snapshots.mkdir()
+    for index in range(3):
+        target = real / f"{index}.jpg"
+        _jpeg(target, (1280, 720), 100)
+        (snapshots / f"v{index}__full_frame__f1__{index:010x}__image.jpg").symlink_to(target)
+    assert recovery.select_check_frames(snapshots, limit=12) == []
+
+
+def test_a_fifo_named_like_a_frame_cannot_block_selection(tmp_path):
+    import threading
+
+    for index in range(3):
+        os.mkfifo(tmp_path / f"v{index}__full_frame__f1__{index:010x}__image.jpg")
+    result = []
+    worker = threading.Thread(target=lambda: result.append(recovery.select_check_frames(tmp_path, limit=12)))
+    worker.daemon = True
+    worker.start()
+    worker.join(timeout=10)
+    assert not worker.is_alive()
+    assert result == [[]]
+
+
+def test_a_header_padded_past_the_read_budget_is_rejected_without_reading_it_all(tmp_path, monkeypatch):
+    import io
+
+    from PIL import Image
+
+    buffer = io.BytesIO()
+    Image.new("RGB", (1280, 720), (90, 120, 60)).save(buffer, "JPEG", quality=60)
+    data = buffer.getvalue()
+    padding = b"".join(b"\xff\xe5" + (65533).to_bytes(2, "big") + b"\0" * 65531 for _ in range(40))
+    for index in range(3):
+        (tmp_path / f"v{index}__full_frame__f1__{index:010x}__image.jpg").write_bytes(data[:2] + padding + data[2:])
+    reads = []
+    real_read = os.read
+    monkeypatch.setattr(recovery.os, "read", lambda fd, size: reads.append(size) or real_read(fd, size))
+    assert recovery.select_check_frames(tmp_path, limit=12) == []
+    assert max(reads) <= recovery.MAX_HEADER_BYTES
+
+
+def test_truncated_frames_do_not_count_toward_a_panel(tmp_path):
+    for index in range(3):
+        path = tmp_path / f"v{index}__full_frame__f1__{index:010x}__image.jpg"
+        _jpeg(path, (1280, 720), 100 + index)
+        path.write_bytes(path.read_bytes()[: path.stat().st_size // 2])
+    assert recovery.select_check_frames(tmp_path, limit=12) == []
+
+
+def test_an_unchanged_snapshot_directory_is_not_listed_again(tmp_path, monkeypatch):
+    from app.services import media_cache
+
+    monkeypatch.setattr(media_cache, "SNAPSHOTS_DIR", tmp_path)
+    calls = []
+    real = recovery.select_check_frames
+    monkeypatch.setattr(recovery, "select_check_frames", lambda *a, **k: calls.append(1) or real(*a, **k))
+    for index in range(3):
+        _jpeg(tmp_path / f"v{index}__full_frame__f1__{index:010x}__image.jpg", (1280, 720), 100 + index)
+    first = recovery.recent_bird_photos()
+    assert recovery.recent_bird_photos() == first
+    assert len(calls) == 1
+    _jpeg(tmp_path / "v9__full_frame__f1__9999999999__image.jpg", (1280, 720), 200)
+    assert len(recovery.recent_bird_photos()) == 4
+    assert len(calls) == 2
+
+
+@pytest.mark.asyncio
+async def test_a_settled_check_never_lists_the_snapshot_directory(environment, monkeypatch):
+    monkeypatch.setattr(validation, "current_provider_runtime_signature", lambda provider: f"old-{provider}")
+    listed = []
+    monkeypatch.setattr(recovery, "recent_bird_photos", lambda: listed.append(1) or ["/photos/a.jpg"])
+    monkeypatch.setattr(recovery, "saved_bird_photos_present", lambda: listed.append(1) or True)
+    for _ in range(3):
+        await recovery.BirdFinderRevalidation().run()
+    environment.assert_not_awaited()
+    assert listed == []
+
+
+def test_too_few_full_frames_is_no_panel_at_all(tmp_path):
+    _jpeg(tmp_path / "v1__full_frame__f5__1111111111__image.jpg", (1280, 720), 100)
+    _jpeg(tmp_path / "v2__full_frame__f5__2222222222__image.jpg", (1280, 720), 101)
+    _jpeg(tmp_path / "v3__model_crop__f5__c1__3333333333__image.jpg", (160, 160), 102)
+    assert recovery.select_check_frames(tmp_path, limit=12) == []
+    assert recovery.select_check_frames(tmp_path / "missing", limit=12) == []
+
+
+@pytest.mark.asyncio
+async def test_saved_crops_without_full_frames_wait_with_their_own_reason(environment, monkeypatch):
+    monkeypatch.setattr(recovery, "recent_bird_photos", lambda: [])
+    monkeypatch.setattr(recovery, "saved_bird_photos_present", lambda: True)
+    runner = recovery.BirdFinderRevalidation()
+    await runner.run()
+    environment.assert_not_awaited()
+    status = runner.status()
+    assert status["state"] == "waiting"
+    assert status["reason_code"] == "no_full_frames"
+    assert "full camera frames" in status["reason"]
+    assert status["attempt_count"] == 0
+
+
+@pytest.mark.asyncio
+async def test_an_empty_baseline_from_the_old_crop_panel_does_not_hold_back_the_full_frame_check(environment):
+    # The ledger a deployed host already has: no_positive_baseline on the crop panel, four hours to wait.
+    from datetime import datetime, timezone
+
+    providers = ["cpu", "intel_cpu", "intel_gpu", "intel_npu"]
+    legacy_key = validation._identity_digest(
+        {
+            "model": FINDER,
+            "artifact": "abc",
+            "preference": "auto",
+            "comparison_policy": 3,
+            "runtime": {
+                provider: validation.current_provider_runtime_signature(provider)
+                for provider in sorted({"cpu", "intel_gpu", "intel_npu"})
+            },
+        }
+    )
+    recovery._write_ledger_entry(
+        legacy_key,
+        {
+            "state": "failed",
+            "reason_code": "no_positive_baseline",
+            "model_id": FINDER,
+            "artifact_sha256": "abc",
+            "attempt_count": 1,
+            "empty_baseline_count": 1,
+            "checked_at": datetime.now(timezone.utc).isoformat(),
+            "photo_signature": recovery.photo_set_signature(["/photos/a.jpg", "/photos/b.jpg"]),
+            "requested_providers": providers[2:],
+        },
+    )
+    await recovery.BirdFinderRevalidation().run()
+    environment.assert_awaited_once()
 
 
 def test_finder_status_reports_the_automatic_check(monkeypatch):
@@ -771,3 +1069,12 @@ async def test_an_unfinished_owner_check_delays_the_automatic_one_by_the_first_b
     now[0] += timedelta(hours=1)
     await runner.run()
     environment.assert_awaited_once()
+
+
+def test_the_finder_trusts_only_confirmed_uncropped_sources():
+    from app.services import classification_input_provenance as provenance
+
+    assert "frigate_snapshot_unverified" not in recovery.FINDER_FRAME_SOURCES
+    assert "frigate_thumbnail" not in recovery.FINDER_FRAME_SOURCES
+    # Never wider than what classification already calls an uncropped frame.
+    assert recovery.FINDER_FRAME_SOURCES <= provenance._FULL_FRAME_SNAPSHOT_SOURCES
