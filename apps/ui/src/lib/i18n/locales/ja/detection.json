@@ -80,6 +80,14 @@
   "id": "検出ID",
   "open_in_frigate": "Frigate で開く",
   "open_in_frigate_gone": "Frigate に存在しません",
+  "upstream_check": {
+    "gone": "Frigate にはこのイベントもメディアも残っていません。",
+    "unreachable": "YA-WAMF は Frigate に接続できなかったため、Frigate にこのイベントが残っているかはわかりません。Frigate が動作していることを確認してから、この記録を開き直してください。",
+    "timed_out": "Frigate が時間内に応答しなかったため、このイベントが残っているかはわかりません。少し待ってからこの記録を開き直してください。繰り返す場合は Frigate の負荷を確認してください。",
+    "unauthorized": "Frigate が YA-WAMF の認証情報を拒否したため、このイベントが残っているかはわかりません。YA-WAMF の起動環境にある FRIGATE_AUTH_TOKEN を確認して再起動し、この記録を開き直してください。",
+    "failed": "Frigate がエラーを返したため、このイベントが残っているかはわかりません。Frigate のログを確認してから、この記録を開き直してください。",
+    "not_checked": "このイベントについて Frigate にはまだ問い合わせていません。確認するにはこの記録を開き直してください。"
+  },
   "upstream_missing": {
     "title": "Frigate に存在しません",
     "card_label": "上流で欠落",

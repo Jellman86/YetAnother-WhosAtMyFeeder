@@ -323,7 +323,14 @@
     }
 
     function bundleSummaryText(bundle: JobDiagnosticBundle): string {
-        return `${bundle.summary.error_groups.toLocaleString()} groups • ${bundle.summary.total_events.toLocaleString()} events • ${bundle.summary.health_snapshots.toLocaleString()} snapshots`;
+        return $_('jobs.error_bundles_stats', {
+            values: {
+                groups: bundle.summary.error_groups,
+                events: bundle.summary.total_events,
+                snapshots: bundle.summary.health_snapshots
+            },
+            default: '{groups, plural, one {# group} other {# groups}} · {events, plural, one {# event} other {# events}} · {snapshots, plural, one {# snapshot} other {# snapshots}}'
+        });
     }
 
     function bundleNotesPreview(bundle: JobDiagnosticBundle): string | null {

@@ -191,8 +191,8 @@ export async function testFrigateConnection(url?: string): Promise<FrigateTestRe
     return handleResponse<FrigateTestResult>(response);
 }
 
-export async function fetchFrigateConfig(): Promise<unknown> {
-    const response = await apiFetch(`${API_BASE}/frigate/config`);
+export async function fetchFrigateConfig(signal?: AbortSignal): Promise<unknown> {
+    const response = await apiFetch(`${API_BASE}/frigate/config`, { signal });
     return handleResponse<unknown>(response);
 }
 

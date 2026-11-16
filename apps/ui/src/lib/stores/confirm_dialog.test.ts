@@ -77,3 +77,71 @@ describe('a question with a second way forward', () => {
         await expect(answer).resolves.toBe(false);
     });
 });
+
+describe('a question that depends on a figure it has yet to read', () => {
+    const counting = { title: 'Delete all history', message: 'Counting the detections…', confirmLabel: 'Delete all history permanently' };
+    const unread = { message: 'Delete all detections? The number could not be read. This cannot be undone.' };
+
+    function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void; reject: (reason: unknown) => void } {
+        let resolve!: (value: T) => void;
+        let reject!: (reason: unknown) => void;
+        const promise = new Promise<T>((res, rej) => { resolve = res; reject = rej; });
+        return { promise, resolve, reject };
+    }
+
+    it('opens at once saying what it is reading, and cannot be confirmed until the reading lands', async () => {
+        const reading = deferred<{ message: string }>();
+        let settled: boolean | 'open' = 'open';
+        void confirmAction({ ...counting, reading: { read: () => reading.promise, unread } }).then((answer) => { settled = answer; });
+        expect(confirmDialog.current?.message).toBe('Counting the detections…');
+        expect(confirmDialog.current?.reading).toBe(true);
+
+        confirmDialog.answer(true);
+        await Promise.resolve();
+        expect(settled).toBe('open');
+        expect(confirmDialog.current?.reading).toBe(true);
+
+        reading.resolve({ message: 'Delete all 931 detections? This cannot be undone.' });
+        await reading.promise;
+        await Promise.resolve();
+        expect(confirmDialog.current?.reading).toBe(false);
+        expect(confirmDialog.current?.message).toBe('Delete all 931 detections? This cannot be undone.');
+        expect(confirmDialog.current?.confirmLabel).toBe('Delete all history permanently');
+
+        confirmDialog.answer(true);
+        await Promise.resolve();
+        expect(settled).toBe(true);
+    });
+
+    it('asks without the figure when the reading fails', async () => {
+        const answer = confirmAction({ ...counting, reading: { read: () => Promise.reject(new Error('503')), unread } });
+        await Promise.resolve();
+        await Promise.resolve();
+        expect(confirmDialog.current?.reading).toBe(false);
+        expect(confirmDialog.current?.message).toBe(unread.message);
+        confirmDialog.answer(false);
+        await expect(answer).resolves.toBe(false);
+    });
+
+    it('can be cancelled while it reads, and the late reading does not reopen it', async () => {
+        const reading = deferred<{ message: string }>();
+        const answer = confirmAction({ ...counting, reading: { read: () => reading.promise, unread } });
+        confirmDialog.answer(false);
+        await expect(answer).resolves.toBe(false);
+        reading.resolve({ message: 'Delete all 931 detections?' });
+        await reading.promise;
+        await Promise.resolve();
+        expect(confirmDialog.current).toBeNull();
+    });
+
+    it('does not put a late reading into a newer question', async () => {
+        const reading = deferred<{ message: string }>();
+        void confirmAction({ ...counting, reading: { read: () => reading.promise, unread } });
+        void confirmAction(request);
+        reading.resolve({ message: 'Delete all 931 detections?' });
+        await reading.promise;
+        await Promise.resolve();
+        expect(confirmDialog.current?.message).toBe('Delete everything?');
+        confirmDialog.answer(false);
+    });
+});

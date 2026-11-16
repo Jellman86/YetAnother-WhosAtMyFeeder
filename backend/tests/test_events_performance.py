@@ -87,6 +87,11 @@ async def test_clip_checks_use_a_short_explicit_frigate_timeout():
     ):
         result = await batch_check_clips(["evt-a", "evt-b"])
 
-    assert result["evt-a"] == {"has_frigate_event": True, "has_clip": True, "has_snapshot": True}
+    assert result["evt-a"] == {
+        "has_frigate_event": True,
+        "frigate_event_check": "found",
+        "has_clip": True,
+        "has_snapshot": True,
+    }
     assert get_event.await_count == 2
     assert all(call.kwargs["timeout"] == CLIP_CHECK_TIMEOUT_SECONDS for call in get_event.await_args_list)

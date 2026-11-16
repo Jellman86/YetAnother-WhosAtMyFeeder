@@ -26,6 +26,7 @@
     import SimpleBarChart from './SimpleBarChart.svelte';
     import RangeMap from './RangeMap.svelte';
     import { _, locale } from 'svelte-i18n';
+    import { speciesStatLead, type RowFigure } from '../leaderboard/row-figure';
     import { get } from 'svelte/store';
     import { trapFocus } from '../utils/focus-trap';
     import { toAppPath } from '../app/url-base';
@@ -35,10 +36,19 @@
 
     interface Props {
         speciesName: string;
+        /** The figure the Leaderboard row this was opened from showed, so the dialog leads with the same unit. */
+        openedFrom?: RowFigure | null;
         onclose: () => void;
     }
 
-    let { speciesName, onclose }: Props = $props();
+    let { speciesName, openedFrom = null, onclose }: Props = $props();
+
+    const statLead = $derived(speciesStatLead(openedFrom));
+    const rowVisitsLabel = $derived.by(() => {
+        if (openedFrom?.span === 'day') return $_('species_detail.visits_day', { default: 'Visits, last 24 hours' });
+        if (openedFrom?.span === 'week') return $_('species_detail.visits_week', { default: 'Visits, last 7 days' });
+        return $_('species_detail.visits_month', { default: 'Visits, last 30 days' });
+    });
 
     function getLocaleTag(localeValue: string | null | undefined) {
         if (!localeValue) return 'en';
@@ -581,6 +591,14 @@
                                 <h3 id="species-record-heading" class="text-base font-semibold text-slate-900 dark:text-white">{$_('common.statistics')}</h3>
                             </div>
                         </div>
+                        {#if statLead === 'row_visits' && openedFrom}
+                            <!-- Opened from a row that counted visits: the same figure leads here, in the row's
+                                 own window, so the dialog and the row agree. -->
+                            <dl class="mb-3" data-species-row-figure>
+                                <dt class="text-xs font-medium text-muted">{rowVisitsLabel}</dt>
+                                <dd class="mt-1 text-2xl font-bold tracking-tight text-strong">{openedFrom.count.toLocaleString()}</dd>
+                            </dl>
+                        {/if}
                         <dl class="grid grid-cols-2 overflow-hidden border-y border-slate-200 dark:border-slate-700 sm:grid-cols-4">
                             <div class="border-b border-r border-slate-200 px-3 py-4 dark:border-slate-700 sm:border-b-0 sm:px-4">
                                 <!-- The unit and the window are both named: this is every identified frame, not the
@@ -590,7 +608,7 @@
                                         ? $_('species_detail.detections_shared', { default: 'Detections, shared history' })
                                         : $_('species_detail.detections_all_time', { default: 'Detections, all time' })}
                                 </dt>
-                                <dd class="mt-1 text-2xl font-bold tracking-tight text-brand-700 dark:text-brand-300">{stats.total_sightings}</dd>
+                                <dd class="mt-1 text-2xl font-bold tracking-tight {statLead === 'row_visits' ? 'text-strong' : 'text-accent-ink'}">{stats.total_sightings}</dd>
                             </div>
                             <div class="border-b border-slate-200 px-3 py-4 dark:border-slate-700 sm:border-b-0 sm:border-r sm:px-4">
                                 <dt class="text-xs font-medium text-slate-600 dark:text-slate-400">{$_('species_detail.avg_confidence')}</dt>

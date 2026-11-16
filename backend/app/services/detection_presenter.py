@@ -18,6 +18,7 @@ from app.models import DetectionBirdSummary, DetectionResponse
 from app.repositories.audio_history_repository import AudioHistoryRepository
 from app.repositories.bird_observation_repository import BirdObservationRepository
 from app.repositories.detection_repository import Detection as StoredDetection
+from app.services.frigate_event_check import EventAvailability
 from app.services.bird_summary_names import name_summaries, resolve_label_names, summary_labels
 from app.services.taxonomy.taxonomy_service import taxonomy_service
 from app.utils.audio_localization import localize_audio_detections, localize_audio_species_name
@@ -171,7 +172,7 @@ async def present_detections(
     scope: PresentationScope,
     db: aiosqlite.Connection,
     *,
-    clip_availability: dict[str, dict[str, bool]],
+    clip_availability: dict[str, EventAvailability],
     manual_observations: dict[str, dict[str, object]],
 ) -> list[DetectionResponse]:
     """The detection view of each stored row, in order, with everything this viewer may not see removed."""
@@ -338,6 +339,9 @@ async def present_detections(
             has_clip=clip_availability.get(event.frigate_event, {}).get("has_clip", False),
             has_snapshot=clip_availability.get(event.frigate_event, {}).get("has_snapshot", False),
             has_frigate_event=clip_availability.get(event.frigate_event, {}).get("has_frigate_event", False),
+            frigate_event_check=clip_availability.get(event.frigate_event, {}).get(
+                "frigate_event_check", "not_checked"
+            ),
             is_hidden=event.is_hidden,
             is_favorite=event.is_favorite,
             archive_state=event.archive_state,

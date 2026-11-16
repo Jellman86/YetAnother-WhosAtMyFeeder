@@ -156,9 +156,9 @@
                     </h1>
                     <p class="mt-3 max-w-xl text-base leading-7 text-slate-600 dark:text-slate-300">
                         {startupFailed
-                            ? $_('auth.startup_failed_desc', { default: 'Startup stopped during a required check. Your feeder data is safe; check the container logs for the cause.' })
+                            ? $_('auth.startup_failed_desc', { default: 'Startup stopped during a required check. Check the container logs for the cause.' })
                             : showingUnavailable
-                                ? $_('auth.status_unavailable_desc', { default: 'The service may still be starting after an update or model change. Your feeder data is safe while it comes back online.' })
+                                ? $_('auth.status_unavailable_desc', { default: 'The service may still be starting after an update or model change.' })
                                 : startupActive
                                     ? $_('auth.startup_status_desc', { default: 'Model loading and hardware checks can take longer after an update or model change. This progress comes directly from the container.' })
                                     : $_('auth.loading_status_desc', { default: 'Checking the service and your access settings before opening the feeder.' })}

@@ -28,6 +28,8 @@
     if (!guest && params.get('settings') === 'late') void settingsStore.load();
     else if (!guest) settingsStore.settings = { enrichment_summary_provider: 'disabled', ...garden } as unknown as NonNullable<typeof settingsStore.settings>;
     const surface = params.get('surface');
+    // row=N: the dialog was opened from a Leaderboard row that showed N visits in the last 30 days.
+    const rowVisits = params.has('row') ? Number(params.get('row')) : null;
     // The app's global Escape handler must not consume native capture-panel dismissal.
     onMount(() => {
         const releaseShortcuts = initKeyboardShortcuts({ Escape: () => {} });
@@ -42,7 +44,7 @@
 </script>
 
 {#if surface === 'species'}
-    <SpeciesDetailModal speciesName="Cyanistes caeruleus" onclose={() => {}} />
+    <SpeciesDetailModal speciesName="Cyanistes caeruleus" openedFrom={rowVisits === null ? null : { unit: 'visits', count: rowVisits, span: 'month' }} onclose={() => {}} />
 {:else}
     <button class="btn btn-secondary" onclick={() => detectionsStore.addDetection({ frigate_event: 'incoming', display_name: 'Turdus merula', scientific_name: 'Turdus merula', camera_name: 'birdcam', detection_time: new Date().toISOString(), score: 0.95 })}>Notify new capture</button>
     <Events />

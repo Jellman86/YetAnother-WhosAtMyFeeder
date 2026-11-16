@@ -320,6 +320,9 @@ export interface components {
     clips_deleted: number;
     snapshots_deleted: number;
 };
+    BackfillResetPreviewResponse: {
+    detection_count: number;
+};
     BackfillResetResponse: {
     cache_stats: components['schemas']['BackfillResetCacheStats'];
     deleted_count: number;
@@ -929,6 +932,7 @@ export interface components {
     detection_time: string | null;
     display_name: string;
     frigate_event: string;
+    frigate_event_check?: "found" | "not_found" | "unreachable" | "timed_out" | "unauthorized" | "failed" | "not_checked";
     has_clip?: boolean;
     has_frigate_event?: boolean;
     has_snapshot?: boolean;
@@ -960,6 +964,7 @@ export interface components {
     detection_time: string | null;
     display_name: string;
     frigate_event: string;
+    frigate_event_check?: "found" | "not_found" | "unreachable" | "timed_out" | "unauthorized" | "failed" | "not_checked";
     frigate_last_checked_at?: string | null;
     frigate_last_error?: string | null;
     frigate_missing_since?: string | null;
@@ -3619,9 +3624,20 @@ export interface paths {
     delete: {
       operationId: "reset_database_api_backfill_reset_delete";
       path: never;
-      query: never;
+      query: {
+    expected_count?: number | null;
+};
       requestBody: unknown;
       response: components['schemas']['BackfillResetResponse'];
+    };
+  };
+  "/api/backfill/reset/preview": {
+    get: {
+      operationId: "preview_reset_api_backfill_reset_preview_get";
+      path: never;
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['BackfillResetPreviewResponse'];
     };
   };
   "/api/backfill/status": {

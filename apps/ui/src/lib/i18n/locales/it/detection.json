@@ -80,6 +80,14 @@
   "id": "ID rilevamento",
   "open_in_frigate": "Apri in Frigate",
   "open_in_frigate_gone": "Non più in Frigate",
+  "upstream_check": {
+    "gone": "Frigate non ha più questo evento né i suoi file multimediali.",
+    "unreachable": "YA-WAMF non è riuscito a raggiungere Frigate, quindi non si sa se Frigate abbia ancora questo evento. Controlla che Frigate sia in esecuzione, poi riapri questa scheda.",
+    "timed_out": "Frigate non ha risposto in tempo, quindi non si sa se abbia ancora questo evento. Riapri questa scheda tra un momento. Se continua a succedere, controlla il carico di Frigate.",
+    "unauthorized": "Frigate ha rifiutato le credenziali di YA-WAMF, quindi non si sa se abbia ancora questo evento. Controlla FRIGATE_AUTH_TOKEN nell’ambiente con cui si avvia YA-WAMF, riavvialo, poi riapri questa scheda.",
+    "failed": "Frigate ha risposto con un errore, quindi non si sa se abbia ancora questo evento. Controlla il registro di Frigate, poi riapri questa scheda.",
+    "not_checked": "Frigate non è ancora stato interrogato su questo evento. Riapri questa scheda per controllare."
+  },
   "upstream_missing": {
     "title": "Mancante in Frigate",
     "card_label": "Mancante a monte",

@@ -28,5 +28,8 @@
   "reclassify_clip": "Reclasser à partir du clip",
   "detections_all_time": "Détections, depuis le début",
   "detections_shared": "Détections, historique partagé",
+  "visits_day": "Visites, dernières 24 heures",
+  "visits_week": "Visites, 7 derniers jours",
+  "visits_month": "Visites, 30 derniers jours",
   "detections_note": "Chaque image identifiée compte une fois. Une visite peut contenir plusieurs images, les nombres de visites du classement sont donc plus faibles."
 }
