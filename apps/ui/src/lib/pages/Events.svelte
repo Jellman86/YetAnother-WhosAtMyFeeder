@@ -2072,10 +2072,9 @@
         options={[{ value: 'cards', label: $_('settings.explorer_view.cards') }, { value: 'list', label: $_('settings.explorer_view.list') }]}
         onchange={(next) => explorerViewStore.set(next as 'cards' | 'list')}
         labelledBy="explorer-view-label"
-        layout="wrap"
+        width="content"
         size="sm"
         optionAttribute="data-explorer-view-toggle"
-        class="w-auto max-w-full"
     />
     <span id="explorer-view-label" class="sr-only">{$_('settings.explorer_view.label')}</span>
 {/snippet}

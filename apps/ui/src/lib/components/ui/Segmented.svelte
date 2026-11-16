@@ -16,6 +16,8 @@
         labelledBy?: string;
         /** `row` shares the width evenly, `stack` gives each option a line, `wrap` lets short ones flow. */
         layout?: 'row' | 'stack' | 'wrap';
+        /** `fill` takes the width it is given (a rail, a settings row); `content` is as wide as its options (a toolbar). */
+        width?: 'fill' | 'content';
         size?: 'sm' | 'md';
         /** Says why every option is off, or what the chosen one means. */
         describedBy?: string;
@@ -25,14 +27,14 @@
         [data: `data-${string}`]: string | boolean | undefined;
     };
 
-    let { value, options, onchange, labelledBy, layout = 'row', size = 'md', describedBy, optionAttribute, class: className = '', ...data }: Props = $props();
+    let { value, options, onchange, labelledBy, layout = 'row', width = 'fill', size = 'md', describedBy, optionAttribute, class: className = '', ...data }: Props = $props();
 
     const track = $derived(
         layout === 'stack' ? 'flex flex-col' : layout === 'wrap' ? 'flex flex-wrap' : 'flex'
     );
 </script>
 
-<div class="{track} w-full gap-1 rounded-xl bg-surface-raised p-1 {className}" role="group" aria-labelledby={labelledBy} {...data}>
+<div class="{track} {width === 'content' ? 'w-fit max-w-full flex-wrap' : 'w-full'} gap-1 rounded-xl bg-surface-raised p-1 {className}" role="group" aria-labelledby={labelledBy} {...data}>
     {#each options as option (String(option.value))}
         {@const chosen = option.value === value}
         <button
@@ -44,7 +46,7 @@
             data-segment={String(option.value)}
             {...optionAttribute ? { [optionAttribute]: String(option.value) } : {}}
             class="focus-ring flex min-h-11 min-w-0 items-center justify-center gap-1.5 rounded-lg px-3 transition-colors disabled:cursor-not-allowed disabled:opacity-60
-                {layout === 'wrap' ? 'grow' : 'flex-1'}
+                {width === 'content' ? '' : layout === 'wrap' ? 'grow' : 'flex-1'}
                 {size === 'sm' ? 'text-xs' : 'text-sm'}
                 {chosen ? 'bg-surface font-semibold text-strong shadow-xs ring-1 ring-line' : 'font-medium text-muted hover:text-strong'}"
         >
