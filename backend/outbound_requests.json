@@ -1,5 +1,5 @@
 {
-  "about": "Every request this app sends, or has a viewer's browser send, to an address the owner did not enter. One entry per row of About's \"What leaves your network\" list (apps/ui/src/lib/utils/outbound-requests.ts), with the backend modules that make it and the hosts it reaches. backend/tests/pure/test_outbound_registry.py holds the backend to it: a module that can send a request, a new outside host, or a new dependency has to be listed here; the SPA's tests hold the About list to the same keys. Adding an entry means adding its row and its wording in every locale.",
+  "about": "Every request this app sends, or has a viewer's browser send, to an address the owner did not enter. One entry per row of About's \"What leaves your network\" list (apps/ui/src/lib/utils/outbound-requests.ts), with the backend modules that make it and the hosts it reaches. backend/tests/pure/test_outbound_registry.py holds backend/app to it by reading each module's syntax tree: a module that can send a request, a new outside host written in the code, or a new dependency has to be listed here; the SPA's tests hold the About list to the same keys. Adding an entry means adding its row and its wording in every locale. The guard shows that what it can read is registered. It does not prove that nothing else is sent: what it cannot read is listed under manual_review, and stays a reviewer's job.",
   "entries": [
     {
       "key": "inat",
@@ -613,9 +613,23 @@
     "aiohttp",
     "websockets"
   ],
+  "network_calls": [
+    "open_connection",
+    "create_connection",
+    "create_datagram_endpoint"
+  ],
+  "dynamic_imports": [
+    {
+      "module": "app/services/inference/runtimes.py",
+      "reason": "Imports openvino or openvino.runtime, from a fixed pair of names; neither sends a request"
+    }
+  ],
   "manual_review": [
-    "The guard reads source; it does not run it. It sees which modules can send a request and which hosts are written out. It does not see what a registered module sends, so these stay a reviewer's responsibility:",
+    "The guard reads the source of backend/app; it does not run it. It sees which modules can send a request and which hosts are written out. These it cannot see, and each stays a reviewer's responsibility:",
     "A new request inside a module that is already registered, to a host that is not written as a literal: one built from a setting, a variable or another service's answer. Review every change to a registered module for a new destination, and add the row.",
+    "An import whose module name is computed: importlib.import_module(name) or __import__(name) with a variable, and getattr on what they return. A name written out as a string is read like any import. A computed one has to be acknowledged under dynamic_imports with its reason, and the reviewer checks what it can load.",
+    "A package that arrives without being declared: installed by apt or another system package manager, or already in a base image. Packages named in backend/requirements-*.txt, in a Dockerfile's pip install or pip wheel line, and in pyproject.toml are read and have to be classified; nothing else is.",
+    "Code outside backend/app: backend/scripts, backend/download_model.py, custom_components (the Home Assistant integration, which runs on the owner's Home Assistant and talks to this app), the telemetry worker, and anything vendored. None of it is scanned.",
     "A subprocess (ffmpeg, git) or OpenCV given a network address instead of a local file. Both are used on local files only; a change that passes them a URL is an outbound request the guard cannot see.",
     "What a request carries. The registry names destinations; the wording of what is sent is held by the per-locale disclosure tests, and has to be updated by hand when a payload gains a field."
   ]

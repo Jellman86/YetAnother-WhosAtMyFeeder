@@ -38,6 +38,9 @@ GROUPS = {"server", "browser", "on_demand"}
 
 # Helpers that send a request themselves when called, without the caller holding a client.
 OUTBOUND_HELPERS = frozenset({"ensure_model", "download_model", "forget_installation"})
+# asyncio's own ways of opening a connection, which need no client library.
+NETWORK_CALLS = frozenset(REGISTRY["network_calls"])
+DYNAMIC_IMPORTS = frozenset({"importlib.import_module", "__import__"})
 _HOST = re.compile(r"https?://([A-Za-z0-9.-]+\.[a-z]{2,})")
 
 
@@ -65,8 +68,14 @@ class ModuleFacts(ast.NodeVisitor):
         self.module_clients: set[str] = set()
         # Attributes its objects hold a client under: `self.client = httpx.AsyncClient()`.
         self.attribute_clients: set[str] = set()
-        # Every `root.attr` reached from a bound name, to find `service.client`.
-        self.attribute_reads: set[tuple[str, str]] = set()
+        # Every attribute chain that starts at an imported name, resolved to where it leads:
+        # `notifications.notification_service.client.get` ->
+        # "app.services.notification_service.notification_service.client.get".
+        self.chains: set[str] = set()
+        # Calls that open a connection whatever object they are made on.
+        self.network_calls: set[str] = set()
+        # An import whose module name is computed, so its target cannot be read here.
+        self.imports_by_computed_name = False
         self._depth = 0
 
     def visit_Import(self, node: ast.Import) -> None:
@@ -125,24 +134,29 @@ class ModuleFacts(ast.NodeVisitor):
                 self.attribute_clients.add(target.attr)
 
     def visit_Attribute(self, node: ast.Attribute) -> None:
-        root = node.value
-        while isinstance(root, ast.Attribute):
-            self.attribute_reads.add((self._root_name(root), root.attr))
-            root = root.value
-        self.attribute_reads.add((self._root_name(node), node.attr))
+        origin = self._origin(node)
+        if origin:
+            self.chains.add(origin)
         self.generic_visit(node)
-
-    @staticmethod
-    def _root_name(node: ast.Attribute) -> str:
-        value: ast.AST = node
-        while isinstance(value, ast.Attribute):
-            value = value.value
-        return value.id if isinstance(value, ast.Name) else ""
 
     def visit_Call(self, node: ast.Call) -> None:
         called = node.func.attr if isinstance(node.func, ast.Attribute) else getattr(node.func, "id", None)
+        origin = self._origin(node.func) or (
+            self.bound.get(called, called) if isinstance(node.func, ast.Name) else None
+        )
         if called in OUTBOUND_HELPERS:
             self.helper_calls.add(called)
+        # `asyncio.open_connection(...)`, `loop.create_connection(...)`: the loop is not an import,
+        # so these are matched by the name of the call.
+        if called in NETWORK_CALLS:
+            self.network_calls.add(called)
+        if origin in DYNAMIC_IMPORTS:
+            target = node.args[0] if node.args else None
+            if isinstance(target, ast.Constant) and isinstance(target.value, str):
+                # A name written out is an import like any other.
+                self.bound[f"<imported by name: {target.value}>"] = target.value
+            else:
+                self.imports_by_computed_name = True
         self.generic_visit(node)
 
     def visit_Constant(self, node: ast.Constant) -> None:
@@ -152,7 +166,7 @@ class ModuleFacts(ast.NodeVisitor):
     roots: frozenset[str] = frozenset()
 
     def imports_an_outbound_library(self) -> bool:
-        return any(_is_under(origin, self.roots) for origin in self.bound.values())
+        return bool(self.network_calls) or any(_is_under(origin, self.roots) for origin in self.bound.values())
 
 
 def _module_name(path: str) -> str:
@@ -171,26 +185,44 @@ def analyse(sources: dict[str, str], registry: dict = REGISTRY) -> dict[str, Mod
     return facts
 
 
-def borrows_a_client(module: ModuleFacts, facts: dict[str, ModuleFacts]) -> bool:
-    """Whether the module sends through a client that another app module built."""
-    by_name = {other.name: other for other in facts.values()}
-    for local, origin in module.bound.items():
-        owner_name, _, imported = origin.rpartition(".")
-        owner = by_name.get(owner_name)
-        if owner is None or owner is module:
+def _resolve(origin: str, by_name: dict[str, ModuleFacts], hops: int = 6) -> tuple[ModuleFacts, list[str]] | None:
+    """The app module a dotted origin leads into, and the attributes read from it.
+
+    `app.services.x.service.client.get` is module `app.services.x` and `["service", "client",
+    "get"]`. A name the module only re-exports is followed to the module that defines it.
+    """
+    parts = origin.split(".")
+    for cut in range(len(parts), 0, -1):
+        owner = by_name.get(".".join(parts[:cut]))
+        if owner is None:
             continue
-        # `from app.services.x import http_client`: the client itself.
-        if imported in owner.module_clients:
+        rest = parts[cut:]
+        if rest and rest[0] in owner.bound and hops > 0:
+            onward = _resolve(".".join([owner.bound[rest[0]], *rest[1:]]), by_name, hops - 1)
+            if onward is not None and onward[0] is not owner:
+                return onward
+        return owner, rest
+    return None
+
+
+def borrows_a_client(module: ModuleFacts, facts: dict[str, ModuleFacts]) -> bool:
+    """Whether the module reaches a client that another app module built, however it gets there.
+
+    By name (`from x import http_client`), through a re-export, through a module alias, or through
+    a service object that holds one (`module.service.client.get(...)`): every imported name and
+    every attribute chain is resolved to the module it leads into, and that module's clients are
+    looked for along the way.
+    """
+    by_name = {other.name: other for other in facts.values()}
+    for origin in set(module.bound.values()) | module.chains:
+        resolved = _resolve(origin, by_name)
+        if resolved is None:
+            continue
+        owner, attributes = resolved
+        if owner is module or not attributes:
+            continue
+        if attributes[0] in owner.module_clients or any(name in owner.attribute_clients for name in attributes[1:]):
             return True
-        # `from app.services.x import service` then `service.client...`: a client an object holds.
-        if any(root == local and attribute in owner.attribute_clients for root, attribute in module.attribute_reads):
-            return True
-    # `import app.services.x as x` then `x.http_client...`.
-    for local, origin in module.bound.items():
-        owner = by_name.get(origin)
-        if owner is not None and owner is not module:
-            if any(root == local and attribute in owner.module_clients for root, attribute in module.attribute_reads):
-                return True
     return False
 
 
@@ -231,6 +263,10 @@ def unregistered(sources: dict[str, str], registry: dict = REGISTRY) -> dict[str
             - _entry_modules(registry)
             - {i["module"] for i in registry["owner_addresses"]}
         ),
+        "modules that import by a computed name": sorted(
+            {path for path, module in facts.items() if module.imports_by_computed_name}
+            - {item["module"] for item in registry["dynamic_imports"]}
+        ),
         "hosts": sorted(written - known_hosts),
     }
 
@@ -245,6 +281,7 @@ def test_the_backend_sends_nothing_the_registry_does_not_list():
     assert unregistered(_sources()) == {
         "modules that import an outbound library": [],
         "modules that send through another module's client or helper": [],
+        "modules that import by a computed name": [],
         "hosts": [],
     }, FIX
 
@@ -257,6 +294,71 @@ def _requirements() -> set[str]:
             if not line or line.startswith("-"):
                 continue
             packages.add(re.split(r"[<>=!~;\[\s]", line, maxsplit=1)[0])
+    return packages
+
+
+_PIP = re.compile(r"\b(?:uv\s+)?pip3?\s+(?:install|wheel)\b(.*)")
+_TAKES_A_VALUE = frozenset(
+    "-r --requirement -c --constraint -f --find-links -i --index-url --extra-index-url -t --target "
+    "-w --wheel-dir --prefix --root --python --platform --abi --implementation --python-version".split()
+)
+
+
+def _package_name(requirement: str) -> str:
+    return re.split(r"[<>=!~;\[\s@]", requirement.strip().strip("'\""), maxsplit=1)[0]
+
+
+def dockerfile_packages(text: str) -> set[str]:
+    """Packages a Dockerfile names on a `pip install` or `pip wheel` line, beside its requirement files."""
+    packages: set[str] = set()
+    for line in re.sub(r"\\\s*\n", " ", text).splitlines():
+        for command in re.split(r"&&|\|\||;", line):
+            found = _PIP.search(command)
+            if not found:
+                continue
+            skip = False
+            for token in found.group(1).split():
+                if skip:
+                    skip = False
+                elif token in _TAKES_A_VALUE:
+                    skip = True
+                elif not token.startswith("-") and "$" not in token and "/" not in token:
+                    packages.add(_package_name(token))
+    return packages - {""}
+
+
+def pyproject_packages(text: str) -> set[str]:
+    """Packages a pyproject.toml declares, under any of the tables an installer reads."""
+    import tomllib
+
+    data = tomllib.loads(text)
+    project = data.get("project", {})
+    listed: list[str] = list(project.get("dependencies", []))
+    for group in project.get("optional-dependencies", {}).values():
+        listed += group
+    for group in data.get("dependency-groups", {}).values():
+        listed += [item for item in group if isinstance(item, str)]
+    poetry = data.get("tool", {}).get("poetry", {})
+    named = set(poetry.get("dependencies", {})) | set(poetry.get("dev-dependencies", {}))
+    for group in poetry.get("group", {}).values():
+        named |= set(group.get("dependencies", {}))
+    listed += list(data.get("tool", {}).get("uv", {}).get("dev-dependencies", []))
+    return ({_package_name(item) for item in listed} | named) - {"python", ""}
+
+
+def declared_packages() -> set[str]:
+    """Every package named anywhere the images or an installer would take one from."""
+    repository = BACKEND.parent
+    packages = _requirements()
+    for dockerfile in [
+        *repository.glob("Dockerfile*"),
+        *repository.glob("*/Dockerfile*"),
+        *repository.glob("docker/**/Dockerfile*"),
+    ]:
+        packages |= dockerfile_packages(dockerfile.read_text("utf-8"))
+    for pyproject in [repository / "pyproject.toml", BACKEND / "pyproject.toml"]:
+        if pyproject.is_file():
+            packages |= pyproject_packages(pyproject.read_text("utf-8"))
     return packages
 
 
@@ -376,6 +478,7 @@ def test_it_does_not_mistake_an_ordinary_use_of_a_service_for_a_borrowed_client(
     assert _with({"app/services/announcer.py": ordinary}) == {
         "modules that import an outbound library": [],
         "modules that send through another module's client or helper": [],
+        "modules that import by a computed name": [],
         "hosts": [],
     }
 
@@ -416,3 +519,124 @@ def test_it_catches_a_new_host_and_a_new_helper_caller():
     )
     assert found["hosts"] == ["collector.example.org"]
     assert found["modules that send through another module's client or helper"] == ["app/services/new_reporter.py"]
+
+
+def test_it_catches_a_client_reached_through_a_module_alias_and_a_service_object():
+    """`module.service.client`: two attributes deep from the import, which a one-step check missed."""
+    for source in (
+        "import app.services.notification_service as notifications\n\n\n"
+        "async def download(url):\n    return await notifications.notification_service.client.get(url)\n",
+        "import app.services.notification_service\n\n\n"
+        "async def download(url):\n"
+        "    return await app.services.notification_service.notification_service.client.get(url)\n",
+        "from app.services import notification_service as module\n\n\n"
+        "async def download(url):\n    return await module.notification_service.client.get(url)\n",
+    ):
+        found = _with({"app/services/new_downloader.py": source})
+        assert found["modules that send through another module's client or helper"] == [
+            "app/services/new_downloader.py"
+        ], source
+
+
+def test_it_catches_a_client_re_exported_by_a_module_that_did_not_build_it():
+    found = _with(
+        {
+            "app/services/shared_clients.py": "from app.services.garden_notification_transport import http_client\n",
+            "app/services/new_downloader.py": (
+                "from app.services.shared_clients import http_client\n\n\n"
+                "async def download(url):\n    return await http_client.get(url)\n"
+            ),
+        }
+    )
+    assert "app/services/new_downloader.py" in found["modules that send through another module's client or helper"]
+
+
+def test_it_catches_a_connection_opened_through_asyncio():
+    for source in (
+        "import asyncio\n\n\nasync def dial(host, port):\n    return await asyncio.open_connection(host, port)\n",
+        "from asyncio import open_connection\n\n\nasync def dial(host, port):\n    return await open_connection(host, port)\n",
+        "import asyncio\n\n\nasync def dial(host, port, factory):\n"
+        "    return await asyncio.get_running_loop().create_connection(factory, host, port)\n",
+        "import asyncio\n\n\nasync def dial(factory):\n"
+        "    return await asyncio.get_running_loop().create_datagram_endpoint(factory, remote_addr=('h', 1))\n",
+    ):
+        assert _with({"app/services/dialler.py": source})["modules that import an outbound library"] == [
+            "app/services/dialler.py"
+        ], source
+
+
+def test_asyncio_used_for_anything_else_is_not_a_connection():
+    ordinary = "import asyncio\n\n\nasync def wait():\n    await asyncio.sleep(1)\n    await asyncio.to_thread(print)\n"
+    assert _with({"app/services/waiter.py": ordinary})["modules that import an outbound library"] == []
+
+
+def test_it_reads_an_import_made_by_name_when_the_name_is_written_out():
+    for source in (
+        "import importlib\n\nclient = importlib.import_module('httpx')\n",
+        "client = __import__('aiosmtplib')\n",
+        "from importlib import import_module\n\nclient = import_module('urllib.request')\n",
+    ):
+        assert _with({"app/services/late_import.py": source})["modules that import an outbound library"] == [
+            "app/services/late_import.py"
+        ], source
+
+
+def test_an_import_by_a_computed_name_has_to_be_acknowledged_in_the_registry():
+    computed = "import importlib\n\n\ndef load(name):\n    return importlib.import_module(name)\n"
+    found = _with({"app/services/plugin_loader.py": computed})
+    assert found["modules that import by a computed name"] == ["app/services/plugin_loader.py"]
+    # The one the backend has today is acknowledged, with the reason.
+    assert unregistered(_sources())["modules that import by a computed name"] == []
+    assert all(item["reason"].strip() for item in REGISTRY["dynamic_imports"])
+
+
+# ---- Dependencies declared anywhere a package can be installed from ----------------------------------
+
+
+def test_packages_installed_by_a_dockerfile_are_read():
+    dockerfile = (
+        "FROM python:3.13\n"
+        "RUN pip install --no-cache-dir --find-links /wheels \\\n"
+        "        -r /requirements/requirements-base.txt \\\n"
+        "        cohere==5.1 'boto3>=1.34' && rm -rf /tmp/x\n"
+        "RUN python -m pip install --upgrade pip; pip3 install -c constraints.txt websockets[speedups]\n"
+        "RUN uv pip install --system qdrant-client\n"
+        "RUN pip wheel --wheel-dir /wheels -r requirements.txt\n"
+    )
+    assert dockerfile_packages(dockerfile) == {"cohere", "boto3", "pip", "websockets", "qdrant-client"}
+
+
+def test_packages_declared_in_pyproject_are_read():
+    pyproject = (
+        "[project]\nname = 'x'\ndependencies = ['cohere>=5', 'httpx']\n"
+        "[project.optional-dependencies]\ncloud = ['boto3 ; python_version > \"3.9\"']\n"
+        "[dependency-groups]\ndev = ['pytest']\n"
+        "[tool.poetry.dependencies]\npython = '^3.13'\nqdrant-client = '^1.9'\n"
+        "[tool.ruff]\nline-length = 120\n"
+    )
+    assert pyproject_packages(pyproject) == {"cohere", "httpx", "boto3", "pytest", "qdrant-client"}
+    assert pyproject_packages("[tool.ruff]\nline-length = 120\n") == set()
+
+
+def test_every_package_the_images_or_pyproject_install_is_classified_too():
+    dependencies = REGISTRY["dependencies"]
+    classified = {package["package"] for kind in ("outbound", "not_outbound") for package in dependencies[kind]}
+    # pip is the installer itself, upgraded in place by some images.
+    declared = declared_packages() - {"pip", "setuptools", "wheel"}
+
+    assert sorted(declared - classified) == [], (
+        "A Dockerfile or pyproject.toml installs a package backend/outbound_requests.json does not classify."
+    )
+    assert _requirements() <= declared_packages()
+
+
+def test_the_blind_spots_are_each_named_for_reviewers():
+    notes = " ".join(REGISTRY["manual_review"])
+
+    # Each of these is something the guard cannot see; removing the note has to fail here.
+    assert "importlib.import_module" in notes and "computed" in notes
+    assert "getattr" in notes
+    assert "apt" in notes and "base image" in notes
+    assert "outside backend/app" in notes and "custom_components" in notes
+    # And the guarantee is stated as what it is.
+    assert "does not prove" in REGISTRY["about"]
