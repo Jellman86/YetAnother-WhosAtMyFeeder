@@ -1722,7 +1722,9 @@
     "value_on": "Activé",
     "value_off": "Désactivé",
     "value_not_set": "Non défini",
-    "value_other": "Une autre valeur"
+    "value_other": "Une autre valeur",
+    "discard_short": "Annuler",
+    "save_short": "Enregistrer"
   },
   "leave": {
     "title": "Quitter sans enregistrer ?",

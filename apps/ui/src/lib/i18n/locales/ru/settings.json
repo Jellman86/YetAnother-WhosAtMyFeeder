@@ -1722,7 +1722,9 @@
     "value_on": "Вкл.",
     "value_off": "Выкл.",
     "value_not_set": "Не задано",
-    "value_other": "Другое значение"
+    "value_other": "Другое значение",
+    "discard_short": "Отменить",
+    "save_short": "Сохранить"
   },
   "leave": {
     "title": "Уйти без сохранения?",

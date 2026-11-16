@@ -1722,7 +1722,9 @@
     "value_on": "On",
     "value_off": "Off",
     "value_not_set": "Not set",
-    "value_other": "A different value"
+    "value_other": "A different value",
+    "discard_short": "Discard",
+    "save_short": "Save"
   },
   "leave": {
     "title": "Leave without saving?",

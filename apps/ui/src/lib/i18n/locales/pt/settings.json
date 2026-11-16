@@ -1722,7 +1722,9 @@
     "value_on": "Ligado",
     "value_off": "Desligado",
     "value_not_set": "Sem valor",
-    "value_other": "Um valor diferente"
+    "value_other": "Um valor diferente",
+    "discard_short": "Descartar",
+    "save_short": "Salvar"
   },
   "leave": {
     "title": "Sair sem salvar?",

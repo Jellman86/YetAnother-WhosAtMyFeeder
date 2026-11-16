@@ -1722,7 +1722,9 @@
     "value_on": "An",
     "value_off": "Aus",
     "value_not_set": "Nicht gesetzt",
-    "value_other": "Ein anderer Wert"
+    "value_other": "Ein anderer Wert",
+    "discard_short": "Verwerfen",
+    "save_short": "Speichern"
   },
   "leave": {
     "title": "Ohne Speichern verlassen?",

@@ -496,7 +496,7 @@ test('collection status never claims a device that has not run', async ({ page }
 });
 
 test('with its model downloaded and nothing blocking, collection status shows the service\'s own words', async ({ page }) => {
-    await openSettings(page, {}, ['patio'], (route, path) => path === '/api/garden/identification'
+    await openSettings(page, { garden_cameras: ['patio'] }, ['patio'], (route, path) => path === '/api/garden/identification'
         ? route.fulfill({ json: { ...identificationStatus, models: identificationStatus.models.map((model) => ({ ...model, installed: true })), last_execution: null } }) : undefined);
     await openBeta(page);
     const status = page.locator('[data-garden-collection-status]');
@@ -699,7 +699,7 @@ test('a running Garden states its cameras, the device it ran on and what is stil
         /Download the Automatic check model\./,
         /Set your location, so Garden knows your country/
     ]);
-    await page.locator('[data-garden-next-step="download_model"]').getByRole('button', { name: 'Open models' }).click();
+    await page.locator('[data-garden-next-step="download_model"]').getByRole('button', { name: 'Set up Garden models' }).click();
     const models = page.getByRole('heading', { name: 'Models' }).getByRole('button');
     await expect(models).toHaveAttribute('aria-expanded', 'true');
     await expect(models).toBeFocused();

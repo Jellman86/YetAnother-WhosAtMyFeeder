@@ -1722,7 +1722,9 @@
     "value_on": "オン",
     "value_off": "オフ",
     "value_not_set": "未設定",
-    "value_other": "別の値"
+    "value_other": "別の値",
+    "discard_short": "破棄",
+    "save_short": "保存"
   },
   "leave": {
     "title": "保存せずに移動しますか?",

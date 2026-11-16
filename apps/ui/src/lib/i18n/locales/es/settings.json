@@ -1722,7 +1722,9 @@
     "value_on": "Activado",
     "value_off": "Desactivado",
     "value_not_set": "Sin valor",
-    "value_other": "Un valor distinto"
+    "value_other": "Un valor distinto",
+    "discard_short": "Descartar",
+    "save_short": "Guardar"
   },
   "leave": {
     "title": "¿Salir sin guardar?",

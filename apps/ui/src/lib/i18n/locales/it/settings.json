@@ -1722,7 +1722,9 @@
     "value_on": "Attivo",
     "value_off": "Disattivo",
     "value_not_set": "Non impostato",
-    "value_other": "Un valore diverso"
+    "value_other": "Un valore diverso",
+    "discard_short": "Scarta",
+    "save_short": "Salva"
   },
   "leave": {
     "title": "Uscire senza salvare?",

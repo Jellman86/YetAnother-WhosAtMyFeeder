@@ -1722,7 +1722,9 @@
     "value_on": "开",
     "value_off": "关",
     "value_not_set": "未设置",
-    "value_other": "不同的值"
+    "value_other": "不同的值",
+    "discard_short": "放弃",
+    "save_short": "保存"
   },
   "leave": {
     "title": "不保存就离开？",
