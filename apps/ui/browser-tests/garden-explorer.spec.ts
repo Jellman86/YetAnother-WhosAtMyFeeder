@@ -1038,6 +1038,9 @@ for (const [checkModel, installed, extra] of [
         } }));
         const { dialog, status, setup, closed, override, byHand, dismiss } = await openPending(page);
         await expect(override).toBeVisible();
+        // The section stays collapsed; any reason it is the owner's to decide is on its summary.
+        await expect(override).not.toHaveAttribute('open', '');
+        if (!installed || 'catalogue_ready' in extra || 'error' in extra) await expect(override.locator('summary').locator('[data-garden-manual-by-hand]')).toBeVisible();
         await expect(closed).toHaveCount(0);
         await expect(dismiss).toBeEnabled();
         if ('catalogue_ready' in extra || 'error' in extra) {

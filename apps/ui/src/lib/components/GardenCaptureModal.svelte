@@ -766,14 +766,17 @@
                         {:else if capture.status === 'pending'}
                             <details open={manualOverride} ontoggle={(event) => manualOverride = event.currentTarget.open} class="group/manual w-full" data-garden-manual-override>
                                 <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 py-3 text-sm font-semibold focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus [&::-webkit-details-marker]:hidden">
-                                    <span>{$_('garden.manual_override', { default: 'Manual override' })}</span>
+                                    <span class="min-w-0">
+                                        <span class="block">{$_('garden.manual_override', { default: 'Manual override' })}</span>
+                                        {#if manual?.state === 'open' && manual.note === 'by_hand'}
+                                            <!-- On the summary, so the owner sees why it is theirs to decide without opening it. -->
+                                            <span class="mt-0.5 block text-xs font-normal text-muted" data-garden-manual-by-hand>
+                                                {$_('garden.explorer.override_by_hand', { default: 'The automatic check can’t run here, so you decide by hand.' })}
+                                            </span>
+                                        {/if}
+                                    </span>
                                     <svg class="h-4 w-4 shrink-0 transition-transform group-open/manual:rotate-180 motion-reduce:transition-none" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m5 7.5 5 5 5-5" /></svg>
                                 </summary>
-                                {#if manual?.state === 'open' && manual.note === 'by_hand'}
-                                    <p class="mb-2 text-xs text-muted" data-garden-manual-by-hand>
-                                        {$_('garden.explorer.override_by_hand', { default: 'The automatic check can’t run here, so you decide by hand.' })}
-                                    </p>
-                                {/if}
                                 <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                                     <button type="button" class="btn min-h-11 min-w-0 w-full whitespace-normal px-4 text-sm sm:w-auto btn-primary sm:flex-1" disabled={saving || !photoReady} onclick={() => review('confirm')}>
                                         {$_('garden.confirm_manually', { default: 'Confirm animal manually' })}
