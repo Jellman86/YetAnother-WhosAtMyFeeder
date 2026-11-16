@@ -30,6 +30,7 @@
     } from '../api';
     import { chartjsWhenNear, toggleChartSlice, type CanvasChartConfig, type MixedCanvasChartConfig } from '../actions/chartjs';
     import { whenNearViewport } from '../actions/near-viewport';
+    import { roomFor } from '../actions/box-width';
     import LazyModal from '../components/LazyModal.svelte';
     import { loadSpeciesDetailModal } from '../components/lazy-dialogs';
     import { defaultLeaderboardChartPreferences } from '../leaderboard/chart-defaults';
@@ -113,6 +114,8 @@
     let loading = $state(true);
     let pageElement: HTMLDivElement | undefined;
     let refreshHeight = $state(0);
+    // Null until the ranking frame has been laid out once; see `roomFor`.
+    let rankingTableFits = $state<boolean | null>(null);
     let error = $state<string | null>(null);
     // A link can ask for a window and for the checks card, as the Dashboard's "Needs your call" does.
     const pageLink = parseSpeciesPageLink(window.location.search, window.location.hash);
@@ -1861,8 +1864,12 @@
 
             {#key `${sourceMode}-${span}`}
                 <!-- The ranking is a table only where its columns have room at the reader's text size:
-                     the widths below are in rem of this box, so larger text reflows it into rows. -->
-                <div class="@container" data-leaderboard-ranking-frame>
+                     the widths below are in rem of this box, so larger text reflows it into rows.
+                     Only the arrangement that fits is built: the ruler is the 56rem the table needs, in this
+                     reader's text size, and the container query below says the same. -->
+                <div class="@container relative" data-leaderboard-ranking-frame use:roomFor={(fits) => (rankingTableFits = fits)}>
+                <div class="pointer-events-none invisible absolute inset-x-0 top-0 h-0 overflow-hidden" aria-hidden="true"><div class="h-0 w-4xl" data-room-ruler></div></div>
+                {#if rankingTableFits === false}
                 <div class="divide-y divide-slate-200 border-y border-slate-200 dark:divide-slate-700 dark:border-slate-700 @4xl:hidden" data-leaderboard-stacked-rankings>
                 {#each leaderboardRows as item, index (`mobile-${item.species}|${item.audio_only}|${index}`)}
                     {@const evidence = evidenceOf(item)}
@@ -1899,7 +1906,9 @@
                     </button>
                 {/each}
                 </div>
+                {/if}
 
+                {#if rankingTableFits === true}
                 <div class="hidden overflow-hidden border-y border-slate-200 dark:border-slate-700 @4xl:block" data-leaderboard-table-rankings>
                 <table class="w-full table-fixed text-left text-sm" data-testid="leaderboard-table">
                     <thead class="border-b border-slate-200 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:text-slate-400">
@@ -1942,6 +1951,7 @@
                     </tbody>
                 </table>
                 </div>
+                {/if}
                 </div>
             {/key}
         </section>
