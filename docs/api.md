@@ -952,10 +952,25 @@ Notes:
   rows without a catalogue refresh or database write.
   An optional `scientific_name` (1–200 characters) binds a reference to that exact
   taxon. Garden uses this to avoid ambiguous common-name bird searches. These
-  lookups use Wikipedia and iNaturalist, require the scientific identity in the
-  article or exact active taxon name, and have a separate language/identity cache.
+  lookups use Wikipedia and iNaturalist and have a separate language/identity cache.
   They never reuse name-only cached articles. If neither source matches, text
   and photographs stay unavailable. `refresh=true` bypasses either cache.
+  Whenever the taxon is known (a `scientific_name` was given, or the taxonomy knows the bird's),
+  the Wikipedia description is the article that the exact active iNaturalist taxon links to
+  (`wikipedia_url`), asked for by its title; in another language it is the article Wikipedia's own
+  language link leads to, and when that language has no article, the linked one. The linked
+  article is read and verified first, and only a verified article's language link is followed.
+  `summary_language` is the language the description is actually in (a Wikipedia edition code such
+  as `en`, read from the summary's own address; null for other sources), which can differ from
+  the language asked for. The summary's
+  text is not consulted for these, because Wikipedia's REST summary leaves the scientific name
+  out. If Wikipedia answers the linked title with another title (a redirect), the article is
+  accepted only when that title is a name the species catalogue records for the taxon, or when the
+  article has the exact scientific name as its subject; otherwise it is unverified and not used.
+  Cached Wikipedia descriptions are served only when their taxon was checked this way when they
+  were saved; older rows are looked up again on first read. Only a taxon with no linked article is looked for by
+  title and search, and what is found is then accepted only when the taxon is the subject of its
+  title or opening sentence; a host, prey, parasite or subspecies mention is refused.
   `extract` and `description` are readable plain text: provider HTML, comments,
   scripts and styles are removed, entities are decoded and paragraph breaks are
   retained. This also applies when reading older cached summaries, without a

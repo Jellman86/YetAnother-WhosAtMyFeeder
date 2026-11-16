@@ -26,6 +26,7 @@
     import SimpleBarChart from './SimpleBarChart.svelte';
     import RangeMap from './RangeMap.svelte';
     import { _, locale } from 'svelte-i18n';
+    import { summaryInAnotherLanguage } from '../utils/summary-language';
     import { speciesStatLead, type RowFigure } from '../leaderboard/row-figure';
     import { get } from 'svelte/store';
     import { trapFocus } from '../utils/focus-trap';
@@ -712,7 +713,7 @@
                 {/if}
 
                 {#if !isUnknownBird && lineageName}
-                    <TaxonomyLineage scientificName={lineageName} class="border-t border-slate-200 pt-8 dark:border-slate-700" />
+                    <TaxonomyLineage scientificName={lineageName} commonName={stats?.common_name ?? null} class="border-t border-slate-200 pt-8 dark:border-slate-700" />
                 {/if}
 
                 <!-- Species Description -->
@@ -749,7 +750,13 @@
                         </div>
 
                         {#if info.extract}
-                            <p class="max-w-3xl text-sm leading-7 text-slate-600 dark:text-slate-300">{info.extract}</p>
+                            {@const summaryLanguage = summaryInAnotherLanguage(info, $locale)}
+                            <p class="max-w-3xl text-sm leading-7 text-slate-600 dark:text-slate-300" lang={summaryLanguage?.code}>{info.extract}</p>
+                            {#if summaryLanguage}
+                                <p class="mt-1 text-xs text-muted" data-reference-summary-language={summaryLanguage.code}>
+                                    {$_('species_detail.summary_language_note', { default: 'Description from {language} Wikipedia', values: { language: summaryLanguage.name } })}
+                                </p>
+                            {/if}
                         {:else}
                             <p class="text-sm italic text-slate-600 dark:text-slate-400">{$_('species_detail.no_info')}</p>
                         {/if}

@@ -127,6 +127,26 @@ class SpeciesNameLookup:
 
         return default_catalog_path()
 
+    def all_names(self, species_id: int) -> frozenset[str]:
+        """Every vernacular name the catalogue records for one species, in every language, casefolded.
+
+        For recognising a name as this species', not for display: an article retitled to another of
+        the species' recorded names is still about it. Empty when the catalogue cannot be read.
+        """
+        try:
+            connection = sqlite3.connect(f"file:{self._resolved_path()}?mode=ro", uri=True)
+        except sqlite3.Error as error:
+            log.debug("Species catalogue unavailable for naming", error=str(error))
+            return frozenset()
+        try:
+            rows = connection.execute("SELECT name FROM species_names WHERE species_id = ?", (int(species_id),))
+            return frozenset(str(name).casefold() for (name,) in rows if name)
+        except sqlite3.Error as error:
+            log.debug("Species catalogue unreadable for naming", error=str(error))
+            return frozenset()
+        finally:
+            connection.close()
+
     def display_names(self, species_ids: Iterable[int], *, language: Optional[str]) -> dict[int, str]:
         return {
             species_id: names.display
