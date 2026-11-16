@@ -683,9 +683,6 @@
       "app/routers/geocoding.py": [
         "app/services/geocoding_service.py"
       ],
-      "app/routers/jobs.py": [
-        "app/services/full_visit_clip_service.py"
-      ],
       "app/routers/model_eval.py": [
         "app/services/model_eval_service.py"
       ],
@@ -751,6 +748,9 @@
         "app/services/taxonomy/taxonomy_service.py",
         "app/services/weather_service.py"
       ],
+      "app/services/frigate_camera_health.py": [
+        "app/services/frigate_client.py"
+      ],
       "app/services/garden_capture_service.py": [
         "app/services/frigate_client.py"
       ],
@@ -770,6 +770,9 @@
         "app/services/frigate_client.py",
         "app/services/model_manager.py",
         "app/services/mqtt_service.py"
+      ],
+      "app/services/jobs_snapshot.py": [
+        "app/services/full_visit_clip_service.py"
       ],
       "app/services/label_enrichment.py": [
         "app/services/ebird_service.py",
@@ -834,6 +837,9 @@
       ],
       "app/services/species_catalog_compatibility.py": [
         "app/services/model_manager.py"
+      ],
+      "app/services/system_status_readings.py": [
+        "app/services/mqtt_service.py"
       ],
       "app/services/timezone_repair_service.py": [
         "app/services/frigate_client.py"
