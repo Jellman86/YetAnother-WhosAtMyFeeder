@@ -35,4 +35,13 @@ describe('explainArchiveFailure', () => {
         expect(explainArchiveFailure({ error: 'disk_full', retry_at: null }).retryAt).toBeNull();
         expect(explainArchiveFailure({ error: 'disk_full', retry_at: 'not a time' }).retryAt).toBeNull();
     });
+
+    it('does not name a retry time that has already passed: the retry is due, not scheduled', () => {
+        const now = Date.parse('2026-11-15T14:10:00Z');
+        const due = explainArchiveFailure({ error: 'disk_full', retry_at: '2026-11-15T14:05:00Z' }, now);
+        expect(due.retryDue).toBe(true);
+        const later = explainArchiveFailure({ error: 'disk_full', retry_at: '2026-11-15T14:20:00Z' }, now);
+        expect(later.retryDue).toBe(false);
+        expect(explainArchiveFailure({ error: 'disk_full', retry_at: null }, now).retryDue).toBe(false);
+    });
 });

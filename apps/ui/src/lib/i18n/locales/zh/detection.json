@@ -518,5 +518,6 @@
   "archive_retry_scheduled": "YA-WAMF 会在 {at} 自动重试。无论如何，这次到访都会保留在历史记录中。",
   "archive_retry_spent": "YA-WAMF 已停止自动重试。无论如何，这次到访都会保留在历史记录中。",
   "archive_retry_now": "立即重试",
-  "audio_match_evidence": "匹配的鸣声"
+  "audio_match_evidence": "匹配的鸣声",
+  "archive_retry_due": "YA-WAMF 很快会自动重试。无论如何，这次到访都会保留在历史记录中。"
 }

@@ -556,7 +556,9 @@
             disk_error: $_('detection.archive_cause.disk_error', { default: 'The data folder could not be written to. Check that it exists and YA-WAMF may write to it.' }),
             unknown: $_('detection.archive_cause.unknown', { default: 'The cause was not recorded.' })
         }[explained.cause];
-        const retry = explained.retryAt !== null
+        const retry = explained.retryDue
+            ? $_('detection.archive_retry_due', { default: 'YA-WAMF tries again by itself shortly. The visit stays in your history either way.' })
+            : explained.retryAt !== null
             ? $_('detection.archive_retry_scheduled', { values: { at: formatDateTime(explained.retryAt) }, default: 'YA-WAMF tries again by itself at {at}. The visit stays in your history either way.' })
             : $_('detection.archive_retry_spent', { default: 'YA-WAMF has stopped trying by itself. The visit stays in your history either way.' });
         return { lost, cause, retry };

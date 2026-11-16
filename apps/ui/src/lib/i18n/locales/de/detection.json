@@ -518,5 +518,6 @@
   "archive_retry_scheduled": "YA-WAMF versucht es um {at} selbst erneut. Der Besuch bleibt in jedem Fall in Ihrem Verlauf.",
   "archive_retry_spent": "YA-WAMF versucht es nicht mehr selbst. Der Besuch bleibt in jedem Fall in Ihrem Verlauf.",
   "archive_retry_now": "Jetzt erneut versuchen",
-  "audio_match_evidence": "Der passende Ruf"
+  "audio_match_evidence": "Der passende Ruf",
+  "archive_retry_due": "YA-WAMF versucht es in Kürze selbst erneut. Der Besuch bleibt in jedem Fall in Ihrem Verlauf."
 }

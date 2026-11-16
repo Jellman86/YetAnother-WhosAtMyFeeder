@@ -518,5 +518,6 @@
   "archive_retry_scheduled": "YA-WAMF réessaiera de lui-même à {at}. La visite reste dans votre historique dans tous les cas.",
   "archive_retry_spent": "YA-WAMF a cessé de réessayer de lui-même. La visite reste dans votre historique dans tous les cas.",
   "archive_retry_now": "Réessayer maintenant",
-  "audio_match_evidence": "Le chant correspondant"
+  "audio_match_evidence": "Le chant correspondant",
+  "archive_retry_due": "YA-WAMF réessaiera de lui-même sous peu. La visite reste dans votre historique dans tous les cas."
 }

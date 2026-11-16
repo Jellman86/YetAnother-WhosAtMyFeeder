@@ -27,6 +27,8 @@ export interface ArchiveFailureExplanation {
     cause: ArchiveFailureCause;
     /** When the worker tries again by itself, or null once its attempts are spent. */
     retryAt: number | null;
+    /** The retry time has passed, so it happens with the worker's next sweep, not at a time to name. */
+    retryDue: boolean;
 }
 
 function lostAssets(snapshot: string | null | undefined, clip: string | null | undefined): ArchiveLoss {
@@ -49,11 +51,13 @@ function causeOf(error: string | null | undefined): ArchiveFailureCause {
     return 'unknown';
 }
 
-export function explainArchiveFailure(status: ArchiveFailureInput): ArchiveFailureExplanation {
+export function explainArchiveFailure(status: ArchiveFailureInput, now: number = Date.now()): ArchiveFailureExplanation {
     const retry = status.retry_at ? Date.parse(status.retry_at) : Number.NaN;
+    const retryAt = Number.isFinite(retry) ? retry : null;
     return {
         lost: lostAssets(status.snapshot_state, status.clip_state),
         cause: causeOf(status.error),
-        retryAt: Number.isFinite(retry) ? retry : null
+        retryAt,
+        retryDue: retryAt !== null && retryAt <= now
     };
 }

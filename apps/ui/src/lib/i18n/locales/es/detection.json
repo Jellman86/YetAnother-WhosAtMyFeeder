@@ -518,5 +518,6 @@
   "archive_retry_scheduled": "YA-WAMF lo volverá a intentar solo a las {at}. La visita se queda en tu historial en cualquier caso.",
   "archive_retry_spent": "YA-WAMF ha dejado de intentarlo solo. La visita se queda en tu historial en cualquier caso.",
   "archive_retry_now": "Reintentar ahora",
-  "audio_match_evidence": "El canto coincidente"
+  "audio_match_evidence": "El canto coincidente",
+  "archive_retry_due": "YA-WAMF lo volverá a intentar solo en breve. La visita se queda en tu historial en cualquier caso."
 }

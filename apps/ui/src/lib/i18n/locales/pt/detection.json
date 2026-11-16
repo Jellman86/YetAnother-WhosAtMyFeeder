@@ -518,5 +518,6 @@
   "archive_retry_scheduled": "O YA-WAMF tenta de novo sozinho às {at}. A visita fica no seu histórico de qualquer forma.",
   "archive_retry_spent": "O YA-WAMF deixou de tentar sozinho. A visita fica no seu histórico de qualquer forma.",
   "archive_retry_now": "Tentar novamente agora",
-  "audio_match_evidence": "O canto correspondente"
+  "audio_match_evidence": "O canto correspondente",
+  "archive_retry_due": "O YA-WAMF tenta de novo sozinho em breve. A visita fica no seu histórico de qualquer forma."
 }

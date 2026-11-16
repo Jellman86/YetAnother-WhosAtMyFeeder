@@ -518,5 +518,6 @@
   "archive_retry_scheduled": "YA-WAMF tries again by itself at {at}. The visit stays in your history either way.",
   "archive_retry_spent": "YA-WAMF has stopped trying by itself. The visit stays in your history either way.",
   "archive_retry_now": "Try again now",
-  "audio_match_evidence": "The matching call"
+  "audio_match_evidence": "The matching call",
+  "archive_retry_due": "YA-WAMF tries again by itself shortly. The visit stays in your history either way."
 }
