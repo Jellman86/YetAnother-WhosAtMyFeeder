@@ -1,3 +1,4 @@
+import type { Guarded } from '../api/core';
 import { createRetryingReader } from './retrying-reader';
 
 interface RevisionFollower {
@@ -15,7 +16,7 @@ interface RevisionFollower {
  * flight may have started before the change it names. A failed read is retried with the shared
  * capped backoff until one succeeds or the view stops following.
  */
-export function followRevisions(read: () => Promise<boolean>, knownRevision: string | null): RevisionFollower {
+export function followRevisions(read: (signal: AbortSignal) => Guarded<boolean>, knownRevision: string | null): RevisionFollower {
     let seen = knownRevision;
     let stopped = false;
     const reader = createRetryingReader({ read, active: () => !stopped });

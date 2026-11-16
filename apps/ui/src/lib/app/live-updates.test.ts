@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { asGuarded } from '../test-support/guarded';
 import type { SystemStatus } from '../api/status';
 import { LiveUpdateCoordinator, toDetection } from './live-updates';
 import { READ_RETRY_MS as WORKSPACE_RETRY_MS } from './retrying-reader';
@@ -134,9 +135,11 @@ function buildCoordinator(options?: {
         diagnostics: {
             recordError: (input: any) => calls.recordError.push(input)
         },
-        syncDiagnosticsWorkspace: options?.syncDiagnosticsWorkspace ?? (async () => {
-            calls.syncDiagnosticsWorkspace.push(true);
-        })
+        syncDiagnosticsWorkspace: options?.syncDiagnosticsWorkspace
+            ? () => asGuarded(options.syncDiagnosticsWorkspace!())
+            : () => asGuarded((async () => {
+                calls.syncDiagnosticsWorkspace.push(true);
+            })())
     });
 
     return { coordinator, calls, notificationItems, jobProgress };

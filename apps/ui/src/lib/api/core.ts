@@ -171,21 +171,65 @@ export function apiFetch(url: string, options: ApiFetchOptions = {}): Promise<Re
     return guardedRequest(url, options, async (response) => response);
 }
 
+declare const guardedRead: unique symbol;
+
+/**
+ * A read whose timeout and cancellation cover the whole response, body included. Only the guarded
+ * client below makes one, and the retrying readers accept nothing else, so a read that could
+ * stall after its headers (a bare `fetch`, `apiFetch`, or an `async` function) does not type-check
+ * where a reader expects one.
+ */
+export type Guarded<T> = Promise<T> & { readonly [guardedRead]: true };
+
+function guarded<T>(read: Promise<T>): Guarded<T> {
+    return read as Guarded<T>;
+}
+
+/** A step after a guarded read that makes no request of its own: it may not return a promise. */
+type Settled<R> = R extends PromiseLike<unknown> ? never : R;
+
 /**
  * The parsed JSON body, with the timeout and the caller's abort covering the request until the
  * body has been read: a response that stalls after its headers is still timed out or cancelled.
  */
-export function apiFetchJson<T>(url: string, options: ApiFetchOptions = {}): Promise<T> {
-    return guardedRequest(url, options, (response) => handleResponse<T>(response));
+export function apiFetchJson<T>(url: string, options: ApiFetchOptions = {}): Guarded<T> {
+    return guarded(guardedRequest(url, options, (response) => handleResponse<T>(response)));
+}
+
+/** A guarded read's value put to use, by a step that makes no request; failures pass to `onError`. */
+export function mapGuarded<T, R>(
+    read: Guarded<T>,
+    next: (value: T) => Settled<R>,
+    onError?: (error: unknown) => Settled<R>
+): Guarded<R> {
+    return guarded(read.then(next, onError));
+}
+
+/** A guarded read followed by another guarded read; failures of either pass to `onError`. */
+export function chainGuarded<T, R>(
+    read: Guarded<T>,
+    next: (value: T) => Guarded<R>,
+    onError?: (error: unknown) => Settled<R>
+): Guarded<R> {
+    return guarded(read.then(next).then(undefined, onError));
+}
+
+/** A settled value, for a branch of a guarded read that makes no request at all. */
+export function guardedValue<T>(value: Settled<T>): Guarded<T> {
+    return guarded(Promise.resolve(value));
 }
 
 const abortControllers = new Map<string, AbortController>();
 
-export async function fetchWithAbort<T>(
+/**
+ * One read per `key`: a newer read with the same key cancels the older one, body included. The
+ * timeout, when given, also covers the body.
+ */
+export function fetchWithAbort<T>(
     key: string | null,
     url: string,
     options: ApiFetchOptions = {}
-): Promise<T> {
+): Guarded<T> {
     if (key && abortControllers.has(key)) {
         abortControllers.get(key)!.abort();
         abortControllers.delete(key);
@@ -197,29 +241,26 @@ export async function fetchWithAbort<T>(
         abortControllers.set(key, controller);
     }
 
-    try {
-        const fetchOptions: ApiFetchOptions = {
-            ...options,
-            signal: controller?.signal ?? options.signal
-        };
-
-        const response = await apiFetch(url, fetchOptions);
-
+    const release = (): void => {
         if (key && abortControllers.get(key) === controller) {
             abortControllers.delete(key);
         }
-
-        return await handleResponse<T>(response);
-    } catch (error) {
-        if (key && abortControllers.get(key) === controller) {
-            abortControllers.delete(key);
-        }
-
-        if (error instanceof Error && error.name === 'AbortError') {
-            console.debug(`Request cancelled: ${key || url}`);
-        }
-        throw error;
-    }
+    };
+    return guarded(
+        guardedRequest(url, { ...options, signal: controller?.signal ?? options.signal }, (response) => handleResponse<T>(response)).then(
+            (value) => {
+                release();
+                return value;
+            },
+            (error: unknown) => {
+                release();
+                if (error instanceof Error && error.name === 'AbortError') {
+                    console.debug(`Request cancelled: ${key || url}`);
+                }
+                throw error;
+            }
+        )
+    );
 }
 
 /** A failed API response, keeping the HTTP status so callers can tell

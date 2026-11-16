@@ -19,6 +19,6 @@ describe('an out-of-date status says so', () => {
         // The opening read goes through the follower too, so a failed one is retried, and stops on unmount.
         expect(healthSource).toContain('follower.start();');
         expect(healthSource).toContain('follower.stop();');
-        expect(healthSource).toMatch(/async function refreshWorkspace\(\): Promise<boolean>/);
+        expect(healthSource).toMatch(/function refreshWorkspace\(signal\?: AbortSignal\): Guarded<boolean>/);
     });
 });

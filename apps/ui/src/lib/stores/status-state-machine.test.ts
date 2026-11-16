@@ -4,6 +4,7 @@ import type { SystemStatus } from '../api/status';
 import { READ_RETRY_MS, createRetryingReader } from '../app/retrying-reader';
 import type { PollDocument } from '../app/visible-poll';
 import { STATUS_STALE_AFTER_MS, SystemStatusStore } from './system_status.svelte';
+import { createIncidentWorkspaceStore } from './incident_workspace.svelte';
 
 /**
  * Random sequences of what the status store and the retrying reader live through, checked after
@@ -172,52 +173,82 @@ describe('the status store, under random sequences', () => {
     });
 });
 
-describe('the retrying reader, under random sequences', () => {
-    it('reads one at a time, never sooner than the backoff after a failure, and nothing from before a cancel', async () => {
+describe('the retrying reader, driving the shell\'s workspace reads under random sequences', () => {
+    it('reads one at a time, never sooner than the backoff after a failure or a stall, and nothing from before a cancel', async () => {
+        const WORKSPACE_TIMEOUT_MS = 15_000;
         for (let seed = 1; seed <= 60; seed += 1) {
             const random = rng(seed * 7919);
             let inFlight = 0;
             let wanted = true;
             let failures = 0;
             let earliestNext = 0;
+            let generation = 0;
+            let requestedSinceCancel = true;
             let pending: Pending | null = null;
-            let cancelledAt = -1;
-            let requestedAfterCancel = false;
+            let openSince: number | null = null;
             // Recorded, not thrown: the reader catches whatever its read throws.
             const violations: string[] = [];
-            const read = vi.fn(() => {
+            const failed = (mine: number): void => {
+                if (mine !== generation || !wanted) return;
+                earliestNext = Date.now() + READ_RETRY_MS[Math.min(failures, READ_RETRY_MS.length - 1)];
+                failures += 1;
+            };
+            // The network as fetch behaves: headers at once, a body that stays open until the test
+            // answers it or the request is aborted (by the 15 s timeout, or by a cancel).
+            vi.stubGlobal('fetch', vi.fn((_url: RequestInfo | URL, init?: RequestInit) => {
                 const now = Date.now();
+                const mine = generation;
+                const signal = init?.signal ?? new AbortController().signal;
                 inFlight += 1;
                 if (inFlight > 1) violations.push(`two reads in flight at ${now}`);
                 if (now < earliestNext) violations.push(`read at ${now}, before the retry deadline ${earliestNext}`);
-                if (cancelledAt >= 0 && !requestedAfterCancel) violations.push(`read at ${now} after a cancel, without a request`);
-                return new Promise<boolean>((resolve) => {
-                    pending = {
-                        old: false,
-                        settle: (ok) => {
-                            inFlight -= 1;
-                            if (!pending || !pending.old) {
+                if (!requestedSinceCancel) violations.push(`read at ${now} after a cancel, without a request`);
+                openSince = now;
+                let finished = false;
+                const finish = (): boolean => {
+                    if (finished) return false;
+                    finished = true;
+                    inFlight -= 1;
+                    openSince = null;
+                    return true;
+                };
+                const body = new ReadableStream<Uint8Array>({
+                    start(controller) {
+                        signal.addEventListener('abort', () => {
+                            if (finish()) failed(mine);
+                            controller.error(new DOMException('The operation was aborted.', 'AbortError'));
+                        });
+                        pending = {
+                            old: false,
+                            settle: (ok) => {
+                                if (!finish()) return false;
                                 if (ok) {
-                                    failures = 0;
-                                    earliestNext = 0;
-                                } else if (wanted) {
-                                    earliestNext = Date.now() + READ_RETRY_MS[Math.min(failures, READ_RETRY_MS.length - 1)];
-                                    failures += 1;
+                                    if (mine === generation) {
+                                        failures = 0;
+                                        earliestNext = 0;
+                                    }
+                                    controller.enqueue(new TextEncoder().encode(JSON.stringify({ backend_diagnostics: { events: [] }, health: { status: 'ok' } })));
+                                    controller.close();
+                                } else {
+                                    failed(mine);
+                                    controller.error(new TypeError('network error'));
                                 }
+                                return ok;
                             }
-                            resolve(ok);
-                            return ok;
-                        }
-                    };
+                        };
+                    }
                 });
-            });
-            const reader = createRetryingReader({ read, active: () => wanted });
+                return Promise.resolve(new Response(body, { status: 200, headers: { 'Content-Type': 'application/json' } }));
+            }));
+            const store = createIncidentWorkspaceStore();
+            const reader = createRetryingReader({ read: (signal) => store.refresh(200, signal), active: () => wanted });
 
             for (let step = 0; step < 80; step += 1) {
-                const action = Math.floor(random() * 6);
+                const action = Math.floor(random() * 7);
                 const current = pending as Pending | null;
                 if (action === 0 || action === 1) {
-                    if (cancelledAt >= 0) requestedAfterCancel = true;
+                    // A new revision, or the first status after sign-in.
+                    requestedSinceCancel = true;
                     reader.request();
                     await vi.advanceTimersByTimeAsync(0);
                 } else if (action === 2 && current) {
@@ -225,25 +256,33 @@ describe('the retrying reader, under random sequences', () => {
                     pending = null;
                     await vi.advanceTimersByTimeAsync(0);
                 } else if (action === 3) {
-                    if (current) current.old = true;
-                    reader.cancel();
-                    cancelledAt = Date.now();
-                    requestedAfterCancel = false;
+                    // An access change, as App does it: the reader and the store both let go.
+                    generation += 1;
                     failures = 0;
                     earliestNext = 0;
-                    if (current) {
-                        current.settle(false);
-                        pending = null;
-                    }
-                    inFlight = 0;
+                    requestedSinceCancel = false;
+                    reader.cancel();
+                    store.clear();
+                    pending = null;
+                    await vi.advanceTimersByTimeAsync(0);
                 } else if (action === 4) {
                     wanted = random() < 0.8;
+                } else if (action === 5) {
+                    // A body that never comes: only the timeout can end the read.
+                    await vi.advanceTimersByTimeAsync(WORKSPACE_TIMEOUT_MS + 1);
                 } else {
                     await vi.advanceTimersByTimeAsync(Math.floor(random() * 20_000) + 1);
+                }
+                // A body that stalls is ended by the read's own timeout, never left holding the reader.
+                if (openSince !== null && Date.now() - openSince > WORKSPACE_TIMEOUT_MS) {
+                    violations.push(`a read open since ${openSince} outlived its ${WORKSPACE_TIMEOUT_MS} ms timeout`);
                 }
                 expect(violations, `seed ${seed} step ${step}`).toEqual([]);
             }
             reader.cancel();
+            store.clear();
+            await vi.advanceTimersByTimeAsync(0);
+            expect(inFlight, `seed ${seed}: nothing left open after a cancel`).toBe(0);
         }
     });
 });

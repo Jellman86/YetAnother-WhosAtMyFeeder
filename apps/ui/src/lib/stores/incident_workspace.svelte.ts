@@ -1,4 +1,5 @@
 import type { BackendDiagnosticEvent, DiagnosticsWorkspacePayload } from '../api/diagnostics';
+import { mapGuarded, type Guarded } from '../api/core';
 import { clearDiagnosticsWorkspace, fetchDiagnosticsWorkspace } from '../api/diagnostics';
 import { STATEFUL_INCIDENTS, readSignal } from './incident-signals';
 import { INITIAL_READ, readFreshness, settleRead, type ReadSettled } from '../utils/read-freshness';
@@ -220,22 +221,24 @@ class IncidentWorkspaceStore {
      * Read the workspace. Resolves true when this reading was applied and false when a newer read
      * started meanwhile, so a slow, older answer never replaces a newer one.
      */
-    async refresh(limit = 200): Promise<boolean> {
+    refresh(limit = 200, signal?: AbortSignal): Guarded<boolean> {
         const generation = ++this.refreshGeneration;
-        let payload: DiagnosticsWorkspacePayload;
-        try {
-            payload = await this.fetchWorkspace(limit);
-        } catch (error) {
-            // A read made before the workspace was cleared (another session's) says nothing now.
-            if (generation <= this.clearedThrough) return false;
-            const message = error instanceof Error && error.message ? error.message : String(error);
-            this.readSettled = settleRead(this.readSettled, generation, { ok: false, error: message });
-            throw error;
-        }
-        if (generation !== this.refreshGeneration) return false;
-        this.ingestWorkspacePayload(payload);
-        this.readSettled = settleRead(this.readSettled, generation, { ok: true, at: Date.now() });
-        return true;
+        return mapGuarded(
+            this.fetchWorkspace(limit, signal),
+            (payload) => {
+                if (generation !== this.refreshGeneration) return false;
+                this.ingestWorkspacePayload(payload);
+                this.readSettled = settleRead(this.readSettled, generation, { ok: true, at: Date.now() });
+                return true;
+            },
+            (error) => {
+                // A read made before the workspace was cleared (another session's) says nothing now.
+                if (generation <= this.clearedThrough) return false;
+                const message = error instanceof Error && error.message ? error.message : String(error);
+                this.readSettled = settleRead(this.readSettled, generation, { ok: false, error: message });
+                throw error;
+            }
+        );
     }
 
     ingestBackendDiagnostics(events: BackendDiagnosticEvent[]): void {

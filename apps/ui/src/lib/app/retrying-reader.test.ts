@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { asGuarded } from '../test-support/guarded';
 import { READ_RETRY_MS, createRetryingReader } from './retrying-reader';
 
 afterEach(() => vi.useRealTimers());
@@ -10,7 +11,7 @@ describe('createRetryingReader', () => {
             .mockResolvedValueOnce(false)
             .mockRejectedValueOnce(new Error('HTTP 502'))
             .mockResolvedValue(true);
-        const reader = createRetryingReader({ read, active: () => true });
+        const reader = createRetryingReader({ read: () => asGuarded(read()), active: () => true });
         reader.request();
         await vi.advanceTimersByTimeAsync(0);
         expect(read).toHaveBeenCalledTimes(1);
@@ -25,7 +26,7 @@ describe('createRetryingReader', () => {
     it('never waits longer than the last step between retries', async () => {
         vi.useFakeTimers();
         const read = vi.fn(async () => false);
-        const reader = createRetryingReader({ read, active: () => true });
+        const reader = createRetryingReader({ read: () => asGuarded(read()), active: () => true });
         reader.request();
         const total = READ_RETRY_MS.reduce((sum, wait) => sum + wait, 0) + 3 * READ_RETRY_MS[READ_RETRY_MS.length - 1];
         await vi.advanceTimersByTimeAsync(total);
@@ -38,7 +39,7 @@ describe('createRetryingReader', () => {
         const read = vi.fn<() => Promise<boolean>>()
             .mockImplementationOnce(() => new Promise((done) => { release = done; }))
             .mockResolvedValue(true);
-        const reader = createRetryingReader({ read, active: () => true });
+        const reader = createRetryingReader({ read: () => asGuarded(read()), active: () => true });
         reader.request();
         reader.request();
         reader.request();
@@ -56,7 +57,7 @@ describe('createRetryingReader', () => {
             .mockResolvedValueOnce(false)
             .mockImplementationOnce(() => new Promise((done) => { release = done; }))
             .mockResolvedValue(false);
-        const reader = createRetryingReader({ read, active: () => wanted });
+        const reader = createRetryingReader({ read: () => asGuarded(read()), active: () => wanted });
         reader.request();
         await vi.advanceTimersByTimeAsync(READ_RETRY_MS[0]);
         expect(read).toHaveBeenCalledTimes(2);
@@ -77,7 +78,7 @@ describe('createRetryingReader after a failure', () => {
     it('folds new requests into the read at the retry deadline instead of reading at once', async () => {
         vi.useFakeTimers();
         const read = vi.fn(async () => false);
-        const reader = createRetryingReader({ read, active: () => true });
+        const reader = createRetryingReader({ read: () => asGuarded(read()), active: () => true });
         reader.request();
         await vi.advanceTimersByTimeAsync(0);
         for (let second = 0; second < 20; second += 1) {

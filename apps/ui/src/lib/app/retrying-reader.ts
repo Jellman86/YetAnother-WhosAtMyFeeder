@@ -1,9 +1,15 @@
 /** The waits before a failed read is tried again; the last repeats, so retries never exceed one per five minutes. */
 export const READ_RETRY_MS: readonly number[] = [5_000, 15_000, 60_000, 300_000];
 
+import type { Guarded } from '../api/core';
+
 interface RetryingReaderOptions {
-    /** One reading; true when it was applied. False or a throw is a failure to retry. */
-    read: () => Promise<boolean>;
+    /**
+     * One reading; true when it was applied, false or a rejection is a failure to retry. It must be
+     * a guarded read (`apiFetchJson` and the combinators in `api/core`), so its timeout and cancel
+     * cover the body: a read that stalls after its headers would otherwise hold this reader for ever.
+     */
+    read: (signal: AbortSignal) => Guarded<boolean>;
     /** Whether the reading is still wanted (the page is open, the owner still signed in). */
     active: () => boolean;
 }
@@ -11,7 +17,7 @@ interface RetryingReaderOptions {
 export interface RetryingReader {
     /** Read now; or, while a read or a retry wait is under way, once more when it ends. */
     request(): void;
-    /** Drop any pending retry and ignore the result of a read in flight; later requests start afresh. */
+    /** Abort a read in flight and drop any pending retry; later requests start afresh. */
     cancel(): void;
 }
 
@@ -27,18 +33,22 @@ export function createRetryingReader({ read, active }: RetryingReaderOptions): R
     let wanted = false;
     let failures = 0;
     let retry: ReturnType<typeof setTimeout> | null = null;
+    let inFlight: AbortController | null = null;
 
     async function run(): Promise<void> {
         const mine = generation;
+        const controller = new AbortController();
+        inFlight = controller;
         reading = true;
         wanted = false;
         let ok: boolean;
         try {
-            ok = await read();
+            ok = await read(controller.signal);
         } catch {
             ok = false;
         }
         if (mine !== generation) return;
+        inFlight = null;
         reading = false;
         if (ok) {
             failures = 0;
@@ -67,6 +77,9 @@ export function createRetryingReader({ read, active }: RetryingReaderOptions): R
         },
         cancel(): void {
             generation += 1;
+            // Aborted, not merely ignored: a cancelled read must not keep a request open beside the next.
+            inFlight?.abort();
+            inFlight = null;
             if (retry !== null) clearTimeout(retry);
             retry = null;
             reading = false;

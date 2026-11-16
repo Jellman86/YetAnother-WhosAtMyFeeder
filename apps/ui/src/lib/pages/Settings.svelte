@@ -65,6 +65,7 @@
     import { toAppPath } from '../app/url-base';
     import { authStore } from '../stores/auth.svelte';
     import { systemStatusStore } from '../stores/system_status.svelte';
+    import { mapGuarded, type Guarded } from '../api/core';
     import { followRevisions } from '../app/revision-follower';
     import { passwordProblemMessage, validateAuthSettingsSave } from '../auth-password-policy';
     import { toastStore } from '../stores/toast.svelte';
@@ -2186,26 +2187,30 @@
     let loadedSetupSettings: SettingsPayload | null = null;
     let settingsFormLoads = 0;
 
-    async function loadClassifierStatus(): Promise<boolean> {
+    /** One classifier read, bounded body included (see `fetchClassifierStatus`); false when it failed. */
+    function loadClassifierStatus(): Guarded<boolean> {
         const request = ++classifierStatusRequest;
         const formLoad = settingsFormLoads;
         classifierStatusReads += 1;
-        try {
-            const status = await fetchClassifierStatus();
-            if (request === classifierStatusRequest) {
-                classifierStatus = status;
-                reportRuntimeProblem();
-                // A status read that started before the form was last loaded, or
-                // that lands mid-save, may report a preference older than the form's.
-                if (formLoad === settingsFormLoads && !saving) adoptSavedInferenceProvider(status.selected_provider);
+        return mapGuarded(
+            fetchClassifierStatus(),
+            (status) => {
+                classifierStatusReads -= 1;
+                if (request === classifierStatusRequest) {
+                    classifierStatus = status;
+                    reportRuntimeProblem();
+                    // A status read that started before the form was last loaded, or
+                    // that lands mid-save, may report a preference older than the form's.
+                    if (formLoad === settingsFormLoads && !saving) adoptSavedInferenceProvider(status.selected_provider);
+                }
+                return true;
+            },
+            (e) => {
+                classifierStatusReads -= 1;
+                console.error('Failed to load classifier status', e);
+                return false;
             }
-            return true;
-        } catch (e) {
-            console.error('Failed to load classifier status', e);
-            return false;
-        } finally {
-            classifierStatusReads -= 1;
-        }
+        );
     }
 
     // Activating a model saves that model's provider on the server. Without this,

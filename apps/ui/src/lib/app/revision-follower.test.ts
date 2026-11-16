@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { asGuarded } from '../test-support/guarded';
 import { followRevisions } from './revision-follower';
 import { READ_RETRY_MS } from './retrying-reader';
 
@@ -11,7 +12,7 @@ function deferred(): { promise: Promise<boolean>; resolve: () => void } {
 describe('followRevisions', () => {
     it('reads on entry even when the current revision is already known', async () => {
         const read = vi.fn(async () => true);
-        const follower = followRevisions(read, 'rev-1');
+        const follower = followRevisions(() => asGuarded(read()), 'rev-1');
         follower.start();
         follower.observe('rev-1');
         await Promise.resolve();
@@ -20,7 +21,7 @@ describe('followRevisions', () => {
 
     it('reads again for a new revision, and not for one already seen', async () => {
         const read = vi.fn(async () => true);
-        const follower = followRevisions(read, 'rev-1');
+        const follower = followRevisions(() => asGuarded(read()), 'rev-1');
         follower.start();
         await vi.waitFor(() => expect(read).toHaveBeenCalledTimes(1));
         follower.observe('rev-1');
@@ -34,7 +35,7 @@ describe('followRevisions', () => {
     it('queues one follow-up read for revisions that arrive while a read is in flight', async () => {
         const first = deferred();
         const read = vi.fn().mockReturnValueOnce(first.promise).mockResolvedValue(true);
-        const follower = followRevisions(read, null);
+        const follower = followRevisions(() => asGuarded(read()), null);
         follower.start();
         follower.observe('rev-2');
         follower.observe('rev-3');
@@ -48,7 +49,7 @@ describe('followRevisions', () => {
     it('stops reading once stopped, even for a queued follow-up', async () => {
         const first = deferred();
         const read = vi.fn().mockReturnValueOnce(first.promise).mockResolvedValue(true);
-        const follower = followRevisions(read, null);
+        const follower = followRevisions(() => asGuarded(read()), null);
         follower.start();
         follower.observe('rev-2');
         follower.stop();
@@ -62,7 +63,7 @@ describe('followRevisions', () => {
         vi.useFakeTimers();
         try {
             const read = vi.fn(async () => false);
-            const follower = followRevisions(read, 'rev-1');
+            const follower = followRevisions(() => asGuarded(read()), 'rev-1');
             follower.observe('rev-2');
             await vi.advanceTimersByTimeAsync(0);
             expect(read).toHaveBeenCalledTimes(1);

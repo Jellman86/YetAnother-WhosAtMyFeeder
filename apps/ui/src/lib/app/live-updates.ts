@@ -7,6 +7,7 @@ import { formatTerminalBackfillMessage } from '../backfill/terminal-message';
 import { notificationPolicy } from '../notifications/policy';
 import { statusNotificationCause, verdictFor } from '../stores/system_status.svelte';
 import { createRetryingReader, type RetryingReader } from './retrying-reader';
+import { guardedValue, mapGuarded, type Guarded } from '../api/core';
 
 const STALE_PROCESS_MAX_AGE_MS = 45 * 60 * 1000;
 const ORPHAN_PROCESS_GRACE_MS = 2 * 60 * 1000;
@@ -202,7 +203,8 @@ interface LiveUpdateDeps {
     announcer: { announce(message: string): void };
     logger: LoggerLike;
     diagnostics?: JobDiagnosticsLike;
-    syncDiagnosticsWorkspace?: () => Promise<void>;
+    /** The incident workspace read; guarded, so a stalled body cannot hold the retrying reader. */
+    syncDiagnosticsWorkspace?: (signal: AbortSignal) => Guarded<unknown>;
     /** The server pushed a status snapshot; it is untrusted until the receiver has checked it. */
     onStatus?: (snapshot: unknown) => void;
     onConnected?: () => void;
@@ -282,15 +284,13 @@ export class LiveUpdateCoordinator {
         // Retried with the shared capped backoff while the owner is still signed in; an access change
         // cancels it, and a read that settles for the old access is ignored.
         this.workspaceReader = createRetryingReader({
-            read: async () => {
-                if (!this.deps.syncDiagnosticsWorkspace || !this.ownerAccess()) return true;
-                try {
-                    await this.deps.syncDiagnosticsWorkspace();
-                    return true;
-                } catch (error) {
+            read: (signal) => {
+                const sync = this.deps.syncDiagnosticsWorkspace;
+                if (!sync || !this.ownerAccess()) return guardedValue(true);
+                return mapGuarded(sync(signal), () => true, (error) => {
                     this.deps.logger.warn('diagnostics_workspace_sync_failed', { error });
                     return false;
-                }
+                });
             },
             active: () => this.ownerAccess()
         });

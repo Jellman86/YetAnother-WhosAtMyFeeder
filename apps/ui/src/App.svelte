@@ -22,6 +22,7 @@
   import { setupWizardStore } from './lib/stores/setup_wizard.svelte';
   import { fetchEventClassificationStatus, invalidateClassifierStatus, setAuthErrorCallback } from './lib/api';
   import { isSystemStatus } from './lib/api/status';
+  import { mapGuarded } from './lib/api/core';
   import { systemStatusStore } from './lib/stores/system_status.svelte';
   import { serverJobsStore } from './lib/stores/server_jobs.svelte';
   import { createStreamTicket } from './lib/api/auth';
@@ -364,11 +365,11 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
       diagnostics: jobDiagnosticsStore,
       // Read when the server records a new fault, not on a timer; its health reading also goes
       // into the browser's own diagnostics, as the two-minute health check used to.
-      syncDiagnosticsWorkspace: async () => {
-          await incidentWorkspaceStore.refresh();
+      syncDiagnosticsWorkspace: (signal) => mapGuarded(incidentWorkspaceStore.refresh(200, signal), (applied) => {
           const health = incidentWorkspaceStore.workspacePayload?.health;
-          if (health) jobDiagnosticsStore.ingestHealth(health);
-      },
+          if (applied && health) jobDiagnosticsStore.ingestHealth(health);
+          return applied;
+      }),
       onStatus: (snapshot) => {
           if (isSystemStatus(snapshot)) systemStatusStore.ingest(snapshot);
       },

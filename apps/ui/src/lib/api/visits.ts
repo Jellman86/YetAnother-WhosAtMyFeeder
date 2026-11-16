@@ -1,4 +1,4 @@
-import { API_BASE, fetchWithAbort } from './core';
+import { API_BASE, fetchWithAbort, mapGuarded, type Guarded } from './core';
 import type { components, paths } from './generated/openapi';
 import type { Detection } from './types';
 import type { FetchEventsOptions } from './events';
@@ -14,6 +14,8 @@ export type DetectionVisit = Omit<VisitResponse, 'representative' | 'latest' | '
 export interface VisitOptions extends FetchEventsOptions {
     startTime?: string;
     endTime?: string;
+    /** A bound on the whole read, body included; omit for the Explorer's own unbounded reads. */
+    timeoutMs?: number;
 }
 
 function requiredTimestamp(value: string | null): string {
@@ -68,15 +70,19 @@ function query(options: VisitOptions): URLSearchParams {
     return params;
 }
 
-export async function fetchVisits(options: VisitOptions = {}): Promise<{ visits: DetectionVisit[]; total: number; gap_seconds: number }> {
-    const result = await fetchWithAbort<paths['/api/visits']['get']['response']>(options.signal ? null : options.requestKey ?? 'visits', `${API_BASE}/visits?${query(options)}`, { signal: options.signal });
-    return {
+export function fetchVisits(options: VisitOptions = {}): Guarded<{ visits: DetectionVisit[]; total: number; gap_seconds: number }> {
+    const read = fetchWithAbort<paths['/api/visits']['get']['response']>(
+        options.signal ? null : options.requestKey ?? 'visits',
+        `${API_BASE}/visits?${query(options)}`,
+        { signal: options.signal, timeoutMs: options.timeoutMs }
+    );
+    return mapGuarded(read, (result) => ({
         ...result,
         visits: result.visits.map((visit) => ({
             ...visit, start_time: requiredTimestamp(visit.start_time), end_time: requiredTimestamp(visit.end_time), representative: detection(visit.representative), latest: detection(visit.latest),
             peak_capture: visit.peak_capture ? detection(visit.peak_capture) : null
         }))
-    };
+    }));
 }
 
 export async function fetchVisitCaptures(visitId: string, options: VisitOptions = {}): Promise<{ captures: Detection[]; total: number }> {

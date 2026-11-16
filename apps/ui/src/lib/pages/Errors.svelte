@@ -1,5 +1,6 @@
 <script lang="ts">
     import { fetchVisits } from '../api/visits';
+    import { chainGuarded, guardedValue, mapGuarded, type Guarded } from '../api/core';
     import { onMount } from 'svelte';
     import { _ } from 'svelte-i18n';
     import { incidentWorkspaceStore } from '../stores/incident_workspace.svelte';
@@ -215,33 +216,46 @@
         return pageRefreshAction.register(async () => { await refreshWorkspace(); });
     });
 
+    /** Bounds Health's visit read, body included, so a stalled answer never holds the follower. */
+    const HEALTH_VISITS_TIMEOUT_MS = 15_000;
+
     /** Reads the workspace and the visits beside it; false when either read failed, so it is retried. */
-    async function refreshWorkspace(): Promise<boolean> {
+    function refreshWorkspace(signal?: AbortSignal): Guarded<boolean> {
         refreshing = true;
-        try {
-            await incidentWorkspaceStore.refresh();
+        const read = chainGuarded(incidentWorkspaceStore.refresh(200, signal), () => {
             if (workspacePayload?.connections) serviceConnectionsStore.ingest(workspacePayload.connections);
             const started = workspacePayload?.health?.startup_started_at;
-            if (typeof started === 'string') {
-                const window = { startTime: started, endTime: new Date().toISOString() };
-                const result = await fetchVisits({ ...window, limit: 25, requestKey: 'health:visits' });
+            if (typeof started !== 'string') {
+                serverVisits = [];
+                return guardedValue(true);
+            }
+            const window = { startTime: started, endTime: new Date().toISOString() };
+            const visits = fetchVisits({ ...window, limit: 25, requestKey: 'health:visits', timeoutMs: HEALTH_VISITS_TIMEOUT_MS });
+            return mapGuarded(visits, (result) => {
                 serverVisits = result.visits.map((visit) => fromServerVisit(visit, window));
-            } else serverVisits = [];
-            return true;
-        } catch (error) {
-            const message = error instanceof Error ? error.message : 'Failed to refresh incident workspace';
-            jobDiagnosticsStore.recordError({
-                source: 'runtime',
-                component: 'incident_workspace',
-                reasonCode: 'refresh_failed',
-                message,
-                severity: 'warning',
-                context: { scope: 'Errors.svelte' }
+                return true;
             });
-            return false;
-        } finally {
-            refreshing = false;
-        }
+        });
+        return mapGuarded(
+            read,
+            (ok) => {
+                refreshing = false;
+                return ok;
+            },
+            (error) => {
+                refreshing = false;
+                const message = error instanceof Error ? error.message : 'Failed to refresh incident workspace';
+                jobDiagnosticsStore.recordError({
+                    source: 'runtime',
+                    component: 'incident_workspace',
+                    reasonCode: 'refresh_failed',
+                    message,
+                    severity: 'warning',
+                    context: { scope: 'Errors.svelte' }
+                });
+                return false;
+            }
+        );
     }
 
     async function clearWorkspace() {
