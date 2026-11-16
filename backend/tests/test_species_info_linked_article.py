@@ -154,7 +154,7 @@ def test_the_linked_article_is_asked_for_by_its_exact_title_and_nothing_is_searc
 
     # iNaturalist links "Common chaffinch", which Wikipedia has since renamed: its own redirect is followed.
     assert body["title"] == "Eurasian chaffinch"
-    wikipedia = [url for url in services.requests if "wikipedia.org" in url]
+    wikipedia = [url for url in services.requests if (httpx.URL(url).host or "").endswith(".wikipedia.org")]
     assert wikipedia == ["https://en.wikipedia.org/api/rest_v1/page/summary/Common_chaffinch"]
 
 

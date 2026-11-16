@@ -77,7 +77,8 @@ def test_dog_reference_uses_its_scientific_identity_instead_of_bird_search(refer
     assert result.status_code == 200
     body = result.json()
     assert body["title"] == "Dog"
-    assert "wikimedia.org/wikipedia/commons" in body["thumbnail_url"]
+    photo = httpx.URL(body["thumbnail_url"])
+    assert photo.host.endswith(".wikimedia.org") and photo.path.startswith("/wikipedia/commons/")
     assert body["extract"].startswith("The dog is a domesticated descendant of wolves.")
     assert body["summary_source_url"] == "https://en.wikipedia.org/wiki/Dog"
     assert body["scientific_name"] == "Canis familiaris"
