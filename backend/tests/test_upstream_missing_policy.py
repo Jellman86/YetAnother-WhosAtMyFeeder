@@ -23,11 +23,11 @@ def reset_missing_policy_settings():
 async def clear_detections_table():
     async with get_db() as db:
         repo = DetectionRepository(db)
-        await repo.delete_all()
+        await repo.delete_all_if_count_is(None)
     yield
     async with get_db() as db:
         repo = DetectionRepository(db)
-        await repo.delete_all()
+        await repo.delete_all_if_count_is(None)
 
 
 async def _insert_detection(event_id: str) -> None:

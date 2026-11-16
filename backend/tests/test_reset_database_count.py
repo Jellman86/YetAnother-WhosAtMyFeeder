@@ -7,6 +7,7 @@ comes from the reset's own scope, and the reset refuses to run when the number
 it was shown is no longer the number it would delete.
 """
 
+import sqlite3
 from datetime import datetime
 from unittest.mock import AsyncMock
 
@@ -15,7 +16,7 @@ import pytest
 import pytest_asyncio
 
 from app.config import settings
-from app.database import get_db
+from app.database import _get_db_path, get_db
 from app.main import app
 from app.repositories.detection_repository import DetectionRepository
 from app.routers import backfill as backfill_router
@@ -126,3 +127,66 @@ async def test_a_reset_asked_without_a_number_still_deletes_everything(client):
 
     assert response.status_code == 200, response.text
     assert response.json()["deleted_count"] == 2
+
+
+@pytest.mark.asyncio
+async def test_a_detection_recorded_between_the_count_and_the_delete_stops_the_reset(client, monkeypatch):
+    """An MQTT handler already running when ingest is paused can still write a row.
+
+    The count and the delete used to be two statements, so a row written between them was
+    deleted on a number nobody confirmed. Both now sit in one transaction that holds the
+    database's write lock from before the count, so that row either lands first and the count
+    refuses the reset, or waits until the reset is over.
+    """
+    await _add_detection("reset-counted", hidden=False)
+    counted = DetectionRepository._count_all_in_transaction
+
+    async def count_then_late_ingest(self) -> int:
+        count = await counted(self)
+        # A handler that was already past the pause flag writes now, on its own connection.
+        with pytest.raises(sqlite3.OperationalError, match="locked"):
+            late = sqlite3.connect(_get_db_path(), timeout=0.2)
+            try:
+                late.execute(
+                    "INSERT INTO detections (detection_time, detection_index, score, display_name, category_name,"
+                    " frigate_event, camera_name, is_hidden) VALUES ('2026-11-16 07:01:00', 0, 0.9, 'Robin', 'Robin',"
+                    " 'reset-late-handler', 'feeder', 0)"
+                )
+                late.commit()
+            finally:
+                late.close()
+        return count
+
+    monkeypatch.setattr(DetectionRepository, "_count_all_in_transaction", count_then_late_ingest)
+
+    response = await client.delete("/api/backfill/reset", params={"expected_count": 1})
+
+    assert response.status_code == 200, response.text
+    # Exactly the one confirmed row went; the late writer was held out by the write lock.
+    assert response.json()["deleted_count"] == 1
+    assert await _rows() == 0
+
+
+@pytest.mark.asyncio
+async def test_a_mismatch_inside_the_transaction_rolls_back_and_releases_the_lock(client):
+    await _add_detection("reset-one", hidden=False)
+    await _add_detection("reset-two", hidden=True)
+
+    async with get_db() as db:
+        deleted, count = await DetectionRepository(db).delete_all_if_count_is(1)
+
+    assert (deleted, count) == (None, 2)
+    assert await _rows() == 2
+    # The write lock is released: another writer can proceed at once.
+    await _add_detection("reset-after-refusal", hidden=False)
+    assert await _rows() == 3
+
+
+@pytest.mark.asyncio
+async def test_the_guarded_delete_removes_everything_when_the_count_holds(client):
+    await _add_detection("reset-one", hidden=False)
+    await _add_detection("reset-two", hidden=True)
+
+    async with get_db() as db:
+        assert await DetectionRepository(db).delete_all_if_count_is(2) == (2, 2)
+    assert await _rows() == 0

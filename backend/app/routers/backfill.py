@@ -485,18 +485,16 @@ async def reset_database(
             await asyncio.gather(*tasks, return_exceptions=True)
         await auto_video_classifier.reset_state()
 
-        # Ingest is paused and background jobs are stopped, so the count checked here is the count
-        # deleted: nothing can be recorded between the two.
+        # Pausing ingest does not drain a handler that is already running, so the repository
+        # compares and deletes inside one write-locked transaction: the number confirmed is the
+        # number deleted, or nothing is.
         async with get_db() as db:
-            repo = DetectionRepository(db)
-            if expected_count is not None:
-                current_count = await repo.count_all()
-                if current_count != expected_count:
-                    raise HTTPException(
-                        status_code=409,
-                        detail={"code": "reset_count_changed", "detection_count": current_count},
-                    )
-            deleted_count = await repo.delete_all()
+            deleted_count, current_count = await DetectionRepository(db).delete_all_if_count_is(expected_count)
+        if deleted_count is None:
+            raise HTTPException(
+                status_code=409,
+                detail={"code": "reset_count_changed", "detection_count": current_count},
+            )
 
         # Clear media cache, and the favourite archive: a reset is the one action meant to leave nothing.
         cache_stats = await media_cache.clear_all()
