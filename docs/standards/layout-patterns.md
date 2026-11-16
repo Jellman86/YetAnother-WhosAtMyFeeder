@@ -231,6 +231,19 @@ is known not to be able to run here, with a note that the owner decides by hand.
 failed it stays closed, says so and offers a retry, because nothing was measured. Reassurance needs a reading too: the
 backend-down screens say nothing about the data they could not ask about.
 
+An amount needs a price as well as a count. Settings → AI shows a cost only for usage that has a
+rate (`settings/ai-cost.ts`): a model without one is "Not priced", usage with no prices is "Cost not
+estimated: add prices", and a total over part of the usage states the requests it covers. About's
+list of what leaves the network is built from the features that send each request
+(`utils/outbound-requests.ts`), names who sends it (this server, or each viewer's browser) and what
+it sends, and makes no promise that the list is all there is. A setting a guest cannot read is
+"Owner only", never "Disabled". A row reads On only when the request can really be made: a
+notification channel needs its credentials as well as its switch. The rows are held to one
+registry, [`backend/outbound_requests.json`](../../backend/outbound_requests.json): a backend
+module that can send a request, or a new outside host, has to be entered there, each entry has to
+have a row, and each row's disclosures are asserted in every locale
+(`i18n/outbound-disclosures.test.ts`). Adding a request therefore means adding all three.
+
 A page that reads data keeps four states apart: loading, read and empty, failed, and stale. Only a
 reading may show a number, so a pending or failed read never shows a zero or "no activity"; a
 failure is said in the page's own sentence with the next step, the server's words behind a
