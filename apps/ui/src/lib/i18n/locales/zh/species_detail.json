@@ -1,6 +1,7 @@
 {
   "no_wiki": "此物种暂无维基百科信息。",
   "no_info": "此物种暂无参考信息。",
+  "summary_language_note": "来自维基百科（{language}）的说明",
   "avg_confidence": "平均置信度",
   "first_seen": "首次发现",
   "last_seen": "最后发现",

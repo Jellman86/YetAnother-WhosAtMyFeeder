@@ -317,6 +317,8 @@ species_info_cache = Table(
     Column("scientific_name", String),
     Column("conservation_status", String),
     Column("cached_at", TIMESTAMP, server_default=func.now()),
+    # The description was accepted as this taxon's when it was fetched; see reference_identity.
+    Column("identity_checked", Boolean, server_default="0", nullable=False),
 )
 
 Index("idx_species_info_name", species_info_cache.c.species_name)

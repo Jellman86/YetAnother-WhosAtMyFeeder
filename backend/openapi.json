@@ -22152,6 +22152,19 @@
             ],
             "title": "Source Url"
           },
+          "summary_language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The language the description is written in, when its source says: a Wikipedia edition's code such as `en`. It can differ from the language asked for.",
+            "readOnly": true,
+            "title": "Summary Language"
+          },
           "summary_source": {
             "anyOf": [
               {
@@ -22213,7 +22226,8 @@
           }
         },
         "required": [
-          "title"
+          "title",
+          "summary_language"
         ],
         "title": "SpeciesInfo",
         "type": "object"

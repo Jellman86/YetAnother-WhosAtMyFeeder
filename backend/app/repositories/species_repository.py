@@ -74,7 +74,8 @@ class SpeciesRepository:
 
     async def get_cached_info(self, *, species_name: str, taxa_id: int | None, language: str) -> aiosqlite.Row | None:
         columns = """title, description, extract, thumbnail_url, wikipedia_url, source, source_url,
-                     summary_source, summary_source_url, scientific_name, conservation_status, cached_at, taxa_id"""
+                     summary_source, summary_source_url, scientific_name, conservation_status, cached_at, taxa_id,
+                     identity_checked"""
         if taxa_id:
             cursor = await self.db.execute(
                 f"SELECT {columns} FROM species_info_cache WHERE taxa_id = ? AND language = ? ORDER BY cached_at DESC LIMIT 1",
@@ -98,6 +99,7 @@ class SpeciesRepository:
         language: str,
         values: dict[str, object],
         cached_at: datetime,
+        identity_checked: bool = False,
     ) -> None:
         existing = None
         if taxa_id:
@@ -123,6 +125,7 @@ class SpeciesRepository:
             values.get("scientific_name"),
             values.get("conservation_status"),
             cached_at,
+            1 if identity_checked else 0,
         )
         if existing:
             cursor = await self.db.execute(
@@ -136,22 +139,24 @@ class SpeciesRepository:
             await self.db.execute(
                 """UPDATE species_info_cache SET species_name=?, language=?, title=?, taxa_id=?, description=?,
                    extract=?, thumbnail_url=?, wikipedia_url=?, source=?, source_url=?, summary_source=?,
-                   summary_source_url=?, scientific_name=?, conservation_status=?, cached_at=? WHERE id=?""",
+                   summary_source_url=?, scientific_name=?, conservation_status=?, cached_at=?, identity_checked=?
+                   WHERE id=?""",
                 (*payload, existing[0]),
             )
         else:
             await self.db.execute(
                 """INSERT INTO species_info_cache
                    (species_name, language, title, taxa_id, description, extract, thumbnail_url, wikipedia_url,
-                    source, source_url, summary_source, summary_source_url, scientific_name, conservation_status, cached_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    source, source_url, summary_source, summary_source_url, scientific_name, conservation_status, cached_at,
+                    identity_checked)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                    ON CONFLICT(species_name, language) DO UPDATE SET language=excluded.language,
                     title=excluded.title, taxa_id=excluded.taxa_id, description=excluded.description,
                     extract=excluded.extract, thumbnail_url=excluded.thumbnail_url,
                     wikipedia_url=excluded.wikipedia_url, source=excluded.source, source_url=excluded.source_url,
                     summary_source=excluded.summary_source, summary_source_url=excluded.summary_source_url,
                     scientific_name=excluded.scientific_name, conservation_status=excluded.conservation_status,
-                    cached_at=excluded.cached_at""",
+                    cached_at=excluded.cached_at, identity_checked=excluded.identity_checked""",
                 payload,
             )
         await self.db.commit()
