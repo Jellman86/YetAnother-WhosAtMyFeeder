@@ -6,7 +6,13 @@
     "hourly_title": "时段",
     "species_title": "物种构成",
     "empty": "此时间范围内没有活动。",
-    "other_species": "其他物种"
+    "other_species": "其他物种",
+    "unavailable": "在无法读取历史记录时不可用。",
+    "show_numbers": "显示数字",
+    "col_day": "日期",
+    "col_hour": "小时",
+    "col_calls": "鸣声",
+    "col_species": "物种"
   },
   "stat": {
     "heard": "听测",
@@ -17,7 +23,9 @@
     "peak_hour_sub": "{count, plural, other {# 次检测}}",
     "no_activity": "尚无活动",
     "sources": "来源",
-    "sources_sub": "麦克风或音频流"
+    "sources_sub": "麦克风或音频流",
+    "not_available": "不可用",
+    "no_calls": "此时间段内没有鸣声"
   },
   "filter": {
     "window": "时间范围",
@@ -47,7 +55,10 @@
     "hide": "在 YA-WAMF 中隐藏",
     "undo": "撤销",
     "hidden_message": "音频检测已隐藏。",
-    "local_only": "隐藏后，该条目将从YA-WAMF历史记录和未来的音频匹配中排除。BirdNET-Go不会更改；上游删除不会自动同步。"
+    "local_only": "隐藏后，该条目将从YA-WAMF历史记录和未来的音频匹配中排除。BirdNET-Go不会更改；上游删除不会自动同步。",
+    "read_failed": "无法从 YA-WAMF 读取音频历史，因此本页没有任何测量值。",
+    "read_failed_next": "请重试。如果仍然失败，请打开运行状况查看后端是否报告了故障。",
+    "stale": "最近一次刷新失败，因此显示的是 {at} 的读数。"
   },
   "table": {
     "sound": "声音",

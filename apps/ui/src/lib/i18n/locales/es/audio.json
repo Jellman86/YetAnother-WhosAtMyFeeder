@@ -6,7 +6,13 @@
     "hourly_title": "Hora del día",
     "species_title": "Distribución de especies",
     "empty": "No hay actividad en este período.",
-    "other_species": "Otras especies"
+    "other_species": "Otras especies",
+    "unavailable": "No disponible mientras no se pueda leer el historial.",
+    "show_numbers": "Mostrar las cifras",
+    "col_day": "Día",
+    "col_hour": "Hora",
+    "col_calls": "Cantos",
+    "col_species": "Especie"
   },
   "stat": {
     "heard": "Oídas",
@@ -17,7 +23,9 @@
     "peak_hour_sub": "{count, plural, one {# detección} other {# detecciones}}",
     "no_activity": "Aún no hay actividad",
     "sources": "Fuentes",
-    "sources_sub": "Micrófonos o transmisiones"
+    "sources_sub": "Micrófonos o transmisiones",
+    "not_available": "No disponible",
+    "no_calls": "Sin cantos en este periodo"
   },
   "filter": {
     "window": "Período",
@@ -47,7 +55,10 @@
     "hide": "Ocultar en YA-WAMF",
     "undo": "Deshacer",
     "hidden_message": "Detección de audio oculta.",
-    "local_only": "Ocultar elimina la entrada del historial de YA-WAMF y de futuras coincidencias de audio. BirdNET-Go no cambia; sus eliminaciones no se sincronizan automáticamente."
+    "local_only": "Ocultar elimina la entrada del historial de YA-WAMF y de futuras coincidencias de audio. BirdNET-Go no cambia; sus eliminaciones no se sincronizan automáticamente.",
+    "read_failed": "No se pudo leer el historial de audio de YA-WAMF, así que nada en esta página es una medición.",
+    "read_failed_next": "Inténtalo de nuevo. Si sigue fallando, abre Estado para ver si el backend informa de un fallo.",
+    "stale": "La última actualización falló, así que esta es la lectura de las {at}."
   },
   "table": {
     "sound": "Sonido",

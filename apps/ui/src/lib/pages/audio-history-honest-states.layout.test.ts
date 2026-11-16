@@ -1,0 +1,40 @@
+import { describe, expect, it } from 'vitest';
+import source from './AudioHistory.svelte?raw';
+import enAudio from '../i18n/locales/en/audio.json';
+
+describe('Audio history keeps loading, measured-empty, failed and stale apart', () => {
+    it('shows a figure only for a reading, never a zero for a pending or failed read', () => {
+        expect(source).toContain('audioReading({ loading, error, stale, total: summary?.total ?? null })');
+        expect(source).toContain('{#snippet statValue(value: string)}');
+        expect(source).toContain('data-audio-stat-pending');
+        expect(source).toContain('data-audio-stat-unavailable');
+        // No stat writes its zero straight into the page.
+        expect(source).not.toMatch(/<dd[^>]*>\{\(summary\?\.total \?\? 0\)/);
+        expect(source).not.toMatch(/<dd[^>]*>\{summary\?\.(species|source)_count \?\? 0\}/);
+    });
+
+    it('says a failed read in its own words with a next step, the server text only as a detail', () => {
+        expect(source).toContain('data-audio-read-failed');
+        expect(enAudio.history.read_failed).toContain('could not be read');
+        expect(enAudio.history.read_failed_next).toContain('Try again');
+        expect(source).toContain('{@render technicalDetails(error)}');
+        expect(source).not.toMatch(/<span>\{error\}<\/span>/);
+    });
+
+    it('keeps a stale reading on screen with its time, and says no activity only when measured', () => {
+        expect(source).toContain('data-audio-stale');
+        expect(source).toContain("{#if !measured}");
+        expect(source).toContain('data-audio-chart-unavailable');
+    });
+
+    it('gives every chart its numbers as text, including the other species', () => {
+        expect(source.match(/\{@render chartNumbers\(/g)?.length).toBe(3);
+        expect(source).toContain('data-audio-mix-count');
+        expect(source).toContain('speciesMix.map((item) => [item.species, item.count.toLocaleString()])');
+    });
+
+    it('fetches reference photos for the top species only once that list comes near the screen', () => {
+        expect(source).toContain('use:whenNearViewport={() => (topSpeciesNear = true)}');
+        expect(source).toContain('if (!topSpeciesNear) return;');
+    });
+});

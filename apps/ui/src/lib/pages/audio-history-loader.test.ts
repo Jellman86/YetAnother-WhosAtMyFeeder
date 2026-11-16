@@ -39,3 +39,28 @@ it('ignores a response after the page is disposed', async () => {
     const request = loader.load(); loader.dispose(); release(history('Old bird')); await request;
     expect(apply).not.toHaveBeenCalled(); expect(finish).not.toHaveBeenCalled();
 });
+
+it('keeps the last reading, marked stale, when the same request fails on refresh', async () => {
+    let key = 'days=7';
+    const fetchHistory = vi.fn().mockResolvedValueOnce(history('Robin')).mockRejectedValueOnce(new Error('500'));
+    const apply = vi.fn(); const clear = vi.fn(); const fail = vi.fn();
+    const loader = createAudioHistoryLoader({ requestKey: () => key, fetchHistory, fetchSummary: async () => summary('Robin'), begin: vi.fn(), apply, clear, fail, finish: vi.fn() });
+    await loader.load();
+    await loader.load();
+    // Nothing that was read is withdrawn; the page says it may be out of date.
+    expect(clear).not.toHaveBeenCalled();
+    expect(fail).toHaveBeenCalledWith(expect.any(Error), { stale: true });
+    void key;
+});
+
+it('clears instead of showing another window as current when a different request fails', async () => {
+    let key = 'days=7';
+    const fetchHistory = vi.fn().mockResolvedValueOnce(history('Robin')).mockRejectedValueOnce(new Error('500'));
+    const clear = vi.fn(); const fail = vi.fn();
+    const loader = createAudioHistoryLoader({ requestKey: () => key, fetchHistory, fetchSummary: async () => summary('Robin'), begin: vi.fn(), apply: vi.fn(), clear, fail, finish: vi.fn() });
+    await loader.load();
+    key = 'days=30';
+    await loader.load();
+    expect(clear).toHaveBeenCalledTimes(1);
+    expect(fail).toHaveBeenCalledWith(expect.any(Error), { stale: false });
+});
