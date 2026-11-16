@@ -31,7 +31,7 @@
     import { needsYourCall, type ReadingStatus, type SpeciesChecksView } from '../utils/needs-your-call';
     import type { DomesticBirdKey } from '../utils/domestic-birds';
     import { DomesticBirdOffers } from '../utils/domestic-bird-offers.svelte';
-    import { getBirdNames } from '../naming';
+    import { birdNames } from '../naming';
     import { videoHeadingFor, type VideoHeading } from '../components/video-heading';
     import { settingsStore } from '../stores/settings.svelte';
     import { publicSettingsStore } from '../stores/public_settings.svelte';
@@ -195,7 +195,7 @@
             await settingsStore.load();
             toastStore.show(
                 $_('dashboard.review_session.species_blocked', {
-                    values: { species: getBirdNames(detection, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary).primary },
+                    values: { species: $birdNames(detection, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary).primary },
                     default: '{species} blocked. Future detections will be dropped.'
                 }),
                 'success'
@@ -316,7 +316,7 @@
     const gardenOwner = $derived(canReview && settingsStore.settings?.beta_garden_animals === true);
     const domesticOffers = new DomesticBirdOffers(() => gardenOwner);
     let namedChecks = $derived(rangeCheck.checks.map((check) => ({
-        displayName: getBirdNames(check, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary).primary,
+        displayName: $birdNames(check, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary).primary,
         scientificName: check.scientific_name ?? null
     })));
     let checksView = $derived<SpeciesChecksView>({
@@ -692,7 +692,7 @@
                 canIdentify={canReview}
                 onselect={openRecord}
                 onidentify={openRecord}
-                onplay={(detection) => { videoEventId = detection.frigate_event; videoHeading = videoHeadingFor(detection, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary); showVideo = true; }}
+                onplay={(detection) => { videoEventId = detection.frigate_event; videoHeading = videoHeadingFor(detection, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary, $birdNames); showVideo = true; }}
                 onseeall={() => onnavigate?.(gardenVisits.length > 0 ? '/events?visitors=all' : '/events')}
             />
         </div>
@@ -805,7 +805,7 @@
                     onFetchFullVisit={selectedEventFullVisitHandler}
                     onPlayVideo={(frigateEvent: string, playIntent: 'auto' | 'user' = 'auto') => {
                         videoEventId = frigateEvent;
-                        videoHeading = selectedEvent ? videoHeadingFor(selectedEvent, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary) : null;
+                        videoHeading = selectedEvent ? videoHeadingFor(selectedEvent, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary, $birdNames) : null;
                         videoPlayIntent = playIntent;
                         showVideo = true;
                         selectedEvent = null;

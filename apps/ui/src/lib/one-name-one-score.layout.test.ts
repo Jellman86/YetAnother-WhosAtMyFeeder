@@ -16,7 +16,7 @@ const svelteSources = import.meta.glob('./**/*.svelte', { eager: true, query: '?
 describe('one name and one score colour for a visit', () => {
     it('names the review card, the queue and the portrait through the shared naming helper', () => {
         for (const [file, source] of Object.entries({ reviewQueueCard, reviewQueueModal, feederPortrait })) {
-            expect(source, file).toContain('getBirdNames(');
+            expect(source, file).toContain('$birdNames(');
             // Printing the raw label skips the naming preference and the reader's language.
             expect(source.match(/\{\s*\w+\.display_name\s*\}/g) ?? [], file).toEqual([]);
             expect(source.match(/(?:species|name|primaryName)[:=]\s*\{?\s*\w+\.display_name\b/g) ?? [], file).toEqual([]);

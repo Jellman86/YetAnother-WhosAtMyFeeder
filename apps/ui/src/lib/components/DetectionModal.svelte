@@ -67,7 +67,7 @@
     import { classifierLabelsStore } from '../stores/classifier_labels.svelte';
     import { toastStore } from '../stores/toast.svelte';
     import { confirmAction } from '../stores/confirm_dialog.svelte';
-    import { getBirdNames } from '../naming';
+    import { birdNames } from '../naming';
     import { _ } from 'svelte-i18n';
     import { get } from 'svelte/store';
     import { onDestroy, onMount, untrack } from 'svelte';
@@ -645,7 +645,7 @@
         ...detection,
         common_name: commonNameOverride ?? detection.common_name
     });
-    const naming = $derived(getBirdNames(namingDetection, showCommon, preferSci));
+    const naming = $derived($birdNames(namingDetection, showCommon, preferSci));
     const primaryName = $derived(naming.primary);
     const subName = $derived(naming.secondary);
     const lateAudioMatch = $derived.by(() => {
@@ -1565,7 +1565,7 @@
             showTagDropdown = false;
             tagSearchQuery = '';
             aiAnalysis = nextDetection.ai_analysis ?? null;
-            const successLabel = getBirdNames(nextDetection, showCommon, preferSci).primary;
+            const successLabel = $birdNames(nextDetection, showCommon, preferSci).primary;
             if (result.status === 'unchanged') {
                 toastStore.success(
                     $_('notifications.species_confirmed', {
@@ -1849,7 +1849,7 @@
         border-radius: 1.25rem;
         background: rgb(var(--brand-500) / 0.08);
         border: 1px solid rgb(var(--brand-500) / 0.22);
-        color: rgb(30 41 59);
+        color: rgb(var(--ai-ink));
         box-shadow: none;
     }
 
@@ -1872,10 +1872,8 @@
         /* Softer dark surface: keep the teal identity, reduce the "hard slab" look. */
         background: rgb(var(--brand-700) / 0.20);
         border-color: rgb(var(--brand-400) / 0.35);
-        color: rgb(241 245 249);
         box-shadow: none;
     }
-
 
     .ai-panel {
         position: relative;
@@ -1884,34 +1882,16 @@
     .ai-panel__label {
         font-size: 0.75rem;
         font-weight: 700;
-        color: rgb(var(--brand-600));
+        color: rgb(var(--ai-heading));
         margin-bottom: 0.75rem;
     }
 
-    :global(.dark) .ai-panel__label,
-    :global([data-theme='dark']) .ai-panel__label {
-        color: rgb(94 234 212);
-    }
-
-    :global(.theme-bluetit:not(.dark)) .ai-panel__label { color: rgb(29 78 216); }
-    :global(.theme-bluetit.dark) .ai-panel__label { color: rgb(96 165 250); }
-
-    :global(.dark) .ai-panel__content,
-    :global([data-theme='dark']) .ai-panel__content {
-        color: inherit;
-    }
-
     :global(.ai-markdown-surface) {
         color: inherit;
     }
 
     :global(.ai-markdown-surface) {
-        color: rgb(30 41 59);
-    }
-
-    :global(.dark .ai-markdown-surface),
-    :global([data-theme='dark'] .ai-markdown-surface) {
-        color: rgb(241 245 249);
+        color: rgb(var(--ai-ink));
     }
 
     :global(.ai-markdown-surface h1) {
@@ -1920,12 +1900,7 @@
         letter-spacing: 0.02em;
         text-transform: none;
         font-weight: 900;
-        color: rgb(var(--brand-600));
-    }
-
-    :global(.dark .ai-markdown-surface h1),
-    :global([data-theme='dark'] .ai-markdown-surface h1) {
-        color: rgb(94 234 212);
+        color: rgb(var(--ai-heading));
     }
 
     :global(.ai-markdown-surface h2) {
@@ -1934,12 +1909,7 @@
         letter-spacing: 0.015em;
         text-transform: none;
         font-weight: 850;
-        color: rgb(var(--brand-600));
-    }
-
-    :global(.dark .ai-markdown-surface h2),
-    :global([data-theme='dark'] .ai-markdown-surface h2) {
-        color: rgb(94 234 212);
+        color: rgb(var(--ai-heading));
     }
 
     :global(.ai-markdown-surface h3) {
@@ -1948,12 +1918,7 @@
         letter-spacing: 0.01em;
         text-transform: none;
         font-weight: 800;
-        color: rgb(var(--brand-600));
-    }
-
-    :global(.dark .ai-markdown-surface h3),
-    :global([data-theme='dark'] .ai-markdown-surface h3) {
-        color: rgb(94 234 212);
+        color: rgb(var(--ai-heading));
     }
 
     :global(.ai-markdown-surface h4) {
@@ -1962,12 +1927,7 @@
         letter-spacing: 0.01em;
         text-transform: none;
         font-weight: 800;
-        color: rgb(var(--brand-600));
-    }
-
-    :global(.dark .ai-markdown-surface h4),
-    :global([data-theme='dark'] .ai-markdown-surface h4) {
-        color: rgb(94 234 212);
+        color: rgb(var(--ai-heading));
     }
 
     :global(.ai-markdown-surface h5),
@@ -1977,25 +1937,13 @@
         letter-spacing: 0.01em;
         text-transform: none;
         font-weight: 750;
-        color: rgb(var(--brand-600));
-    }
-
-    :global(.dark .ai-markdown-surface h5),
-    :global(.dark .ai-markdown-surface h6),
-    :global([data-theme='dark'] .ai-markdown-surface h5),
-    :global([data-theme='dark'] .ai-markdown-surface h6) {
-        color: rgb(94 234 212);
+        color: rgb(var(--ai-heading));
     }
 
     :global(.ai-markdown-surface p) {
         margin: 0.3rem 0;
         font-size: 0.88rem;
         line-height: 1.55;
-        color: inherit;
-    }
-
-    :global(.dark .ai-markdown-surface p),
-    :global([data-theme='dark'] .ai-markdown-surface p) {
         color: inherit;
     }
 
@@ -2027,36 +1975,16 @@
     }
 
     :global(.ai-markdown-surface li::marker) {
-        color: rgb(var(--brand-600) / 0.55);
-    }
-
-    :global(.dark .ai-markdown-surface li::marker),
-    :global([data-theme='dark'] .ai-markdown-surface li::marker) {
-        color: rgb(var(--brand-300) / 0.55);
-    }
-
-    :global(.dark .ai-markdown-surface li),
-    :global([data-theme='dark'] .ai-markdown-surface li) {
-        color: inherit;
+        color: rgb(var(--ai-marker) / 0.55);
     }
 
     :global(.ai-markdown-surface strong) {
         font-weight: 700;
-        color: rgb(var(--brand-700));
-    }
-
-    :global(.dark .ai-markdown-surface strong),
-    :global([data-theme='dark'] .ai-markdown-surface strong) {
-        color: rgb(var(--brand-200));
+        color: rgb(var(--ai-strong));
     }
 
     :global(.ai-markdown-surface em) {
-        color: color-mix(in srgb, var(--color-slate-800) 80%, transparent);
-    }
-
-    :global(.dark .ai-markdown-surface em),
-    :global([data-theme='dark'] .ai-markdown-surface em) {
-        color: color-mix(in srgb, var(--color-slate-200) 82%, transparent);
+        color: rgb(var(--ai-ink) / 0.82);
     }
 
     :global(.ai-markdown-surface code) {
@@ -2065,13 +1993,12 @@
         padding: 0.1rem 0.3rem;
         border-radius: 0.4rem;
         background: rgb(var(--brand-700) / 0.1);
-        color: rgb(var(--brand-700));
+        color: rgb(var(--ai-code));
     }
 
     :global(.dark .ai-markdown-surface code),
     :global([data-theme='dark'] .ai-markdown-surface code) {
         background: rgb(var(--brand-400) / 0.25);
-        color: rgb(var(--brand-200));
     }
 
     :global(.ai-markdown-surface pre) {
@@ -2110,20 +2037,14 @@
     :global(.dark .ai-markdown-surface blockquote),
     :global([data-theme='dark'] .ai-markdown-surface blockquote) {
         background: rgb(var(--brand-500) / 0.18);
-        color: inherit;
         border-color: rgb(var(--brand-300) / 0.35);
     }
 
     :global(.ai-markdown-surface a) {
-        color: rgb(var(--brand-600));
+        color: rgb(var(--ai-heading));
         text-decoration: underline;
         text-decoration-thickness: 1px;
         text-underline-offset: 2px;
-    }
-
-    :global(.dark .ai-markdown-surface a),
-    :global([data-theme='dark'] .ai-markdown-surface a) {
-        color: rgb(94 234 212);
     }
 
     :global(.ai-markdown-surface hr) {
@@ -2161,13 +2082,8 @@
 
     :global(.ai-markdown-surface th) {
         font-weight: 700;
-        color: rgb(var(--brand-700));
+        color: rgb(var(--ai-code));
         font-size: 0.75rem;
-    }
-
-    :global(.dark .ai-markdown-surface th),
-    :global([data-theme='dark'] .ai-markdown-surface th) {
-        color: rgb(var(--brand-200));
     }
 
     :global(.ai-markdown-surface > :first-child) {
@@ -2184,14 +2100,13 @@
         border-radius: 1rem;
         border: 1px solid transparent;
         background: color-mix(in srgb, var(--color-slate-100) 90%, transparent);
-        color: rgb(30 41 59);
+        color: rgb(var(--ai-ink));
         box-shadow: 0 8px 16px color-mix(in srgb, var(--color-slate-900) 8%, transparent);
     }
 
     :global(.dark) .ai-bubble,
     :global([data-theme='dark']) .ai-bubble {
         background: color-mix(in srgb, var(--color-slate-900) 72%, transparent);
-        color: rgb(241 245 249);
     }
 
     .ai-bubble.ai-surface {
@@ -2205,8 +2120,6 @@
     :global([data-theme='dark']) .ai-bubble.ai-surface {
         background: rgb(var(--brand-700) / 0.18);
         border-color: rgb(var(--brand-400) / 0.35);
-        /* Match the main .ai-surface dark-mode foreground for consistent contrast. */
-        color: rgb(241 245 249);
         box-shadow: none;
     }
 
@@ -2234,7 +2147,7 @@
     .ai-bubble__role {
         font-size: 0.75rem;
         font-weight: 700;
-        color: rgb(100 116 139);
+        color: rgb(var(--ai-muted));
         margin-bottom: 0.4rem;
     }
 
@@ -2270,11 +2183,6 @@
     .ai-bubble--assistant :global(.ai-markdown-surface p),
     .ai-bubble--assistant :global(.ai-markdown-surface li) {
         color: inherit;
-    }
-
-    :global(.dark) .ai-bubble__role,
-    :global([data-theme='dark']) .ai-bubble__role {
-        color: rgb(148 163 184);
     }
 
     .ai-thread {
@@ -2928,7 +2836,7 @@
                     </div>
                     <p class="text-sm font-bold text-slate-800 dark:text-slate-200">
                         {detection.video_classification_label === detection.scientific_name
-                            ? getBirdNames(detection, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary).primary
+                            ? $birdNames(detection, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary).primary
                             : detection.video_classification_label}
                     </p>
                     {#if detection.video_result_blocked}

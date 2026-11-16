@@ -2,7 +2,7 @@
     import { onDestroy } from 'svelte';
     import { _, locale } from 'svelte-i18n';
     import { searchExplorer, type ExplorerSearchRecord, type ExplorerSearchResponse, type ExplorerSearchTaxon } from '../api/explorer';
-    import { getBirdNames } from '../naming';
+    import { birdNames } from '../naming';
     import { settingsStore } from '../stores/settings.svelte';
     import { formatCalendarDay, formatDateTime } from '../utils/datetime';
     import {
@@ -204,7 +204,7 @@
     }
 
     function speciesNames(item: { display_name?: string | null; common_name?: string | null; scientific_name?: string | null }): { primary: string; secondary: string | null } {
-        const names = getBirdNames(
+        const names = $birdNames(
             { display_name: item.display_name ?? item.common_name ?? item.scientific_name ?? '', common_name: item.common_name ?? undefined, scientific_name: item.scientific_name ?? undefined },
             settingsStore.displayCommonNames,
             settingsStore.scientificNamePrimary

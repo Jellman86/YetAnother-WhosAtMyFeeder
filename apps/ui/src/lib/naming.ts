@@ -1,4 +1,4 @@
-import { get } from 'svelte/store';
+import { derived, type Readable } from 'svelte/store';
 import { _, locale } from 'svelte-i18n';
 
 
@@ -17,25 +17,24 @@ export interface BirdNamingInput {
 /** The backend's placeholder label for a visit the classifier could not name. */
 const UNRESOLVED_LABEL = 'unknown bird';
 
+/** The one name for a visit without a species, in English: sentence case, whatever was stored. */
+const UNKNOWN_BIRD = 'Unknown bird';
+
 /**
- * The one name the app prints for a visit without a species: sentence case and translated,
- * whatever casing the stored placeholder has.
+ * Pure: the names of one bird under the reader's naming preference. `unknownName` is what a visit
+ * without a species is called; a component takes it, translated, from `birdNames` below.
  */
-function unknownBirdName(): string {
-    const fallback = 'Unknown bird';
-    return get(locale) ? get(_)('common.unknown_bird', { default: fallback }) : fallback;
-}
-
-function named(value: string | null | undefined): string | null {
-    if (!value) return null;
-    return value.trim().toLowerCase() === UNRESOLVED_LABEL ? unknownBirdName() : value;
-}
-
 export function getBirdNames(
     item: BirdNamingInput,
     showCommon: boolean,
-    preferSci: boolean
+    preferSci: boolean,
+    unknownName: string = UNKNOWN_BIRD
 ): NamingResult {
+    const named = (value: string | null | undefined): string | null => {
+        if (!value) return null;
+        return value.trim().toLowerCase() === UNRESOLVED_LABEL ? unknownName : value;
+    };
+
     // Determine source values
     const scientificName = item.scientific_name || null;
     const commonName = named(item.common_name);
@@ -68,3 +67,16 @@ export function getBirdNames(
         secondary: finalSecondary
     };
 }
+
+export type BirdNamer = (item: BirdNamingInput, showCommon: boolean, preferSci: boolean) => NamingResult;
+
+/**
+ * How a component names a bird: `$birdNames(detection, showCommon, preferSci)`. It is a store, so
+ * a name derived from it is drawn again when the language changes and "Unknown bird" is never left
+ * in the language the page was opened in.
+ */
+export const birdNames: Readable<BirdNamer> = derived([_, locale], ([$translate, $locale]) => {
+    // The translator throws until a language is chosen; the English name stands in until then.
+    const unknownName = $locale ? $translate('common.unknown_bird', { default: UNKNOWN_BIRD }) : UNKNOWN_BIRD;
+    return (item: BirdNamingInput, showCommon: boolean, preferSci: boolean) => getBirdNames(item, showCommon, preferSci, unknownName);
+});

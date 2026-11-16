@@ -45,7 +45,7 @@
     import { authStore } from '../stores/auth.svelte';
     import { detectionsStore } from '../stores/detections.svelte';
     import { themeStore } from '../stores/theme.svelte';
-    import { getBirdNames } from '../naming';
+    import { birdNames } from '../naming';
     import { formatTemperature } from '../utils/temperature';
     import { formatDateTime, formatHour, formatShortDay } from '../utils/datetime';
     import { getErrorMessage, isTransientRequestError } from '../utils/error-handling';
@@ -221,7 +221,7 @@
         const preferSci = settingsStore.scientificNamePrimary;
 
         return leaderboardSpecies().map(item => {
-            const naming = getBirdNames(item, showCommon, preferSci);
+            const naming = $birdNames(item, showCommon, preferSci);
             return {
                 ...item,
                 displayName: naming.primary,
@@ -488,7 +488,7 @@
         const usedAudioKeys = new Set<string>();
 
         const rows: LeaderboardTableRow[] = leaderboardSpecies().map((item) => {
-            const naming = getBirdNames(item, showCommon, preferSci);
+            const naming = $birdNames(item, showCommon, preferSci);
             const heard = heardFor(item, map);
             if (heard) {
                 if (heard.scientific_name) usedAudioKeys.add(`sci:${heard.scientific_name.toLowerCase()}`);

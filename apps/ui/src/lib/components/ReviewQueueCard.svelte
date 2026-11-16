@@ -11,7 +11,7 @@
     import KeptBirdOffers from './KeptBirdOffers.svelte';
     import { _, locale } from 'svelte-i18n';
     import { displayDistance } from '../utils/display-distance.svelte';
-    import { getBirdNames } from '../naming';
+    import { birdNames } from '../naming';
     import { settingsStore } from '../stores/settings.svelte';
     import { SCORE_TEXT, scoreBand } from '../utils/score-tone';
 
@@ -55,7 +55,7 @@
 
     // The same name the field log prints for this visit: the reader's naming preference and language.
     function name(detection: Detection): string {
-        return getBirdNames(detection, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary).primary;
+        return $birdNames(detection, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary).primary;
     }
 
     // A detection the queue holds always has a reason; one without is waiting on its score.

@@ -16,7 +16,7 @@
         getThumbnailUrl,
         ApiRequestError
     } from '../api';
-    import { getBirdNames } from '../naming';
+    import { birdNames } from '../naming';
     import { settingsStore } from '../stores/settings.svelte';
     import { publicSettingsStore } from '../stores/public_settings.svelte';
     import { authStore } from '../stores/auth.svelte';
@@ -176,7 +176,7 @@
                 scientific_name: stats.scientific_name,
                 common_name: stats.common_name
             };
-            return getBirdNames(item, showCommon, preferSci);
+            return $birdNames(item, showCommon, preferSci);
         }
         if (info) {
             const item = {
@@ -184,7 +184,7 @@
                 scientific_name: info.scientific_name,
                 common_name: null // info doesn't always have common name separate
             };
-            return getBirdNames(item, showCommon, preferSci);
+            return $birdNames(item, showCommon, preferSci);
         }
         return { primary: speciesName, secondary: null };
     });

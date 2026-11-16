@@ -129,6 +129,109 @@ for (const theme of ['light', 'dark'] as Theme[]) {
     }
 }
 
+const HIGH_CONTRAST = { '/api/settings': { ...SAVED_SETTINGS, accessibility_high_contrast: true } };
+
+/**
+ * Fills and the words on them, as the app writes them: a white or tinted word inside a filled
+ * element, and each filled control in its disabled state. These are the pairs a family rule alone
+ * gets wrong, because the ink was chosen for the theme's fill.
+ */
+const FILLED_SAMPLES = [
+    '<button class="btn btn-primary">Save changes</button>',
+    '<button class="btn btn-primary" disabled>Save changes</button>',
+    '<button class="w-full rounded-xl bg-brand-700 px-4 py-2 text-xs font-semibold text-white disabled:opacity-50" disabled>Send</button>',
+    '<button class="rounded-xl bg-brand-700 px-4 py-2 text-white"><span class="text-white">Chosen</span> <span class="text-brand-100">3</span></button>',
+    '<button class="btn btn-danger-solid">Delete permanently</button>',
+    '<button class="btn btn-danger-solid" disabled>Delete permanently</button>',
+    '<button class="btn btn-secondary" aria-disabled="true"><span class="text-slate-700 dark:text-slate-200">Unavailable</span></button>',
+    '<div class="flex h-12 w-12 items-center justify-center rounded-full bg-attention-500"><span class="text-2xl text-white">?</span></div>',
+    '<span class="rounded-full bg-attention-500 px-2 text-xs font-bold text-attention-950">10</span>',
+    '<span class="flex h-7 w-7 items-center justify-center rounded-full bg-success-700/95 text-white">A</span>',
+    '<span class="flex h-7 w-7 items-center justify-center rounded-full bg-brand-700/95 text-white">B</span>',
+    '<span class="flex h-7 w-7 items-center justify-center rounded-full bg-orange-500/95 text-white">C</span>',
+    '<span class="rounded-full bg-rose-700 px-1 text-3xs font-bold text-white">7</span>',
+    '<span class="rounded-full bg-success-600 px-2 text-white"><span class="text-success-100">Saved</span></span>'
+];
+
+for (const theme of ['light', 'dark'] as Theme[]) {
+    test(`high contrast over the ${theme} theme keeps the words on every fill, usable or disabled, at 7:1`, async ({ page }) => {
+        await replayFeeder(page, theme, HIGH_CONTRAST);
+        await page.setViewportSize({ width: 1440, height: 900 });
+        await page.goto('/about');
+        await expect(page.locator('#about-outbound-title')).toBeVisible(READY);
+        await settled(page);
+        await page.evaluate((samples) => {
+            const host = document.createElement('div');
+            host.setAttribute('data-filled-samples', '');
+            host.innerHTML = samples.map((sample) => `<div data-sample>${sample}</div>`).join('');
+            document.querySelector('main')?.prepend(host);
+        }, FILLED_SAMPLES);
+
+        const faint = (await faintText(page, 7)).filter((found) => found.text.length > 0);
+        expect(faint).toEqual([]);
+        // Every sample was measured: none was skipped as hidden or as drawn over a picture. No
+        // pair reaches 22:1, so at that floor the measure must report the samples' own words.
+        expect((await faintText(page, 22)).map((found) => found.text)).toEqual(expect.arrayContaining(['Send', '?', '10', 'Unavailable', 'Saved']));
+        expect(await page.locator('[data-filled-samples] > [data-sample]').count()).toBe(FILLED_SAMPLES.length);
+        // A disabled filled control gives up its fill with its ink.
+        for (const control of await page.locator('[data-filled-samples] :is(button:disabled, [aria-disabled="true"])').all()) {
+            expect(await control.evaluate((node) => getComputedStyle(node).backgroundColor)).toBe('rgb(0, 0, 0)');
+        }
+    });
+
+    test(`high contrast over the ${theme} theme keeps the record's AI panel, its role labels and its empty Send at 7:1`, async ({ page }) => {
+        const analysis = '## Appearance\n\nA **small brown bird** with a `streaked` back. See [the guide](https://example.invalid).\n\n- One\n- Two';
+        const withAnalysis = (value: unknown): unknown => {
+            if (Array.isArray(value)) return value.map(withAnalysis);
+            if (!value || typeof value !== 'object') return value;
+            const record = Object.fromEntries(Object.entries(value).map(([key, item]) => [key, withAnalysis(item)]));
+            if ('frigate_event' in record) record.ai_analysis = analysis;
+            if ('llm_ready' in record) record.llm_ready = true;
+            return record;
+        };
+        await replayFeeder(page, theme, { '/api/settings': { ...HIGH_CONTRAST['/api/settings'], llm_enabled: true, llm_ready: true } }, withAnalysis);
+        await page.route((url) => /\/api\/events\/[^/]+\/conversation$/.test(url.pathname), (route) => route.fulfill({
+            json: [
+                { role: 'user', content: 'Is it a Dunnock?', created_at: new Date().toISOString() },
+                { role: 'assistant', content: analysis, created_at: new Date().toISOString() }
+            ]
+        }));
+        await page.setViewportSize({ width: 1440, height: 900 });
+        await page.goto('/');
+        await expect(page.locator('[data-field-log-row]').first()).toBeVisible(READY);
+        await page.locator('[data-field-log-row] [data-field-log-action]').first().click();
+        const dialog = page.getByRole('dialog');
+        await expect(dialog.locator('.ai-bubble__role').first()).toBeVisible(READY);
+        await settled(page);
+
+        const send = dialog.getByRole('button', { name: 'Send', exact: true });
+        await expect(send).toBeDisabled();
+        expect(await send.evaluate((node) => getComputedStyle(node).backgroundColor)).toBe('rgb(0, 0, 0)');
+        expect(await faintText(page, 7)).toEqual([]);
+
+        const axe = await new AxeBuilder({ page }).analyze();
+        const serious = axe.violations
+            .filter((violation) => violation.impact === 'serious' || violation.impact === 'critical')
+            .flatMap((violation) => violation.nodes.map((node) => `${violation.id}: ${node.target.join(' ')}`));
+        expect(serious).toEqual([]);
+    });
+}
+
+test('an unknown bird is renamed on screen the moment the language changes', async ({ page }) => {
+    await replayFeeder(page, 'light');
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/');
+    const card = page.locator('[data-dashboard-review-queue]');
+    await expect(card.getByText('Unknown bird').first()).toBeVisible(READY);
+
+    await page.getByRole('button', { name: 'English', exact: true }).first().click();
+    await page.getByRole('menuitem', { name: /Deutsch/ }).click();
+
+    // No reload and no new data: the names already on the page follow the language.
+    await expect(card.getByText('Unbekannter Vogel').first()).toBeVisible(READY);
+    await expect(card.getByText('Unknown bird')).toHaveCount(0);
+});
+
 test('the theme switch still shows the reader\'s own theme while high contrast is on', async ({ page }) => {
     await replayFeeder(page, 'light', { '/api/settings': { ...SAVED_SETTINGS, accessibility_high_contrast: true } });
     await page.setViewportSize({ width: 1440, height: 900 });

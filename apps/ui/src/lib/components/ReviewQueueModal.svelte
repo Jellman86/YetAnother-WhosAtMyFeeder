@@ -9,7 +9,7 @@
     import FrameStrip from './FrameStrip.svelte';
     import CountedBirds from './CountedBirds.svelte';
     import MediaImage from './MediaImage.svelte';
-    import { getBirdNames } from '../naming';
+    import { birdNames } from '../naming';
     import { settingsStore } from '../stores/settings.svelte';
     import { authStore } from '../stores/auth.svelte';
     import { detectionsStore } from '../stores/detections.svelte';
@@ -433,7 +433,7 @@
         // and names hiding as the alternative sitting next to it.
         if (!(await confirmAction({
             title: $_('actions.delete_detection', { default: 'Delete this visit permanently' }),
-            message: $_('actions.confirm_delete', { values: { species: getBirdNames(current, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary).primary } }),
+            message: $_('actions.confirm_delete', { values: { species: $birdNames(current, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary).primary } }),
             confirmLabel: $_('dashboard.review_session.delete', { default: 'Delete permanently' })
         }))) return;
         busy = true;
@@ -555,7 +555,7 @@
             </div>
         {:else if session.current}
             {@const current = session.current}
-            {@const naming = getBirdNames(current, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary)}
+            {@const naming = $birdNames(current, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary)}
             {@const reason = reasons?.get(current.frigate_event) ?? 'low_score'}
             {@const isNewSpecies = reason === 'new_species'}
             {@const suggestion = reviewSuggestion(current, reason)}

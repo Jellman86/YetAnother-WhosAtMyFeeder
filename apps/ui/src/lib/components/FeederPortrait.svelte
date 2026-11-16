@@ -3,7 +3,7 @@
     import { getReelImageUrl, type FeederPortrait } from '../api';
     import { formatDate, formatDateTime } from '../utils/datetime';
     import VisitFilm from './VisitFilm.svelte';
-    import { getBirdNames } from '../naming';
+    import { birdNames } from '../naming';
     import { settingsStore } from '../stores/settings.svelte';
 
     /**
@@ -28,7 +28,7 @@
 
     // The portrait names a bird as every other page does: the reader's naming preference.
     function name(bird: { display_name: string; scientific_name?: string | null }): string {
-        return getBirdNames(bird, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary).primary;
+        return $birdNames(bird, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary).primary;
     }
 
     // The busiest day is a calendar date, not an instant: read at midday so no offset moves it.
