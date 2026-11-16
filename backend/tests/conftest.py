@@ -25,6 +25,9 @@ from tests import process_globals
 from tests.model_fixture_support import group_model_cases
 from tests.pure_lane import PURE_ONLY_SESSION, is_pure_test
 
+# pytester runs a test session inside a test, for checks on the suite's own fixtures.
+pytest_plugins = ("pytester",)
+
 BACKEND_DIR = Path(__file__).parent.parent.resolve()
 
 _suite_dir: Path | None = None
@@ -245,6 +248,21 @@ def isolate_service_connections(monkeypatch):
     monkeypatch.setattr(frigate_client, "readiness", FrigateReadinessGate(frigate_answers))
     yield
     service_connections.frigate_reachability.reset()
+
+
+@pytest.fixture(autouse=True)
+def isolate_system_status(monkeypatch):
+    """The status snapshot is read for real in tests, except Frigate's camera stats, and every test
+    gets a fresh collector and an unpublished service, so no cache or revision carries over."""
+    from app.services import system_status_readings
+    from tests.status_isolation import fresh_system_status_state
+
+    async def frigate_does_not_answer():
+        raise ConnectionError("Frigate is not reachable from tests")
+
+    monkeypatch.setattr(system_status_readings, "read_camera_health", frigate_does_not_answer)
+    fresh_system_status_state(monkeypatch)
+    yield
 
 
 @pytest.fixture(autouse=True)

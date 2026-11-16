@@ -26,5 +26,6 @@
   "feed_broker_down": "Nessun evento della telecamera. Il broker MQTT non è connesso.",
   "feed_frigate_down": "Frigate non risponde, quindi i nuovi rilevamenti non possono essere salvati",
   "feed_app_only": "Connesso a YA-WAMF",
-  "feed_reconnecting": "Riconnessione a YA-WAMF"
+  "feed_reconnecting": "Riconnessione a YA-WAMF",
+  "stale_since": "Stato aggiornato l’ultima volta alle {time}. Nuovo controllo in corso."
 }

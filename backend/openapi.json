@@ -3277,6 +3277,83 @@
         "title": "CacheStatsResponse",
         "type": "object"
       },
+      "CameraHealth": {
+        "properties": {
+          "camera": {
+            "title": "Camera",
+            "type": "string"
+          },
+          "camera_fps": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Camera Fps"
+          },
+          "detection_fps": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detection Fps"
+          },
+          "process_fps": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Process Fps"
+          },
+          "status": {
+            "enum": [
+              "online",
+              "offline",
+              "unknown"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "camera",
+          "status"
+        ],
+        "title": "CameraHealth",
+        "type": "object"
+      },
+      "CameraHealthReading": {
+        "properties": {
+          "cameras": {
+            "items": {
+              "$ref": "#/components/schemas/CameraHealth"
+            },
+            "title": "Cameras",
+            "type": "array"
+          },
+          "checked_at": {
+            "title": "Checked At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "cameras",
+          "checked_at"
+        ],
+        "title": "CameraHealthReading",
+        "type": "object"
+      },
       "CameraStats": {
         "properties": {
           "camera_name": {
@@ -12003,6 +12080,31 @@
         "title": "JobSnapshotItem",
         "type": "object"
       },
+      "JobsProgress": {
+        "properties": {
+          "current": {
+            "minimum": 0.0,
+            "title": "Current",
+            "type": "integer"
+          },
+          "total": {
+            "minimum": 1.0,
+            "title": "Total",
+            "type": "integer"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "current",
+          "total",
+          "unit"
+        ],
+        "title": "JobsProgress",
+        "type": "object"
+      },
       "JobsSnapshotResponse": {
         "properties": {
           "captured_at": {
@@ -12030,6 +12132,38 @@
           "lanes"
         ],
         "title": "JobsSnapshotResponse",
+        "type": "object"
+      },
+      "JobsSummary": {
+        "description": "The prominent work as one count, so the banner's headline and its detail can never disagree.",
+        "properties": {
+          "progress": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JobsProgress"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Set only when every running job counts the same thing towards a known total; otherwise null."
+          },
+          "queued": {
+            "minimum": 0.0,
+            "title": "Queued",
+            "type": "integer"
+          },
+          "running": {
+            "minimum": 0.0,
+            "title": "Running",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "running",
+          "queued"
+        ],
+        "title": "JobsSummary",
         "type": "object"
       },
       "JsonValue": {},
@@ -14498,6 +14632,110 @@
         "title": "ModelMetadata",
         "type": "object"
       },
+      "ModelState": {
+        "description": "The bird model in use and whether the inference provider the owner chose is the one running.",
+        "properties": {
+          "active_provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active Provider"
+          },
+          "cause": {
+            "title": "Cause",
+            "type": "string"
+          },
+          "enabled": {
+            "default": true,
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "fallback_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fallback Reason"
+          },
+          "model_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Id"
+          },
+          "model_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Name"
+          },
+          "provider_fallback": {
+            "default": false,
+            "description": "The chosen provider is not the one running, or the runtime reported a fallback.",
+            "title": "Provider Fallback",
+            "type": "boolean"
+          },
+          "revision": {
+            "description": "Changes whenever the model, its provider or its runtime changes, so a page reads details again.",
+            "title": "Revision",
+            "type": "string"
+          },
+          "selected_provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Selected Provider"
+          },
+          "state": {
+            "enum": [
+              "ok",
+              "degraded",
+              "error",
+              "off",
+              "unknown"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "validation_state": {
+            "default": "idle",
+            "description": "The once-per-runtime accelerator check: idle, running, succeeded, failed, ...",
+            "title": "Validation State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "cause",
+          "revision"
+        ],
+        "title": "ModelState",
+        "type": "object"
+      },
       "ModelValidateDevice": {
         "properties": {
           "backend": {
@@ -15126,6 +15364,51 @@
           "authorization_url"
         ],
         "title": "OAuthAuthorizeResponse",
+        "type": "object"
+      },
+      "OverallVerdict": {
+        "properties": {
+          "cause": {
+            "description": "The first thing to fix, as `status.cause.<subsystem>.<cause>` or an overall code.",
+            "title": "Cause",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "ok",
+              "degraded",
+              "unknown"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "subsystem": {
+            "anyOf": [
+              {
+                "enum": [
+                  "mqtt",
+                  "frigate",
+                  "classifier",
+                  "finder",
+                  "audio",
+                  "storage",
+                  "notifications"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Which part the cause belongs to; null for a cause of the whole install.",
+            "title": "Subsystem"
+          }
+        },
+        "required": [
+          "state",
+          "cause"
+        ],
+        "title": "OverallVerdict",
         "type": "object"
       },
       "PortraitDay": {
@@ -22563,6 +22846,46 @@
         "title": "StreamTicketResponse",
         "type": "object"
       },
+      "SubsystemVerdict": {
+        "properties": {
+          "cause": {
+            "description": "Why it is in this state, as a code the page words: `status.cause.<key>.<cause>`.",
+            "title": "Cause",
+            "type": "string"
+          },
+          "key": {
+            "enum": [
+              "mqtt",
+              "frigate",
+              "classifier",
+              "finder",
+              "audio",
+              "storage",
+              "notifications"
+            ],
+            "title": "Key",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "ok",
+              "degraded",
+              "error",
+              "off",
+              "unknown"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "state",
+          "cause"
+        ],
+        "title": "SubsystemVerdict",
+        "type": "object"
+      },
       "SystemAcceleratorIdentity": {
         "properties": {
           "kind": {
@@ -22906,6 +23229,109 @@
           "label"
         ],
         "title": "SystemProcessLoadResponse",
+        "type": "object"
+      },
+      "SystemStatusSnapshot": {
+        "properties": {
+          "analysis": {
+            "$ref": "#/components/schemas/AnalysisStatusResponse"
+          },
+          "cameras": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CameraHealthReading"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Per-camera health from Frigate's stats; null until Frigate has answered."
+          },
+          "connections": {
+            "$ref": "#/components/schemas/ServiceConnectionsResponse"
+          },
+          "diagnostics_revision": {
+            "description": "Recorded fault occurrences; when it changes, the incident workspace has something new.",
+            "minimum": 0.0,
+            "title": "Diagnostics Revision",
+            "type": "integer"
+          },
+          "generated_at": {
+            "title": "Generated At",
+            "type": "string"
+          },
+          "health_revision": {
+            "description": "Changes with `incident_revision` and with the pipeline's running totals, which only Health shows. The totals travel with the next push rather than causing one; Health reads its workspace again when this moves.",
+            "title": "Health Revision",
+            "type": "string"
+          },
+          "incident_revision": {
+            "description": "Changes whenever an incident can open or close: a verdict, a recorded fault, a video breaker opening or closing, the finder or the live classifier recovering. Every owner page reads the incident workspace again when it moves.",
+            "title": "Incident Revision",
+            "type": "string"
+          },
+          "jobs": {
+            "$ref": "#/components/schemas/JobsSnapshotResponse"
+          },
+          "jobs_summary": {
+            "$ref": "#/components/schemas/JobsSummary"
+          },
+          "model": {
+            "$ref": "#/components/schemas/ModelState"
+          },
+          "overall": {
+            "$ref": "#/components/schemas/OverallVerdict"
+          },
+          "revision": {
+            "description": "Rises with every published change; a client keeps the highest it saw.",
+            "minimum": 0.0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "startup_instance_id": {
+            "title": "Startup Instance Id",
+            "type": "string"
+          },
+          "subsystems": {
+            "items": {
+              "$ref": "#/components/schemas/SubsystemVerdict"
+            },
+            "title": "Subsystems",
+            "type": "array"
+          },
+          "telemetry": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TelemetrySummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "version": {
+            "description": "The backend's version; a page built for another version reloads.",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "revision",
+          "generated_at",
+          "startup_instance_id",
+          "version",
+          "overall",
+          "subsystems",
+          "jobs_summary",
+          "jobs",
+          "analysis",
+          "model",
+          "connections",
+          "diagnostics_revision",
+          "incident_revision",
+          "health_revision"
+        ],
+        "title": "SystemStatusSnapshot",
         "type": "object"
       },
       "SystemTelemetryHistoryResponse": {
@@ -23520,6 +23946,68 @@
           "processed"
         ],
         "title": "TaxonomySyncStatusResponse",
+        "type": "object"
+      },
+      "TelemetrySummary": {
+        "properties": {
+          "accelerator_kind": {
+            "anyOf": [
+              {
+                "enum": [
+                  "npu",
+                  "gpu"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accelerator Kind"
+          },
+          "accelerator_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accelerator Label"
+          },
+          "accelerator_percent": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accelerator Percent"
+          },
+          "cpu_percent": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cpu Percent"
+          },
+          "sampled_at": {
+            "description": "Unix time of the latest host sample.",
+            "title": "Sampled At",
+            "type": "number"
+          }
+        },
+        "required": [
+          "sampled_at"
+        ],
+        "title": "TelemetrySummary",
         "type": "object"
       },
       "TestEmailRequest": {
@@ -37451,6 +37939,39 @@
         "summary": "Get Uptime",
         "tags": [
           "stats"
+        ]
+      }
+    },
+    "/api/status": {
+      "get": {
+        "description": "The same snapshot the live stream pushes as a `status` event. Owner only.",
+        "operationId": "get_system_status_api_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SystemStatusSnapshot"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Get System Status",
+        "tags": [
+          "status"
         ]
       }
     },

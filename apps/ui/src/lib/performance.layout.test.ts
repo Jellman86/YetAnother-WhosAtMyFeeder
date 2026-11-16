@@ -126,9 +126,10 @@ describe('one load asks each question once', () => {
         expect(instanceSummarySource).toContain('await readUpdateStatus()');
         expect(instanceSummarySource).toContain('await readClassifierStatus()');
         expect(instancePipelineSource).toContain('await readClassifierStatus()');
-        expect(providerWarningSource).toContain('readClassifierStatus()');
-        expect(appSource).toContain('fetchAnalysisStatus: readAnalysisStatus');
-        expect(jobCircuitBannerSource).toContain('void analysisQueueStatusStore.refresh();');
+        expect(providerWarningSource).toContain('systemStatusStore.snapshot?.model');
+        expect(appSource).toContain('analysisQueueStatusStore.ingest(snapshot.analysis);');
+        // The circuit banner takes the queue from the pushed status and asks nothing on mount.
+        expect(jobCircuitBannerSource).not.toContain('void analysisQueueStatusStore.refresh();');
     });
 
     it('reads the Dashboard day once the owner\'s Garden switch is known, not before and again after', () => {

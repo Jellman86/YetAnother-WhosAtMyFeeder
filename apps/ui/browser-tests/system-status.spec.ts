@@ -1,6 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
-import { replayFeeder, settled, type Theme } from './accessibility-mock';
+import { HEALTHY_CONNECTIONS, replayFeeder, settled, type Theme } from './accessibility-mock';
 
 /**
  * The sidebar's System status card in the real app shell: a neutral list of measured states,
@@ -37,6 +37,8 @@ function workspace(events: ReturnType<typeof event>[]): Record<string, unknown> 
             },
             focused_diagnostics: {},
             health: { status: 'healthy' },
+            // These cases are about incidents, so both connections are asked to be up.
+            connections: HEALTHY_CONNECTIONS,
             classifier: {},
             taxonomy_repair: {},
             maintenance_coordinator: {},
@@ -186,4 +188,25 @@ test('at 200% text the card loses nothing', async ({ page }) => {
     });
     expect(tooWide).toEqual([]);
     await expect(card(page).locator('[data-health-issues]')).toBeVisible();
+});
+
+/** The status the replayed backend serves the page, read the way the page reads it. */
+async function servedStatus(page: Page, overrides: Record<string, unknown>): Promise<{ overall: { state: string; cause: string; subsystem: string | null }; subsystems: { key: string; state: string }[] }> {
+    await replayFeeder(page, 'light', overrides);
+    await page.goto('/about');
+    return page.evaluate(async () => (await fetch('/api/status')).json());
+}
+
+test('the replayed status keeps a failed workspace\'s failure', async ({ page }) => {
+    const failing = workspace([]);
+    const payload = failing['/api/diagnostics/workspace'] as Record<string, unknown>;
+    payload.health = { status: 'degraded', event_pipeline: { status: 'degraded', critical_failure_active: true } };
+    const status = await servedStatus(page, failing);
+    expect(status.overall).toEqual({ state: 'degraded', cause: 'pipeline_critical', subsystem: null });
+});
+
+test('the replayed status never calls unmeasured connections healthy', async ({ page }) => {
+    const status = await servedStatus(page, { '/api/diagnostics/connections': null });
+    expect(status.overall.state).toBe('unknown');
+    expect(status.subsystems.map((verdict) => verdict.state)).toEqual(['unknown', 'unknown']);
 });

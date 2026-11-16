@@ -60,11 +60,11 @@ describe('handleResponse', () => {
             pending.push({ resolve, signal });
         })));
 
-        const firstResult = fetchWithAbort('events-page', '/api/events?offset=0').catch((error) => error);
-        const secondResult = fetchWithAbort('events-page', '/api/events?offset=25').catch((error) => error);
+        const firstResult = fetchWithAbort('events-page', '/api/events?offset=0', { timeoutMs: 15_000 }).catch((error) => error);
+        const secondResult = fetchWithAbort('events-page', '/api/events?offset=25', { timeoutMs: 15_000 }).catch((error) => error);
         await firstResult;
 
-        const thirdRequest = fetchWithAbort<{ ok: boolean }>('events-page', '/api/events?offset=50');
+        const thirdRequest = fetchWithAbort<{ ok: boolean }>('events-page', '/api/events?offset=50', { timeoutMs: 15_000 });
 
         expect(pending[1].signal?.aborted).toBe(true);
         pending[2].resolve(new Response(JSON.stringify({ ok: true }), {

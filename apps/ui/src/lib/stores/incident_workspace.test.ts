@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { asGuarded } from '../test-support/guarded';
 import { createIncidentWorkspaceStore } from './incident_workspace.svelte';
 
 describe('incidentWorkspaceStore', () => {
@@ -495,7 +496,7 @@ describe('RF-DETR CPU fallback health', () => {
 describe('incident workspace refresh', () => {
     it('never lets an older reading overwrite a newer one, and says which read was applied', async () => {
         const releases: Array<(payload: never) => void> = [];
-        const store = createIncidentWorkspaceStore(() => new Promise((resolve) => { releases.push(resolve as (payload: never) => void); }));
+        const store = createIncidentWorkspaceStore(() => asGuarded(new Promise((resolve) => { releases.push(resolve as (payload: never) => void); })));
         const older = store.refresh();
         const newer = store.refresh();
         releases[1]({ workspace_schema_version: 'newer', backend_diagnostics: { events: [] } } as never);
@@ -507,7 +508,7 @@ describe('incident workspace refresh', () => {
 
     it('stays stale through a retry, and turns fresh only when a read succeeds, whoever started it', async () => {
         let next: () => Promise<never> = () => Promise.resolve({ workspace_schema_version: 'one', backend_diagnostics: { events: [] } } as never);
-        const store = createIncidentWorkspaceStore(() => next());
+        const store = createIncidentWorkspaceStore(() => asGuarded(next()));
         await store.refresh();
         expect(store.readFreshness).toBe('read');
 
@@ -528,7 +529,7 @@ describe('incident workspace refresh', () => {
 
     it('clears an earlier failure after clear-and-refresh, and is reading, not failed, in between', async () => {
         let next: () => Promise<never> = () => Promise.reject(new Error('HTTP 500'));
-        const store = createIncidentWorkspaceStore(() => next());
+        const store = createIncidentWorkspaceStore(() => asGuarded(next()));
         await expect(store.refresh()).rejects.toThrow();
         expect(store.readFreshness).toBe('failed');
         store.clear();
@@ -541,7 +542,7 @@ describe('incident workspace refresh', () => {
 
     it('ignores a failure that arrives after a newer read succeeded', async () => {
         const pending: Array<{ resolve: (payload: never) => void; reject: (error: Error) => void }> = [];
-        const store = createIncidentWorkspaceStore(() => new Promise((resolve, reject) => { pending.push({ resolve: resolve as (payload: never) => void, reject }); }));
+        const store = createIncidentWorkspaceStore(() => asGuarded(new Promise((resolve, reject) => { pending.push({ resolve: resolve as (payload: never) => void, reject }); })));
         const older = store.refresh();
         const newer = store.refresh();
         pending[1].resolve({ workspace_schema_version: 'newer', backend_diagnostics: { events: [] } } as never);
@@ -549,5 +550,31 @@ describe('incident workspace refresh', () => {
         pending[0].reject(new Error('late'));
         await expect(older).rejects.toThrow('late');
         expect(store.readFreshness).toBe('read');
+    });
+});
+
+describe('incident workspace across an access change', () => {
+    it('ignores a read that lands after the workspace was cleared for a new access', async () => {
+        type Payload = Awaited<ReturnType<typeof import('../api/diagnostics').fetchDiagnosticsWorkspace>>;
+        let answer: (payload: Payload) => void = () => undefined;
+        const store = createIncidentWorkspaceStore(() => asGuarded(new Promise<Payload>((resolve) => { answer = resolve; })));
+        const pending = store.refresh();
+        store.clear();
+        answer({ backend_diagnostics: { events: [] }, health: { status: 'ok' } } as unknown as Payload);
+        await expect(pending).resolves.toBe(false);
+        expect(store.workspacePayload).toBeNull();
+    });
+
+    it('ignores a read that fails after the workspace was cleared for a new access', async () => {
+        type Payload = Awaited<ReturnType<typeof import('../api/diagnostics').fetchDiagnosticsWorkspace>>;
+        let fail: (error: Error) => void = () => undefined;
+        const store = createIncidentWorkspaceStore(() => asGuarded(new Promise<Payload>((_resolve, reject) => { fail = reject; })));
+        const pending = store.refresh();
+        store.clear();
+        const settledBefore = store.readSettled;
+        fail(new Error('HTTP 502 for the old session'));
+        await expect(pending).resolves.toBe(false);
+        expect(store.readSettled).toEqual(settledBefore);
+        expect(store.readFreshness).not.toBe('failed');
     });
 });
