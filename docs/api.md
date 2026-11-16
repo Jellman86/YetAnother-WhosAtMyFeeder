@@ -1742,6 +1742,12 @@ accelerator keeps its CPU fallback rather than retrying every frame.
 - `GET /api/stats/ai/usage`
 - `DELETE /api/stats/ai/usage`
 
+`estimated_cost_usd` is an estimate only for usage that has a rate in the pricing registry. A
+breakdown row for a model with no rate has `priced: false` and `estimated_cost_usd: null`, never
+`0`. The total covers the priced rows only, and `priced_calls`, `unpriced_calls`, `priced_tokens`,
+`unpriced_tokens` and `unpriced_models` say what it leaves out; the total is `null` when there was
+usage and none of it had a price. A rate of zero that the owner entered is a price.
+
 ## Rate Limiting
 
 - Login endpoint has strict per-IP limits.

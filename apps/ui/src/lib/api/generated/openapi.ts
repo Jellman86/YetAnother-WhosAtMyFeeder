@@ -10,11 +10,12 @@ export interface components {
 };
     AIUsageBreakdown: {
     calls: number;
-    estimated_cost_usd?: number;
+    estimated_cost_usd?: number | null;
     feature: string;
     input_tokens: number;
     model: string;
     output_tokens: number;
+    priced?: boolean;
     provider: string;
     total_tokens: number;
 };
@@ -25,7 +26,6 @@ export interface components {
     AIUsageDaily: {
     calls: number;
     day: string;
-    estimated_cost_usd?: number;
     input_tokens: number;
     output_tokens: number;
     total_tokens: number;
@@ -34,14 +34,19 @@ export interface components {
     breakdown: Array<components['schemas']['AIUsageBreakdown']>;
     calls: number;
     daily: Array<components['schemas']['AIUsageDaily']>;
-    estimated_cost_usd?: number;
+    estimated_cost_usd?: number | null;
     from_date: string;
     input_tokens: number;
     output_tokens: number;
+    priced_calls?: number;
+    priced_tokens?: number;
     pricing_configured?: boolean;
     span: string;
     to_date: string;
     total_tokens: number;
+    unpriced_calls?: number;
+    unpriced_models?: Array<string>;
+    unpriced_tokens?: number;
 };
     ActionStatusResponse: {
     message: string;

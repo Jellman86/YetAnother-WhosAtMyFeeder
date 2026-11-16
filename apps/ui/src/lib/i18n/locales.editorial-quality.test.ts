@@ -171,7 +171,7 @@ const NAMES = new Set(
     GitHub YouTube Freepik Flaticon Jellman86 Wikipedia Wikimedia Gmail Outlook Google Microsoft OAuth Discord Telegram
     Pushover Apprise Gemini OpenAI OpenRouter Anthropic Claude OpenDyslexic MegaDetector Cedar SpeciesNet RF-DETR Nano YOLOX YOLOX-Tiny
     MobileNet EfficientNet ConvNeXt ONNX Runtime TFLite OpenVINO CUDA Intel NVIDIA Hailo Coral Docker Leaflet OpenStreetMap
-    Open-Meteo HACS MIT License Record Format Token Northern Cardinal United States Kingdom North America Europe
+    Open-Meteo Nominatim Fonts HACS MIT License Record Format Token Northern Cardinal United States Kingdom North America Europe
     Unknown Bird Tit NaN Celsius Fahrenheit Israel European Arabian Peninsula
     Dashboard Explorer Leaderboard Settings Notifications Events Species Garden Health Connection Detection Integrations
     Enrichment Security Data Appearance Accessibility Advanced Beta Debug Explore Jobs About`
