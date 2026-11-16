@@ -39,5 +39,8 @@
     "browser-tests/score-tone.ts",
     "browser-tests/manual-observation.ts",
     "browser-tests/status-feed.ts"
+  ],
+  "ignore": [
+    "scripts/*.d.mts"
   ]
 }

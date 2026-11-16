@@ -211,6 +211,9 @@ const ATTENTION_COMPONENTS: Record<string, string> = {
     'components/setup/ReviewStep.svelte': 'a setup step that still needs attention'
 };
 
+/** Amber, as a step of its scale or as the semantic status token. */
+const ATTENTION_USE = /\battention-\d|\bstatus-attention\b/;
+
 function relative(path: string): string {
     return path.replace(/^\.\//, '').replace(/^\.\.\//, '');
 }
@@ -238,7 +241,7 @@ describe('one palette across the app', () => {
     it('draws attention only where work waits on a person', () => {
         const offenders = Object.entries(svelteSources)
             .map(([path, source]) => [relative(path), source] as const)
-            .filter(([file, source]) => /\battention-\d/.test(source) && !(file in ATTENTION_COMPONENTS))
+            .filter(([file, source]) => ATTENTION_USE.test(source) && !(file in ATTENTION_COMPONENTS))
             .map(([file]) => file);
         expect(offenders).toEqual([]);
     });
@@ -246,7 +249,7 @@ describe('one palette across the app', () => {
     it('keeps every attention entry in use', () => {
         for (const file of Object.keys(ATTENTION_COMPONENTS)) {
             const source = Object.entries(svelteSources).find(([path]) => relative(path) === file)?.[1] ?? '';
-            expect(/\battention-\d/.test(source), file).toBe(true);
+            expect(ATTENTION_USE.test(source), file).toBe(true);
         }
     });
 });

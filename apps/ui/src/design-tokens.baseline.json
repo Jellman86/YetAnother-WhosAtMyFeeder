@@ -1,0 +1,787 @@
+{
+  "lib/components/ActivityHeatmap.svelte": {
+    "palette": 39,
+    "dark": 19,
+    "arbitrary": 0
+  },
+  "lib/components/BackendStatusScreen.svelte": {
+    "palette": 62,
+    "dark": 31,
+    "arbitrary": 1
+  },
+  "lib/components/BirdCountRegionImage.svelte": {
+    "palette": 4,
+    "dark": 1,
+    "arbitrary": 0
+  },
+  "lib/components/BirdCountRegionPreview.svelte": {
+    "palette": 4,
+    "dark": 2,
+    "arbitrary": 0
+  },
+  "lib/components/BirdScanControl.svelte": {
+    "palette": 24,
+    "dark": 11,
+    "arbitrary": 1
+  },
+  "lib/components/BirdScanRegions.svelte": {
+    "palette": 6,
+    "dark": 3,
+    "arbitrary": 0
+  },
+  "lib/components/CallPlayer.svelte": {
+    "palette": 17,
+    "dark": 5,
+    "arbitrary": 3
+  },
+  "lib/components/CameraStatus.svelte": {
+    "palette": 33,
+    "dark": 1,
+    "arbitrary": 4
+  },
+  "lib/components/CaptureWall.svelte": {
+    "palette": 56,
+    "dark": 28,
+    "arbitrary": 2
+  },
+  "lib/components/ClassificationSource.svelte": {
+    "palette": 3,
+    "dark": 1,
+    "arbitrary": 0
+  },
+  "lib/components/ConfirmDialog.svelte": {
+    "palette": 7,
+    "dark": 3,
+    "arbitrary": 0
+  },
+  "lib/components/ConnectionStatus.svelte": {
+    "palette": 0,
+    "dark": 0,
+    "arbitrary": 1
+  },
+  "lib/components/CountedBirdSpeciesPicker.svelte": {
+    "palette": 8,
+    "dark": 4,
+    "arbitrary": 0
+  },
+  "lib/components/CountedBirds.svelte": {
+    "palette": 62,
+    "dark": 27,
+    "arbitrary": 5
+  },
+  "lib/components/DailyHistogram.svelte": {
+    "palette": 20,
+    "dark": 10,
+    "arbitrary": 0
+  },
+  "lib/components/DayBar.svelte": {
+    "palette": 28,
+    "dark": 12,
+    "arbitrary": 0
+  },
+  "lib/components/DeskContextCards.svelte": {
+    "palette": 44,
+    "dark": 21,
+    "arbitrary": 0
+  },
+  "lib/components/DetectionCard.svelte": {
+    "palette": 88,
+    "dark": 25,
+    "arbitrary": 4
+  },
+  "lib/components/DetectionCardAnalysisOverlay.svelte": {
+    "palette": 38,
+    "dark": 17,
+    "arbitrary": 0
+  },
+  "lib/components/DetectionModal.svelte": {
+    "palette": 453,
+    "dark": 185,
+    "arbitrary": 7
+  },
+  "lib/components/DetectionPreview.svelte": {
+    "palette": 32,
+    "dark": 16,
+    "arbitrary": 0
+  },
+  "lib/components/DetectionRow.svelte": {
+    "palette": 57,
+    "dark": 26,
+    "arbitrary": 3
+  },
+  "lib/components/DiagnosticDialog.svelte": {
+    "palette": 0,
+    "dark": 0,
+    "arbitrary": 1
+  },
+  "lib/components/DialogCloseButton.svelte": {
+    "palette": 2,
+    "dark": 0,
+    "arbitrary": 0
+  },
+  "lib/components/ErrorBoundary.svelte": {
+    "palette": 53,
+    "dark": 25,
+    "arbitrary": 0
+  },
+  "lib/components/ExplorerFilters.svelte": {
+    "palette": 84,
+    "dark": 41,
+    "arbitrary": 3
+  },
+  "lib/components/ExplorerPlaceholders.svelte": {
+    "palette": 6,
+    "dark": 3,
+    "arbitrary": 1
+  },
+  "lib/components/ExplorerSearch.svelte": {
+    "palette": 26,
+    "dark": 13,
+    "arbitrary": 0
+  },
+  "lib/components/FamilyTreeDialog.svelte": {
+    "palette": 56,
+    "dark": 27,
+    "arbitrary": 1
+  },
+  "lib/components/FeederPortrait.svelte": {
+    "palette": 33,
+    "dark": 14,
+    "arbitrary": 3
+  },
+  "lib/components/FeederPortraitPlaceholder.svelte": {
+    "palette": 6,
+    "dark": 3,
+    "arbitrary": 1
+  },
+  "lib/components/FieldLog.svelte": {
+    "palette": 66,
+    "dark": 33,
+    "arbitrary": 4
+  },
+  "lib/components/FieldLogGardenRow.svelte": {
+    "palette": 20,
+    "dark": 9,
+    "arbitrary": 4
+  },
+  "lib/components/FieldLogVisitRow.svelte": {
+    "palette": 104,
+    "dark": 50,
+    "arbitrary": 19
+  },
+  "lib/components/FilteredFramePreview.svelte": {
+    "palette": 19,
+    "dark": 9,
+    "arbitrary": 1
+  },
+  "lib/components/FrameScanRibbon.svelte": {
+    "palette": 26,
+    "dark": 12,
+    "arbitrary": 2
+  },
+  "lib/components/FrameStrip.svelte": {
+    "palette": 48,
+    "dark": 2,
+    "arbitrary": 4
+  },
+  "lib/components/GardenAutomaticAssessment.svelte": {
+    "palette": 2,
+    "dark": 1,
+    "arbitrary": 0
+  },
+  "lib/components/GardenCaptureModal.svelte": {
+    "palette": 107,
+    "dark": 41,
+    "arbitrary": 2
+  },
+  "lib/components/GardenCapturePreview.svelte": {
+    "palette": 20,
+    "dark": 10,
+    "arbitrary": 0
+  },
+  "lib/components/GardenCaptureThumbnail.svelte": {
+    "palette": 2,
+    "dark": 0,
+    "arbitrary": 0
+  },
+  "lib/components/GardenDomesticSuggestion.svelte": {
+    "palette": 2,
+    "dark": 1,
+    "arbitrary": 0
+  },
+  "lib/components/GardenExplorerCard.svelte": {
+    "palette": 29,
+    "dark": 9,
+    "arbitrary": 1
+  },
+  "lib/components/GardenExplorerMarker.svelte": {
+    "palette": 5,
+    "dark": 1,
+    "arbitrary": 0
+  },
+  "lib/components/GardenExplorerRow.svelte": {
+    "palette": 17,
+    "dark": 8,
+    "arbitrary": 2
+  },
+  "lib/components/GardenSpeciesPicker.svelte": {
+    "palette": 6,
+    "dark": 3,
+    "arbitrary": 0
+  },
+  "lib/components/GardenVisitCaptures.svelte": {
+    "palette": 62,
+    "dark": 31,
+    "arbitrary": 1
+  },
+  "lib/components/GlobalProgress.svelte": {
+    "palette": 0,
+    "dark": 0,
+    "arbitrary": 1
+  },
+  "lib/components/HealthActivityTimeline.svelte": {
+    "palette": 0,
+    "dark": 0,
+    "arbitrary": 12
+  },
+  "lib/components/HeardBandCard.svelte": {
+    "palette": 18,
+    "dark": 7,
+    "arbitrary": 1
+  },
+  "lib/components/HeardBandHeading.svelte": {
+    "palette": 12,
+    "dark": 6,
+    "arbitrary": 0
+  },
+  "lib/components/HeardBandRow.svelte": {
+    "palette": 12,
+    "dark": 6,
+    "arbitrary": 1
+  },
+  "lib/components/HeardCallList.svelte": {
+    "palette": 16,
+    "dark": 8,
+    "arbitrary": 3
+  },
+  "lib/components/HoverPopoutPanel.svelte": {
+    "palette": 3,
+    "dark": 1,
+    "arbitrary": 1
+  },
+  "lib/components/IdentificationStatusLine.svelte": {
+    "palette": 8,
+    "dark": 4,
+    "arbitrary": 0
+  },
+  "lib/components/InstancePipeline.svelte": {
+    "palette": 19,
+    "dark": 9,
+    "arbitrary": 1
+  },
+  "lib/components/InstanceSummary.svelte": {
+    "palette": 58,
+    "dark": 27,
+    "arbitrary": 7
+  },
+  "lib/components/KeptBirdOffers.svelte": {
+    "palette": 2,
+    "dark": 1,
+    "arbitrary": 0
+  },
+  "lib/components/KeyboardShortcuts.svelte": {
+    "palette": 9,
+    "dark": 4,
+    "arbitrary": 1
+  },
+  "lib/components/LayeredThumbs.svelte": {
+    "palette": 16,
+    "dark": 8,
+    "arbitrary": 4
+  },
+  "lib/components/LazyModal.svelte": {
+    "palette": 8,
+    "dark": 3,
+    "arbitrary": 0
+  },
+  "lib/components/LazyRoute.svelte": {
+    "palette": 14,
+    "dark": 7,
+    "arbitrary": 0
+  },
+  "lib/components/LocationPicker.svelte": {
+    "palette": 6,
+    "dark": 3,
+    "arbitrary": 0
+  },
+  "lib/components/Login.svelte": {
+    "palette": 18,
+    "dark": 8,
+    "arbitrary": 0
+  },
+  "lib/components/Map.svelte": {
+    "palette": 4,
+    "dark": 2,
+    "arbitrary": 1
+  },
+  "lib/components/MapCredit.svelte": {
+    "palette": 4,
+    "dark": 2,
+    "arbitrary": 0
+  },
+  "lib/components/MediaImage.svelte": {
+    "palette": 4,
+    "dark": 2,
+    "arbitrary": 0
+  },
+  "lib/components/ModelExecutionEvidence.svelte": {
+    "palette": 2,
+    "dark": 1,
+    "arbitrary": 0
+  },
+  "lib/components/NotableNearby.svelte": {
+    "palette": 32,
+    "dark": 16,
+    "arbitrary": 0
+  },
+  "lib/components/Pagination.svelte": {
+    "palette": 20,
+    "dark": 10,
+    "arbitrary": 0
+  },
+  "lib/components/PrivacySummary.svelte": {
+    "palette": 28,
+    "dark": 14,
+    "arbitrary": 1
+  },
+  "lib/components/ProviderWarning.svelte": {
+    "palette": 5,
+    "dark": 2,
+    "arbitrary": 0
+  },
+  "lib/components/RangeMap.svelte": {
+    "palette": 4,
+    "dark": 2,
+    "arbitrary": 1
+  },
+  "lib/components/RecentAudio.svelte": {
+    "palette": 32,
+    "dark": 16,
+    "arbitrary": 0
+  },
+  "lib/components/ReclassificationOverlay.svelte": {
+    "palette": 117,
+    "dark": 45,
+    "arbitrary": 4
+  },
+  "lib/components/RecordTechnicalDetails.svelte": {
+    "palette": 6,
+    "dark": 3,
+    "arbitrary": 1
+  },
+  "lib/components/ReviewQueueCard.svelte": {
+    "palette": 51,
+    "dark": 24,
+    "arbitrary": 0
+  },
+  "lib/components/ReviewQueueModal.svelte": {
+    "palette": 70,
+    "dark": 24,
+    "arbitrary": 5
+  },
+  "lib/components/SimpleBarChart.svelte": {
+    "palette": 18,
+    "dark": 7,
+    "arbitrary": 0
+  },
+  "lib/components/SnapshotAnalysisScanner.svelte": {
+    "palette": 26,
+    "dark": 5,
+    "arbitrary": 0
+  },
+  "lib/components/SpeciesCheckSheet.svelte": {
+    "palette": 47,
+    "dark": 12,
+    "arbitrary": 5
+  },
+  "lib/components/SpeciesChecks.svelte": {
+    "palette": 12,
+    "dark": 5,
+    "arbitrary": 0
+  },
+  "lib/components/SpeciesDetailModal.svelte": {
+    "palette": 231,
+    "dark": 104,
+    "arbitrary": 11
+  },
+  "lib/components/TaxonCard.svelte": {
+    "palette": 60,
+    "dark": 28,
+    "arbitrary": 1
+  },
+  "lib/components/TaxonMarker.svelte": {
+    "palette": 16,
+    "dark": 8,
+    "arbitrary": 0
+  },
+  "lib/components/TaxonomyLineage.svelte": {
+    "palette": 18,
+    "dark": 9,
+    "arbitrary": 0
+  },
+  "lib/components/Toast.svelte": {
+    "palette": 15,
+    "dark": 0,
+    "arbitrary": 0
+  },
+  "lib/components/TopVisitors.svelte": {
+    "palette": 24,
+    "dark": 12,
+    "arbitrary": 0
+  },
+  "lib/components/VideoPlayer.svelte": {
+    "palette": 50,
+    "dark": 0,
+    "arbitrary": 3
+  },
+  "lib/components/VisitCaptures.svelte": {
+    "palette": 73,
+    "dark": 36,
+    "arbitrary": 2
+  },
+  "lib/components/settings/AISettings.svelte": {
+    "palette": 68,
+    "dark": 33,
+    "arbitrary": 1
+  },
+  "lib/components/settings/AITestModal.svelte": {
+    "palette": 8,
+    "dark": 4,
+    "arbitrary": 0
+  },
+  "lib/components/settings/AppearanceSettings.svelte": {
+    "palette": 3,
+    "dark": 0,
+    "arbitrary": 0
+  },
+  "lib/components/settings/AuthenticationSettings.svelte": {
+    "palette": 35,
+    "dark": 17,
+    "arbitrary": 0
+  },
+  "lib/components/settings/BetaFeatureCard.svelte": {
+    "palette": 10,
+    "dark": 5,
+    "arbitrary": 0
+  },
+  "lib/components/settings/BetaSection.svelte": {
+    "palette": 6,
+    "dark": 3,
+    "arbitrary": 0
+  },
+  "lib/components/settings/CameraWatchRow.svelte": {
+    "palette": 22,
+    "dark": 11,
+    "arbitrary": 0
+  },
+  "lib/components/settings/ClassificationImageSourceSetting.svelte": {
+    "palette": 6,
+    "dark": 3,
+    "arbitrary": 0
+  },
+  "lib/components/settings/ConnectionSettings.svelte": {
+    "palette": 73,
+    "dark": 35,
+    "arbitrary": 0
+  },
+  "lib/components/settings/DataSettings.svelte": {
+    "palette": 53,
+    "dark": 26,
+    "arbitrary": 0
+  },
+  "lib/components/settings/DetectionSettings.svelte": {
+    "palette": 81,
+    "dark": 38,
+    "arbitrary": 0
+  },
+  "lib/components/settings/EnrichmentSettings.svelte": {
+    "palette": 14,
+    "dark": 7,
+    "arbitrary": 0
+  },
+  "lib/components/settings/GardenBetaSettings.svelte": {
+    "palette": 44,
+    "dark": 22,
+    "arbitrary": 0
+  },
+  "lib/components/settings/GardenCollectionStatus.svelte": {
+    "palette": 10,
+    "dark": 5,
+    "arbitrary": 0
+  },
+  "lib/components/settings/GardenModelSetup.svelte": {
+    "palette": 18,
+    "dark": 9,
+    "arbitrary": 0
+  },
+  "lib/components/settings/GardenNotificationSettings.svelte": {
+    "palette": 23,
+    "dark": 11,
+    "arbitrary": 0
+  },
+  "lib/components/settings/IntegrationSettings.svelte": {
+    "palette": 75,
+    "dark": 36,
+    "arbitrary": 2
+  },
+  "lib/components/settings/MaintenanceSettings.svelte": {
+    "palette": 157,
+    "dark": 78,
+    "arbitrary": 0
+  },
+  "lib/components/settings/ModelSettings.svelte": {
+    "palette": 135,
+    "dark": 63,
+    "arbitrary": 0
+  },
+  "lib/components/settings/NativeProfileRevalidation.svelte": {
+    "palette": 2,
+    "dark": 1,
+    "arbitrary": 0
+  },
+  "lib/components/settings/NotificationPolicySentence.svelte": {
+    "palette": 39,
+    "dark": 18,
+    "arbitrary": 0
+  },
+  "lib/components/settings/NotificationSettings.svelte": {
+    "palette": 195,
+    "dark": 94,
+    "arbitrary": 0
+  },
+  "lib/components/settings/RangeFilterSettings.svelte": {
+    "palette": 78,
+    "dark": 39,
+    "arbitrary": 0
+  },
+  "lib/components/settings/SettingsTabs.svelte": {
+    "palette": 12,
+    "dark": 6,
+    "arbitrary": 0
+  },
+  "lib/components/settings/SystemHealthPanel.svelte": {
+    "palette": 0,
+    "dark": 0,
+    "arbitrary": 2
+  },
+  "lib/components/settings/TelemetrySettings.svelte": {
+    "palette": 18,
+    "dark": 9,
+    "arbitrary": 0
+  },
+  "lib/components/settings/_primitives/AdvancedSection.svelte": {
+    "palette": 8,
+    "dark": 4,
+    "arbitrary": 0
+  },
+  "lib/components/settings/_primitives/FieldRefusal.svelte": {
+    "palette": 4,
+    "dark": 2,
+    "arbitrary": 0
+  },
+  "lib/components/settings/_primitives/SecretInput.svelte": {
+    "palette": 21,
+    "dark": 10,
+    "arbitrary": 0
+  },
+  "lib/components/settings/_primitives/SettingsCard.svelte": {
+    "palette": 6,
+    "dark": 3,
+    "arbitrary": 0
+  },
+  "lib/components/settings/_primitives/SettingsInput.svelte": {
+    "palette": 4,
+    "dark": 2,
+    "arbitrary": 0
+  },
+  "lib/components/settings/_primitives/SettingsPage.svelte": {
+    "palette": 39,
+    "dark": 19,
+    "arbitrary": 0
+  },
+  "lib/components/settings/_primitives/SettingsRow.svelte": {
+    "palette": 4,
+    "dark": 2,
+    "arbitrary": 0
+  },
+  "lib/components/settings/_primitives/SettingsSegmented.svelte": {
+    "palette": 18,
+    "dark": 9,
+    "arbitrary": 0
+  },
+  "lib/components/settings/_primitives/SettingsSelect.svelte": {
+    "palette": 4,
+    "dark": 2,
+    "arbitrary": 0
+  },
+  "lib/components/settings/_primitives/SettingsSlider.svelte": {
+    "palette": 9,
+    "dark": 4,
+    "arbitrary": 0
+  },
+  "lib/components/settings/_primitives/SettingsTextarea.svelte": {
+    "palette": 6,
+    "dark": 3,
+    "arbitrary": 0
+  },
+  "lib/components/setup/AccountStep.svelte": {
+    "palette": 20,
+    "dark": 9,
+    "arbitrary": 0
+  },
+  "lib/components/setup/CameraThumbnail.svelte": {
+    "palette": 13,
+    "dark": 3,
+    "arbitrary": 0
+  },
+  "lib/components/setup/CamerasStep.svelte": {
+    "palette": 25,
+    "dark": 11,
+    "arbitrary": 0
+  },
+  "lib/components/setup/ConnectionStep.svelte": {
+    "palette": 48,
+    "dark": 22,
+    "arbitrary": 0
+  },
+  "lib/components/setup/HistoryStep.svelte": {
+    "palette": 44,
+    "dark": 20,
+    "arbitrary": 0
+  },
+  "lib/components/setup/IntegrationsStep.svelte": {
+    "palette": 20,
+    "dark": 9,
+    "arbitrary": 0
+  },
+  "lib/components/setup/ModelStep.svelte": {
+    "palette": 100,
+    "dark": 49,
+    "arbitrary": 0
+  },
+  "lib/components/setup/QualityStep.svelte": {
+    "palette": 10,
+    "dark": 4,
+    "arbitrary": 0
+  },
+  "lib/components/setup/ReviewStep.svelte": {
+    "palette": 34,
+    "dark": 15,
+    "arbitrary": 0
+  },
+  "lib/components/setup/SetupStepIcon.svelte": {
+    "palette": 6,
+    "dark": 3,
+    "arbitrary": 0
+  },
+  "lib/components/setup/WelcomeStep.svelte": {
+    "palette": 10,
+    "dark": 5,
+    "arbitrary": 0
+  },
+  "lib/components/setup/WizardLoadState.svelte": {
+    "palette": 9,
+    "dark": 3,
+    "arbitrary": 0
+  },
+  "lib/components/setup/WizardShell.svelte": {
+    "palette": 29,
+    "dark": 12,
+    "arbitrary": 1
+  },
+  "lib/components/setup/WizardStepLayout.svelte": {
+    "palette": 13,
+    "dark": 6,
+    "arbitrary": 0
+  },
+  "lib/pages/About.svelte": {
+    "palette": 29,
+    "dark": 14,
+    "arbitrary": 0
+  },
+  "lib/pages/AudioHistory.svelte": {
+    "palette": 217,
+    "dark": 108,
+    "arbitrary": 9
+  },
+  "lib/pages/Dashboard.svelte": {
+    "palette": 0,
+    "dark": 0,
+    "arbitrary": 2
+  },
+  "lib/pages/Events.svelte": {
+    "palette": 150,
+    "dark": 73,
+    "arbitrary": 2
+  },
+  "lib/pages/FirstRunWizard.svelte": {
+    "palette": 0,
+    "dark": 1,
+    "arbitrary": 0
+  },
+  "lib/pages/ManualObservation.svelte": {
+    "palette": 196,
+    "dark": 87,
+    "arbitrary": 4
+  },
+  "lib/pages/ModelEvaluation.svelte": {
+    "palette": 100,
+    "dark": 48,
+    "arbitrary": 0
+  },
+  "lib/pages/Notifications.svelte": {
+    "palette": 97,
+    "dark": 44,
+    "arbitrary": 1
+  },
+  "lib/pages/Settings.svelte": {
+    "palette": 6,
+    "dark": 3,
+    "arbitrary": 0
+  },
+  "lib/pages/Species.svelte": {
+    "palette": 401,
+    "dark": 195,
+    "arbitrary": 8
+  },
+  "lib/pages/models/FinderDevicePanel.svelte": {
+    "palette": 22,
+    "dark": 11,
+    "arbitrary": 0
+  },
+  "lib/pages/models/ModelManager.svelte": {
+    "palette": 162,
+    "dark": 74,
+    "arbitrary": 0
+  },
+  "lib/utils/explanation.ts": {
+    "palette": 6,
+    "dark": 3,
+    "arbitrary": 0
+  },
+  "lib/utils/field-log.ts": {
+    "palette": 0,
+    "dark": 0,
+    "arbitrary": 5
+  },
+  "lib/utils/score-tone.ts": {
+    "palette": 12,
+    "dark": 3,
+    "arbitrary": 0
+  },
+  "main.ts": {
+    "palette": 2,
+    "dark": 1,
+    "arbitrary": 0
+  }
+}

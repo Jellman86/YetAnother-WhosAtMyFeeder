@@ -6,7 +6,7 @@
   import MobileTopBar from './lib/components/MobileTopBar.svelte';
   import Sidebar from './lib/components/Sidebar.svelte';
   import Footer from './lib/components/Footer.svelte';
-  import PageHeader from './lib/components/PageHeader.svelte';
+  import AppPageHeader from './lib/components/AppPageHeader.svelte';
   import UpdateBanner from './lib/components/UpdateBanner.svelte';
   import UpdateIndicator from './lib/components/UpdateIndicator.svelte';
   import Toast from './lib/components/Toast.svelte';
@@ -810,10 +810,10 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
 
 <ErrorBoundary>
   {#snippet children()}
-  <div class="min-h-screen flex flex-col bg-surface-light dark:bg-surface-dark text-slate-900 dark:text-white font-sans transition-colors duration-300">
+  <div class="min-h-screen flex flex-col bg-surface-sunken text-strong font-sans transition-colors duration-300">
   <!-- Skip to content. The first-run wizard is a modal with nothing behind it to skip to, so it has no skip link. -->
   {#if !showsFirstRunWizard}
-  <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:z-100 focus:bg-brand-700 focus:text-white focus:px-4 focus:py-2 focus:rounded-b-lg focus:left-4 focus:top-0 focus:font-bold">
+  <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:z-100 focus:bg-accent focus:text-accent-fg focus:px-4 focus:py-2 focus:rounded-b-lg focus:left-4 focus:top-0 focus:font-bold">
     {$_('common.skip_to_content', { default: 'Skip to content' })}
   </a>
   {/if}
@@ -892,7 +892,7 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
                otherwise show beneath it and jump away when the data lands. -->
           <main id="main-content" class="min-h-svh flex-1 w-full px-4 sm:px-6 lg:px-8 2xl:px-12 pt-4 pb-8">
               {#if showPageHeader}
-                  <PageHeader
+                  <AppPageHeader
                       title={pageHeaderTitle}
                       subtitle={pageSubtitle}
                       onNavigate={navigate}
@@ -994,10 +994,10 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
               {:else}
                   <!-- An address no page answers, often an old bookmark: say so rather than show an empty page. -->
                   <section class="card-base mx-auto mt-8 max-w-xl space-y-4 p-8 text-center" aria-labelledby="not-found-heading" data-not-found>
-                      <h1 id="not-found-heading" class="font-display text-3xl font-bold leading-tight text-slate-900 dark:text-white">
+                      <h1 id="not-found-heading" class="font-display text-3xl font-bold leading-tight text-strong">
                           {notFoundTitle}
                       </h1>
-                      <p class="text-base text-slate-600 dark:text-slate-400">
+                      <p class="text-base text-muted">
                           {$_('not_found.body', { default: 'The address may be from an older version.' })}
                       </p>
                       <button type="button" class="btn btn-primary min-h-11 px-4 py-2" onclick={() => navigate('/')}>

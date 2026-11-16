@@ -62,7 +62,7 @@
   "errors_clear": "清除错误记录",
   "errors_summary": "{groups} 个组 • {events} 个事件 • {snapshots} 个健康快照",
   "errors_latest_health": "最新状态：{status}（{at}）",
-  "errors_empty": "没有记录。",
+  "errors_backend_empty": "自上次清除错误历史以来，后端没有记录任何警告或错误。",
   "errors_count": "{count}次",
   "errors_first_seen": "首次发现",
   "errors_last_seen": "最后发现",

@@ -1,0 +1,15 @@
+{
+  "state": {
+    "loading": "正在加载…",
+    "empty": "暂无内容",
+    "failed": "无法加载",
+    "stale": "可能已过时",
+    "off": "已关闭",
+    "not_measured": "未测量",
+    "try_again": "重试"
+  },
+  "chart": {
+    "show_data": "以表格显示数据",
+    "key": "图例"
+  }
+}

@@ -68,7 +68,7 @@ describe('the health verdict', () => {
         // itself is unit-tested in utils/status-tone.test.ts.
         expect(errorsSource).toContain("from '../utils/status-tone'");
         expect(errorsSource).toContain('STATUS_SURFACE[statusTone(value)]');
-        expect(errorsSource).toContain('STATUS_PILL[statusTone(value)]');
+        expect(errorsSource).toContain('STATUS_TONE[statusTone(verdict())]');
         expect(errorsSource).not.toMatch(/emerald-|amber-|accent-/);
     });
 
@@ -98,7 +98,7 @@ describe('filtered rows', () => {
 
     it('never borrow the amber that means a person is needed', () => {
         // §1.3: amber is reserved for outstanding work. A rejected frame wants nothing.
-        expect(timelineSource).toContain("'border-l-slate-300 bg-slate-50/55");
+        expect(timelineSource).toContain("'border-l-status-neutral-line bg-surface-raised'");
         expect(timelineSource).not.toContain('data-needs-review="true"');
     });
 
@@ -109,7 +109,7 @@ describe('filtered rows', () => {
     it('keeps fault drops visible and distinct from expected filtering', () => {
         expect(timelineSource).toContain("row.kind === 'fault'");
         expect(timelineSource).toContain("data-row-kind={isFault ? 'fault' : 'filtered'}");
-        expect(timelineSource).toContain('border-l-rose-400');
+        expect(timelineSource).toContain('border-l-status-fail-line');
     });
 
     it('states each outcome once instead of repeating status at the end of the row', () => {

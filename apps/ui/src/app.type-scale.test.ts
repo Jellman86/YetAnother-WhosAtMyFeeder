@@ -41,3 +41,13 @@ describe('the type scale on large displays', () => {
         });
     });
 });
+
+describe('figures', () => {
+    it('are lining and tabular in the base styles, so no face sets "08:00" as "o8:oo"', () => {
+        const base = appCss.slice(appCss.indexOf('@layer base {'), appCss.indexOf('/* Ensure Tailwind font utilities'));
+        expect(base).toMatch(/font-variant-numeric:\s*lining-nums tabular-nums;/);
+        // Tailwind's numeric utilities rebuild font-variant-numeric from per-element variables that
+        // do not inherit, so the defaults are set on every element, not only inherited from the root.
+        expect(base).toMatch(/\*,\s*::before,\s*::after\s*\{[^}]*--tw-numeric-figure:\s*lining-nums;[^}]*--tw-numeric-spacing:\s*tabular-nums;/);
+    });
+});
