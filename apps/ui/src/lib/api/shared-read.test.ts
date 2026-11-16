@@ -143,20 +143,42 @@ describe('createSharedRead scope and replacement', () => {
         const shared = createSharedRead(read, { shareForMs: 60_000 });
         await shared.read();
 
-        shared.replace('after the change');
+        const direct = shared.begin();
+        direct.settle('after the change');
         await expect(shared.read()).resolves.toBe('after the change');
         expect(read).toHaveBeenCalledTimes(1);
     });
 
-    it('does not let a request that began before a replacement overwrite it', async () => {
+    it('does not let a request that began before a direct reading overwrite it', async () => {
         const pending = deferred<string>();
         const read = vi.fn(() => pending.promise);
         const shared = createSharedRead(read, { shareForMs: 60_000 });
 
         const early = shared.read();
-        shared.replace('newer');
+        shared.begin().settle('newer');
         pending.resolve('older');
         await expect(early).resolves.toBe('older');
         await expect(shared.read()).resolves.toBe('newer');
+    });
+
+    it('drops a direct reading that lands in another session or language than it was asked in', async () => {
+        let scope = 'owner|en';
+        const read = vi.fn().mockResolvedValue('guest reading');
+        const shared = createSharedRead(read, { shareForMs: 60_000, scope: () => scope });
+
+        const direct = shared.begin();
+        scope = 'guest|de';
+        direct.settle('owner reading');
+        await expect(shared.read()).resolves.toBe('guest reading');
+    });
+
+    it('drops a direct reading whose request began before an invalidation', async () => {
+        const read = vi.fn().mockResolvedValue('after the model change');
+        const shared = createSharedRead(read, { shareForMs: 60_000 });
+
+        const direct = shared.begin();
+        shared.invalidate();
+        direct.settle('before the model change');
+        await expect(shared.read()).resolves.toBe('after the model change');
     });
 });

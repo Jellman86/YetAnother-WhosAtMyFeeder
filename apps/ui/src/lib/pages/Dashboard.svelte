@@ -41,6 +41,7 @@
     import { guestRecentAudioPollDelayMs } from '../app/public-refresh-budget';
     import { REFRESH_CADENCE_MS } from '../app/refresh-cadence';
     import { startLiveReading, type LiveReading } from '../app/live-reading';
+    import { createSingleFlightRunner } from '../app/single-flight';
     import { audioActivity } from '../stores/audio_activity.svelte';
     import { _ } from 'svelte-i18n';
     import { getErrorMessage, isTransientRequestError } from '../utils/error-handling';
@@ -218,11 +219,21 @@
     let reviewReading = $state.raw<ReviewQueueReading>(EMPTY_REVIEW_QUEUE_READING);
     let reviewReadingStatus = $state<ReadingStatus>('loading');
     let lastReviewQueueRead = 0;
+    // Whether each part of the day failed on its last read. Reads the view takes itself (the first,
+    // and those after an edit or an announcement) are counted by the day's reading too, so a failure
+    // is retried at the poll cadence instead of waiting for the five-minute safety read.
+    const dayReadFailed = { summary: false, checks: false, queue: false };
+    let daySafetyReading: LiveReading | undefined;
+    function reportDayRead(): void {
+        daySafetyReading?.report(!dayReadFailed.summary && !dayReadFailed.checks && !dayReadFailed.queue);
+    }
+
     const reviewQueueLoader = createObservationProjectionLoader({
         fetch: (signal) => fetchReviewQueue({ limit: REVIEW_QUEUE_READ_LIMIT, signal }),
         apply: (response) => {
             reviewReading = readingFromResponse(response);
             reviewReadingStatus = 'ready';
+            dayReadFailed.queue = false;
         },
         clear: () => {
             reviewReading = EMPTY_REVIEW_QUEUE_READING;
@@ -230,8 +241,10 @@
         },
         fail: (e) => {
             reviewReadingStatus = 'unavailable';
+            dayReadFailed.queue = true;
             logger.warn('Review queue unavailable', { message: getErrorMessage(e) });
-        }
+        },
+        settled: () => reportDayRead()
     });
     function loadReviewQueue(): void {
         if (!canReview) return;
@@ -295,13 +308,19 @@
             const next = readRangeCheck(rangeCheck, leaderboard, audio);
             if (next.status !== 'unavailable') domesticOffers.measured();
             rangeCheck = next;
+            dayReadFailed.checks = next.status === 'unavailable';
         },
         clear: () => { rangeCheck = UNREAD_RANGE_CHECK; domesticOffers.measured(); },
         fail: (e) => {
             rangeCheck = { ...rangeCheck, status: 'unavailable' };
+            dayReadFailed.checks = true;
             logger.warn('Species checks unavailable for the dashboard', { message: getErrorMessage(e) });
-        }
+        },
+        settled: () => reportDayRead()
     });
+    // The day's safety read and an announced call both read the checks; when both run together
+    // (after a reconnect, say) they share one read instead of the second cancelling the first.
+    const readSpeciesChecksOnce = createSingleFlightRunner(() => speciesChecksLoader.load());
     /** A person's retry shows it is checking again; a background poll leaves the stated failure in place. */
     function loadSpeciesChecks({ retry = false }: { retry?: boolean } = {}): void {
         if (!canReview) return;
@@ -438,6 +457,7 @@
         },
         apply: ({ summaryRes, visitsRes, gardenRes, window }) => {
             summary = summaryRes; summaryHour = new Date().getHours();
+            dayReadFailed.summary = false;
             serverVisits = visitsRes.visits.map((visit) => fromServerVisit(visit, window)); totalVisits = visitsRes.total;
             gardenWindow = { start: window.startTime, end: window.endTime };
             gardenUnavailable = gardenRes !== null && gardenRes.page === null;
@@ -446,6 +466,7 @@
         },
         clear: () => { summary = null; serverVisits = []; totalVisits = 0; gardenVisits = []; gardenTotal = 0; gardenUnavailable = false; },
         fail: (e) => {
+            dayReadFailed.summary = true;
             if (authStore.isGuest) summary = null;
             if (isTransientRequestError(e)) {
                 logger.warn('Dashboard summary fetch failed (transient)', { message: getErrorMessage(e) });
@@ -453,7 +474,7 @@
                 logger.error('Failed to load summary', e);
             }
         },
-        settled: () => { summaryLoading = false; }
+        settled: () => { summaryLoading = false; reportDayRead(); }
     });
 
     /** True when the day was read; false when the read failed or a newer one replaced it. */
@@ -489,7 +510,6 @@
     // The live stream announces every visit, correction and Garden review, and the effects below read
     // the day again for each, so while it is connected the timer is only a slow safety read. Without
     // it, the day is polled every minute as before.
-    let daySafetyReading: LiveReading | undefined;
     let dayAudioReading: LiveReading | undefined;
     // New calls are announced to the owner only; a guest's Heard figures poll within the visitor budget.
     const audioFollowsLiveStream = $derived(authStore.hasOwnerAccess && detectionsStore.connected);
@@ -499,8 +519,8 @@
         daySafetyReading = startLiveReading({
             read: async () => {
                 loadReviewQueue();
-                const [dayRead] = await Promise.all([loadSummary(), canReview ? speciesChecksLoader.load() : Promise.resolve(true)]);
-                return dayRead;
+                await Promise.all([loadSummary(), canReview ? readSpeciesChecksOnce() : Promise.resolve(true)]);
+                return !dayReadFailed.summary && !dayReadFailed.checks && !dayReadFailed.queue;
             },
             live: () => detectionsStore.connected,
             pollMs: () => DAY_POLL_MS,
@@ -510,11 +530,13 @@
         // The day bar and the Heard card share this one reading, kept within a visitor's request budget.
         dayAudioReading = startLiveReading({
             read: async ({ announced }) => {
-                const reads = [birdnetEnabled ? audioSummaryLoader.load() : Promise.resolve(true)];
                 // "Needs your call" counts a species as heard from the audio rollup too, so a new call
                 // can settle a check: read the checks with it rather than at the next day read.
-                if (announced && canReview) reads.push(speciesChecksLoader.load());
-                return (await Promise.all(reads)).every(Boolean);
+                const [audioRead] = await Promise.all([
+                    birdnetEnabled ? audioSummaryLoader.load() : Promise.resolve(true),
+                    announced && canReview ? readSpeciesChecksOnce() : Promise.resolve(true)
+                ]);
+                return audioRead && !(announced && dayReadFailed.checks);
             },
             live: () => audioFollowsLiveStream,
             pollMs: () => authStore.isGuest

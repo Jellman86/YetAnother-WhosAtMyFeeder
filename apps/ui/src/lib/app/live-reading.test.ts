@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { startLiveReading } from './live-reading';
+import { RECONNECT_MIN_MS, startLiveReading } from './live-reading';
 import type { PollDocument } from './visible-poll';
 
 function fakeTab(): PollDocument & { show(): void; hide(): void } {
@@ -164,8 +164,94 @@ describe('startLiveReading', () => {
         await vi.advanceTimersByTimeAsync(1_000);
         live = true;
         reading.liveChanged();
-        await vi.advanceTimersByTimeAsync(0);
+        // The last read was a second ago, so the reconnect read waits for the 10 s minimum.
+        await vi.advanceTimersByTimeAsync(RECONNECT_MIN_MS - 1_001);
+        expect(read).toHaveBeenCalledTimes(2);
+        await vi.advanceTimersByTimeAsync(1);
         expect(read).toHaveBeenCalledTimes(3);
+        reading.stop();
+    });
+
+    it('reads at once on a reconnect when the last read is older than the minimum interval', async () => {
+        let live = true;
+        const read = vi.fn(async () => true);
+        const reading = startLiveReading({ read, live: () => live, pollMs: () => 60_000, quietMs: QUIET, tab: fakeTab() });
+        live = false;
+        reading.liveChanged();
+        await vi.advanceTimersByTimeAsync(30_000);
+        live = true;
+        reading.liveChanged();
+        await vi.advanceTimersByTimeAsync(0);
+        expect(read).toHaveBeenCalledTimes(2);
+        reading.stop();
+    });
+
+    it.each([true, false])('keeps a flapping stream to the minimum interval (reads succeed: %s)', async (succeeds) => {
+        // Five reconnects in five seconds gave six reads before.
+        let live = true;
+        const read = vi.fn(async () => succeeds);
+        const reading = startLiveReading({ read, live: () => live, pollMs: () => 60_000, quietMs: QUIET, tab: fakeTab() });
+        await vi.advanceTimersByTimeAsync(30_000);
+        for (let flap = 0; flap < 5; flap += 1) {
+            live = false;
+            reading.liveChanged();
+            await vi.advanceTimersByTimeAsync(500);
+            live = true;
+            reading.liveChanged();
+            await vi.advanceTimersByTimeAsync(500);
+        }
+        // The start read, then at most one reconnect read.
+        expect(read.mock.calls.length).toBeLessThanOrEqual(2);
+        reading.stop();
+    });
+
+    it('backs off after reads that keep failing, and a reconnect does not get past the backoff', async () => {
+        let live = true;
+        const read = vi.fn(async () => false);
+        const reading = startLiveReading({ read, live: () => live, pollMs: () => POLL, quietMs: QUIET, tab: fakeTab() });
+        // Failed at 0, retried at 15 s (fails), then 30 s later at 45 s, then 60 s later at 105 s.
+        await vi.advanceTimersByTimeAsync(15_000);
+        expect(read).toHaveBeenCalledTimes(2);
+        await vi.advanceTimersByTimeAsync(29_000);
+        live = false;
+        reading.liveChanged();
+        live = true;
+        reading.liveChanged();
+        await vi.advanceTimersByTimeAsync(0);
+        expect(read).toHaveBeenCalledTimes(2);
+        await vi.advanceTimersByTimeAsync(1_000);
+        expect(read).toHaveBeenCalledTimes(3);
+        await vi.advanceTimersByTimeAsync(59_999);
+        expect(read).toHaveBeenCalledTimes(3);
+        await vi.advanceTimersByTimeAsync(1);
+        expect(read).toHaveBeenCalledTimes(4);
+        reading.stop();
+    });
+
+    it('counts a read the view took itself: a failure is retried at the cadence, a success restarts the quiet interval', async () => {
+        const read = vi.fn(async () => true);
+        const reading = startLiveReading({ read, live: () => true, pollMs: () => POLL, quietMs: QUIET, tab: fakeTab(), readAtStart: false });
+        reading.report(false);
+        await vi.advanceTimersByTimeAsync(POLL);
+        expect(read).toHaveBeenCalledTimes(1);
+
+        await vi.advanceTimersByTimeAsync(QUIET - 60_000);
+        reading.report(true);
+        await vi.advanceTimersByTimeAsync(QUIET - 1);
+        expect(read).toHaveBeenCalledTimes(1);
+        await vi.advanceTimersByTimeAsync(1);
+        expect(read).toHaveBeenCalledTimes(2);
+        reading.stop();
+    });
+
+    it('leaves a read it is taking itself to say how it went', async () => {
+        let finish: (fresh: boolean) => void = () => {};
+        const read = vi.fn().mockImplementationOnce(() => new Promise<boolean>((done) => { finish = done; })).mockResolvedValue(true);
+        const reading = startLiveReading({ read, live: () => true, pollMs: () => POLL, quietMs: QUIET, tab: fakeTab() });
+        reading.report(true);
+        finish(false);
+        await vi.advanceTimersByTimeAsync(POLL);
+        expect(read).toHaveBeenCalledTimes(2);
         reading.stop();
     });
 

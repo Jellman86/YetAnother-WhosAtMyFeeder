@@ -150,7 +150,13 @@ describe('the live stream replaces polling where it announces changes', () => {
         // A failed read is retried rather than taken as fresh, and an announced call reads the species
         // checks too, since "Needs your call" counts what was heard.
         expect(dashboardSource).toContain('return summaryLoader.load();');
-        expect(dashboardSource).toContain('if (announced && canReview) reads.push(speciesChecksLoader.load());');
+        expect(dashboardSource).toContain('announced && canReview ? readSpeciesChecksOnce() : Promise.resolve(true)');
+        // Every part of the day, read by the scheduler or by the view itself, reports its failure
+        // to the scheduler, and the two scheduled readers share one species-check read.
+        expect(dashboardSource.match(/settled: \(\) => reportDayRead\(\)/g) ?? []).toHaveLength(2);
+        expect(dashboardSource).toContain('settled: () => { summaryLoading = false; reportDayRead(); }');
+        expect(dashboardSource).toContain('return !dayReadFailed.summary && !dayReadFailed.checks && !dayReadFailed.queue;');
+        expect(dashboardSource).toContain('const readSpeciesChecksOnce = createSingleFlightRunner(() => speciesChecksLoader.load());');
         expect(recentAudioSource).toContain('async function loadAudio(): Promise<boolean> { return audioLoader.load(); }');
         expect(dashboardSource).toContain('quietMs: REFRESH_CADENCE_MS.liveSafetyRead,');
     });

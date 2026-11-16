@@ -9,8 +9,12 @@ export interface SharedRead<T> {
     read(signal?: AbortSignal): Promise<T>;
     /** Something said the reading changed: the next caller asks the server again. */
     invalidate(): void;
-    /** A reading just taken directly: the next callers are handed this one. */
-    replace(value: T): void;
+    /**
+     * Call as a direct request starts. Settling it with the answer makes that the shared reading, but
+     * only if nothing changed meanwhile: an answer read in another session or language, or before an
+     * invalidation, is dropped rather than shared.
+     */
+    begin(): { settle(value: T): void };
 }
 
 function abortError(): DOMException {
@@ -97,10 +101,17 @@ export function createSharedRead<T>(
             return waitFor(inFlight ?? start(), signal);
         },
         invalidate: forget,
-        replace(value: T): void {
-            forget();
-            readScope = scopeNow();
-            kept = { at: now(), value };
+        begin(): { settle(value: T): void } {
+            const startedIn = generation;
+            const askedIn = scopeNow();
+            return {
+                settle(value: T): void {
+                    if (generation !== startedIn || scopeNow() !== askedIn) return;
+                    forget();
+                    readScope = askedIn;
+                    kept = { at: now(), value };
+                }
+            };
         }
     };
 }

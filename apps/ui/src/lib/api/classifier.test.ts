@@ -560,4 +560,17 @@ describe('the shared reading of what names birds', () => {
         await activateModel('after');
         await expect(readClassifierStatus()).resolves.toMatchObject({ active_model_id: 'after' });
     });
+
+    it('drops a direct reading that began before a model change, so it cannot bring back the old model', async () => {
+        let answer: (status: unknown) => void = () => {};
+        handleResponseMock
+            .mockImplementationOnce(() => new Promise((done) => { answer = done; }))
+            .mockResolvedValueOnce({ status: 'ok' })
+            .mockResolvedValueOnce({ loaded: true, active_model_id: 'after' });
+        const direct = fetchClassifierStatus();
+        await activateModel('after');
+        answer({ loaded: true, active_model_id: 'before' });
+        await direct;
+        await expect(readClassifierStatus()).resolves.toMatchObject({ active_model_id: 'after' });
+    });
 });

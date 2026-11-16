@@ -18,8 +18,9 @@ const sharedClassifierStatus = createSharedRead(requestClassifierStatus, { share
  * also becomes the shared reading, so a view opened straight after shows the same.
  */
 export async function fetchClassifierStatus(): Promise<ClassifierStatus> {
+    const direct = sharedClassifierStatus.begin();
     const status = await requestClassifierStatus();
-    sharedClassifierStatus.replace(status);
+    direct.settle(status);
     return status;
 }
 

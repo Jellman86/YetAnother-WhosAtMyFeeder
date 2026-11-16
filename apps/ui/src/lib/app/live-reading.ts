@@ -26,9 +26,17 @@ interface LiveReadingOptions {
     now?: () => number;
 }
 
+/** A reconnect reads again no sooner than this after the last read, however often the stream flaps. */
+export const RECONNECT_MIN_MS = 10_000;
+
 export interface LiveReading {
     /** The live stream announced a change to this reading. */
     changed(): void;
+    /**
+     * The view read this itself (a first read, a read after an edit): count it, so a failure is
+     * retried and a success restarts the quiet interval. Ignored while a read of its own is running.
+     */
+    report(fresh: boolean): void;
     /** `live()` may have changed: re-plan the next read. */
     liveChanged(): void;
     stop(): void;
@@ -55,6 +63,9 @@ export function startLiveReading({
     let stopped = false;
     let reading = false;
     let announced = false;
+    let reconnected = false;
+    // Reads that failed in a row; each one doubles the wait before the next, up to the quiet interval.
+    let failures = 0;
     let wasLive = live();
     // A first connect follows the first read; only a reconnect can have missed an announcement.
     let everLive = wasLive;
@@ -70,9 +81,12 @@ export function startLiveReading({
         cancelTimer();
         if (stopped || reading || tab.hidden) return;
         const gap = pollMs();
-        const due = live()
-            ? lastReadAt + (announced ? gap : quietMs)
-            : lastReadAt + gap;
+        let wait: number;
+        if (failures > 0) wait = Math.min(gap * 2 ** (failures - 1), quietMs);
+        else if (!live()) wait = gap;
+        else if (reconnected) wait = Math.min(RECONNECT_MIN_MS, gap);
+        else wait = announced ? gap : quietMs;
+        const due = lastReadAt + wait;
         timer = setTimeout(() => void readNow(), Math.max(0, due - now()));
     }
 
@@ -80,17 +94,29 @@ export function startLiveReading({
         cancelTimer();
         if (stopped || reading || tab.hidden) return;
         reading = true;
-        const answersAnnouncement = announced;
+        const answersAnnouncement = announced || reconnected;
         announced = false;
+        reconnected = false;
         lastReadAt = now();
+        let fresh = false;
         try {
-            // A failed read is not fresh: it is retried at the poll cadence, not after the quiet interval.
-            if ((await read({ announced: answersAnnouncement })) === false) announced = true;
+            fresh = (await read({ announced: answersAnnouncement })) !== false;
         } catch {
-            announced = true;
+            // The reader reports its own failures; here a failed read only means it is not fresh.
         } finally {
+            settle(fresh);
             reading = false;
             plan();
+        }
+    }
+
+    /** A failed read is not fresh: it is retried after a backoff, not after the quiet interval. */
+    function settle(fresh: boolean): void {
+        if (fresh) {
+            failures = 0;
+        } else {
+            failures += 1;
+            announced = true;
         }
     }
 
@@ -123,11 +149,19 @@ export function startLiveReading({
                 // Losing the stream may have lost an announcement with it.
                 announced = true;
             } else if (everLive) {
-                // Back after a gap that announcements did not cover: read at once.
-                announced = true;
-                lastReadAt = Number.NEGATIVE_INFINITY;
+                // Back after a gap that announcements did not cover: read again, but no sooner than
+                // the minimum interval after the last read, so a flapping stream cannot cause a storm.
+                reconnected = true;
             }
             everLive ||= isLive;
+            plan();
+        },
+        report(fresh: boolean): void {
+            if (stopped || reading) return;
+            lastReadAt = now();
+            reconnected = false;
+            if (fresh) announced = false;
+            settle(fresh);
             plan();
         },
         stop(): void {
