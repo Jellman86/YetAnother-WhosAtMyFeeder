@@ -19,6 +19,7 @@ from collections.abc import Callable
 import json
 import os
 import re
+import stat
 from pathlib import Path
 from typing import Any, Literal, Self
 
@@ -85,24 +86,55 @@ def selected_finder() -> tuple[str, str | None] | None:
 
 
 # A wide-frame finder looks for birds in whole camera frames. The cache also
-# holds model crops, Frigate-hint crops and retained (often cropped) HQ
-# snapshots; a frame finder finds nothing in a tight bird crop, which once left
-# a host with an empty CPU baseline and the finder stuck on the CPU.
+# holds model crops, Frigate-hint crops, retained snapshots and event snapshots
+# that HQ processing replaced with a bird crop; a frame finder finds nothing in
+# a tight crop, which once left a host with an empty CPU baseline and the
+# finder stuck on the CPU.
 _CROP_VARIANT_MARKERS = ("__model_crop__", "__frigate_hint_crop__", "__frigate_region_crop__", "__retained_snapshot__")
+_VARIANT_FRAME = re.compile(r"__(full_frame|model_crop|frigate_hint_crop|frigate_region_crop)__(f-?\d+|final)__")
 MIN_FRAME_SHORT_SIDE = 480
 MIN_CHECK_FRAMES = 3
 MAX_FRAMES_PER_VISIT = 2
-# Header reads are cheap, but the cache can hold tens of thousands of files.
+# Each file costs at most a header read; the cache holds tens of thousands.
 MAX_FRAME_HEADER_READS = 240
+# A JPEG's size sits in its first segments. Anything that pushes it further is
+# not a camera frame, and must not make selection read megabytes to find out.
+MAX_HEADER_BYTES = 256 * 1024
+MAX_FRAME_BYTES = 24 * 1024 * 1024
+MAX_METADATA_BYTES = 64 * 1024
 # Part of the retry ledger key: a new selection rule deserves a fresh check.
 PHOTO_SELECTION_POLICY = 2
 
+_FULL_FRAME_WITH_BIRD, _FULL_FRAME, _EVENT_SNAPSHOT = 0, 1, 2
 
-_VARIANT_FRAME = re.compile(r"__(full_frame|model_crop|frigate_hint_crop|frigate_region_crop)__f(-?\d+)__")
+
+def _read_regular_file(path: str, limit: int) -> bytes | None:
+    """At most ``limit`` bytes of a regular file; never a symlink, FIFO or device."""
+    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_CLOEXEC", 0)
+    try:
+        descriptor = os.open(path, flags)
+    except OSError:
+        return None
+    try:
+        if not stat.S_ISREG(os.fstat(descriptor).st_mode):
+            return None
+        chunks: list[bytes] = []
+        remaining = limit
+        while remaining > 0:
+            chunk = os.read(descriptor, min(remaining, 64 * 1024))
+            if not chunk:
+                break
+            chunks.append(chunk)
+            remaining -= len(chunk)
+        return b"".join(chunks)
+    except OSError:
+        return None
+    finally:
+        os.close(descriptor)
 
 
 def _frame_variant(name: str) -> tuple[str, str | None] | None:
-    """("full", frame index), ("crop", frame index) or ("event", None); None for anything unusable."""
+    """("full", frame), ("crop", frame) or ("event", None); None for anything unusable."""
     if not name.endswith(".jpg") or name.endswith("_thumb.jpg"):
         return None
     variant = _VARIANT_FRAME.search(name)
@@ -115,21 +147,54 @@ def _frame_variant(name: str) -> tuple[str, str | None] | None:
     return "event", None
 
 
+def _event_snapshot_is_uncropped(path: str) -> bool:
+    from app.services.classification_input_provenance import snapshot_source_is_uncropped_frame
+
+    raw = _read_regular_file(f"{path}.meta.json", MAX_METADATA_BYTES)
+    if raw is None or len(raw) >= MAX_METADATA_BYTES:
+        return False
+    try:
+        metadata = json.loads(raw)
+    except ValueError:
+        return False
+    return isinstance(metadata, dict) and snapshot_source_is_uncropped_frame(metadata.get("source"))
+
+
 def _is_full_camera_frame(path: str) -> bool:
+    """A whole, decodable frame at least ``MIN_FRAME_SHORT_SIDE`` on its short side."""
+    import io
+
     from PIL import Image
 
+    header = _read_regular_file(path, MAX_HEADER_BYTES)
+    if not header:
+        return False
     try:
-        with Image.open(path) as image:
-            return min(image.size) >= MIN_FRAME_SHORT_SIDE
+        with Image.open(io.BytesIO(header)) as image:
+            if image.format != "JPEG" or min(image.size) < MIN_FRAME_SHORT_SIDE:
+                return False
     except (OSError, ValueError, Image.DecompressionBombError):
         return False
+    data = _read_regular_file(path, MAX_FRAME_BYTES + 1)
+    if not data or len(data) > MAX_FRAME_BYTES:
+        return False
+    try:
+        with Image.open(io.BytesIO(data)) as image:
+            # Decoding at 1/8 scale still reads every entropy-coded byte, so a
+            # truncated file fails here instead of in a heavy device sweep.
+            image.draft("RGB", (image.width // 8, image.height // 8))
+            image.load()
+    except (OSError, ValueError, Image.DecompressionBombError):
+        return False
+    return True
 
 
 def select_check_frames(directory: Path, *, limit: int) -> list[str]:
     """Full camera frames for a device check: newest visits first, one per visit, then a second.
 
-    Returns nothing when fewer than ``MIN_CHECK_FRAMES`` qualify, so a panel is
-    never judged on one or two frames.
+    Saved full frames are tried across all visits before any event snapshot, so
+    a run of small or cropped snapshots cannot spend the read budget first.
+    Returns nothing when fewer than ``MIN_CHECK_FRAMES`` qualify.
     """
     from app.services.media_cache import cache_name_event_id
 
@@ -148,60 +213,107 @@ def select_check_frames(directory: Path, *, limit: int) -> list[str]:
                         cropped_frames.add((visit, frame))
                     continue
                 try:
-                    modified = entry.stat().st_mtime
+                    if not entry.is_file(follow_symlinks=False):
+                        continue
+                    modified = entry.stat(follow_symlinks=False).st_mtime
                 except OSError:
                     continue
                 candidates.setdefault(visit, []).append((kind, frame, -modified, entry.path))
     except OSError:
         return []
 
-    def rank(visit: str, kind: str, frame: str | None) -> int:
-        # A crop at the same frame index means production found a bird in it.
-        if kind == "full":
-            return 0 if (visit, frame) in cropped_frames else 1
-        return 2
+    def full_frames(visit: str, frames: list[tuple[str, str | None, float, str]]) -> list[tuple[int, float, str]]:
+        # A crop at the same frame means production found a bird in it.
+        return sorted(
+            (_FULL_FRAME_WITH_BIRD if (visit, frame) in cropped_frames else _FULL_FRAME, modified, path)
+            for kind, frame, modified, path in frames
+            if kind == "full"
+        )
 
-    visits = {
-        visit: sorted((rank(visit, kind, frame), modified, path) for kind, frame, modified, path in frames)
-        for visit, frames in candidates.items()
-    }
-    # Newest visit first; within a visit, frames with a bird crop, then other
-    # full frames, then the event snapshot, newest first. Entries hold the
-    # negated mtime, so ascending order is newest first.
-    remaining = sorted(visits.values(), key=lambda frames: min(entry[1] for entry in frames))
-    taken = [0] * len(remaining)
+    def newest_first(visits: dict[str, list[tuple[int, float, str]]]) -> list[tuple[str, list[str]]]:
+        ordered = sorted(visits.items(), key=lambda item: min(modified for _, modified, _ in item[1]))
+        return [(visit, [path for _, _, path in frames]) for visit, frames in ordered]
+
+    by_visit = {visit: full_frames(visit, frames) for visit, frames in candidates.items()}
+    stages = [
+        # Saved full frames across every visit first, then a second from the
+        # same visits; event snapshots only fill what remains, so a run of small
+        # or cropped snapshots cannot spend the read budget first.
+        (newest_first({visit: frames for visit, frames in by_visit.items() if frames}), MAX_FRAMES_PER_VISIT, False),
+        (
+            newest_first(
+                {
+                    visit: [(_EVENT_SNAPSHOT, modified, path) for kind, _, modified, path in frames if kind == "event"]
+                    for visit, frames in candidates.items()
+                    if any(kind == "event" for kind, _, _, _ in frames)
+                }
+            ),
+            1,
+            True,
+        ),
+    ]
     chosen: list[str] = []
+    taken: dict[str, int] = {}
     reads = 0
-    for round_index in range(MAX_FRAMES_PER_VISIT):
-        for index, frames in enumerate(remaining):
-            if taken[index] != round_index:
-                continue
-            while frames and len(chosen) < limit and reads < MAX_FRAME_HEADER_READS:
-                path = frames.pop(0)[2]
-                reads += 1
-                if _is_full_camera_frame(path):
-                    chosen.append(path)
-                    taken[index] += 1
-                    break
+    for visits, rounds, needs_provenance in stages:
+        queues = [(visit, list(paths)) for visit, paths in visits]
+        for round_index in range(rounds):
+            for visit, paths in queues:
+                if taken.get(visit, 0) >= MAX_FRAMES_PER_VISIT or taken.get(visit, 0) > round_index:
+                    continue
+                while paths and len(chosen) < limit and reads < MAX_FRAME_HEADER_READS:
+                    path = paths.pop(0)
+                    reads += 1
+                    if needs_provenance and not _event_snapshot_is_uncropped(path):
+                        continue
+                    if _is_full_camera_frame(path):
+                        chosen.append(path)
+                        taken[visit] = taken.get(visit, 0) + 1
+                        break
     return chosen if len(chosen) >= MIN_CHECK_FRAMES else []
+
+
+_selection_cache: tuple[str, int, int, list[str], bool] | None = None
+
+
+def _cached_selection() -> tuple[list[str], bool]:
+    """The panel and whether any snapshot exists, listed again only after the directory changes.
+
+    Any write, rename or delete in the snapshot cache changes its mtime, so an
+    unchanged directory reuses the last listing instead of scanning it again.
+    """
+    global _selection_cache
+    from app.services.media_cache import SNAPSHOTS_DIR
+
+    directory = str(SNAPSHOTS_DIR)
+    try:
+        info = os.stat(directory)
+    except OSError:
+        return [], False
+    if _selection_cache is not None and _selection_cache[:3] == (directory, info.st_mtime_ns, info.st_ino):
+        return list(_selection_cache[3]), _selection_cache[4]
+    frames = select_check_frames(SNAPSHOTS_DIR, limit=MAX_CHECK_PHOTOS)
+    present = bool(frames) or _any_snapshot(directory)
+    _selection_cache = (directory, info.st_mtime_ns, info.st_ino, list(frames), present)
+    return frames, present
+
+
+def _any_snapshot(directory: str) -> bool:
+    try:
+        with os.scandir(directory) as entries:
+            return any(entry.name.endswith(".jpg") for entry in entries)
+    except OSError:
+        return False
 
 
 def recent_bird_photos() -> list[str]:
     """This host's own full camera frames: real feeder views that never leave the process."""
-    from app.services.media_cache import SNAPSHOTS_DIR
-
-    return select_check_frames(SNAPSHOTS_DIR, limit=MAX_CHECK_PHOTOS)
+    return _cached_selection()[0]
 
 
 def saved_bird_photos_present() -> bool:
     """Whether any saved snapshot exists, so an empty panel can say crops rather than nothing."""
-    from app.services.media_cache import SNAPSHOTS_DIR
-
-    try:
-        with os.scandir(SNAPSHOTS_DIR) as entries:
-            return any(entry.name.endswith(".jpg") for entry in entries)
-    except OSError:
-        return False
+    return _cached_selection()[1]
 
 
 def stale_accelerators(previous: list[str], current: list[str], packaged: list[str]) -> list[str]:
@@ -288,8 +400,11 @@ def empty_baseline_wait(rechecks: int) -> timedelta:
     return min(EMPTY_BASELINE_FIRST_WAIT * 2 ** min(max(rechecks, 1) - 1, 5), EMPTY_BASELINE_MAX_WAIT)
 
 
-def retry_due(entry: dict[str, Any], *, photo_signature: str, now: datetime) -> bool:
-    """Only a completed comparison consumes a runtime/preference context."""
+def retry_due(entry: dict[str, Any], *, photo_signature: str | None, now: datetime) -> bool:
+    """Only a completed comparison consumes a runtime/preference context.
+
+    ``photo_signature=None`` asks the time rules alone, before any photo is listed.
+    """
     state = entry.get("state")
     code = entry.get("reason_code")
     if state == "succeeded" or (state == "failed" and code in FINAL_FAILURE_CODES):
@@ -302,7 +417,8 @@ def retry_due(entry: dict[str, Any], *, photo_signature: str, now: datetime) -> 
     clock_ran_ahead = checked > now
     if code == "no_positive_baseline":
         wait = empty_baseline_wait(int(entry.get("empty_baseline_count") or 1))
-        return entry.get("photo_signature") != photo_signature and (clock_ran_ahead or now >= checked + wait)
+        photos_changed = photo_signature is None or entry.get("photo_signature") != photo_signature
+        return photos_changed and (clock_ran_ahead or now >= checked + wait)
     count = int(entry.get("attempt_count") or 1)
     if count >= MAX_INCONCLUSIVE_ATTEMPTS:
         return False
@@ -410,6 +526,20 @@ def waiting_for_photos_status(
     )
 
 
+def _entry_status(entry: dict[str, Any]) -> BirdFinderCheckStatus:
+    """A stored context's status; a check still marked running was cut off by a restart."""
+    status = BirdFinderCheckStatus.model_validate(entry)
+    status.runtime_current = True
+    if status.state == "running":
+        status.state, status.reason_code = "interrupted", "interrupted"
+        status.reason = (
+            "The previous check was interrupted. Check devices for this finder to retry."
+            if status.attempt_count >= MAX_INCONCLUSIVE_ATTEMPTS
+            else "The previous check was interrupted. A bounded automatic retry will follow."
+        )
+    return status
+
+
 @dataclass(frozen=True)
 class PreparedFinderCheck:
     status: BirdFinderCheckStatus
@@ -418,6 +548,7 @@ class PreparedFinderCheck:
     attempt_count: int = 0
     photo_signature: str = ""
     empty_baseline_count: int = 0
+    photos: tuple[str, ...] = ()
 
 
 class BirdFinderRevalidation:
@@ -435,7 +566,14 @@ class BirdFinderRevalidation:
         # complete immutable snapshot instead of mutating shared fields.
         self._status = self._status.model_copy(update=fields)
 
-    def _prepare(self, model_id: str, artifact: str | None, *, photos: list[str] | None = None) -> PreparedFinderCheck:
+    def _prepare(
+        self,
+        model_id: str,
+        artifact: str | None,
+        *,
+        photos: list[str] | None = None,
+        load_photos: Callable[[], list[str]] | None = None,
+    ) -> PreparedFinderCheck:
         attempts = _read_ledger()
         matching = [
             entry
@@ -502,34 +640,37 @@ class BirdFinderRevalidation:
                 },
             }
         )
-        photo_signature = photo_set_signature(photos or [])
+        # Time decides first, so a settled context never lists the snapshot
+        # cache; the photo set is read only when a check could actually run.
+        now = self._clock()
         owner_check = attempts.get(f"{OWNER_CHECK_PREFIX}{model_id}")
-        if _owner_check_covers(owner_check, artifact=artifact, preference=preference, stale=stale) and not retry_due(
-            owner_check, photo_signature=photo_signature, now=self._clock()
-        ):
+        owner_applies = _owner_check_covers(owner_check, artifact=artifact, preference=preference, stale=stale)
+        if owner_applies and not retry_due(owner_check, photo_signature=None, now=now):
+            return PreparedFinderCheck(status)
+        entry = attempts.get(key)
+        previous_code = None
+        if entry is not None:
+            previous_code = "interrupted" if entry.get("state") == "running" else entry.get("reason_code")
+            if not retry_due(entry | {"reason_code": previous_code}, photo_signature=None, now=now):
+                return PreparedFinderCheck(_entry_status(entry))
+        if photos is None:
+            photos = load_photos() if load_photos is not None else []
+        photo_signature = photo_set_signature(photos)
+        if owner_applies and not retry_due(owner_check, photo_signature=photo_signature, now=now):
             return PreparedFinderCheck(status)
         count = 1
         empty_baselines = 0
-        if key in attempts:
-            entry = attempts[key]
-            status = BirdFinderCheckStatus.model_validate(entry)
-            status.runtime_current = True
-            if status.state == "running":
-                status.state, status.reason_code = "interrupted", "interrupted"
-                status.reason = (
-                    "The previous check was interrupted. Check devices for this finder to retry."
-                    if status.attempt_count >= 3
-                    else "The previous check was interrupted. A bounded automatic retry will follow."
-                )
-            if not retry_due(
-                entry | {"reason_code": status.reason_code}, photo_signature=photo_signature, now=self._clock()
-            ):
+        if entry is not None:
+            status = _entry_status(entry)
+            if not retry_due(entry | {"reason_code": previous_code}, photo_signature=photo_signature, now=now):
                 return PreparedFinderCheck(status)
             if status.reason_code == "no_positive_baseline":
                 empty_baselines = int(entry.get("empty_baseline_count") or 1)
             else:
                 count = int(entry.get("attempt_count") or 1) + 1
-        return PreparedFinderCheck(status, key, tuple(providers), count, photo_signature, empty_baselines)
+        return PreparedFinderCheck(
+            status, key, tuple(providers), count, photo_signature, empty_baselines, tuple(photos)
+        )
 
     def _warn_rate_limited(self, event: str, **fields: Any) -> None:
         now = self._clock()
@@ -613,11 +754,13 @@ class BirdFinderRevalidation:
                 if validation.crop_validation_lock(model_id).locked():
                     return
                 preference = settings.classification.bird_crop_inference_provider
-                photos = await asyncio.to_thread(recent_bird_photos)
-                prepared = await asyncio.to_thread(self._prepare, model_id, artifact, photos=photos)
+                prepared = await asyncio.to_thread(
+                    self._prepare, model_id, artifact, load_photos=lambda: recent_bird_photos()
+                )
                 self._status = prepared.status
                 if prepared.key is None:
                     return
+                photos = list(prepared.photos)
                 providers = list(prepared.providers)
                 accelerators = [provider for provider in providers if provider in ACCELERATED_PROVIDERS]
                 previous_result = self._status.last_result

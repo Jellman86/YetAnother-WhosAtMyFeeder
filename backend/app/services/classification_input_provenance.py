@@ -84,6 +84,16 @@ _FULL_FRAME_SNAPSHOT_SOURCES = frozenset(
         "hq_candidate_full_frame",
     }
 )
+
+
+def snapshot_source_is_uncropped_frame(source: object) -> bool:
+    """A cached event snapshot is a whole camera frame only when its recorded source says so.
+
+    Thumbnails are uncropped but downscaled, so they never stand in for a frame.
+    """
+    return isinstance(source, str) and source in _FULL_FRAME_SNAPSHOT_SOURCES - {"frigate_thumbnail"}
+
+
 _FRIGATE_HINT_ALIGNED_SNAPSHOT_SOURCES = frozenset(
     {
         "frigate_snapshot",
