@@ -174,7 +174,7 @@
   "errors_filtered_title": "Détections filtrées",
   "errors_filtered_none": "Rien n’a encore été filtré.",
   "errors_filtered_summary": "{count, plural, one {# détection n’a pas satisfait vos réglages de détection.} other {# détections n’ont pas satisfait vos réglages de détection.}} C’est le filtre qui fonctionne, pas une panne.",
-  "errors_filtered_hint": "Ajustez le seuil de confiance dans Paramètres → Détection pour en conserver davantage.",
+  "errors_filtered_hint": "Ajustez le seuil d’identification dans Paramètres → Détection pour en conserver davantage.",
   "errors_filtered_recent": "Les plus récentes",
   "errors_activity_title": "Ce qui s’est passé",
   "errors_activity_subtitle": "Visites enregistrées, détections filtrées et défaillances du pipeline, dans l’ordre où elles se sont produites",
@@ -204,7 +204,7 @@
     "filter_out_of_range": "Non enregistré, jamais vu dans votre région eBird"
   },
   "errors_drop_reason": {
-    "filter_low_confidence": "Sous le seuil de confiance",
+    "filter_low_confidence": "Sous le seuil d’identification",
     "filter_below_threshold": "Sous le seuil d’espèce",
     "filter_blocked_label": "Étiquette bloquée",
     "filter_abstention_label": "Le modèle s’est abstenu",
@@ -294,5 +294,77 @@
   "errors_clear_effect": "Supprime tout de suite les erreurs et incidents enregistrés. Les vérifications en direct continuent.",
   "earlier_incidents_title": "Incidents précédents",
   "earlier_incidents_desc": "Problèmes qui se sont résolus depuis. Ce qui est ouvert maintenant figure plus haut, avec l’état du système.",
-  "earlier_incidents_empty": "Rien ne s’est résolu depuis le dernier effacement de l’historique des erreurs."
+  "earlier_incidents_empty": "Rien ne s’est résolu depuis le dernier effacement de l’historique des erreurs.",
+  "global_queued_only": "{count, plural, one {# tâche en file d’attente} other {# tâches en file d’attente}}",
+  "global_breakdown": "{count, plural, one {# tâche} other {# tâches}} : {parts}",
+  "global_summary_activity": "{kind} : {activity}",
+  "activity_waiting_for_frigate": "En attente d’une réponse de Frigate",
+  "phase_waiting_for_frigate": "En attente d’une réponse de Frigate",
+  "lane_running_count": "{count} en cours",
+  "lane_queued_count": "{count} en file d’attente",
+  "errors_reading": "Lecture de l’état le plus récent…",
+  "errors_read_failed": "La lecture de l’état n’a pas pu être chargée, donc cette page n’affirme aucun état.",
+  "errors_read_failed_next": "Actualisez pour réessayer. Si l’échec persiste, vérifiez que le backend de YA-WAMF fonctionne.",
+  "errors_read_stale": "La dernière actualisation a échoué : voici la lecture de {at}. Actualisez pour réessayer.",
+  "errors_read_at": "Lu à {at}",
+  "errors_pipeline_unmeasured": "Rien ne peut arriver tant que le broker MQTT n’est pas connecté : ces chiffres ne montrent donc pas si la chaîne fonctionne.",
+  "errors_mqtt_cause_unknown": "Le client du broker a donné une raison que YA-WAMF ne reconnaît pas. Elle figure dans Détails techniques.",
+  "errors_video_paused_until": "L’analyse vidéo est en pause jusqu’à {at}, après {count, plural, one {# échec} other {# échecs}} d’affilée.",
+  "errors_video_paused": "L’analyse vidéo est en pause après {count, plural, one {# échec} other {# échecs}} d’affilée.",
+  "errors_video_not_paused": "L’analyse vidéo n’est pas en pause : {queued} en attente, {running} en cours.",
+  "errors_background_plain": "Travail en arrière-plan : {queued} en attente, {running} en cours.",
+  "errors_summary_unknown": "Cette lecture n’indique pas si YA-WAMF fonctionne : aucun état n’est donc affirmé.",
+  "errors_subsystems_unread": "Rien à afficher tant qu’aucune lecture de l’état n’est chargée.",
+  "errors_activity_unread": "L’activité ne peut pas être affichée tant qu’aucune lecture de l’état n’est chargée.",
+  "errors_clear_failed": "L’historique des erreurs n’a pas pu être effacé. Réessayez.",
+  "errors_metric_handling": "Messages en cours de traitement",
+  "errors_metric_of": "{count} sur {total}",
+  "errors_metric_waiting": "En attente",
+  "errors_metric_being_named": "En cours d’identification",
+  "errors_metric_at_once": "Au plus en même temps",
+  "errors_metric_given_up": "Abandonnés",
+  "errors_metric_running": "En cours",
+  "errors_metric_failures_in_a_row": "Échecs d’affilée",
+  "errors_metric_held_back": "Retenu pour le travail en direct",
+  "errors_metric_notifications_dropped": "Notifications abandonnées",
+  "errors_metric_waiting_to_send": "En attente d’envoi",
+  "errors_metric_db_longest_wait": "Plus longue attente de la base de données",
+  "errors_metric_db_waits_timed_out": "Attentes de la base de données expirées",
+  "diagnostic_words": {
+    "classify_snapshot_timeout": {
+      "title": "Une détection a été abandonnée, car l’identification de sa capture a pris trop de temps.",
+      "next": "Le classificateur est peut-être surchargé. Consultez l’utilisation des ressources ci-dessus ou choisissez un modèle plus léger dans Paramètres → Modèles."
+    },
+    "classify_snapshot_overloaded": {
+      "title": "Une détection a été abandonnée, car le classificateur était trop occupé.",
+      "next": "Consultez l’utilisation des ressources ci-dessus. Si cela arrive souvent, choisissez un modèle plus léger dans Paramètres → Modèles."
+    },
+    "classify_snapshot_unavailable": {
+      "title": "Une détection a été abandonnée, car Frigate n’avait aucune capture pour elle.",
+      "next": "Vérifiez que les captures sont activées pour cette caméra dans Frigate."
+    },
+    "classifier_empty_results": {
+      "title": "Une détection a été abandonnée, car le classificateur n’a donné aucune réponse.",
+      "next": "Vérifiez qu’un modèle est chargé dans Paramètres → Modèles."
+    },
+    "save_and_notify_failed": {
+      "title": "Une détection a été identifiée, mais n’a pas pu être enregistrée.",
+      "next": "Vérifiez que le dossier de données a de l’espace libre et qu’on peut y écrire."
+    },
+    "stale_job": {
+      "title": "Une tâche en arrière-plan ne progresse plus.",
+      "next": "Elle apparaît dans Notifications. Relancez-la depuis là ou depuis l’onglet des Paramètres qui l’exécute."
+    },
+    "generic": {
+      "title": "Une étape de traitement a échoué. Les détails techniques donnent l’erreur exacte."
+    },
+    "stage_failure": {
+      "title": "Une détection n’a pas pu être traitée, car l’une de ses étapes a échoué.",
+      "next": "Si cela continue, copiez les détails techniques dans un ticket GitHub."
+    },
+    "stage_timeout": {
+      "title": "Une étape d’une détection a pris trop de temps et a été arrêtée.",
+      "next": "Le classificateur ou Frigate est peut-être surchargé. Consultez l’utilisation des ressources ci-dessus."
+    }
+  }
 }

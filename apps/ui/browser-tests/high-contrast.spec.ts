@@ -20,7 +20,9 @@ const PAGES: { name: string; path: string; ready: (page: Page) => Promise<void> 
     { name: 'the Dashboard', path: '/', ready: (page) => expect(page.locator('[data-field-log-row]').first()).toBeVisible(READY) },
     { name: 'the Explorer', path: '/events', ready: (page) => expect(page.locator('[data-detection-card], [data-detection-row]').first()).toBeVisible(READY) },
     { name: 'the Leaderboard', path: '/species', ready: (page) => expect(page.locator('[data-leaderboard-rankings]')).toBeVisible(READY) },
-    { name: 'About', path: '/about', ready: (page) => expect(page.locator('#about-outbound-title')).toBeVisible(READY) }
+    { name: 'About', path: '/about', ready: (page) => expect(page.locator('#about-outbound-title')).toBeVisible(READY) },
+    { name: 'Health', path: '/system-health', ready: (page) => expect(page.locator('[data-sidebar-status-link]')).toBeVisible(READY) },
+    { name: 'Audio history', path: '/audio', ready: (page) => expect(page.locator('[data-audio-top-species-button]').first()).toBeVisible(READY) }
 ];
 
 interface Faint { text: string; ratio: number; ink: string; ground: string; element: string }

@@ -1,6 +1,6 @@
 {
   "title": "システム状態",
-  "open_health": "システムの状態",
+  "open_health": "稼働状況",
   "row_feed": "Frigate イベント",
   "row_audio": "音声",
   "row_alerts": "通知",

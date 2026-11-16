@@ -79,6 +79,7 @@ export type FinderRunsOn =
     | { kind: 'failed'; devices: string[]; checkedAt: string | null; cause: FinderCheckCause }
     | { kind: 'interrupted'; devices: string[]; checkedAt: string | null }
     | { kind: 'waiting'; devices: string[] }
+    | { kind: 'waiting_full_frames'; devices: string[] }
     | { kind: 'never_checked' }
     | { kind: 'cpu_only' };
 
@@ -163,7 +164,9 @@ export function finderRunsOn(input: FinderRunsOnInput): FinderRunsOn {
         return { kind: 'failed', devices: wantedDevices, checkedAt: check.checked_at ?? null, cause: finderCheckCause(check) };
     }
     if (check?.state === 'interrupted') return { kind: 'interrupted', devices: wantedDevices, checkedAt: check.checked_at ?? null };
-    if (check?.state === 'waiting') return { kind: 'waiting', devices: wantedDevices };
+    if (check?.state === 'waiting') {
+        return { kind: check.reason_code === 'no_full_frames' ? 'waiting_full_frames' : 'waiting', devices: wantedDevices };
+    }
     return specific || accelerators.length > 0 ? { kind: 'never_checked' } : { kind: 'cpu_only' };
 }
 

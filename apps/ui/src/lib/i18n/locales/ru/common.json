@@ -73,8 +73,10 @@
   "diagnostic_state_failed": "Не пройдено",
   "diagnostic_state_warning": "Пройдено с предупреждением",
   "diagnostic_state_skipped": "Не выполнялось",
-  "unknown_bird": "Неизвестная птица",
+  "technical_details": "Технические подробности",
   "map_credit": "© участники OpenStreetMap",
+  "chart_total": "Всего: {count}",
+  "unknown_bird": "Неизвестная птица",
   "weather_condition": {
     "clear_sky": "Ясно",
     "partly_cloudy": "Переменная облачность",
@@ -98,6 +100,5 @@
     "sw": "ЮЗ",
     "w": "З",
     "nw": "СЗ"
-  },
-  "chart_total": "Всего: {count}"
+  }
 }

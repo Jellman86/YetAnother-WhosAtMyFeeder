@@ -174,7 +174,7 @@
   "errors_filtered_title": "Detecções filtradas",
   "errors_filtered_none": "Nada foi filtrado ainda.",
   "errors_filtered_summary": "{count, plural, one {# detecção não atendeu às suas configurações de detecção.} other {# detecções não atenderam às suas configurações de detecção.}} É o filtro funcionando, não uma falha.",
-  "errors_filtered_hint": "Ajuste o limite de confiança em Configurações → Detecção para manter mais delas.",
+  "errors_filtered_hint": "Ajuste o limiar de identificação em Configurações → Detecção para manter mais delas.",
   "errors_filtered_recent": "Mais recentes",
   "errors_activity_title": "O que aconteceu",
   "errors_activity_subtitle": "Visitas registadas, detecções filtradas e falhas de processamento, pela ordem em que aconteceram",
@@ -204,7 +204,7 @@
     "filter_out_of_range": "Não registado, nunca visto na sua região eBird"
   },
   "errors_drop_reason": {
-    "filter_low_confidence": "Abaixo do limite de confiança",
+    "filter_low_confidence": "Abaixo do limiar de identificação",
     "filter_below_threshold": "Abaixo do limite da espécie",
     "filter_blocked_label": "Rótulo bloqueado",
     "filter_abstention_label": "O modelo absteve-se",
@@ -294,5 +294,77 @@
   "errors_clear_effect": "Remove agora os erros e incidentes registrados. As verificações ao vivo continuam.",
   "earlier_incidents_title": "Incidentes anteriores",
   "earlier_incidents_desc": "Problemas que já foram resolvidos. O que está aberto agora aparece acima, com o estado do sistema.",
-  "earlier_incidents_empty": "Nada foi resolvido desde a última limpeza do histórico de erros."
+  "earlier_incidents_empty": "Nada foi resolvido desde a última limpeza do histórico de erros.",
+  "global_queued_only": "{count, plural, one {# tarefa na fila} other {# tarefas na fila}}",
+  "global_breakdown": "{count, plural, one {# tarefa} other {# tarefas}}: {parts}",
+  "global_summary_activity": "{kind}: {activity}",
+  "activity_waiting_for_frigate": "À espera de que o Frigate responda",
+  "phase_waiting_for_frigate": "À espera de que o Frigate responda",
+  "lane_running_count": "{count} em curso",
+  "lane_queued_count": "{count} na fila",
+  "errors_reading": "A ler o estado mais recente…",
+  "errors_read_failed": "Não foi possível carregar a leitura do estado, por isso esta página não indica nenhum estado.",
+  "errors_read_failed_next": "Atualize para tentar de novo. Se continuar a falhar, verifique se o backend do YA-WAMF está a funcionar.",
+  "errors_read_stale": "A última atualização falhou, por isso esta é a leitura de {at}. Atualize para tentar de novo.",
+  "errors_read_at": "Lido às {at}",
+  "errors_pipeline_unmeasured": "Nada pode chegar enquanto o broker MQTT não estiver ligado, por isso estas contagens não mostram se o pipeline funciona.",
+  "errors_mqtt_cause_unknown": "O cliente do broker deu um motivo que o YA-WAMF não reconhece. Aparece em Detalhes técnicos.",
+  "errors_video_paused_until": "A análise de vídeo está em pausa até às {at}, após {count, plural, one {# falha} other {# falhas}} seguidas.",
+  "errors_video_paused": "A análise de vídeo está em pausa após {count, plural, one {# falha} other {# falhas}} seguidas.",
+  "errors_video_not_paused": "A análise de vídeo não está em pausa: {queued} à espera, {running} em curso.",
+  "errors_background_plain": "Trabalho em segundo plano: {queued} à espera, {running} em curso.",
+  "errors_summary_unknown": "Esta leitura não indica se o YA-WAMF está a funcionar, por isso não se indica nenhum estado.",
+  "errors_subsystems_unread": "Nada a mostrar até ser carregada uma leitura do estado.",
+  "errors_activity_unread": "A atividade não pode ser mostrada até ser carregada uma leitura do estado.",
+  "errors_clear_failed": "Não foi possível limpar o histórico de erros. Tente novamente.",
+  "errors_metric_handling": "Mensagens em processamento",
+  "errors_metric_of": "{count} de {total}",
+  "errors_metric_waiting": "À espera",
+  "errors_metric_being_named": "A ser identificados agora",
+  "errors_metric_at_once": "No máximo em simultâneo",
+  "errors_metric_given_up": "Abandonados",
+  "errors_metric_running": "Em curso",
+  "errors_metric_failures_in_a_row": "Falhas seguidas",
+  "errors_metric_held_back": "Retido para o trabalho em direto",
+  "errors_metric_notifications_dropped": "Notificações descartadas",
+  "errors_metric_waiting_to_send": "À espera de envio",
+  "errors_metric_db_longest_wait": "Maior espera pela base de dados",
+  "errors_metric_db_waits_timed_out": "Esperas pela base de dados esgotadas",
+  "diagnostic_words": {
+    "classify_snapshot_timeout": {
+      "title": "Uma deteção foi descartada porque identificar a sua captura demorou demasiado.",
+      "next": "O classificador pode estar sobrecarregado. Consulte a utilização de recursos acima ou escolha um modelo mais leve em Definições → Modelos."
+    },
+    "classify_snapshot_overloaded": {
+      "title": "Uma deteção foi descartada porque o classificador estava demasiado ocupado.",
+      "next": "Consulte a utilização de recursos acima. Se acontecer com frequência, escolha um modelo mais leve em Definições → Modelos."
+    },
+    "classify_snapshot_unavailable": {
+      "title": "Uma deteção foi descartada porque o Frigate não tinha captura para ela.",
+      "next": "Verifique se as capturas estão ativadas para esta câmara no Frigate."
+    },
+    "classifier_empty_results": {
+      "title": "Uma deteção foi descartada porque o classificador não deu resposta.",
+      "next": "Verifique se há um modelo carregado em Definições → Modelos."
+    },
+    "save_and_notify_failed": {
+      "title": "Uma deteção foi identificada, mas não foi possível guardá-la.",
+      "next": "Verifique se a pasta de dados tem espaço livre e pode ser escrita."
+    },
+    "stale_job": {
+      "title": "Uma tarefa em segundo plano deixou de avançar.",
+      "next": "Aparece em Notificações. Volte a iniciá-la a partir daí ou do separador de Definições que a executa."
+    },
+    "generic": {
+      "title": "Um passo de processamento falhou. Os detalhes técnicos têm o erro exato."
+    },
+    "stage_failure": {
+      "title": "Não foi possível processar uma deteção porque um dos seus passos falhou.",
+      "next": "Se continuar a acontecer, copie os detalhes técnicos para um issue no GitHub."
+    },
+    "stage_timeout": {
+      "title": "Um passo de uma deteção demorou demasiado e foi parado.",
+      "next": "O classificador ou o Frigate podem estar sobrecarregados. Consulte a utilização de recursos acima."
+    }
+  }
 }

@@ -73,8 +73,10 @@
   "diagnostic_state_failed": "Failed",
   "diagnostic_state_warning": "Passed with a warning",
   "diagnostic_state_skipped": "Not run",
-  "unknown_bird": "Unknown bird",
+  "technical_details": "Technical details",
   "map_credit": "© OpenStreetMap contributors",
+  "chart_total": "Total: {count}",
+  "unknown_bird": "Unknown bird",
   "weather_condition": {
     "clear_sky": "Clear sky",
     "partly_cloudy": "Partly cloudy",
@@ -98,6 +100,5 @@
     "sw": "SW",
     "w": "W",
     "nw": "NW"
-  },
-  "chart_total": "Total: {count}"
+  }
 }

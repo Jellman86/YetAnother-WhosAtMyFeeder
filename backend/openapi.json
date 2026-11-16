@@ -3606,7 +3606,8 @@
                   "passed",
                   "gpu_recovery",
                   "no_accelerator",
-                  "ledger_unreadable"
+                  "ledger_unreadable",
+                  "no_full_frames"
                 ],
                 "type": "string"
               },
@@ -3704,7 +3705,8 @@
                   "passed",
                   "gpu_recovery",
                   "no_accelerator",
-                  "ledger_unreadable"
+                  "ledger_unreadable",
+                  "no_full_frames"
                 ],
                 "type": "string"
               },
@@ -14707,6 +14709,25 @@
             ],
             "description": "The broker client's own words for that failure.",
             "title": "Last Error"
+          },
+          "last_error_cause": {
+            "anyOf": [
+              {
+                "enum": [
+                  "host_not_found",
+                  "refused",
+                  "timeout",
+                  "not_authorised",
+                  "unreachable"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The cause read from that failure, as a code the page words in its own language: host_not_found, refused, timeout, not_authorised or unreachable. Null while connected or before any failure.",
+            "title": "Last Error Cause"
           },
           "last_failure_at": {
             "anyOf": [

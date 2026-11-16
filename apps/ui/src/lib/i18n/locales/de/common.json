@@ -73,8 +73,10 @@
   "diagnostic_state_failed": "Fehlgeschlagen",
   "diagnostic_state_warning": "Bestanden mit Warnung",
   "diagnostic_state_skipped": "Nicht ausgeführt",
-  "unknown_bird": "Unbekannter Vogel",
+  "technical_details": "Technische Details",
   "map_credit": "© OpenStreetMap-Mitwirkende",
+  "chart_total": "{count} insgesamt",
+  "unknown_bird": "Unbekannter Vogel",
   "weather_condition": {
     "clear_sky": "Klarer Himmel",
     "partly_cloudy": "Teilweise bewölkt",
@@ -98,6 +100,5 @@
     "sw": "SW",
     "w": "W",
     "nw": "NW"
-  },
-  "chart_total": "{count} insgesamt"
+  }
 }

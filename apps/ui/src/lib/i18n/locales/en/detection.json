@@ -501,5 +501,26 @@
   "reference_read_more_on": "Read more on {source}",
   "reference_read_more": "Read more",
   "reference_source": "Source: {source}",
-  "reference_conservation": "Conservation status: {status}"
+  "reference_conservation": "Conservation status: {status}",
+  "archive_failed_both": "This favourite's own copy of its photo and clip could not be saved.",
+  "archive_failed_photo": "This favourite's own copy of its photo could not be saved.",
+  "archive_failed_clip": "This favourite's own copy of its clip could not be saved.",
+  "archive_cause": {
+    "frigate_unreachable": "Frigate could not be reached. Check that Frigate is running and its address in Settings → Connection.",
+    "frigate_timeout": "Frigate did not answer in time. Check that Frigate is running and not overloaded.",
+    "frigate_refused": "Frigate refused YA-WAMF's request. Check the Frigate access settings in Settings → Connection.",
+    "frigate_error": "Frigate answered with an error of its own. Check its logs.",
+    "clip_cut_short": "The clip download was cut short.",
+    "disk_full": "The disk that holds the data folder is full. Free some space.",
+    "disk_error": "The data folder could not be written to. Check that it exists and YA-WAMF may write to it.",
+    "unknown": "The cause was not recorded."
+  },
+  "archive_retry_scheduled": "YA-WAMF tries again by itself at {at}. The visit stays in your history either way.",
+  "archive_retry_spent": "YA-WAMF has stopped trying by itself. The visit stays in your history either way.",
+  "archive_retry_now": "Try again now",
+  "audio_match_evidence": "The matching call",
+  "archive_retry_due": "YA-WAMF tries again by itself shortly. The visit stays in your history either way.",
+  "archive_checking": "Checking what this favourite's own copy kept…",
+  "archive_unchecked": "This favourite's own copy reported a problem, but what it kept could not be checked.",
+  "archive_check_again": "Check again"
 }

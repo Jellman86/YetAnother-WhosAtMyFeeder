@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ServiceConnections } from '../api/diagnostics';
-import { connectionProblems, frigateCardStatus, healthVerdict, mqttCardStatus } from './connection-health';
+import { connectionProblems, frigateCardStatus, healthVerdict, mqttCardStatus, pipelineCardStatus } from './connection-health';
 
 function connections(mqtt: ServiceConnections['mqtt']['state'], frigate: ServiceConnections['frigate']['state']): ServiceConnections {
     return {
@@ -53,5 +53,21 @@ describe('the MQTT and Frigate cards', () => {
         expect(frigateCardStatus(connections('connected', 'unreachable'))).toBe('unreachable');
         expect(frigateCardStatus(connections('connected', 'unchecked'))).toBe('unchecked');
         expect(frigateCardStatus(null)).toBe('unknown');
+    });
+});
+
+describe('pipeline card status', () => {
+    it('is not called healthy or idle while nothing can arrive', () => {
+        // With the broker down, quiet counters measure nothing; they are not a healthy pipeline.
+        expect(pipelineCardStatus('ok', connections('disconnected', 'unreachable'))).toBe('unknown');
+        expect(pipelineCardStatus('idle', connections('not_configured', 'reachable'))).toBe('unknown');
+        expect(pipelineCardStatus('ok', null)).toBe('unknown');
+    });
+
+    it('keeps a fault it measured, and the reading itself while the broker is up', () => {
+        expect(pipelineCardStatus('critical', connections('disconnected', 'unreachable'))).toBe('critical');
+        expect(pipelineCardStatus('degraded', connections('disconnected', 'reachable'))).toBe('degraded');
+        expect(pipelineCardStatus('ok', connections('connected', 'reachable'))).toBe('ok');
+        expect(pipelineCardStatus('idle', connections('connected', 'reachable'))).toBe('idle');
     });
 });

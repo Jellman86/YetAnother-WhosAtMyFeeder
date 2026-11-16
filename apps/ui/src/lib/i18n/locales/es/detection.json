@@ -501,5 +501,26 @@
   "reference_read_more_on": "Leer más en {source}",
   "reference_read_more": "Leer más",
   "reference_source": "Fuente: {source}",
-  "reference_conservation": "Estado de conservación: {status}"
+  "reference_conservation": "Estado de conservación: {status}",
+  "archive_failed_both": "No se pudo guardar la copia propia de la foto y el clip de este favorito.",
+  "archive_failed_photo": "No se pudo guardar la copia propia de la foto de este favorito.",
+  "archive_failed_clip": "No se pudo guardar la copia propia del clip de este favorito.",
+  "archive_cause": {
+    "frigate_unreachable": "No se pudo contactar con Frigate. Comprueba que Frigate está en marcha y su dirección en Ajustes → Conexión.",
+    "frigate_timeout": "Frigate no respondió a tiempo. Comprueba que Frigate está en marcha y no está sobrecargado.",
+    "frigate_refused": "Frigate rechazó la solicitud de YA-WAMF. Comprueba el acceso a Frigate en Ajustes → Conexión.",
+    "frigate_error": "Frigate respondió con un error propio. Revisa sus registros.",
+    "clip_cut_short": "La descarga del clip se interrumpió.",
+    "disk_full": "El disco de la carpeta de datos está lleno. Libera espacio.",
+    "disk_error": "No se pudo escribir en la carpeta de datos. Comprueba que existe y que YA-WAMF puede escribir en ella.",
+    "unknown": "No se registró la causa."
+  },
+  "archive_retry_scheduled": "YA-WAMF lo volverá a intentar solo a las {at}. La visita se queda en tu historial en cualquier caso.",
+  "archive_retry_spent": "YA-WAMF ha dejado de intentarlo solo. La visita se queda en tu historial en cualquier caso.",
+  "archive_retry_now": "Reintentar ahora",
+  "audio_match_evidence": "El canto coincidente",
+  "archive_retry_due": "YA-WAMF lo volverá a intentar solo en breve. La visita se queda en tu historial en cualquier caso.",
+  "archive_checking": "Comprobando qué guardó la copia propia de este favorito…",
+  "archive_unchecked": "La copia propia de este favorito informó de un problema, pero no se pudo comprobar qué guardó.",
+  "archive_check_again": "Comprobar de nuevo"
 }

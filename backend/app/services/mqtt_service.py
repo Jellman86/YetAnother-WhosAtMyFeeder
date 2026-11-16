@@ -996,7 +996,7 @@ class MQTTService:
                     log.info("MQTT session ended by stall-recovery watchdog; reconnecting immediately")
                     continue
                 error = redact_connection_error(str(e), configured_secrets())
-                self.connection.failed(datetime.now(timezone.utc), error)
+                self.connection.failed(datetime.now(timezone.utc), error, cause=classify_connection_failure(e))
                 delay = self._calculate_backoff()
                 log.error(
                     "MQTT connection lost, retrying...",
@@ -1010,7 +1010,7 @@ class MQTTService:
                 self.client = None
                 self._intentional_reconnect = False
                 error = redact_connection_error(str(e), configured_secrets())
-                self.connection.failed(datetime.now(timezone.utc), error)
+                self.connection.failed(datetime.now(timezone.utc), error, cause=classify_connection_failure(e))
                 delay = self._calculate_backoff()
                 log.error(
                     "Unexpected error in MQTT service, retrying...",

@@ -36,7 +36,7 @@
   "settings_updated_message": "La configuración se cambió correctamente.",
   "live_updates_disconnected_title": "Reconectando…",
   "live_updates_disconnected_message": "Las actualizaciones en vivo se están reconectando en segundo plano.",
-  "system_health_title": "Advertencia de estado del sistema",
+  "system_health_title": "Estado requiere atención",
   "system_health_message": "Estado del sistema: {status}",
   "open_action": "Abrir",
   "global_progress_last": "Actualizado hace {age}",
@@ -69,5 +69,12 @@
   "filter_group": "Filtrar notificaciones",
   "count_unread_unit": "{count, plural, one {sin leer} other {sin leer}}",
   "cleared": "{count, plural, one {Se borró # notificación.} other {Se borraron # notificaciones.}}",
-  "owner_only_note": "Las tareas en segundo plano y los eventos de estado y del sistema solo se te muestran a ti, no a los visitantes."
+  "owner_only_note": "Las tareas en segundo plano y los eventos de estado y del sistema solo se te muestran a ti, no a los visitantes.",
+  "system_health_cause": {
+    "mqtt_down": "El bróker MQTT no está conectado, así que no pueden llegar detecciones nuevas.",
+    "mqtt_not_configured": "No hay ningún bróker MQTT configurado, así que no pueden llegar detecciones.",
+    "frigate_down": "Frigate no responde, así que no se pueden guardar detecciones nuevas.",
+    "pipeline_critical": "La canalización de detecciones tiene un fallo crítico.",
+    "other": "Algo no funciona como debería. Abre Estado para ver qué es."
+  }
 }

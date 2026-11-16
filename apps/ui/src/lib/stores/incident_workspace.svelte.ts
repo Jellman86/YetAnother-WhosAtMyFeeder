@@ -1,5 +1,6 @@
 import type { BackendDiagnosticEvent, DiagnosticsWorkspacePayload } from '../api/diagnostics';
 import { clearDiagnosticsWorkspace, fetchDiagnosticsWorkspace } from '../api/diagnostics';
+import { INITIAL_READ, readFreshness, settleRead, type ReadSettled } from '../utils/read-freshness';
 
 type IncidentStatus = 'open' | 'recovering' | 'resolved';
 type IncidentSeverity = 'warning' | 'error' | 'critical';
@@ -223,10 +224,16 @@ class IncidentWorkspaceStore {
     currentIssues = $state<IncidentRecord[]>([]);
     recentIncidents = $state<IncidentRecord[]>([]);
     workspacePayload = $state<DiagnosticsWorkspacePayload | null>(null);
+    /** How current the workspace is, changed only when a read settles (whoever started it). */
+    readSettled = $state<ReadSettled>(INITIAL_READ);
+    readFreshness = $derived(readFreshness(this.workspacePayload !== null, this.readSettled));
     backendEvents = $state<BackendDiagnosticEvent[]>([]);
     localGroups = $state<LocalDiagnosticGroup[]>([]);
 
     private jobs = new Map<string, IncidentJobState>();
+    private refreshGeneration = 0;
+
+    constructor(private readonly fetchWorkspace: typeof fetchDiagnosticsWorkspace = fetchDiagnosticsWorkspace) {}
 
     ingestWorkspacePayload(payload: DiagnosticsWorkspacePayload): void {
         this.workspacePayload = payload;
@@ -238,9 +245,24 @@ class IncidentWorkspaceStore {
         }
     }
 
-    async refresh(limit = 200): Promise<void> {
-        const payload = await fetchDiagnosticsWorkspace(limit);
+    /**
+     * Read the workspace. Resolves true when this reading was applied and false when a newer read
+     * started meanwhile, so a slow, older answer never replaces a newer one.
+     */
+    async refresh(limit = 200): Promise<boolean> {
+        const generation = ++this.refreshGeneration;
+        let payload: DiagnosticsWorkspacePayload;
+        try {
+            payload = await this.fetchWorkspace(limit);
+        } catch (error) {
+            const message = error instanceof Error && error.message ? error.message : String(error);
+            this.readSettled = settleRead(this.readSettled, generation, { ok: false, error: message });
+            throw error;
+        }
+        if (generation !== this.refreshGeneration) return false;
         this.ingestWorkspacePayload(payload);
+        this.readSettled = settleRead(this.readSettled, generation, { ok: true, at: Date.now() });
+        return true;
     }
 
     ingestBackendDiagnostics(events: BackendDiagnosticEvent[]): void {
@@ -270,6 +292,8 @@ class IncidentWorkspaceStore {
 
     clear(): void {
         this.workspacePayload = null;
+        // Nothing is read now, so nothing is failed either; late answers to older reads stay ignored.
+        this.readSettled = { ...INITIAL_READ, token: this.readSettled.token };
         this.backendEvents = [];
         this.localGroups = [];
         this.jobs.clear();
@@ -431,8 +455,8 @@ class IncidentWorkspaceStore {
     }
 }
 
-export function createIncidentWorkspaceStore(): IncidentWorkspaceStore {
-    return new IncidentWorkspaceStore();
+export function createIncidentWorkspaceStore(fetchWorkspace?: typeof fetchDiagnosticsWorkspace): IncidentWorkspaceStore {
+    return new IncidentWorkspaceStore(fetchWorkspace);
 }
 
 export const incidentWorkspaceStore = createIncidentWorkspaceStore();

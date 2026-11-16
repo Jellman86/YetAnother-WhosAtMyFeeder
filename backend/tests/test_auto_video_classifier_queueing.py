@@ -1679,7 +1679,7 @@ async def test_a_restored_job_waits_for_frigate_and_reads_the_event_once_it_answ
     order: list[str] = []
 
     class Readiness:
-        async def wait_until_ready(self) -> bool:
+        async def wait_until_ready(self, timeout_seconds: float | None = None) -> bool:
             order.append("wait")
             return True
 
@@ -1709,3 +1709,39 @@ async def test_a_restored_job_waits_for_frigate_and_reads_the_event_once_it_answ
 
     assert order == ["wait", "read", "wait", "read"]
     load_clip.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_a_job_waiting_for_frigate_says_so_until_frigate_answers(monkeypatch):
+    """The jobs banner names what restored work waits on, so the wait must be in the job's phase,
+    and it must not linger once Frigate answers."""
+    service = AutoVideoClassifierService()
+    service._active_metadata["evt-waiting"] = {"phase": "preparing", "source": "maintenance"}
+    phases_seen: list[str] = []
+
+    class Readiness:
+        async def wait_until_ready(self, timeout_seconds: float | None = None) -> bool:
+            if timeout_seconds == 0:
+                return False
+            phases_seen.append(service._active_metadata["evt-waiting"]["phase"])
+            return True
+
+    async def read_event(_event_id, timeout=10.0):
+        phases_seen.append(service._active_metadata["evt-waiting"]["phase"])
+        return ({"id": "evt-waiting", "has_clip": True}, None)
+
+    monkeypatch.setattr(auto_video_classifier_module.frigate_client, "readiness", Readiness())
+    monkeypatch.setattr(auto_video_classifier_module.frigate_client, "get_event_with_error", read_event)
+    monkeypatch.setattr(auto_video_classifier_module.broadcaster, "broadcast", AsyncMock())
+    monkeypatch.setattr(service, "_update_status", AsyncMock())
+    monkeypatch.setattr(service, "_auto_delete_if_missing", AsyncMock())
+    monkeypatch.setattr(service, "_record_diagnostic", lambda *args, **kwargs: None)
+    monkeypatch.setattr(service, "_record_failure", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        service, "_load_preferred_clip", AsyncMock(return_value=(None, "clip_not_retained", "event", None))
+    )
+    monkeypatch.setattr(service, "_classify_from_snapshot", AsyncMock(return_value=None))
+
+    await service._process_event("evt-waiting", "cam1", skip_delay=True, fallback_to_snapshot=True)
+
+    assert phases_seen == ["waiting_for_frigate", "preparing"]

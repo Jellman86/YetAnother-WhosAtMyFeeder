@@ -72,7 +72,8 @@ describe('Health page', () => {
         // Only the owner gets the link; its name is the words it shows, not a label over the whole card.
         expect(sidebarSource).toMatch(/\{#if authStore\.showSettings\}\s*<a\s+href="\/system-health"/);
         expect(sidebarSource).not.toMatch(/data-sidebar-status-link[\s\S]{0,200}aria-label|aria-label[^\n]*\n\s*data-sidebar-status-link/);
-        expect(en.status.open_health).toBe('System health');
+        // One name for the page: the sidebar item, this link and the notifications link all say Health.
+        expect(en.status.open_health).toBe('Health');
     });
 
     it('counts open problems from the one reading that sets the verdict, so the two always agree', () => {
@@ -96,5 +97,62 @@ describe('Health page', () => {
         expect(en.settings.system_health.legend_cpu).toBe('CPU');
         expect(panelSource).toMatch(/overflow-x-auto[^>]*tabindex="0"/);
         expect(panelSource).toContain('data-system-health-table-region');
+    });
+
+    it('shows subsystems as one ruled list in opaque ink, with the state only in a worded chip', () => {
+        expect(errorsSource).toContain('data-health-subsystems');
+        expect(errorsSource).toContain('<ul class="mt-2 divide-y divide-line-soft" data-health-subsystems>');
+        // No tinted cards and no dimmed text: those failed contrast on 64 nodes.
+        expect(errorsSource).not.toMatch(/<article class="rounded-2xl border p-5 shadow-xs \{toneClass/);
+        expect(errorsSource).not.toMatch(/class="[^"]*\bopacity-(60|70|80)\b/);
+        expect(errorsSource).toContain('STATUS_PILL[statusTone(tone)]');
+        // Labels wrap rather than cut off at large text.
+        expect(errorsSource).not.toMatch(/<dt class="[^"]*truncate/);
+    });
+
+    it('says what a subsystem is doing in plain words, not breaker and queue jargon', () => {
+        expect(errorsSource).not.toContain('errors_metric_open_until');
+        expect(errorsSource).not.toContain("'jobs.errors_metric_in_flight'");
+        expect(errorsSource).not.toContain("'jobs.errors_metric_capacity'");
+        expect(errorsSource).toContain('videoSummary()');
+        // A quiet pipeline with the broker down is unmeasured, not healthy.
+        expect(errorsSource).toContain('pipelineCardStatus(eventPipelineVerdict(');
+        // The broker's errno text is worded from its cause code and kept under Technical details.
+        expect(errorsSource).toContain("connectionCauseMessage(link.last_error_cause, 'mqtt'");
+        expect(errorsSource).not.toContain('jobs.errors_mqtt_last_error');
+        // Known backend reason codes are said in the reader's language; the raw message is a detail.
+        expect(errorsSource).toContain('diagnosticWords(event.reason_code)');
+        // An unknown code gets the generic cause; the raw message is never a title, for rows or incidents.
+        expect(errorsSource).not.toContain('?? event.message');
+        expect(errorsSource).toContain('diagnosticWords(item.incident.primaryReasonCode)');
+        expect(errorsSource).toContain('{@render technicalDetails(incidentDetails(item.incident))}');
+        expect(errorsSource).not.toMatch(/\{item\.incident\.(title|summary)\}/);
+    });
+
+    it('keeps reading, read, stale and failed apart, and claims nothing it did not measure', () => {
+        // Freshness changes only when a read settles, in the store, so every reader of it agrees.
+        expect(errorsSource).toContain('const readState = $derived(incidentWorkspaceStore.readFreshness);');
+        expect(errorsSource).not.toMatch(/refreshError = ''/);
+        expect(errorsSource).toContain('data-health-read-failed');
+        expect(errorsSource).toContain('data-health-stale');
+        // The verdict is not a fault count when nothing was read, and its space is held while reading.
+        expect(errorsSource).toContain("if (!workspacePayload) return 'unknown';");
+        expect(errorsSource).toContain('min-h-28');
+        // The read failure is the page's own sentence; the server's words are a detail.
+        expect(errorsSource).toContain('{@render technicalDetails([refreshError])}');
+        // The line under the verdict says when it was read, not the pill's word again.
+        expect(errorsSource).toContain("'jobs.errors_read_at'");
+    });
+
+    it('puts Clear error history with the history it clears', () => {
+        expect(errorsSource).toContain('data-health-clear');
+        expect(errorsSource.indexOf('data-health-clear')).toBeGreaterThan(errorsSource.indexOf('data-health-earlier-incidents'));
+        expect(errorsSource).not.toContain('{#snippet headerActions()}');
+    });
+
+    it('stacks each process on a phone so no column is cut off', () => {
+        expect(panelSource).toContain('data-system-health-stacked');
+        expect(panelSource).toContain('sm:hidden');
+        expect(panelSource).toContain('hidden overflow-x-auto rounded-lg focus-ring sm:block');
     });
 });

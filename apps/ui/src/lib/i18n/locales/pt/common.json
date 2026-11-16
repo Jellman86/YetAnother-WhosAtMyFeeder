@@ -73,8 +73,10 @@
   "diagnostic_state_failed": "Falhou",
   "diagnostic_state_warning": "Passou com um aviso",
   "diagnostic_state_skipped": "Não executado",
-  "unknown_bird": "Ave desconhecida",
+  "technical_details": "Detalhes técnicos",
   "map_credit": "© colaboradores do OpenStreetMap",
+  "chart_total": "{count} no total",
+  "unknown_bird": "Ave desconhecida",
   "weather_condition": {
     "clear_sky": "Céu limpo",
     "partly_cloudy": "Parcialmente nublado",
@@ -98,6 +100,5 @@
     "sw": "SO",
     "w": "O",
     "nw": "NO"
-  },
-  "chart_total": "{count} no total"
+  }
 }

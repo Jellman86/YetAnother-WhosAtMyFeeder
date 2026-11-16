@@ -41,3 +41,15 @@ export function mqttCardStatus(connections: ServiceConnections | null, pressure:
 export function frigateCardStatus(connections: ServiceConnections | null): string {
     return connections ? connections.frigate.state : 'unknown';
 }
+
+/**
+ * The event pipeline's card. Its counters only move when events arrive, so while the broker is not
+ * connected (or not measured) a quiet pipeline is unmeasured, not healthy; a fault it did record
+ * still shows.
+ */
+export function pipelineCardStatus(verdict: string, connections: ServiceConnections | null): string {
+    const tone = statusTone(verdict);
+    const quiet = tone === 'healthy' || tone === 'unknown';
+    if (quiet && connections?.mqtt.state !== 'connected') return 'unknown';
+    return verdict;
+}

@@ -6,7 +6,13 @@
     "hourly_title": "Ora del giorno",
     "species_title": "Distribuzione delle specie",
     "empty": "Nessuna attività in questo periodo.",
-    "other_species": "Altre specie"
+    "other_species": "Altre specie",
+    "unavailable": "Non disponibile finché la cronologia non può essere letta.",
+    "show_numbers": "Mostra i numeri",
+    "col_day": "Giorno",
+    "col_hour": "Ora",
+    "col_calls": "Canti",
+    "col_species": "Specie"
   },
   "stat": {
     "heard": "Ascoltate",
@@ -17,7 +23,9 @@
     "peak_hour_sub": "{count, plural, one {# rilevamento} other {# rilevamenti}}",
     "no_activity": "Nessuna attività per ora",
     "sources": "Fonti",
-    "sources_sub": "Microfoni o flussi"
+    "sources_sub": "Microfoni o flussi",
+    "not_available": "Non disponibile",
+    "no_calls": "Nessun canto in questo periodo"
   },
   "filter": {
     "window": "Periodo",
@@ -47,7 +55,10 @@
     "hide": "Nascondi in YA-WAMF",
     "undo": "Annulla",
     "hidden_message": "Rilevamento audio nascosto.",
-    "local_only": "Nascondere rimuove una voce dalla cronologia YA-WAMF e dalle future corrispondenze audio. BirdNET-Go resta invariato; le eliminazioni non vengono sincronizzate automaticamente."
+    "local_only": "Nascondere rimuove una voce dalla cronologia YA-WAMF e dalle future corrispondenze audio. BirdNET-Go resta invariato; le eliminazioni non vengono sincronizzate automaticamente.",
+    "read_failed": "Non è stato possibile leggere la cronologia audio da YA-WAMF, quindi niente in questa pagina è una misura.",
+    "read_failed_next": "Riprova. Se continua a non riuscire, apri Stato per vedere se il backend segnala un guasto.",
+    "stale": "L’ultimo aggiornamento non è riuscito, quindi questa è la lettura delle {at}."
   },
   "table": {
     "sound": "Suono",

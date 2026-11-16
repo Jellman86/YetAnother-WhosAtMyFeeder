@@ -248,7 +248,7 @@ test('the sidebar status is a list inside a live region, and its link is named b
     await expect(page.getByRole('status').filter({ has: rows })).toHaveCount(1);
     expect(await rows.getByRole('listitem').count()).toBeGreaterThanOrEqual(2);
     const link = page.locator('[data-sidebar-status-link]');
-    await expect(link).toHaveAccessibleName(/System health$/);
+    await expect(link).toHaveAccessibleName(/Health$/);
     await expect(link).not.toHaveAttribute('aria-label');
     // The link is its own words, at least 24px tall, and nothing is stretched over the card.
     const box = await link.boundingBox();

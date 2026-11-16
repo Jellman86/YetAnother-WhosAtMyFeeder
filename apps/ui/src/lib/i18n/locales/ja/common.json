@@ -73,8 +73,10 @@
   "diagnostic_state_failed": "失敗",
   "diagnostic_state_warning": "警告付きで合格",
   "diagnostic_state_skipped": "未実行",
-  "unknown_bird": "不明な鳥",
+  "technical_details": "技術的な詳細",
   "map_credit": "© OpenStreetMap 協力者",
+  "chart_total": "合計 {count}",
+  "unknown_bird": "不明な鳥",
   "weather_condition": {
     "clear_sky": "快晴",
     "partly_cloudy": "晴れ時々曇り",
@@ -98,6 +100,5 @@
     "sw": "南西",
     "w": "西",
     "nw": "北西"
-  },
-  "chart_total": "合計 {count}"
+  }
 }

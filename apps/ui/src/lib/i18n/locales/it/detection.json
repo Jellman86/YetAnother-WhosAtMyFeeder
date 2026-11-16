@@ -501,5 +501,26 @@
   "reference_read_more_on": "Continua a leggere su {source}",
   "reference_read_more": "Continua a leggere",
   "reference_source": "Fonte: {source}",
-  "reference_conservation": "Stato di conservazione: {status}"
+  "reference_conservation": "Stato di conservazione: {status}",
+  "archive_failed_both": "Non è stato possibile salvare la copia propria della foto e del clip di questo preferito.",
+  "archive_failed_photo": "Non è stato possibile salvare la copia propria della foto di questo preferito.",
+  "archive_failed_clip": "Non è stato possibile salvare la copia propria del clip di questo preferito.",
+  "archive_cause": {
+    "frigate_unreachable": "Frigate non è raggiungibile. Verifica che Frigate sia in esecuzione e il suo indirizzo in Impostazioni → Connessione.",
+    "frigate_timeout": "Frigate non ha risposto in tempo. Verifica che Frigate sia in esecuzione e non sovraccarico.",
+    "frigate_refused": "Frigate ha rifiutato la richiesta di YA-WAMF. Verifica l’accesso a Frigate in Impostazioni → Connessione.",
+    "frigate_error": "Frigate ha risposto con un proprio errore. Controlla i suoi log.",
+    "clip_cut_short": "Il download del clip si è interrotto.",
+    "disk_full": "Il disco della cartella dati è pieno. Libera spazio.",
+    "disk_error": "Impossibile scrivere nella cartella dati. Verifica che esista e che YA-WAMF possa scriverci.",
+    "unknown": "La causa non è stata registrata."
+  },
+  "archive_retry_scheduled": "YA-WAMF riproverà da solo alle {at}. La visita resta comunque nella cronologia.",
+  "archive_retry_spent": "YA-WAMF ha smesso di riprovare da solo. La visita resta comunque nella cronologia.",
+  "archive_retry_now": "Riprova ora",
+  "audio_match_evidence": "Il canto corrispondente",
+  "archive_retry_due": "YA-WAMF riproverà da solo a breve. La visita resta comunque nella cronologia.",
+  "archive_checking": "Verifica di ciò che la copia propria di questo preferito ha conservato…",
+  "archive_unchecked": "La copia propria di questo preferito ha segnalato un problema, ma non è stato possibile verificare cosa ha conservato.",
+  "archive_check_again": "Verifica di nuovo"
 }

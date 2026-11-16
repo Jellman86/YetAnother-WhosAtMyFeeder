@@ -182,10 +182,19 @@ person, ring off or unknown). The words for every state come from one tested map
 (`utils/system-status.ts`). Off by choice is neutral, never amber, and one cause is flagged once:
 with the broker down, Frigate events is amber and Audio says "Not listening" in neutral ink. The
 card is a neutral surface with nothing drawn behind it; resource readings are one muted line of
-text with tabular numbers. Its System health link counts open issues from the same store the Health
-page lists them from, and says nothing about issues when none is open. The icon rail shows the same
+text with tabular numbers. Its Health link counts open issues from the same store the Health
+page lists them from, and says nothing about issues when none is open. The page has one name,
+Health, wherever it is linked from. The icon rail shows the same
 rows as icons named by the same words. The Health page follows the same rule: its verdict is never healthy while the broker
-or Frigate is down, and its MQTT and Frigate cards lead with the connection state, not queue load.
+or Frigate is down, and its MQTT and Frigate rows lead with the connection state, not queue load.
+Its subsystems are one ruled list in full-contrast ink, each state a worded chip; a reason code it
+knows is said in words with what to try, and the backend's own text sits under Technical details.
+
+A page that reads data keeps four states apart: loading, read and empty, failed, and stale. Only a
+reading may show a number, so a pending or failed read never shows a zero or "no activity"; a
+failure is said in the page's own sentence with the next step, the server's words behind a
+disclosure; and a refresh that fails keeps the earlier reading with the time it was read
+(Audio history, `pages/audio-history-state.ts`). A progress bar is drawn only for a measured total.
 
 ### 1.6 Show the evidence at the size the decision needs
 

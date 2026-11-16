@@ -459,7 +459,7 @@
                     class="list-disc space-y-1.5 pl-5 text-sm leading-relaxed text-slate-600 dark:text-slate-300"
                     aria-label={$_('settings.range_filter.how_title', { default: 'What happens to a bird outside the range' })}
                 >
-                    <li>{$_('settings.range_filter.how_fallback', { default: "If the model's top answer has never been recorded in your region, its next answer that has been recorded, and still clears your confidence threshold, is used instead. The record keeps a note of what the model said first." })}</li>
+                    <li>{$_('settings.range_filter.how_fallback', { default: "If the model's top answer has never been recorded in your region, its next answer that has been recorded, and still clears your naming threshold, is used instead. The record keeps a note of what the model said first." })}</li>
                     <li>{$_('settings.range_filter.how_skip', { default: 'If no answer qualifies, the detection is not recorded. It is listed below and in the activity log, so a genuine rarity can still be recorded by hand.' })}</li>
                     <li>{$_('settings.range_filter.how_open', { default: 'Whenever the list is missing, out of date or unreachable, nothing is filtered.' })}</li>
                     <li>{$_('settings.range_filter.how_owner', { default: 'Species you choose yourself are never filtered.' })}</li>

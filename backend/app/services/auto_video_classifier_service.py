@@ -1633,8 +1633,12 @@ class AutoVideoClassifierService:
             for _attempt in range(_PRECHECK_RETRIES + 1):
                 _precheck_attempts = _attempt + 1
                 # A job restored at startup runs while Frigate may still be starting.
-                # Waiting here keeps it queued instead of failing it on a 500.
-                await frigate_client.readiness.wait_until_ready()
+                # Waiting here keeps it queued instead of failing it on a 500, and the
+                # phase says so, because the wait can last many minutes.
+                if not await frigate_client.readiness.wait_until_ready(timeout_seconds=0):
+                    self._note_job_progress(frigate_event, phase="waiting_for_frigate")
+                    await frigate_client.readiness.wait_until_ready()
+                    self._note_job_progress(frigate_event, phase="preparing")
                 event_data, event_error = await frigate_client.get_event_with_error(frigate_event, timeout=8.0)
                 if event_error == FRIGATE_NOT_READY and _attempt < _PRECHECK_RETRIES:
                     continue
