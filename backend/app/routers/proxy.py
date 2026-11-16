@@ -1,6 +1,5 @@
 import asyncio
 import json
-import math
 import re
 import hashlib
 import weakref
@@ -55,6 +54,7 @@ from app.repositories.video_share_repository import VideoShareRepository
 from app.utils.api_datetime import serialize_api_datetime
 from app.utils.public_access import public_media_window
 from app.utils.integration_url import validated_http_base_url
+from app.services.frigate_camera_health import parse_camera_stats, validate_camera_name
 from app.utils.hls import is_hls_asset, rewrite_hls_playlist
 
 router = APIRouter()
@@ -203,15 +203,10 @@ async def _proxy_hls_asset(
 
 # Validate event_id format (Frigate uses UUIDs, numeric IDs, or timestamp-based IDs with dots)
 EVENT_ID_PATTERN = re.compile(r"^[a-zA-Z0-9\-_.]+$")
-CAMERA_NAME_PATTERN = re.compile(r"^[a-zA-Z0-9_\-]+$")
 
 
 def validate_event_id(event_id: str) -> bool:
     return bool(EVENT_ID_PATTERN.match(event_id)) and len(event_id) <= 64
-
-
-def validate_camera_name(camera: str) -> bool:
-    return bool(CAMERA_NAME_PATTERN.match(camera)) and len(camera) <= 64
 
 
 def _is_probably_thumbnail_sized_snapshot(image_bytes: bytes, *, source: str | None = None) -> bool:
@@ -2167,17 +2162,6 @@ async def proxy_latest_camera_snapshot(
         )
 
 
-def _finite_camera_metric(value: object) -> float | None:
-    """Return a finite Frigate camera metric without trusting its JSON shape."""
-    if isinstance(value, bool):
-        return None
-    try:
-        metric = float(value)  # type: ignore[arg-type]
-    except (TypeError, ValueError):
-        return None
-    return metric if math.isfinite(metric) and metric >= 0 else None
-
-
 @router.get("/frigate/cameras/status", response_model=FrigateCameraStatusResponse)
 async def get_frigate_camera_status(
     request: Request,
@@ -2203,32 +2187,9 @@ async def get_frigate_camera_status(
             detail=_frigate_unreachable_detail(lang, auth),
         )
 
-    raw_cameras = payload.get("cameras") if isinstance(payload, dict) else None
-    camera_items: list[FrigateCameraStatusItem] = []
-    if isinstance(raw_cameras, dict):
-        for camera, raw_metrics in raw_cameras.items():
-            if not isinstance(camera, str) or not validate_camera_name(camera):
-                continue
-            metrics = raw_metrics if isinstance(raw_metrics, dict) else {}
-            camera_fps = _finite_camera_metric(metrics.get("camera_fps"))
-            process_fps = _finite_camera_metric(metrics.get("process_fps"))
-            detection_fps = _finite_camera_metric(metrics.get("detection_fps"))
-            status: Literal["online", "offline", "unknown"]
-            if camera_fps is None:
-                status = "unknown"
-            elif camera_fps > 0:
-                status = "online"
-            else:
-                status = "offline"
-            camera_items.append(
-                FrigateCameraStatusItem(
-                    camera=camera,
-                    status=status,
-                    camera_fps=camera_fps,
-                    process_fps=process_fps,
-                    detection_fps=detection_fps,
-                )
-            )
+    camera_items = [
+        FrigateCameraStatusItem.model_validate(camera.model_dump()) for camera in parse_camera_stats(payload)
+    ]
 
     response.headers.update(SNAPSHOT_NO_STORE_HEADERS)
     return FrigateCameraStatusResponse(

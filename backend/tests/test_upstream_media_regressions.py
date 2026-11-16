@@ -469,13 +469,13 @@ async def test_generated_candidate_thumbnails_are_owned_by_the_parent_visit(tmp_
 
 
 def test_saved_photo_backlog_is_counted_beyond_the_visible_page(monkeypatch):
-    from app.routers.jobs import JobSnapshotItem, _build_lanes
+    from app.services.jobs_snapshot import JobSnapshotItem, build_lanes
 
     monkeypatch.setattr(hq.high_quality_snapshot_service, "get_status", lambda: {"durable_pending": 1524})
     items = [
         JobSnapshotItem(id="photo", kind="high_quality_snapshot", source="automatic", status="queued", phase="waiting")
     ]
-    lane = next(lane for lane in _build_lanes(items) if lane.kind == "high_quality_snapshot")
+    lane = next(lane for lane in build_lanes(items) if lane.kind == "high_quality_snapshot")
     assert lane.queued == 1524
 
 

@@ -49,6 +49,7 @@
             const job = await startBackfillJob({ date_range: dateRange });
             jobProgressStore.upsertRunning({
                 id: `backfill:detections:${job.id}`,
+                serverJobId: `backfill:detections:${job.id}`,
                 kind: 'backfill',
                 title: $_('setup.history.job_title', { default: 'Detection history import' }),
                 message: job.message || $_('setup.history.job_starting', { default: 'Scanning Frigate event history' }),

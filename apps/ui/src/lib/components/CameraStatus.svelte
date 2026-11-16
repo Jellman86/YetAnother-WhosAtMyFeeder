@@ -2,9 +2,10 @@
     import DialogCloseButton from './DialogCloseButton.svelte';
     import { _ } from 'svelte-i18n';
     import { onMount, onDestroy } from 'svelte';
-    import { REFRESH_CADENCE_MS } from '../app/refresh-cadence';
     import { startVisiblePoll } from '../app/visible-poll';
     import { settingsStore } from '../stores/settings.svelte';
+    import { systemStatusStore } from '../stores/system_status.svelte';
+    import type { SystemStatus } from '../api/status';
     import { fetchEventFilters } from '../api/events';
     import {
         readCameraStatuses,
@@ -18,7 +19,6 @@
     type FrameState = { url: string | null; loading: boolean; error: boolean };
     type OverallTone = 'ok' | 'mixed' | 'down' | 'checking' | 'idle';
 
-    const HEALTH_REFRESH_MS = REFRESH_CADENCE_MS.cameraHealth;
     const FRAME_REFRESH_MS = 15_000;
 
     let cameras = $state<string[]>([]);
@@ -33,8 +33,8 @@
     let rootEl: HTMLDivElement | null = $state(null);
     let triggerEl: HTMLButtonElement | null = $state(null);
     let viewerEl: HTMLDivElement | null = $state(null);
-    // Each poll holds no timer while the tab is hidden and reads again once it is shown.
-    let stopHealthPoll: (() => void) | null = null;
+    // Camera health arrives with the pushed status; this stops following it.
+    let stopFollowingStatus: (() => void) | null = null;
     // The mount bootstrap awaits several reads; a poll started after destroy would never stop.
     let destroyed = false;
     let stopFramePoll: (() => void) | null = null;
@@ -126,6 +126,29 @@
         }
     }
 
+    function applyCameraHealth(reading: CameraStatusResponse | null): void {
+        if (!reading) {
+            // Frigate did not answer the last stats request: say so rather than show old health.
+            cameraHealth = {};
+            healthUnavailable = true;
+            healthChecked = true;
+            healthLoading = false;
+            return;
+        }
+        cameraHealth = Object.fromEntries(reading.cameras.map((camera) => [camera.camera, camera]));
+        if (monitorAllCameras && reading.cameras.length > 0) {
+            replaceCameraList(reading.cameras.map((camera) => camera.camera));
+        }
+        healthUnavailable = false;
+        healthChecked = true;
+        healthLoading = false;
+    }
+
+    function applyStatus(snapshot: SystemStatus): void {
+        applyCameraHealth(snapshot.cameras ?? null);
+    }
+
+    /** One direct reading, for the first paint before any status and when the viewer opens. */
     async function refreshHealth(): Promise<void> {
         if (healthPromise || document.hidden) return healthPromise ?? Promise.resolve();
         const controller = new AbortController();
@@ -136,12 +159,7 @@
             try {
                 const response = await readCameraStatuses(controller.signal);
                 if (controller.signal.aborted) return;
-                cameraHealth = Object.fromEntries(response.cameras.map((camera) => [camera.camera, camera]));
-                if (monitorAllCameras && response.cameras.length > 0) {
-                    replaceCameraList(response.cameras.map((camera) => camera.camera));
-                }
-                healthUnavailable = false;
-                healthChecked = true;
+                applyCameraHealth(response);
             } catch (error) {
                 if (controller.signal.aborted || (error instanceof Error && error.name === 'AbortError')) return;
                 cameraHealth = {};
@@ -189,18 +207,15 @@
         }
     }
 
-    function startHealthRefresh(refreshNow = true): void {
+    /** Health follows the pushed status from here on, so the shell makes no camera requests while idle. */
+    function followStatus(): void {
         if (destroyed) return;
-        stopHealthPoll ??= startVisiblePoll({
-            read: refreshHealth,
-            delayMs: () => HEALTH_REFRESH_MS,
-            readAtStart: refreshNow
-        });
+        stopFollowingStatus ??= systemStatusStore.subscribe(applyStatus);
     }
 
     function stopHealthRefresh(): void {
-        stopHealthPoll?.();
-        stopHealthPoll = null;
+        stopFollowingStatus?.();
+        stopFollowingStatus = null;
         healthController?.abort();
         healthController = null;
     }
@@ -264,24 +279,19 @@
         if (document.hidden) {
             healthController?.abort();
             frameController?.abort();
-            return;
-        }
-        const pendingHealth = healthPromise;
-        if (pendingHealth) {
-            void pendingHealth.finally(() => {
-                if (!document.hidden) void refreshHealth();
-            });
-        } else {
-            void refreshHealth();
         }
     }
 
     onMount(() => {
         void (async () => {
             await loadCameras();
-            await refreshHealth();
+            const pushed = systemStatusStore.snapshot;
+            // An owner's status carries camera health and is already on its way; only a page
+            // without it asks Frigate's stats directly. Until it lands the widget says "checking".
+            if (pushed) applyStatus(pushed);
+            else if (!systemStatusStore.following) await refreshHealth();
             await loadFallbackCameras();
-            startHealthRefresh(false);
+            followStatus();
         })();
     });
 

@@ -1,5 +1,7 @@
 import type { BackendDiagnosticEvent, DiagnosticsWorkspacePayload } from '../api/diagnostics';
+import { mapGuarded, type Guarded } from '../api/core';
 import { clearDiagnosticsWorkspace, fetchDiagnosticsWorkspace } from '../api/diagnostics';
+import { STATEFUL_INCIDENTS, readSignal } from './incident-signals';
 import { INITIAL_READ, readFreshness, settleRead, type ReadSettled } from '../utils/read-freshness';
 
 type IncidentStatus = 'open' | 'recovering' | 'resolved';
@@ -170,42 +172,10 @@ function isStatefulIncidentOpen(
 ): boolean | null {
     const normalizedComponent = normalizeString(component).toLowerCase();
     const normalizedReason = normalizeString(reasonCode).toLowerCase();
-    const currentHealth = health ?? {};
-    const ml = asRecord(currentHealth.ml);
-    const workerPools = asRecord(ml.worker_pools ?? currentHealth.worker_pools);
-
-    if (
-        (normalizedComponent === 'video_classifier' && normalizedReason === 'circuit_open')
-        || (normalizedComponent === 'auto_video_classifier'
-            && (normalizedReason === 'video_circuit_open' || normalizedReason === 'video_circuit_opened'))
-    ) {
-        return Boolean(asRecord(currentHealth.video_classifier).circuit_open);
-    }
-
-    if (normalizedComponent === 'bird_finder' && normalizedReason === 'rfdetr_cpu_fallback') {
-        const active = asRecord(ml.bird_finder).active;
-        return typeof active === 'boolean' ? active : null;
-    }
-
-    if (normalizedComponent === 'ml_live_image' && normalizedReason === 'recovery_active') {
-        return Boolean(asRecord(ml.live_image).recovery_active);
-    }
-
-    if (normalizedComponent === 'ml_background_image' && normalizedReason === 'throttled_by_live_pressure') {
-        const backgroundImage = asRecord(ml.background_image);
-        return Boolean(backgroundImage.background_throttled)
-            && Number(backgroundImage.queued ?? 0) > 0;
-    }
-
-    if (normalizedComponent === 'ml_worker_live' && normalizedReason === 'circuit_open') {
-        return Boolean(asRecord(workerPools.live).circuit_open);
-    }
-
-    if (normalizedComponent === 'ml_worker_background' && normalizedReason === 'circuit_open') {
-        return Boolean(asRecord(workerPools.background).circuit_open);
-    }
-
-    return null;
+    const incident = STATEFUL_INCIDENTS.find(
+        (candidate) => candidate.component === normalizedComponent && candidate.reasons.includes(normalizedReason)
+    );
+    return incident ? incident.isOpen((path) => readSignal(health, path)) : null;
 }
 
 function deriveEventStatus(
@@ -232,6 +202,8 @@ class IncidentWorkspaceStore {
 
     private jobs = new Map<string, IncidentJobState>();
     private refreshGeneration = 0;
+    /** Reads up to this generation were made before the last clear. */
+    private clearedThrough = 0;
 
     constructor(private readonly fetchWorkspace: typeof fetchDiagnosticsWorkspace = fetchDiagnosticsWorkspace) {}
 
@@ -249,20 +221,24 @@ class IncidentWorkspaceStore {
      * Read the workspace. Resolves true when this reading was applied and false when a newer read
      * started meanwhile, so a slow, older answer never replaces a newer one.
      */
-    async refresh(limit = 200): Promise<boolean> {
+    refresh(limit = 200, signal?: AbortSignal): Guarded<boolean> {
         const generation = ++this.refreshGeneration;
-        let payload: DiagnosticsWorkspacePayload;
-        try {
-            payload = await this.fetchWorkspace(limit);
-        } catch (error) {
-            const message = error instanceof Error && error.message ? error.message : String(error);
-            this.readSettled = settleRead(this.readSettled, generation, { ok: false, error: message });
-            throw error;
-        }
-        if (generation !== this.refreshGeneration) return false;
-        this.ingestWorkspacePayload(payload);
-        this.readSettled = settleRead(this.readSettled, generation, { ok: true, at: Date.now() });
-        return true;
+        return mapGuarded(
+            this.fetchWorkspace(limit, signal),
+            (payload) => {
+                if (generation !== this.refreshGeneration) return false;
+                this.ingestWorkspacePayload(payload);
+                this.readSettled = settleRead(this.readSettled, generation, { ok: true, at: Date.now() });
+                return true;
+            },
+            (error) => {
+                // A read made before the workspace was cleared (another session's) says nothing now.
+                if (generation <= this.clearedThrough) return false;
+                const message = error instanceof Error && error.message ? error.message : String(error);
+                this.readSettled = settleRead(this.readSettled, generation, { ok: false, error: message });
+                throw error;
+            }
+        );
     }
 
     ingestBackendDiagnostics(events: BackendDiagnosticEvent[]): void {
@@ -291,6 +267,9 @@ class IncidentWorkspaceStore {
     }
 
     clear(): void {
+        // A read still in flight was made for whoever was signed in before; it must not land now.
+        this.clearedThrough = this.refreshGeneration;
+        this.refreshGeneration += 1;
         this.workspacePayload = null;
         // Nothing is read now, so nothing is failed either; late answers to older reads stay ignored.
         this.readSettled = { ...INITIAL_READ, token: this.readSettled.token };

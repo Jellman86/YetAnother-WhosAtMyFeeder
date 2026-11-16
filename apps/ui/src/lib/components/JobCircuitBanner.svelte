@@ -1,5 +1,4 @@
 <script lang="ts">
-    import { onMount } from 'svelte';
     import { _ } from 'svelte-i18n';
     import { analysisQueueStatusStore } from '../stores/analysis_queue_status.svelte';
     import { authStore } from '../stores/auth.svelte';
@@ -18,11 +17,8 @@
     let resetting = $state(false);
     let resetError = $state<string | null>(null);
 
-    // App.svelte ingests this status from the event stream, but a page opened cold has nothing
-    // to show until the first event lands, and a paused queue emits none. One read covers that.
-    onMount(() => {
-        if (isOwner) void analysisQueueStatusStore.refresh();
-    });
+    // The queue arrives with the owner's status: its first read and every push, so a page opened
+    // cold, or a paused queue that announces nothing, still shows it without a read of its own.
 
     async function handleReset() {
         if (resetting) return;

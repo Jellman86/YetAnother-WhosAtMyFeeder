@@ -1,5 +1,6 @@
 <script lang="ts">
     import { fetchVisits } from '../api/visits';
+    import { chainGuarded, guardedValue, mapGuarded, type Guarded } from '../api/core';
     import { onMount } from 'svelte';
     import { _ } from 'svelte-i18n';
     import { incidentWorkspaceStore } from '../stores/incident_workspace.svelte';
@@ -26,6 +27,8 @@
     import { diagnosticWordsKey } from '../utils/diagnostic-words';
     import { connectionCauseMessage } from '../api/error-message';
     import { serviceConnectionsStore } from '../stores/service_connections.svelte';
+    import { systemStatusStore } from '../stores/system_status.svelte';
+    import { followRevisions } from '../app/revision-follower';
     import { pageRefreshAction } from '../stores/page_refresh_action.svelte';
     import { detectionsStore } from '../stores/detections.svelte';
     import { settingsStore } from '../stores/settings.svelte';
@@ -134,8 +137,10 @@
             ? workspacePayload.health as DiagnosticsHealth
             : null
     );
-    // Read with the workspace, so the verdict and the cards come from one measurement.
-    let connections = $derived(workspacePayload?.connections ?? null);
+    // The pushed status, the same reading the sidebar, the banner and the Dashboard show, so no two
+    // of them disagree; the workspace's own reading stands in until the first status arrives.
+    const pushedStatus = $derived(systemStatusStore.snapshot);
+    let connections = $derived(pushedStatus?.connections ?? workspacePayload?.connections ?? null);
     let problems = $derived(connectionProblems(connections));
     // Everything open, from the one workspace reading: the failed connections, then any incident
     // not yet resolved. The verdict card lists these, so a count elsewhere can never disagree.
@@ -195,37 +200,62 @@
 
     onMount(() => {
         void detectionsStore.loadInitial();
-        void refreshWorkspace();
+        // The counters, verdicts and incidents move without a new fault being recorded (a recovery,
+        // events counted). The pushed status names them by a revision; Health reads on opening and
+        // again when it moves, and a failed read is retried with the shared backoff until it lands.
+        const follower = followRevisions(refreshWorkspace, systemStatusStore.snapshot?.health_revision ?? null);
+        follower.start();
+        const stop = systemStatusStore.subscribe((snapshot) => follower.observe(snapshot.health_revision));
+        return () => {
+            stop();
+            follower.stop();
+        };
     });
 
     $effect(() => {
-        return pageRefreshAction.register(refreshWorkspace);
+        return pageRefreshAction.register(async () => { await refreshWorkspace(); });
     });
 
-    async function refreshWorkspace() {
+    /** Bounds Health's visit read, body included, so a stalled answer never holds the follower. */
+    const HEALTH_VISITS_TIMEOUT_MS = 15_000;
+
+    /** Reads the workspace and the visits beside it; false when either read failed, so it is retried. */
+    function refreshWorkspace(signal?: AbortSignal): Guarded<boolean> {
         refreshing = true;
-        try {
-            await incidentWorkspaceStore.refresh();
+        const read = chainGuarded(incidentWorkspaceStore.refresh(200, signal), () => {
             if (workspacePayload?.connections) serviceConnectionsStore.ingest(workspacePayload.connections);
             const started = workspacePayload?.health?.startup_started_at;
-            if (typeof started === 'string') {
-                const window = { startTime: started, endTime: new Date().toISOString() };
-                const result = await fetchVisits({ ...window, limit: 25, requestKey: 'health:visits' });
+            if (typeof started !== 'string') {
+                serverVisits = [];
+                return guardedValue(true);
+            }
+            const window = { startTime: started, endTime: new Date().toISOString() };
+            const visits = fetchVisits({ ...window, limit: 25, requestKey: 'health:visits', timeoutMs: HEALTH_VISITS_TIMEOUT_MS, signal });
+            return mapGuarded(visits, (result) => {
                 serverVisits = result.visits.map((visit) => fromServerVisit(visit, window));
-            } else serverVisits = [];
-        } catch (error) {
-            const message = error instanceof Error ? error.message : 'Failed to refresh incident workspace';
-            jobDiagnosticsStore.recordError({
-                source: 'runtime',
-                component: 'incident_workspace',
-                reasonCode: 'refresh_failed',
-                message,
-                severity: 'warning',
-                context: { scope: 'Errors.svelte' }
+                return true;
             });
-        } finally {
-            refreshing = false;
-        }
+        });
+        return mapGuarded(
+            read,
+            (ok) => {
+                refreshing = false;
+                return ok;
+            },
+            (error) => {
+                refreshing = false;
+                const message = error instanceof Error ? error.message : 'Failed to refresh incident workspace';
+                jobDiagnosticsStore.recordError({
+                    source: 'runtime',
+                    component: 'incident_workspace',
+                    reasonCode: 'refresh_failed',
+                    message,
+                    severity: 'warning',
+                    context: { scope: 'Errors.svelte' }
+                });
+                return false;
+            }
+        );
     }
 
     async function clearWorkspace() {
@@ -351,7 +381,7 @@
     }
 
     function overallStatus(): string {
-        return asText(health?.status, 'unknown');
+        return pushedStatus?.overall.state ?? asText(health?.status, 'unknown');
     }
 
     /** The hero's verdict: never healthy while the broker or Frigate is down or unread. */

@@ -12,7 +12,8 @@
      */
     import { onMount } from 'svelte';
     import { get } from 'svelte/store';
-    import { _ } from 'svelte-i18n';
+    import { _, locale } from 'svelte-i18n';
+    import { summaryInAnotherLanguage } from '../utils/summary-language';
     import GardenAutomaticAssessment from './GardenAutomaticAssessment.svelte';
     import GardenDomesticSuggestion from './GardenDomesticSuggestion.svelte';
     import GardenExplorerMarker from './GardenExplorerMarker.svelte';
@@ -675,7 +676,7 @@
                 {#if error}<p class="text-sm font-semibold text-red-700 dark:text-red-300" role="alert">{error}</p>{/if}
 
                 {#if lineageName}
-                    <TaxonomyLineage scientificName={lineageName} subject="animal" />
+                    <TaxonomyLineage scientificName={lineageName} commonName={view.name} subject="animal" />
                 {/if}
 
                 {#if referenceName && (speciesInfoLoading || speciesInfo || speciesInfoError)}
@@ -692,9 +693,15 @@
                             <p class="text-xs text-slate-600 dark:text-slate-400">{speciesInfoError}</p>
                         {:else if speciesInfo}
                             {@const summary = speciesInfo.extract || speciesInfo.description}
-                            <p class="line-clamp-4 whitespace-pre-line text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+                            {@const summaryLanguage = summaryInAnotherLanguage(speciesInfo, $locale)}
+                            <p class="line-clamp-4 whitespace-pre-line text-sm leading-relaxed text-slate-600 dark:text-slate-300" lang={summaryLanguage?.code}>
                                 {summary || $_('species_detail.no_info', { default: 'No description is available for this species.' })}
                             </p>
+                            {#if summaryLanguage}
+                                <p class="text-xs text-muted" data-reference-summary-language={summaryLanguage.code}>
+                                    {$_('species_detail.summary_language_note', { default: 'Description from {language} Wikipedia', values: { language: summaryLanguage.name } })}
+                                </p>
+                            {/if}
                             {#if speciesInfo.summary_source_url}
                                 <a href={speciesInfo.summary_source_url} target="_blank" rel="noopener noreferrer" class="inline-flex min-h-11 items-center gap-1 text-xs font-semibold text-brand-700 hover:underline focus-ring dark:text-brand-300">
                                     {speciesInfo.summary_source || speciesInfo.source || $_('garden.explorer.source', { default: 'Source' })}

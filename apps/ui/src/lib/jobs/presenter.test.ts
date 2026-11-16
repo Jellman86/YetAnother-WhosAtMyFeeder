@@ -185,6 +185,58 @@ describe('jobs presenter', () => {
         expect(summary.progressLabel).toBeNull();
     });
 
+    it('counts the server\'s work from its own totals, not from the hundred jobs the snapshot lists', () => {
+        // 151 queued video analyses; the snapshot lists only the newest 100 of them.
+        const listed = Array.from({ length: 100 }, (_, index) =>
+            makeJob({ id: `video:${index}`, kind: 'video_analysis', status: 'queued', current: 0, total: 0 })
+        );
+        const rows = new Map([
+            ['video_analysis', makeRow({ kind: 'video_analysis', queued: 151, running: 0 })]
+        ]);
+        const summary = buildGlobalProgressSummary(listed, rows, null, 125_000, t, () => 'Video analysis', {
+            running: 0,
+            queued: 151,
+            progress: null,
+            browserOnly: []
+        });
+
+        expect(summary.headline).toBe('151 jobs queued');
+        expect(summary.headline).not.toContain('100');
+    });
+
+    it('adds the work only this browser is following to the server\'s counts', () => {
+        const browserOnly = [makeJob({ id: 'model-download:x', kind: 'model_download', status: 'running', total: 0 })];
+        const summary = buildGlobalProgressSummary(
+            [makeJob({ id: 'backfill:1', kind: 'backfill', current: 40, total: 100 }), ...browserOnly],
+            new Map([['backfill', makeRow({ kind: 'backfill', queued: 3, running: 1 })]]),
+            null,
+            125_000,
+            t,
+            (kind) => kind,
+            { running: 1, queued: 3, progress: { current: 40, total: 100, unit: 'detections' }, browserOnly }
+        );
+
+        expect(summary.headline).toBe('5 jobs: 2 running, 3 queued');
+        // Unlike work shares no total, so no bar is drawn.
+        expect(summary.determinate).toBe(false);
+    });
+
+    it('shows the server\'s progress when the server holds all the work', () => {
+        const summary = buildGlobalProgressSummary(
+            [makeJob({ id: 'backfill:1', kind: 'backfill', current: 40, total: 100 })],
+            new Map([['backfill', makeRow({ kind: 'backfill', queued: 0, running: 1 })]]),
+            null,
+            125_000,
+            t,
+            (kind) => kind,
+            { running: 1, queued: 0, progress: { current: 40, total: 100, unit: 'detections' }, browserOnly: [] }
+        );
+
+        expect(summary.headline).toBe('1 job running');
+        expect(summary.determinate).toBe(true);
+        expect(summary.percent).toBe(40);
+    });
+
     it('shows queue-only analyze unknowns work in the global banner', () => {
         const summary = buildGlobalProgressSummary(
             [],

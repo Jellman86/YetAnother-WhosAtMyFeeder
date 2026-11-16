@@ -49,6 +49,9 @@ from app.services.archive_service import archive_service
 from app.services.broadcaster import broadcaster
 from app.services.telemetry_service import telemetry_service
 from app.services.system_telemetry import system_telemetry_history_service
+from app.services.system_status import status_event
+from app.services.system_status_readings import SystemStatusReadings
+from app.services.system_status_runtime import configure_status_readings, system_status_service
 from app.services.auto_video_classifier_service import auto_video_classifier
 from app.services.high_quality_snapshot_service import high_quality_snapshot_service
 from app.services.bird_scan_service import bird_scan_service
@@ -85,6 +88,7 @@ from app.routers import (
     setup as setup_router,
     auth as auth_router,
     jobs as jobs_router,
+    status as status_router,
     manual_observations,
     range_filter,
     taxonomy,
@@ -635,6 +639,14 @@ async def lifespan(app: FastAPI):
         )
         await _run_lifecycle_phase(
             app,
+            "system_status_start",
+            system_status_service.start,
+            fatal=False,
+            startup_phase="starting_services",
+            startup_progress=84,
+        )
+        await _run_lifecycle_phase(
+            app,
             "bird_scan_start",
             bird_scan_service.start,
             fatal=False,
@@ -798,6 +810,7 @@ async def lifespan(app: FastAPI):
         await _run_lifecycle_phase(app, "auto_video_classifier_stop", auto_video_classifier.stop, fatal=False)
         await _run_lifecycle_phase(app, "full_visit_clip_stop", full_visit_clip_service.stop, fatal=False)
         await _run_lifecycle_phase(app, "favorite_archive_stop", archive_service.stop, fatal=False)
+        await _run_lifecycle_phase(app, "system_status_stop", system_status_service.stop, fatal=False)
         await _run_lifecycle_phase(
             app, "system_telemetry_history_stop", system_telemetry_history_service.stop, fatal=False
         )
@@ -894,6 +907,17 @@ def db_pool_is_degraded(db_pool_health: dict) -> bool:
     )
 
 
+configure_status_readings(
+    SystemStatusReadings(
+        startup_instance_id=lambda: str(getattr(app.state, "startup_instance_id", "unknown")),
+        version=APP_VERSION,
+        startup_warning_count=lambda: len(getattr(app.state, "startup_warnings", []) or []),
+        event_pipeline_status=lambda: event_processor.get_status() if event_processor is not None else None,
+        db_pool_degraded=lambda: db_pool_is_degraded(get_db_pool_status()),
+    )
+)
+
+
 # Global exception handler for unexpected 500s
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):
@@ -958,6 +982,7 @@ app.include_router(
     model_eval.router, prefix="/api", tags=["diagnostics"], dependencies=[Depends(get_auth_context_with_legacy)]
 )
 app.include_router(jobs_router.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
+app.include_router(status_router.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(garden.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(garden.public_router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(manual_observations.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
@@ -1359,11 +1384,25 @@ async def sse_endpoint(request: Request, stream_auth: StreamAuth = Depends(get_s
         try:
             # Send initial connection message with auth level
             yield f"data: {json.dumps({'type': 'connected', 'message': 'SSE Connected', 'auth_level': auth.auth_level})}\n\n"
+            if auth.is_owner:
+                # The status a page paints from, so a fresh or reconnected stream needs no reads.
+                try:
+                    snapshot = await system_status_service.current()
+                    yield f"data: {json.dumps(status_event(snapshot))}\n\n"
+                except Exception as exc:  # noqa: BLE001 - the stream works without it; the next push follows
+                    log.warning("sse_status_snapshot_failed", error=str(exc))
 
             while True:
                 try:
                     # Wait for a message or a timeout for heartbeat
                     message = await asyncio.wait_for(queue.get(), timeout=20.0)
+
+                    # A subscriber the broadcaster dropped for falling behind receives nothing more,
+                    # yet its heartbeats would keep the page believing it is live. End the stream so
+                    # the page reconnects and starts again from a fresh status snapshot.
+                    if not broadcaster.is_subscribed(queue):
+                        log.info("sse_stream_closed_after_backpressure")
+                        return
 
                     if (
                         stream_auth.session_version is not None
@@ -1407,6 +1446,8 @@ async def sse_endpoint(request: Request, stream_auth: StreamAuth = Depends(get_s
 
                     yield f"data: {json.dumps(message)}\n\n"
                 except asyncio.TimeoutError:
+                    if not broadcaster.is_subscribed(queue):
+                        return
                     if (
                         stream_auth.session_version is not None
                         and stream_auth.session_version != settings.auth.session_version

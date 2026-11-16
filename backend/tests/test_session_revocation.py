@@ -142,6 +142,7 @@ async def test_open_stream_stops_before_delivering_owner_data_after_password_cha
     stream = response.body_iterator
     try:
         assert "connected" in await anext(stream)
+        assert '"type": "status"' in await anext(stream)
         await change_password()
         await broadcaster.broadcast({"type": "detection", "data": {"private": "fixture-owner-data"}})
         event = await anext(stream)

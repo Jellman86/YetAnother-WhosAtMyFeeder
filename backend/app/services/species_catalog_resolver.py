@@ -326,6 +326,19 @@ class SpeciesCatalogResolver:
         name = str(scientific_name or "").strip()
         return self._name_to_species.get(name.casefold()) if name else None
 
+    def accepted_scientific_names(self, scientific_name: Optional[str]) -> frozenset[str]:
+        """Every name the catalogue accepts for the species this name resolves to, casefolded.
+
+        The accepted name and its recorded synonyms, so a reference that still uses an older
+        name is recognised as the same taxon. Empty when the catalogue does not hold the name or
+        the name is ambiguous: nothing is then trusted beyond the name asked for.
+        """
+        self._ensure_loaded()
+        species_id = self.cached_species_id_for_name(scientific_name)
+        if species_id is None:
+            return frozenset()
+        return frozenset(self._accepted_names.get(species_id, set()))
+
     def model_species_coverage(self, model_sha256: Optional[str]) -> Optional[ModelSpeciesCoverage]:
         """The species a registered model can name, split by what the catalogue knows of them.
 

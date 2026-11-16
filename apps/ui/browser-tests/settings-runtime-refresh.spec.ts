@@ -108,6 +108,33 @@ async function openDetectionWithCompatibilityRun(
     return counters;
 }
 
+/** A status push carrying a new model revision, as the live stream delivers one in the app. */
+async function pushModelRevision(page: Page, revision: string) {
+    await page.evaluate((modelRevision) => {
+        const store = (window as unknown as { __systemStatus: { ingest(snapshot: unknown): void; snapshot: { revision: number } | null } }).__systemStatus;
+        store.ingest({
+            revision: (store.snapshot?.revision ?? 0) + 1,
+            generated_at: new Date().toISOString(),
+            startup_instance_id: 'fixture',
+            version: 'fixture',
+            overall: { state: 'ok', cause: 'ok', subsystem: null },
+            subsystems: [],
+            jobs_summary: { running: 0, queued: 0, progress: null },
+            jobs: { captured_at: new Date().toISOString(), items: [], lanes: [] },
+            analysis: { pending: 0, active: 0, circuit_open: false },
+            model: { state: 'ok', cause: 'ready', revision: modelRevision },
+            connections: {
+                mqtt: { state: 'connected', server: 'mqtt', port: 1883 },
+                frigate: { state: 'reachable', url: 'http://frigate:5000' },
+                generated_at: new Date().toISOString()
+            },
+            diagnostics_revision: 0,
+            incident_revision: 'fixture',
+            health_revision: 'fixture'
+        });
+    }, revision);
+}
+
 // The status line at the top of Models names the device the workers report.
 function runtimeCell(page: Page) {
     return page.locator('[data-identification-status]');
@@ -185,8 +212,9 @@ test('a runtime change after returning to Models refreshes without another check
     await expect(runtimeCell(page)).toContainText(' on CPU');
     const settingsReads = counters.settingsReads;
     counters.runFinished = true;
-    // The runtime line is re-read every 15 seconds while Models is open.
-    await expect(runtimeCell(page)).toContainText(' on Intel NPU', { timeout: 20_000 });
+    // The server announces a runtime change as a new model revision in the pushed status.
+    await pushModelRevision(page, 'after-reload');
+    await expect(runtimeCell(page)).toContainText(' on Intel NPU', { timeout: 5_000 });
     await expect(slider).toHaveValue('eu');
     expect(counters.settingsReads).toBe(settingsReads);
 });

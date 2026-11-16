@@ -302,3 +302,11 @@ describe('expiring stale jobs', () => {
         expect(jobProgressStore.activeJobs.map((job) => job.id)).toEqual(['reclassify:busy']);
     });
 });
+
+describe('the server job a row mirrors', () => {
+    it('is kept across later progress updates that do not repeat it', () => {
+        jobProgressStore.upsertRunning({ id: 'reclassify:evt-mirror', kind: 'reclassify', title: 'Reclassify', serverJobId: 'reclassify:evt-mirror' });
+        jobProgressStore.upsertRunning({ id: 'reclassify:evt-mirror', kind: 'reclassify', title: 'Reclassify', current: 3, total: 15 });
+        expect(jobProgressStore.activeJobs.find((job) => job.id === 'reclassify:evt-mirror')?.serverJobId).toBe('reclassify:evt-mirror');
+    });
+});

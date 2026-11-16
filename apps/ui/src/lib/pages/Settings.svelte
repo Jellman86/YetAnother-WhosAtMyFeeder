@@ -60,12 +60,13 @@
     import { ApiRequestError } from '../api/core';
     import { themeStore, type Theme } from '../stores/theme.svelte';
     import { settingsStore } from '../stores/settings.svelte';
-    import { REFRESH_CADENCE_MS } from '../app/refresh-cadence';
-    import { startVisiblePoll } from '../app/visible-poll';
     import { analysisQueueStatusStore } from '../stores/analysis_queue_status.svelte';
     import { pageRefreshAction } from '../stores/page_refresh_action.svelte';
     import { toAppPath } from '../app/url-base';
     import { authStore } from '../stores/auth.svelte';
+    import { systemStatusStore } from '../stores/system_status.svelte';
+    import { mapGuarded, type Guarded } from '../api/core';
+    import { followRevisions } from '../app/revision-follower';
     import { passwordProblemMessage, validateAuthSettingsSave } from '../auth-password-policy';
     import { toastStore } from '../stores/toast.svelte';
     import { confirmAction, type ConfirmWording } from '../stores/confirm_dialog.svelte';
@@ -646,6 +647,8 @@
             jobProgressStore.markFailed({
                 id,
                 kind: kind === 'weather' ? 'weather_backfill' : 'backfill',
+                // A backfill row carries the server's own job id, so the server's count already includes it.
+                serverJobId: id,
                 title: progressTitle,
                 message,
                 route: '/settings',
@@ -657,6 +660,8 @@
             jobProgressStore.markCompleted({
                 id,
                 kind: kind === 'weather' ? 'weather_backfill' : 'backfill',
+                // A backfill row carries the server's own job id, so the server's count already includes it.
+                serverJobId: id,
                 title: progressTitle,
                 message,
                 route: '/settings',
@@ -668,6 +673,8 @@
             jobProgressStore.upsertRunning({
                 id,
                 kind: kind === 'weather' ? 'weather_backfill' : 'backfill',
+                // A backfill row carries the server's own job id, so the server's count already includes it.
+                serverJobId: id,
                 title: progressTitle,
                 message,
                 route: '/settings',
@@ -1287,16 +1294,21 @@
     });
 
     // A harness can finish in another tab, and isolated workers can start after
-    // the completion response. Keep the visible runtime current without touching
-    // the settings form or accumulating overlapping background reads.
+    // the completion response. The tab reads the runtime once when it opens, then
+    // again whenever the pushed model revision moves (a revision arriving during a
+    // read queues one more), so an idle Models tab asks nothing and the form is
+    // never touched.
     $effect(() => {
         if (activeTab !== 'models' || !authStore.showSettings) return;
-        const stop = untrack(() => startVisiblePoll({
-            read: () => (classifierStatusReads === 0 ? loadClassifierStatus() : undefined),
-            delayMs: () => REFRESH_CADENCE_MS.classifierRuntime
-        }));
+        const follower = followRevisions(
+            loadClassifierStatus,
+            untrack(() => systemStatusStore.snapshot?.model.revision ?? null)
+        );
+        follower.start();
+        const stopFollowing = systemStatusStore.subscribe((snapshot) => follower.observe(snapshot.model.revision));
         return () => {
-            stop();
+            stopFollowing();
+            follower.stop();
             classifierStatusRequest += 1;
         };
     });
@@ -2175,26 +2187,30 @@
     let loadedSetupSettings: SettingsPayload | null = null;
     let settingsFormLoads = 0;
 
-    async function loadClassifierStatus(): Promise<boolean> {
+    /** One classifier read, bounded body included (see `fetchClassifierStatus`); false when it failed. */
+    function loadClassifierStatus(signal?: AbortSignal): Guarded<boolean> {
         const request = ++classifierStatusRequest;
         const formLoad = settingsFormLoads;
         classifierStatusReads += 1;
-        try {
-            const status = await fetchClassifierStatus();
-            if (request === classifierStatusRequest) {
-                classifierStatus = status;
-                reportRuntimeProblem();
-                // A status read that started before the form was last loaded, or
-                // that lands mid-save, may report a preference older than the form's.
-                if (formLoad === settingsFormLoads && !saving) adoptSavedInferenceProvider(status.selected_provider);
+        return mapGuarded(
+            fetchClassifierStatus(signal),
+            (status) => {
+                classifierStatusReads -= 1;
+                if (request === classifierStatusRequest) {
+                    classifierStatus = status;
+                    reportRuntimeProblem();
+                    // A status read that started before the form was last loaded, or
+                    // that lands mid-save, may report a preference older than the form's.
+                    if (formLoad === settingsFormLoads && !saving) adoptSavedInferenceProvider(status.selected_provider);
+                }
+                return true;
+            },
+            (e) => {
+                classifierStatusReads -= 1;
+                console.error('Failed to load classifier status', e);
+                return false;
             }
-            return true;
-        } catch (e) {
-            console.error('Failed to load classifier status', e);
-            return false;
-        } finally {
-            classifierStatusReads -= 1;
-        }
+        );
     }
 
     // Activating a model saves that model's provider on the server. Without this,
