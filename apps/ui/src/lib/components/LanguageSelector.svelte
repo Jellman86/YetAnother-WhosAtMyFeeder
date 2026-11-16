@@ -31,6 +31,8 @@
         });
     });
 
+    // While a language loads the items are aria-disabled, not disabled: a disabled button drops
+    // keyboard focus to the page, and a menu item stays focusable when it cannot be chosen (APG).
     async function setLanguage(lang: string): Promise<void> {
         if (languageChanging) return;
         languageChanging = true;
@@ -139,11 +141,11 @@
                 {#each Object.entries(languageNames) as [code, name]}
                     <button
                         onclick={() => setLanguage(code)}
-                        disabled={languageChanging}
+                        aria-disabled={languageChanging || undefined}
                         role="menuitemradio"
                         aria-checked={currentLocaleValue === code}
                         tabindex="-1"
-                        class="btn min-h-11 min-w-11 w-full justify-between px-4 py-2.5 text-left text-sm font-bold rounded-xl transition-all
+                        class="btn min-h-11 min-w-11 w-full justify-between px-4 py-2.5 text-left text-sm font-bold rounded-xl transition-all aria-disabled:cursor-wait aria-disabled:opacity-70
                                {currentLocaleValue === code
                                    ? 'bg-accent text-accent-fg'
                                    : 'text-muted hover:bg-surface-raised'}"

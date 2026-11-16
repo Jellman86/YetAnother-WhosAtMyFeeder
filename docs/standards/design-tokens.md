@@ -100,11 +100,12 @@ npm run tokens:baseline    # lower the baseline after migrating a file; refuses 
 
 The few places that genuinely need a literal colour sit in the test's `ALLOWLIST`, each with its
 reason: the colour-theme picker's swatches, and the categorical load series on the Health chart.
-In `app.css` only the high-contrast repaint selectors are skipped (`STYLESHEET_EXCEPTIONS`): they
-name the older classes in order to override them and paint nothing themselves. A selector list is
-skipped only when every selector in it starts at the high-contrast root (`.high-contrast …` or
-`html.high-contrast…`); an ordinary rule placed in that section, or a list that mixes one in, is
-counted like any other.
+In `app.css` the high-contrast repaint rules name the older classes in order to override them
+inside the mode. They are nested in one top-level `.high-contrast { … }` rule, and the ratchet
+parses the stylesheet with postcss and skips only the selectors of rules nested in that one rule
+(`STYLESHEET_SCOPES`). Every other rule counts, wherever it sits and however its selector reads,
+declarations and `@apply` lists count everywhere, and a second top-level `.high-contrast` rule is
+refused. Comments are not counted. Keep new high-contrast repaints inside the nested rule.
 Add to it only with a reason a reviewer accepts.
 
 ### Migrating a file

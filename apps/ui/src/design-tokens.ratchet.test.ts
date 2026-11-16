@@ -22,6 +22,7 @@
  */
 import { readdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { extname, join, relative } from 'node:path';
+import postcss from 'postcss';
 import { describe, expect, it } from 'vitest';
 import { lowerBaseline, raisedCounts } from '../scripts/token-baseline.mjs';
 
@@ -96,61 +97,42 @@ function bareClass(found: string): string {
 }
 
 /**
- * Parts of a stylesheet that name classes without painting with them. High contrast repaints the
- * older palette classes by name (`.high-contrast .bg-white`, `[class~='bg-attention-300']`) so that
- * screens not yet on the tokens stay readable; those selectors shrink as the migration proceeds,
- * and they are counted nowhere. Everything else in app.css, its `@apply` lists included, counts.
+ * The one place in a stylesheet whose selectors are not counted. High contrast repaints the older
+ * palette classes by name (`& .bg-white`, `& [class~='bg-attention-300']`) so that screens not yet
+ * on the tokens stay readable; those rules paint only inside the mode, and they shrink as the
+ * migration proceeds. They live nested in a single top-level rule whose selector is the mode's
+ * root. The exemption is structural: postcss parses the sheet, and only rules whose ancestors
+ * include that rule lose their selectors. Every other rule, at the top level or not, counts, and
+ * declarations (an @apply included) count everywhere.
  */
-const STYLESHEET_EXCEPTIONS: Record<string, { from: string; to: string; reason: string }> = {
+const STYLESHEET_SCOPES: Record<string, { selector: string; reason: string }> = {
     'app.css': {
-        from: '/* High Contrast Mode',
-        to: '/* Respect user motion preferences',
-        reason: 'the high-contrast repaint selectors name legacy classes to override them; they paint nothing themselves'
+        selector: '.high-contrast',
+        reason: 'the high-contrast repaint rules name legacy classes to override them inside the mode; they paint nothing outside it'
     }
 };
 
-/** Split a selector list at its top-level commas, leaving those inside `:is(...)` or `[...]` alone. */
-function selectorsOf(list: string): string[] {
-    const parts: string[] = [];
-    let depth = 0;
-    let current = '';
-    for (const char of list) {
-        if (char === '(' || char === '[') depth += 1;
-        if (char === ')' || char === ']') depth -= 1;
-        if (char === ',' && depth === 0) {
-            parts.push(current.trim());
-            current = '';
-        } else current += char;
+function stylesheetText(source: string, file: string): string {
+    const root = postcss.parse(source);
+    // Comments are words, not rules.
+    root.walkComments((comment) => {
+        comment.remove();
+    });
+    const scope = STYLESHEET_SCOPES[file];
+    if (scope) {
+        const scopes = root.nodes.filter((node) => node.type === 'rule' && node.selector.trim() === scope.selector);
+        if (scopes.length > 1) throw new Error(`${file}: only one top-level ${scope.selector} rule may hold the high-contrast repaints`);
+        for (const rule of scopes) {
+            rule.walkRules((inner) => {
+                inner.selector = '';
+            });
+        }
     }
-    parts.push(current.trim());
-    return parts.filter(Boolean);
-}
-
-/** Scoped to the high-contrast root: `.high-contrast …` or `html.high-contrast…`. */
-const HIGH_CONTRAST_SCOPE = /^(?:html)?\.high-contrast(?![\w-])/;
-
-function withoutExceptions(source: string, file: string): string {
-    const exception = STYLESHEET_EXCEPTIONS[file];
-    if (!exception) return source;
-    const from = source.indexOf(exception.from);
-    const to = source.indexOf(exception.to, from);
-    if (from < 0 || to < 0) throw new Error(`${file}: the ${exception.from} section the ratchet skips has moved`);
-    // Comments are words, not rules. A selector list is skipped only when every selector in it is
-    // scoped to the high-contrast root; an ordinary rule placed in the section, or a list that mixes
-    // one in, is counted like any other. Declarations, and so any @apply, always count.
-    const section = source
-        .slice(from, to)
-        .replace(/\/\*[\s\S]*?\*\//g, '')
-        .replace(/([^{}]*)\{/g, (whole, list: string) => {
-            const selectors = selectorsOf(list);
-            const scoped = selectors.length > 0 && selectors.every((selector) => HIGH_CONTRAST_SCOPE.test(selector));
-            return scoped ? '{' : whole;
-        });
-    return source.slice(0, from) + section + source.slice(to);
+    return root.toString();
 }
 
 function countBypasses(raw: string, file = ''): Counts {
-    const source = withoutExceptions(raw, file);
+    const source = file.endsWith('.css') ? stylesheetText(raw, file) : raw;
     const allowed = ALLOWLIST.filter((entry) => entry.file === file);
     const keep = (found: string) => !allowed.some((entry) => entry.classes.test(bareClass(found)));
     return {
@@ -211,25 +193,31 @@ describe('a stylesheet', () => {
         expect(countBypasses('.x { @apply text-amber-600 dark:text-strong w-[3px]; }', 'lib/new.css')).toEqual({ palette: 1, dark: 1, arbitrary: 1 });
     });
 
-    it('skips only the high-contrast repaint selectors in app.css, not what that section applies', () => {
-        const css = '.a { @apply text-amber-600; }\n/* High Contrast Mode */\n.high-contrast .bg-white, .high-contrast .dark\\:bg-slate-800 { color: #fff; }\n.high-contrast .b { @apply bg-slate-900; }\n/* Respect user motion preferences */';
-        expect(countBypasses(css, 'app.css').palette).toBe(2);
+    // app.css keeps its high-contrast repaint rules nested in one top-level `.high-contrast { … }`
+    // rule. Only rules inside that rule are exempt, and only their selectors.
+    it('skips the selectors of rules nested in the one high-contrast scope rule', () => {
+        const css = '.high-contrast { color-scheme: dark; & .bg-white, & :is(.bg-brand-700, [class~="bg-red-600"]) * { color: #fff; } & .dark\\:bg-slate-800 { color: #fff; } }';
+        expect(countBypasses(css, 'app.css').palette).toBe(0);
         expect(countBypasses(css, 'lib/other.css').palette).toBe(4);
     });
 
-    const hcSection = (rules: string) => `/* High Contrast Mode */\n${rules}\n/* Respect user motion preferences */`;
-
-    it('counts an ordinary rule placed between the high-contrast markers', () => {
-        expect(countBypasses(hcSection('.text-amber-600 { color: #d97706; }'), 'app.css').palette).toBe(1);
+    it('still counts what a rule inside the scope applies', () => {
+        expect(countBypasses('.high-contrast { & .x { @apply bg-slate-900; } }', 'app.css').palette).toBe(1);
     });
 
-    it('counts a selector list that mixes a high-contrast selector with an unscoped one', () => {
-        expect(countBypasses(hcSection('.high-contrast .bg-white, .bg-slate-900 { color: #fff; }'), 'app.css').palette).toBe(2);
+    it('counts a top-level rule that only looks scoped: a flat selector list, a quoted bracket, an escaped class', () => {
+        expect(countBypasses('.text-amber-600 { color: #d97706; }', 'app.css').palette).toBe(1);
+        expect(countBypasses('.high-contrast .bg-white, .bg-slate-900 { color: #fff; }', 'app.css').palette).toBe(2);
+        expect(countBypasses('.high-contrast [data-label="("], .text-amber-600 { color: #d97706; }', 'app.css').palette).toBe(1);
+        expect(countBypasses('.high-contrast\\:text-amber-600 { color: #d97706; }', 'app.css').palette).toBe(1);
     });
 
-    it('skips a selector scoped to the high-contrast root, by class or on html, and ignores comments', () => {
-        const rules = '/* repaints [class*=text-slate-500] */\nhtml.high-contrast.high-contrast .bg-white, .high-contrast :is(.bg-brand-700, [class~=\'bg-red-600\']) * { color: #fff; }';
-        expect(countBypasses(hcSection(rules), 'app.css').palette).toBe(0);
+    it('allows exactly one scope rule, so a second one cannot open another exemption', () => {
+        expect(() => countBypasses('.high-contrast { & .a { color: red; } } .high-contrast { & .bg-white { color: red; } }', 'app.css')).toThrow(/one/);
+    });
+
+    it('ignores comments, which paint nothing', () => {
+        expect(countBypasses('/* was text-slate-600 dark:text-slate-400 */ .x { color: red; }', 'lib/other.css')).toEqual({ palette: 0, dark: 0, arbitrary: 0 });
     });
 
     it('scans the authored stylesheets, app.css among them', () => {

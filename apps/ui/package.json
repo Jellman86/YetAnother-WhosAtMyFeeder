@@ -26,6 +26,7 @@
     "@tsconfig/svelte": "^5.0.4",
     "@types/leaflet": "^1.9.22",
     "knip": "^6.44.1",
+    "postcss": "8.5.32",
     "svelte": "^5.57.3",
     "svelte-check": "^4.7.8",
     "tailwindcss": "^4.3.5",

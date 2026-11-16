@@ -928,16 +928,6 @@ html.theme-bluetit.dark .ai-markdown-surface blockquote {
    leaves short of 7:1. Inks are repainted by colour family ([class*='text-slate-']), never by a
    list of classes: a list is how headings were once left near-black on this black page.
    app.high-contrast.test.ts fails a text colour family that is written in the app and missing here. */
-.high-contrast {
-  --bg-color: #000000;
-  --text-color: #ffffff;
-  --border-color: #ffff00;
-  /* Yellow for visibility */
-  --highlight-color: #00ffff;
-  /* Cyan for focus/active */
-  color-scheme: dark;
-}
-
 /* Panels, wells and rules come from these tokens, so high contrast reaches every one of them.
    The class sits on <html> beside the theme classes, so this selector must outrank
    html.theme-bluetit.dark. */
@@ -1015,138 +1005,151 @@ html.high-contrast.high-contrast.high-contrast {
   --hc-on-dark-fill: #ffffff;
 }
 
-.high-contrast body,
-.high-contrast .bg-surface-light,
-.high-contrast .dark\:bg-surface-dark {
-  background-color: #000000 !important;
-  color: #ffffff !important;
-}
+.high-contrast {
+  --bg-color: #000000;
+  --text-color: #ffffff;
+  --border-color: #ffff00;
+  /* Yellow for visibility */
+  --highlight-color: #00ffff;
+  /* Cyan for focus/active */
+  color-scheme: dark;
 
-.high-contrast .bg-white,
-.high-contrast .dark\:bg-slate-800,
-.high-contrast .bg-slate-50,
-.high-contrast .dark\:bg-slate-900\/50,
-.high-contrast .dark\:bg-slate-800\/50 {
-  background-color: #000000 !important;
-  border: 2px solid #ffff00 !important;
-  color: #ffffff !important;
-}
+  /* Every repaint below is nested in this one rule, so it applies only inside the mode, and the
+     design-token ratchet exempts only what is nested here (design-tokens.ratchet.test.ts). */
 
-.high-contrast button,
-.high-contrast a,
-.high-contrast input,
-.high-contrast select,
-.high-contrast textarea {
-  border: 2px solid #00ffff !important;
-  color: #ffffff !important;
-  background-color: #000000 !important;
-}
+  & body,
+  & .bg-surface-light,
+  & .dark\:bg-surface-dark {
+    background-color: #000000 !important;
+    color: #ffffff !important;
+  }
 
-/* Ink, by family. Neutral text is white at every step, muted or not: hierarchy is carried by
-   size and weight here. The semantic families follow, so a hover or state class of another
-   family on the same element resolves to the semantic ink. */
-.high-contrast :is([class*='text-slate-'], [class*='text-gray-']) {
-  color: var(--hc-ink) !important;
-}
+  & .bg-white,
+  & .dark\:bg-slate-800,
+  & .bg-slate-50,
+  & .dark\:bg-slate-900\/50,
+  & .dark\:bg-slate-800\/50 {
+    background-color: #000000 !important;
+    border: 2px solid #ffff00 !important;
+    color: #ffffff !important;
+  }
 
-.high-contrast :is([class*='text-brand-'], [class*='text-blue-'], [class*='text-teal-'], [class*='text-violet-']) {
-  color: var(--hc-ink-brand) !important;
-}
+  & button,
+  & a,
+  & input,
+  & select,
+  & textarea {
+    border: 2px solid #00ffff !important;
+    color: #ffffff !important;
+    background-color: #000000 !important;
+  }
 
-.high-contrast :is([class*='text-success-'], [class*='text-emerald-'], [class*='text-green-']) {
-  color: var(--hc-ink-success) !important;
-}
+  /* Ink, by family. Neutral text is white at every step, muted or not: hierarchy is carried by
+     size and weight here. The semantic families follow, so a hover or state class of another
+     family on the same element resolves to the semantic ink. */
+  & :is([class*='text-slate-'], [class*='text-gray-']) {
+    color: var(--hc-ink) !important;
+  }
 
-.high-contrast :is([class*='text-attention-'], [class*='text-amber-'], [class*='text-orange-']) {
-  color: var(--hc-ink-attention) !important;
-}
+  & :is([class*='text-brand-'], [class*='text-blue-'], [class*='text-teal-'], [class*='text-violet-']) {
+    color: var(--hc-ink-brand) !important;
+  }
 
-.high-contrast :is([class*='text-rose-'], [class*='text-red-']) {
-  color: var(--hc-ink-danger) !important;
-}
+  & :is([class*='text-success-'], [class*='text-emerald-'], [class*='text-green-']) {
+    color: var(--hc-ink-success) !important;
+  }
 
-.high-contrast ::placeholder {
-  color: var(--hc-ink-disabled) !important;
-  opacity: 1 !important;
-}
+  & :is([class*='text-attention-'], [class*='text-amber-'], [class*='text-orange-']) {
+    color: var(--hc-ink-attention) !important;
+  }
 
-/* Fills. A filled element sets its ground and its ink together, and everything inside it takes
-   that ink: a `text-white` or tinted word in a badge would otherwise keep a colour chosen for
-   the theme's fill. app.high-contrast.test.ts fails a fill the app puts white words on that is
-   neither dark enough for them nor named here.
+  & :is([class*='text-rose-'], [class*='text-red-']) {
+    color: var(--hc-ink-danger) !important;
+  }
 
-   Chosen-state fills (the accent, or brand-700, under white text in the themes) and the primary
-   button: yellow under black words. */
-.high-contrast :is(.bg-accent, .bg-teal-500, .bg-brand-500, .dark\:bg-brand-500, .bg-brand-700, [class~='bg-brand-700/95'], .bg-indigo-500, .btn-primary) {
-  background-color: var(--hc-fill) !important;
-  color: var(--hc-on-fill) !important;
-  border: 2px solid #ffffff !important;
-}
+  & ::placeholder {
+    color: var(--hc-ink-disabled) !important;
+    opacity: 1 !important;
+  }
 
-/* A bright semantic fill that carries words (a count badge, a "?" disc) keeps its own colour
-   under black words. Whole class names only, so a translucent tint such as bg-attention-500/10
-   is left to the inks above. */
-.high-contrast :is([class~='bg-attention-300'], [class~='bg-attention-400'], [class~='bg-attention-500'], [class~='bg-success-300'], [class~='bg-success-400'], [class~='bg-success-500'], [class~='bg-rose-300'], [class~='bg-rose-400'], [class~='bg-red-300'], [class~='bg-red-400'], [class~='bg-slate-400']) {
-  color: var(--hc-on-fill) !important;
-}
+  /* Fills. A filled element sets its ground and its ink together, and everything inside it takes
+     that ink: a `text-white` or tinted word in a badge would otherwise keep a colour chosen for
+     the theme's fill. app.high-contrast.test.ts fails a fill the app puts white words on that is
+     neither dark enough for them nor named here.
 
-.high-contrast :is(.bg-accent, .bg-teal-500, .bg-brand-500, .dark\:bg-brand-500, .bg-brand-700, [class~='bg-brand-700/95'], .bg-indigo-500, .btn-primary, [class~='bg-attention-300'], [class~='bg-attention-400'], [class~='bg-attention-500'], [class~='bg-success-300'], [class~='bg-success-400'], [class~='bg-success-500'], [class~='bg-rose-300'], [class~='bg-rose-400'], [class~='bg-red-300'], [class~='bg-red-400'], [class~='bg-slate-400']) * {
-  color: var(--hc-on-fill) !important;
-}
+     Chosen-state fills (the accent, or brand-700, under white text in the themes) and the primary
+     button: yellow under black words. */
+  & :is(.bg-accent, .bg-teal-500, .bg-brand-500, .dark\:bg-brand-500, .bg-brand-700, [class~='bg-brand-700/95'], .bg-indigo-500, .btn-primary) {
+    background-color: var(--hc-fill) !important;
+    color: var(--hc-on-fill) !important;
+    border: 2px solid #ffffff !important;
+  }
 
-/* A mid-tone semantic fill under white words (a danger button, a status disc on a photograph)
-   is too light for them at 7:1, so it becomes one deep fill of its own hue family under white. */
-.high-contrast :is([class~='bg-success-600'], [class~='bg-success-700'], [class~='bg-success-700/95']) {
-  background-color: #004d2a !important;
-  color: var(--hc-on-dark-fill) !important;
-  border: 2px solid #ffffff !important;
-}
+  /* A bright semantic fill that carries words (a count badge, a "?" disc) keeps its own colour
+     under black words. Whole class names only, so a translucent tint such as bg-attention-500/10
+     is left to the inks above. */
+  & :is([class~='bg-attention-300'], [class~='bg-attention-400'], [class~='bg-attention-500'], [class~='bg-success-300'], [class~='bg-success-400'], [class~='bg-success-500'], [class~='bg-rose-300'], [class~='bg-rose-400'], [class~='bg-red-300'], [class~='bg-red-400'], [class~='bg-slate-400']) {
+    color: var(--hc-on-fill) !important;
+  }
 
-.high-contrast :is([class~='bg-red-600'], [class~='bg-red-700'], [class~='bg-rose-700'], [class~='bg-orange-500/95'], .btn-danger-solid) {
-  background-color: var(--hc-dark-fill) !important;
-  color: var(--hc-on-dark-fill) !important;
-  border: 2px solid #ffffff !important;
-}
+  & :is(.bg-accent, .bg-teal-500, .bg-brand-500, .dark\:bg-brand-500, .bg-brand-700, [class~='bg-brand-700/95'], .bg-indigo-500, .btn-primary, [class~='bg-attention-300'], [class~='bg-attention-400'], [class~='bg-attention-500'], [class~='bg-success-300'], [class~='bg-success-400'], [class~='bg-success-500'], [class~='bg-rose-300'], [class~='bg-rose-400'], [class~='bg-red-300'], [class~='bg-red-400'], [class~='bg-slate-400']) * {
+    color: var(--hc-on-fill) !important;
+  }
 
-.high-contrast :is([class~='bg-success-600'], [class~='bg-success-700'], [class~='bg-success-700/95'], [class~='bg-red-600'], [class~='bg-red-700'], [class~='bg-rose-700'], [class~='bg-orange-500/95'], .btn-danger-solid) * {
-  color: var(--hc-on-dark-fill) !important;
-}
+  /* A mid-tone semantic fill under white words (a danger button, a status disc on a photograph)
+     is too light for them at 7:1, so it becomes one deep fill of its own hue family under white. */
+  & :is([class~='bg-success-600'], [class~='bg-success-700'], [class~='bg-success-700/95']) {
+    background-color: #004d2a !important;
+    color: var(--hc-on-dark-fill) !important;
+    border: 2px solid #ffffff !important;
+  }
 
-/* A disabled control keeps readable words and says it is off with a dashed grey edge, not by
-   fading: half-opacity white on black is the low contrast this mode exists to remove. It comes
-   after the fills and sets its ground with its ink, so a disabled primary or chosen control is
-   grey on black, never grey on the yellow it wears when it can be used. */
-.high-contrast :is(button, input, select, textarea):disabled,
-.high-contrast [aria-disabled='true'] {
-  opacity: 1 !important;
-  color: var(--hc-ink-disabled) !important;
-  background-color: #000000 !important;
-  border: 2px dashed var(--hc-ink-disabled) !important;
-}
+  & :is([class~='bg-red-600'], [class~='bg-red-700'], [class~='bg-rose-700'], [class~='bg-orange-500/95'], .btn-danger-solid) {
+    background-color: var(--hc-dark-fill) !important;
+    color: var(--hc-on-dark-fill) !important;
+    border: 2px solid #ffffff !important;
+  }
 
-.high-contrast :is(button, input, select, textarea):disabled *,
-.high-contrast [aria-disabled='true'] * {
-  color: var(--hc-ink-disabled) !important;
-}
+  & :is([class~='bg-success-600'], [class~='bg-success-700'], [class~='bg-success-700/95'], [class~='bg-red-600'], [class~='bg-red-700'], [class~='bg-rose-700'], [class~='bg-orange-500/95'], .btn-danger-solid) * {
+    color: var(--hc-on-dark-fill) !important;
+  }
 
-/* The switch keeps its kit shape: the track is the state (grey off, yellow on) inside a white
-   edge, and the thumb is black on yellow so its side still reads. */
-.high-contrast .switch-track {
-  background-color: rgb(var(--switch-off)) !important;
-  border: 2px solid #ffffff !important;
-}
+  /* A disabled control keeps readable words and says it is off with a dashed grey edge, not by
+     fading: half-opacity white on black is the low contrast this mode exists to remove. It comes
+     after the fills and sets its ground with its ink, so a disabled primary or chosen control is
+     grey on black, never grey on the yellow it wears when it can be used. */
+  & :is(button, input, select, textarea):disabled,
+  & [aria-disabled='true'] {
+    opacity: 1 !important;
+    color: var(--hc-ink-disabled) !important;
+    background-color: #000000 !important;
+    border: 2px dashed var(--hc-ink-disabled) !important;
+  }
 
-.high-contrast .switch-track[aria-checked='true'] {
-  background-color: rgb(var(--switch-on)) !important;
-}
+  & :is(button, input, select, textarea):disabled *,
+  & [aria-disabled='true'] * {
+    color: var(--hc-ink-disabled) !important;
+  }
 
-.high-contrast .switch-thumb {
-  background-color: #000000 !important;
-  border: 0 !important;
-}
+  /* The switch keeps its kit shape: the track is the state (grey off, yellow on) inside a white
+     edge, and the thumb is black on yellow so its side still reads. */
+  & .switch-track {
+    background-color: rgb(var(--switch-off)) !important;
+    border: 2px solid #ffffff !important;
+  }
 
-.high-contrast svg {
-  stroke: currentColor !important;
+  & .switch-track[aria-checked='true'] {
+    background-color: rgb(var(--switch-on)) !important;
+  }
+
+  & .switch-thumb {
+    background-color: #000000 !important;
+    border: 0 !important;
+  }
+
+  & svg {
+    stroke: currentColor !important;
+  }
 }
 
 /* Respect user motion preferences - WCAG 2.1 Level AA */

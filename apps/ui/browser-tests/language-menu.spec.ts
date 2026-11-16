@@ -107,3 +107,52 @@ test('Space chooses a language too, and the menu opens on it next time', async (
     await expect(page.getByRole('menuitemradio', { name: 'Español' })).toBeFocused();
     await expect(page.getByRole('menuitemradio', { name: 'Español' })).toHaveAttribute('aria-checked', 'true');
 });
+
+const SPANISH_MODULE = (url: URL) => /\/i18n\/locales\/es\.ts$/.test(url.pathname);
+
+test('a language that fails to load keeps focus in the menu, says so, and Escape still closes it', async ({ page }) => {
+    const trigger = await openApp(page);
+    await page.route(SPANISH_MODULE, (route) => route.fulfill({ status: 503, body: 'unavailable' }));
+    await trigger.focus();
+    await page.keyboard.press('Enter');
+    await page.keyboard.press('ArrowDown');
+    const spanish = page.getByRole('menuitemradio', { name: 'Español' });
+    await expect(spanish).toBeFocused();
+    await page.keyboard.press('Enter');
+
+    await expect(page.getByRole('menu').getByRole('alert')).toContainText('could not be loaded', READY);
+    await expect(spanish).toBeFocused();
+    await expect(spanish).toHaveAttribute('aria-checked', 'false');
+    await expect(page.getByRole('menuitemradio', { name: 'English' })).toHaveAttribute('aria-checked', 'true');
+    // The arrows still work, and Escape still closes the menu with focus back on the button.
+    await page.keyboard.press('ArrowUp');
+    await expect(page.getByRole('menuitemradio', { name: 'English' })).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('menu')).toHaveCount(0);
+    await expect(trigger).toBeFocused();
+});
+
+test('while a language loads, its item keeps focus and every item says it is unavailable', async ({ page }) => {
+    const trigger = await openApp(page);
+    let release: () => void = () => {};
+    const held = new Promise<void>((resolve) => { release = resolve; });
+    await page.route(SPANISH_MODULE, async (route) => { await held; await route.continue(); });
+    await trigger.focus();
+    await page.keyboard.press('Enter');
+    await page.keyboard.press('ArrowDown');
+    const spanish = page.getByRole('menuitemradio', { name: 'Español' });
+    await page.keyboard.press('Enter');
+
+    await expect(spanish).toHaveAttribute('aria-disabled', 'true');
+    await expect(page.getByRole('menuitemradio', { name: 'Français' })).toHaveAttribute('aria-disabled', 'true');
+    await expect(spanish).toBeFocused();
+    // A second choice while the first is loading does nothing.
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('menu')).toBeVisible();
+
+    release();
+    await expect(page.getByRole('menu')).toHaveCount(0, READY);
+    await expect(page.getByRole('button', { name: 'Español', exact: true }).first()).toBeFocused();
+    await expect(page.locator('html')).toHaveAttribute('lang', 'es');
+});

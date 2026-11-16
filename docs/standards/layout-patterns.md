@@ -764,7 +764,8 @@ build something better."*
   requires, in the app's own ink. A hint beside a map names only the gestures that map accepts.
 - **High contrast**: one black scheme. The theme store adds `dark` whenever the mode is on, so a
   component needs no high-contrast styles of its own provided every light ink and fill has its
-  `dark:` pair. `app.css` then repaints each text colour family (`[class*='text-slate-']`), never
+  `dark:` pair. `app.css` then repaints, inside its one nested `.high-contrast { … }` rule, each
+  text colour family (`[class*='text-slate-']`), never
   a list of classes, and gives a chosen or primary control a yellow fill under black words.
   A filled element sets its ground and its ink together and everything inside it takes that ink;
   a disabled control gives up its fill and is grey on black inside a dashed edge. An ink a
