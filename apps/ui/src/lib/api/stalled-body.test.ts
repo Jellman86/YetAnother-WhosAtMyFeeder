@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fetchClassifierStatus } from './classifier';
+import { analyzeDetection, fetchClassifierStatus } from './classifier';
 import { apiFetchJson, fetchWithAbort } from './core';
 import { fetchDiagnosticsWorkspace } from './diagnostics';
 import { checkHealth, fetchSystemTelemetry, fetchSystemTelemetryHistory } from './system';
-import { fetchVisits } from './visits';
+import { fetchVisitCaptures, fetchVisits } from './visits';
 
 /**
  * Every read that feeds a retrying reader, against a network that sends headers and then stalls
@@ -169,5 +169,26 @@ describe('every guarded read has a deadline', () => {
         await vi.advanceTimersByTimeAsync(10 * 60_000);
         expect(requests[0]?.aborted).toBe(true);
         await expect(outcome).resolves.toBe('rejected');
+    });
+});
+
+/** Ends exactly at its deadline: still open a millisecond before, aborted at it. */
+async function expectDeadline(read: Promise<unknown>, deadlineMs: number): Promise<void> {
+    const outcome = read.then(() => 'resolved', () => 'rejected');
+    await vi.advanceTimersByTimeAsync(deadlineMs - 1);
+    expect(requests[0]?.aborted).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(requests[0]?.aborted).toBe(true);
+    await expect(outcome).resolves.toBe('rejected');
+}
+
+describe('each untimed read has the deadline it was given', () => {
+    it.each([
+        ['a guarded read given no usable timeout', () => apiFetchJson('/api/x', { timeoutMs: 0 }), 30_000],
+        ['the visits list', () => fetchVisits({ requestKey: 'deadline:visits' }), 30_000],
+        ['a visit\'s captures', () => fetchVisitCaptures('visit-1'), 30_000],
+        ['a bird analysis', () => analyzeDetection('event-1'), 180_000]
+    ] as const)('%s', async (_name, read, deadlineMs) => {
+        await expectDeadline(read(), deadlineMs);
     });
 });

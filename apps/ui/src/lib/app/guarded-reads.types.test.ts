@@ -67,8 +67,42 @@ describe('the combinators refuse a promise at run time', () => {
         await expect(guardedValue(smuggled<number>({ then: () => undefined }))).rejects.toBeInstanceOf(TypeError);
     });
 
+    /** `then` reads as nothing to the check, then as a function when the promise resolves it. */
+    function changingThen(): never {
+        let reads = 0;
+        return {
+            get then() {
+                reads += 1;
+                return reads === 1 ? undefined : (resolve: (value: unknown) => void) => resolve('smuggled');
+            }
+        } as never;
+    }
+
+    it('when its `then` is a getter that changes between reads, on every combinator', async () => {
+        const failed: Guarded<number> = mapGuarded(guardedValue(1), () => {
+            throw new Error('HTTP 500');
+        });
+        await expect(mapGuarded(guardedValue(1), () => changingThen())).rejects.toBeInstanceOf(TypeError);
+        await expect(mapGuarded(failed, (value) => value, () => changingThen())).rejects.toBeInstanceOf(TypeError);
+        await expect(chainGuarded(failed, () => guardedValue(2), () => changingThen())).rejects.toBeInstanceOf(TypeError);
+        await expect(guardedValue(smuggled<number>(changingThen()))).rejects.toBeInstanceOf(TypeError);
+    });
+
+    it('when the getter is inherited, without ever calling it', async () => {
+        let calls = 0;
+        const parent = {
+            get then() {
+                calls += 1;
+                return undefined;
+            }
+        };
+        await expect(guardedValue(smuggled<number>(Object.create(parent)))).rejects.toBeInstanceOf(TypeError);
+        expect(calls).toBe(0);
+    });
+
     it('lets plain values through, undefined included', async () => {
         await expect(mapGuarded(guardedValue(1), (value) => value + 1)).resolves.toBe(2);
         await expect(guardedValue(undefined)).resolves.toBeUndefined();
+        await expect(guardedValue({ then: 'not a function' })).resolves.toEqual({ then: 'not a function' });
     });
 });

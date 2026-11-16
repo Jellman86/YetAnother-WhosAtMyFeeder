@@ -100,7 +100,8 @@ describe('createRetryingReader after a failure', () => {
         });
         const reader = createRetryingReader({ read, active: () => true });
         reader.request();
-        await vi.advanceTimersByTimeAsync(READ_DEADLINE_MS - 1);
+        expect(READ_DEADLINE_MS).toBe(60_000);
+        await vi.advanceTimersByTimeAsync(60_000 - 1);
         expect(signals[0]?.aborted).toBe(false);
         await vi.advanceTimersByTimeAsync(1);
         expect(signals[0]?.aborted).toBe(true);

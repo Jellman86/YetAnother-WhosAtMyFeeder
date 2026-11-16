@@ -211,11 +211,23 @@ function guarded<T>(read: Promise<T>): Guarded<T> {
  */
 type Settled<R> = unknown extends R ? never : void extends R ? never : R extends PromiseLike<unknown> ? never : R;
 
+/**
+ * Whether resolving `value` could follow it as a promise. `then` is looked up by descriptor along
+ * the prototype chain and never read: a getter could answer differently when the promise reads it
+ * again, so any getter or setter is refused, and so is a function.
+ */
+function mayBeThenable(value: unknown): boolean {
+    if (value === null || (typeof value !== 'object' && typeof value !== 'function')) return false;
+    for (let holder: object | null = value; holder !== null; holder = Object.getPrototypeOf(holder)) {
+        const descriptor = Object.getOwnPropertyDescriptor(holder, 'then');
+        if (descriptor) return 'get' in descriptor || 'set' in descriptor || typeof descriptor.value === 'function';
+    }
+    return false;
+}
+
 /** The run-time half of `Settled`, for a promise a cast got past the compiler. */
 function settled<R>(value: R): R {
-    if (value !== null && (typeof value === 'object' || typeof value === 'function') && typeof (value as { then?: unknown }).then === 'function') {
-        throw new TypeError('A step after a guarded read may not start a request of its own');
-    }
+    if (mayBeThenable(value)) throw new TypeError('A step after a guarded read may not start a request of its own');
     return value;
 }
 
