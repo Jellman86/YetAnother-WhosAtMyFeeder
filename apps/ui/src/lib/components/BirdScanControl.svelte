@@ -155,10 +155,13 @@
                             {#if part > 0}
                                 <span class="absolute inset-y-0 left-0 rounded-full bg-status-info-line transition-[width] duration-500 motion-reduce:transition-none" style="width: {Math.round(part * 100)}%"></span>
                             {:else if current}
-                                <!-- The step in hand, with no count to show: a small solid mark at its start,
-                                     pulsing slowly, says it is live without claiming any share done (a full
-                                     faint bar read as finished once motion was reduced). -->
-                                <span class="absolute inset-y-0 left-0 w-1.5 animate-pulse rounded-full bg-status-info-line motion-reduce:animate-none" data-meter-indicator></span>
+                                <!-- The step in hand, with no count to show: a small solid mark at its start says
+                                     it is live without claiming any share done. The mark itself never fades, so
+                                     it holds 3:1 at every moment; a halo behind it pulses where motion is allowed. -->
+                                <span class="absolute inset-y-0 left-0 w-1.5" aria-hidden="true">
+                                    <span class="absolute inset-0 rounded-full bg-status-info-line motion-safe:animate-ping"></span>
+                                    <span class="relative block h-full w-full rounded-full bg-status-info-line" data-meter-indicator></span>
+                                </span>
                             {/if}
                         </span>
                         <span class="mt-1 block truncate text-2xs font-semibold {current ? 'text-brand-700 dark:text-brand-300' : part >= 1 ? 'text-slate-600 dark:text-slate-300' : 'text-slate-600 dark:text-slate-400'}" aria-hidden="true">{stepLabels[index]}</span>

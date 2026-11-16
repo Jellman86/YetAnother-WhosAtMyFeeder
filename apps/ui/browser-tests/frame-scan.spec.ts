@@ -183,7 +183,8 @@ test('thirty analysed cards are spoken as one start and one finish through the p
             if (text) said.push(text);
         }).observe(region, { childList: true, subtree: true, characterData: true });
     });
-    const said = () => page.evaluate(() => [...new Set((window as unknown as { said: string[] }).said)]);
+    // The raw sequence, every line in the order it was given, so a repeated announcement fails.
+    const said = () => page.evaluate(() => [...(window as unknown as { said: string[] }).said]);
     // The fixture's own scanning card is analysing at load: end it, let its lines pass, and start clean.
     await page.getByRole('button', { name: 'End the analysis' }).click();
     await page.waitForTimeout(800);

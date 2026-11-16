@@ -3,7 +3,8 @@ import type { Page } from '@playwright/test';
 /**
  * Every meter as Chromium draws it, at 3:1 (WCAG 1.4.11): a meter's fill against its track, a
  * chart bar against the ground behind it, and a live indicator against its track. Computed colours
- * are read through a canvas, so a translucent or colour-mixed fill counts as it is seen.
+ * are read through a canvas, so a translucent or colour-mixed fill counts as it is seen, and the
+ * element's and its ancestors' opacity count too, at the lowest a running animation reaches.
  */
 type Measured = { meters: number; failures: string[] };
 
@@ -27,6 +28,23 @@ export async function measureMeters(page: Page): Promise<Measured> {
             const channel = (c: number) => { const s = c / 255; return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4; };
             return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
         };
+        // How see-through an element is at its faintest: its own opacity and every ancestor's, each
+        // at the lowest value a running animation takes it to, so a pulse is measured at its dip.
+        const faintest = (node: Element, stopAt: Element | null): number => {
+            let result = 1;
+            for (let at: Element | null = node; at && at !== stopAt; at = at.parentElement) {
+                let lowest = Number.parseFloat(getComputedStyle(at).opacity);
+                for (const animation of at.getAnimations()) {
+                    const effect = animation.effect;
+                    if (!(effect instanceof KeyframeEffect)) continue;
+                    for (const frame of effect.getKeyframes()) {
+                        if (frame.opacity !== undefined) lowest = Math.min(lowest, Number.parseFloat(String(frame.opacity)));
+                    }
+                }
+                result *= Number.isFinite(lowest) ? lowest : 1;
+            }
+            return result;
+        };
         const contrast = (a: number[], b: number[]) => {
             const [x, y] = [luminance(a), luminance(b)];
             return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
@@ -38,7 +56,9 @@ export async function measureMeters(page: Page): Promise<Measured> {
             if (!fill || fill.getBoundingClientRect().width < 1) continue;
             meters += 1;
             const ground = parse(getComputedStyle(track).backgroundColor);
-            const [r, g, b, a] = parse(getComputedStyle(fill).backgroundColor);
+            const [r, g, b, own] = parse(getComputedStyle(fill).backgroundColor);
+            // Against its own track, so only the fill's opacity (and anything between) counts.
+            const a = own * faintest(fill, track);
             const drawn = [r * a + ground[0] * (1 - a), g * a + ground[1] * (1 - a), b * a + ground[2] * (1 - a)];
             const ratio = contrast(drawn, ground);
             if (ratio < 3) {
@@ -60,7 +80,8 @@ export async function measureMeters(page: Page): Promise<Measured> {
             if (box.width < 1 || box.height < 1) continue;
             meters += 1;
             const ground = groundOf(mark);
-            const [r, g, b, a] = parse(getComputedStyle(mark).backgroundColor);
+            const [r, g, b, own] = parse(getComputedStyle(mark).backgroundColor);
+            const a = own * faintest(mark, null);
             const drawn = [r * a + ground[0] * (1 - a), g * a + ground[1] * (1 - a), b * a + ground[2] * (1 - a)];
             const ratio = contrast(drawn, ground);
             if (ratio < 3) failures.push(`${mark.dataset.chartBar !== undefined ? 'bar' : 'indicator'} ${getComputedStyle(mark).backgroundColor}: ${ratio.toFixed(2)}`);
