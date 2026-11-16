@@ -91,8 +91,10 @@ for (const percent of [null, 0]) {
         await page.goto('/browser-tests/support.html');
         await page.getByRole('link', { name: 'Open Health', exact: true }).click();
         const now = page.locator('[data-system-health-now]');
+        // This reading carries no memory figure, so the memory reading says so in words as well.
+        await expect(now.locator('div', { hasText: 'This app in memory' }).getByText('Not measured', { exact: true })).toBeVisible();
         if (percent === null) {
-            await expect(now.getByText('Not measured', { exact: true })).toBeVisible();
+            await expect(now.locator('div', { hasText: 'Intel GPU now' }).getByText('Not measured', { exact: true })).toBeVisible();
             await expect(now.locator('[data-system-health-measurement-gap]')).toContainText('does not establish a CPU fallback');
         } else {
             await expect(now.getByText('0.0%', { exact: true })).toBeVisible();
