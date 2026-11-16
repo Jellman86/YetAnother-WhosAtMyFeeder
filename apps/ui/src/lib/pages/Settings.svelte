@@ -67,7 +67,8 @@
     import { authStore } from '../stores/auth.svelte';
     import { passwordProblemMessage, validateAuthSettingsSave } from '../auth-password-policy';
     import { toastStore } from '../stores/toast.svelte';
-    import { confirmAction } from '../stores/confirm_dialog.svelte';
+    import { confirmAction, type ConfirmWording } from '../stores/confirm_dialog.svelte';
+    import { measuredCount } from '../settings/measured-count';
     import { jobProgressStore } from '../stores/job_progress.svelte';
     import { jobDiagnosticsStore } from '../stores/job_diagnostics.svelte';
     import { notificationCenter } from '../stores/notification_center.svelte';
@@ -1665,13 +1666,18 @@
         // With unlimited retention the server deletes nothing, so there is nothing to ask.
         const days = maintenanceStats?.retention_days ?? retentionDays;
         if (days > 0) {
+            const label = $_('settings.data.purge_button', { default: 'Purge Old Records' });
             const confirmed = await confirmAction({
-                title: $_('settings.data.purge_button', { default: 'Purge Old Records' }),
-                message: $_('settings.data.purge_confirm', {
-                    values: { count: maintenanceStats?.detections_to_cleanup ?? 0, days },
-                    default: "Permanently delete {count, plural, one {# detection} other {# detections}} and the BirdNET-Go audio older than {days} days? Favourites and each species' newest kept visits stay. This cannot be undone."
+                title: label,
+                message: $_('settings.data.purge_confirm_counting', {
+                    values: { days },
+                    default: 'Counting the detections older than {days} days…'
                 }),
-                confirmLabel: $_('settings.data.purge_button', { default: 'Purge Old Records' })
+                confirmLabel: label,
+                reading: {
+                    read: async () => purgeQuestion(days, measuredCount((await fetchMaintenanceStats()).detections_to_cleanup)),
+                    unread: purgeQuestion(days, null)
+                }
             });
             if (!confirmed) return;
         }
@@ -1753,15 +1759,45 @@
         });
     }
 
+    /** What Purge asks: the count read at the moment of asking, or no number when it could not be read. */
+    function purgeQuestion(days: number, count: number | null): ConfirmWording {
+        return {
+            message: count === null
+                ? $_('settings.data.purge_confirm_uncounted', {
+                    values: { days },
+                    default: "Permanently delete every detection and the BirdNET-Go audio older than {days} days? The number of detections could not be read. Favourites and each species' newest kept visits stay. This cannot be undone."
+                })
+                : $_('settings.data.purge_confirm', {
+                    values: { count, days },
+                    default: "Permanently delete {count, plural, one {# detection} other {# detections}} and the BirdNET-Go audio older than {days} days? Favourites and each species' newest kept visits stay. This cannot be undone."
+                })
+        };
+    }
+
+    /** What "Delete all history" asks. A count nobody read is left out, never shown as zero. */
+    function resetQuestion(count: number | null): ConfirmWording {
+        return {
+            message: count === null
+                ? $_('settings.danger.confirm_uncounted', {
+                    default: 'Delete all detections, every cached photo and clip, and every archived favourite? The number of detections could not be read. This cannot be undone.'
+                })
+                : $_('settings.danger.confirm', {
+                    values: { count },
+                    default: 'Delete all {count, plural, one {# detection} other {# detections}}, every cached photo and clip, and every archived favourite? This cannot be undone.'
+                })
+        };
+    }
+
     async function handleResetDatabase() {
-        const label = $_('settings.danger.reset_button', { default: 'Delete all history' });
+        // Maintenance never loads the storage figures, so the count is read when the owner asks.
         const confirmed = await confirmAction({
-            title: label,
-            message: $_('settings.danger.confirm', {
-                values: { count: maintenanceStats?.total_detections ?? 0 },
-                default: 'Delete all {count, plural, one {# detection} other {# detections}}, every cached photo and clip, and every archived favourite? This cannot be undone.'
-            }),
-            confirmLabel: label
+            title: $_('settings.danger.reset_button', { default: 'Delete all history' }),
+            message: $_('settings.danger.confirm_counting', { default: 'Counting the detections this would delete…' }),
+            confirmLabel: $_('settings.danger.reset_confirm_button', { default: 'Delete all history permanently' }),
+            reading: {
+                read: async () => resetQuestion(measuredCount((await fetchMaintenanceStats()).total_detections)),
+                unread: resetQuestion(null)
+            }
         });
         if (!confirmed) {
             return;

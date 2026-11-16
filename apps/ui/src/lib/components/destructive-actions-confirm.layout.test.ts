@@ -58,3 +58,17 @@ describe('destructive actions ask in the app, never through the browser', () => 
         expect(body).toContain('if (days > 0)');
     });
 });
+
+describe('a destructive question states only a count it read', () => {
+    it.each(['handleCleanup', 'handleResetDatabase'])('%s reads its count when asked and never falls back to zero', (name) => {
+        const body = handler(settingsSource, name);
+        expect(body).not.toMatch(/\?\?\s*0/);
+        expect(body).toContain('reading: {');
+        expect(body).toContain('measuredCount((await fetchMaintenanceStats()).');
+    });
+
+    it('cannot be confirmed while the count is still being read', () => {
+        expect(dialogSource).toContain('disabled={pending.reading}');
+        expect(dialogSource).toContain('aria-live="polite"');
+    });
+});
