@@ -77,6 +77,11 @@ export class SystemStatusStore {
         return this.inFlight;
     }
 
+    /** True while an owner's status is being followed; a reader can wait for it instead of asking. */
+    get following(): boolean {
+        return this.active;
+    }
+
     /** Begin following the status for an owner: a first read, then the stream or the fallback read. */
     start(): void {
         this.active = true;

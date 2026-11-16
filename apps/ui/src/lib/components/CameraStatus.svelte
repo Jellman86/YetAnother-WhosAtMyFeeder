@@ -286,8 +286,10 @@
         void (async () => {
             await loadCameras();
             const pushed = systemStatusStore.snapshot;
+            // An owner's status carries camera health and is already on its way; only a page
+            // without it asks Frigate's stats directly. Until it lands the widget says "checking".
             if (pushed) applyStatus(pushed);
-            else await refreshHealth();
+            else if (!systemStatusStore.following) await refreshHealth();
             await loadFallbackCameras();
             followStatus();
         })();

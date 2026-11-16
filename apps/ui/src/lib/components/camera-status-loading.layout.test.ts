@@ -7,6 +7,8 @@ describe('Camera status health and viewer behavior', () => {
         expect(cameraStatusSource).toContain('readCameraStatuses');
         expect(cameraStatusSource).toContain('followStatus();');
         expect(cameraStatusSource).toContain('systemStatusStore.subscribe(applyStatus)');
+        // An owner waits for the pushed status rather than asking Frigate's stats on every cold load.
+        expect(cameraStatusSource).toContain('else if (!systemStatusStore.following) await refreshHealth();');
         expect(cameraStatusSource).toContain('if (!popoverOpen) return;');
         expect(cameraStatusSource).toContain('refreshSelectedFrame');
         expect(cameraStatusSource).not.toContain('refreshAll');

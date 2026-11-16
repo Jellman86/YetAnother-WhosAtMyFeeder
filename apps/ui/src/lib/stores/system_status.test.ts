@@ -103,6 +103,15 @@ describe('SystemStatusStore', () => {
         expect(store.snapshot?.revision).toBe(2);
     });
 
+    it('says it is following only between start and clear', () => {
+        const store = new SystemStatusStore({ fetch: vi.fn().mockResolvedValue(snapshot()), tab: fakeTab() });
+        expect(store.following).toBe(false);
+        store.start();
+        expect(store.following).toBe(true);
+        store.clear();
+        expect(store.following).toBe(false);
+    });
+
     it('forgets everything, and stops reading, when access changes', async () => {
         vi.useFakeTimers();
         const fetch = vi.fn().mockResolvedValue(snapshot());
