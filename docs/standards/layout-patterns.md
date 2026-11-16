@@ -190,6 +190,18 @@ or Frigate is down, and its MQTT and Frigate rows lead with the connection state
 Its subsystems are one ruled list in full-contrast ink, each state a worded chip; a reason code it
 knows is said in words with what to try, and the backend's own text sits under Technical details.
 
+A destructive question states only a count it read. A confirmation whose message names a figure
+takes a `reading` (`stores/confirm_dialog.svelte.ts`): it opens saying what it is counting, cannot
+be confirmed until the read lands, and asks without the number when the read fails. Never fall
+back to zero. The record says "Frigate no longer has this event" only on a not-found answer
+(`utils/frigate-event-reading.ts`); a Frigate that could not be asked gets its own cause and next
+step. A wait is named for what it waits on and is bounded: the wizard's Cameras step is ready once
+the settings load, and asks Frigate for at most 8 seconds beside it. The model's state is one
+reading everywhere: `identificationStatus()` words the sentence, About's pipeline and the wizard's
+review (`setup/review-status.ts`, from the server's own install check) follow it, and a model that
+is only chosen is never called configured or installed. Reassurance needs a reading too: the
+backend-down screens say nothing about the data they could not ask about.
+
 A page that reads data keeps four states apart: loading, read and empty, failed, and stale. Only a
 reading may show a number, so a pending or failed read never shows a zero or "no activity"; a
 failure is said in the page's own sentence with the next step, the server's words behind a

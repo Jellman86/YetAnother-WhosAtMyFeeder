@@ -16,6 +16,7 @@
 
     const status = $derived(identificationStatus(classifierStatus));
     const translate = (key: string, options?: { default?: string; values?: Record<string, string | number> }): string => $_(key, options);
+    const named = $derived(status.kind !== 'checking' && Boolean(status.modelId));
     const model = $derived.by(() => {
         if (status.kind === 'checking' || !status.modelId) return $_('settings.models.status_unnamed_model', { default: 'The chosen model' });
         return identificationModelName({ id: status.modelId, name: status.modelName }, translate).name;
@@ -37,7 +38,12 @@
                     : context === 'about'
                         ? $_('settings.models.status_missing_next_about', { default: 'Download it in Settings › Models.' })
                         : $_('settings.models.status_missing_next_settings', { default: 'Download it below, or choose another model.' });
-                return `${$_('settings.models.status_missing', { default: 'Nothing is naming birds yet: {model} is not on this install.', values: { model } })} ${next}`;
+                // A model is named by its purpose ("Small and quick, birds worldwide"), which reads as a
+                // clause unless the sentence says first that it is the chosen model.
+                const missing = named
+                    ? $_('settings.models.status_missing', { default: 'Nothing is naming birds yet: the chosen model, {model}, is not on this install.', values: { model } })
+                    : $_('settings.models.status_missing_unnamed', { default: 'Nothing is naming birds yet: the chosen model is not on this install.' });
+                return `${missing} ${next}`;
             }
             case 'failed':
                 return status.cause === 'missing_files'

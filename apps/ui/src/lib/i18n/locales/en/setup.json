@@ -11,7 +11,10 @@
     "optional": "Optional",
     "no_password": "No password",
     "connected": "Connected",
-    "unreachable": "Not reachable"
+    "unreachable": "Not reachable",
+    "model_missing": "Needs a download",
+    "model_installed": "Installed",
+    "model_chosen": "Chosen"
   },
   "account": {
     "title": "Admin account & access",
@@ -153,6 +156,9 @@
       "model_wrong_kind": "A crop detector is selected as the classifier",
       "model_retired": "The saved classifier has been retired",
       "model_fallback": "Bundled fallback",
+      "model_missing": "{model} is not on this install, so nothing is naming birds yet.",
+      "model_missing_bundled": "The bundled model is not on this install, so nothing is naming birds yet.",
+      "model_bundled": "Bundled model",
       "quality_best": "Best available snapshots",
       "quality_standard": "Standard snapshots",
       "integrations_needs": "Needs setup: {integrations}",

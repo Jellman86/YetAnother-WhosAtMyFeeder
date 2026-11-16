@@ -4,6 +4,7 @@
     import { setupWizardStore, WIZARD_STEPS } from '../../stores/setup_wizard.svelte';
     import type { SetupSectionId, SetupSectionState, SetupSectionStatus } from '../../api/setup';
     import WizardStepLayout from './WizardStepLayout.svelte';
+    import { reviewStatusLabel, reviewStatusTone } from './review-status';
 
     const STATUS_BADGE: Record<SetupSectionStatus, string> = {
         ok: 'bg-success-100 text-success-800 dark:bg-success-900/30 dark:text-success-200',
@@ -20,17 +21,6 @@
     function openSection(section: SetupSectionId): void {
         const step = WIZARD_STEPS.find((s) => s.section === section);
         if (step) setupWizardStore.openFromReview(step.id);
-    }
-
-    /** The badge names what was found where a section has a measured or chosen state. */
-    function statusLabel(section: SetupSectionState): string {
-        if (section.detail_code === 'account_auth_disabled') return $_('setup.status.no_password', { default: 'No password' });
-        if (section.detail_code === 'connection_connected') return $_('setup.status.connected', { default: 'Connected' });
-        if (section.detail_code === 'connection_unreachable') return $_('setup.status.unreachable', { default: 'Not reachable' });
-        const status: SetupSectionStatus = section.status;
-        if (status === 'ok') return $_('setup.status.ok', { default: 'Configured' });
-        if (status === 'attention') return $_('setup.status.attention', { default: 'Needs attention' });
-        return $_('setup.status.optional', { default: 'Optional' });
     }
 
     function sectionLabel(section: SetupSectionId): string {
@@ -84,6 +74,12 @@
                 return $_('setup.review.detail.model_wrong_kind', { default: 'A crop detector is selected as the classifier' });
             case 'model_retired':
                 return $_('setup.review.detail.model_retired', { default: 'The saved classifier has been retired' });
+            case 'model_missing':
+                return text('model')
+                    ? $_('setup.review.detail.model_missing', { values: { model: text('model') }, default: '{model} is not on this install, so nothing is naming birds yet.' })
+                    : $_('setup.review.detail.model_missing_bundled', { default: 'The bundled model is not on this install, so nothing is naming birds yet.' });
+            case 'model_installed':
+                return text('model') || $_('setup.review.detail.model_bundled', { default: 'Bundled model' });
             case 'model_selected':
                 return text('model');
             case 'model_fallback':
@@ -153,7 +149,7 @@
                     {/if}
                 </div>
                 <div class="flex shrink-0 items-center gap-2">
-                    <span class="rounded-full px-2 py-0.5 text-xs font-semibold {STATUS_BADGE[section.status]}" data-setup-status={section.detail_code ?? section.status}>{statusLabel(section)}</span>
+                    <span class="rounded-full px-2 py-0.5 text-xs font-semibold {STATUS_BADGE[reviewStatusTone(section)]}" data-setup-status={section.detail_code ?? section.status}>{reviewStatusLabel(section, $_)}</span>
                     <button type="button" class="btn btn-ghost px-3 py-1.5 text-xs" onclick={() => openSection(section.id)}>
                         {$_('setup.review.edit', { default: 'Review' })}
                     </button>

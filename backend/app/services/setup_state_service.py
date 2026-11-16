@@ -132,8 +132,13 @@ def _cameras(settings) -> SetupSectionState:
     return SetupSectionState(id="cameras", status="ok", detail="All cameras", detail_code="cameras_all")
 
 
-def _model(settings, active_model_id: str | None) -> SetupSectionState:
-    # A bundled classifier always ships, so this is functional out of the box.
+def _model(settings, active_model_id: str | None, model_installed: bool | None) -> SetupSectionState:
+    """The identification model's section.
+
+    `model_installed` is the classifier's own reading of whether the model's file is on disk; None
+    when nobody measured it. A model that is only chosen is never reported as installed, and one
+    whose file is absent needs attention: nothing names birds until it is downloaded.
+    """
     model_id = str(active_model_id or settings.classification.model or "").strip()
     if is_retired_model(model_id):
         return SetupSectionState(
@@ -149,12 +154,28 @@ def _model(settings, active_model_id: str | None) -> SetupSectionState:
             detail="A crop detector is selected as the classifier",
             detail_code="model_wrong_kind",
         )
+    # Anything the registry does not list runs the bundled model, whatever the saved name says.
     name = registry_model_name(model_id)
+    if model_installed is False:
+        return SetupSectionState(
+            id="model",
+            status="attention",
+            detail=f"{name or 'The bundled model'} is not on this install",
+            detail_code="model_missing",
+            detail_values={"model": name or ""},
+        )
+    if model_installed:
+        return SetupSectionState(
+            id="model",
+            status="ok",
+            detail=name or "Bundled model",
+            detail_code="model_installed",
+            detail_values={"model": name or ""},
+        )
     if name:
         return SetupSectionState(
             id="model", status="ok", detail=name, detail_code="model_selected", detail_values={"model": name}
         )
-    # Anything the registry does not list runs the bundled model, whatever the saved name says.
     return SetupSectionState(id="model", status="ok", detail="Bundled fallback", detail_code="model_fallback")
 
 
@@ -264,17 +285,18 @@ def compute_setup_state(
     settings,
     *,
     active_model_id: str | None = None,
+    model_installed: bool | None = None,
     connections: ServiceConnectionsResponse | None = None,
 ) -> SetupState:
-    """Derive per-section readiness from the current settings, running model and the measured
-    connections (pure, no I/O: the caller does the measuring)."""
+    """Derive per-section readiness from the current settings, running model, whether its files
+    are on disk, and the measured connections (pure, no I/O: the caller does the measuring)."""
     return SetupState(
         initial_setup_complete=bool(getattr(settings.auth, "initial_setup_complete", False)),
         sections=[
             _account(settings),
             _connection(settings, connections),
             _cameras(settings),
-            _model(settings, active_model_id),
+            _model(settings, active_model_id, model_installed),
             _quality(settings),
             _integrations(settings),
         ],

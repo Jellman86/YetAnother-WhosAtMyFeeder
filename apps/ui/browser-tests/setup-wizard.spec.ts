@@ -145,11 +145,17 @@ class FakeBackend {
         this.evalError = message;
     }
 
+    /** The server's one reading of whether the running model's files are here. */
+    private activeModelInstalled(): boolean {
+        return this.installed.some((m) => m.id === this.activeModelId && m.ready);
+    }
+
     private status(): Json {
         const active = this.installed.find((m) => m.id === this.activeModelId);
         return {
             loaded: true, error: null, labels_count: 100, enabled: true,
             active_model_id: this.activeModelId, effective_model_id: this.activeModelId,
+            active_model_installed: this.activeModelInstalled(),
             image_flavor: 'intel', runtime_source: 'worker',
             available_providers: ['cpu', 'intel_cpu', 'intel_gpu', 'intel_npu'],
             host_available_providers: ['cpu', 'intel_cpu', 'intel_gpu', 'intel_npu'],
@@ -194,7 +200,9 @@ class FakeBackend {
                 cameras.length
                     ? { id: 'cameras', status: 'ok', detail_code: 'cameras_count', detail_values: { count: cameras.length } }
                     : { id: 'cameras', status: 'ok', detail_code: 'cameras_all' },
-                { id: 'model', status: 'ok', detail_code: 'model_selected', detail_values: { model: String(MODELS[this.activeModelId]?.name ?? this.activeModelId) }, detail: this.activeModelId },
+                this.activeModelInstalled()
+                    ? { id: 'model', status: 'ok', detail_code: 'model_installed', detail_values: { model: String(MODELS[this.activeModelId]?.name ?? this.activeModelId) }, detail: this.activeModelId }
+                    : { id: 'model', status: 'attention', detail_code: 'model_missing', detail_values: { model: String(MODELS[this.activeModelId]?.name ?? this.activeModelId) }, detail: this.activeModelId },
                 { id: 'quality', status: 'optional', detail_code: s.media_cache_high_quality_event_snapshots ? 'quality_best' : 'quality_standard' },
                 { id: 'integrations', status: 'optional', detail_code: 'integrations_none' }
             ]
@@ -1129,3 +1137,23 @@ for (const section of ['Model and hardware', 'Cameras & detection']) {
         await page.screenshot({ path: testInfo.outputPath(`footer-pinned-${section.split(' ')[0].toLowerCase()}.png`) });
     });
 }
+
+test('the review and the model step read the same state for a model that is not on this install', async ({ page }, testInfo) => {
+    const fake = new FakeBackend({ installed: [] });
+    const errors = await openRerun(page, fake);
+    const model = wizard(page).getByRole('listitem').filter({ hasText: 'Model and hardware' });
+    await expect(model.locator('[data-setup-status]')).toHaveText('Needs a download');
+    await expect(model).toContainText('MobileNet V2 birds is not on this install, so nothing is naming birds yet.');
+    await expect(model).not.toContainText('Configured');
+    await page.screenshot({ path: testInfo.outputPath('review-model-needs-download.png') });
+
+    await model.getByRole('button', { name: 'Review', exact: true }).click();
+    await expect(wizard(page).locator('[data-identification-status="missing"]')).toContainText('Nothing is naming birds yet');
+    expect(errors).toEqual([]);
+});
+
+test('the review says a model is installed once its files are on this install', async ({ page }) => {
+    await openRerun(page, new FakeBackend({}));
+    const model = wizard(page).getByRole('listitem').filter({ hasText: 'Model and hardware' });
+    await expect(model.locator('[data-setup-status]')).toHaveText('Installed');
+});

@@ -11,7 +11,10 @@
     "optional": "任意",
     "no_password": "パスワードなし",
     "connected": "接続済み",
-    "unreachable": "到達不可"
+    "unreachable": "到達不可",
+    "model_missing": "ダウンロードが必要",
+    "model_installed": "インストール済み",
+    "model_chosen": "選択済み"
   },
   "account": {
     "title": "管理者アカウントとアクセス",
@@ -153,6 +156,9 @@
       "model_wrong_kind": "クロップ検出器が分類器として選択されています",
       "model_retired": "保存済みの分類モデルは廃止されました",
       "model_fallback": "同梱フォールバック",
+      "model_missing": "{model} はこのインストールにないため、まだ鳥を識別できるものがありません。",
+      "model_missing_bundled": "同梱モデルがこのインストールにないため、まだ鳥を識別できるものがありません。",
+      "model_bundled": "同梱モデル",
       "quality_best": "利用可能な最良のスナップショット",
       "quality_standard": "標準スナップショット",
       "integrations_needs": "設定が必要: {integrations}",

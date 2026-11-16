@@ -155,8 +155,39 @@ def test_cameras_ok_and_counts():
     assert cameras.detail_values == {"count": 2}
 
 
-def test_model_is_always_ok():
-    assert _by_id(compute_setup_state(_settings()))["model"].status == "ok"
+def test_a_model_whose_files_are_on_this_install_is_ok_and_says_installed():
+    state = compute_setup_state(_settings(), active_model_id="small_birds", model_installed=True)
+
+    model = _by_id(state)["model"]
+    assert model.status == "ok"
+    assert model.detail_code == "model_installed"
+    assert model.detail_values == {"model": "Small Birds"}
+
+
+def test_a_chosen_model_that_is_not_on_this_install_needs_attention():
+    state = compute_setup_state(_settings(), active_model_id="small_birds", model_installed=False)
+
+    model = _by_id(state)["model"]
+    assert model.status == "attention"
+    assert model.detail_code == "model_missing"
+    assert model.detail_values == {"model": "Small Birds"}
+
+
+def test_the_bundled_fallback_is_not_called_configured_when_its_file_is_absent():
+    settings = _settings()
+    settings.classification.model = "model.tflite"
+
+    model = _by_id(compute_setup_state(settings, active_model_id="model.tflite", model_installed=False))["model"]
+
+    assert model.status == "attention"
+    assert model.detail_code == "model_missing"
+    assert model.detail_values == {"model": ""}
+
+
+def test_a_model_nobody_checked_is_reported_as_chosen_only():
+    model = _by_id(compute_setup_state(_settings(), active_model_id="small_birds"))["model"]
+
+    assert model.detail_code == "model_selected"
 
 
 def test_model_needs_attention_when_crop_detector_was_saved_as_classifier():

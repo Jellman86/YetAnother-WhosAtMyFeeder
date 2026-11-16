@@ -11,7 +11,10 @@
     "optional": "Opcional",
     "no_password": "Sem senha",
     "connected": "Conectado",
-    "unreachable": "Inacessível"
+    "unreachable": "Inacessível",
+    "model_missing": "Falta baixar",
+    "model_installed": "Instalado",
+    "model_chosen": "Escolhido"
   },
   "account": {
     "title": "Conta de administrador e acesso",
@@ -153,6 +156,9 @@
       "model_wrong_kind": "Um detector de recorte está selecionado como classificador",
       "model_retired": "O classificador salvo foi descontinuado",
       "model_fallback": "Alternativa incluída",
+      "model_missing": "{model} não está nesta instalação, então ainda nada identifica as aves.",
+      "model_missing_bundled": "O modelo incluído não está nesta instalação, então ainda nada identifica as aves.",
+      "model_bundled": "Modelo incluído",
       "quality_best": "Melhores snapshots disponíveis",
       "quality_standard": "Instantâneos padrão",
       "integrations_needs": "Requer configuração: {integrations}",

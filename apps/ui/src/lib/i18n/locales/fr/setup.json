@@ -11,7 +11,10 @@
     "optional": "Facultatif",
     "no_password": "Sans mot de passe",
     "connected": "Connecté",
-    "unreachable": "Injoignable"
+    "unreachable": "Injoignable",
+    "model_missing": "À télécharger",
+    "model_installed": "Installé",
+    "model_chosen": "Choisi"
   },
   "account": {
     "title": "Compte administrateur et accès",
@@ -153,6 +156,9 @@
       "model_wrong_kind": "Un détecteur de recadrage est sélectionné comme classificateur",
       "model_retired": "Le classificateur enregistré a été retiré",
       "model_fallback": "Solution de repli intégrée",
+      "model_missing": "{model} n’est pas sur cette installation, rien ne nomme donc encore les oiseaux.",
+      "model_missing_bundled": "Le modèle fourni n’est pas sur cette installation, rien ne nomme donc encore les oiseaux.",
+      "model_bundled": "Modèle fourni",
       "quality_best": "Meilleurs instantanés disponibles",
       "quality_standard": "Instantanés standard",
       "integrations_needs": "Configuration requise : {integrations}",

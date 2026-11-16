@@ -8,10 +8,12 @@ import type { ClassifierStatus } from '../api/classifier';
  * fault: the answer then comes from inference health and the model id, and
  * with neither the state is unknown rather than "not loaded".
  */
-export type PipelineClassifierState = 'loaded' | 'standby' | 'check' | 'unknown';
+export type PipelineClassifierState = 'loaded' | 'standby' | 'missing' | 'check' | 'unknown';
 
 export function pipelineClassifierState(status: ClassifierStatus | null): PipelineClassifierState {
     if (!status) return 'unknown';
+    // The same reading the status sentence uses: files that are not here cannot be "not loaded yet".
+    if (status.active_model_installed === false) return 'missing';
 
     const health = status.inference_health?.status;
     if (health === 'degraded' || health === 'unhealthy') return 'check';

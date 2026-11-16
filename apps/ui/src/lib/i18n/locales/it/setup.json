@@ -11,7 +11,10 @@
     "optional": "Facoltativo",
     "no_password": "Nessuna password",
     "connected": "Connesso",
-    "unreachable": "Non raggiungibile"
+    "unreachable": "Non raggiungibile",
+    "model_missing": "Da scaricare",
+    "model_installed": "Installato",
+    "model_chosen": "Scelto"
   },
   "account": {
     "title": "Account amministratore e accesso",
@@ -153,6 +156,9 @@
       "model_wrong_kind": "È selezionato un rilevatore di ritaglio come classificatore",
       "model_retired": "Il classificatore salvato è stato ritirato",
       "model_fallback": "Alternativa inclusa",
+      "model_missing": "{model} non è su questa installazione, quindi ancora nulla identifica gli uccelli.",
+      "model_missing_bundled": "Il modello incluso non è su questa installazione, quindi ancora nulla identifica gli uccelli.",
+      "model_bundled": "Modello incluso",
       "quality_best": "Migliori istantanee disponibili",
       "quality_standard": "Istantanee standard",
       "integrations_needs": "Da configurare: {integrations}",

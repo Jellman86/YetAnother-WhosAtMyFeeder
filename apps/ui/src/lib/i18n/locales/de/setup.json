@@ -11,7 +11,10 @@
     "optional": "Wahlweise",
     "no_password": "Kein Passwort",
     "connected": "Verbunden",
-    "unreachable": "Nicht erreichbar"
+    "unreachable": "Nicht erreichbar",
+    "model_missing": "Download nötig",
+    "model_installed": "Installiert",
+    "model_chosen": "Gewählt"
   },
   "account": {
     "title": "Administratorkonto & Zugriff",
@@ -153,6 +156,9 @@
       "model_wrong_kind": "Ein Zuschneidemodell ist als Klassifizierer ausgewählt",
       "model_retired": "Das gespeicherte Klassifizierungsmodell wurde eingestellt",
       "model_fallback": "Mitgelieferter Ersatz",
+      "model_missing": "{model} ist auf dieser Installation nicht vorhanden, daher bestimmt noch nichts die Vögel.",
+      "model_missing_bundled": "Das mitgelieferte Modell ist auf dieser Installation nicht vorhanden, daher bestimmt noch nichts die Vögel.",
+      "model_bundled": "Mitgeliefertes Modell",
       "quality_best": "Bestmögliche Schnappschüsse",
       "quality_standard": "Standard-Schnappschüsse",
       "integrations_needs": "Einrichtung nötig: {integrations}",
