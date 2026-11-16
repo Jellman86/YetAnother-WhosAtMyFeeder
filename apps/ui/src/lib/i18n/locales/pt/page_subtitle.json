@@ -7,19 +7,13 @@
   "notifications": "Visitas, alertas e trabalho em segundo plano, os mais recentes primeiro.",
   "species": "Que aves visitam mais, com que frequência e quando.",
   "health": "Se o YA-WAMF está funcionando, o que o computador está fazendo e o que aconteceu.",
-  "settings_tab": {
-    "connection": "De onde vêm os eventos: o Frigate, o broker MQTT e as câmeras observadas.",
-    "detection": "Quanta certeza uma identificação precisa para nomear uma visita, e o que nunca é salvo.",
-    "models": "Quais modelos encontram e nomeiam as aves, e o hardware em que rodam.",
-    "integrations": "Outros serviços dos quais o YA-WAMF lê ou para os quais informa, e a sua localização.",
-    "ai": "Um provedor de IA opcional que descreve o que uma ave estava fazendo.",
-    "notifications": "Quando você é avisado de uma visita, e por quais canais.",
-    "security": "Quem pode abrir o YA-WAMF, o que os convidados veem e o que sai desta instalação.",
-    "data": "O que é mantido, por quanto tempo, e um backup destas configurações.",
-    "maintenance": "Tarefas que reparam ou completam o histórico, e a exclusão dele.",
-    "beta": "Funções ainda em teste. Cada uma fica desligada até você ligá-la, e pode mudar ou ser removida. Desligar uma mantém o que ela já registrou.",
-    "appearance": "Como o YA-WAMF aparece e nomeia as aves.",
-    "accessibility": "Contraste, uma fonte de leitura, movimento e avisos falados."
+  "settings_section": {
+    "cameras": "De onde vêm os eventos: o Frigate, o broker MQTT e as câmeras observadas.",
+    "identification": "Quão certo um nome precisa ser, os modelos que encontram e nomeiam as aves com o seu hardware, e os recursos ainda em beta.",
+    "alerts": "Quando você é avisado de uma visita, e por quais canais.",
+    "sharing": "Outros serviços dos quais o YA-WAMF lê ou para os quais informa, a sua localização, as descrições por IA e quem pode abrir esta instalação.",
+    "storage": "O que é mantido e por quanto tempo, um backup destas configurações e as tarefas que reparam ou completam o histórico.",
+    "display": "Como o YA-WAMF aparece e nomeia as aves, além de contraste, uma fonte de leitura, movimento e avisos falados."
   },
   "model_evaluation": "Com que frequência cada modelo instalado nomeia uma ave corretamente, e com que rapidez."
 }

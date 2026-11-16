@@ -99,7 +99,7 @@ describe('model evaluation reads in the owner’s language', () => {
     it('says the download may take a while, that models stay on disk, and where to remove them', () => {
         const note = english['model_eval.start.download_note'];
         expect(note).toMatch(/may take a while/);
-        expect(note).toMatch(/stay on disk until you delete their files in Settings → Models/);
+        expect(note).toMatch(/stay on disk until you delete their files in Settings → Identifying birds/);
         expect(markup).toContain("$_('model_eval.start.download_note')");
         // A size is never promised for a model that has none.
         expect(english['model_eval.start.download_size_unknown']).not.toMatch(/\{size\}|MB|GB/);
@@ -377,10 +377,10 @@ describe('the way into model evaluation', () => {
         expect(Object.keys(english).filter((key) => key.startsWith('settings.debug.model_eval') || key === 'settings.detection.models_compare_link')).toEqual([]);
     });
 
-    it('sends every next step to Settings, Models, where those controls now live', () => {
+    it('sends every next step to Settings, Identifying birds, where the model controls now live', () => {
         const copy = Object.entries(english).filter(([key]) => key.startsWith('model_eval.')).map(([, value]) => value).join('\n');
-        expect(copy).toContain('Settings → Models');
-        expect(copy).not.toMatch(/Settings → (Detection|Debug)/);
+        expect(copy).toContain('Settings → Identifying birds');
+        expect(copy).not.toMatch(/Settings → (Detection|Debug|Models)/);
     });
 });
 

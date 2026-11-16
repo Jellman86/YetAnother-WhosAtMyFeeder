@@ -1,0 +1,35 @@
+import { lazyComponent } from '../../../app/lazy-component';
+import type { SettingsPart } from '../../../settings/settings-route';
+
+// Each part's code loads when its section first opens. The drafts stay on the Settings page, so a
+// part's edits survive leaving its section. The page also waits on these to land on a field.
+export const loadConnectionSettings = lazyComponent(() => import('../ConnectionSettings.svelte'));
+export const loadDetectionSettings = lazyComponent(() => import('../DetectionSettings.svelte'));
+export const loadModelSettings = lazyComponent(() => import('../ModelSettings.svelte'));
+export const loadGardenBetaSettings = lazyComponent(() => import('../GardenBetaSettings.svelte'));
+export const loadNotificationSettings = lazyComponent(() => import('../NotificationSettings.svelte'));
+export const loadIntegrationSettings = lazyComponent(() => import('../IntegrationSettings.svelte'));
+export const loadEnrichmentSettings = lazyComponent(() => import('../EnrichmentSettings.svelte'));
+export const loadAiSettings = lazyComponent(() => import('../AISettings.svelte'));
+export const loadAuthenticationSettings = lazyComponent(() => import('../AuthenticationSettings.svelte'));
+export const loadTelemetrySettings = lazyComponent(() => import('../TelemetrySettings.svelte'));
+export const loadDataSettings = lazyComponent(() => import('../DataSettings.svelte'));
+export const loadMaintenanceSettings = lazyComponent(() => import('../MaintenanceSettings.svelte'));
+export const loadAppearanceSettings = lazyComponent(() => import('../AppearanceSettings.svelte'));
+export const loadAccessibilitySettings = lazyComponent(() => import('../AccessibilitySettings.svelte'));
+
+/** Everything a part needs loaded before it has its full height. */
+export const SETTINGS_PART_LOADERS: Readonly<Record<SettingsPart, () => Promise<unknown>>> = {
+    connection: loadConnectionSettings,
+    detection: loadDetectionSettings,
+    models: loadModelSettings,
+    beta: loadGardenBetaSettings,
+    notifications: loadNotificationSettings,
+    integrations: () => Promise.all([loadIntegrationSettings(), loadEnrichmentSettings()]),
+    ai: loadAiSettings,
+    security: () => Promise.all([loadAuthenticationSettings(), loadTelemetrySettings()]),
+    data: loadDataSettings,
+    maintenance: loadMaintenanceSettings,
+    appearance: loadAppearanceSettings,
+    accessibility: loadAccessibilitySettings
+};

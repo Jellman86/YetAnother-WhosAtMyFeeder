@@ -64,7 +64,7 @@
   "empty_filtered": "このフィルターに一致するものはありません。",
   "clear_notifications": "通知をクリア",
   "system_media_storage_unavailable_title": "メディアの保存先を利用できません",
-  "system_media_storage_unavailable_message": "メディアフォルダーに書き込めないため、写真と動画は保持されていません。詳細は 設定 → データ を開いてください。",
+  "system_media_storage_unavailable_message": "メディアフォルダーに書き込めないため、写真と動画は保持されていません。詳細は 設定 → ストレージとメンテナンス を開いてください。",
   "bell_unread": "{title}、未読 {count} 件",
   "filter_group": "通知を絞り込む",
   "count_unread_unit": "{count, plural, other {未読}}",

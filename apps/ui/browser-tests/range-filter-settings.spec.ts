@@ -1,7 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { openDetectionSettings, type RangeMock } from './detection-settings-mock';
 
-// The range filter card in Settings → Detection (#696): every state names what the filter is
+// The range filter card in Settings → Identifying birds (#696): every state names what the filter is
 // doing in words, never claims to filter when it is not, and points at the one next step.
 
 const card = (page: Page) => page.locator('[data-range-filter]');

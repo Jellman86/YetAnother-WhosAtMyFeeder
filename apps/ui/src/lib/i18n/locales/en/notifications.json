@@ -64,7 +64,7 @@
   "empty_filtered": "Nothing matches this filter.",
   "clear_notifications": "Clear notifications",
   "system_media_storage_unavailable_title": "Media storage unavailable",
-  "system_media_storage_unavailable_message": "The media folder can't be written, so photos and video are not being kept. Open Settings → Data for details.",
+  "system_media_storage_unavailable_message": "The media folder can't be written, so photos and video are not being kept. Open Settings → Storage & upkeep for details.",
   "bell_unread": "{title}, {count} unread",
   "filter_group": "Filter notifications",
   "count_unread_unit": "{count, plural, one {unread} other {unread}}",

@@ -19,7 +19,7 @@ test('the notification option tiles show keyboard focus', async ({ page }) => {
         return route.fulfill({ json: {} });
     });
     await page.goto('/browser-tests/settings-backfill.html');
-    await page.getByRole('link', { name: 'Notifications', exact: true }).click();
+    await page.getByRole('link', { name: 'Alerts', exact: true }).click();
 
     for (const group of ['notification-link-target', 'notification-species-filter-mode']) {
         const tile = page.locator('label', { has: page.locator(`input[name="${group}"]`) }).first();

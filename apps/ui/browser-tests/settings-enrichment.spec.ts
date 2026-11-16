@@ -18,13 +18,13 @@ test('the species information sources load with Integrations, show the stored pr
     const harness = await openSettings(page, SAVED_PROVIDERS);
     expect(harness.moduleRequests('EnrichmentSettings.svelte')).toBe(0);
 
-    await page.locator('[data-settings-navigation]').getByRole('link', { name: 'Integrations', exact: true }).click();
+    await page.locator('[data-settings-navigation]').getByRole('link', { name: 'Sharing & integrations', exact: true }).click();
     const sightings = page.locator('[data-enrichment-summary] div').filter({ hasText: 'Nearby sightings' });
     await expect(sightings).toContainText('eBird');
     expect(harness.moduleRequests('EnrichmentSettings.svelte')).toBe(1);
     await expect(page.getByRole('region', { name: 'Unsaved changes' })).toHaveCount(0);
 
-    await page.getByRole('link', { name: 'Connection' }).click();
+    await page.getByRole('link', { name: 'Cameras & connection', exact: true }).click();
     await page.locator('#mqtt-server').fill('mqtt-broker');
     await page.getByRole('button', { name: 'Save changes', exact: true }).click();
     await expect.poll(() => harness.writes.length).toBe(1);

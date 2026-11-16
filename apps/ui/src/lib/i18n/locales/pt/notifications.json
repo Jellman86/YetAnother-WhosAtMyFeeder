@@ -64,7 +64,7 @@
   "empty_filtered": "Nada corresponde a este filtro.",
   "clear_notifications": "Limpar notificações",
   "system_media_storage_unavailable_title": "Armazenamento de mídia indisponível",
-  "system_media_storage_unavailable_message": "Não é possível gravar na pasta de mídia, então fotos e vídeo não estão sendo mantidos. Abra Configurações → Dados para ver os detalhes.",
+  "system_media_storage_unavailable_message": "Não é possível gravar na pasta de mídia, então fotos e vídeo não estão sendo mantidos. Abra Configurações → Armazenamento e manutenção para ver os detalhes.",
   "bell_unread": "{title}, {count} por ler",
   "filter_group": "Filtrar notificações",
   "count_unread_unit": "{count, plural, one {por ler} other {por ler}}",

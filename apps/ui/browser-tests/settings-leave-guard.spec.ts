@@ -70,10 +70,10 @@ test('choosing another page with unsaved changes asks first; Cancel keeps the ed
     await page.locator('#mqtt-server').fill('broker.lan');
 
     // Another Settings tab keeps the draft and does not ask.
-    await page.locator('[data-settings-navigation]').getByRole('link', { name: 'Security', exact: true }).click();
+    await page.locator('[data-settings-navigation]').getByRole('link', { name: 'Sharing & integrations', exact: true }).click();
     await expect.poll(() => pathname(page)).toBe('/settings/security');
     await expect(leaveDialog(page)).toHaveCount(0);
-    await page.locator('[data-settings-navigation]').getByRole('link', { name: 'Connection', exact: true }).click();
+    await page.locator('[data-settings-navigation]').getByRole('link', { name: 'Cameras & connection', exact: true }).click();
     await expect(page.locator('#mqtt-server')).toHaveValue('broker.lan');
 
     await dashboardLink(page).click();

@@ -87,7 +87,7 @@
     "seen_and_heard": "vistos e ouvidos"
   },
   "desk": {
-    "cameras_empty": "Ainda não há câmeras respondendo. Adicione-as em Configurações → Conexão.",
+    "cameras_empty": "Ainda não há câmeras respondendo. Adicione-as em Configurações → Câmeras e conexão.",
     "camera_no_visits": "sem visitas",
     "no_cross_confirmation": "{count, plural, one {# canto foi ouvido, mas não coincidiu com nenhuma visita de câmera.} other {# cantos foram ouvidos, mas nenhum coincidiu com uma visita de câmera.}} O microfone e as câmeras podem estar cobrindo áreas diferentes.",
     "temperature_span": "As visitas variaram entre {low} e {high}",

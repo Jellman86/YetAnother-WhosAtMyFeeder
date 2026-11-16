@@ -277,12 +277,6 @@
     "accessibility": "Barrierefreiheit",
     "enrichment": "Anreicherung",
     "ai": "KI",
-    "groups": {
-      "pipeline": "Futterstellen-Pipeline",
-      "intelligence": "Analyse & Teilen",
-      "operations": "Betrieb",
-      "interface": "Oberfläche"
-    },
     "beta": "Beta-Funktionen",
     "unsaved": "ungespeichert",
     "skip_to_content": "Zu den Einstellungen springen",
@@ -293,6 +287,14 @@
     "maintenance": "Wartung",
     "refused": "muss korrigiert werden",
     "refused_note": "Enthält einen Wert, den das letzte Speichern abgelehnt hat"
+  },
+  "sections": {
+    "cameras": "Kameras & Verbindung",
+    "identification": "Vögel bestimmen",
+    "alerts": "Benachrichtigungen",
+    "sharing": "Teilen & Integrationen",
+    "storage": "Speicher & Wartung",
+    "display": "Anzeige"
   },
   "debug": {
     "llm_prompts_title": "LLM-Promptvorlagen",
@@ -709,7 +711,7 @@
     "every_camera_on": "Jede Frigate-Kamera wird auf Vögel beobachtet, auch später in Frigate hinzugefügte Kameras.",
     "every_camera_off": "Nur die hier gewählten Kameras werden auf Vögel beobachtet. Eine später in Frigate hinzugefügte Kamera wird erst beobachtet, wenn Sie sie wählen.",
     "watch_every_camera": "Alle Kameras auf Vögel beobachten",
-    "garden_beta_hint": "Um auch Gartentiere zu beobachten, schalten Sie Gartentiere unter Einstellungen → Beta-Funktionen ein.",
+    "garden_beta_hint": "Um auch Gartentiere zu beobachten, schalten Sie Gartentiere unter Einstellungen → Vögel bestimmen ein.",
     "list_loading": "Kameraliste wird aus Frigate gelesen…",
     "list_unread": "Die Kameraliste konnte nicht aus Frigate gelesen werden. Gespeicherte Kameras werden angezeigt; wählen Sie Kameras synchronisieren, um es erneut zu versuchen.",
     "none_found_help": "Frigate hat keine Kameras gemeldet. Prüfen Sie oben die Frigate-URL und wählen Sie dann Kameras synchronisieren.",
@@ -890,7 +892,7 @@
     "link_opens_yawamf_req": "Verwendet die Adresse der Instanz oben.",
     "link_opens_frigate": "Frigate",
     "link_opens_frigate_desc": "Dasselbe verfolgte Objekt auf der Explore-Seite von Frigate.",
-    "link_opens_frigate_req": "Benötigt Frigate 0.15 oder neuer und die öffentliche Frigate-URL, einzustellen unter Einstellungen → Verbindung.",
+    "link_opens_frigate_req": "Benötigt Frigate 0.15 oder neuer und die öffentliche Frigate-URL, einzustellen unter Einstellungen → Kameras & Verbindung.",
     "link_frigate_url_missing": "Die öffentliche Frigate-URL ist nicht gesetzt; Benachrichtigungen enthalten keinen Link, bis sie gesetzt ist.",
     "link_preview_telegram": "Link auf der Telegram-Schaltfläche:",
     "link_preview_others": "Discord-Titel, Pushover und E-Mail verwenden dieselbe Adresse.",
@@ -1328,7 +1330,7 @@
     "model_manager_repair_download": "Download reparieren",
     "model_manager_repair_needed": "Diese Modellinstallation ist unvollständig. Laden Sie das Modell erneut herunter, um die fehlenden Artnamen oder die Modellkonfiguration vor der Aktivierung wiederherzustellen.",
     "model_manager_location_title": "Nutzt den Standort Ihres Futterplatzes",
-    "model_manager_location_desc": "Dieses Modell nutzt zusätzlich die Koordinaten des Futterplatzes, die unter Einstellungen → Integrationen → Standort gespeichert sind. Sind keine gültigen Koordinaten gespeichert, bestimmt es Vögel ohne Standort. Datum und Genauigkeitsradius des Standorts werden nicht verwendet.",
+    "model_manager_location_desc": "Dieses Modell nutzt zusätzlich die Koordinaten des Futterplatzes, die unter Einstellungen → Teilen & Integrationen → Standort gespeichert sind. Sind keine gültigen Koordinaten gespeichert, bestimmt es Vögel ohne Standort. Datum und Genauigkeitsradius des Standorts werden nicht verwendet.",
     "model_manager_location_link": "Standort-Einstellungen öffnen",
     "provider_intel_npu": "Intel-NPU (OpenVINO)",
     "bird_finder_title": "Vogelsuche",
@@ -1613,7 +1615,8 @@
     "garden_sentence_motion_on": "Bewegungsfotos werden auf {cameras} gesammelt.",
     "garden_sentence_motion_off": "Bewegungsfotos sind aus.",
     "garden_sentence_motion_unread": "Der Status der Bewegungsfotos konnte nicht gelesen werden. Aktualisieren Sie, um es erneut zu versuchen.",
-    "garden_sentence_saved_crops": "{count, plural, one {# Ausschnitt} other {# Ausschnitte}} von {limit, number} erlaubten gespeichert."
+    "garden_sentence_saved_crops": "{count, plural, one {# Ausschnitt} other {# Ausschnitte}} von {limit, number} erlaubten gespeichert.",
+    "part_intro": "Funktionen, die noch getestet werden. Jede ist aus, bis Sie sie einschalten, und kann sich ändern oder wegfallen. Beim Ausschalten bleibt, was sie schon aufgezeichnet hat."
   },
   "native_revalidation": {
     "title": "Quarantänisiertes Profil prüfen",

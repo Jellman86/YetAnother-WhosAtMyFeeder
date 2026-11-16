@@ -787,7 +787,7 @@
                     {$_('settings.detection.model_manager_location_title', { default: 'Uses your feeder location' })}
                 </p>
                 <p class="mt-1 max-w-prose leading-relaxed">
-                    {$_('settings.detection.model_manager_location_desc', { default: 'This model also uses the feeder coordinates saved in Settings → Integrations → Location. If no valid coordinates are saved, it identifies birds without location. It does not use the date or a location accuracy radius.' })}
+                    {$_('settings.detection.model_manager_location_desc', { default: 'This model also uses the feeder coordinates saved in Settings → Sharing & integrations → Location. If no valid coordinates are saved, it identifies birds without location. It does not use the date or a location accuracy radius.' })}
                 </p>
                 <a
                     href={toAppPath('/settings/integrations')}

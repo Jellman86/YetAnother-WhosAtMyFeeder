@@ -126,7 +126,7 @@ Screenshots must be current, specific, and useful:
 ## Style
 
 - Use plain English, active voice, and `you` for instructions.
-- Use exact UI labels in bold, for example **Settings → Detection**.
+- Use exact UI labels in bold, for example **Settings → Identifying birds**.
 - Use monospace for paths, commands, endpoints, environment variables, enum
   values, and file names.
 - Prefer "YA-WAMF does X" over vague passive phrasing.

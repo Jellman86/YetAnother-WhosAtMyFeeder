@@ -277,12 +277,6 @@
     "accessibility": "辅助功能",
     "enrichment": "增强信息",
     "ai": "人工智能",
-    "groups": {
-      "pipeline": "喂食器流程",
-      "intelligence": "分析与共享",
-      "operations": "运维",
-      "interface": "界面"
-    },
     "beta": "测试版功能",
     "unsaved": "未保存",
     "skip_to_content": "跳到设置",
@@ -293,6 +287,14 @@
     "maintenance": "维护",
     "refused": "需要修改",
     "refused_note": "含有上次保存时被拒绝的值"
+  },
+  "sections": {
+    "cameras": "摄像头与连接",
+    "identification": "识别鸟类",
+    "alerts": "提醒",
+    "sharing": "共享与集成",
+    "storage": "存储与维护",
+    "display": "显示"
   },
   "debug": {
     "llm_prompts_title": "LLM 提示模板",
@@ -709,7 +711,7 @@
     "every_camera_on": "所有 Frigate 摄像头都会监视鸟类，包括以后添加到 Frigate 的摄像头。",
     "every_camera_off": "只有在此选择的摄像头会监视鸟类。以后添加到 Frigate 的摄像头在你选择之前不会被监视。",
     "watch_every_camera": "在所有摄像头上监视鸟类",
-    "garden_beta_hint": "若还要监视花园动物，请在 设置 → 测试版功能 中开启花园动物。",
+    "garden_beta_hint": "若还要监视花园动物，请在 设置 → 识别鸟类 中开启花园动物。",
     "list_loading": "正在从 Frigate 读取摄像头列表…",
     "list_unread": "无法从 Frigate 读取摄像头列表。当前显示已保存的摄像头；选择“同步摄像头”重试。",
     "none_found_help": "Frigate 未报告任何摄像头。请检查上方的 Frigate URL，然后选择“同步摄像头”。",
@@ -890,7 +892,7 @@
     "link_opens_yawamf_req": "使用上方的实例地址。",
     "link_opens_frigate": "Frigate",
     "link_opens_frigate_desc": "Frigate Explore 页面中的同一追踪对象。",
-    "link_opens_frigate_req": "需要 Frigate 0.15 或更新版本，以及在“设置 → 连接”中设置的 Frigate 公开网址。",
+    "link_opens_frigate_req": "需要 Frigate 0.15 或更新版本，以及在“设置 → 摄像头与连接”中设置的 Frigate 公开网址。",
     "link_frigate_url_missing": "尚未设置 Frigate 公开地址，设置之前通知不会附带链接。",
     "link_preview_telegram": "Telegram 按钮上的链接：",
     "link_preview_others": "Discord 标题、Pushover 和邮件使用同一地址。",
@@ -1328,7 +1330,7 @@
     "model_manager_repair_download": "重新下载修复",
     "model_manager_repair_needed": "此模型安装不完整。请重新下载以恢复缺失的物种名称或模型配置，然后再启用。",
     "model_manager_location_title": "使用喂食器位置",
-    "model_manager_location_desc": "此模型还会使用保存在 设置 → 集成 → 位置 中的喂食器坐标。如果未保存有效坐标，它会在不使用位置的情况下识别鸟类。它不使用日期或位置精度半径。",
+    "model_manager_location_desc": "此模型还会使用保存在 设置 → 共享与集成 → 位置 中的喂食器坐标。如果未保存有效坐标，它会在不使用位置的情况下识别鸟类。它不使用日期或位置精度半径。",
     "model_manager_location_link": "打开位置设置",
     "provider_intel_npu": "Intel NPU（OpenVINO）",
     "bird_finder_title": "鸟类查找",
@@ -1613,7 +1615,8 @@
     "garden_sentence_motion_on": "正在 {cameras} 上收集运动照片。",
     "garden_sentence_motion_off": "运动照片已关闭。",
     "garden_sentence_motion_unread": "无法读取运动照片状态。请刷新后重试。",
-    "garden_sentence_saved_crops": "已保存 {count, plural, other {# 个裁剪}}，上限 {limit, number} 个。"
+    "garden_sentence_saved_crops": "已保存 {count, plural, other {# 个裁剪}}，上限 {limit, number} 个。",
+    "part_intro": "仍在测试的功能。每项在您开启前都是关闭的，可能会更改或移除。关闭后会保留它已记录的内容。"
   },
   "native_revalidation": {
     "title": "检查隔离的配置",

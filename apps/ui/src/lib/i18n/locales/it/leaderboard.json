@@ -30,7 +30,7 @@
   "species": "Specie",
   "view_species": "Vedi {species}",
   "no_species": "Nessun uccello registrato finora",
-  "no_species_desc": "La classifica si riempie man mano che le telecamere identificano gli uccelli. Se non arriva nulla, controlla Impostazioni → Connessione.",
+  "no_species_desc": "La classifica si riempie man mano che le telecamere identificano gli uccelli. Se non arriva nulla, controlla Impostazioni → Telecamere e connessione.",
   "only_unknown_desc": "Al momento sono disponibili solo rilevamenti \"Uccello sconosciuto\". Attiva \"Includi \\\"Uccello sconosciuto\\\"\" per mostrarli nella classifica.",
   "all_species": "Tutte le Specie",
   "percentage_of_total": "{percentage}% del totale",

@@ -21,7 +21,7 @@
   },
   "account": {
     "title": "Admin account & access",
-    "already": "Authentication is already configured. Manage it in Settings → Security.",
+    "already": "Authentication is already configured. Manage it in Settings → Sharing & integrations.",
     "description": "Protect the dashboard with an owner password, or run without authentication on a trusted network."
   },
   "connection": {
@@ -44,7 +44,7 @@
     "save_test": "Save & test connection",
     "blocked": "Save and test the connection to continue, or choose “Set up later”.",
     "later": "Set up later",
-    "later_note": "No Frigate or broker to hand? Choose “Set up later”. Until both are connected under Settings → Connection, no visits arrive, no photos or clips can be fetched, and the cameras step cannot list your cameras.",
+    "later_note": "No Frigate or broker to hand? Choose “Set up later”. Until both are connected under Settings → Cameras & connection, no visits arrive, no photos or clips can be fetched, and the cameras step cannot list your cameras.",
     "check_frigate": "Frigate API",
     "check_mqtt": "MQTT broker"
   },
@@ -85,7 +85,7 @@
     "validation_success": "Hardware validation completed successfully.",
     "verified": "Validated providers: {list}",
     "location_title": "Feeder location",
-    "location_hint": "Validating or continuing saves these coordinates first, using the same feeder location as Settings → Integrations → Location. This model does not use the date or a location accuracy radius.",
+    "location_hint": "Validating or continuing saves these coordinates first, using the same feeder location as Settings → Sharing & integrations → Location. This model does not use the date or a location accuracy radius.",
     "location_incomplete": "Enter both latitude and longitude, or leave both empty.",
     "location_empty": "No location will be used: this model identifies birds without it.",
     "ram_note": "Around {ram} MB RAM recommended.",
@@ -127,7 +127,7 @@
     "note_bw": "Report to community stations. Add a station token in Settings.",
     "note_ebird": "Nearby sightings, maps and an optional range filter. Add an API key in Settings.",
     "note_inat": "Owner-reviewed submissions. Connect your account in Settings.",
-    "notifications_note": "Notification channels are configured under Settings → Notifications. Home Assistant is installed and configured externally; see the integration guide."
+    "notifications_note": "Notification channels are configured under Settings → Alerts. Home Assistant is installed and configured externally; see the integration guide."
   },
   "history": {
     "title": "Import existing detections",
@@ -182,7 +182,7 @@
   "skip": "Skip setup",
   "skip_failed": "Skipping failed: the server could not be reached.",
   "skip_confirm_title": "Skip setup and open the app?",
-  "skip_confirm_body_no_account": "The app will run without a password until you set one under Settings → Security. Everything this wizard covers can be configured later, and you can re-run it any time from Settings → Setup wizard.",
+  "skip_confirm_body_no_account": "The app will run without a password until you set one under Settings → Sharing & integrations. Everything this wizard covers can be configured later, and you can re-run it any time from Settings → Setup wizard.",
   "skip_confirm_body": "Everything this wizard covers can be configured later, and you can re-run it any time from Settings → Setup wizard.",
   "skip_confirm_action": "Skip and open the app",
   "back": "Back",

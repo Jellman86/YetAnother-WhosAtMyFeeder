@@ -15,7 +15,7 @@
     },
     "finder": "Buscador de aves",
     "row": {
-      "activation_failed": "No se pudo cargar, así que no se comprobó ningún proveedor. Usa «Reparar descarga» para este modelo en Ajustes → Modelos.",
+      "activation_failed": "No se pudo cargar, así que no se comprobó ningún proveedor. Usa «Reparar descarga» para este modelo en Ajustes → Identificar aves.",
       "provider_sweep_failed": "La comprobación falló antes de que ningún proveedor diera un resultado. Ejecútala de nuevo; si vuelve a fallar, la causa está en los registros del contenedor.",
       "unknown": "No se comprobó, por un motivo que esta página no puede identificar. La causa está en los registros del contenedor."
     },
@@ -138,9 +138,9 @@
     "vocabulary_note": "Las proporciones solo cuentan las especies que un modelo puede nombrar."
   },
   "skipped": {
-    "activation_failed": "Sus archivos faltan o están incompletos. Usa «Reparar descarga» para este modelo en Ajustes → Modelos.",
+    "activation_failed": "Sus archivos faltan o están incompletos. Usa «Reparar descarga» para este modelo en Ajustes → Identificar aves.",
     "other": "Se omitió por un motivo que esta página no puede identificar. La causa está en los registros del contenedor.",
-    "reload_failed": "No se pudo cargar. Usa «Reparar descarga» para este modelo en Ajustes → Modelos; si no ayuda, la causa está en los registros del contenedor.",
+    "reload_failed": "No se pudo cargar. Usa «Reparar descarga» para este modelo en Ajustes → Identificar aves; si no ayuda, la causa está en los registros del contenedor.",
     "title": "Modelos que no se probaron"
   },
   "start": {
@@ -148,7 +148,7 @@
     "all_models_desc": "Comprueba además que cada modelo da las mismas respuestas en tu chip gráfico o NPU que en la CPU. Los modelos que no tienes instalados se descargan primero y quedan instalados. Tarda mucho más.",
     "all_models_label": "Comprobar cada modelo en cada proveedor",
     "download_none": "Todos los modelos ya están instalados, así que no se descarga nada.",
-    "download_note": "La descarga puede tardar un rato, según tu conexión. Los modelos descargados permanecen en el disco hasta que elimines sus archivos en Ajustes → Modelos.",
+    "download_note": "La descarga puede tardar un rato, según tu conexión. Los modelos descargados permanecen en el disco hasta que elimines sus archivos en Ajustes → Identificar aves.",
     "download_reading": "Calculando cuánto se descargaría…",
     "download_size": "{count, plural, one {# modelo aún no está instalado: una descarga de unos {size}.} other {# modelos aún no están instalados: una descarga de unos {size}.}}",
     "download_size_partial": "{count, plural, one {# modelo aún no está instalado.} other {# modelos aún no están instalados.}} {unknown, plural, one {De # de ellos no se conoce el tamaño;} other {De # de ellos no se conoce el tamaño;}} el resto son una descarga de unos {size}.",
@@ -165,24 +165,24 @@
     "what": "Cada modelo instalado nombra fotos de referencia de especies conocidas, para que puedas comparar con qué frecuencia acierta cada uno y con qué rapidez."
   },
   "stopped": {
-    "finder_needs_provider_check": "Un buscador de aves solo se puede comprobar por proveedores. Inicia la comprobación desde Ajustes → Modelos.",
-    "models_not_ready": "Un modelo elegido para esta comprobación no está instalado y listo. Revísalo en Ajustes → Modelos y vuelve a empezar.",
+    "finder_needs_provider_check": "Un buscador de aves solo se puede comprobar por proveedores. Inicia la comprobación desde Ajustes → Identificar aves.",
+    "models_not_ready": "Un modelo elegido para esta comprobación no está instalado y listo. Revísalo en Ajustes → Identificar aves y vuelve a empezar.",
     "network": "Falló una solicitud a iNaturalist o Wikimedia Commons. Comprueba la conexión a internet y vuelve a empezar.",
-    "no_models": "No hay ningún modelo de aves instalado y listo. Instala uno en Ajustes → Modelos y vuelve a empezar.",
+    "no_models": "No hay ningún modelo de aves instalado y listo. Instala uno en Ajustes → Identificar aves y vuelve a empezar.",
     "no_test_birds": "No se pudo crear la lista de aves de prueba porque iNaturalist no respondió. Comprueba la conexión a internet y vuelve a empezar.",
     "no_test_photos": "No se pudo obtener ninguna foto de prueba de iNaturalist ni de Wikimedia Commons. Comprueba la conexión a internet y vuelve a empezar.",
     "unexpected": "Se detuvo por un error que esta página no puede identificar. Iníciala de nuevo; si vuelve a detenerse, la causa está en los registros del contenedor."
   },
   "warning": {
-    "high_abstention": "No dio ninguna especie en el {share} % de las fotos. Puede que no cubra estas aves o que su instalación esté incompleta. Revisa el modelo en Ajustes → Modelos.",
-    "incomplete_install": "Sus archivos están incompletos. Usa «Reparar descarga» para este modelo en Ajustes → Modelos.",
+    "high_abstention": "No dio ninguna especie en el {share} % de las fotos. Puede que no cubra estas aves o que su instalación esté incompleta. Revisa el modelo en Ajustes → Identificar aves.",
+    "incomplete_install": "Sus archivos están incompletos. Usa «Reparar descarga» para este modelo en Ajustes → Identificar aves.",
     "inference_health_unhealthy": "Hubo errores o tiempos de espera agotados durante la ejecución. Busca la causa en los registros del contenedor.",
-    "latency_drift_high": "Mucho más lento que al cargarse: {measured, number} ms por foto frente a {loaded, number} ms. El proveedor en el que se ejecutó puede estar fallando. Pon el proveedor de inferencia en CPU en Ajustes → Modelos y evalúa de nuevo.",
-    "latency_drift_high_plain": "Mucho más lento que al cargarse. El proveedor en el que se ejecutó puede estar fallando. Pon el proveedor de inferencia en CPU en Ajustes → Modelos y evalúa de nuevo.",
-    "low_shared_core": "Nombró bien menos de la mitad de las aves comunes de comedero, lo que suele indicar una instalación dañada. Usa «Reparar descarga» para este modelo en Ajustes → Modelos.",
+    "latency_drift_high": "Mucho más lento que al cargarse: {measured, number} ms por foto frente a {loaded, number} ms. El proveedor en el que se ejecutó puede estar fallando. Pon el proveedor de inferencia en CPU en Ajustes → Identificar aves y evalúa de nuevo.",
+    "latency_drift_high_plain": "Mucho más lento que al cargarse. El proveedor en el que se ejecutó puede estar fallando. Pon el proveedor de inferencia en CPU en Ajustes → Identificar aves y evalúa de nuevo.",
+    "low_shared_core": "Nombró bien menos de la mitad de las aves comunes de comedero, lo que suele indicar una instalación dañada. Usa «Reparar descarga» para este modelo en Ajustes → Identificar aves.",
     "partial_vocabulary": "No puede nombrar {outside} de las {total} especies de prueba, normalmente porque viven fuera de su región. Sus proporciones cubren las especies que sí puede nombrar.",
     "partial_vocabulary_plain": "No puede nombrar algunas de las especies de prueba, normalmente porque viven fuera de su región. Sus proporciones cubren las especies que sí puede nombrar.",
-    "provider_fallback_active": "Se ejecutó en la CPU aunque se pidió un proveedor más rápido. El motivo está en Diagnóstico en tiempo de ejecución, en Ajustes → Modelos.",
+    "provider_fallback_active": "Se ejecutó en la CPU aunque se pidió un proveedor más rápido. El motivo está en Diagnóstico en tiempo de ejecución, en Ajustes → Identificar aves.",
     "provider_validation_failed": "Ningún proveedor dio respuestas utilizables que coincidieran con la CPU. Las comprobaciones de proveedores de abajo muestran cada resultado.",
     "provider_validation_partial": "Algunos proveedores fallaron o no están disponibles aquí. Las comprobaciones de proveedores de abajo muestran cada resultado.",
     "region_mismatch": "Está hecho para una región distinta de la de las aves cercanas a ti, por lo que sus proporciones aquí son más bajas que allí.",

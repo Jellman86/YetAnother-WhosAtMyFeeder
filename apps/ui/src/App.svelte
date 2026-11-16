@@ -55,7 +55,7 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
   import { createPublicHistoryRefresh } from './lib/app/public-history-refresh';
   import { createDeployRecovery } from './lib/app/deploy-recovery';
   import { lazyComponent } from './lib/app/lazy-component';
-  import { settingsTabFromRoute } from './lib/settings/settings-route';
+  import { settingsSectionFromRoute } from './lib/settings/settings-route';
   import {
       canonicalizeNotificationRouteForAccess,
       getCanonicalNotificationRoute,
@@ -120,7 +120,7 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
           case 'notifications': return $_('page_subtitle.notifications', { default: 'Visits, alerts and background work, newest first.' });
           case 'health': return $_('page_subtitle.health', { default: 'Whether YA-WAMF is working, what the host is doing, and what happened.' });
           // One line about the open tab, not a list of every tab.
-          case 'settings': return $_(`page_subtitle.settings_tab.${settingsTabFromRoute(currentRoute)}`);
+          case 'settings': return $_(`page_subtitle.settings_section.${settingsSectionFromRoute(currentRoute)}`);
           case 'model_evaluation': return $_('page_subtitle.model_evaluation', { default: 'How often each installed model names a bird correctly, and how fast.' });
           case 'about': return $_('page_subtitle.about', { default: 'What this feeder has recorded, how YA-WAMF works, and what it stores and sends.' });
           default: return '';

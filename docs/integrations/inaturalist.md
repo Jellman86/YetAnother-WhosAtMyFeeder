@@ -17,7 +17,7 @@ and Client Secret.
 3. Save the application and copy the **Client ID** and **Client Secret**.
 
 ## Configure YA-WAMF
-In **Settings → Integrations → iNaturalist**:
+In **Settings → Sharing & integrations → iNaturalist**:
 - Enable the integration
 - Paste the Client ID + Client Secret
 - (Optional) Set default latitude/longitude/place

@@ -156,7 +156,7 @@ test('an accuracy run keeps a genuinely measured zero, its latency spread and a 
     await expect(row).toContainText('CPU (ONNX Runtime)');
     await expect(table.getByRole('columnheader', { name: 'First guess right', exact: true })).toBeVisible();
     await expect(table).toContainText('Much slower than when it was loaded: 80 ms a photo against 10 ms.');
-    await expect(table).toContainText('Set the inference provider to CPU in Settings → Models and evaluate again.');
+    await expect(table).toContainText('Set the inference provider to CPU in Settings → Identifying birds and evaluate again.');
     await expect(table).not.toContainText('latency_drift_high');
     await expect(table).not.toContainText('startup benchmark');
     // A warning this page does not know gets its own sentence; the server's words are never the copy.
@@ -394,7 +394,7 @@ test('the page names each thing once, in sentence case, with the kit and plain w
     await expect(table).toContainText('Cannot name 26 of the 141 test species');
     await expect(page.locator('[data-model-eval-facts]')).toHaveText('141 species · 423 photos · Region GB-ENG · 16 minutes');
     await expect(page.locator('[data-model-eval-skipped]')).toContainText('EVA-02 Large (Elite Accuracy)');
-    await expect(page.locator('[data-model-eval-skipped]')).toContainText('Use Repair download for this model in Settings → Models.');
+    await expect(page.locator('[data-model-eval-skipped]')).toContainText('Use Repair download for this model in Settings → Identifying birds.');
     await expect(page.getByLabel('Evaluation', { exact: true }).locator('option')).toHaveText(['14/11/2026 08:15', '10/11/2026 07:00, stopped early']);
 
     const checks = page.getByRole('region', { name: 'Provider checks' }).getByRole('table');
@@ -477,7 +477,7 @@ test('checking every model states the download first and asks before it starts',
     const dialog = page.getByRole('alertdialog');
     await expect(dialog).toContainText('Download 2 models?');
     await expect(dialog).toContainText('2 models are not installed yet: a download of about 1.3 GB.');
-    await expect(dialog).toContainText('The download may take a while, depending on your connection. Downloaded models stay on disk until you delete their files in Settings → Models.');
+    await expect(dialog).toContainText('The download may take a while, depending on your connection. Downloaded models stay on disk until you delete their files in Settings → Identifying birds.');
     await dialog.getByRole('button', { name: 'Go back', exact: true }).click();
     await expect(dialog).toHaveCount(0);
     expect(posts).toEqual([]);
@@ -519,12 +519,12 @@ test('a failure is shown by its cause and next step, and nothing an exception sa
     await expect(stoppedBox).toContainText('This evaluation stopped before it finished, so some models may be missing.');
     await expect(stoppedBox).toContainText('No test photo could be fetched from iNaturalist or Wikimedia Commons. Check the internet connection, then start again.');
     const skipped = page.locator('[data-model-eval-skipped]');
-    await expect(skipped).toContainText('It could not be loaded. Use Repair download for this model in Settings → Models; if that does not help, the container logs name the cause.');
+    await expect(skipped).toContainText('It could not be loaded. Use Repair download for this model in Settings → Identifying birds; if that does not help, the container logs name the cause.');
     await expect(skipped).toContainText('It was skipped for a reason this page cannot name. The container logs name the cause.');
     await expect(page.getByRole('table').first()).toContainText('No provider gave usable answers that matched the CPU.');
     const checks = page.getByRole('region', { name: 'Provider checks' });
     await expect(checks).toContainText('The check failed before any provider gave a result. Run it again; if it fails again, the container logs name the cause.');
-    await expect(checks).toContainText('It could not be loaded, so no provider was checked. Use Repair download for this model in Settings → Models.');
+    await expect(checks).toContainText('It could not be loaded, so no provider was checked. Use Repair download for this model in Settings → Identifying birds.');
     await expect(checks).toContainText('It was not checked, for a reason this page cannot name. The container logs name the cause.');
     await expect(page.locator('body')).not.toContainText(/Traceback|0x7f3a|x\.onnx|ValueError|provider_sweep_failed|activation_failed|reload_failed/);
 
@@ -566,13 +566,13 @@ for (const { name, registry, line } of [
         await page.getByRole('switch', { name: 'Check every model on every provider' }).click();
         const stated = page.locator('[data-model-eval-download]');
         await expect(stated).toContainText(line);
-        await expect(stated).toContainText('The download may take a while, depending on your connection. Downloaded models stay on disk until you delete their files in Settings → Models.');
+        await expect(stated).toContainText('The download may take a while, depending on your connection. Downloaded models stay on disk until you delete their files in Settings → Identifying birds.');
         await expect(stated).not.toContainText(/\b0 (MB|GB)\b/);
         await page.getByRole('button', { name: 'Start evaluation', exact: true }).click();
         const dialog = page.getByRole('alertdialog');
         await expect(dialog).toContainText(line);
         await expect(dialog).toContainText('The download may take a while, depending on your connection.');
-        await expect(dialog).toContainText('stay on disk until you delete their files in Settings → Models');
+        await expect(dialog).toContainText('stay on disk until you delete their files in Settings → Identifying birds');
         await expect(dialog).not.toContainText(/\b0 (MB|GB)\b/);
         await dialog.getByRole('button', { name: 'Go back', exact: true }).click();
     });

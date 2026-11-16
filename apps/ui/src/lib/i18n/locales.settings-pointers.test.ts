@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { SETTINGS_TAB_ORDER } from '../settings/settings-route';
+import { SETTINGS_SECTION_ORDER } from '../settings/settings-route';
 import { authoredLocale } from './authored-locales';
 
 const LANGUAGES = ['en', 'de', 'es', 'fr', 'it', 'ja', 'pt', 'ru', 'zh'] as const;
@@ -38,14 +38,14 @@ function settingsPointers(language: string): Pointer[] {
     });
 }
 
-/** What the Settings navigation offers: its tabs, and the button that reopens the setup wizard. */
+/** What the Settings navigation offers: its sections, and the button that reopens the setup wizard. */
 function settingsDestinations(language: string): string[] {
     const dictionary = authoredLocale(language);
-    return [...SETTINGS_TAB_ORDER.map((tab) => text(dictionary, `settings.tabs.${tab}`)), text(dictionary, 'nav.setup_wizard')];
+    return [...SETTINGS_SECTION_ORDER.map((section) => text(dictionary, `settings.sections.${section}`)), text(dictionary, 'nav.setup_wizard')];
 }
 
 describe('"Settings → …" pointers in copy', () => {
-    it.each(LANGUAGES)('%s names a real Settings tab after every arrow', (language) => {
+    it.each(LANGUAGES)('%s names a real Settings section after every arrow', (language) => {
         const destinations = settingsDestinations(language);
         const stale = settingsPointers(language).filter(
             ({ target }) => !destinations.some((destination) => target.startsWith(destination))
@@ -58,15 +58,27 @@ describe('"Settings → …" pointers in copy', () => {
         for (const language of LANGUAGES) expect(settingsPointers(language).length).toBeGreaterThan(10);
     });
 
-    it.each(LANGUAGES)('%s sends each setting to the tab that holds it', (language) => {
+    it.each(LANGUAGES)('%s sends each setting to the section that holds it', (language) => {
         const dictionary = authoredLocale(language);
         const settingsWord = text(dictionary, 'nav.settings');
-        const tab = (id: string): string => text(dictionary, `settings.tabs.${id}`);
-        // Location, and the country read from it, is a card on Integrations; importing missed
-        // detections is a Maintenance job.
-        expect(text(dictionary, 'garden.country_missing')).toContain(`${settingsWord} → ${tab('integrations')}`);
-        expect(text(dictionary, 'garden.automatic_location_required')).toContain(`${settingsWord} → ${tab('integrations')}`);
-        expect(text(dictionary, 'events.empty_desc')).toContain(`${settingsWord} → ${tab('maintenance')}`);
+        const section = (id: string): string => text(dictionary, `settings.sections.${id}`);
+        // Location, and the country read from it, is a card in Sharing & integrations; importing
+        // missed detections is a job in Storage & upkeep.
+        expect(text(dictionary, 'garden.country_missing')).toContain(`${settingsWord} → ${section('sharing')}`);
+        expect(text(dictionary, 'garden.automatic_location_required')).toContain(`${settingsWord} → ${section('sharing')}`);
+        expect(text(dictionary, 'events.empty_desc')).toContain(`${settingsWord} → ${section('storage')}`);
+    });
+
+    it.each(LANGUAGES)('%s no longer points at a tab Settings no longer has', (language) => {
+        const dictionary = authoredLocale(language);
+        const settingsWord = text(dictionary, 'nav.settings');
+        const sectionNames = SETTINGS_SECTION_ORDER.map((id) => text(dictionary, `settings.sections.${id}`));
+        const formerTabs = ['connection', 'detection', 'models', 'beta', 'notifications', 'integrations', 'ai', 'security', 'data', 'maintenance', 'appearance', 'accessibility']
+            .map((id) => text(dictionary, `settings.tabs.${id}`))
+            // A section may share a former tab's name, as German Alerts shares Notifications'.
+            .filter((name) => !sectionNames.includes(name));
+        const stale = settingsPointers(language).filter(({ target }) => formerTabs.some((name) => target.startsWith(name)));
+        expect(stale).toEqual([]);
     });
 
     it.each(LANGUAGES)('%s never calls Health a Settings tab', (language) => {

@@ -171,7 +171,7 @@
   "errors_filtered_title": "Filtered detections",
   "errors_filtered_none": "Nothing has been filtered out yet.",
   "errors_filtered_summary": "{count, plural, one {# detection did not meet your detection settings.} other {# detections did not meet your detection settings.}} This is the filter working, not a fault.",
-  "errors_filtered_hint": "Adjust the naming threshold in Settings → Detection to keep more of these.",
+  "errors_filtered_hint": "Adjust the naming threshold in Settings → Identifying birds to keep more of these.",
   "errors_filtered_recent": "Most recent",
   "errors_activity_title": "What happened",
   "errors_activity_subtitle": "Recorded visits, filtered detections and pipeline faults, in the order they happened",
@@ -283,13 +283,13 @@
   "errors_pipeline_idle": "No detections have reached the pipeline since this instance started.",
   "errors_problem": {
     "mqtt_down": "The MQTT broker at {server} is not connected, so no new detections can arrive.",
-    "mqtt_down_next": "Check its address in Settings → Connection and that the broker is running.",
+    "mqtt_down_next": "Check its address in Settings → Cameras & connection and that the broker is running.",
     "mqtt_not_configured": "No MQTT broker is set, so no detections can arrive.",
-    "mqtt_not_configured_next": "Add one in Settings → Connection.",
+    "mqtt_not_configured_next": "Add one in Settings → Cameras & connection.",
     "mqtt_stopped": "The MQTT service is not running, so no new detections can arrive.",
     "mqtt_stopped_next": "Restart YA-WAMF to start it again.",
     "frigate_down": "Frigate at {url} is not answering, so new detections cannot be saved.",
-    "frigate_down_next": "Check its address in Settings → Connection and that Frigate is running."
+    "frigate_down_next": "Check its address in Settings → Cameras & connection and that Frigate is running."
   },
   "errors_clear_effect": "Removes recorded errors and incidents now. Live checks carry on.",
   "earlier_incidents_title": "Earlier incidents",
@@ -333,11 +333,11 @@
   "diagnostic_words": {
     "classify_snapshot_timeout": {
       "title": "A detection was dropped because naming its snapshot took too long.",
-      "next": "The classifier may be overloaded. Check Resource use above, or choose a lighter model in Settings → Models."
+      "next": "The classifier may be overloaded. Check Resource use above, or choose a lighter model in Settings → Identifying birds."
     },
     "classify_snapshot_overloaded": {
       "title": "A detection was dropped because the classifier was too busy.",
-      "next": "Check Resource use above. If it happens often, choose a lighter model in Settings → Models."
+      "next": "Check Resource use above. If it happens often, choose a lighter model in Settings → Identifying birds."
     },
     "classify_snapshot_unavailable": {
       "title": "A detection was dropped because Frigate had no snapshot for it.",
@@ -345,7 +345,7 @@
     },
     "classifier_empty_results": {
       "title": "A detection was dropped because the classifier gave no answer.",
-      "next": "Check that a model is loaded in Settings → Models."
+      "next": "Check that a model is loaded in Settings → Identifying birds."
     },
     "save_and_notify_failed": {
       "title": "A detection was named but could not be saved.",

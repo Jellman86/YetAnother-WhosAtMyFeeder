@@ -1,6 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 
-// Settings → Connection → Cameras to watch: one row per Frigate camera choosing Off, Birds,
+// Settings → Cameras & connection → Cameras to watch: one row per Frigate camera choosing Off, Birds,
 // Garden animals or Both. Each choice must land in the server's independent lists exactly:
 // `cameras` (empty means every camera), `garden_cameras`, `garden_motion_cameras` and
 // `camera_roles`.
@@ -152,7 +152,7 @@ test('with Garden off, each camera is a simple Birds or Off choice and Garden ca
     const harness = await openConnection(page, { beta_garden_animals: false, garden_cameras: ['patio'], garden_motion_cameras: ['patio'] });
     const patio = watchFor(page, 'patio');
     await expect(patio.locator('option')).toHaveText(['Off', 'Birds']);
-    await expect(page.locator('[data-camera-garden-hint]')).toContainText('turn on Garden animals in Settings → Beta features');
+    await expect(page.locator('[data-camera-garden-hint]')).toContainText('turn on Garden animals in Settings → Identifying birds');
     await patio.selectOption({ label: 'Off' });
     expect(await apply(page, harness, 1)).toEqual({
         cameras: ['front'], garden_cameras: ['patio'], garden_motion_cameras: ['patio'], camera_roles: {}
@@ -202,13 +202,13 @@ test('the watch choice works from the keyboard and shows focus', async ({ page }
 
 test('Beta features summarises Garden cameras and opens the list in Connection', async ({ page }) => {
     await openConnection(page, { garden_cameras: ['patio', 'greenhouse'], garden_motion_cameras: ['greenhouse', 'front'] });
-    await page.getByRole('link', { name: 'Beta features' }).click();
+    await page.getByRole('link', { name: 'Identifying birds', exact: true }).click();
     const summary = page.locator('[data-garden-camera-summary]');
     await expect(summary).toContainText('Watching patio and greenhouse for Garden animals.');
     await expect(summary).toContainText('Motion review photos are collected on greenhouse.');
     await expect(page.getByRole('combobox', { name: /: watch for$/ })).toHaveCount(0);
     await summary.getByRole('button', { name: 'Choose cameras in Connection' }).click();
-    await expect(page.locator('main[data-fixture-route]')).toHaveAttribute('data-fixture-route', '/settings/connection');
+    await expect(page.locator('main[data-fixture-route]')).toHaveAttribute('data-fixture-route', '/settings/cameras');
     await expect(page.locator('[data-camera-list]')).toBeFocused();
 });
 

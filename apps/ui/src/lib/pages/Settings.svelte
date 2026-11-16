@@ -1,7 +1,7 @@
 <script lang="ts">
     import { onMount, onDestroy, tick, untrack } from 'svelte';
     import type { NotificationLinkTarget } from '../settings/notification-link';
-    import { canonicalSettingsPath, settingsTabFromRoute, settingsTabPath, type SettingsTab } from '../settings/settings-route';
+    import { canonicalSettingsPath, settingsPartFromAnchor, settingsPartPath, settingsSectionFromRoute, settingsSectionOfPart, settingsSectionPath, SETTINGS_SECTION_PARTS, type SettingsPart, type SettingsSection } from '../settings/settings-route';
     import {
         fetchSettings,
         updateSettings,
@@ -86,6 +86,18 @@
     import { _, locale } from 'svelte-i18n';
     import { setAppLocale } from '../i18n';
     import SettingsTabs from '../components/settings/SettingsTabs.svelte';
+    import CamerasSection from '../components/settings/sections/CamerasSection.svelte';
+    import IdentificationSection from '../components/settings/sections/IdentificationSection.svelte';
+    import AlertsSection from '../components/settings/sections/AlertsSection.svelte';
+    import SharingSection from '../components/settings/sections/SharingSection.svelte';
+    import StorageSection from '../components/settings/sections/StorageSection.svelte';
+    import DisplaySection from '../components/settings/sections/DisplaySection.svelte';
+    import {
+        loadConnectionSettings,
+        loadGardenBetaSettings,
+        loadIntegrationSettings,
+        SETTINGS_PART_LOADERS
+    } from '../components/settings/sections/part-loaders';
     import SettingsPage from '../components/settings/_primitives/SettingsPage.svelte';
     import type { DomesticBirdKey } from '../utils/domestic-birds';
     import { locationChangedFields } from '../settings/location-dirty';
@@ -100,14 +112,12 @@
     import { createSupersedingRead } from '../utils/latest-request';
 
     // Every tab is its own chunk, loaded when it is opened (see the loaders above).
-    import LazyRoute from '../components/LazyRoute.svelte';
-    import { lazyComponent } from '../app/lazy-component';
     import { appearanceSection, type AppearanceDraft } from '../settings/appearance-section';
     import { accessibilitySection, type AccessibilityDraft } from '../settings/accessibility-section';
     import { enrichmentSection, type EnrichmentDraft } from '../settings/enrichment-section';
     import { aiSection, editAiDraft, type AiDraft } from '../settings/ai-section';
     import { sectionChangedFields } from '../settings/section-adapter';
-    import { changedFields, firstRefusedField, settingsFieldPlace, settingsFieldTab, summarizeUnsaved } from '../settings/settings-fields';
+    import { changedFields, firstRefusedField, settingsFieldPlace, settingsFieldSection, summarizeUnsaved } from '../settings/settings-fields';
     import { rangeFieldError, standingFieldErrors, type SettingsFieldError } from '../settings/field-errors';
     import { provideSettingsFieldErrors } from '../settings/field-error-context';
     import { unsavedChanges } from '../stores/unsaved-changes';
@@ -135,22 +145,6 @@
         onNavigate?: (path: string, opts?: { replace?: boolean }) => void;
         currentRoute?: string;
     } = $props();
-
-    // Tab bodies load when first opened. Their drafts stay here, so a tab's edits survive leaving it.
-    const loadConnectionSettings = lazyComponent(() => import('../components/settings/ConnectionSettings.svelte'));
-    const loadDetectionSettings = lazyComponent(() => import('../components/settings/DetectionSettings.svelte'));
-    const loadModelSettings = lazyComponent(() => import('../components/settings/ModelSettings.svelte'));
-    const loadNotificationSettings = lazyComponent(() => import('../components/settings/NotificationSettings.svelte'));
-    const loadIntegrationSettings = lazyComponent(() => import('../components/settings/IntegrationSettings.svelte'));
-    const loadAuthenticationSettings = lazyComponent(() => import('../components/settings/AuthenticationSettings.svelte'));
-    const loadDataSettings = lazyComponent(() => import('../components/settings/DataSettings.svelte'));
-    const loadMaintenanceSettings = lazyComponent(() => import('../components/settings/MaintenanceSettings.svelte'));
-    const loadGardenBetaSettings = lazyComponent(() => import('../components/settings/GardenBetaSettings.svelte'));
-    const loadAppearanceTab = lazyComponent(() => import('../components/settings/AppearanceSettings.svelte'));
-    const loadAccessibilityTab = lazyComponent(() => import('../components/settings/AccessibilitySettings.svelte'));
-    const loadEnrichmentTab = lazyComponent(() => import('../components/settings/EnrichmentSettings.svelte'));
-    const loadAiTab = lazyComponent(() => import('../components/settings/AISettings.svelte'));
-    const loadTelemetrySettings = lazyComponent(() => import('../components/settings/TelemetrySettings.svelte'));
 
     function normalizeFrigateMissingBehavior(value: unknown): 'mark_missing' | 'keep' | 'delete' {
         return value === 'keep' || value === 'delete' ? value : 'mark_missing';
@@ -950,9 +944,9 @@
                 .filter((error) => error.field !== 'media_cache_max_size_mb' || cacheMaxSizeInvalid)
             : []
     );
-    // Tabs holding a refused value, so the navigation can say which need a fix.
-    const refusedTabs = $derived(
-        [...new Set(standingErrors.map((error) => settingsFieldTab(error.field)).filter((tab): tab is SettingsTab => tab !== null))]
+    // Sections holding a refused value, so the navigation can say which need a fix.
+    const refusedSections = $derived(
+        [...new Set(standingErrors.map((error) => settingsFieldSection(error.field)).filter((section): section is SettingsSection => section !== null))]
     );
     provideSettingsFieldErrors({
         errorFor: (field) => standingErrors.find((error) => error.field === field)
@@ -984,18 +978,18 @@
         disclosures.attend(RUNTIME_DISCLOSURES, runtimeProblemKey(classifierStatus, { videoCircuitOpen, autoVideoClassification }));
     }
 
-    const tabLabel = (tab: SettingsTab): string => $_(`settings.tabs.${tab}`);
-    const unsavedTabNames = $derived(
-        new Intl.ListFormat($locale || 'en', { type: 'conjunction' }).format(unsavedSummary.tabs.map(tabLabel))
+    const sectionLabel = (section: SettingsSection): string => $_(`settings.sections.${section}`);
+    const unsavedSectionNames = $derived(
+        new Intl.ListFormat($locale || 'en', { type: 'conjunction' }).format(unsavedSummary.sections.map(sectionLabel))
     );
 
-    // Leaving Settings with unsaved edits asks first; moving between its tabs keeps the draft.
+    // Leaving Settings with unsaved edits asks first; moving between its sections keeps the draft.
     onMount(() => unsavedChanges.hold((to) => {
         if (!isDirty || to.startsWith('/settings')) return null;
         return {
             title: $_('settings.leave.title', { default: 'Leave without saving?' }),
             message: $_('settings.leave.message', {
-                values: { count: unsavedSummary.count, tabs: unsavedTabNames },
+                values: { count: unsavedSummary.count, tabs: unsavedSectionNames },
                 default: '{count, plural, one {# change} other {# changes}} in {tabs} will be lost.'
             }),
             confirmLabel: $_('settings.leave.confirm', { default: 'Leave without saving' }),
@@ -1069,12 +1063,12 @@
         if (typed.llmApiKey) aiDraft = editAiDraft(aiDraft, { llmApiKey: typed.llmApiKey });
     }
 
-    function fieldLabelWithTab(field: string): string {
+    function fieldLabelWithSection(field: string): string {
         const place = settingsFieldPlace(field);
-        const tab = settingsFieldTab(field);
+        const section = settingsFieldSection(field);
         const label = place ? $_(place.labelKey) : $_('settings.save_bar.other_field', { default: 'Another setting' });
-        // The same label can appear on two tabs ("Port"), so the tab is named with it.
-        return tab ? `${label} (${tabLabel(tab)})` : label;
+        // The same label can appear in two sections ("Port"), so the section is named with it.
+        return section ? `${label} (${sectionLabel(section)})` : label;
     }
 
     function keepSavedValue(field: string): void {
@@ -1166,8 +1160,8 @@
     let analysisTotal = $state(0);
     let analysisStatus = $state<AnalysisStatus | null>(null);
 
-    // Tab navigation — derived from the route so /settings/<tab> deep links survive reload.
-    let activeTab = $derived<SettingsTab>(settingsTabFromRoute(currentRoute));
+    // The open section, derived from the route so /settings/<section> deep links survive reload.
+    let activeSection = $derived<SettingsSection>(settingsSectionFromRoute(currentRoute));
 
     const parseDateOnly = (value: string): Date | null => {
         const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
@@ -1241,26 +1235,26 @@
         // A quick Back can leave before the read returns; a page already gone must not take the draft.
         if (!destroyed) restoreKeptDraft();
 
-        // Taxonomy status for the Maintenance tab is read by the activeTab $effect below.
+        // Taxonomy status for Maintenance is read by the activeSection $effect below.
     });
 
-    // Each operational reading belongs to the tabs that show it, so opening Appearance does not ask
-    // Frigate, the classifier, storage and the repair jobs. A tab's readings are taken the first time
-    // it opens in this visit; the page's own refresh and the actions on a tab read them again.
-    type TabReading = 'cameras' | 'classifier' | 'storage' | 'cache' | 'version' | 'recordingClips' | 'audioSources' | 'backfill';
-    const READINGS_BY_TAB: Partial<Record<SettingsTab, readonly TabReading[]>> = {
-        connection: ['cameras', 'recordingClips'],
-        integrations: ['cameras', 'audioSources'],
+    // Each operational reading belongs to the sections that show it, so opening Display does not ask
+    // Frigate, the classifier, storage and the repair jobs. A section's readings are taken the first
+    // time it opens in this visit; the page's own refresh and the actions in a section read them again.
+    type SectionReading = 'cameras' | 'classifier' | 'storage' | 'cache' | 'version' | 'recordingClips' | 'audioSources' | 'backfill';
+    const READINGS_BY_SECTION: Partial<Record<SettingsSection, readonly SectionReading[]>> = {
+        cameras: ['cameras', 'recordingClips'],
         // Models reads the classifier itself, when the pushed model revision moves.
-        data: ['classifier', 'storage', 'cache', 'backfill'],
-        security: ['version']
+        // Integrations maps BirdNET-Go sources to the cameras; Security names the running version.
+        sharing: ['cameras', 'audioSources', 'version'],
+        storage: ['classifier', 'storage', 'cache', 'backfill']
     };
-    const readingsTaken = new Set<TabReading>();
+    const readingsTaken = new Set<SectionReading>();
 
-    /** The open tab's helper reads; aborted when the tab or the page closes. */
-    let tabReadings: AbortController | null = null;
+    /** The open section's helper reads; aborted when the section or the page closes. */
+    let sectionReadings: AbortController | null = null;
 
-    async function takeReading(reading: TabReading, signal?: AbortSignal): Promise<void> {
+    async function takeReading(reading: SectionReading, signal?: AbortSignal): Promise<void> {
         switch (reading) {
             case 'cameras': return loadCameras();
             case 'classifier': await loadClassifierStatus(); return;
@@ -1273,27 +1267,27 @@
         }
     }
 
-    /** The open tab's readings again, for the page's own refresh. */
-    function rereadTab(tab: SettingsTab): Promise<void>[] {
-        return (READINGS_BY_TAB[tab] ?? []).map((reading) => {
+    /** The open section's readings again, for the page's own refresh. */
+    function rereadSection(section: SettingsSection): Promise<void>[] {
+        return (READINGS_BY_SECTION[section] ?? []).map((reading) => {
             readingsTaken.add(reading);
-            return takeReading(reading, tabReadings?.signal);
+            return takeReading(reading, sectionReadings?.signal);
         });
     }
 
     // What a save can change: the Frigate address behind the cameras and their recording support,
-    // and the BirdNET-Go connection behind its sources. Taken again for the open tab at once, and
-    // for any other tab when it opens.
-    const SAVE_DEPENDENT_READINGS: readonly TabReading[] = ['cameras', 'recordingClips', 'audioSources'];
+    // and the BirdNET-Go connection behind its sources. Taken again for the open section at once,
+    // and for any other section when it opens.
+    const SAVE_DEPENDENT_READINGS: readonly SectionReading[] = ['cameras', 'recordingClips', 'audioSources'];
 
     function rereadAfterSave(): void {
         for (const reading of SAVE_DEPENDENT_READINGS) readingsTaken.delete(reading);
-        if (tabReadings) readForTab(activeTab, tabReadings.signal);
+        if (sectionReadings) readForSection(activeSection, sectionReadings.signal);
     }
 
-    // A backfill started here or elsewhere is followed while it runs, on whichever tab is open,
+    // A backfill started here or elsewhere is followed while it runs, in whichever section is open,
     // so its end is announced wherever you are. The pushed jobs say when one is running; an idle
-    // visual-preferences tab asks nothing about jobs.
+    // visual-preferences section asks nothing about jobs.
     const backfillRunningOnServer = $derived(
         (systemStatusStore.snapshot?.jobs.items ?? []).some(
             (job) => (job.kind === 'backfill' || job.kind === 'weather_backfill') && job.status === 'running'
@@ -1306,11 +1300,11 @@
         });
     });
 
-    function readForTab(tab: SettingsTab, signal: AbortSignal): void {
-        for (const reading of READINGS_BY_TAB[tab] ?? []) {
+    function readForSection(section: SettingsSection, signal: AbortSignal): void {
+        for (const reading of READINGS_BY_SECTION[section] ?? []) {
             if (readingsTaken.has(reading)) continue;
             readingsTaken.add(reading);
-            // A reading cancelled by leaving was not taken: the tab reads it again when it reopens.
+            // A reading cancelled by leaving was not taken: the section reads it again when it reopens.
             void takeReading(reading, signal).finally(() => {
                 if (signal.aborted) readingsTaken.delete(reading);
             });
@@ -1318,33 +1312,33 @@
     }
 
     $effect(() => {
-        const tab = activeTab;
+        const section = activeSection;
         if (!authStore.showSettings) return;
         const controller = new AbortController();
-        tabReadings = controller;
-        untrack(() => readForTab(tab, controller.signal));
+        sectionReadings = controller;
+        untrack(() => readForSection(section, controller.signal));
         return () => {
             controller.abort();
-            if (tabReadings === controller) tabReadings = null;
+            if (sectionReadings === controller) sectionReadings = null;
         };
     });
 
     $effect(() => {
         if (isDirty) return;
         return pageRefreshAction.register(async () => {
-            // A tab that shows the classifier reads it with its own readings; it is read once either way.
-            const tabReadsClassifier = (READINGS_BY_TAB[activeTab] ?? []).includes('classifier');
-            await Promise.all([loadSettings(), ...(tabReadsClassifier ? [] : [loadClassifierStatus()]), ...rereadTab(activeTab)]);
+            // A section that shows the classifier reads it with its own readings; it is read once either way.
+            const sectionReadsClassifier = (READINGS_BY_SECTION[activeSection] ?? []).includes('classifier');
+            await Promise.all([loadSettings(), ...(sectionReadsClassifier ? [] : [loadClassifierStatus()]), ...rereadSection(activeSection)]);
         });
     });
 
     // A harness can finish in another tab, and isolated workers can start after
-    // the completion response. The tab reads the runtime once when it opens, then
+    // the completion response. Models reads the runtime once when its section opens, then
     // again whenever the pushed model revision moves (a revision arriving during a
-    // read queues one more), so an idle Models tab asks nothing and the form is
+    // read queues one more), so an idle Models part asks nothing and the form is
     // never touched.
     $effect(() => {
-        if (activeTab !== 'models' || !authStore.showSettings) return;
+        if (activeSection !== settingsSectionOfPart('models') || !authStore.showSettings) return;
         const follower = followRevisions(
             loadClassifierStatus,
             untrack(() => systemStatusStore.snapshot?.model.revision ?? null)
@@ -1364,18 +1358,18 @@
         untrack(() => applyAnalysisStatus(status));
     });
 
-    function handleTabChange(tab: SettingsTab) {
-        const path = settingsTabPath(tab);
+    function openSection(section: SettingsSection): void {
+        const path = settingsSectionPath(section);
         if (onNavigate) onNavigate(path);
         else window.history.pushState(null, '', toAppPath(path));
     }
 
-    // A tab's code arrives after the tab is chosen, so a link that lands on one of its fields waits
-    // for the field to exist. A tab that fails to load shows its own retry; nothing is focused then.
+    // A section's code arrives after the section is chosen, so a link that lands on one of its fields
+    // waits for the field to exist. A part that fails to load shows its own retry; nothing is focused then.
     const FIELD_WAIT_FRAMES = 60;
-    async function fieldInOpenedTab(loadTab: () => Promise<unknown>, find: () => HTMLElement | null): Promise<HTMLElement | null> {
+    async function fieldInOpenedPart(loadPart: () => Promise<unknown>, find: () => HTMLElement | null): Promise<HTMLElement | null> {
         try {
-            await loadTab();
+            await loadPart();
         } catch {
             return null;
         }
@@ -1388,12 +1382,45 @@
         return null;
     }
 
-    // The range filter's next steps live in Integrations; land on the field itself, not the top of the tab.
+    /**
+     * Opens the section that holds a part, at that part. The parts above it load first, so it is
+     * scrolled to once its place has settled; the first part of a section is the section's top.
+     */
+    function openPart(part: SettingsPart): void {
+        const path = settingsPartPath(part);
+        if (onNavigate) onNavigate(path);
+        else window.history.pushState(null, '', toAppPath(path));
+        void revealPart(part);
+    }
+
+    async function revealPart(part: SettingsPart): Promise<void> {
+        const section = settingsSectionOfPart(part);
+        const parts = SETTINGS_SECTION_PARTS[section];
+        if (parts[0] === part) return;
+        const above = parts.slice(0, parts.indexOf(part) + 1).map((each) => SETTINGS_PART_LOADERS[each]);
+        const target = await fieldInOpenedPart(
+            () => Promise.all(above.map((load) => load())),
+            () => document.querySelector<HTMLElement>(`[data-settings-part="${part}"]`)
+        );
+        target?.scrollIntoView({ block: 'start' });
+    }
+
+    // An address that names a part (a former tab's link, redirected here) lands on that part. An
+    // in-app navigation carries the anchor in the route; a reload or Back keeps it in the address.
+    $effect(() => {
+        if (typeof window === 'undefined' || !currentRoute?.startsWith('/settings')) return;
+        const section = activeSection;
+        const anchor = currentRoute.includes('#') ? currentRoute.slice(currentRoute.indexOf('#')) : window.location.hash;
+        const part = settingsPartFromAnchor(section, anchor);
+        if (part) untrack(() => void revealPart(part));
+    });
+
+    // The range filter's next steps live in Integrations; land on the field itself, not the top of the section.
     // A field hidden behind its switch (the key while eBird is off, coordinates while the location
     // is automatic) falls back to that switch, which is the step that reveals it.
     async function openIntegrationField(...selectors: string[]): Promise<void> {
-        handleTabChange('integrations');
-        const field = await fieldInOpenedTab(loadIntegrationSettings, () =>
+        openSection(settingsSectionOfPart('integrations'));
+        const field = await fieldInOpenedPart(loadIntegrationSettings, () =>
             selectors.map((selector) => document.querySelector<HTMLElement>(selector)).find(Boolean) ?? null
         );
         field?.scrollIntoView({ block: 'center' });
@@ -1401,18 +1428,18 @@
     }
 
     // Beta features names the Garden cameras but they are chosen in Connection, so the link lands
-    // on the camera list itself rather than at the top of a tab whose first card is Frigate.
+    // on the camera list itself rather than at the top of a section whose first card is Frigate.
     async function openCameraSettings(): Promise<void> {
-        handleTabChange('connection');
-        const list = await fieldInOpenedTab(loadConnectionSettings, () => document.getElementById('settings-camera-list'));
+        openSection(settingsSectionOfPart('connection'));
+        const list = await fieldInOpenedPart(loadConnectionSettings, () => document.getElementById('settings-camera-list'));
         list?.scrollIntoView({ block: 'start' });
         list?.focus({ preventScroll: true });
     }
 
     // Notifications needs the Frigate public URL for its Frigate links; it is set in Connection.
     async function openFrigatePublicUrl(): Promise<void> {
-        handleTabChange('connection');
-        const field = await fieldInOpenedTab(loadConnectionSettings, () => document.getElementById('frigate-external-url'));
+        openSection(settingsSectionOfPart('connection'));
+        const field = await fieldInOpenedPart(loadConnectionSettings, () => document.getElementById('frigate-external-url'));
         field?.scrollIntoView({ block: 'center' });
         field?.focus({ preventScroll: true });
     }
@@ -1420,18 +1447,18 @@
     // Garden alerts are set with Garden; Notifications links straight to their section.
     async function openGardenAlerts(): Promise<void> {
         disclosures.setOpen('garden-section-alerts', true);
-        handleTabChange('beta');
-        const toggle = await fieldInOpenedTab(loadGardenBetaSettings, () => document.getElementById('garden-section-alerts-toggle'));
+        openSection(settingsSectionOfPart('beta'));
+        const toggle = await fieldInOpenedPart(loadGardenBetaSettings, () => document.getElementById('garden-section-alerts-toggle'));
         toggle?.scrollIntoView({ block: 'start' });
         toggle?.focus({ preventScroll: true });
     }
 
-    // Drive taxonomy status from the derived active tab so router-driven changes
-    // (back/forward, deep links) still flip the lifecycle correctly. Opening the tab reads
+    // Drive taxonomy status from the derived active section so router-driven changes
+    // (back/forward, deep links) still flip the lifecycle correctly. Opening the section reads
     // the status once; polling runs only while a repair runs, not every 3 s for as long as
-    // the tab stays open.
+    // the section stays open.
     $effect(() => {
-        if (activeTab === 'maintenance') {
+        if (activeSection === settingsSectionOfPart('maintenance')) {
             void loadTaxonomyStatus();
         } else {
             stopTaxonomyPolling();
@@ -1444,7 +1471,7 @@
     $effect(() => {
         if (typeof window === 'undefined') return;
         if (!currentRoute || !currentRoute.startsWith('/settings')) return;
-        const canonical = canonicalSettingsPath(currentRoute, window.location.hash.slice(1));
+        const canonical = canonicalSettingsPath(currentRoute.replace(/#.*$/, ''), window.location.hash.slice(1));
         if (canonical && canonical !== currentRoute) {
             if (onNavigate) onNavigate(canonical, { replace: true });
             else window.history.replaceState(null, '', toAppPath(canonical));
@@ -2934,8 +2961,8 @@
         fieldErrors = errors;
         refusedPayload = payload as Record<string, unknown>;
         saveProblem = { key: 'settings.save_bar.refused', fallback: 'Nothing was saved. Correct the highlighted values, then save again.' };
-        // Focus stays on Save otherwise, and a refused field on another tab would never be seen.
-        const first = firstRefusedField(errors.map((error) => error.field), activeTab);
+        // Focus stays on Save otherwise, and a refused field in another section would never be seen.
+        const first = firstRefusedField(errors.map((error) => error.field), activeSection);
         if (first) void openRefusedField(first);
     }
 
@@ -3004,10 +3031,10 @@
         void tick().then(() => document.querySelector<HTMLElement>('[data-settings-content]')?.focus());
     }
 
-    // Opens the tab holding a refused field and puts focus on its input once the tab has loaded.
+    // Opens the section holding a refused field and puts focus on its input once it has loaded.
     async function openRefusedField(field: string): Promise<void> {
-        const tab = settingsFieldTab(field);
-        if (tab && tab !== activeTab) handleTabChange(tab);
+        const section = settingsFieldSection(field);
+        if (section && section !== activeSection) openSection(section);
         const place = settingsFieldPlace(field);
         // A closed section either does not render its inputs or keeps them hidden; open every
         // section that holds this one, then wait until the input can actually take focus.
@@ -3062,8 +3089,8 @@
 
 </script>
 
-{#snippet pageTabs()}
-    <SettingsTabs {activeTab} ontabchange={handleTabChange} unsavedTabs={unsavedSummary.tabs} refusedTabs={refusedTabs} contentId="settings-content" />
+{#snippet pageNavigation()}
+    <SettingsTabs {activeSection} onsectionchange={openSection} unsavedSections={unsavedSummary.sections} {refusedSections} contentId="settings-content" />
 {/snippet}
 
 <SettingsPage
@@ -3077,476 +3104,352 @@
     {saving}
     onSave={saveSettings}
     onDiscard={discardChanges}
-    unsaved={{ count: unsavedSummary.count, tabs: unsavedSummary.tabs.map((tab) => ({ id: tab, label: tabLabel(tab) })) }}
-    onOpenTab={handleTabChange}
+    unsaved={{ count: unsavedSummary.count, tabs: unsavedSummary.sections.map((section) => ({ id: section, label: sectionLabel(section) })) }}
+    onOpenTab={openSection}
     {saveProblem}
-    refusedFields={standingErrors.map((error) => ({ field: error.field, label: fieldLabelWithTab(error.field) }))}
+    refusedFields={standingErrors.map((error) => ({ field: error.field, label: fieldLabelWithSection(error.field) }))}
     onOpenField={openRefusedField}
-    conflicts={draftConflicts.map((conflict) => ({ field: conflict.field, label: fieldLabelWithTab(conflict.field), saved: conflictValueText(conflict.saved, $_), mine: conflictValueText(conflict.mine, $_) }))}
+    conflicts={draftConflicts.map((conflict) => ({ field: conflict.field, label: fieldLabelWithSection(conflict.field), saved: conflictValueText(conflict.saved, $_), mine: conflictValueText(conflict.mine, $_) }))}
     onUseSaved={keepSavedValue}
     onUseMine={keepMyChange}
     restoredNotice={restoredDraft ? $_('settings.save_bar.restored', { default: "You left with unsaved changes. They're still here." }) : null}
     retypeSecrets={restoredSecretNames
         ? $_('settings.save_bar.retype_secrets', { values: { fields: restoredSecretNames }, default: 'Type {fields} again: secrets are not kept when you leave Settings.' })
         : null}
-    tabs={pageTabs}
+    tabs={pageNavigation}
 >
     {#snippet children()}
-            <!-- Connection Tab -->
-            {#if activeTab === 'connection'}
-                <LazyRoute loader={loadConnectionSettings} label={$_('settings.tabs.connection')}>
-                {#snippet content(ConnectionSettings)}
-                <ConnectionSettings
-                    bind:frigateUrl
-                    bind:frigateIngestLabels
-                    bind:frigateExternalUrl
-                    bind:mqttServer
-                    bind:mqttPort
-                    bind:mqttAuth
-                    bind:mqttUsername
-                    bind:mqttPassword
-                    bind:mqttPasswordSaved
-                    bind:selectedCameras
-                    bind:gardenCameras
-                    bind:gardenMotionCameras
-                    {betaGardenAnimals}
-                    bind:cameraRoles
-                    bind:nestDedupeMinutes
-                    bind:classificationImageSource
-                    bind:recordingFrameDelaySeconds
-                    bind:clipsEnabled
-                    bind:recordingClipEnabled
-                    bind:recordingClipBeforeSeconds
-                    bind:recordingClipAfterSeconds
-                    {frigateCameras}
-                    {frigateCamerasFailed}
-                    {recordingClipCapability}
-                    {recordingClipCapabilityLoading}
-                    {camerasLoading}
-                    {loadCameras}
-                />
-                {/snippet}
-                </LazyRoute>
-            {/if}
-
-            <!-- Detection Tab -->
-            {#if activeTab === 'detection'}
-                <LazyRoute loader={loadDetectionSettings} label={$_('settings.tabs.detection')}>
-                {#snippet content(DetectionSettings)}
-                <DetectionSettings
-                    bind:threshold
-                    bind:minConfidence
-                    bind:trustFrigateSublabel
-                    bind:writeFrigateSublabel
-                    bind:personalizedRerankEnabled
-                    bind:autoVideoClassification
-                    bind:videoClassificationDelay
-                    bind:videoClassificationMaxRetries
-                    bind:videoClassificationFrames
-                    bind:blockedLabels
-                    bind:blockedSpecies
-                    {videoCircuitOpen}
-                    {videoCircuitUntil}
-                    {videoCircuitFailures}
-                    onopenlocationsettings={() => openIntegrationField('#location-lat', '#setting-location-mode + div input[type="radio"]:not(:checked)')}
-                    bind:rangeFilterEnabled
-                    bind:rangeFilterRegionLevel
-                    onopenebirdsettings={() => openIntegrationField('#ebird-api-key', 'button[aria-labelledby="integration-ebird-title"]')}
-                    onopenactivitylog={onNavigate ? () => onNavigate('/system-health') : undefined}
-                    onopenmanualobservation={onNavigate ? () => onNavigate('/observations/new') : undefined}
-                    onopenmodels={() => handleTabChange('models')}
-                />
-                {/snippet}
-                </LazyRoute>
-            {/if}
-
-            <!-- Models Tab -->
-            {#if activeTab === 'models'}
-                <LazyRoute loader={loadModelSettings} label={$_('settings.tabs.models', { default: 'Models' })}>
-                {#snippet content(ModelSettings)}
-                <ModelSettings
-                    bind:liveWorkerCount
-                    bind:backgroundWorkerCount
-                    autoVideoClassification={autoVideoClassification}
-                    bind:birdModelRegionOverride
-                    bind:birdFinder
-                    bind:birdFinderProvider
-                    bind:imageExecutionMode
-                    bind:inferenceProvider
-                    bind:strictNonFiniteOutput
-                    {debugUiEnabled}
-                    {classifierStatus}
-                    onrefreshclassifierstatus={loadClassifierStatus}
-                    onopenlocationsettings={() => openIntegrationField('#location-lat', '#setting-location-mode + div input[type="radio"]:not(:checked)')}
-                    onopenmodelevaluation={onNavigate ? () => onNavigate('/diagnostics/model-eval') : undefined}
-                />
-                {/snippet}
-                </LazyRoute>
-            {/if}
-
-            <!-- Notifications Tab -->
-            {#if activeTab === 'notifications'}
-                <LazyRoute loader={loadNotificationSettings} label={$_('settings.tabs.notifications')}>
-                {#snippet content(NotificationSettings)}
-                <NotificationSettings
-                    bind:notifyMinConfidence={filterConfidence}
-                    bind:notifyAudioOnly={filterAudioOnly}
-                    bind:filterSpeciesMode
-                    bind:filterSpeciesEntries
-                    bind:legacySpeciesWhitelist={filterWhitelist}
-                    bind:notifyMode
-                    bind:notifyOnInsert
-                    bind:notifyOnUpdate
-                    bind:notifyDelayUntilVideo
-                    bind:notifyVideoFallbackTimeout
-                    bind:notifyCooldownMinutes
-                    bind:discordEnabled
-                    bind:discordWebhook
-                    bind:discordWebhookSaved
-                    bind:discordBotName={discordUsername}
-                    bind:pushoverEnabled
-                    bind:pushoverUserKey={pushoverUser}
-                    bind:pushoverUserSaved
-                    bind:pushoverApiToken={pushoverToken}
-                    bind:pushoverTokenSaved
-                    bind:pushoverPriority
-                    bind:pushoverDevice
-                    bind:telegramEnabled
-                    bind:telegramBotToken={telegramToken}
-                    bind:telegramTokenSaved
-                    bind:telegramChatId
-                    bind:telegramChatIdSaved
-                    bind:notificationLanguage
-                    bind:emailEnabled
-                    bind:emailUseOAuth
-                    bind:emailConnectedEmail
-                    bind:emailOAuthProvider
-                    bind:emailGmailClientId
-                    bind:emailGmailClientSecret
-                    bind:emailGmailClientSecretSaved
-                    bind:emailOutlookClientId
-                    bind:emailOutlookClientSecret
-                    bind:emailOutlookClientSecretSaved
-                    bind:emailOnlyOnEnd
-                    bind:emailSmtpHost
-                    bind:emailSmtpPort
-                    bind:emailSmtpUseTls
-                    bind:emailSmtpUsername
-                    bind:emailSmtpPassword
-                    bind:emailSmtpPasswordSaved
-                    bind:emailFromEmail
-                    bind:emailToEmail
-                    bind:emailIncludeSnapshot
-                    bind:instanceUrl
-                    bind:linkTarget={notifyLinkTarget}
-                    {frigateExternalUrl}
-                    onOpenConnection={() => void openFrigatePublicUrl()}
-                    gardenBeta={betaGardenAnimals}
-                    onOpenGarden={() => void openGardenAlerts()}
-                    {sendTestEmail}
-                    {initiateGmailOAuth}
-                    {initiateOutlookOAuth}
-                    {disconnectEmailOAuth}
-                    onActionFeedback={handleActionFeedback}
-                />
-                {/snippet}
-                </LazyRoute>
-            {/if}
-
-            <!-- Integrations Tab -->
-            {#if activeTab === 'integrations'}
-                <LazyRoute loader={loadIntegrationSettings} label={$_('settings.tabs.integrations')}>
-                {#snippet content(IntegrationSettings)}
-                <IntegrationSettings
-                    weatherUnitSystem={locationWeatherUnitSystem}
-                    bind:birdnetEnabled
-                    bind:birdnetUrl
-                    bind:birdnetExternalUrl
-                    bind:audioTopic
-                    bind:audioBufferHours
-                    bind:audioCorrelationWindowSeconds
-                    bind:cameraAudioMapping
-                    {birdnetSourceOptions}
-                    {loadingBirdnetSources}
-                    {birdnetSourcesError}
-                    {availableCameras}
-                    bind:birdweatherEnabled
-                    bind:birdweatherStationToken
-                    bind:birdweatherStationTokenSaved
-                    bind:haWeatherEnabled
-                    bind:haWeatherBaseUrl
-                    bind:haWeatherAccessToken
-                    bind:haWeatherAccessTokenSaved
-                    bind:haWeatherEntity
-                    bind:haWeatherTemperatureEntity
-                    bind:haWeatherWindSpeedEntity
-                    bind:haWeatherWindDirectionEntity
-                    bind:haWeatherCloudCoverEntity
-                    bind:haWeatherPrecipitationEntity
-                    bind:haWeatherRainEntity
-                    bind:haWeatherSnowfallEntity
-                    bind:haWeatherIlluminanceEntity
-                    bind:ebirdEnabled
-                    bind:ebirdApiKey
-                    bind:ebirdApiKeySaved
-                    bind:ebirdDefaultRadiusKm
-                    bind:ebirdDefaultDaysBack
-                    bind:ebirdMaxResults
-                    bind:ebirdLocale
-                    bind:inaturalistEnabled
-                    bind:inaturalistClientId
-                    bind:inaturalistClientSecret
-                    bind:inaturalistClientIdSaved
-                    bind:inaturalistClientSecretSaved
-                    bind:inaturalistDefaultLat
-                    bind:inaturalistDefaultLon
-                    bind:inaturalistDefaultPlace
-                    bind:inaturalistConnectedUser
-                    bind:locationAuto
-                    bind:locationLat
-                    bind:locationLon
-                    bind:locationState
-                    bind:locationCountry
-                    bind:locationWeatherUnitSystem
-                    {prepareInaturalistOAuth}
-                    initiateInaturalistOAuth={initiateInaturalistOAuth}
-                    disconnectInaturalistOAuth={disconnectInaturalistOAuth}
-                    refreshInaturalistStatus={async () => {
-                        await settingsStore.load();
-                        await loadSettings(true);
-                    }}
-                    exportEbirdCsv={exportEbirdCsv}
-                    onActionFeedback={handleActionFeedback}
-                    savedLocation={settingsStore.settings
-                        ? { latitude: settingsStore.settings.location_latitude ?? null, longitude: settingsStore.settings.location_longitude ?? null }
-                        : null}
-                />
-                {/snippet}
-                </LazyRoute>
-                <!-- Where species pages get their information: chosen from these integrations, so shown with them. -->
-                <LazyRoute
-                    loader={loadEnrichmentTab}
-                    label={$_('settings.enrichment.title')}
-                    props={{
-                        ...enrichmentDraft,
-                        onOpenEbird: () => openIntegrationField('#ebird-api-key', 'button[aria-labelledby="integration-ebird-title"]')
-                    }}
-                />
-            {/if}
-
-            <!-- AI Tab -->
-            {#if activeTab === 'ai'}
-                <LazyRoute
-                    loader={loadAiTab}
-                    label={$_('settings.tabs.ai', { default: 'AI' })}
-                    props={{ draft: aiDraft, onchange: (edit: Partial<AiDraft>) => (aiDraft = editAiDraft(aiDraft, edit)) }}
-                />
-            {/if}
-
-            <!-- Security Tab -->
-            {#if activeTab === 'security'}
-                {#if authStore.httpsWarning}
-                    <div class="mb-6 flex items-start gap-3 rounded-2xl border border-attention-200 bg-attention-50 px-4 py-3 text-sm text-attention-900 dark:border-attention-800 dark:bg-attention-950/30 dark:text-attention-100" data-https-warning>
-                        <svg xmlns="http://www.w3.org/2000/svg" class="mt-0.5 h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                        </svg>
-                        <p>
-                            <strong class="font-semibold">{$_('settings.security.https_warning_title', { default: 'Passwords travel unencrypted.' })}</strong>
-                            {$_('settings.security.https_warning', { default: 'Sign-in is on, but this page is served over HTTP, so passwords and sessions can be read on the network. Serve YA-WAMF over HTTPS, for example behind your reverse proxy.' })}
-                        </p>
-                    </div>
-                {/if}
-                <LazyRoute loader={loadAuthenticationSettings} label={$_('settings.tabs.security')}>
-                {#snippet content(AuthenticationSettings)}
-                <AuthenticationSettings
-                    bind:authEnabled
-                    bind:authUsername
-                    bind:authHasPassword
-                    bind:authPassword
-                    bind:authPasswordConfirm
-                    bind:authSessionExpiryHours
-                    bind:trustedProxyHosts
-                    bind:trustedProxyHostsSuggested
-                    bind:newTrustedProxyHost
-                    bind:publicAccessEnabled
-                    bind:publicAccessShowCameraNames
-                    bind:publicAccessShowAiConversation
-                    bind:publicAccessAllowClipDownloads
-                    bind:publicAccessShowAudio
-                    bind:publicAccessShowSnapshots
-                    bind:publicAccessShowClips
-                    bind:publicAccessLocationPrecision
-                    bind:publicAccessHistoricalDaysMode
-                    bind:publicAccessHistoricalDays
-                    bind:publicAccessMediaDaysMode
-                    bind:publicAccessMediaHistoricalDays
-                    bind:publicAccessRateLimitPerMinute
-                    bind:publicAccessExternalBaseUrl
-                    retentionDays={retentionDays}
-                    addTrustedProxyHost={addTrustedProxyHost}
-                    removeTrustedProxyHost={removeTrustedProxyHost}
-                    acceptTrustedProxySuggestions={acceptTrustedProxySuggestions}
-                />
-                {/snippet}
-                </LazyRoute>
-                <!-- What leaves this install: kept with who can reach it. -->
-                <LazyRoute loader={loadTelemetrySettings} label={$_('settings.telemetry.title')}>
-                {#snippet content(TelemetrySettings)}
-                <TelemetrySettings
-                    bind:telemetryEnabled
-                    bind:telemetryHealthEnabled
-                    {telemetryInstallationId}
-                    {telemetryPlatform}
-                    {telemetryPayloadPreview}
-                    {versionInfo}
-                />
-                {/snippet}
-                </LazyRoute>
-            {/if}
-
-            <!-- Data Tab: what is kept, for how long, and the configuration backup -->
-            {#if activeTab === 'data'}
-                <LazyRoute loader={loadDataSettings} label={$_('settings.tabs.data')}>
-                {#snippet content(DataSettings)}
-                <DataSettings
-                    bind:retentionDays
-                    bind:frigateMissingBehavior
-                    bind:autoPurgeMissingClips
-                    bind:autoPurgeMissingSnapshots
-                    bind:cacheClips
-                    bind:cacheHighQualityEventSnapshots
-                    bind:cacheHighQualityEventSnapshotJpegQuality
-                    bind:cacheRetentionDays
-                    bind:cachePerSpeciesMaximum
-                    bind:cacheMaxSizeMb
-                    bind:cacheMaxSizeInvalid
-                    bind:cacheAutomaticMultiBirdScan
-                    bind:cacheBirdScanMode
-                    bind:cachePerSpeciesMinimum
-                    {maintenanceStats}
-                    {retentionNote}
-                    {cacheStats}
-                    {cacheStatsError}
-                    {cacheStatsLoading}
-                    onRetryCacheStats={loadCacheStats}
-                    {classifierStatus}
-                    {cleaningUp}
-                    {purgingMissingMedia}
-                    {cleaningCache}
-                    {exportingConfigBackup}
-                    {importingConfigBackup}
-                    {handleCleanup}
-                    {handlePurgeMissingMedia}
-                    {handleCacheCleanup}
-                    {handleExportConfigBackup}
-                    {handleImportConfigBackup}
-                />
-                {/snippet}
-                </LazyRoute>
-            {/if}
-
-            <!-- Maintenance Tab: jobs that repair or fill in the history, and deleting it -->
-            {#if activeTab === 'maintenance'}
-                <LazyRoute loader={loadMaintenanceSettings} label={$_('settings.tabs.maintenance', { default: 'Maintenance' })}>
-                {#snippet content(MaintenanceSettings)}
-                <MaintenanceSettings
-                    bind:maintenanceMaxConcurrent
-                    bind:autoAnalyzeUnknowns
-                    bind:backfillDateRange
-                    bind:backfillStartDate
-                    bind:backfillEndDate
-                    {backfillCustomError}
-                    {backfillCustomValid}
-                    {clearingFavorites}
-                    {backfilling}
-                    {backfillResult}
-                    {backfillTotal}
-                    {weatherBackfilling}
-                    {weatherBackfillResult}
-                    {weatherBackfillTotal}
-                    {taxonomyStatus}
-                    {syncingTaxonomy}
-                    {timezoneRepairPreview}
-                    {previewingTimezoneRepair}
-                    {applyingTimezoneRepair}
-                    {resettingDatabase}
-                    {clearingFeedback}
-                    {analyzingUnknowns}
-                    {analysisStatus}
-                    {analysisTotal}
-                    {handleClearFavorites}
-                    {handleStartTaxonomySync}
-                    {handlePreviewTimezoneRepair}
-                    {handleApplyTimezoneRepair}
-                    {handleBackfill}
-                    {handleWeatherBackfill}
-                    {handleAnalyzeUnknowns}
-                    {handleResetDatabase}
-                    {handleClearFeedback}
-                />
-                {/snippet}
-                </LazyRoute>
-            {/if}
-
-            <!-- Appearance Tab -->
-            {#if activeTab === 'appearance'}
-                <LazyRoute
-                    loader={loadAppearanceTab}
-                    label={$_('settings.tabs.appearance')}
-                    props={{
-                        currentTheme,
-                        currentLocale: $locale || 'en',
-                        draft: appearanceDraft,
-                        onchange: updateAppearance,
-                        setTheme,
-                        setLanguage
-                    }}
-                />
-            {/if}
-
-            <!-- Accessibility Tab -->
-            {#if activeTab === 'accessibility'}
-                <LazyRoute
-                    loader={loadAccessibilityTab}
-                    label={$_('settings.tabs.accessibility')}
-                    props={{
-                        draft: accessibilityDraft,
-                        onchange: (patch: Partial<AccessibilityDraft>) => (accessibilityDraft = { ...accessibilityDraft, ...patch })
-                    }}
-                />
-            {/if}
-
-            {#if activeTab === 'beta'}
-                <!-- One card per beta feature. A new feature is another <li> holding its own BetaFeatureCard. -->
-                <div class="space-y-4" data-beta-page>
-                    <ul class="space-y-4" aria-label={$_('settings.beta.title', { default: 'Beta features' })} data-beta-feature-list>
-                        <li>
-                            <LazyRoute loader={loadGardenBetaSettings} label={$_('settings.tabs.beta')}>
-                            {#snippet content(GardenBetaSettings)}
-                            <GardenBetaSettings
-                                bind:enabled={betaGardenAnimals}
-                                cameras={gardenCameras}
-                                motionCameras={gardenMotionCameras}
-                                bind:labels={gardenLabels}
-                                bind:motionConfidence={gardenMotionConfidence}
-                                bind:notificationsEnabled={gardenNotificationsEnabled}
-                                bind:notificationsUseBirdChannels={gardenNotificationsUseBirdChannels}
-                                bind:notificationChannels={gardenNotificationChannels}
-                                bind:notificationsIncludePhoto={gardenNotificationsIncludePhoto}
-                                birdChannels={gardenBirdChannels}
-                                onOpenNotifications={() => handleTabChange('notifications')}
-                                onOpenLocation={() => openIntegrationField('#location-lat', '#setting-location-mode + div input[type="radio"]:not(:checked)')}
-                                bind:automaticNaming={gardenAutomaticNaming}
-                                bind:namingThreshold={gardenNamingThreshold}
-                                bind:domesticBirds={gardenDomesticBirds}
-                                onNavigate={onNavigate ? (path) => onNavigate(path) : undefined}
-                                onOpenCameras={openCameraSettings}
-                            />
-                            {/snippet}
-                            </LazyRoute>
-                        </li>
-                    </ul>
-                </div>
-            {/if}
+        {#if activeSection === 'cameras'}
+            <!-- Cameras & connection: Frigate, MQTT and the cameras -->
+            <CamerasSection
+                bind:frigateUrl
+                bind:frigateIngestLabels
+                bind:frigateExternalUrl
+                bind:mqttServer
+                bind:mqttPort
+                bind:mqttAuth
+                bind:mqttUsername
+                bind:mqttPassword
+                bind:mqttPasswordSaved
+                bind:selectedCameras
+                bind:gardenCameras
+                bind:gardenMotionCameras
+                {betaGardenAnimals}
+                bind:cameraRoles
+                bind:nestDedupeMinutes
+                bind:classificationImageSource
+                bind:recordingFrameDelaySeconds
+                bind:clipsEnabled
+                bind:recordingClipEnabled
+                bind:recordingClipBeforeSeconds
+                bind:recordingClipAfterSeconds
+                {frigateCameras}
+                {frigateCamerasFailed}
+                {recordingClipCapability}
+                {recordingClipCapabilityLoading}
+                {camerasLoading}
+                {loadCameras}
+            />
+        {:else if activeSection === 'identification'}
+            <!-- Identifying birds: detection, models and Beta features -->
+            <IdentificationSection
+                bind:threshold
+                bind:minConfidence
+                bind:trustFrigateSublabel
+                bind:writeFrigateSublabel
+                bind:personalizedRerankEnabled
+                bind:autoVideoClassification
+                bind:videoClassificationDelay
+                bind:videoClassificationMaxRetries
+                bind:videoClassificationFrames
+                bind:blockedLabels
+                bind:blockedSpecies
+                {videoCircuitOpen}
+                {videoCircuitUntil}
+                {videoCircuitFailures}
+                onopenlocationsettings={() => openIntegrationField('#location-lat', '#setting-location-mode + div input[type="radio"]:not(:checked)')}
+                bind:rangeFilterEnabled
+                bind:rangeFilterRegionLevel
+                onopenebirdsettings={() => openIntegrationField('#ebird-api-key', 'button[aria-labelledby="integration-ebird-title"]')}
+                onopenactivitylog={onNavigate ? () => onNavigate('/system-health') : undefined}
+                onopenmanualobservation={onNavigate ? () => onNavigate('/observations/new') : undefined}
+                onopenmodels={() => openPart('models')}
+                bind:liveWorkerCount
+                bind:backgroundWorkerCount
+                bind:birdModelRegionOverride
+                bind:birdFinder
+                bind:birdFinderProvider
+                bind:imageExecutionMode
+                bind:inferenceProvider
+                bind:strictNonFiniteOutput
+                {debugUiEnabled}
+                {classifierStatus}
+                onrefreshclassifierstatus={loadClassifierStatus}
+                onopenmodelevaluation={onNavigate ? () => onNavigate('/diagnostics/model-eval') : undefined}
+                bind:enabled={betaGardenAnimals}
+                cameras={gardenCameras}
+                motionCameras={gardenMotionCameras}
+                bind:labels={gardenLabels}
+                bind:motionConfidence={gardenMotionConfidence}
+                bind:notificationsEnabled={gardenNotificationsEnabled}
+                bind:notificationsUseBirdChannels={gardenNotificationsUseBirdChannels}
+                bind:notificationChannels={gardenNotificationChannels}
+                bind:notificationsIncludePhoto={gardenNotificationsIncludePhoto}
+                birdChannels={gardenBirdChannels}
+                onOpenNotifications={() => openPart('notifications')}
+                onOpenLocation={() => openIntegrationField('#location-lat', '#setting-location-mode + div input[type="radio"]:not(:checked)')}
+                bind:automaticNaming={gardenAutomaticNaming}
+                bind:namingThreshold={gardenNamingThreshold}
+                bind:domesticBirds={gardenDomesticBirds}
+                onNavigate={onNavigate ? (path) => onNavigate(path) : undefined}
+                onOpenCameras={openCameraSettings}
+            />
+        {:else if activeSection === 'alerts'}
+            <!-- Alerts: notifications -->
+            <AlertsSection
+                bind:notifyMinConfidence={filterConfidence}
+                bind:notifyAudioOnly={filterAudioOnly}
+                bind:filterSpeciesMode
+                bind:filterSpeciesEntries
+                bind:legacySpeciesWhitelist={filterWhitelist}
+                bind:notifyMode
+                bind:notifyOnInsert
+                bind:notifyOnUpdate
+                bind:notifyDelayUntilVideo
+                bind:notifyVideoFallbackTimeout
+                bind:notifyCooldownMinutes
+                bind:discordEnabled
+                bind:discordWebhook
+                bind:discordWebhookSaved
+                bind:discordBotName={discordUsername}
+                bind:pushoverEnabled
+                bind:pushoverUserKey={pushoverUser}
+                bind:pushoverUserSaved
+                bind:pushoverApiToken={pushoverToken}
+                bind:pushoverTokenSaved
+                bind:pushoverPriority
+                bind:pushoverDevice
+                bind:telegramEnabled
+                bind:telegramBotToken={telegramToken}
+                bind:telegramTokenSaved
+                bind:telegramChatId
+                bind:telegramChatIdSaved
+                bind:notificationLanguage
+                bind:emailEnabled
+                bind:emailUseOAuth
+                bind:emailConnectedEmail
+                bind:emailOAuthProvider
+                bind:emailGmailClientId
+                bind:emailGmailClientSecret
+                bind:emailGmailClientSecretSaved
+                bind:emailOutlookClientId
+                bind:emailOutlookClientSecret
+                bind:emailOutlookClientSecretSaved
+                bind:emailOnlyOnEnd
+                bind:emailSmtpHost
+                bind:emailSmtpPort
+                bind:emailSmtpUseTls
+                bind:emailSmtpUsername
+                bind:emailSmtpPassword
+                bind:emailSmtpPasswordSaved
+                bind:emailFromEmail
+                bind:emailToEmail
+                bind:emailIncludeSnapshot
+                bind:instanceUrl
+                bind:linkTarget={notifyLinkTarget}
+                {frigateExternalUrl}
+                onOpenConnection={() => void openFrigatePublicUrl()}
+                gardenBeta={betaGardenAnimals}
+                onOpenGarden={() => void openGardenAlerts()}
+                {sendTestEmail}
+                {initiateGmailOAuth}
+                {initiateOutlookOAuth}
+                {disconnectEmailOAuth}
+                onActionFeedback={handleActionFeedback}
+            />
+        {:else if activeSection === 'sharing'}
+            <!-- Sharing & integrations: integrations, AI and security -->
+            <SharingSection
+                weatherUnitSystem={locationWeatherUnitSystem}
+                bind:birdnetEnabled
+                bind:birdnetUrl
+                bind:birdnetExternalUrl
+                bind:audioTopic
+                bind:audioBufferHours
+                bind:audioCorrelationWindowSeconds
+                bind:cameraAudioMapping
+                {birdnetSourceOptions}
+                {loadingBirdnetSources}
+                {birdnetSourcesError}
+                {availableCameras}
+                bind:birdweatherEnabled
+                bind:birdweatherStationToken
+                bind:birdweatherStationTokenSaved
+                bind:haWeatherEnabled
+                bind:haWeatherBaseUrl
+                bind:haWeatherAccessToken
+                bind:haWeatherAccessTokenSaved
+                bind:haWeatherEntity
+                bind:haWeatherTemperatureEntity
+                bind:haWeatherWindSpeedEntity
+                bind:haWeatherWindDirectionEntity
+                bind:haWeatherCloudCoverEntity
+                bind:haWeatherPrecipitationEntity
+                bind:haWeatherRainEntity
+                bind:haWeatherSnowfallEntity
+                bind:haWeatherIlluminanceEntity
+                bind:ebirdEnabled
+                bind:ebirdApiKey
+                bind:ebirdApiKeySaved
+                bind:ebirdDefaultRadiusKm
+                bind:ebirdDefaultDaysBack
+                bind:ebirdMaxResults
+                bind:ebirdLocale
+                bind:inaturalistEnabled
+                bind:inaturalistClientId
+                bind:inaturalistClientSecret
+                bind:inaturalistClientIdSaved
+                bind:inaturalistClientSecretSaved
+                bind:inaturalistDefaultLat
+                bind:inaturalistDefaultLon
+                bind:inaturalistDefaultPlace
+                bind:inaturalistConnectedUser
+                bind:locationAuto
+                bind:locationLat
+                bind:locationLon
+                bind:locationState
+                bind:locationCountry
+                bind:locationWeatherUnitSystem
+                {prepareInaturalistOAuth}
+                initiateInaturalistOAuth={initiateInaturalistOAuth}
+                disconnectInaturalistOAuth={disconnectInaturalistOAuth}
+                refreshInaturalistStatus={async () => {
+                                    await settingsStore.load();
+                                    await loadSettings(true);
+                                }}
+                exportEbirdCsv={exportEbirdCsv}
+                onActionFeedback={handleActionFeedback}
+                savedLocation={settingsStore.settings
+                                    ? { latitude: settingsStore.settings.location_latitude ?? null, longitude: settingsStore.settings.location_longitude ?? null }
+                                    : null}
+                bind:authEnabled
+                bind:authUsername
+                bind:authHasPassword
+                bind:authPassword
+                bind:authPasswordConfirm
+                bind:authSessionExpiryHours
+                bind:trustedProxyHosts
+                bind:trustedProxyHostsSuggested
+                bind:newTrustedProxyHost
+                bind:publicAccessEnabled
+                bind:publicAccessShowCameraNames
+                bind:publicAccessShowAiConversation
+                bind:publicAccessAllowClipDownloads
+                bind:publicAccessShowAudio
+                bind:publicAccessShowSnapshots
+                bind:publicAccessShowClips
+                bind:publicAccessLocationPrecision
+                bind:publicAccessHistoricalDaysMode
+                bind:publicAccessHistoricalDays
+                bind:publicAccessMediaDaysMode
+                bind:publicAccessMediaHistoricalDays
+                bind:publicAccessRateLimitPerMinute
+                bind:publicAccessExternalBaseUrl
+                retentionDays={retentionDays}
+                addTrustedProxyHost={addTrustedProxyHost}
+                removeTrustedProxyHost={removeTrustedProxyHost}
+                acceptTrustedProxySuggestions={acceptTrustedProxySuggestions}
+                bind:telemetryEnabled
+                bind:telemetryHealthEnabled
+                {telemetryInstallationId}
+                {telemetryPlatform}
+                {telemetryPayloadPreview}
+                {versionInfo}
+                enrichmentDraft={enrichmentDraft}
+                onOpenEbird={() => openIntegrationField('#ebird-api-key', 'button[aria-labelledby="integration-ebird-title"]')}
+                aiDraft={aiDraft}
+                onAiChange={(edit: Partial<AiDraft>) => (aiDraft = editAiDraft(aiDraft, edit))}
+            />
+        {:else if activeSection === 'storage'}
+            <!-- Storage & upkeep: data and maintenance -->
+            <StorageSection
+                bind:retentionDays
+                bind:frigateMissingBehavior
+                bind:autoPurgeMissingClips
+                bind:autoPurgeMissingSnapshots
+                bind:cacheClips
+                bind:cacheHighQualityEventSnapshots
+                bind:cacheHighQualityEventSnapshotJpegQuality
+                bind:cacheRetentionDays
+                bind:cachePerSpeciesMaximum
+                bind:cacheMaxSizeMb
+                bind:cacheMaxSizeInvalid
+                bind:cacheAutomaticMultiBirdScan
+                bind:cacheBirdScanMode
+                bind:cachePerSpeciesMinimum
+                {maintenanceStats}
+                {retentionNote}
+                {cacheStats}
+                {cacheStatsError}
+                {cacheStatsLoading}
+                onRetryCacheStats={loadCacheStats}
+                {classifierStatus}
+                {cleaningUp}
+                {purgingMissingMedia}
+                {cleaningCache}
+                {exportingConfigBackup}
+                {importingConfigBackup}
+                {handleCleanup}
+                {handlePurgeMissingMedia}
+                {handleCacheCleanup}
+                {handleExportConfigBackup}
+                {handleImportConfigBackup}
+                bind:maintenanceMaxConcurrent
+                bind:autoAnalyzeUnknowns
+                bind:backfillDateRange
+                bind:backfillStartDate
+                bind:backfillEndDate
+                {backfillCustomError}
+                {backfillCustomValid}
+                {clearingFavorites}
+                {backfilling}
+                {backfillResult}
+                {backfillTotal}
+                {weatherBackfilling}
+                {weatherBackfillResult}
+                {weatherBackfillTotal}
+                {taxonomyStatus}
+                {syncingTaxonomy}
+                {timezoneRepairPreview}
+                {previewingTimezoneRepair}
+                {applyingTimezoneRepair}
+                {resettingDatabase}
+                {clearingFeedback}
+                {analyzingUnknowns}
+                {analysisStatus}
+                {analysisTotal}
+                {handleClearFavorites}
+                {handleStartTaxonomySync}
+                {handlePreviewTimezoneRepair}
+                {handleApplyTimezoneRepair}
+                {handleBackfill}
+                {handleWeatherBackfill}
+                {handleAnalyzeUnknowns}
+                {handleResetDatabase}
+                {handleClearFeedback}
+            />
+        {:else if activeSection === 'display'}
+            <!-- Display: appearance and accessibility -->
+            <DisplaySection
+                {currentTheme}
+                currentLocale={$locale || 'en'}
+                {appearanceDraft}
+                onAppearanceChange={updateAppearance}
+                {setTheme}
+                {setLanguage}
+                {accessibilityDraft}
+                onAccessibilityChange={(patch: Partial<AccessibilityDraft>) => (accessibilityDraft = { ...accessibilityDraft, ...patch })}
+            />
+        {/if}
     {/snippet}
 </SettingsPage>

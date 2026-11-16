@@ -2,7 +2,7 @@
   "cameras_all_offline": "All cameras offline",
   "cameras_all_online": "All cameras online",
   "cameras_checking": "Checking cameras…",
-  "cameras_empty": "No cameras configured. Add cameras in Settings → Connection.",
+  "cameras_empty": "No cameras configured. Add cameras in Settings → Cameras & connection.",
   "cameras_frame_alt": "Latest frame from {camera}",
   "cameras_frame_unavailable": "Frame unavailable",
   "cameras_label": "Camera status",

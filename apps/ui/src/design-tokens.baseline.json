@@ -499,11 +499,6 @@
     "dark": 39,
     "arbitrary": 0
   },
-  "lib/components/settings/SettingsTabs.svelte": {
-    "palette": 12,
-    "dark": 6,
-    "arbitrary": 0
-  },
   "lib/components/settings/SystemHealthPanel.svelte": {
     "palette": 0,
     "dark": 0,
@@ -673,11 +668,6 @@
     "palette": 97,
     "dark": 44,
     "arbitrary": 1
-  },
-  "lib/pages/Settings.svelte": {
-    "palette": 6,
-    "dark": 3,
-    "arbitrary": 0
   },
   "lib/pages/Species.svelte": {
     "palette": 394,

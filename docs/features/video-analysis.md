@@ -10,7 +10,7 @@ YA-WAMF keeps the existing identification.
 Video identification, the displayed photograph and additional birds in a capture are separate
 outcomes. A completed species analysis does not prove that a suitable new photograph was found.
 
-- **Best available event snapshots** in **Settings → Data → Snapshot quality** controls automatic
+- **Best available event snapshots** in **Settings → Storage & upkeep → Snapshot quality** controls automatic
   photo work. Owner-selected photos and explicit species corrections remain protected.
 - **Automatically find additional birds** in that section is off by default, including on
   upgrade. Normal identification and target-photo selection still work when it is off.
@@ -42,7 +42,7 @@ YA-WAMF waits briefly for Frigate to finish a new clip. It prefers a usable cach
 recording, then a partial recording, then an event clip, before asking Frigate for media. Missing
 video has bounded retries and a snapshot fallback. A shorter, decodable clip remains useful evidence.
 
-The default is **15 frames**, configurable under **Settings → Detection**. Each sampled moment can
+The default is **15 frames**, configurable under **Settings → Identifying birds**. Each sampled moment can
 provide a full-frame view, a timestamp-aligned Frigate crop and detector crops. Those are alternate
 views of one moment, not extra votes. A result needs repeated confident support; reliable tracked
 geometry and repeated evidence for the event's bird take priority over another bird in the scene.
@@ -163,7 +163,7 @@ recovery loops.
 
 | Setting | Location | Description |
 |---------|----------|-------------|
-| **Frame count** | Settings → Detection | Number of frames sampled per clip (default: 15). Higher values sample more of the clip but take longer and do not guarantee a better identification. |
+| **Frame count** | Settings → Identifying birds | Number of frames sampled per clip (default: 15). Higher values sample more of the clip but take longer and do not guarantee a better identification. |
 
 Video-job concurrency follows `CLASSIFICATION__BACKGROUND_WORKER_COUNT` (one worker when
 unset), with one clip per worker. The legacy `video_classification_max_concurrent` setting is

@@ -174,7 +174,7 @@
   "errors_filtered_title": "Detecciones filtradas",
   "errors_filtered_none": "Todavía no se ha filtrado nada.",
   "errors_filtered_summary": "{count, plural, one {# detección no cumplió tus ajustes de detección.} other {# detecciones no cumplieron tus ajustes de detección.}} Es el filtro funcionando, no un fallo.",
-  "errors_filtered_hint": "Ajusta el umbral de identificación en Ajustes → Detección para conservar más.",
+  "errors_filtered_hint": "Ajusta el umbral de identificación en Ajustes → Identificar aves para conservar más.",
   "errors_filtered_recent": "Más recientes",
   "errors_activity_title": "Qué ha pasado",
   "errors_activity_subtitle": "Visitas registradas, detecciones filtradas y fallos del proceso, en el orden en que ocurrieron",
@@ -283,13 +283,13 @@
   "errors_pipeline_idle": "Ninguna detección ha llegado al proceso desde que se inició esta instancia.",
   "errors_problem": {
     "mqtt_down": "El broker MQTT en {server} no está conectado, así que no pueden llegar nuevas detecciones.",
-    "mqtt_down_next": "Comprueba su dirección en Ajustes → Conexión y que el broker esté en marcha.",
+    "mqtt_down_next": "Comprueba su dirección en Ajustes → Cámaras y conexión y que el broker esté en marcha.",
     "mqtt_not_configured": "No hay ningún broker MQTT configurado, así que no pueden llegar detecciones.",
-    "mqtt_not_configured_next": "Añade uno en Ajustes → Conexión.",
+    "mqtt_not_configured_next": "Añade uno en Ajustes → Cámaras y conexión.",
     "mqtt_stopped": "El servicio MQTT no está en marcha, así que no pueden llegar nuevas detecciones.",
     "mqtt_stopped_next": "Reinicia YA-WAMF para volver a iniciarlo.",
     "frigate_down": "Frigate en {url} no responde, así que no se pueden guardar nuevas detecciones.",
-    "frigate_down_next": "Comprueba su dirección en Ajustes → Conexión y que Frigate esté en marcha."
+    "frigate_down_next": "Comprueba su dirección en Ajustes → Cámaras y conexión y que Frigate esté en marcha."
   },
   "errors_clear_effect": "Elimina ahora los errores e incidentes registrados. Las comprobaciones en vivo continúan.",
   "earlier_incidents_title": "Incidentes anteriores",
@@ -333,11 +333,11 @@
   "diagnostic_words": {
     "classify_snapshot_timeout": {
       "title": "Se descartó una detección porque identificar su instantánea tardó demasiado.",
-      "next": "Puede que el clasificador esté sobrecargado. Revisa el uso de recursos arriba o elige un modelo más ligero en Ajustes → Modelos."
+      "next": "Puede que el clasificador esté sobrecargado. Revisa el uso de recursos arriba o elige un modelo más ligero en Ajustes → Identificar aves."
     },
     "classify_snapshot_overloaded": {
       "title": "Se descartó una detección porque el clasificador estaba demasiado ocupado.",
-      "next": "Revisa el uso de recursos arriba. Si ocurre a menudo, elige un modelo más ligero en Ajustes → Modelos."
+      "next": "Revisa el uso de recursos arriba. Si ocurre a menudo, elige un modelo más ligero en Ajustes → Identificar aves."
     },
     "classify_snapshot_unavailable": {
       "title": "Se descartó una detección porque Frigate no tenía instantánea para ella.",
@@ -345,7 +345,7 @@
     },
     "classifier_empty_results": {
       "title": "Se descartó una detección porque el clasificador no dio respuesta.",
-      "next": "Comprueba que hay un modelo cargado en Ajustes → Modelos."
+      "next": "Comprueba que hay un modelo cargado en Ajustes → Identificar aves."
     },
     "save_and_notify_failed": {
       "title": "Se identificó una detección, pero no se pudo guardar.",

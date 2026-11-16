@@ -31,7 +31,7 @@ See the full [Recommended Frigate Config](../setup/frigate-config.md) for optimi
 
 ## API Connection
 
-In YA-WAMF, set **Settings → Connection → Frigate URL** to the internal URL of your Frigate instance (e.g., `http://frigate:5000`). The backend uses the Frigate HTTP API to fetch:
+In YA-WAMF, set **Settings → Cameras & connection → Frigate URL** to the internal URL of your Frigate instance (e.g., `http://frigate:5000`). The backend uses the Frigate HTTP API to fetch:
 
 - **Snapshots** — Frigate's final clean best frame plus its tracked-object coordinates
 - **Video clips** — used for Deep Video Analysis and Full-visit clips
@@ -52,7 +52,7 @@ a usable HQ source even when neither an event clip nor a cached recording clip i
 
 ### Initial classification image
 
-In **Settings → Connection → Identify new detections from**, choose **Detection snapshot**
+In **Settings → Cameras & connection → Identify new detections from**, choose **Detection snapshot**
 (the default) or **Recording frame**. The recording option
 requests one full-resolution still through Frigate's [recording snapshot API](https://docs.frigate.video/integrations/api/get-snapshot-from-recording-camera-name-recordings-frame-time-snapshot-format-get/),
 using the best snapshot's timestamp and its matching tracked-bird box. A full clean snapshot copy
@@ -106,7 +106,7 @@ already waiting events keep their scheduled delay. It has no effect in **Detecti
 ### Import retained event history
 
 During first-run setup, **Import existing detections** can start a one-day, seven-day, or 30-day
-background import. You can run a custom range later under **Settings → Maintenance → Missed detections**.
+background import. You can run a custom range later under **Settings → Storage & upkeep → Missed detections**.
 Custom dates use your browser timezone and include the whole final day.
 
 YA-WAMF imports only bird events Frigate still returns with a snapshot. Reprocessing the same event
@@ -160,11 +160,11 @@ protection.
 
 When YA-WAMF identifies a species with high confidence, it pushes the label back to Frigate as a **sublabel**. This lets you see the species name directly in the Frigate UI and use it in Frigate's own notification rules and filters.
 
-This can be disabled in **Settings → Detection** if you do not want YA-WAMF writing back to Frigate events.
+This can be disabled in **Settings → Identifying birds** if you do not want YA-WAMF writing back to Frigate events.
 
 ## Camera Selection
 
-After connecting, go to **Settings → Connection** and select which Frigate cameras YA-WAMF should monitor. Only events from selected cameras are processed.
+After connecting, go to **Settings → Cameras & connection** and select which Frigate cameras YA-WAMF should monitor. Only events from selected cameras are processed.
 
 ## Live Camera Status
 
