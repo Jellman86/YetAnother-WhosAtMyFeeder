@@ -47,6 +47,7 @@ FinderCheckReasonCode = Literal[
     "gpu_recovery",
     "no_accelerator",
     "ledger_unreadable",
+    "no_full_frames",
 ]
 
 

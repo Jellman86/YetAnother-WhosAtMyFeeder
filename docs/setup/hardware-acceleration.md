@@ -334,7 +334,14 @@ Existing worker crop sessions
 adopt a changed recommendation on their next use without restarting the worker.
 After a kernel, driver or image update, startup re-checks the chosen finder on
 its previously checked accelerators, or its explicitly saved accelerator, using at
-most 12 of the newest saved bird snapshots. A missing eligibility list does not
+most 12 of this host's saved full camera frames. A wide-frame finder looks for birds
+in whole frames, so the check skips model crops, Frigate-hint crops, retained HQ
+snapshots and thumbnails, and any image whose short side is under 480 px. It prefers
+saved full frames, then original event snapshots, takes one frame per visit before a
+second (never more than two), and newest visits first. With fewer than three full
+frames it waits as **no full frames**, says so under **Runs on**, and checks again
+every five minutes without spending an attempt. **Check devices** uses the same
+frames. A missing eligibility list does not
 prevent this recovery. The five-minute scheduler waits for photos without spending
 an attempt. A completed pass or box mismatch finishes that runtime, artifact,
 comparison-policy and device-preference context. Interrupted, unfinished or superseded

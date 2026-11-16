@@ -537,7 +537,7 @@ export interface components {
     next_retry_at?: string | null;
     providers: Array<string>;
     reason: string | null;
-    reason_code?: "mismatch" | "unfinished" | "no_photos" | "driver_changed" | "no_positive_baseline" | "superseded" | "interrupted" | "passed" | "gpu_recovery" | "no_accelerator" | "ledger_unreadable" | null;
+    reason_code?: "mismatch" | "unfinished" | "no_photos" | "driver_changed" | "no_positive_baseline" | "superseded" | "interrupted" | "passed" | "gpu_recovery" | "no_accelerator" | "ledger_unreadable" | "no_full_frames" | null;
     runtime_current?: boolean;
     state: "idle" | "waiting" | "running" | "succeeded" | "failed" | "superseded" | "interrupted";
     [key: string]: components['schemas']['JsonValue'];
@@ -547,7 +547,7 @@ export interface components {
     model_id: string | null;
     providers: Array<string>;
     reason: string | null;
-    reason_code?: "mismatch" | "unfinished" | "no_photos" | "driver_changed" | "no_positive_baseline" | "superseded" | "interrupted" | "passed" | "gpu_recovery" | "no_accelerator" | "ledger_unreadable" | null;
+    reason_code?: "mismatch" | "unfinished" | "no_photos" | "driver_changed" | "no_positive_baseline" | "superseded" | "interrupted" | "passed" | "gpu_recovery" | "no_accelerator" | "ledger_unreadable" | "no_full_frames" | null;
     runtime_current?: boolean;
     state: "idle" | "waiting" | "running" | "succeeded" | "failed" | "superseded" | "interrupted";
     [key: string]: components['schemas']['JsonValue'];

@@ -137,6 +137,10 @@ async def test_rfdetr_cuda_selection_requires_current_cpu_agreeing_evidence(
     images = run / IMAGES_SUBDIR
     images.mkdir(parents=True)
     Image.new("RGB", (16, 16), "green").save(images / "bird.jpg")
+    # Finder sweeps run on the host's saved full frames, not the downloaded species photos.
+    from app.services import bird_finder_revalidation
+
+    monkeypatch.setattr(bird_finder_revalidation, "recent_bird_photos", lambda: [str(images / "bird.jpg")] * 3)
     runner = ModelEvalRunner()
     monkeypatch.setattr(runner, "_emit", AsyncMock())
     metadata = model_manager._get_registry_model_meta(MODEL_ID)

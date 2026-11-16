@@ -107,6 +107,11 @@ def cache_file_event_id(path: Path) -> str:
             return candidate.group(1) if candidate else owner
     except (OSError, ValueError, TypeError):
         pass
+    return cache_name_event_id(name)
+
+
+def cache_name_event_id(name: str) -> str:
+    """The visit a cache file name belongs to, read from the name alone."""
     for suffix in (".jpg.meta.json", ".mp4.meta.json", ".jpg", ".mp4", ".json"):
         if name.endswith(suffix):
             name = name[: -len(suffix)]

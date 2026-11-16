@@ -137,16 +137,125 @@ async def test_interrupted_finder_recheck_is_recorded_without_retry(environment)
     assert sweep.await_count == 1
 
 
-def test_recent_bird_photos_takes_newest_full_snapshots_only(tmp_path):
-    for index, name in enumerate(["old.jpg", "new.jpg", "new_thumb.jpg", "notes.txt", "middle.jpg"]):
-        path = tmp_path / name
-        path.write_bytes(b"x")
-        os.utime(path, (1_000 + index, 1_000 + index))
-    (tmp_path / "new.jpg").touch()
-    os.utime(tmp_path / "new.jpg", (5_000, 5_000))
+def _jpeg(path, size, mtime):
+    from PIL import Image
 
-    assert recovery.newest_snapshots(tmp_path, limit=2) == [str(tmp_path / "new.jpg"), str(tmp_path / "middle.jpg")]
-    assert recovery.newest_snapshots(tmp_path / "missing", limit=2) == []
+    Image.new("RGB", size, (90, 120, 60)).save(path, "JPEG", quality=60)
+    os.utime(path, (mtime, mtime))
+
+
+def test_the_check_panel_takes_full_camera_frames_and_never_bird_crops(tmp_path):
+    # Mirrors a host that keeps model crops and cropped HQ snapshots beside its full frames.
+    files = {
+        "v1.jpg": ((640, 480), 100),
+        "v1_thumb.jpg": ((640, 480), 101),
+        "v1__model_crop__f10__c3__aaaaaaaaaa__image.jpg": ((640, 640), 102),
+        "v1__model_crop__f10__c3__aaaaaaaaab__thumb_thumb.jpg": ((160, 160), 102),
+        "v1__retained_snapshot__bbbbbbbbbbbb__image.jpg": ((800, 600), 103),
+        "v1__frigate_hint_crop__f10__cccccccccc__image.jpg": ((800, 600), 104),
+        "v1__full_frame__f10__dddddddddd__image.jpg": ((1280, 720), 105),
+        "v1__full_frame__f20__eeeeeeeeee__image.jpg": ((1280, 720), 106),
+        "v1__full_frame__f30__ffffffffff__image.jpg": ((1280, 720), 107),
+        "v2.jpg": ((160, 160), 110),
+        "v2__full_frame__f5__1111111111__image.jpg": ((1280, 720), 111),
+        "v3__full_frame__f5__2222222222__image.jpg": ((300, 200), 120),
+        "v4__full_frame__f5__3333333333__image.jpg": ((1280, 720), 130),
+    }
+    for name, (size, mtime) in files.items():
+        _jpeg(tmp_path / name, size, mtime)
+    (tmp_path / "notes.txt").write_text("x")
+
+    chosen = [os.path.basename(path) for path in recovery.select_check_frames(tmp_path, limit=12)]
+
+    # One frame per visit first, newest visit first; then a second from the same visit.
+    # v1's model crop at f10 puts that full frame ahead of its newer ones.
+    assert chosen == [
+        "v4__full_frame__f5__3333333333__image.jpg",
+        "v2__full_frame__f5__1111111111__image.jpg",
+        "v1__full_frame__f10__dddddddddd__image.jpg",
+        "v1__full_frame__f30__ffffffffff__image.jpg",
+    ]
+    assert [os.path.basename(path) for path in recovery.select_check_frames(tmp_path, limit=3)] == chosen[:3]
+
+
+def test_frames_where_a_bird_was_cropped_come_before_other_frames_of_the_visit(tmp_path):
+    # A model crop at f510 means production found a bird in that exact frame.
+    for name, size, mtime in [
+        ("v1__full_frame__f900__aaaaaaaaaa__image.jpg", (1280, 720), 109),
+        ("v1__full_frame__f510__bbbbbbbbbb__image.jpg", (1280, 720), 101),
+        ("v1__model_crop__f510__c3__cccccccccc__image.jpg", (160, 160), 102),
+        ("v1__full_frame__f0__dddddddddd__image.jpg", (1280, 720), 105),
+        ("v2__full_frame__f1__eeeeeeeeee__image.jpg", (1280, 720), 90),
+        ("v3__full_frame__f1__ffffffffff__image.jpg", (1280, 720), 80),
+    ]:
+        _jpeg(tmp_path / name, size, mtime)
+    chosen = [os.path.basename(path) for path in recovery.select_check_frames(tmp_path, limit=12)]
+    assert chosen[0] == "v1__full_frame__f510__bbbbbbbbbb__image.jpg"
+    assert chosen[3] == "v1__full_frame__f900__aaaaaaaaaa__image.jpg"
+
+
+def test_an_original_event_snapshot_counts_when_it_is_a_full_frame(tmp_path):
+    for index, name in enumerate(["a.jpg", "b.jpg", "c.jpg"]):
+        _jpeg(tmp_path / name, (2688, 1512), 100 + index)
+    assert len(recovery.select_check_frames(tmp_path, limit=12)) == 3
+
+
+def test_too_few_full_frames_is_no_panel_at_all(tmp_path):
+    _jpeg(tmp_path / "v1__full_frame__f5__1111111111__image.jpg", (1280, 720), 100)
+    _jpeg(tmp_path / "v2__full_frame__f5__2222222222__image.jpg", (1280, 720), 101)
+    _jpeg(tmp_path / "v3__model_crop__f5__c1__3333333333__image.jpg", (160, 160), 102)
+    assert recovery.select_check_frames(tmp_path, limit=12) == []
+    assert recovery.select_check_frames(tmp_path / "missing", limit=12) == []
+
+
+@pytest.mark.asyncio
+async def test_saved_crops_without_full_frames_wait_with_their_own_reason(environment, monkeypatch):
+    monkeypatch.setattr(recovery, "recent_bird_photos", lambda: [])
+    monkeypatch.setattr(recovery, "saved_bird_photos_present", lambda: True)
+    runner = recovery.BirdFinderRevalidation()
+    await runner.run()
+    environment.assert_not_awaited()
+    status = runner.status()
+    assert status["state"] == "waiting"
+    assert status["reason_code"] == "no_full_frames"
+    assert "full camera frames" in status["reason"]
+    assert status["attempt_count"] == 0
+
+
+@pytest.mark.asyncio
+async def test_an_empty_baseline_from_the_old_crop_panel_does_not_hold_back_the_full_frame_check(environment):
+    # The ledger a deployed host already has: no_positive_baseline on the crop panel, four hours to wait.
+    from datetime import datetime, timezone
+
+    providers = ["cpu", "intel_cpu", "intel_gpu", "intel_npu"]
+    legacy_key = validation._identity_digest(
+        {
+            "model": FINDER,
+            "artifact": "abc",
+            "preference": "auto",
+            "comparison_policy": 3,
+            "runtime": {
+                provider: validation.current_provider_runtime_signature(provider)
+                for provider in sorted({"cpu", "intel_gpu", "intel_npu"})
+            },
+        }
+    )
+    recovery._write_ledger_entry(
+        legacy_key,
+        {
+            "state": "failed",
+            "reason_code": "no_positive_baseline",
+            "model_id": FINDER,
+            "artifact_sha256": "abc",
+            "attempt_count": 1,
+            "empty_baseline_count": 1,
+            "checked_at": datetime.now(timezone.utc).isoformat(),
+            "photo_signature": recovery.photo_set_signature(["/photos/a.jpg", "/photos/b.jpg"]),
+            "requested_providers": providers[2:],
+        },
+    )
+    await recovery.BirdFinderRevalidation().run()
+    environment.assert_awaited_once()
 
 
 def test_finder_status_reports_the_automatic_check(monkeypatch):

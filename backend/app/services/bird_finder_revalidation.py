@@ -17,6 +17,8 @@ from datetime import datetime, timedelta, timezone
 from dataclasses import dataclass
 from collections.abc import Callable
 import json
+import os
+import re
 from pathlib import Path
 from typing import Any, Literal, Self
 
@@ -82,25 +84,124 @@ def selected_finder() -> tuple[str, str | None] | None:
     return str(spec["model_id"]), artifact
 
 
-def newest_snapshots(directory: Path, *, limit: int) -> list[str]:
-    """Newest full-size cached snapshots; thumbnails are too small to compare boxes on."""
+# A wide-frame finder looks for birds in whole camera frames. The cache also
+# holds model crops, Frigate-hint crops and retained (often cropped) HQ
+# snapshots; a frame finder finds nothing in a tight bird crop, which once left
+# a host with an empty CPU baseline and the finder stuck on the CPU.
+_CROP_VARIANT_MARKERS = ("__model_crop__", "__frigate_hint_crop__", "__frigate_region_crop__", "__retained_snapshot__")
+MIN_FRAME_SHORT_SIDE = 480
+MIN_CHECK_FRAMES = 3
+MAX_FRAMES_PER_VISIT = 2
+# Header reads are cheap, but the cache can hold tens of thousands of files.
+MAX_FRAME_HEADER_READS = 240
+# Part of the retry ledger key: a new selection rule deserves a fresh check.
+PHOTO_SELECTION_POLICY = 2
+
+
+_VARIANT_FRAME = re.compile(r"__(full_frame|model_crop|frigate_hint_crop|frigate_region_crop)__f(-?\d+)__")
+
+
+def _frame_variant(name: str) -> tuple[str, str | None] | None:
+    """("full", frame index), ("crop", frame index) or ("event", None); None for anything unusable."""
+    if not name.endswith(".jpg") or name.endswith("_thumb.jpg"):
+        return None
+    variant = _VARIANT_FRAME.search(name)
+    if variant is not None:
+        if variant.group(1) != "full_frame":
+            return "crop", variant.group(2)
+        return ("full", variant.group(2)) if name.endswith("__image.jpg") else None
+    if any(marker in name for marker in _CROP_VARIANT_MARKERS) or "__" in name:
+        return None
+    return "event", None
+
+
+def _is_full_camera_frame(path: str) -> bool:
+    from PIL import Image
+
     try:
-        candidates = [
-            path
-            for path in directory.iterdir()
-            if path.is_file() and path.suffix.lower() == ".jpg" and not path.name.endswith("_thumb.jpg")
-        ]
+        with Image.open(path) as image:
+            return min(image.size) >= MIN_FRAME_SHORT_SIDE
+    except (OSError, ValueError, Image.DecompressionBombError):
+        return False
+
+
+def select_check_frames(directory: Path, *, limit: int) -> list[str]:
+    """Full camera frames for a device check: newest visits first, one per visit, then a second.
+
+    Returns nothing when fewer than ``MIN_CHECK_FRAMES`` qualify, so a panel is
+    never judged on one or two frames.
+    """
+    from app.services.media_cache import cache_name_event_id
+
+    candidates: dict[str, list[tuple[str, str | None, float, str]]] = {}
+    cropped_frames: set[tuple[str, str]] = set()
+    try:
+        with os.scandir(directory) as entries:
+            for entry in entries:
+                variant = _frame_variant(entry.name)
+                if variant is None:
+                    continue
+                visit = cache_name_event_id(entry.name)
+                kind, frame = variant
+                if kind == "crop":
+                    if frame is not None:
+                        cropped_frames.add((visit, frame))
+                    continue
+                try:
+                    modified = entry.stat().st_mtime
+                except OSError:
+                    continue
+                candidates.setdefault(visit, []).append((kind, frame, -modified, entry.path))
     except OSError:
         return []
-    candidates.sort(key=lambda path: path.stat().st_mtime, reverse=True)
-    return [str(path) for path in candidates[:limit]]
+
+    def rank(visit: str, kind: str, frame: str | None) -> int:
+        # A crop at the same frame index means production found a bird in it.
+        if kind == "full":
+            return 0 if (visit, frame) in cropped_frames else 1
+        return 2
+
+    visits = {
+        visit: sorted((rank(visit, kind, frame), modified, path) for kind, frame, modified, path in frames)
+        for visit, frames in candidates.items()
+    }
+    # Newest visit first; within a visit, frames with a bird crop, then other
+    # full frames, then the event snapshot, newest first. Entries hold the
+    # negated mtime, so ascending order is newest first.
+    remaining = sorted(visits.values(), key=lambda frames: min(entry[1] for entry in frames))
+    taken = [0] * len(remaining)
+    chosen: list[str] = []
+    reads = 0
+    for round_index in range(MAX_FRAMES_PER_VISIT):
+        for index, frames in enumerate(remaining):
+            if taken[index] != round_index:
+                continue
+            while frames and len(chosen) < limit and reads < MAX_FRAME_HEADER_READS:
+                path = frames.pop(0)[2]
+                reads += 1
+                if _is_full_camera_frame(path):
+                    chosen.append(path)
+                    taken[index] += 1
+                    break
+    return chosen if len(chosen) >= MIN_CHECK_FRAMES else []
 
 
 def recent_bird_photos() -> list[str]:
-    """This host's own bird snapshots: real feeder frames that never leave the process."""
+    """This host's own full camera frames: real feeder views that never leave the process."""
     from app.services.media_cache import SNAPSHOTS_DIR
 
-    return newest_snapshots(SNAPSHOTS_DIR, limit=MAX_CHECK_PHOTOS)
+    return select_check_frames(SNAPSHOTS_DIR, limit=MAX_CHECK_PHOTOS)
+
+
+def saved_bird_photos_present() -> bool:
+    """Whether any saved snapshot exists, so an empty panel can say crops rather than nothing."""
+    from app.services.media_cache import SNAPSHOTS_DIR
+
+    try:
+        with os.scandir(SNAPSHOTS_DIR) as entries:
+            return any(entry.name.endswith(".jpg") for entry in entries)
+    except OSError:
+        return False
 
 
 def stale_accelerators(previous: list[str], current: list[str], packaged: list[str]) -> list[str]:
@@ -276,8 +377,36 @@ def _owner_check_covers(entry: Any, *, artifact: str | None, preference: str, st
         isinstance(entry, dict)
         and entry.get("artifact_sha256") == artifact
         and entry.get("preference") == preference
+        and entry.get("photo_selection") == PHOTO_SELECTION_POLICY
         and set(stale) <= set(entry.get("requested_providers") or [])
         and _runtime_signatures_current(entry)
+    )
+
+
+def waiting_for_photos_status(
+    model_id: str,
+    accelerators: list[str],
+    *,
+    crops_only: bool,
+    last_result: BirdFinderCheckResult | None = None,
+) -> BirdFinderCheckStatus:
+    """A check that cannot start yet; waiting never spends an attempt."""
+    if crops_only:
+        return BirdFinderCheckStatus(
+            state="waiting",
+            reason_code="no_full_frames",
+            model_id=model_id,
+            providers=accelerators,
+            reason=f"The saved bird photos are close crops, not full camera frames, so devices cannot be compared yet. The check runs once YA-WAMF has saved at least {MIN_CHECK_FRAMES} full frames.",
+            last_result=last_result,
+        )
+    return BirdFinderCheckStatus(
+        state="waiting",
+        reason_code="no_photos",
+        model_id=model_id,
+        providers=accelerators,
+        reason="No saved bird photos to compare devices on yet. The check waits for saved photos.",
+        last_result=last_result,
     )
 
 
@@ -366,6 +495,7 @@ class BirdFinderRevalidation:
                 "artifact": artifact,
                 "preference": preference,
                 "comparison_policy": 3,
+                "photo_selection": PHOTO_SELECTION_POLICY,
                 "runtime": {
                     provider: validation.current_provider_runtime_signature(provider)
                     for provider in sorted({"cpu"} | (set(previous) & ACCELERATED_PROVIDERS & set(packaged)))
@@ -407,6 +537,18 @@ class BirdFinderRevalidation:
             self._last_ledger_warning = now
             log.warning(event, **fields)
 
+    async def note_owner_check_waiting(self, model_id: str) -> None:
+        """An owner-run check found no full frames; say so where Settings reads the check."""
+        crops_only = await asyncio.to_thread(saved_bird_photos_present)
+        finder = await asyncio.to_thread(selected_finder)
+        if finder is not None and finder[0] == model_id:
+            self._status = waiting_for_photos_status(
+                model_id,
+                sorted(ACCELERATED_PROVIDERS & present_accelerators()),
+                crops_only=crops_only,
+                last_result=self._status.last_result,
+            )
+
     async def record_owner_check(self, model_id: str, artifact: str | None, result: dict[str, Any] | None) -> None:
         """Remember an owner-run sweep so the automatic check does not repeat it minutes later."""
         crashed = not result
@@ -440,6 +582,7 @@ class BirdFinderRevalidation:
             "artifact_sha256": artifact,
             "requested_providers": accelerators,
             "preference": settings.classification.bird_crop_inference_provider,
+            "photo_selection": PHOTO_SELECTION_POLICY,
             "photo_signature": "",
             "runtime_signatures": {
                 provider: validation.current_provider_runtime_signature(provider)
@@ -481,13 +624,9 @@ class BirdFinderRevalidation:
                 if self._status.checked_at and self._status.state not in {"idle", "waiting", "running"}:
                     previous_result = BirdFinderCheckResult.model_validate(self.status())
                 if not photos:
-                    self._status = BirdFinderCheckStatus(
-                        state="waiting",
-                        reason_code="no_photos",
-                        model_id=model_id,
-                        providers=accelerators,
-                        reason="No saved bird photos to compare devices on yet. The check waits for saved photos.",
-                        last_result=previous_result,
+                    crops_only = await asyncio.to_thread(saved_bird_photos_present)
+                    self._status = waiting_for_photos_status(
+                        model_id, accelerators, crops_only=crops_only, last_result=previous_result
                     )
                     prepared = None
                     return
