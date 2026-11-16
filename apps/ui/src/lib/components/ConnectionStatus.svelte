@@ -107,7 +107,7 @@
         </ul>
         {#if staleText}
             <!-- The rows above are from an older reading; say how old rather than let them pass for current. -->
-            <p class="mt-1.5 text-xs leading-4 text-slate-600 dark:text-slate-400" data-status-stale>{staleText}</p>
+            <p class="mt-1.5 text-xs leading-4 text-muted" data-status-stale>{staleText}</p>
         {/if}
     {/if}
 </div>
