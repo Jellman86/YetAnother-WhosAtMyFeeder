@@ -2,7 +2,7 @@
     import { getThumbnailUrl } from '../api';
     import type { Detection } from '../api';
     import { detectionsStore } from '../stores/detections.svelte';
-    import { reviewReasonMessage, type ReviewQueue } from '../utils/review-queue';
+    import { reviewReasonFor, reviewReasonMessage, type ReviewQueue } from '../utils/review-queue';
     import MediaImage from './MediaImage.svelte';
     import Separator from './Separator.svelte';
     import { formatDate, formatTime } from '../utils/datetime';
@@ -58,10 +58,10 @@
         return $birdNames(detection, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary).primary;
     }
 
-    // A detection the queue holds always has a reason; one without is waiting on its score.
+    // The same reason, from the same rule, that the review dialog states for this visit.
     function reason(detection: Detection): string {
         const message = reviewReasonMessage(
-            queue.reasons.get(detection.frigate_event) ?? 'low_score',
+            reviewReasonFor(detection, queue.reasons),
             queue.newSpeciesSightings.get(detection.frigate_event) ?? 1
         );
         return $_(message.key, { values: message.values, default: message.default });

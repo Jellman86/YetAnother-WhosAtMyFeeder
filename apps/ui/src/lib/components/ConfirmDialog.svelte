@@ -45,7 +45,12 @@
             <h2 id="confirm-dialog-title" class="text-base font-semibold text-slate-900 dark:text-white">
                 {pending.title}
             </h2>
-            <p id="confirm-dialog-message" class="mt-2 whitespace-pre-line text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+            <p
+                id="confirm-dialog-message"
+                aria-live="polite"
+                aria-busy={pending.reading}
+                class="mt-2 whitespace-pre-line text-sm leading-relaxed text-slate-600 dark:text-slate-300"
+            >
                 {pending.message}
             </p>
             <div class="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
@@ -68,6 +73,8 @@
                 <button
                     type="button"
                     class="btn min-h-11 px-4 text-sm {pending.tone === 'danger' ? 'btn-danger' : 'btn-primary'}"
+                    disabled={pending.reading}
+                    aria-describedby={pending.reading ? 'confirm-dialog-message' : undefined}
                     onclick={() => confirmDialog.answer(true)}
                 >
                     {pending.confirmLabel}

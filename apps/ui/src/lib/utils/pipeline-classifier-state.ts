@@ -8,10 +8,12 @@ import type { ClassifierStatus } from '../api/classifier';
  * fault: the answer then comes from inference health and the model id, and
  * with neither the state is unknown rather than "not loaded".
  */
-export type PipelineClassifierState = 'loaded' | 'standby' | 'check' | 'unknown';
+export type PipelineClassifierState = 'loaded' | 'standby' | 'missing' | 'check' | 'unknown';
 
 export function pipelineClassifierState(status: ClassifierStatus | null): PipelineClassifierState {
     if (!status) return 'unknown';
+    // The same reading the status sentence uses: files that are not here cannot be "not loaded yet".
+    if (status.active_model_installed === false) return 'missing';
 
     const health = status.inference_health?.status;
     if (health === 'degraded' || health === 'unhealthy') return 'check';
@@ -26,5 +28,10 @@ export function pipelineClassifierState(status: ClassifierStatus | null): Pipeli
 
     const modelId = status.effective_model_id ?? status.active_model_id;
     if (!modelId || health !== 'ok') return 'unknown';
+    // Loaded and standing by each need evidence. An in-app model with no `loaded` reading is being
+    // (re)loaded, and that is not a state this step can claim.
+    const inApp = status.runtime_source === 'in_process' || status.runtime_source === 'in_process_fallback'
+        || (status.image_execution_mode === 'in_process' && status.runtime_source !== 'worker' && status.runtime_source !== 'planned');
+    if (inApp) return 'unknown';
     return status.runtime_source === 'planned' ? 'standby' : 'loaded';
 }

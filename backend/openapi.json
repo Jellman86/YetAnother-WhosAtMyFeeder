@@ -2115,6 +2115,21 @@
         "title": "BackfillResetCacheStats",
         "type": "object"
       },
+      "BackfillResetPreviewResponse": {
+        "description": "What a reset would delete right now, counted over the reset's own scope.",
+        "properties": {
+          "detection_count": {
+            "description": "Every detection row a reset removes, hidden ones included.",
+            "title": "Detection Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "detection_count"
+        ],
+        "title": "BackfillResetPreviewResponse",
+        "type": "object"
+      },
       "BackfillResetResponse": {
         "properties": {
           "cache_stats": {
@@ -6442,6 +6457,20 @@
             "title": "Frigate Event",
             "type": "string"
           },
+          "frigate_event_check": {
+            "default": "not_checked",
+            "enum": [
+              "found",
+              "not_found",
+              "unreachable",
+              "timed_out",
+              "unauthorized",
+              "failed",
+              "not_checked"
+            ],
+            "title": "Frigate Event Check",
+            "type": "string"
+          },
           "has_clip": {
             "default": false,
             "title": "Has Clip",
@@ -6685,6 +6714,20 @@
           },
           "frigate_event": {
             "title": "Frigate Event",
+            "type": "string"
+          },
+          "frigate_event_check": {
+            "default": "not_checked",
+            "enum": [
+              "found",
+              "not_found",
+              "unreachable",
+              "timed_out",
+              "unauthorized",
+              "failed",
+              "not_checked"
+            ],
+            "title": "Frigate Event Check",
             "type": "string"
           },
           "frigate_last_checked_at": {
@@ -26093,14 +26136,78 @@
     },
     "/api/backfill/reset": {
       "delete": {
-        "description": "Reset the database: Delete ALL detections and clear media cache. Owner only.",
+        "description": "Reset the database: Delete ALL detections and clear media cache. Owner only.\n\nWith `expected_count`, nothing is deleted unless that is still the number of detections once\ningest has stopped: a 409 carries the current count so the owner can be asked again.",
         "operationId": "reset_database_api_backfill_reset_delete",
+        "parameters": [
+          {
+            "description": "The detection count the owner was shown. The reset is refused if it no longer holds.",
+            "in": "query",
+            "name": "expected_count",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The detection count the owner was shown. The reset is refused if it no longer holds.",
+              "title": "Expected Count"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/BackfillResetResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Reset Database",
+        "tags": [
+          "backfill"
+        ]
+      }
+    },
+    "/api/backfill/reset/preview": {
+      "get": {
+        "description": "How many detections a reset would delete: the number its confirmation states. Owner only.",
+        "operationId": "preview_reset_api_backfill_reset_preview_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackfillResetPreviewResponse"
                 }
               }
             },
@@ -26118,7 +26225,7 @@
             "APIKeyQuery": []
           }
         ],
-        "summary": "Reset Database",
+        "summary": "Preview Reset",
         "tags": [
           "backfill"
         ]

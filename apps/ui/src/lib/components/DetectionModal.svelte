@@ -92,6 +92,7 @@
     } from '../utils/weather-units';
     import { formatIlluminance } from '../utils/illuminance';
     import { getVideoFailureInsight, hasFrigateMediaIssue } from '../utils/frigate-errors';
+    import { frigateEventNotice, frigateEventReading } from '../utils/frigate-event-reading';
     import { isVideoPromotionGated } from '../video-promotion-gate';
     import { applyManualTagResult } from '../utils/manual-tag';
     import { findMatchingFullFrameCandidate, findScanFrameCandidate, sameFrameCropCandidates } from '../utils/detection-evidence';
@@ -1074,14 +1075,14 @@
     const showEbirdNearby = $derived(
         enrichmentSightingsProvider === 'ebird' || enrichmentSeasonalityProvider === 'ebird'
     );
-    const missingEventMetadataGone = $derived(
-        !isManualObservation && (detection.frigate_status === 'missing'
-        || detection.has_frigate_event === false
-        || detection.video_classification_error === 'event_not_found')
-    );
+    // "Gone" needs a not-found answer; a Frigate that could not be asked gets its own words.
+    const frigateReading = $derived(frigateEventReading(detection));
+    const missingEventMetadataGone = $derived(!isManualObservation && frigateReading === 'gone');
     const frigateIssueBadgeVisible = $derived(hasFrigateMediaIssue(detection) && !missingEventMetadataGone);
     const upstreamMissing = $derived(!isManualObservation && detection.frigate_status === 'missing');
-    const missingEventNoticeVisible = $derived(upstreamMissing || missingEventMetadataGone);
+    const missingEventNoticeVisible = $derived(
+        !isManualObservation && frigateEventNotice(frigateReading, $_) !== null
+    );
     // The originating Frigate event, for the owner only: frigate_url travels
     // on the owner-only settings payload and never reaches a guest, and a
     // retired event gets words instead of a link that lands on an error (#309).
@@ -1167,21 +1168,14 @@
                 { default: $_('detection.video_analysis.fallback_desc', { default: 'Video analysis was unavailable, so this detection was classified from a single frame. Confidence may be lower.' }) }
             );
         }
-        // No specific error code (e.g. snapshot fallback succeeded but the
-        // upstream Frigate event was rotated out) — show a neutral
-        // explanation that doesn't imply something is broken.
-        return $_('detection.upstream_missing.card_title', { default: 'Frigate no longer has this event or media. The cached snapshot and recording clip are still available in YA-WAMF.' });
+        // No error code: say what was learned about the event in Frigate, and no more than that.
+        return frigateEventNotice(frigateReading, $_) ?? '';
     });
-    const videoStatusShowTechnicalDetails = $derived.by(() => {
-        // Only surface the technical-details expander when there is
-        // something useful inside it (a known error code, a "why" list, or
-        // a "checks" list).  No point offering a disclosure that opens onto
-        // an empty section.
-        if (!videoFailureInsight.errorCode && videoFailureInsight.causes.length === 0 && videoFailureInsight.checks.length === 0 && !videoClassificationDiagnostics) {
-            return false;
-        }
-        return true;
-    });
+    // Technical details exist only for a recorded error or diagnostics. Without either there is
+    // no error to detail, and the generic "video analysis failed" causes would be invented.
+    const videoStatusShowTechnicalDetails = $derived(
+        Boolean((detection.video_classification_error || '').trim()) || Boolean(videoClassificationDiagnostics)
+    );
 
     function videoEvidenceSourceLabel(source: string): string {
         if (source === 'full_frame') {
@@ -3040,7 +3034,7 @@
                         <span class="text-3xs font-semibold">
                             {videoStatusNoticeTitle}
                         </span>
-                        <span class="text-2xs font-semibold leading-snug">
+                        <span class="text-2xs font-normal leading-snug" data-video-status-cause>
                             {videoStatusNoticeDescription}
                         </span>
                         {#if upstreamMissing && detection.frigate_last_checked_at}

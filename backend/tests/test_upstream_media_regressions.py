@@ -66,7 +66,12 @@ async def test_archive_is_included_in_event_media_availability(tmp_path, monkeyp
     monkeypatch.setattr(archive_service, "snapshot_path", AsyncMock(return_value=tmp_path / "photo.jpg"))
     monkeypatch.setattr(archive_service, "clip_path", AsyncMock(return_value=tmp_path / "clip.mp4"))
     flags = (await events.batch_check_clips(["archived"]))["archived"]
-    assert flags == {"has_frigate_event": False, "has_clip": True, "has_snapshot": True}
+    assert flags == {
+        "has_frigate_event": False,
+        "frigate_event_check": "not_found",
+        "has_clip": True,
+        "has_snapshot": True,
+    }
 
 
 @pytest.mark.asyncio
@@ -683,3 +688,10 @@ async def test_a_snapshot_write_hashes_its_image_once_and_off_the_event_loop(tmp
     digest = hashlib.sha256(image).hexdigest()
     assert metadata["image_sha256"] == metadata["snapshot_photo_hints"]["image_sha256"] == digest
     assert metadata["film_alignment"]["image_sha256"] == digest
+
+
+@pytest.mark.asyncio
+async def test_a_manual_upload_has_no_frigate_event_to_check():
+    flags = (await events.batch_check_clips(["manual_abc"]))["manual_abc"]
+    assert flags["frigate_event_check"] == "not_checked"
+    assert flags["has_frigate_event"] is False

@@ -29,5 +29,8 @@
   "reclassify_clip": "クリップから再分類",
   "detections_all_time": "検出数（全期間）",
   "detections_shared": "検出数（共有中の履歴）",
+  "visits_day": "訪問数（過去24時間）",
+  "visits_week": "訪問数（過去7日間）",
+  "visits_month": "訪問数（過去30日間）",
   "detections_note": "識別されたフレームは1件ずつ数えます。1回の訪問に複数のフレームが含まれることがあるため、ランキングの訪問数はこれより少なくなります。"
 }

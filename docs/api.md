@@ -1446,8 +1446,12 @@ archived videos return 404 so the player uses the retained MP4; no archive trans
 - `GET /api/backfill/status/{job_id}` (owner) — returns one retained job status, including persisted summaries after restart.
 - `POST /api/backfill/weather` (owner) — synchronously fills historical weather fields.
 - `POST /api/backfill/weather/async` (owner) — starts weather enrichment as a background job.
+- `GET /api/backfill/reset/preview` (owner) — `detection_count`: every detection a reset would
+  delete now, hidden ones included. This is the number the confirmation states.
 - `DELETE /api/backfill/reset` (owner) — irreversibly deletes all detections and cached media after
-  cancelling and awaiting in-process backfill work.
+  cancelling and awaiting in-process backfill work. With `?expected_count=N` it deletes only if `N`
+  is still the number of detections once ingest has stopped; otherwise it answers 409 with
+  `{"code": "reset_count_changed", "detection_count": <current>}` and deletes nothing.
 
 Backfill accepts `day`, `week`, `month`, or `custom`. Custom `start_date` and `end_date` values are
 calendar dates in the browser timezone, and the final day is inclusive. Detection import is

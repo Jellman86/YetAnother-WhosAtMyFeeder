@@ -1,6 +1,7 @@
 import { API_BASE, apiFetch, handleResponse, requestScope } from './core';
 import type { components, paths } from './generated/openapi';
 import { createSharedRead, STATUS_SHARE_MS } from './shared-read';
+import { ResetCountChanged } from '../settings/reset-history';
 
 export type CacheStats = paths['/api/cache/stats']['get']['response'];
 
@@ -93,9 +94,34 @@ export async function resetVideoCircuit(): Promise<{ status: string; message: st
     return handleResponse<{ status: string; message: string }>(response);
 }
 
-export async function resetDatabase(): Promise<ResetDatabaseResult> {
-    const response = await apiFetch(`${API_BASE}/backfill/reset`, { method: 'DELETE' });
+export type ResetPreview = paths['/api/backfill/reset/preview']['get']['response'];
+
+/** How many detections a reset would delete now: every row, hidden ones included. */
+export async function fetchResetPreview(): Promise<ResetPreview> {
+    const response = await apiFetch(`${API_BASE}/backfill/reset/preview`);
+    return handleResponse<ResetPreview>(response);
+}
+
+/**
+ * Deletes all history. With `expectedCount` the server deletes only if that is still the number of
+ * detections; otherwise it refuses, and this throws `ResetCountChanged` with the count it reported.
+ */
+export async function resetDatabase(expectedCount: number | null = null): Promise<ResetDatabaseResult> {
+    const query = expectedCount === null ? '' : `?expected_count=${encodeURIComponent(expectedCount)}`;
+    const response = await apiFetch(`${API_BASE}/backfill/reset${query}`, { method: 'DELETE' });
+    if (response.status === 409) {
+        const refusal: unknown = await response.clone().json().catch(() => null);
+        const count = resetCountFromRefusal(refusal);
+        if (count !== null) throw new ResetCountChanged(count);
+    }
     return handleResponse<ResetDatabaseResult>(response);
+}
+
+function resetCountFromRefusal(body: unknown): number | null {
+    if (!body || typeof body !== 'object' || !('detail' in body)) return null;
+    const detail = body.detail;
+    if (!detail || typeof detail !== 'object' || !('code' in detail) || detail.code !== 'reset_count_changed') return null;
+    return 'detection_count' in detail && typeof detail.detection_count === 'number' ? detail.detection_count : null;
 }
 
 export async function clearClassificationFeedback(): Promise<ClearFeedbackResult> {

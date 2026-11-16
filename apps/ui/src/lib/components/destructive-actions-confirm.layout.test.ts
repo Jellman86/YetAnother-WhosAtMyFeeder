@@ -58,3 +58,27 @@ describe('destructive actions ask in the app, never through the browser', () => 
         expect(body).toContain('if (days > 0)');
     });
 });
+
+describe('a destructive question states only a count it read', () => {
+    it('Purge reads its count when asked and never falls back to zero', () => {
+        const body = handler(settingsSource, 'handleCleanup');
+        expect(body).not.toMatch(/\?\?\s*0/);
+        expect(body).toContain('reading: {');
+        expect(body).toContain('measuredCount((await fetchMaintenanceStats()).');
+    });
+
+    it('Delete all history counts the reset\'s own scope and sends the number it showed', () => {
+        const body = handler(settingsSource, 'handleResetDatabase');
+        expect(body).not.toMatch(/\?\?\s*0/);
+        // Not the maintenance total, which leaves hidden detections out.
+        expect(body).not.toContain('fetchMaintenanceStats()).total_detections');
+        expect(body).toContain('measuredCount((await fetchResetPreview()).detection_count)');
+        expect(body).toContain('resetWithConfirmedCount({');
+        expect(body).toContain('resetDatabase(expectedCount)');
+    });
+
+    it('cannot be confirmed while the count is still being read', () => {
+        expect(dialogSource).toContain('disabled={pending.reading}');
+        expect(dialogSource).toContain('aria-live="polite"');
+    });
+});
