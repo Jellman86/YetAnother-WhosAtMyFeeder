@@ -404,3 +404,36 @@ it('keeps authoritative bird summaries out of unrelated detection patches', asyn
     expect(store.getDetectionPatch('flock')).not.toHaveProperty('bird_summary');
     expect(store.getDetectionPatch('flock')).toMatchObject({ display_name: 'Blue Jay', score: 0.8 });
 });
+
+describe('a visitor history change queued behind a read', () => {
+    it('reads nothing more when the Dashboard closes while it waits', async () => {
+        let release: (value: []) => void = () => undefined;
+        fetchEvents.mockImplementationOnce(() => new Promise<[]>((resolve) => { release = resolve; })).mockResolvedValue([]);
+        fetchEventsCount.mockResolvedValue({ count: 0 });
+        const { DetectionsStore } = await import('./detections.svelte');
+        const store = new DetectionsStore();
+        const stopFollowing = store.follow();
+        const refresh = store.refreshPublicHistory();
+        stopFollowing();
+        release([]);
+        await refresh;
+        expect(fetchEvents).toHaveBeenCalledTimes(1);
+        expect(store.detections).toEqual([]);
+        expect(store.historyStatus).toBe('pending');
+        expect(store.publicHistoryVersion).toBe(1);
+    });
+
+    it('still reads for a live announcement when the Dashboard closes while it waits', async () => {
+        let release: (value: []) => void = () => undefined;
+        fetchEvents.mockImplementationOnce(() => new Promise<[]>((resolve) => { release = resolve; })).mockResolvedValue([]);
+        fetchEventsCount.mockResolvedValue({ count: 0 });
+        const { DetectionsStore } = await import('./detections.svelte');
+        const store = new DetectionsStore();
+        const stopFollowing = store.follow();
+        const refresh = store.refreshPublicHistory({ includeList: true });
+        stopFollowing();
+        release([]);
+        await refresh;
+        expect(fetchEvents).toHaveBeenCalledTimes(2);
+    });
+});

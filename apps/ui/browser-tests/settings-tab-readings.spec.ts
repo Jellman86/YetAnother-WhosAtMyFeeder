@@ -78,6 +78,38 @@ test('saving a new Frigate address reads its recording support again', async ({ 
     await expect(page.getByText('Continuous coverage is ready for the selected camera.')).toHaveCount(0);
 });
 
+test('a recording-support answer from before a save never replaces the answer after it', async ({ page }) => {
+    let server = 'http://frigate:5000';
+    let newServerReads = 0;
+    const ready = { json: { supported: true, recordings_enabled: true, retention_days: 7, eligible_cameras: ['patio'], ineligible_cameras: {} } };
+    let releaseOld: () => void = () => undefined;
+    // The old Frigate answers only after the save, as a slow one would.
+    const oldAnswer = new Promise<typeof ready>((resolve) => { releaseOld = () => resolve(ready); });
+    await openSettings(page, { recording_clip_enabled: true }, {
+        respond: (path) => {
+            if (!path.endsWith('/frigate/recording-clip-capability')) return undefined;
+            if (server === 'http://frigate:5000') return oldAnswer;
+            newServerReads += 1;
+            return { json: { supported: false, reason: 'recordings_disabled', recordings_enabled: false, retention_days: null, eligible_cameras: [], ineligible_cameras: {} } };
+        },
+        refuseWrite: (payload) => {
+            if (typeof payload.frigate_url === 'string') server = payload.frigate_url;
+            return undefined;
+        }
+    });
+    await page.getByText('Show advanced options').first().click();
+    await expect(page.getByText('Checking saved Frigate recording support…')).toBeVisible();
+    await page.locator('#frigate-url').fill('http://frigate-new:5000');
+    await saveButton(page).click();
+    await expect(page.locator('[data-toast]').filter({ hasText: 'Settings saved' })).toHaveCount(1);
+    await expect.poll(() => newServerReads).toBe(1);
+    await expect(page.getByText('Checking saved Frigate recording support…')).toHaveCount(0);
+    releaseOld();
+    // Long enough for the old answer to land and be drawn, were it accepted.
+    await page.waitForTimeout(1_000);
+    await expect(page.getByText('Continuous coverage is ready for the selected camera.')).toHaveCount(0);
+});
+
 test("leaving Connection cancels its recording-support read while the body is still arriving", async ({ page }) => {
     await stallBodies(page, '/api/frigate/recording-clip-capability');
     await openSettings(page, { recording_clip_enabled: true });

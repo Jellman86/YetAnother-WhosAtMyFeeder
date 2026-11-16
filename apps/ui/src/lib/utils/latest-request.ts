@@ -31,3 +31,33 @@ export function createLatestRequest(): LatestRequest {
         }
     };
 }
+
+/** One read in a run where only the newest counts: its signal, and whether it is still the newest. */
+interface SupersedingTicket {
+    readonly signal: AbortSignal;
+    isCurrent(): boolean;
+}
+
+/**
+ * Reads where a newer one makes the older pointless (the same helper data asked for again after a
+ * save). `begin()` cancels the read before it, so its request stops, and only the newest ticket
+ * may apply its result: an older answer that still arrives is dropped. The caller's signal (a tab
+ * closing) cancels the read too, without making it stale, so it can still clear its own loading state.
+ */
+export interface SupersedingRead {
+    begin(callerSignal?: AbortSignal): SupersedingTicket;
+}
+
+export function createSupersedingRead(): SupersedingRead {
+    let newest: AbortController | null = null;
+    return {
+        begin(callerSignal?: AbortSignal): SupersedingTicket {
+            newest?.abort();
+            const controller = new AbortController();
+            newest = controller;
+            if (callerSignal?.aborted) controller.abort(callerSignal.reason);
+            else callerSignal?.addEventListener('abort', () => controller.abort(callerSignal.reason), { once: true });
+            return { signal: controller.signal, isCurrent: () => newest === controller };
+        }
+    };
+}

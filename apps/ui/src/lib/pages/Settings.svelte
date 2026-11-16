@@ -97,6 +97,7 @@
         type InferenceProvider
     } from '../settings/inference-providers';
     import { getErrorMessage } from '../utils/error-handling';
+    import { createSupersedingRead } from '../utils/latest-request';
 
     // Every tab is its own chunk, loaded when it is opened (see the loaders above).
     import LazyRoute from '../components/LazyRoute.svelte';
@@ -2315,32 +2316,41 @@
     }
 
     /** BirdNET-Go sources heard recently, offered on Integrations when mapping a camera's audio. */
+    // A save reads these again; the read it supersedes is cancelled, and its answer, if it still
+    // arrives, describes the old connection and is dropped.
+    const birdnetSourceReads = createSupersedingRead();
+    const recordingClipReads = createSupersedingRead();
+
     async function loadBirdnetSources(signal?: AbortSignal): Promise<void> {
+        const read = birdnetSourceReads.begin(signal);
         loadingBirdnetSources = true;
         birdnetSourcesError = null;
         try {
-            birdnetSourceOptions = await fetchAudioSources(20, signal);
+            const sources = await fetchAudioSources(20, read.signal);
+            if (read.isCurrent()) birdnetSourceOptions = sources;
         } catch (e) {
-            // Cancelled because the tab closed: nothing failed, and nothing is shown.
-            if (signal?.aborted) return;
+            // Cancelled because the tab closed or a newer read began: nothing failed, and nothing is shown.
+            if (read.signal.aborted || !read.isCurrent()) return;
             birdnetSourceOptions = [];
             birdnetSourcesError = e instanceof Error ? e.message : 'Failed to load BirdNET sources';
             console.error('Failed to load BirdNET source helper data', e);
         } finally {
-            loadingBirdnetSources = false;
+            if (read.isCurrent()) loadingBirdnetSources = false;
         }
     }
 
     async function loadRecordingClipCapability(signal?: AbortSignal): Promise<void> {
+        const read = recordingClipReads.begin(signal);
         recordingClipCapabilityLoading = true;
         try {
-            recordingClipCapability = await fetchRecordingClipCapability(signal);
+            const capability = await fetchRecordingClipCapability(read.signal);
+            if (read.isCurrent()) recordingClipCapability = capability;
         } catch (e) {
-            if (signal?.aborted) return;
+            if (read.signal.aborted || !read.isCurrent()) return;
             console.error('Failed to load recording clip capability', e);
             recordingClipCapability = null;
         } finally {
-            recordingClipCapabilityLoading = false;
+            if (read.isCurrent()) recordingClipCapabilityLoading = false;
         }
     }
 

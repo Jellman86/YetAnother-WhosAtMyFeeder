@@ -12,9 +12,14 @@ export interface SettingsHarness {
     moduleRequests: (fileName: string) => number;
 }
 
+type HarnessAnswer = { status?: number; json: unknown };
+
 export interface SettingsHarnessOptions {
-    /** Answers a request the harness would otherwise answer with an empty body; undefined passes. */
-    respond?: (path: string, method: string) => { status?: number; json: unknown } | undefined;
+    /**
+     * Answers a request the harness would otherwise answer with an empty body; undefined passes.
+     * A promise holds the answer until it settles, as a slow upstream does.
+     */
+    respond?: (path: string, method: string) => HarnessAnswer | undefined | Promise<HarnessAnswer | undefined>;
     /** Answers a settings write instead of accepting it, e.g. to refuse it; undefined accepts it. */
     refuseWrite?: (payload: FixtureSettings) => { status: number; json: unknown } | undefined;
     /** The tab to open on, as its route; Connection when omitted. */
@@ -44,8 +49,9 @@ export async function openSettings(page: Page, saved: FixtureSettings = {}, opti
             }
             return route.fulfill({ json: settings });
         }
-        const answer = options.respond?.(path, request.method());
-        if (answer) return route.fulfill(answer);
+        const answer = await options.respond?.(path, request.method());
+        // A held answer can outlive the request: the page may have cancelled it meanwhile.
+        if (answer) return route.fulfill(answer).catch(() => undefined);
         if (path === '/api/models/installed' || path === '/api/models/available') return route.fulfill({ json: [] });
         if (path.endsWith('/audio/sources')) return route.fulfill({ json: [] });
         if (path.endsWith('/frigate/config')) return route.fulfill({ json: { cameras: {} } });

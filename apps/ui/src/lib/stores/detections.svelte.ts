@@ -184,21 +184,20 @@ export class DetectionsStore {
      */
     async refreshPublicHistory({ includeList = false }: { includeList?: boolean } = {}): Promise<void> {
         const generation = this.accessGeneration;
+        // A notification during an existing fetch must cause a new fetch after it,
+        // rather than joining a response that predates an owner visibility change.
+        if (this.loadPromise) await this.loadPromise;
+        if (generation !== this.accessGeneration) return;
+        // Whether a view shows the list is decided after that wait: the Dashboard may have closed
+        // during it. With none open, anything held is withdrawn rather than kept past a visibility
+        // change, and the next view to open reads it afresh; open guest modals and the Explorer
+        // revalidate from the version. A live announcement reads the list regardless.
         if (this.consumers === 0 && !includeList) {
-            // No open view shows the list. Anything held is withdrawn rather than kept past a
-            // visibility change, including what a read already under way brings, and the next
-            // view to open reads it afresh; open guest modals and the Explorer revalidate from the version.
-            if (this.loadPromise) await this.loadPromise;
-            if (generation !== this.accessGeneration) return;
             this.clearHistory();
             this.historyStatus = 'pending';
             this.publicHistoryVersion += 1;
             return;
         }
-        // A notification during an existing fetch must cause a new fetch after it,
-        // rather than joining a response that predates an owner visibility change.
-        if (this.loadPromise) await this.loadPromise;
-        if (generation !== this.accessGeneration) return;
         const loaded = await this.loadInitial();
         if (generation !== this.accessGeneration) return;
         if (!loaded) {
