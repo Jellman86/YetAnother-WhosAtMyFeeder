@@ -10,10 +10,16 @@ describe("the review's word for each section", () => {
         expect(reviewStatusLabel(section({ status: 'attention', detail_code: 'model_missing' }), t)).toBe('Needs a download');
     });
 
-    it('says installed only when the files were found, and chosen when nobody checked', () => {
-        expect(reviewStatusLabel(section({ detail_code: 'model_installed' }), t)).toBe('Installed');
+    it('words a working model from the runtime report, and says only chosen when nobody checked', () => {
+        expect(reviewStatusLabel(section({ detail_code: 'model_running' }), t)).toBe('Running');
+        expect(reviewStatusLabel(section({ detail_code: 'model_ready' }), t)).toBe('Ready');
         expect(reviewStatusLabel(section({ detail_code: 'model_selected' }), t)).toBe('Chosen');
         expect(reviewStatusLabel(section({ detail_code: 'model_fallback' }), t)).toBe('Chosen');
+    });
+
+    it('never calls a model whose files are here but could not be loaded ready', () => {
+        expect(reviewStatusLabel(section({ status: 'attention', detail_code: 'model_failed' }), t)).toBe('Could not load');
+        expect(reviewStatusTone(section({ status: 'attention', detail_code: 'model_failed' }))).toBe('attention');
     });
 
     it('names what was measured for the account and the connection', () => {
@@ -29,7 +35,7 @@ describe("the review's word for each section", () => {
     });
 
     it('keeps green for what was measured: a model nobody checked is neutral', () => {
-        expect(reviewStatusTone(section({ detail_code: 'model_installed' }))).toBe('ok');
+        expect(reviewStatusTone(section({ detail_code: 'model_running' }))).toBe('ok');
         expect(reviewStatusTone(section({ detail_code: 'model_selected' }))).toBe('optional');
         expect(reviewStatusTone(section({ detail_code: 'model_fallback' }))).toBe('optional');
         expect(reviewStatusTone(section({ status: 'attention', detail_code: 'model_missing' }))).toBe('attention');

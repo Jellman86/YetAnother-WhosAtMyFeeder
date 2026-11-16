@@ -13,7 +13,9 @@
     "connected": "接続済み",
     "unreachable": "到達不可",
     "model_missing": "ダウンロードが必要",
-    "model_installed": "インストール済み",
+    "model_failed": "読み込めませんでした",
+    "model_ready": "準備完了",
+    "model_running": "動作中",
     "model_chosen": "選択済み"
   },
   "account": {
@@ -158,6 +160,8 @@
       "model_fallback": "同梱フォールバック",
       "model_missing": "{model} はこのインストールにないため、まだ鳥を識別できるものがありません。",
       "model_missing_bundled": "同梱モデルがこのインストールにないため、まだ鳥を識別できるものがありません。",
+      "model_failed": "{model} はインストールされていますが読み込めなかったため、鳥を識別できるものがありません。",
+      "model_failed_bundled": "同梱モデルはインストールされていますが読み込めなかったため、鳥を識別できるものがありません。",
       "model_bundled": "同梱モデル",
       "quality_best": "利用可能な最良のスナップショット",
       "quality_standard": "標準スナップショット",

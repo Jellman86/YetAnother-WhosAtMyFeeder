@@ -13,7 +13,9 @@
     "connected": "Connected",
     "unreachable": "Not reachable",
     "model_missing": "Needs a download",
-    "model_installed": "Installed",
+    "model_failed": "Could not load",
+    "model_ready": "Ready",
+    "model_running": "Running",
     "model_chosen": "Chosen"
   },
   "account": {
@@ -158,6 +160,8 @@
       "model_fallback": "Bundled fallback",
       "model_missing": "{model} is not on this install, so nothing is naming birds yet.",
       "model_missing_bundled": "The bundled model is not on this install, so nothing is naming birds yet.",
+      "model_failed": "{model} is installed but could not be loaded, so nothing is naming birds.",
+      "model_failed_bundled": "The bundled model is installed but could not be loaded, so nothing is naming birds.",
       "model_bundled": "Bundled model",
       "quality_best": "Best available snapshots",
       "quality_standard": "Standard snapshots",

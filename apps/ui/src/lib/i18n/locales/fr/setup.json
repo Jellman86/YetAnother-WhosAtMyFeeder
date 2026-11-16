@@ -13,7 +13,9 @@
     "connected": "Connecté",
     "unreachable": "Injoignable",
     "model_missing": "À télécharger",
-    "model_installed": "Installé",
+    "model_failed": "Chargement impossible",
+    "model_ready": "Prêt",
+    "model_running": "En service",
     "model_chosen": "Choisi"
   },
   "account": {
@@ -158,6 +160,8 @@
       "model_fallback": "Solution de repli intégrée",
       "model_missing": "{model} n’est pas sur cette installation, rien ne nomme donc encore les oiseaux.",
       "model_missing_bundled": "Le modèle fourni n’est pas sur cette installation, rien ne nomme donc encore les oiseaux.",
+      "model_failed": "{model} est installé mais n’a pas pu être chargé, rien ne nomme donc les oiseaux.",
+      "model_failed_bundled": "Le modèle fourni est installé mais n’a pas pu être chargé, rien ne nomme donc les oiseaux.",
       "model_bundled": "Modèle fourni",
       "quality_best": "Meilleurs instantanés disponibles",
       "quality_standard": "Instantanés standard",

@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field
 
 from app.models.service_connections import ServiceConnectionsResponse
 from app.services.model_manager import is_retired_model, registry_artifact_kind, registry_model_name
+from app.services.model_readiness import ModelReadiness
 
 # Section ids line up with the wizard steps (welcome/language is not a config section).
 SETUP_SECTION_IDS = ("account", "connection", "cameras", "model", "quality", "integrations")
@@ -132,12 +133,12 @@ def _cameras(settings) -> SetupSectionState:
     return SetupSectionState(id="cameras", status="ok", detail="All cameras", detail_code="cameras_all")
 
 
-def _model(settings, active_model_id: str | None, model_installed: bool | None) -> SetupSectionState:
+def _model(settings, active_model_id: str | None, readiness: ModelReadiness | None) -> SetupSectionState:
     """The identification model's section.
 
-    `model_installed` is the classifier's own reading of whether the model's file is on disk; None
-    when nobody measured it. A model that is only chosen is never reported as installed, and one
-    whose file is absent needs attention: nothing names birds until it is downloaded.
+    `readiness` is read from the classifier's runtime report, the one the model step shows; None
+    when nobody could read it. A weights file on disk is not enough: a model that could not be
+    loaded needs attention, and one that is only chosen is never reported as ready.
     """
     model_id = str(active_model_id or settings.classification.model or "").strip()
     if is_retired_model(model_id):
@@ -156,20 +157,29 @@ def _model(settings, active_model_id: str | None, model_installed: bool | None) 
         )
     # Anything the registry does not list runs the bundled model, whatever the saved name says.
     name = registry_model_name(model_id)
-    if model_installed is False:
+    shown = name or "The bundled model"
+    if readiness == "missing":
         return SetupSectionState(
             id="model",
             status="attention",
-            detail=f"{name or 'The bundled model'} is not on this install",
+            detail=f"{shown} is not on this install",
             detail_code="model_missing",
             detail_values={"model": name or ""},
         )
-    if model_installed:
+    if readiness == "failed":
+        return SetupSectionState(
+            id="model",
+            status="attention",
+            detail=f"{shown} is installed but could not be loaded",
+            detail_code="model_failed",
+            detail_values={"model": name or ""},
+        )
+    if readiness in ("ready", "running"):
         return SetupSectionState(
             id="model",
             status="ok",
             detail=name or "Bundled model",
-            detail_code="model_installed",
+            detail_code=f"model_{readiness}",
             detail_values={"model": name or ""},
         )
     if name:
@@ -285,18 +295,18 @@ def compute_setup_state(
     settings,
     *,
     active_model_id: str | None = None,
-    model_installed: bool | None = None,
+    model_readiness: ModelReadiness | None = None,
     connections: ServiceConnectionsResponse | None = None,
 ) -> SetupState:
-    """Derive per-section readiness from the current settings, running model, whether its files
-    are on disk, and the measured connections (pure, no I/O: the caller does the measuring)."""
+    """Derive per-section readiness from the current settings, running model, the readiness
+    its runtime reports, and the measured connections (pure, no I/O: the caller does the measuring)."""
     return SetupState(
         initial_setup_complete=bool(getattr(settings.auth, "initial_setup_complete", False)),
         sections=[
             _account(settings),
             _connection(settings, connections),
             _cameras(settings),
-            _model(settings, active_model_id, model_installed),
+            _model(settings, active_model_id, model_readiness),
             _quality(settings),
             _integrations(settings),
         ],

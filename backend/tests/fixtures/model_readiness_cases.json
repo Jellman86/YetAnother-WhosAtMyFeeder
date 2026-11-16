@@ -1,0 +1,55 @@
+{
+  "about": "Classifier status reports and the readiness each one means. The server (setup review) and the SPA (model step, About, Models) both read this file in their tests, so the two derivations cannot drift.",
+  "cases": [
+    {
+      "name": "no report yet",
+      "status": null,
+      "readiness": "checking"
+    },
+    {
+      "name": "weights are not on this install",
+      "status": {"active_model_installed": false, "effective_model_id": "small_birds", "runtime_source": "planned", "image_execution_mode": "subprocess"},
+      "readiness": "missing"
+    },
+    {
+      "name": "weights are missing even though an in-app runtime reports an error too",
+      "status": {"active_model_installed": false, "effective_model_id": "small_birds", "runtime_source": "in_process", "loaded": false, "error": "model.onnx not found"},
+      "readiness": "missing"
+    },
+    {
+      "name": "weights present, labels unreadable: the in-app runtime could not load it",
+      "status": {"active_model_installed": true, "effective_model_id": "small_birds", "runtime_source": "in_process", "loaded": false, "error": "labels.txt: No such file or directory"},
+      "readiness": "failed"
+    },
+    {
+      "name": "weights present, in-app runtime not loaded and says nothing about why",
+      "status": {"active_model_installed": true, "effective_model_id": "small_birds", "image_execution_mode": "in_process", "loaded": false, "error": null},
+      "readiness": "failed"
+    },
+    {
+      "name": "the in-app fallback after workers kept stopping also failed to load",
+      "status": {"active_model_installed": true, "effective_model_id": "small_birds", "runtime_source": "in_process_fallback", "loaded": false, "error": "runtime could not open the model"},
+      "readiness": "failed"
+    },
+    {
+      "name": "installed, workers start with the first detection",
+      "status": {"active_model_installed": true, "effective_model_id": "small_birds", "runtime_source": "planned", "image_execution_mode": "subprocess", "active_provider": "cpu"},
+      "readiness": "ready"
+    },
+    {
+      "name": "an idle worker pool's loaded flag is not a failure",
+      "status": {"active_model_installed": true, "effective_model_id": "small_birds", "runtime_source": "worker", "image_execution_mode": "subprocess", "loaded": false},
+      "readiness": "running"
+    },
+    {
+      "name": "loaded inside the app and naming birds",
+      "status": {"active_model_installed": true, "effective_model_id": "small_birds", "runtime_source": "in_process", "loaded": true, "labels_count": 965},
+      "readiness": "running"
+    },
+    {
+      "name": "an older report with no install reading, running in workers",
+      "status": {"effective_model_id": "small_birds", "runtime_source": "worker", "image_execution_mode": "subprocess"},
+      "readiness": "running"
+    }
+  ]
+}

@@ -13,7 +13,9 @@
     "connected": "Verbunden",
     "unreachable": "Nicht erreichbar",
     "model_missing": "Download nötig",
-    "model_installed": "Installiert",
+    "model_failed": "Konnte nicht geladen werden",
+    "model_ready": "Bereit",
+    "model_running": "Läuft",
     "model_chosen": "Gewählt"
   },
   "account": {
@@ -158,6 +160,8 @@
       "model_fallback": "Mitgelieferter Ersatz",
       "model_missing": "{model} ist auf dieser Installation nicht vorhanden, daher bestimmt noch nichts die Vögel.",
       "model_missing_bundled": "Das mitgelieferte Modell ist auf dieser Installation nicht vorhanden, daher bestimmt noch nichts die Vögel.",
+      "model_failed": "{model} ist installiert, konnte aber nicht geladen werden, daher bestimmt nichts die Vögel.",
+      "model_failed_bundled": "Das mitgelieferte Modell ist installiert, konnte aber nicht geladen werden, daher bestimmt nichts die Vögel.",
       "model_bundled": "Mitgeliefertes Modell",
       "quality_best": "Bestmögliche Schnappschüsse",
       "quality_standard": "Standard-Schnappschüsse",

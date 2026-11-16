@@ -78,7 +78,12 @@
                 return text('model')
                     ? $_('setup.review.detail.model_missing', { values: { model: text('model') }, default: '{model} is not on this install, so nothing is naming birds yet.' })
                     : $_('setup.review.detail.model_missing_bundled', { default: 'The bundled model is not on this install, so nothing is naming birds yet.' });
-            case 'model_installed':
+            case 'model_failed':
+                return text('model')
+                    ? $_('setup.review.detail.model_failed', { values: { model: text('model') }, default: '{model} is installed but could not be loaded, so nothing is naming birds.' })
+                    : $_('setup.review.detail.model_failed_bundled', { default: 'The bundled model is installed but could not be loaded, so nothing is naming birds.' });
+            case 'model_ready':
+            case 'model_running':
                 return text('model') || $_('setup.review.detail.model_bundled', { default: 'Bundled model' });
             case 'model_selected':
                 return text('model');

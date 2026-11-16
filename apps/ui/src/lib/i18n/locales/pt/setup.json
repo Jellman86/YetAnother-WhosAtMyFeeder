@@ -13,7 +13,9 @@
     "connected": "Conectado",
     "unreachable": "Inacessível",
     "model_missing": "Falta baixar",
-    "model_installed": "Instalado",
+    "model_failed": "Não foi possível carregar",
+    "model_ready": "Pronto",
+    "model_running": "Em execução",
     "model_chosen": "Escolhido"
   },
   "account": {
@@ -158,6 +160,8 @@
       "model_fallback": "Alternativa incluída",
       "model_missing": "{model} não está nesta instalação, então ainda nada identifica as aves.",
       "model_missing_bundled": "O modelo incluído não está nesta instalação, então ainda nada identifica as aves.",
+      "model_failed": "{model} está instalado, mas não pôde ser carregado, então nada identifica as aves.",
+      "model_failed_bundled": "O modelo incluído está instalado, mas não pôde ser carregado, então nada identifica as aves.",
       "model_bundled": "Modelo incluído",
       "quality_best": "Melhores snapshots disponíveis",
       "quality_standard": "Instantâneos padrão",

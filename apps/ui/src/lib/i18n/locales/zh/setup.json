@@ -13,7 +13,9 @@
     "connected": "已连接",
     "unreachable": "无法访问",
     "model_missing": "需要下载",
-    "model_installed": "已安装",
+    "model_failed": "无法加载",
+    "model_ready": "就绪",
+    "model_running": "运行中",
     "model_chosen": "已选择"
   },
   "account": {
@@ -158,6 +160,8 @@
       "model_fallback": "内置后备模型",
       "model_missing": "此安装中没有 {model}，因此目前还没有模型在识别鸟类。",
       "model_missing_bundled": "此安装中没有内置模型，因此目前还没有模型在识别鸟类。",
+      "model_failed": "{model} 已安装但无法加载，因此没有模型在识别鸟类。",
+      "model_failed_bundled": "内置模型已安装但无法加载，因此没有模型在识别鸟类。",
       "model_bundled": "内置模型",
       "quality_best": "最佳可用快照",
       "quality_standard": "标准快照",
