@@ -168,10 +168,10 @@ curl -N "http://localhost:9852/api/sse?ticket=$TICKET"
 - `GET /api/update-status`: whether a newer YA-WAMF release exists. A notification only —
   YA-WAMF never updates itself, and the check honours the `system.update_check_enabled` opt-out.
 - `GET /api/system-telemetry`: one live host-utilization sample (the sidebar's rolling CPU/NPU
-  graph). Guest rate limits apply; the response is not cacheable. The UI samples every 15 s for
-  the owner and, for a visitor, at a fifth of the public rate limit and never faster than the
-  owner (every 15 s at the default 30 a minute). It pauses while the tab is hidden and backs off
-  after failed samples.
+  graph). Guest rate limits apply; the response is not cacheable. A visitor's UI samples it at a
+  fifth of the public rate limit and never faster than every 15 s (every 15 s at the default 30 a
+  minute), pausing while the tab is hidden and backing off after failed samples. An owner's UI
+  draws the same line from the `telemetry` part of the pushed status instead (`GET /api/status`).
 - `GET /api/system-telemetry/history` (owner): the last thirty minutes of host CPU and accelerator
   load, sampled every five seconds while the app runs, with what this container's own processes
   (the app, each classifier worker, any ffmpeg it spawned) took of it by CPU and memory. Anything
@@ -185,6 +185,33 @@ curl -N "http://localhost:9852/api/sse?ticket=$TICKET"
 - `GET /api/sse`: Server-Sent Events stream. Opens with a Bearer header, with a single-use
   `?ticket=` from `POST /api/auth/stream-ticket`, or as a guest when public access is on. The
   session token is **not** accepted in the query string; see [Stream ticket](#stream-ticket).
+  An owner stream sends the status snapshot as `{"type": "status", "data": <snapshot>}` right
+  after `connected`, again within about a second of any change, and otherwise every 15 s with
+  fresh figures. The snapshot is the body of `GET /api/status`. Guests never receive it.
+- `GET /api/status` (owner): the one status reading the shell, Health, the Dashboard and
+  Settings › Models all show, so none of them can disagree. Not cacheable. It holds:
+  - `overall`: `state` (`ok`, `degraded` or `unknown`, the same judgement as `/health`'s
+    `status`) and `cause`, the first thing to fix, with the `subsystem` it belongs to.
+  - `subsystems`: one verdict each for `mqtt`, `frigate`, `classifier`, `finder`, `audio`,
+    `storage` and `notifications`, with `state` (`ok`, `degraded`, `error`, `off` for a part
+    switched off, `unknown` for one not yet measured) and a `cause` code the page words, such as
+    `disconnected`, `unreachable`, `cameras_offline`, `cpu_fallback`, `not_writable`,
+    `nothing_heard` or `none_enabled`.
+  - `jobs_summary`: the prominent work as one count (`running`, `queued`) and `progress`, set
+    only when every running job counts the same unit towards a known total; `jobs` is the
+    `GET /api/jobs` snapshot (100 newest items, lane totals over every item) and `analysis` the
+    `GET /api/maintenance/analysis/status` reading.
+  - `model`: the model in use, the chosen and the running inference provider, whether the chosen
+    one fell back, the accelerator check's state, and a `revision` that changes whenever any of
+    those or the runtime changes.
+  - `connections` (as `GET /api/diagnostics/connections`, addresses and errors redacted),
+    `cameras` (per-camera health from Frigate's stats, read at most once a minute; null while
+    Frigate does not answer), `telemetry` (the latest host sample), `version`,
+    `startup_instance_id`, a `revision` that rises with every material change, and
+    `diagnostics_revision`, which moves when the server records a fault.
+  The snapshot carries no secret: every field is a declared state, count, model name or redacted
+  address. The server reads it only while a stream is open, so an idle install with no page open
+  does no extra work.
 
 ## Endpoint Map
 
@@ -1453,7 +1480,8 @@ only-missing weather pass when the maintenance lane becomes available.
 
 ### Jobs
 
-- `GET /api/jobs` (owner) — returns the current server-owned background-work snapshot.
+- `GET /api/jobs` (owner) — returns the current server-owned background-work snapshot. The UI
+  reads it from the pushed status (`GET /api/status`) rather than calling this.
 
 The response keeps each workload in its own lane: `auto_video`, `video_analysis`,
 `high_quality_snapshot`, `full_visit`, `backfill`, and `weather_backfill`. Each item includes its
@@ -1714,7 +1742,9 @@ length oracle.
    evidence. It contains no capture ID or metadata; reread the owner-only Garden history
    with the current filters. `audio_detected` is an owner-only invalidation sent when a new
    BirdNET-Go call is stored (not for a redelivered call or a diagnostic); it carries no
-   detection, so reread `GET /api/audio/recent` or `GET /api/audio/summary`. Guest streams carry only `public_history_changed` and
+   detection, so reread `GET /api/audio/recent` or `GET /api/audio/summary`. `status` carries the
+   whole owner status snapshot (see `GET /api/status`), so a page follows jobs, connections,
+   cameras, the model and host load without polling. Guest streams carry only `public_history_changed` and
    `public_access_changed` invalidations, in addition to connection/heartbeat frames;
    fetch allowed data through the public HTTP API and refresh sharing preferences.
 

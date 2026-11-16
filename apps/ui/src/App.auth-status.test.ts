@@ -38,6 +38,9 @@ describe('App auth status failure handling', () => {
         expect(appSource).toContain('closeLiveConnection();');
         expect(appSource).toContain('settingsStore.clear();');
         expect(appSource).toContain('untrack(() => detectionsStore.resetForAccessChange());');
+        // Owner status never outlives the session that read it.
+        expect(appSource.match(/untrack\(\(\) => systemStatusStore\.clear\(\)\)/g)?.length).toBe(2);
+        expect(appSource.match(/untrack\(\(\) => serverJobsStore\.clear\(\)\)/g)?.length).toBe(2);
         expect(appSource).toContain("{#key `${authStore.isAuthenticated ? 'owner' : 'guest'}:${authStore.token ?? 'anonymous'}`}");
     });
 

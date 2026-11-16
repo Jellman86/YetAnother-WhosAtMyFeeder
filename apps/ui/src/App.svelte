@@ -613,6 +613,7 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
               untrack(() => detectionsStore.resetForAccessChange());
               untrack(() => serviceConnectionsStore.clear());
               untrack(() => systemStatusStore.clear());
+              untrack(() => serverJobsStore.clear());
               if (authStore.isAuthenticated || !authStore.authRequired) {
                   settingsStore.load();
               } else {
@@ -636,6 +637,7 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
           untrack(() => detectionsStore.resetForAccessChange());
           untrack(() => serviceConnectionsStore.clear());
           untrack(() => systemStatusStore.clear());
+          untrack(() => serverJobsStore.clear());
           settingsStore.clear();
           activeAccessIdentity = null;
           appInitialized = false;
