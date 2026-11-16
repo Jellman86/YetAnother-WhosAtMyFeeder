@@ -40,7 +40,7 @@ describe('one sentence of what names birds right now', () => {
     });
 
     it('points to the runtime report only when there is something in it to check', () => {
-        expect(modelsSource).toContain('{#if healthIssueCount > 0}');
+        expect(modelsSource).toContain('{#if healthIssueCount > 0 && modelsListed}');
         expect(modelsSource).toContain('onclick={openRuntimeReport}');
         expect(modelsSource).toContain("settings.models.status_report_link'");
     });

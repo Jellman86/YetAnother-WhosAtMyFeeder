@@ -46,9 +46,14 @@
         status?: Snippet;
         /** Supporting detail closed beneath the figures. */
         details?: Snippet;
+        /**
+         * False until the status has its first reading. How long the verdict is depends on what it
+         * finds, so nothing is shown beneath it before then: it can grow without moving the page.
+         */
+        statusRead?: boolean;
     }
 
-    let { headerActions, status, details }: Props = $props();
+    let { headerActions, status, details, statusRead = true }: Props = $props();
 
     let history = $state.raw<SystemTelemetryHistory | null>(null);
     let loading = $state(true);
@@ -201,7 +206,9 @@
             {@render status()}
         {/if}
 
-        {#if loading && !history}
+        {#if !statusRead}
+            <!-- The history is still read from the start; it is shown once the verdict above it is. -->
+        {:else if loading && !history}
             <!-- Holds roughly the chart's height, so what follows the card does not jump when the history lands. -->
             <p class="min-h-96 text-sm text-slate-600 md:min-h-80 dark:text-slate-400" data-system-health-loading>
                 {$_('settings.system_health.loading', { default: 'Reading the last half hour…' })}
@@ -541,7 +548,7 @@
             {/if}
         {/if}
 
-        {#if details}
+        {#if details && statusRead}
             {@render details()}
         {/if}
     </SettingsCard>

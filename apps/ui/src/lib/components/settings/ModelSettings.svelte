@@ -137,6 +137,7 @@
         return verifiedProviders.includes(p);
     }
     let compatRunning = $state(false);
+    let modelsListed = $state(false);
     let compatAllModels = $state(false);
     let compatPhase = $state<string | null>(null);
     let compatProgress = $state<{ done: number; total: number; label: string } | null>(null);
@@ -387,7 +388,8 @@
     <!-- One sentence of what names birds right now; trouble adds a line that says where to look. -->
     <div class="min-h-14 space-y-2" data-models-status>
         <IdentificationStatusLine {classifierStatus} />
-        {#if healthIssueCount > 0}
+        <!-- The report it opens is in Hardware, which shows once the model list has loaded. -->
+        {#if healthIssueCount > 0 && modelsListed}
             <button
                 type="button"
                 onclick={openRuntimeReport}
@@ -445,10 +447,11 @@
                 deviceCheckRunning={compatRunning}
                 onruntimechange={onrefreshclassifierstatus}
                 oncheckfinderdevices={checkFinderDevices}
+                bind:firstLoadSettled={modelsListed}
                 {onopenlocationsettings}
             />
         </div>
-        {#if onopenmodelevaluation}
+        {#if onopenmodelevaluation && modelsListed}
             <SettingsRow
                 labelId="setting-model-evaluation"
                 label={$_('settings.models.evaluation_row', { default: 'Compare the installed models' })}
@@ -465,6 +468,8 @@
         {/if}
     </SettingsCard>
 
+    <!-- Shown once the model list has its first answer, so its height moves nothing below it. -->
+    {#if modelsListed}
     <SettingsCard
         id="models-hardware"
         title={$_('settings.detection.hardware_title', { default: 'Hardware' })}
@@ -842,6 +847,7 @@
         </div>
     </SettingsCard>
 
+    {/if}
 </div>
 
 {#if cdOpen}

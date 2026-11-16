@@ -18,7 +18,7 @@
     import type { DiagnosticStage, DiagnosticResult } from '../../utils/diagnostic-runner';
     // The live runtime is owned by the Settings page, so the band, the runtime
     // report and this card always show the same, freshest provider.
-    let { executionMode = 'subprocess', autoVideoEnabled = false, birdFinder = $bindable<BirdFinder>('yolox_tiny'), birdFinderProvider = $bindable<BirdFinderProvider>('auto'), classifierStatus, deviceCheckRunning = false, onruntimechange, onopenlocationsettings, oncheckfinderdevices }: {
+    let { executionMode = 'subprocess', autoVideoEnabled = false, birdFinder = $bindable<BirdFinder>('yolox_tiny'), birdFinderProvider = $bindable<BirdFinderProvider>('auto'), classifierStatus, deviceCheckRunning = false, onruntimechange, onopenlocationsettings, oncheckfinderdevices, firstLoadSettled = $bindable(false) }: {
         executionMode?: string;
         autoVideoEnabled?: boolean;
         /** The finder staged in the settings form; it is saved by Save changes with everything else. */
@@ -31,6 +31,11 @@
         onopenlocationsettings?: () => void;
         /** Runs the shared device check for one finder and settles when it finishes. */
         oncheckfinderdevices?: (modelId: string) => Promise<void>;
+        /**
+         * True once the first read of the models has settled, and it stays true. How tall the list
+         * is depends on what is installed, so the tab shows what follows it only from then on.
+         */
+        firstLoadSettled?: boolean;
     } = $props();
 
     // Switching tabs in place keeps unsaved settings edits; a full page load
@@ -163,6 +168,7 @@
             error = t('settings.detection.model_manager_load_error', 'Failed to load models');
         } finally {
             loading = false;
+            firstLoadSettled = true;
         }
     }
 
@@ -808,8 +814,8 @@
 
 <!-- At the narrowest widths with enlarged text a long word may break, rather than push the page sideways. -->
 <div class="space-y-6 wrap-anywhere">
-    {#if loading}
-        <!-- Holds the room the current model takes once it arrives, so the page does not jump. -->
+    {#if loading && !firstLoadSettled}
+        <!-- The first read only: a refresh keeps the list in place while Refresh spins. -->
         <div class="min-h-80 space-y-4" role="status" data-model-manager-loading>
             <span class="sr-only">{$_('common.loading', { default: 'Loading…' })}</span>
             <div class="h-5 w-48 rounded-sm bg-slate-200/70 motion-safe:animate-pulse dark:bg-slate-700/60" aria-hidden="true"></div>

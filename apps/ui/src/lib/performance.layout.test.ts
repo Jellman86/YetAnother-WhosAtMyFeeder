@@ -19,6 +19,8 @@ import recentAudioSource from './components/RecentAudio.svelte?raw';
 import settingsSource from './pages/Settings.svelte?raw';
 import speciesSource from './pages/Species.svelte?raw';
 import systemHealthPanelSource from './components/settings/SystemHealthPanel.svelte?raw';
+import modelManagerSource from './pages/models/ModelManager.svelte?raw';
+import modelSettingsSource from './components/settings/ModelSettings.svelte?raw';
 
 const SETTINGS_TABS = [
     'ConnectionSettings',
@@ -164,5 +166,22 @@ describe('Settings reads operational data only for the tab that shows it', () =>
 
     it('reads the storage figures before asking about a retention change saved from another tab', () => {
         expect(settingsSource).toContain('if (retentionShrinking && maintenanceStats === null) await loadMaintenanceStats();');
+    });
+});
+
+describe('a reading whose length is only known once it lands moves nothing beneath it', () => {
+    it('shows the Health page beneath the verdict once the verdict has its first reading', () => {
+        expect(errorsSource).toContain("<SystemHealthPanel statusRead={readState !== 'reading'}>");
+        expect(errorsSource).toContain("{#if readState !== 'reading'}\n    <section class=\"panel\" data-health-timeline>");
+        expect(systemHealthPanelSource).toContain('{#if !statusRead}');
+        expect(systemHealthPanelSource).toContain('{#if details && statusRead}');
+    });
+
+    it('shows the Models tab beneath the model list once the list has its first answer, and keeps it on a refresh', () => {
+        expect(modelManagerSource).toContain('{#if loading && !firstLoadSettled}');
+        expect(modelManagerSource).toContain('firstLoadSettled = true;');
+        expect(modelSettingsSource).toContain('bind:firstLoadSettled={modelsListed}');
+        expect(modelSettingsSource).toContain('{#if onopenmodelevaluation && modelsListed}');
+        expect(modelSettingsSource).toContain('    {#if modelsListed}\n    <SettingsCard');
     });
 });
