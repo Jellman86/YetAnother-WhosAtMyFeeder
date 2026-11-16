@@ -1,6 +1,6 @@
 /**
- * New BirdNET-Go calls, as the live stream announces them to the owner. Views of recent audio follow
- * `version` instead of polling while the stream is connected.
+ * BirdNET-Go calls heard, hidden or restored, as the live stream announces them to the owner. Views
+ * of recent audio follow `version` instead of polling while the stream is connected.
  */
 class AudioActivity {
     version = $state(0);

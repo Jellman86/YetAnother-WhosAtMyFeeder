@@ -213,8 +213,10 @@ interface LiveUpdateDeps {
     onGardenHistoryChanged?: () => void;
     /** The broker or Frigate changed state; the server sends this to owners only. */
     onServiceConnectionsChanged?: () => void;
-    /** BirdNET-Go reported a new call; the server sends this to owners only. */
-    onAudioDetected?: () => void;
+    /** A call was heard, hidden or restored; the server sends these to owners only. */
+    onAudioChanged?: () => void;
+    /** Settings were saved here or elsewhere; readings that depend on them may be out of date. */
+    onSettingsChanged?: () => void;
     onPublicAccessChanged?: () => void;
 }
 
@@ -467,8 +469,8 @@ export class LiveUpdateCoordinator {
                 return;
             }
 
-            if (payload.type === 'audio_detected') {
-                if (this.deps.hasOwnerAccess?.()) this.deps.onAudioDetected?.();
+            if (payload.type === 'audio_detected' || payload.type === 'audio_history_changed') {
+                if (this.deps.hasOwnerAccess?.()) this.deps.onAudioChanged?.();
                 return;
             }
 
@@ -690,6 +692,7 @@ export class LiveUpdateCoordinator {
             }
 
             if (payload.type === 'settings_updated') {
+                this.deps.onSettingsChanged?.();
                 const signature = `${payload.type}|${JSON.stringify(payload.data ?? {})}`;
                 if (this.deps.shouldNotify() && this.deps.applyNotificationPolicy('settings:updated', signature, 3000)) {
                     this.deps.notificationCenter.upsert({

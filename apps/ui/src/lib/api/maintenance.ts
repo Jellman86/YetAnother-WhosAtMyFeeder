@@ -1,4 +1,4 @@
-import { API_BASE, apiFetch, handleResponse } from './core';
+import { API_BASE, apiFetch, handleResponse, requestScope } from './core';
 import type { components, paths } from './generated/openapi';
 import { createSharedRead, STATUS_SHARE_MS } from './shared-read';
 
@@ -76,7 +76,7 @@ export async function fetchAnalysisStatus(): Promise<AnalysisStatus> {
 }
 
 // The shell's queue reading and the Notifications banner both read this as a page opens.
-const sharedAnalysisStatus = createSharedRead(fetchAnalysisStatus, { shareForMs: STATUS_SHARE_MS });
+const sharedAnalysisStatus = createSharedRead(fetchAnalysisStatus, { shareForMs: STATUS_SHARE_MS, scope: () => requestScope() });
 
 /** The analysis queue as it stands; readers asking at the same moment share one request. */
 export function readAnalysisStatus(): Promise<AnalysisStatus> {

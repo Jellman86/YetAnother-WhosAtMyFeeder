@@ -1,5 +1,5 @@
 import { createSlotGate } from '../utils/concurrency';
-import { API_BASE, apiFetch, getHeaders, handleResponse, withAuthParams } from './core';
+import { API_BASE, apiFetch, getHeaders, handleResponse, requestScope, withAuthParams } from './core';
 import type { paths } from './generated/openapi';
 import { createSharedRead, STATUS_SHARE_MS } from './shared-read';
 
@@ -105,7 +105,7 @@ async function fetchCameraStatuses(signal?: AbortSignal): Promise<CameraStatusRe
 }
 
 // The shell's camera list, the Dashboard's camera rows and About's pipeline all show this reading.
-const sharedCameraStatuses = createSharedRead(() => fetchCameraStatuses(), { shareForMs: STATUS_SHARE_MS });
+const sharedCameraStatuses = createSharedRead(() => fetchCameraStatuses(), { shareForMs: STATUS_SHARE_MS, scope: () => requestScope() });
 
 /** Camera reachability for a view that shows it; views mounting together share one request. */
 export function readCameraStatuses(signal?: AbortSignal): Promise<CameraStatusResponse> {

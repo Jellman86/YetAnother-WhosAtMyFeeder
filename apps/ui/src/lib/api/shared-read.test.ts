@@ -115,3 +115,48 @@ describe('createSharedRead', () => {
         expect(read).not.toHaveBeenCalled();
     });
 });
+
+describe('createSharedRead scope and replacement', () => {
+    it('never hands a reading to a different session or language, kept or in flight', async () => {
+        let scope = 'owner|en';
+        const first = deferred<string>();
+        const read = vi.fn()
+            .mockImplementationOnce(() => first.promise)
+            .mockResolvedValueOnce('guest reading')
+            .mockResolvedValueOnce('owner again');
+        const shared = createSharedRead(read, { shareForMs: 60_000, scope: () => scope });
+
+        const owner = shared.read();
+        scope = 'guest|en';
+        const guest = shared.read();
+        first.resolve('owner reading');
+        await expect(owner).resolves.toBe('owner reading');
+        await expect(guest).resolves.toBe('guest reading');
+
+        scope = 'owner|de';
+        await expect(shared.read()).resolves.toBe('owner again');
+        expect(read).toHaveBeenCalledTimes(3);
+    });
+
+    it('makes a reading taken directly the shared one, so a view opened next shows it', async () => {
+        const read = vi.fn().mockResolvedValueOnce('before the change');
+        const shared = createSharedRead(read, { shareForMs: 60_000 });
+        await shared.read();
+
+        shared.replace('after the change');
+        await expect(shared.read()).resolves.toBe('after the change');
+        expect(read).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not let a request that began before a replacement overwrite it', async () => {
+        const pending = deferred<string>();
+        const read = vi.fn(() => pending.promise);
+        const shared = createSharedRead(read, { shareForMs: 60_000 });
+
+        const early = shared.read();
+        shared.replace('newer');
+        pending.resolve('older');
+        await expect(early).resolves.toBe('older');
+        await expect(shared.read()).resolves.toBe('newer');
+    });
+});

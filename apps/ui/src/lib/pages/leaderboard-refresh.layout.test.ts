@@ -30,8 +30,11 @@ describe('leaderboard field-journal layout', () => {
         expect(leaderboardSource).toContain('<div class="h-0 w-4xl" data-room-ruler></div>');
         expect(leaderboardSource).toContain('{#if rankingTableFits === false}');
         expect(leaderboardSource).toContain('{#if rankingTableFits === true}');
-        expect(leaderboardSource).toMatch(/@4xl:hidden" data-leaderboard-stacked-rankings/);
-        expect(leaderboardSource).toMatch(/@4xl:block" data-leaderboard-table-rankings/);
+        // One rule decides which is built: no container query also shows or hides either, which at a
+        // fractional width a pixel either side of the ruler could disagree with and hide both.
+        expect(leaderboardSource).not.toMatch(/@4xl:(?:hidden|block)/);
+        expect(leaderboardSource).toMatch(/dark:border-slate-700" data-leaderboard-stacked-rankings/);
+        expect(leaderboardSource).toMatch(/dark:border-slate-700" data-leaderboard-table-rankings/);
         // A column that appears by window width would stay while doubled text squeezed it.
         expect(leaderboardSource).not.toMatch(/\b(?:md|lg|xl):table-cell/);
         expect(leaderboardSource).not.toContain('min-w-[900px]');

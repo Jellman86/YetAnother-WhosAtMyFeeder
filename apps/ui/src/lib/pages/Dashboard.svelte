@@ -456,10 +456,11 @@
         settled: () => { summaryLoading = false; }
     });
 
-    async function loadSummary() {
+    /** True when the day was read; false when the read failed or a newer one replaced it. */
+    async function loadSummary(): Promise<boolean> {
         // A retry after a failed first read is loading again, not still failed.
         if (summary === null) summaryLoading = true;
-        await summaryLoader.load();
+        return summaryLoader.load();
     }
 
     // Until the day has been read, its figures are unknown rather than zero.
@@ -496,10 +497,10 @@
     onMount(() => {
         void loadSummary();
         daySafetyReading = startLiveReading({
-            read: () => {
-                void loadSummary();
-                loadSpeciesChecks();
+            read: async () => {
                 loadReviewQueue();
+                const [dayRead] = await Promise.all([loadSummary(), canReview ? speciesChecksLoader.load() : Promise.resolve(true)]);
+                return dayRead;
             },
             live: () => detectionsStore.connected,
             pollMs: () => DAY_POLL_MS,
@@ -508,7 +509,13 @@
         });
         // The day bar and the Heard card share this one reading, kept within a visitor's request budget.
         dayAudioReading = startLiveReading({
-            read: () => { if (birdnetEnabled) void audioSummaryLoader.load(); },
+            read: async ({ announced }) => {
+                const reads = [birdnetEnabled ? audioSummaryLoader.load() : Promise.resolve(true)];
+                // "Needs your call" counts a species as heard from the audio rollup too, so a new call
+                // can settle a check: read the checks with it rather than at the next day read.
+                if (announced && canReview) reads.push(speciesChecksLoader.load());
+                return (await Promise.all(reads)).every(Boolean);
+            },
             live: () => audioFollowsLiveStream,
             pollMs: () => authStore.isGuest
                 ? Math.max(DAY_POLL_MS, guestRecentAudioPollDelayMs(authStore.publicAccessRateLimitPerMinute))

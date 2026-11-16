@@ -44,7 +44,8 @@ async function countColdLoadReads(page: Page, path: string, status: Record<strin
                 generated_at: '2026-11-16T00:00:00Z'
             },
             '/api/maintenance/analysis/status': { pending: 0, active: 0, circuit_open: false },
-            '/api/classifier/status': { loaded: true }
+            '/api/classifier/status': { loaded: true },
+            '/api/version': { version: '2.23.2-dev+r4bench', base_version: '2.23.2' }
         };
         if (pathname === '/api/sse') return route.abort();
         // The recent history is the slowest first read, so it settles after the route has mounted.

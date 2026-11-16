@@ -147,6 +147,11 @@ describe('the live stream replaces polling where it announces changes', () => {
         expect(dashboardSource).toContain('live: () => detectionsStore.connected,');
         expect(dashboardSource).toContain('live: () => audioFollowsLiveStream,');
         expect(dashboardSource).toContain('dayAudioReading?.changed();');
+        // A failed read is retried rather than taken as fresh, and an announced call reads the species
+        // checks too, since "Needs your call" counts what was heard.
+        expect(dashboardSource).toContain('return summaryLoader.load();');
+        expect(dashboardSource).toContain('if (announced && canReview) reads.push(speciesChecksLoader.load());');
+        expect(recentAudioSource).toContain('async function loadAudio(): Promise<boolean> { return audioLoader.load(); }');
         expect(dashboardSource).toContain('quietMs: REFRESH_CADENCE_MS.liveSafetyRead,');
     });
 });

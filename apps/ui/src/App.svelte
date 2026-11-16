@@ -20,7 +20,7 @@
   import LazyModal from './lib/components/LazyModal.svelte';
   import Login from './lib/components/Login.svelte';
   import { setupWizardStore } from './lib/stores/setup_wizard.svelte';
-  import { checkHealth, fetchCacheStats, fetchEventClassificationStatus, readAnalysisStatus, setAuthErrorCallback } from './lib/api';
+  import { checkHealth, fetchCacheStats, fetchEventClassificationStatus, invalidateClassifierStatus, readAnalysisStatus, setAuthErrorCallback } from './lib/api';
   import { createStreamTicket } from './lib/api/auth';
   import { resolveStreamUrl } from './lib/app/stream-url';
   import { themeStore } from './lib/stores/theme.svelte';
@@ -383,7 +383,8 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
       },
       onServiceConnectionsChanged: () => refreshOwnerConnections({ fresh: true }),
       onGardenHistoryChanged: () => gardenHistory.invalidate(),
-      onAudioDetected: () => audioActivity.announce(),
+      onAudioChanged: () => audioActivity.announce(),
+      onSettingsChanged: () => invalidateClassifierStatus(),
       onPublicHistoryChanged: () => publicHistoryRefresh.notify(),
       // Refresh every public view and its caches when the owner changes sharing.
       // Only the generic signal arrives; no owner settings are sent to visitors.

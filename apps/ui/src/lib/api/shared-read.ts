@@ -9,6 +9,8 @@ export interface SharedRead<T> {
     read(signal?: AbortSignal): Promise<T>;
     /** Something said the reading changed: the next caller asks the server again. */
     invalidate(): void;
+    /** A reading just taken directly: the next callers are handed this one. */
+    replace(value: T): void;
 }
 
 function abortError(): DOMException {
@@ -46,12 +48,28 @@ function waitFor<T>(reading: Promise<T>, signal: AbortSignal | undefined): Promi
  */
 export function createSharedRead<T>(
     read: () => Promise<T>,
-    options: { shareForMs: number; now?: () => number }
+    options: {
+        shareForMs: number;
+        /**
+         * Who is asking and in which language. A reading is only ever handed to callers in the scope
+         * it was read in, so a guest and an owner, or two languages, never share one.
+         */
+        scope?: () => string;
+        now?: () => number;
+    }
 ): SharedRead<T> {
     const now = options.now ?? (() => Date.now());
+    const scopeNow = options.scope ?? (() => '');
     let generation = 0;
+    let readScope = '';
     let inFlight: Promise<T> | null = null;
     let kept: { at: number; value: T } | null = null;
+
+    function forget(): void {
+        generation += 1;
+        inFlight = null;
+        kept = null;
+    }
 
     function start(): Promise<T> {
         const startedIn = generation;
@@ -70,13 +88,19 @@ export function createSharedRead<T>(
     return {
         read(signal?: AbortSignal): Promise<T> {
             if (signal?.aborted) return Promise.reject(abortError());
+            const scope = scopeNow();
+            if (scope !== readScope) {
+                forget();
+                readScope = scope;
+            }
             if (kept && now() - kept.at < options.shareForMs) return Promise.resolve(kept.value);
             return waitFor(inFlight ?? start(), signal);
         },
-        invalidate(): void {
-            generation += 1;
-            inFlight = null;
-            kept = null;
+        invalidate: forget,
+        replace(value: T): void {
+            forget();
+            readScope = scopeNow();
+            kept = { at: now(), value };
         }
     };
 }

@@ -1,8 +1,13 @@
 import type { PollDocument } from './visible-poll';
 
 interface LiveReadingOptions {
-    /** One reading. A failure is the reader's to report; the reading carries on. */
-    read: () => Promise<unknown> | unknown;
+    /**
+     * One reading. `announced` says it answers a change the stream announced (or one that may have
+     * gone unannounced), so the reader can also read what that change concerns. Resolve `false`, or
+     * throw, when nothing was read: the reading is then not taken as fresh. Reporting the failure is
+     * the reader's.
+     */
+    read: (reason: { announced: boolean }) => Promise<unknown> | unknown;
     /** Whether the live stream is connected and announces every change to this reading. */
     live: () => boolean;
     /**
@@ -51,6 +56,8 @@ export function startLiveReading({
     let reading = false;
     let announced = false;
     let wasLive = live();
+    // A first connect follows the first read; only a reconnect can have missed an announcement.
+    let everLive = wasLive;
     let lastReadAt = now();
     let timer: ReturnType<typeof setTimeout> | null = null;
 
@@ -73,12 +80,14 @@ export function startLiveReading({
         cancelTimer();
         if (stopped || reading || tab.hidden) return;
         reading = true;
+        const answersAnnouncement = announced;
         announced = false;
         lastReadAt = now();
         try {
-            await read();
+            // A failed read is not fresh: it is retried at the poll cadence, not after the quiet interval.
+            if ((await read({ announced: answersAnnouncement })) === false) announced = true;
         } catch {
-            // The reader reports its own failures; a failed reading must not end the cycle.
+            announced = true;
         } finally {
             reading = false;
             plan();
@@ -110,8 +119,15 @@ export function startLiveReading({
             // Only a real change counts: a view reports the state as it mounts, often unchanged.
             if (isLive === wasLive) return;
             wasLive = isLive;
-            // Losing the stream may have lost an announcement with it.
-            if (!isLive) announced = true;
+            if (!isLive) {
+                // Losing the stream may have lost an announcement with it.
+                announced = true;
+            } else if (everLive) {
+                // Back after a gap that announcements did not cover: read at once.
+                announced = true;
+                lastReadAt = Number.NEGATIVE_INFINITY;
+            }
+            everLive ||= isLive;
             plan();
         },
         stop(): void {

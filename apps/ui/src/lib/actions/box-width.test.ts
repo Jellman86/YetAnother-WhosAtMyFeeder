@@ -46,4 +46,13 @@ describe('roomFor', () => {
         action.destroy();
         expect(observers[0].disconnected).toBe(true);
     });
+
+    it('decides at the boundary by one measurement: exactly the ruler\'s width fits, a pixel less does not', () => {
+        const ruler = { clientWidth: 896 };
+        const onRoom = vi.fn();
+        roomFor(box(896, ruler), onRoom);
+        expect(onRoom).toHaveBeenLastCalledWith(true);
+        roomFor(box(895, ruler), onRoom);
+        expect(onRoom).toHaveBeenLastCalledWith(false);
+    });
 });

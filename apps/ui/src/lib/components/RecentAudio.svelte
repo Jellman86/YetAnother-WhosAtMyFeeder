@@ -54,7 +54,8 @@
         settled: () => { loading = false; }
     });
 
-    async function loadAudio() { await audioLoader.load(); }
+    /** True when the latest call was read, so a failed read is retried instead of taken as fresh. */
+    async function loadAudio(): Promise<boolean> { return audioLoader.load(); }
 
     let handledPublicHistoryVersion = detectionsStore.publicHistoryVersion;
     $effect(() => {

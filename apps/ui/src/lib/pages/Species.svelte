@@ -1861,11 +1861,11 @@
                 <!-- The ranking is a table only where its columns have room at the reader's text size:
                      the widths below are in rem of this box, so larger text reflows it into rows.
                      Only the arrangement that fits is built: the ruler is the 56rem the table needs, in this
-                     reader's text size, and the container query below says the same. -->
+                     reader's text size, and this one measurement alone decides, so no width can show neither. -->
                 <div class="@container relative" data-leaderboard-ranking-frame use:roomFor={(fits) => (rankingTableFits = fits)}>
                 <div class="pointer-events-none invisible absolute inset-x-0 top-0 h-0 overflow-hidden" aria-hidden="true"><div class="h-0 w-4xl" data-room-ruler></div></div>
                 {#if rankingTableFits === false}
-                <div class="divide-y divide-slate-200 border-y border-slate-200 dark:divide-slate-700 dark:border-slate-700 @4xl:hidden" data-leaderboard-stacked-rankings>
+                <div class="divide-y divide-slate-200 border-y border-slate-200 dark:divide-slate-700 dark:border-slate-700" data-leaderboard-stacked-rankings>
                 {#each leaderboardRows as item, index (`mobile-${item.species}|${item.audio_only}|${index}`)}
                     {@const evidence = evidenceOf(item)}
                     <button
@@ -1904,7 +1904,7 @@
                 {/if}
 
                 {#if rankingTableFits === true}
-                <div class="hidden overflow-hidden border-y border-slate-200 dark:border-slate-700 @4xl:block" data-leaderboard-table-rankings>
+                <div class="overflow-hidden border-y border-slate-200 dark:border-slate-700" data-leaderboard-table-rankings>
                 <table class="w-full table-fixed text-left text-sm" data-testid="leaderboard-table">
                     <thead class="border-b border-slate-200 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:text-slate-400">
                         <tr>

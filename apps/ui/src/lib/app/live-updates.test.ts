@@ -44,7 +44,8 @@ function buildCoordinator(options?: {
     refreshOwnerHistory?: () => Promise<void>;
     onGardenHistoryChanged?: () => void;
     onServiceConnectionsChanged?: () => void;
-    onAudioDetected?: () => void;
+    onAudioChanged?: () => void;
+    onSettingsChanged?: () => void;
 }) {
     const calls = {
         upsertRunning: [] as any[],
@@ -83,7 +84,8 @@ function buildCoordinator(options?: {
         refreshOwnerHistory: options?.refreshOwnerHistory,
         onGardenHistoryChanged: options?.onGardenHistoryChanged,
         onServiceConnectionsChanged: options?.onServiceConnectionsChanged,
-        onAudioDetected: options?.onAudioDetected,
+        onAudioChanged: options?.onAudioChanged,
+        onSettingsChanged: options?.onSettingsChanged,
         applyNotificationPolicy: () => true,
         notificationCenter: {
             items: notificationItems,
@@ -820,12 +822,22 @@ describe('private Garden live updates', () => {
         expect(calls.notificationUpserts).toEqual([]);
     });
 
-    it.each([true, false])('passes on a newly heard call only with owner access (%s)', (owner) => {
-        const onAudioDetected = vi.fn();
-        const { coordinator, calls } = buildCoordinator({ hasOwnerAccess: owner, shouldNotify: false, onAudioDetected });
-        coordinator.handlePayload({ type: 'audio_detected' });
-        expect(onAudioDetected).toHaveBeenCalledTimes(owner ? 1 : 0);
+    it.each([
+        ['audio_detected', true], ['audio_detected', false],
+        ['audio_history_changed', true], ['audio_history_changed', false]
+    ])('passes on %s, a new call or a hidden or restored one, only with owner access (%s)', (type, owner) => {
+        const onAudioChanged = vi.fn();
+        const { coordinator, calls } = buildCoordinator({ hasOwnerAccess: owner, shouldNotify: false, onAudioChanged });
+        coordinator.handlePayload({ type });
+        expect(onAudioChanged).toHaveBeenCalledTimes(owner ? 1 : 0);
         expect(calls.notificationUpserts).toEqual([]);
+    });
+
+    it('says the settings changed, so shared readings that depend on them are read again', () => {
+        const onSettingsChanged = vi.fn();
+        const { coordinator } = buildCoordinator({ shouldNotify: false, onSettingsChanged });
+        coordinator.handlePayload({ type: 'settings_updated', data: { changed_fields: ['inference_provider'] } });
+        expect(onSettingsChanged).toHaveBeenCalledTimes(1);
     });
 
     it.each([true, false])('rereads the broker and Frigate connections only with owner access (%s)', (owner) => {

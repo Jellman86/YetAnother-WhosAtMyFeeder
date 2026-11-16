@@ -1,17 +1,44 @@
-import { API_BASE, apiFetch, fetchWithAbort, handleResponse } from './core';
+import { API_BASE, apiFetch, fetchWithAbort, handleResponse, requestScope } from './core';
 import type { components, paths } from './generated/openapi';
+import { subscribeSettingsUpdates } from './settings';
 import { createSharedRead, STATUS_SHARE_MS } from './shared-read';
 
 export type ClassifierStatus = components['schemas']['ClassifierStatusResponse'];
 
-export async function fetchClassifierStatus(): Promise<ClassifierStatus> {
+async function requestClassifierStatus(): Promise<ClassifierStatus> {
     const response = await apiFetch(`${API_BASE}/classifier/status`);
     return handleResponse<ClassifierStatus>(response);
 }
 
 // The Dashboard's accelerator warning and About's summary and pipeline each show this reading.
-// A view that has just changed the model reads `fetchClassifierStatus` itself, never this.
-const sharedClassifierStatus = createSharedRead(fetchClassifierStatus, { shareForMs: STATUS_SHARE_MS });
+const sharedClassifierStatus = createSharedRead(requestClassifierStatus, { shareForMs: STATUS_SHARE_MS, scope: () => requestScope() });
+
+/**
+ * A fresh reading, for a view that has just changed the model or must not show an older one. It
+ * also becomes the shared reading, so a view opened straight after shows the same.
+ */
+export async function fetchClassifierStatus(): Promise<ClassifierStatus> {
+    const status = await requestClassifierStatus();
+    sharedClassifierStatus.replace(status);
+    return status;
+}
+
+/** The model or the runtime may have changed (a model action, a settings save): read it again. */
+export function invalidateClassifierStatus(): void {
+    sharedClassifierStatus.invalidate();
+}
+
+// A save from this tab can change the model or the runtime; another tab's arrives as `settings_updated`.
+subscribeSettingsUpdates(() => invalidateClassifierStatus());
+
+/** Runs a model action and drops the shared reading after it, whatever the outcome. */
+async function changingModels<T>(action: () => Promise<T>): Promise<T> {
+    try {
+        return await action();
+    } finally {
+        invalidateClassifierStatus();
+    }
+}
 
 /** What names birds right now, for a view that shows it; views mounting together share one request. */
 export function readClassifierStatus(): Promise<ClassifierStatus> {
@@ -56,10 +83,12 @@ export function selectSetupModelId(
 export type DownloadModelResult = paths['/api/classifier/download']['post']['response'];
 
 export async function downloadDefaultModel(): Promise<DownloadModelResult> {
-    const response = await apiFetch(`${API_BASE}/classifier/download`, {
-        method: 'POST',
+    return changingModels(async () => {
+        const response = await apiFetch(`${API_BASE}/classifier/download`, {
+            method: 'POST',
+        });
+        return handleResponse<DownloadModelResult>(response);
     });
-    return handleResponse<DownloadModelResult>(response);
 }
 
 export type ReclassifyResult = paths['/api/events/{event_id}/reclassify']['post']['response'];
@@ -278,10 +307,12 @@ export async function fetchInstalledModels(): Promise<InstalledModel[]> {
 export type ModelActionResult = paths['/api/models/{model_id}/download']['post']['response'];
 
 export async function downloadModel(modelId: string): Promise<ModelActionResult> {
-    const response = await apiFetch(`${API_BASE}/models/${modelId}/download`, {
-        method: 'POST',
+    return changingModels(async () => {
+        const response = await apiFetch(`${API_BASE}/models/${modelId}/download`, {
+            method: 'POST',
+        });
+        return handleResponse<ModelActionResult>(response);
     });
-    return handleResponse<ModelActionResult>(response);
 }
 
 export async function fetchDownloadStatus(modelId: string): Promise<DownloadProgress | null> {
@@ -292,22 +323,26 @@ export async function fetchDownloadStatus(modelId: string): Promise<DownloadProg
 }
 
 export async function activateModel(modelId: string): Promise<ModelActionResult> {
-    const response = await apiFetch(`${API_BASE}/models/${modelId}/activate`, {
-        method: 'POST',
+    return changingModels(async () => {
+        const response = await apiFetch(`${API_BASE}/models/${modelId}/activate`, {
+            method: 'POST',
+        });
+        return handleResponse<ModelActionResult>(response);
     });
-    return handleResponse<ModelActionResult>(response);
 }
 
 export type ModelDeleteResult = components['schemas']['ModelDeleteResponse'];
 
 export async function deleteModel(modelId: string): Promise<ModelDeleteResult> {
-    // Region variants are addressed as `family/region`, so each segment is
-    // encoded separately and the separating slash is preserved.
-    const path = modelId.split('/').map(encodeURIComponent).join('/');
-    const response = await apiFetch(`${API_BASE}/models/${path}`, {
-        method: 'DELETE',
+    return changingModels(async () => {
+        // Region variants are addressed as `family/region`, so each segment is
+        // encoded separately and the separating slash is preserved.
+        const path = modelId.split('/').map(encodeURIComponent).join('/');
+        const response = await apiFetch(`${API_BASE}/models/${path}`, {
+            method: 'DELETE',
+        });
+        return handleResponse<ModelDeleteResult>(response);
     });
-    return handleResponse<ModelDeleteResult>(response);
 }
 
 export type ModelValidateResult = components['schemas']['ModelValidateResponse'];
@@ -319,10 +354,12 @@ export type ModelValidateResult = components['schemas']['ModelValidateResponse']
  * the previously active model.
  */
 export async function validateModel(modelId: string): Promise<ModelValidateResult> {
-    const response = await apiFetch(`${API_BASE}/models/${encodeURIComponent(modelId)}/validate`, {
-        method: 'POST',
+    return changingModels(async () => {
+        const response = await apiFetch(`${API_BASE}/models/${encodeURIComponent(modelId)}/validate`, {
+            method: 'POST',
+        });
+        return handleResponse<ModelValidateResult>(response);
     });
-    return handleResponse<ModelValidateResult>(response);
 }
 
 export async function analyzeDetection(

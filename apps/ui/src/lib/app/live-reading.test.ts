@@ -150,6 +150,62 @@ describe('startLiveReading', () => {
         reading.stop();
     });
 
+    it('reads again as soon as the stream reconnects, since a change may have gone unannounced while it was down', async () => {
+        let live = true;
+        const read = vi.fn(async () => true);
+        const reading = startLiveReading({ read, live: () => live, pollMs: () => 60_000, quietMs: QUIET, tab: fakeTab() });
+        await vi.advanceTimersByTimeAsync(30_000);
+
+        live = false;
+        reading.liveChanged();
+        // Down: back to the poll, a minute after the last read.
+        await vi.advanceTimersByTimeAsync(30_000);
+        expect(read).toHaveBeenCalledTimes(2);
+        await vi.advanceTimersByTimeAsync(1_000);
+        live = true;
+        reading.liveChanged();
+        await vi.advanceTimersByTimeAsync(0);
+        expect(read).toHaveBeenCalledTimes(3);
+        reading.stop();
+    });
+
+    it('does not count a failed read as fresh: the stream reconnecting after it does not wait for the safety read', async () => {
+        // The reviewer's case: the fallback read fails at 60 s and the stream comes back at 61 s.
+        let live = false;
+        const read = vi.fn().mockResolvedValueOnce(true).mockResolvedValueOnce(false).mockResolvedValue(true);
+        const reading = startLiveReading({ read, live: () => live, pollMs: () => 60_000, quietMs: QUIET, tab: fakeTab() });
+        await vi.advanceTimersByTimeAsync(60_000);
+        expect(read).toHaveBeenCalledTimes(2);
+
+        await vi.advanceTimersByTimeAsync(1_000);
+        live = true;
+        reading.liveChanged();
+        await vi.advanceTimersByTimeAsync(60_000);
+        expect(read).toHaveBeenCalledTimes(3);
+        reading.stop();
+    });
+
+    it('retries a failed read at the reading\'s own cadence while the stream is connected, not after the quiet interval', async () => {
+        const read = vi.fn().mockResolvedValueOnce(false).mockResolvedValue(true);
+        const reading = startLiveReading({ read, live: () => true, pollMs: () => POLL, quietMs: QUIET, tab: fakeTab() });
+        await vi.advanceTimersByTimeAsync(POLL);
+        expect(read).toHaveBeenCalledTimes(2);
+        await vi.advanceTimersByTimeAsync(POLL * 3);
+        expect(read).toHaveBeenCalledTimes(2);
+        reading.stop();
+    });
+
+    it('tells the reader whether the read answers an announcement, so it can read what the announcement concerns', async () => {
+        const read = vi.fn(async (_reason: { announced: boolean }) => true);
+        const reading = startLiveReading({ read, live: () => true, pollMs: () => POLL, quietMs: QUIET, tab: fakeTab(), readAtStart: false });
+        reading.changed();
+        await vi.advanceTimersByTimeAsync(POLL);
+        expect(read).toHaveBeenLastCalledWith({ announced: true });
+        await vi.advanceTimersByTimeAsync(QUIET);
+        expect(read).toHaveBeenLastCalledWith({ announced: false });
+        reading.stop();
+    });
+
     it('stops for good', async () => {
         const read = vi.fn(async () => {});
         const reading = startLiveReading({ read, live: () => false, pollMs: () => POLL, quietMs: QUIET, tab: fakeTab() });
