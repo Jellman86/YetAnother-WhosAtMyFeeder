@@ -16,7 +16,12 @@ from app.repositories.maintenance_job_repository import MaintenanceJobRepository
 log = structlog.get_logger()
 
 MaintenanceRunKind = Literal["taxonomy", "timezone_scan", "timezone_repair", "analyze_unknowns"]
-MAINTENANCE_RUN_KINDS: tuple[MaintenanceRunKind, ...] = ("taxonomy", "timezone_scan", "timezone_repair", "analyze_unknowns")
+MAINTENANCE_RUN_KINDS: tuple[MaintenanceRunKind, ...] = (
+    "taxonomy",
+    "timezone_scan",
+    "timezone_repair",
+    "analyze_unknowns",
+)
 # The backfill jobs share the history table and keep their own payload shape.
 BACKFILL_JOB_KINDS: tuple[str, ...] = ("detections", "weather")
 

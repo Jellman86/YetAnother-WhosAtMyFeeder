@@ -437,8 +437,10 @@ test('collection status shows the collector state, its limits and bounded catch-
     const status = page.locator('[data-garden-collection-status]');
     await expect(status.locator('[data-garden-fact="motion"]')).toHaveText('Motion photos are collected on patio.');
     await expect(status.locator('[data-garden-motion-status]')).toHaveText('Waiting for bird inference to become idle.');
-    // The service words its automatic check state itself and reports no count, so it is shown as sent.
-    await expect(status.locator('[data-garden-fact="automatic"]')).toHaveText('No automatic check is due.');
+    // With the Garden model not downloaded, the status names that blocker rather than the
+    // service's generic precondition line.
+    await expect(status.locator('[data-garden-fact="last_check"]')).toHaveText('No check yet: the Garden model is not downloaded.');
+    await expect(status.locator('[data-garden-fact="automatic"]')).toHaveCount(0);
     await expect(status.getByText('Motion detector only: CPU · At least 10s between scans · Up to 128 photos · 3-day photo retention')).toBeVisible();
     await expect(status.getByText('Up to 24 short windows queued per camera from the last 30 minutes. Birds and camera pressure pause collection; brief visits can be missed.')).toBeVisible();
     await expect(status.getByText(/patio: 24 windows waiting when checked at/)).toBeVisible();
@@ -489,8 +491,17 @@ test('collection status never claims a device that has not run', async ({ page }
     // Worded sentences, not a list of bold keys and values.
     await expect(status.getByRole('term')).toHaveCount(0);
     await expect(status.locator('[data-garden-fact="device"]')).toHaveText('Automatic checks will try NPU first. It has not run a check yet.');
-    await expect(status.locator('[data-garden-fact="last_check"]')).toHaveText('No check has run yet.');
+    await expect(status.locator('[data-garden-fact="last_check"]')).toHaveText('No check yet: the Garden model is not downloaded.');
     await expect(status.locator('[data-garden-crop-storage]')).toHaveText('12 crops saved of 2,000 allowed.');
+});
+
+test('with its model downloaded and nothing blocking, collection status shows the service\'s own words', async ({ page }) => {
+    await openSettings(page, {}, ['patio'], (route, path) => path === '/api/garden/identification'
+        ? route.fulfill({ json: { ...identificationStatus, models: identificationStatus.models.map((model) => ({ ...model, installed: true })), last_execution: null } }) : undefined);
+    await openBeta(page);
+    const status = page.locator('[data-garden-collection-status]');
+    await expect(status.locator('[data-garden-fact="last_check"]')).toHaveText('No check has run yet.');
+    await expect(status.locator('[data-garden-fact="automatic"]')).toHaveText('No automatic check is due.');
 });
 
 test('collection status names CPU, not the preferred device, after a fallback', async ({ page }) => {

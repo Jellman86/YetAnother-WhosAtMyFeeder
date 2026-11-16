@@ -72,24 +72,24 @@ unfinished and re-acquired if the visit is still a favourite.
 
 ## The per-species floor
 
-**Settings → Data → Keep photos of the newest visits per species** protects the newest N stored
+**Settings → Data → Per-species limits → Keep photos of each species' newest visits** protects the newest N stored
 detections of each species, and their cached photographs, from age-based cleanup, however old
 they are. This is applied to stored captures, not the Explorer's grouping of captures into visits.
-It is off (0) by default. The floor is counted per canonical species, so a bird under two names has one floor, and
+It is off by default (stored as `0`). The floor is counted per canonical species, so a bird under two names has one floor, and
 hidden visits neither count towards it nor are held by it. Clips are not held by the floor; they
 follow the age window as before. The same setting is `MEDIA_CACHE__PER_SPECIES_MINIMUM`.
 
 ## Retention boundaries
 
-With **Keep Everything** (`maintenance.retention_days: 0`), age cleanup does not purge detections.
+With **Keep everything** (`maintenance.retention_days: 0`), age cleanup does not purge detections.
 A positive retention period permanently deletes older visual and BirdNET-Go audio history;
 favourites and the per-species floor protect the qualifying visual records described above.
 Purged history cannot be recovered without a backup. Neither hiding a visit nor clearing ordinary
 cached clips is the same as permanently deleting its database record or removing an archive.
 Review the [data settings](../setup/configuration.md) before changing retention.
 
-The per-species floor is age protection, not reserved disk space. **Most visits per species with
-photos and video** and **Storage limit (MiB)** can still evict ordinary cached media. Such eviction
+The per-species floor is age protection, not reserved disk space. **Limit visits per species with
+photos and video** and **Limit the space photos and video use** can still evict ordinary cached media. Such eviction
 keeps detection history and leaves archived favourites alone. Removed bytes cannot be restored
 from YA-WAMF itself; do not assume Frigate still has them.
 

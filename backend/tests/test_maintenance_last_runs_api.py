@@ -146,6 +146,8 @@ async def test_a_recorded_maintenance_run_is_never_read_back_as_a_backfill_job(c
 
     async with get_db() as db:
         repo = MaintenanceJobRepository(db)
-        assert all(job["kind"] not in MAINTENANCE_RUN_KINDS for job in await repo.recent(kinds=("detections", "weather")))
+        assert all(
+            job["kind"] not in MAINTENANCE_RUN_KINDS for job in await repo.recent(kinds=("detections", "weather"))
+        )
         latest = await repo.latest(kinds=("detections", "weather"))
     assert latest is None or latest["kind"] in ("detections", "weather")
