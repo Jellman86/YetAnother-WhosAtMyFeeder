@@ -2,12 +2,14 @@
     import { _ } from 'svelte-i18n';
     import type { LiveFeedState } from '../utils/live-feed-state';
     import { alertsRow, audioRow, feedRow, type StatusRow, type StatusText, type StatusTone } from '../utils/system-status';
+    import { formatTime } from '../utils/datetime';
 
     let {
         birdnetEnabled = false,
         notificationsActive = null,
         feed = 'reconnecting',
-        collapsed = false
+        collapsed = false,
+        staleSince = null
     }: {
         birdnetEnabled?: boolean;
         /** Null when unread, as for a guest: the row is left out rather than guessed. */
@@ -16,7 +18,18 @@
         feed?: LiveFeedState;
         /** The icon rail: the same rows as icons, each named by the same words. */
         collapsed?: boolean;
+        /** When the owner's pushed status last arrived, set only once it is out of date. */
+        staleSince?: number | null;
     } = $props();
+
+    const staleText = $derived(
+        staleSince === null
+            ? null
+            : $_('status.stale_since', {
+                  values: { time: formatTime(new Date(staleSince)) },
+                  default: 'Status last updated {time}. Checking again.'
+              })
+    );
 
     const rows = $derived(
         [feedRow(feed), audioRow(birdnetEnabled, feed), alertsRow(notificationsActive)].filter(
@@ -92,5 +105,9 @@
                 </li>
             {/each}
         </ul>
+        {#if staleText}
+            <!-- The rows above are from an older reading; say how old rather than let them pass for current. -->
+            <p class="mt-1.5 text-xs leading-4 text-slate-600 dark:text-slate-400" data-status-stale>{staleText}</p>
+        {/if}
     {/if}
 </div>

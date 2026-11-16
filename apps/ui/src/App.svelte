@@ -829,6 +829,7 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
                   {notificationsActive}
                   feed={liveFeedState(detectionsStore.connected, serviceConnectionsStore.connections)}
                   {collapsed}
+                  staleSince={systemStatusStore.stale ? systemStatusStore.receivedAt : null}
               />
               <UpdateIndicator {collapsed} />
           {/snippet}

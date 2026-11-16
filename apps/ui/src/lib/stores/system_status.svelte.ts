@@ -8,6 +8,13 @@ import { startVisiblePoll, type PollDocument } from '../app/visible-poll';
  */
 export const STATUS_FALLBACK_READ_MS = 60_000;
 
+/**
+ * The server pushes the status at least every 15 seconds. A live stream that has brought none for
+ * this long has stopped delivering it (a proxy holding it, or a server that dropped the subscriber),
+ * so the status is said to be out of date and is read directly until a push arrives again.
+ */
+export const STATUS_STALE_AFTER_MS = 45_000;
+
 /** Why the install is degraded, in the words the notification already has keys for. */
 export type HealthNotificationCause = 'mqtt_down' | 'mqtt_not_configured' | 'frigate_down' | 'pipeline_critical' | 'other';
 
@@ -24,8 +31,12 @@ interface SystemStatusStoreOptions {
  */
 export class SystemStatusStore {
     snapshot = $state.raw<SystemStatus | null>(null);
-    /** True while the live stream delivers the snapshot; a page can then trust it is current. */
+    /** True while the live stream is connected. */
     streamLive = $state(false);
+    /** When the last snapshot arrived, from a push or a read; null before the first. */
+    receivedAt = $state<number | null>(null);
+    /** No snapshot has arrived for longer than the server's push interval allows. */
+    stale = $state(false);
     private readonly fetch: () => Promise<SystemStatus>;
     private readonly tab: PollDocument | undefined;
     private readonly listeners = new Set<StatusListener>();
@@ -35,6 +46,8 @@ export class SystemStatusStore {
     private active = false;
     // A plain copy of `streamLive`, so deciding about the fallback read never subscribes the caller.
     private live = false;
+    private isStale = false;
+    private staleTimer: ReturnType<typeof setTimeout> | null = null;
 
     constructor(options: SystemStatusStoreOptions = {}) {
         this.fetch = options.fetch ?? fetchSystemStatus;
@@ -51,7 +64,26 @@ export class SystemStatusStore {
             return;
         }
         this.snapshot = next;
+        this.markFresh();
         for (const listener of this.listeners) listener(next, previous);
+    }
+
+    private markFresh(): void {
+        this.receivedAt = Date.now();
+        if (this.staleTimer !== null) clearTimeout(this.staleTimer);
+        this.staleTimer = this.active
+            ? setTimeout(() => {
+                  this.staleTimer = null;
+                  this.isStale = true;
+                  this.stale = true;
+                  this.syncFallback();
+              }, STATUS_STALE_AFTER_MS)
+            : null;
+        if (this.isStale) {
+            this.isStale = false;
+            this.stale = false;
+            this.syncFallback();
+        }
     }
 
     /** Called with every accepted reading; returns the function that stops it. */
@@ -96,12 +128,13 @@ export class SystemStatusStore {
     }
 
     private syncFallback(): void {
-        const wanted = this.active && !this.live;
+        const wanted = this.active && (!this.live || this.isStale);
         if (wanted && this.stopFallback === null) {
             this.stopFallback = startVisiblePoll({
                 read: () => this.load(),
                 delayMs: () => STATUS_FALLBACK_READ_MS,
-                readAtStart: false,
+                // A status found out of date is read at once; a stream that is simply down waits a minute.
+                readAtStart: this.isStale,
                 tab: this.tab
             });
         } else if (!wanted && this.stopFallback !== null) {
@@ -116,8 +149,13 @@ export class SystemStatusStore {
         this.active = false;
         this.live = false;
         this.streamLive = false;
+        this.isStale = false;
+        this.stale = false;
+        if (this.staleTimer !== null) clearTimeout(this.staleTimer);
+        this.staleTimer = null;
         this.syncFallback();
         this.snapshot = null;
+        this.receivedAt = null;
     }
 }
 

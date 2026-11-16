@@ -93,3 +93,21 @@ async def test_a_guest_is_refused_the_status_endpoint(monkeypatch):
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
         response = await client.get("/api/status")
     assert response.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_a_stream_the_broadcaster_drops_for_backpressure_is_closed_so_the_page_reconnects(monkeypatch):
+    monkeypatch.setattr(settings.system, "broadcaster_max_queue_size", 1)
+    monkeypatch.setattr(settings.system, "broadcaster_max_consecutive_full", 1)
+    response = await sse_endpoint(_stream_request(), StreamAuth(AuthContext(AuthLevel.OWNER), None))
+    try:
+        assert _frame(await response.body_iterator.__anext__())["type"] == "connected"
+        assert _frame(await asyncio.wait_for(response.body_iterator.__anext__(), 10))["type"] == "status"
+        # The page stops reading: the queue fills and the broadcaster gives up on this subscriber.
+        await broadcaster.broadcast({"type": "detection_updated", "data": {"frigate_event": "a"}})
+        await broadcaster.broadcast({"type": "detection_updated", "data": {"frigate_event": "b"}})
+        await broadcaster.broadcast({"type": "detection_updated", "data": {"frigate_event": "c"}})
+        with pytest.raises(StopAsyncIteration):
+            await asyncio.wait_for(response.body_iterator.__anext__(), 2)
+    finally:
+        await response.body_iterator.aclose()

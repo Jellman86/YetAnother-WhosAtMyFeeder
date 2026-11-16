@@ -4,6 +4,7 @@ import { isSystemStatus } from '../api/status';
 import type { PollDocument } from '../app/visible-poll';
 import {
     STATUS_FALLBACK_READ_MS,
+    STATUS_STALE_AFTER_MS,
     SystemStatusStore,
     statusNotificationCause,
     telemetrySampleFrom,
@@ -41,6 +42,14 @@ function fakeTab(): PollDocument {
     return { hidden: false, addEventListener: () => undefined, removeEventListener: () => undefined };
 }
 
+/** The server's cadence: a push every 15 s for as long as the stream is healthy. */
+async function pushEvery15s(store: SystemStatusStore, totalMs: number): Promise<void> {
+    for (let elapsed = 0; elapsed < totalMs; elapsed += 15_000) {
+        await vi.advanceTimersByTimeAsync(15_000);
+        store.ingest(snapshot());
+    }
+}
+
 afterEach(() => {
     vi.useRealTimers();
 });
@@ -72,14 +81,15 @@ describe('SystemStatusStore', () => {
         expect(seen).toEqual([[1, null], [2, 1]]);
     });
 
-    it('reads once at start and makes no further request while the stream is live', async () => {
+    it('reads once at start and makes no further request while the stream keeps pushing', async () => {
         vi.useFakeTimers();
         const fetch = vi.fn().mockResolvedValue(snapshot());
         const store = new SystemStatusStore({ fetch, tab: fakeTab() });
         store.start();
         store.setStreamLive(true);
-        await vi.advanceTimersByTimeAsync(STATUS_FALLBACK_READ_MS * 5);
+        await pushEvery15s(store, STATUS_FALLBACK_READ_MS * 5);
         expect(fetch).toHaveBeenCalledTimes(1);
+        expect(store.stale).toBe(false);
     });
 
     it('reads once a minute while the stream is down, and stops when it is back', async () => {
@@ -90,7 +100,7 @@ describe('SystemStatusStore', () => {
         await vi.advanceTimersByTimeAsync(STATUS_FALLBACK_READ_MS * 2);
         expect(fetch).toHaveBeenCalledTimes(3);
         store.setStreamLive(true);
-        await vi.advanceTimersByTimeAsync(STATUS_FALLBACK_READ_MS * 3);
+        await pushEvery15s(store, STATUS_FALLBACK_READ_MS * 3);
         expect(fetch).toHaveBeenCalledTimes(3);
     });
 
@@ -101,6 +111,45 @@ describe('SystemStatusStore', () => {
         expect(fetch).toHaveBeenCalledTimes(1);
         await store.load();
         expect(store.snapshot?.revision).toBe(2);
+    });
+
+    it('marks a live stream that has stopped delivering the status as stale, and reads at once', async () => {
+        // A stream can stay open with heartbeats after the server stopped sending it anything.
+        vi.useFakeTimers();
+        const fetch = vi.fn().mockResolvedValue(snapshot({ revision: 2 }));
+        const store = new SystemStatusStore({ fetch, tab: fakeTab() });
+        store.start();
+        await vi.advanceTimersByTimeAsync(0);
+        store.setStreamLive(true);
+        store.ingest(snapshot({ revision: 2 }));
+        expect(store.stale).toBe(false);
+        expect(store.receivedAt).not.toBeNull();
+
+        await vi.advanceTimersByTimeAsync(STATUS_STALE_AFTER_MS - 1);
+        expect(store.stale).toBe(false);
+        expect(fetch).toHaveBeenCalledTimes(1);
+
+        await vi.advanceTimersByTimeAsync(1);
+        expect(fetch).toHaveBeenCalledTimes(2);
+        // The read brought a status: it is current again, and the stream is trusted again.
+        expect(store.stale).toBe(false);
+        await vi.advanceTimersByTimeAsync(STATUS_STALE_AFTER_MS - 1);
+        expect(fetch).toHaveBeenCalledTimes(2);
+    });
+
+    it('keeps reading once a minute while the status stays stale on a live stream', async () => {
+        vi.useFakeTimers();
+        const fetch = vi.fn().mockRejectedValue(new Error('HTTP 502'));
+        const store = new SystemStatusStore({ fetch, tab: fakeTab() });
+        store.start();
+        store.setStreamLive(true);
+        store.ingest(snapshot());
+        await vi.advanceTimersByTimeAsync(STATUS_STALE_AFTER_MS);
+        expect(store.stale).toBe(true);
+        const afterStale = fetch.mock.calls.length;
+        await vi.advanceTimersByTimeAsync(STATUS_FALLBACK_READ_MS * 2);
+        expect(fetch.mock.calls.length).toBe(afterStale + 2);
+        expect(store.stale).toBe(true);
     });
 
     it('says it is following only between start and clear', () => {

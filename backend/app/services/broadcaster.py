@@ -21,6 +21,10 @@ class Broadcaster:
     def has_subscribers(self) -> bool:
         return bool(self.queues)
 
+    def is_subscribed(self, queue: asyncio.Queue) -> bool:
+        """False once the queue was dropped for backpressure; its stream must then close."""
+        return queue in self.queues
+
     async def subscribe(self) -> asyncio.Queue:
         queue = asyncio.Queue(maxsize=settings.system.broadcaster_max_queue_size)
         async with self._queue_lock:

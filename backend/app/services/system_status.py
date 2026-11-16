@@ -20,6 +20,8 @@ from typing import Any
 
 import structlog
 
+from app.utils.diagnostic_redaction import redact_connection_error
+
 from app.models.analysis_status import AnalysisStatusResponse
 from app.models.jobs import JobsSnapshotResponse
 from app.models.service_connections import ServiceConnectionsResponse
@@ -80,6 +82,8 @@ class SystemStatusInputs:
     telemetry: TelemetrySummary | None = None
     diagnostics_revision: int = 0
     version: str = "unknown"
+    # Configured secret values; free text in the snapshot is cleaned of them and of credential forms.
+    secrets: tuple[str, ...] = ()
 
 
 def _mqtt_verdict(inputs: SystemStatusInputs) -> SubsystemVerdict:
@@ -234,7 +238,7 @@ def _model_state(inputs: SystemStatusInputs, classifier: SubsystemVerdict) -> Mo
     status = inputs.classifier_status
     selected = _normalised_provider(status.get("selected_provider"))
     active = _normalised_provider(status.get("active_provider"))
-    fallback_reason = str(status.get("fallback_reason") or "").strip() or None
+    fallback_reason = _clean(str(status.get("fallback_reason") or "").strip() or None, inputs.secrets)
     enabled = bool(status.get("enabled", False))
     # The Dashboard's warning rule: only a resident model reports `enabled`, and only then is a
     # mismatch between the chosen and the running provider worth saying.
@@ -282,8 +286,32 @@ def _model_state(inputs: SystemStatusInputs, classifier: SubsystemVerdict) -> Mo
     )
 
 
+def _clean(text: str | None, secrets: tuple[str, ...]) -> str | None:
+    return redact_connection_error(text, secrets)[:2048] if text else text
+
+
+def _redacted_jobs(jobs: JobsSnapshotResponse, secrets: tuple[str, ...]) -> JobsSnapshotResponse:
+    items = [
+        item.model_copy(update={"phase": _clean(item.phase, secrets) or "", "error": _clean(item.error, secrets)})
+        for item in jobs.items
+    ]
+    return jobs.model_copy(update={"items": items})
+
+
+def _redacted_analysis(analysis: AnalysisStatusResponse, secrets: tuple[str, ...]) -> AnalysisStatusResponse:
+    # The model allows fields it does not declare, so every text value is cleaned, not a known few.
+    values = analysis.model_dump()
+    return AnalysisStatusResponse.model_validate(
+        {name: _clean(value, secrets) if isinstance(value, str) else value for name, value in values.items()}
+    )
+
+
 def derive_system_status(inputs: SystemStatusInputs, *, revision: int, now: datetime) -> SystemStatusSnapshot:
-    """The snapshot every owner screen reads, from readings already taken."""
+    """The snapshot every owner screen reads, from readings already taken.
+
+    Every free-text field (a job's phase and error, the queue's status message, the provider's
+    fallback reason) is redacted here, so nothing a client raised reaches a page with a credential in it.
+    """
     subsystems = [
         _mqtt_verdict(inputs),
         _frigate_verdict(inputs),
@@ -302,8 +330,8 @@ def derive_system_status(inputs: SystemStatusInputs, *, revision: int, now: date
         overall=_overall_verdict(inputs, subsystems),
         subsystems=subsystems,
         jobs_summary=summarise_jobs(inputs.jobs),
-        jobs=inputs.jobs,
-        analysis=inputs.analysis,
+        jobs=_redacted_jobs(inputs.jobs, inputs.secrets),
+        analysis=_redacted_analysis(inputs.analysis, inputs.secrets),
         model=_model_state(inputs, classifier),
         connections=inputs.connections,
         cameras=inputs.cameras,

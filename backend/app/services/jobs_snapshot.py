@@ -12,6 +12,7 @@ from app.services.auto_video_classifier_service import auto_video_classifier
 from app.services.archive_service import archive_service
 from app.services.full_visit_clip_service import full_visit_clip_service
 from app.services.high_quality_snapshot_service import high_quality_snapshot_service
+from app.utils.diagnostic_redaction import configured_secrets, redact_connection_error
 
 __all__ = ["JobSnapshotItem", "JobsSnapshotResponse", "build_jobs_snapshot", "build_lanes"]
 
@@ -156,6 +157,34 @@ def _job_sort_timestamp(item: JobSnapshotItem) -> float:
         return 0.0
 
 
+# Fields a job fills from free text: a phase or an outcome sentence, and the error a failed job kept.
+# A backfill or media failure quotes the exception, which can carry a request URL with credentials.
+_FREE_TEXT_FIELDS = ("phase", "error")
+
+
+def redact_job_text(job: dict[str, object], secrets: tuple[str, ...]) -> dict[str, object]:
+    """A job with every free-text field made safe to show, export or push to a page."""
+    cleaned = dict(job)
+    for name in _FREE_TEXT_FIELDS:
+        value = cleaned.get(name)
+        if isinstance(value, str) and value:
+            cleaned[name] = redact_connection_error(value, secrets)[:2048]
+    return cleaned
+
+
+def unique_by_id(jobs: list[dict[str, object]]) -> list[dict[str, object]]:
+    """The first reading of each job id; later readings of the same job are dropped."""
+    seen: set[str] = set()
+    unique: list[dict[str, object]] = []
+    for job in jobs:
+        job_id = str(job.get("id") or "")
+        if job_id and job_id in seen:
+            continue
+        seen.add(job_id)
+        unique.append(job)
+    return unique
+
+
 async def build_jobs_snapshot(
     *,
     include_routine: bool = True,
@@ -169,16 +198,21 @@ async def build_jobs_snapshot(
     """
     if saved_high_quality_jobs is None:
         saved_high_quality_jobs = await high_quality_snapshot_service.get_saved_jobs_snapshot()
-    raw_items = [
-        *auto_video_classifier.get_jobs_snapshot(),
-        *high_quality_snapshot_service.get_jobs_snapshot(),
-        *saved_high_quality_jobs,
-        *full_visit_clip_service.get_jobs_snapshot(),
-        *archive_service.get_jobs_snapshot(),
-        *_backfill_job_snapshots(),
-    ]
+    # The live in-memory reading of a job wins over its saved row, which may be half a minute old:
+    # one job is never counted as both running and queued.
+    raw_items = unique_by_id(
+        [
+            *auto_video_classifier.get_jobs_snapshot(),
+            *high_quality_snapshot_service.get_jobs_snapshot(),
+            *full_visit_clip_service.get_jobs_snapshot(),
+            *archive_service.get_jobs_snapshot(),
+            *_backfill_job_snapshots(),
+            *saved_high_quality_jobs,
+        ]
+    )
+    secrets = configured_secrets()
     items: list[JobSnapshotItem] = []
-    for raw in raw_items:
+    for raw in map(lambda job: redact_job_text(job, secrets), raw_items):
         visibility: JobVisibility = (
             "routine"
             if str(raw.get("kind") or "") in {"auto_video", "high_quality_snapshot", "full_visit", "favorite_archive"}

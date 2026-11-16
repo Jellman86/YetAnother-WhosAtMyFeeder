@@ -381,3 +381,30 @@ def test_its_own_events_and_heartbeats_do_not_wake_it():
         assert service._wake.is_set()
 
     asyncio.run(scenario())
+
+
+def test_free_text_in_the_snapshot_is_redacted_before_it_is_published():
+    secret = "fixture-configured-secret-8812"
+    credential_url = "http://owner:fixture-url-pass-8812@frigate:5000/api/stats?token=tok-8812"
+    failed = JobSnapshotItem(
+        id="backfill:detections:1",
+        kind="backfill",
+        source="owner",
+        status="failed",
+        phase=f"Failed against {credential_url}",
+        error=f"Refused with {secret}; api_key=key-8812",
+    )
+    inputs = healthy(
+        secrets=(secret,),
+        jobs=JobsSnapshotResponse(captured_at="t", items=[failed], lanes=[lane("backfill")]),
+        analysis=AnalysisStatusResponse(
+            pending=0, active=0, circuit_open=False, maintenance_status_message=f"Paused: {credential_url}"
+        ),
+        classifier_status={"enabled": True, "fallback_reason": f"GPU failed at {credential_url} with {secret}"},
+    )
+
+    payload = json.dumps(derive_system_status(inputs, revision=1, now=NOW).model_dump(mode="json"))
+
+    for leaked in (secret, "fixture-url-pass-8812", "tok-8812", "key-8812", "owner:"):
+        assert leaked not in payload
+    assert "frigate:5000" in payload

@@ -1397,6 +1397,13 @@ async def sse_endpoint(request: Request, stream_auth: StreamAuth = Depends(get_s
                     # Wait for a message or a timeout for heartbeat
                     message = await asyncio.wait_for(queue.get(), timeout=20.0)
 
+                    # A subscriber the broadcaster dropped for falling behind receives nothing more,
+                    # yet its heartbeats would keep the page believing it is live. End the stream so
+                    # the page reconnects and starts again from a fresh status snapshot.
+                    if not broadcaster.is_subscribed(queue):
+                        log.info("sse_stream_closed_after_backpressure")
+                        return
+
                     if (
                         stream_auth.session_version is not None
                         and stream_auth.session_version != settings.auth.session_version
@@ -1439,6 +1446,8 @@ async def sse_endpoint(request: Request, stream_auth: StreamAuth = Depends(get_s
 
                     yield f"data: {json.dumps(message)}\n\n"
                 except asyncio.TimeoutError:
+                    if not broadcaster.is_subscribed(queue):
+                        return
                     if (
                         stream_auth.session_version is not None
                         and stream_auth.session_version != settings.auth.session_version

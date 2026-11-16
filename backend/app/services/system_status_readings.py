@@ -148,4 +148,5 @@ class SystemStatusReadings:
             telemetry=latest_telemetry(),
             diagnostics_revision=error_diagnostics_history.revision,
             version=self._version,
+            secrets=configured_secrets(),
         )
