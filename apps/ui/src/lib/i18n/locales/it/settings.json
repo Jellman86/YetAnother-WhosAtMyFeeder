@@ -1346,6 +1346,7 @@
     "bird_finder_runs_cause_unfinished": "{fact} (la verifica non è stata completata)",
     "bird_finder_runs_interrupted": "CPU · l’ultima verifica di {devices} è stata interrotta",
     "bird_finder_runs_waiting": "CPU · in attesa di foto di uccelli salvate per verificare {devices}",
+    "bird_finder_runs_waiting_full_frames": "CPU · in attesa di fotogrammi completi della telecamera per verificare {devices}. Le foto di uccelli salvate sono ritagli stretti, su cui non si può verificare un rilevatore.",
     "bird_finder_runs_never": "CPU · nessun acceleratore ha ancora superato una verifica su questo host",
     "bird_finder_runs_cpu_only": "CPU · questo host non offre alcun acceleratore al rilevatore",
     "bird_finder_device_not_passed": "{provider} · verifica non superata su questo host",

@@ -1346,6 +1346,7 @@
     "bird_finder_runs_cause_unfinished": "{fact} (проверку не удалось завершить)",
     "bird_finder_runs_interrupted": "CPU · последняя проверка ({devices}) была прервана",
     "bird_finder_runs_waiting": "CPU · ожидаются сохранённые фото птиц для проверки: {devices}",
+    "bird_finder_runs_waiting_full_frames": "CPU · ожидаются полные кадры камеры для проверки: {devices}. Сохранённые фото птиц обрезаны вплотную, и на них детектор проверить нельзя.",
     "bird_finder_runs_never": "CPU · на этом хосте проверку пока не прошёл ни один ускоритель",
     "bird_finder_runs_cpu_only": "CPU · этот хост не предлагает поиску птиц ни одного ускорителя",
     "bird_finder_device_not_passed": "{provider} · проверка на этом хосте не пройдена",

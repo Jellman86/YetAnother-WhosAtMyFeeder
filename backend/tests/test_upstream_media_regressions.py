@@ -613,3 +613,73 @@ async def test_late_final_event_does_not_regenerate_media_evicted_by_limits(monk
             await db.execute("DELETE FROM detections WHERE frigate_event=?", (event,))
             await db.commit()
         await close_db()
+
+
+@pytest.mark.asyncio
+async def test_every_snapshot_write_records_the_identity_of_the_image_it_wrote(tmp_path, monkeypatch):
+    import hashlib
+    import json
+
+    monkeypatch.setattr(cache_module, "SNAPSHOTS_DIR", tmp_path)
+    service = cache_module.MediaCacheService()
+
+    def recorded() -> str | None:
+        return json.loads((tmp_path / "visit.jpg.meta.json").read_text()).get("image_sha256")
+
+    first = jpeg((1280, 720))
+    await service.cache_snapshot("visit", first, source="frigate_snapshot")
+    assert recorded() == hashlib.sha256(first).hexdigest()
+    crop = jpeg((600, 600))
+    await service.replace_snapshot("visit", crop, source="high_quality_bird_crop")
+    assert recorded() == hashlib.sha256(crop).hexdigest()
+    await service.update_snapshot_event_hints("visit", {"box": [0.1, 0.1, 0.2, 0.2]})
+    await service.set_manual_snapshot_selection("visit", False)
+    # Updates that leave the photograph alone keep its identity.
+    assert recorded() == hashlib.sha256((tmp_path / "visit.jpg").read_bytes()).hexdigest()
+
+
+@pytest.mark.asyncio
+async def test_a_live_crop_cached_by_the_proxy_never_joins_a_finder_check(tmp_path, monkeypatch):
+    # The proxy asks Frigate for crop=1 and caches the answer as unverified; on a
+    # live event that is a bird crop, often well over 480 px across.
+    from app.services import bird_finder_revalidation as recovery
+
+    monkeypatch.setattr(cache_module, "SNAPSHOTS_DIR", tmp_path)
+    service = cache_module.MediaCacheService()
+    for index in range(3):
+        await service.cache_snapshot(f"live{index}", jpeg((600, 600)), source="frigate_snapshot_unverified")
+    assert recovery.select_check_frames(tmp_path, limit=12) == []
+    for index in range(3):
+        await service.cache_snapshot(f"done{index}", jpeg((1280, 720)), source="frigate_snapshot_uncropped")
+    assert len(recovery.select_check_frames(tmp_path, limit=12)) == 3
+
+
+@pytest.mark.asyncio
+async def test_a_snapshot_write_hashes_its_image_once_and_off_the_event_loop(tmp_path, monkeypatch):
+    import hashlib
+    import json
+    import threading
+
+    monkeypatch.setattr(cache_module, "SNAPSHOTS_DIR", tmp_path)
+    service = cache_module.MediaCacheService()
+    image = jpeg((1280, 720))
+    alignment = {
+        "frame_time": 1_800_000_000.0,
+        "box": [0.1, 0.1, 0.2, 0.2],
+        "image_sha256": hashlib.sha256(image).hexdigest(),
+    }
+    loop_thread = threading.get_ident()
+    threads = []
+    real = cache_module.image_sha256_hex
+    monkeypatch.setattr(
+        cache_module, "image_sha256_hex", lambda data: threads.append(threading.get_ident()) or real(data)
+    )
+    await service.cache_snapshot(
+        "visit", image, source="frigate_snapshot", event_hints={"box": [0.1, 0.1, 0.2, 0.2]}, film_alignment=alignment
+    )
+    assert len(threads) == 1
+    assert threads[0] != loop_thread
+    metadata = json.loads((tmp_path / "visit.jpg.meta.json").read_text())
+    digest = hashlib.sha256(image).hexdigest()
+    assert metadata["image_sha256"] == metadata["snapshot_photo_hints"]["image_sha256"] == digest
+    assert metadata["film_alignment"]["image_sha256"] == digest
