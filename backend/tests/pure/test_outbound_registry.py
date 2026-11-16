@@ -30,6 +30,8 @@ import json
 from pathlib import Path
 import re
 
+import pytest
+
 BACKEND = Path(__file__).resolve().parents[2]
 APP = BACKEND / "app"
 REGISTRY = json.loads((BACKEND / "outbound_requests.json").read_text("utf-8"))
@@ -48,6 +50,11 @@ def _outbound_roots(registry: dict = REGISTRY) -> frozenset[str]:
     """The dotted names an outbound library is imported under."""
     packaged = {name for package in registry["dependencies"]["outbound"] for name in package["imports"]}
     return frozenset(packaged | set(registry["other_outbound_imports"]))
+
+
+def _opens_a_connection(origin: str | None) -> bool:
+    """Whether a resolved name is one of asyncio's ways of opening a connection."""
+    return bool(origin) and origin.startswith("asyncio.") and origin.rsplit(".", 1)[1] in NETWORK_CALLS
 
 
 def _is_under(origin: str, roots: frozenset[str]) -> bool:
@@ -125,6 +132,17 @@ class ModuleFacts(ast.NodeVisitor):
         self.generic_visit(node)
 
     def _record_assignment(self, targets: list[ast.expr], value: ast.AST) -> None:
+        # `connect = asyncio.open_connection`: a plain name for something imported keeps its origin,
+        # so the call made through it later resolves to the same place.
+        named = self._origin(value) if isinstance(value, ast.Attribute) else None
+        if isinstance(value, ast.Name) and value.id in self.bound:
+            named = self.bound[value.id]
+        if named:
+            for target in targets:
+                if isinstance(target, ast.Name):
+                    self.bound[target.id] = named
+            if _opens_a_connection(named):
+                self.network_calls.add(named)
         if not self._builds_a_client(value, self.roots):
             return
         for target in targets:
@@ -146,10 +164,11 @@ class ModuleFacts(ast.NodeVisitor):
         )
         if called in OUTBOUND_HELPERS:
             self.helper_calls.add(called)
-        # `asyncio.open_connection(...)`, `loop.create_connection(...)`: the loop is not an import,
-        # so these are matched by the name of the call.
-        if called in NETWORK_CALLS:
-            self.network_calls.add(called)
+        # `loop.create_connection(...)`: the loop is not an import, so a call on it is matched by
+        # its name. Anything reached from asyncio is matched by where it resolves to, whatever it
+        # is called here.
+        if called in NETWORK_CALLS or _opens_a_connection(origin):
+            self.network_calls.add(called or "")
         if origin in DYNAMIC_IMPORTS:
             target = node.args[0] if node.args else None
             if isinstance(target, ast.Constant) and isinstance(target.value, str):
@@ -320,10 +339,59 @@ def unregistered(sources: dict[str, str], registry: dict = REGISTRY) -> dict[str
     }
 
 
-FIX = (
-    "Not in backend/outbound_requests.json. List each module under the entry it sends for (and add the row to "
-    "About, with its wording in every locale), under owner_addresses, or under no_request with the reason."
-)
+REGISTRY_FILE = "backend/outbound_requests.json"
+
+
+def explain(found: dict[str, list[str]]) -> str:
+    """What to do about each thing the guard found, said for that kind of thing. Empty when it holds."""
+    lines: list[str] = []
+    senders = found["modules that import an outbound library"]
+    if senders:
+        lines += [
+            f"These modules can send a request and are not in {REGISTRY_FILE}:",
+            *(f"  {module}" for module in senders),
+            "List each under `entries`, in the `modules` of the entry it sends for. A new entry also needs its row "
+            "in About (apps/ui/src/lib/utils/outbound-requests.ts) and its wording in every locale. If it only "
+            "talks to an address the owner enters, list it under `owner_addresses`; if it sends nothing, under "
+            "`no_request` with the reason.",
+        ]
+    borrowers = found["modules that send through another module's client or helper"]
+    if borrowers:
+        lines += [
+            "These modules send through a client or a downloading helper that another module owns:",
+            *(f"  {module}" for module in borrowers),
+            "List each under `entries`, in the `modules` of the entry it sends for.",
+        ]
+    computed = found["modules that import by a computed name"]
+    if computed:
+        lines += [
+            "These modules import a module whose name is computed, so what they load cannot be read:",
+            *(f"  {module}" for module in computed),
+            'Check what each can load, then acknowledge it under `dynamic_imports`: {"module": "<path>", "reason": '
+            '"<what it loads and why that sends nothing>"}.',
+        ]
+    callers = found["callers of a registered sender that nobody reviewed"]
+    if callers:
+        pairs: dict[str, list[str]] = {}
+        for pair in callers:
+            caller, sender = pair.split(" -> ")
+            pairs.setdefault(caller, []).append(sender)
+        lines += [
+            "These modules call into a registered sender and nobody has reviewed the call:",
+            *(f"  {pair}" for pair in callers),
+            "Check what each call sends against About's list, then add it to `reviewed_callers.callers` (merge "
+            "into the caller's existing list if it has one):",
+            *(f"  {json.dumps(caller)}: {json.dumps(reached)}" for caller, reached in pairs.items()),
+        ]
+    hosts = found["hosts"]
+    if hosts:
+        lines += [
+            "These outside hosts are written in backend/app and belong to no entry:",
+            *(f"  {host}" for host in hosts),
+            "Add each to the `hosts` of the entry that reaches it, or to `hosts_not_contacted` with the reason "
+            "nothing is requested from it.",
+        ]
+    return "\n".join(lines)
 
 
 def test_the_backend_sends_nothing_the_registry_does_not_list():
@@ -333,12 +401,12 @@ def test_the_backend_sends_nothing_the_registry_does_not_list():
         "modules that import by a computed name": [],
         "callers of a registered sender that nobody reviewed": [],
         "hosts": [],
-    }, FIX
+    }, explain(unregistered(_sources()))
 
 
-def _requirements() -> set[str]:
+def _requirements(backend: Path = BACKEND) -> set[str]:
     packages: set[str] = set()
-    for path in sorted(BACKEND.glob("requirements*.txt")):
+    for path in sorted(backend.glob("requirements*.txt")):
         for line in path.read_text("utf-8").splitlines():
             line = line.split("#", 1)[0].strip()
             if not line or line.startswith("-"):
@@ -396,35 +464,46 @@ def pyproject_packages(text: str) -> set[str]:
     return ({_package_name(item) for item in listed} | named) - {"python", ""}
 
 
-def declared_packages() -> set[str]:
+#: The installer and its build tools, which images upgrade in place. They install; they are not used.
+INSTALLERS = frozenset({"pip", "setuptools", "wheel", "uv"})
+
+
+def declared_packages(repository: Path = BACKEND.parent) -> set[str]:
     """Every package named anywhere the images or an installer would take one from."""
-    repository = BACKEND.parent
-    packages = _requirements()
+    packages = _requirements(repository / "backend")
     for dockerfile in [
         *repository.glob("Dockerfile*"),
         *repository.glob("*/Dockerfile*"),
         *repository.glob("docker/**/Dockerfile*"),
     ]:
         packages |= dockerfile_packages(dockerfile.read_text("utf-8"))
-    for pyproject in [repository / "pyproject.toml", BACKEND / "pyproject.toml"]:
+    for pyproject in [repository / "pyproject.toml", repository / "backend" / "pyproject.toml"]:
         if pyproject.is_file():
             packages |= pyproject_packages(pyproject.read_text("utf-8"))
-    return packages
+    return packages - INSTALLERS
+
+
+def dependency_problems(registry: dict, declared: set[str]) -> dict[str, list[str]]:
+    """Packages declared and not classified, and classified and no longer declared anywhere."""
+    dependencies = registry["dependencies"]
+    classified = {package["package"] for kind in ("outbound", "not_outbound") for package in dependencies[kind]}
+    return {
+        "unclassified": sorted(declared - classified),
+        "no longer declared": sorted(classified - declared),
+    }
 
 
 def test_every_dependency_is_classified_as_outbound_or_not():
     dependencies = REGISTRY["dependencies"]
-    outbound = [package["package"] for package in dependencies["outbound"]]
-    not_outbound = [package["package"] for package in dependencies["not_outbound"]]
-    classified = outbound + not_outbound
+    classified = [package["package"] for kind in ("outbound", "not_outbound") for package in dependencies[kind]]
 
     assert len(classified) == len(set(classified)), "a package is classified twice"
-    assert sorted(_requirements() - set(classified)) == [], (
-        "New dependencies. Classify each in backend/outbound_requests.json: under dependencies.outbound with the "
-        "names it is imported under if it can talk to another machine, else under not_outbound with the reason."
-    )
-    assert sorted(set(classified) - _requirements()) == [], (
-        "the registry classifies a package that is no longer required"
+    # Held against every source a package can be declared in, in both directions.
+    assert dependency_problems(REGISTRY, declared_packages()) == {"unclassified": [], "no longer declared": []}, (
+        "backend/outbound_requests.json dependencies must classify exactly the packages declared in "
+        "backend/requirements-*.txt, on a Dockerfile pip install or pip wheel line, and in pyproject.toml. "
+        "Add a new package under dependencies.outbound, with the names it is imported under, if it can talk to "
+        "another machine; otherwise under dependencies.not_outbound with the reason. Remove one that is gone."
     )
     assert all(package["imports"] and package["what"].strip() for package in dependencies["outbound"])
     assert all(package["reason"].strip() for package in dependencies["not_outbound"])
@@ -548,18 +627,6 @@ def test_it_catches_a_new_sdk_because_its_dependency_must_be_classified_first():
     ]
 
 
-def test_an_unclassified_requirement_is_found(tmp_path, monkeypatch):
-    for name in ("requirements-base.txt", "requirements-dev.txt"):
-        (tmp_path / name).write_text((BACKEND / name).read_text("utf-8"), "utf-8")
-    (tmp_path / "requirements-base.txt").write_text(
-        (BACKEND / "requirements-base.txt").read_text("utf-8") + "\ncohere>=5.0  # a new SDK\n", "utf-8"
-    )
-    monkeypatch.setattr(__import__(__name__, fromlist=["BACKEND"]), "BACKEND", tmp_path)
-
-    classified = {p["package"] for kind in ("outbound", "not_outbound") for p in REGISTRY["dependencies"][kind]}
-    assert _requirements() - classified == {"cohere"}
-
-
 def test_it_catches_a_new_host_and_a_new_helper_caller():
     found = _with(
         {
@@ -671,18 +738,6 @@ def test_packages_declared_in_pyproject_are_read():
     assert pyproject_packages("[tool.ruff]\nline-length = 120\n") == set()
 
 
-def test_every_package_the_images_or_pyproject_install_is_classified_too():
-    dependencies = REGISTRY["dependencies"]
-    classified = {package["package"] for kind in ("outbound", "not_outbound") for package in dependencies[kind]}
-    # pip is the installer itself, upgraded in place by some images.
-    declared = declared_packages() - {"pip", "setuptools", "wheel"}
-
-    assert sorted(declared - classified) == [], (
-        "A Dockerfile or pyproject.toml installs a package backend/outbound_requests.json does not classify."
-    )
-    assert _requirements() <= declared_packages()
-
-
 def test_the_blind_spots_are_each_named_for_reviewers():
     notes = " ".join(REGISTRY["manual_review"])
 
@@ -754,3 +809,118 @@ def test_the_reviewed_callers_list_holds_nothing_stale():
         "registered sender, each with the senders it reaches. Review what the new call sends before adding it."
     )
     assert REGISTRY["reviewed_callers"]["about"].strip()
+
+
+# ---- The last round: aliases, every declared source, and messages that say what to do ---------------
+
+
+def test_it_catches_asyncio_connections_under_another_name():
+    for source in (
+        "from asyncio import open_connection as connect\n\n\nasync def dial(h, p):\n    return await connect(h, p)\n",
+        "import asyncio\n\nconnect = asyncio.open_connection\n\n\nasync def dial(h, p):\n    return await connect(h, p)\n",
+        "import asyncio as aio\n\n\nasync def dial(h, p):\n    opener = aio.open_connection\n    return await opener(h, p)\n",
+        # Bound and handed on without being called here.
+        "import asyncio\n\nconnect = asyncio.open_connection\n",
+    ):
+        assert _with({"app/services/dialler.py": source})["modules that import an outbound library"] == [
+            "app/services/dialler.py"
+        ], source
+
+
+def test_a_local_function_that_happens_to_share_a_name_is_not_asyncio():
+    own = "def connect():\n    return 1\n\n\ndef use():\n    opener = connect\n    return opener()\n"
+    assert _with({"app/services/own.py": own})["modules that import an outbound library"] == []
+
+
+def _repository(tmp_path, *, dockerfile: str = "", pyproject: str = ""):
+    """A copy of the repository's dependency manifests, with one more source of packages added."""
+    backend = tmp_path / "backend"
+    backend.mkdir()
+    for manifest in BACKEND.glob("requirements*.txt"):
+        (backend / manifest.name).write_text(manifest.read_text("utf-8"), "utf-8")
+    if dockerfile:
+        (tmp_path / "Dockerfile").write_text(dockerfile, "utf-8")
+    if pyproject:
+        (tmp_path / "pyproject.toml").write_text(pyproject, "utf-8")
+    return tmp_path
+
+
+def _classifying(package: str) -> dict:
+    registry = json.loads(json.dumps(REGISTRY))
+    registry["dependencies"]["outbound"].append({"package": package, "imports": [package], "what": "LLM SDK"})
+    return registry
+
+
+NEW_SDK_ROUTES = {
+    "a Dockerfile pip install": {"dockerfile": "FROM python:3.13\nRUN pip install --no-cache-dir cohere==5.1\n"},
+    "a Dockerfile pip wheel": {"dockerfile": "FROM python:3.13\nRUN pip wheel --wheel-dir /wheels 'cohere>=5'\n"},
+    "pyproject dependencies": {"pyproject": "[project]\nname = 'x'\nversion = '0'\ndependencies = ['cohere>=5']\n"},
+}
+
+
+@pytest.mark.parametrize("route", NEW_SDK_ROUTES.values(), ids=NEW_SDK_ROUTES.keys())
+def test_a_package_added_by_any_route_fails_until_classified_and_passes_once_it_is(tmp_path, route):
+    declared = declared_packages(_repository(tmp_path, **route))
+
+    # Unclassified: the whole dependency check fails, naming the package.
+    assert dependency_problems(REGISTRY, declared) == {"unclassified": ["cohere"], "no longer declared": []}
+    # Classified: it passes. It is declared, by this route, so it is not "no longer required".
+    assert dependency_problems(_classifying("cohere"), declared) == {"unclassified": [], "no longer declared": []}
+    # And classified as outbound, its caller is held like any other.
+    caller = "import cohere\n\n\ndef ask(prompt):\n    return cohere.Client().chat(message=prompt)\n"
+    found = _with({"app/services/new_llm.py": caller}, _classifying("cohere"))
+    assert found["modules that import an outbound library"] == ["app/services/new_llm.py"]
+
+
+def test_a_classification_left_behind_when_its_package_goes_is_stale(tmp_path):
+    declared = declared_packages(_repository(tmp_path))
+
+    assert dependency_problems(_classifying("cohere"), declared) == {
+        "unclassified": [],
+        "no longer declared": ["cohere"],
+    }
+
+
+def test_the_installers_themselves_need_no_classification(tmp_path):
+    upgraded = _repository(tmp_path, dockerfile="FROM python:3.13\nRUN pip install --upgrade pip setuptools wheel\n")
+
+    assert dependency_problems(REGISTRY, declared_packages(upgraded)) == {"unclassified": [], "no longer declared": []}
+
+
+def test_the_repositorys_own_dependencies_are_all_classified():
+    assert dependency_problems(REGISTRY, declared_packages()) == {"unclassified": [], "no longer declared": []}
+
+
+def test_wrappers_are_not_traced_and_the_registry_says_so():
+    """A new caller of a reviewed wrapper passes: stated here so nobody takes the guard for more."""
+    indirect = (
+        "from app.services.garden_notifications import garden_notification_service\n\n\n"
+        "async def nudge(capture):\n    return await garden_notification_service.deliver(capture)\n"
+    )
+    found = _with({"app/services/new_indirect_caller.py": indirect})
+    assert found["callers of a registered sender that nobody reviewed"] == []
+
+    notes = " ".join(REGISTRY["manual_review"])
+    assert "callers of reviewed wrapper services are not traced transitively" in notes
+    assert "garden_notification_service" in notes
+
+
+def test_each_failure_says_what_to_add_and_where():
+    found = _with(
+        {
+            "app/services/new_caller.py": "from app.services.weather_service import weather_service\n",
+            "app/services/plugin_loader.py": "import importlib\n\n\ndef load(n):\n    return importlib.import_module(n)\n",
+            "app/services/new_fetcher.py": "import httpx\n\nURL = 'https://collector.example.org/v1'\n",
+        }
+    )
+    message = explain(found)
+
+    # The caller pair, as the line to add.
+    assert "reviewed_callers" in message
+    assert '"app/services/new_caller.py": ["app/services/weather_service.py"]' in message
+    # A computed import, and where it is acknowledged.
+    assert "dynamic_imports" in message and "app/services/plugin_loader.py" in message
+    # A new sender and a new host each get their own instruction.
+    assert "app/services/new_fetcher.py" in message and "entries" in message
+    assert "collector.example.org" in message and "hosts_not_contacted" in message
+    assert explain(unregistered(_sources())) == ""
