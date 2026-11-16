@@ -1132,11 +1132,17 @@ test('manual override waits only while the check model is downloading', async ({
         country: 'GBR', catalogue_ready: true, busy: false,
         models: downloading ? [{ variant: '4.0.3a', installed: false, size_bytes: 1 }] : BOTH_MODELS
     } }));
-    const { status, closed, override, dismiss, setup } = await openPending(page);
+    const { dialog, status, closed, override, dismiss, setup } = await openPending(page);
     // The server reports the download, whichever page or tab started it.
     await expect(status).toHaveText('Waiting: the automatic check model is downloading. Identification starts when it finishes.');
     await expect(closed).toHaveAttribute('data-garden-manual-closed', 'working');
-    await expect(closed).toContainText('Opens once the automatic check can run.');
+    // The closed note in full: its label and one sentence, with no cause in it.
+    await expect(closed.locator('p')).toHaveText(['Manual override', 'Opens once the automatic check can run.']);
+    await expect(dialog.locator('#garden-capture-secondary-note')).toHaveText('Opens once the automatic check can run.');
+    // The cause is said once in the whole dialog, in the waiting line.
+    const said = (await dialog.innerText()).match(/downloading/gi) ?? [];
+    expect(said).toHaveLength(1);
+    expect((await dialog.innerText()).match(/automatic check model/gi) ?? []).toHaveLength(1);
     await expect(setup).toHaveCount(0);
     await expect(dismiss).toBeEnabled();
     // The download ends on the server: the dialog reads the status again and opens, with no reload.

@@ -71,3 +71,76 @@ async def test_a_validation_is_reported_while_its_request_runs(client, monkeypat
 async def test_gardens_check_model_download_is_reported_under_its_own_name(client):
     with model_activity.working(GARDEN_CHECK_MODEL, "downloading"):
         assert (await client.get("/api/models/activity")).json() == {"activity": {GARDEN_CHECK_MODEL: "downloading"}}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("outcome", ["verified", "refused"])
+async def test_gardens_real_download_is_reported_while_it_runs_and_cleared_when_it_ends(
+    client, tmp_path, monkeypatch, outcome
+):
+    """The real download path, held open: nothing here registers the activity but the download itself."""
+    import asyncio
+    import hashlib
+
+    from fastapi import HTTPException
+
+    from app.services import garden_identification as garden
+
+    service = garden.GardenIdentificationService()
+    service.models = tmp_path
+    monkeypatch.setattr(garden, "MODEL_SIZES", {"4.0.3a": 3})
+    monkeypatch.setattr(
+        service.catalog, "load", lambda: {"model_sha256": {"4.0.3a": hashlib.sha256(b"new").hexdigest()}}
+    )
+    started, release = asyncio.Event(), asyncio.Event()
+
+    async def held(_request: httpx.Request) -> httpx.Response:
+        started.set()
+        await release.wait()
+        return httpx.Response(200, content=b"new" if outcome == "verified" else b"bad")
+
+    real_client = httpx.AsyncClient
+    monkeypatch.setattr(
+        garden.httpx, "AsyncClient", lambda **kwargs: real_client(transport=httpx.MockTransport(held), **kwargs)
+    )
+    assert (await client.get("/api/models/activity")).json() == {"activity": {}}
+
+    download = asyncio.create_task(service.ensure_model("4.0.3a"))
+    await asyncio.wait_for(started.wait(), timeout=5)
+
+    # Mid-download: this is what keeps a Garden record's Manual override closed.
+    assert (await client.get("/api/models/activity")).json() == {"activity": {GARDEN_CHECK_MODEL: "downloading"}}
+
+    release.set()
+    if outcome == "verified":
+        await download
+        assert service.model_path("4.0.3a").read_bytes() == b"new"
+    else:
+        with pytest.raises(HTTPException):
+            await download
+    # Over, whether it was verified or refused: nothing is left reporting a download.
+    assert (await client.get("/api/models/activity")).json() == {"activity": {}}
+
+
+@pytest.mark.asyncio
+async def test_a_garden_model_that_is_already_here_reports_no_download(client, tmp_path, monkeypatch):
+    import hashlib
+
+    from app.services import garden_identification as garden
+
+    service = garden.GardenIdentificationService()
+    service.models = tmp_path
+    service.model_path("4.0.3a").write_bytes(b"new")
+    monkeypatch.setattr(
+        service.catalog, "load", lambda: {"model_sha256": {"4.0.3a": hashlib.sha256(b"new").hexdigest()}}
+    )
+    seen: list[dict] = []
+    monkeypatch.setattr(
+        garden,
+        "digest",
+        lambda path: (seen.append(model_activity.phases({})), hashlib.sha256(path.read_bytes()).hexdigest())[1],
+    )
+
+    await service.ensure_model("4.0.3a")
+
+    assert seen == [{}]
