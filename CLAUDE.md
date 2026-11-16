@@ -299,11 +299,14 @@ looser.
   the Garden motion VA-API decoder check.
   A backend module reachable from nothing that runs fails
   [`backend/tests/test_dead_modules.py`](backend/tests/test_dead_modules.py) inside `pytest`.
-  A backend module that can send a request to an outside service, or a new outside host, that is
-  not in [`backend/outbound_requests.json`](backend/outbound_requests.json) fails
-  [`backend/tests/pure/test_outbound_registry.py`](backend/tests/pure/test_outbound_registry.py);
-  About's "What leaves your network" list is held to the same registry by the frontend tests, so a
-  new request needs a registry entry, a row and its wording in every locale.
+  A backend module that can send a request to an outside service, a new outside host, or a new
+  dependency that is not in [`backend/outbound_requests.json`](backend/outbound_requests.json) fails
+  [`backend/tests/pure/test_outbound_registry.py`](backend/tests/pure/test_outbound_registry.py),
+  which reads each module's syntax tree (imports under any name, clients borrowed from another
+  module, downloading helpers). About's "What leaves your network" list is held to the same
+  registry by the frontend tests, so a new request needs a registry entry, a row and its wording in
+  every locale. What the guard cannot see is listed in the registry's `manual_review`; a change to
+  a registered module is reviewed by hand for a new destination.
   **telemetry worker**: dependency check.
 - [`.github/workflows/codeql.yml`](.github/workflows/codeql.yml) — CodeQL scanning
   for Python and TypeScript.

@@ -17,7 +17,7 @@
     rather than that it is off.
   - a notification channel reads On only when it can deliver: switched on and holding its
     credentials (a Telegram token and chat, both Pushover keys, a recipient and a mail server or
-    connected account). Garden's own channels are counted the same way;
+    an account that is still connected). Garden's own channels are counted the same way;
   - the test buttons are described as they behave: the email test uses saved settings, needs email
     on and sends no picture; the placeholder picture address belongs to the Discord, Telegram and
     Pushover tests; the AI test runs only while AI is on;

@@ -36,6 +36,7 @@
                 email: {
                     use_oauth: settings.notifications_email_use_oauth,
                     oauth_provider: settings.notifications_email_oauth_provider,
+                    connected_email: settings.notifications_email_connected_email,
                     to_email: settings.notifications_email_to_email,
                     smtp_host: settings.notifications_email_smtp_host,
                     from_email: settings.notifications_email_from_email

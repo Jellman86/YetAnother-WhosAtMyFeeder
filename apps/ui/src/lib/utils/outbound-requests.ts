@@ -81,20 +81,33 @@ export interface NotificationCredentials {
     discord?: { webhook_url?: Saved };
     telegram?: { bot_token?: Saved; chat_id?: Saved };
     pushover?: { user_key?: Saved; api_token?: Saved };
-    email?: { use_oauth?: boolean | null; oauth_provider?: Saved; to_email?: Saved; smtp_host?: Saved; from_email?: Saved };
+    email?: {
+        use_oauth?: boolean | null;
+        oauth_provider?: Saved;
+        /** The address of the connected account: present only while its tokens are held. */
+        connected_email?: Saved;
+        to_email?: Saved;
+        smtp_host?: Saved;
+        from_email?: Saved;
+    };
 }
 
 // A saved secret reaches the page as a placeholder, so "is one saved" is all that is read.
 const saved = (value: Saved): boolean => Boolean(value && value.trim());
 
 /**
- * Which channels can deliver with what is saved. This is the server's `channel_configured`, and
- * both are held to `backend/tests/fixtures/notification_channel_cases.json`: a channel that is
- * switched on without these sends nothing, because its sender returns before any request.
+ * Which channels can deliver with what is saved: the server's `channel_configured`, plus the email
+ * account's real connection, which the server checks when it looks the tokens up. Both sides are
+ * held to `backend/tests/fixtures/notification_channel_cases.json`: a channel that is switched on
+ * without these sends nothing, because its sender returns before any request.
  */
 export function deliverableChannels(credentials: NotificationCredentials): Record<NotificationChannel, boolean> {
     const email = credentials.email ?? {};
-    const mailer = email.use_oauth ? saved(email.oauth_provider) : saved(email.smtp_host) && saved(email.from_email);
+    // A provider name outlives its tokens: disconnecting an account deletes the tokens and leaves
+    // the name. Only the connection itself, reported as the connected address, can send.
+    const mailer = email.use_oauth
+        ? saved(email.oauth_provider) && saved(email.connected_email)
+        : saved(email.smtp_host) && saved(email.from_email);
     return {
         discord: saved(credentials.discord?.webhook_url),
         telegram: saved(credentials.telegram?.bot_token) && saved(credentials.telegram?.chat_id),

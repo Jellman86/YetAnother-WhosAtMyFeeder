@@ -27,4 +27,16 @@ def test_a_channel_is_configured_only_with_everything_its_sender_needs(case, mon
             empty = False if field == "use_oauth" else None
             monkeypatch.setattr(getattr(settings.notifications, channel), field, saved.get(field, empty))
 
-    assert {channel: channel_configured(channel) for channel in FIELDS} == case["can_deliver"]
+    # `configured` is given only where the settings check passes and the token lookup then stops the send.
+    assert {channel: channel_configured(channel) for channel in FIELDS} == case.get("configured", case["can_deliver"])
+
+
+def test_a_disconnected_email_account_is_stopped_by_the_token_lookup_before_any_request():
+    """Why About must not read the provider name as a connection: no token, no send."""
+    import inspect
+
+    from app.services.smtp_service import SMTPService
+
+    source = inspect.getsource(SMTPService._get_oauth_token)
+    assert "FROM oauth_tokens WHERE provider = ?" in source
+    assert "if not row:\n                    return None" in source
