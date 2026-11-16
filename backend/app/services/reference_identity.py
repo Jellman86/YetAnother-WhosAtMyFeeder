@@ -198,9 +198,31 @@ def linked_article(wikipedia_url: str | None) -> tuple[str, str] | None:
     return language, title
 
 
+def linked_article_is_still_the_taxon(
+    requested_title: str,
+    article: dict,
+    scientific_name: str | None,
+    known_names: Iterable[str] = (),
+    aliases: Iterable[str] = (),
+) -> bool:
+    """Whether the article that answered for a taxon's linked title is still that taxon's.
+
+    The link is the identity only while the linked title is what answers. Wikipedia follows its
+    own redirects, and a redirect can point anywhere: a renamed article, but also a merged one, a
+    genus, a host. When another title answers, it is the same taxon only if that title is a name
+    the caller already knows for the taxon (a recorded common name or synonym), or the article
+    has the exact scientific name as its subject. Otherwise the link has not been verified.
+    """
+    answered = _title_subject(article.get("title"))
+    if not answered or answered == _title_subject(requested_title):
+        return bool(answered)
+    if answered in {_words(name) for name in known_names if name}:
+        return True
+    return article_describes_taxon(article, scientific_name, aliases)
+
+
 def cached_reference_describes_taxon(
     *,
-    title: str | None,
     extract: str | None,
     summary_source: str | None,
     cached_scientific_name: str | None,
@@ -212,11 +234,11 @@ def cached_reference_describes_taxon(
 
     A Wikipedia summary's text rarely names its taxon, so its identity is established when it is
     fetched (the article the taxon's record links to) and kept with the row as
-    `identity_checked`: such a row is the taxon's when it was saved for this name or a trusted
-    synonym. A row from before that was recorded can hold another subject's text, so it is held
-    to the subject rule, and looked up again when it fails. A summary from a taxon record
-    (iNaturalist, eBird) must be that taxon's by name. With no summary, or no known taxon to
-    check against, there is nothing to refuse.
+    `identity_checked`. Only such a row, saved for this name or a trusted synonym, is served. A
+    row from before that was recorded is looked up again, whatever its text says, and saved with
+    its refreshed identity. A summary from a taxon record (iNaturalist, eBird) must be that
+    taxon's by name. With no summary, or no known taxon to check against, there is nothing to
+    refuse.
     """
     name = _words(scientific_name)
     if not name or not extract:
@@ -224,7 +246,5 @@ def cached_reference_describes_taxon(
     cached = _words(cached_scientific_name)
     same_taxon = bool(cached) and (cached == name or cached in {_words(alias) for alias in aliases})
     if (summary_source or "").casefold() == "wikipedia":
-        if identity_checked and same_taxon:
-            return True
-        return article_describes_taxon({"title": title, "extract": extract}, scientific_name, aliases)
+        return identity_checked and same_taxon
     return same_taxon or not cached

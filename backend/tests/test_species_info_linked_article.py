@@ -92,9 +92,17 @@ def _app() -> FastAPI:
     return app
 
 
+# What the species catalogue records as names of these taxa. Wikipedia has renamed the chaffinch's
+# article since iNaturalist linked it; the catalogue's IOC name is what says the two are one bird.
+CATALOGUE_NAMES = {"Fringilla coelebs": frozenset({"eurasian chaffinch", "common chaffinch", "buchfink"})}
+
+
 @pytest.fixture
 def services(monkeypatch):
     services = Services()
+    monkeypatch.setattr(
+        router, "_catalogue_names", lambda scientific_name: CATALOGUE_NAMES.get(scientific_name, frozenset())
+    )
     monkeypatch.setattr(router, "_wiki_cache", {})
     monkeypatch.setattr(router, "_definitive_misses", {})
     monkeypatch.setattr(router, "_resolve_summary_sources", lambda: ["wikipedia", "inaturalist"])
@@ -152,7 +160,8 @@ def test_the_linked_article_is_asked_for_by_its_exact_title_and_nothing_is_searc
 
     body = api.get("/api/species/Common Chaffinch/info").json()
 
-    # iNaturalist links "Common chaffinch", which Wikipedia has since renamed: its own redirect is followed.
+    # iNaturalist links "Common chaffinch", which Wikipedia has since renamed. The redirect is followed
+    # because the catalogue records "Eurasian chaffinch" as a name of this taxon.
     assert body["title"] == "Eurasian chaffinch"
     wikipedia = [url for url in services.requests if (httpx.URL(url).host or "").endswith(".wikipedia.org")]
     assert wikipedia == ["https://en.wikipedia.org/api/rest_v1/page/summary/Common_chaffinch"]
@@ -275,4 +284,128 @@ async def test_a_row_cached_before_identity_was_recorded_is_looked_up_once_and_t
     services.requests.clear()
     assert api.get("/api/species/House Sparrow/info").json()["extract"] == body["extract"]
     assert services.requests == []
+    await _forget("House Sparrow")
+
+
+# A redirect can land on another taxon. Each of these is where the house sparrow's linked title
+# could come to point: the article that answers is real in shape, and none is about the sparrow.
+WRONG_TARGETS = {
+    "its predator": {
+        "type": "standard",
+        "title": "Eurasian sparrowhawk",
+        "extract": "The Eurasian sparrowhawk is a small bird of prey that hunts the house sparrow (Passer domesticus).",
+    },
+    "a parasite that lists it as a host": {
+        "type": "standard",
+        "title": "Androlaelaps casalis",
+        "extract": "Androlaelaps casalis is a species of mite. It has been recorded on Passer domesticus.",
+    },
+    "a louse that lives on it": {
+        "type": "standard",
+        "title": "Brueelia",
+        "extract": "Brueelia is a genus of lice that lives on songbirds such as the house sparrow, Passer domesticus.",
+    },
+    "one of its subspecies": {
+        "type": "standard",
+        "title": "Indian house sparrow",
+        "extract": "The Indian house sparrow (Passer domesticus indicus) is a subspecies of the house sparrow.",
+    },
+}
+
+
+@pytest.mark.parametrize("by_scientific_name", [False, True], ids=["by bird name", "by scientific name"])
+@pytest.mark.parametrize("target", WRONG_TARGETS.values(), ids=WRONG_TARGETS.keys())
+def test_a_redirect_that_lands_on_another_taxon_is_not_its_description(
+    info_api, monkeypatch, target, by_scientific_name
+):
+    api, services = info_api
+    monkeypatch.setattr(router, "_lookup_scientific_name", AsyncMock(return_value="Passer domesticus"))
+    services.articles["house sparrow"] = target
+    params = {"scientific_name": "Passer domesticus"} if by_scientific_name else {}
+
+    body = api.get("/api/species/House Sparrow/info", params=params).json()
+
+    assert body["extract"] is None
+    assert body["title"] != target["title"]
+    if not by_scientific_name:
+        saved = router._save_species_info.await_args.args[3]
+        assert saved.extract is None
+        assert not saved.identity_checked, "an unverified redirect is never recorded as checked"
+
+
+def test_a_redirect_is_followed_when_the_catalogue_names_the_taxon_by_the_new_title(info_api, monkeypatch):
+    api, _services = info_api
+    monkeypatch.setattr(router, "_lookup_scientific_name", AsyncMock(return_value="Fringilla coelebs"))
+
+    body = api.get("/api/species/Common Chaffinch/info").json()
+
+    assert body["title"] == "Eurasian chaffinch"
+    assert body["extract"].startswith("The Eurasian chaffinch")
+
+
+def test_the_same_redirect_is_unverified_when_nothing_says_the_new_title_is_this_taxon(info_api, monkeypatch):
+    api, _services = info_api
+    monkeypatch.setattr(router, "_lookup_scientific_name", AsyncMock(return_value="Fringilla coelebs"))
+    monkeypatch.setattr(router, "_catalogue_names", lambda _scientific_name: frozenset())
+
+    assert api.get("/api/species/Common Chaffinch/info").json()["extract"] is None
+
+
+def test_a_redirect_is_followed_when_the_target_names_the_exact_taxon_as_its_subject(info_api, monkeypatch):
+    api, services = info_api
+    monkeypatch.setattr(router, "_lookup_scientific_name", AsyncMock(return_value="Passer domesticus"))
+    services.articles["house sparrow"] = {
+        "type": "standard",
+        "title": "English sparrow",
+        "extract": "The English sparrow (Passer domesticus) is a bird of the sparrow family Passeridae.",
+    }
+
+    body = api.get("/api/species/House Sparrow/info").json()
+
+    assert body["title"] == "English sparrow"
+    assert body["extract"].startswith("The English sparrow (Passer domesticus)")
+
+
+def test_a_language_with_no_article_gets_the_taxons_linked_article_rather_than_nothing(info_api, monkeypatch):
+    api, services = info_api
+    monkeypatch.setattr(router, "_lookup_scientific_name", AsyncMock(return_value="Rhipidura leucophrys"))
+    monkeypatch.setattr(router, "get_user_language", lambda _request: "de")
+    wagtail = next(bird for bird in BIRDS if bird["species"] == "Willie Wagtail")
+
+    body = api.get("/api/species/Willie Wagtail/info").json()
+
+    assert body["extract"] == _shown(wagtail)
+    assert body["summary_source_url"] == "https://en.wikipedia.org/wiki/Willie_wagtail"
+    # Asked for by its language link and then by its own title: nothing was searched.
+    assert not any("list=search" in url for url in services.requests)
+
+
+@pytest.mark.asyncio
+async def test_an_unchecked_row_is_looked_up_again_even_when_its_text_names_the_taxon(cached_api):
+    api, services = cached_api
+    await _forget("House Sparrow")
+    async with get_db() as db:
+        await SpeciesRepository(db).save_cached_info(
+            species_name="House Sparrow",
+            taxa_id=None,
+            language="en",
+            values=SpeciesInfo(
+                title="Passer domesticus",
+                extract="Passer domesticus is an old cached summary whose identity was never recorded.",
+                source="Wikipedia",
+                summary_source="Wikipedia",
+                scientific_name="Passer domesticus",
+                cached_at=datetime.now(),
+            ).model_dump(),
+            cached_at=datetime.now(),
+        )
+
+    body = api.get("/api/species/House Sparrow/info").json()
+
+    assert services.requests, "a row whose identity was never recorded is looked up again"
+    assert body["extract"].startswith("The house sparrow is a bird")
+    router._wiki_cache.clear()
+    services.requests.clear()
+    assert api.get("/api/species/House Sparrow/info").json()["extract"] == body["extract"]
+    assert services.requests == [], "the refreshed row carries its checked identity"
     await _forget("House Sparrow")

@@ -13,6 +13,7 @@ from app.services.reference_identity import (
     article_describes_taxon,
     cached_reference_describes_taxon,
     lead_sentence,
+    linked_article_is_still_the_taxon,
 )
 
 SQUIRREL = {
@@ -211,7 +212,6 @@ def test_the_lead_is_the_first_sentence(extract, lead):
 
 def cached(**overrides) -> dict:
     return {
-        "title": "Common starling",
         "extract": "The common starling (Sturnus vulgaris) is a passerine.",
         "summary_source": "Wikipedia",
         "cached_scientific_name": "Sturnus vulgaris",
@@ -220,10 +220,18 @@ def cached(**overrides) -> dict:
     }
 
 
-def test_a_cached_wikipedia_summary_is_held_to_the_subject_rule():
-    assert cached_reference_describes_taxon(**cached())
-    louse = cached(title="Brueelia nebulosa", extract="Brueelia nebulosa is a louse. Its host is Sturnus vulgaris.")
-    assert not cached_reference_describes_taxon(**louse)
+def test_a_cached_wikipedia_summary_is_served_only_when_its_identity_was_checked():
+    assert cached_reference_describes_taxon(**cached(identity_checked=True))
+    # Its text names the taxon as its subject, and that is not enough: nobody recorded the check.
+    assert not cached_reference_describes_taxon(**cached())
+    assert not cached_reference_describes_taxon(**cached(identity_checked=False))
+
+
+def test_a_checked_wikipedia_summary_saved_for_another_taxon_is_not_served():
+    other = cached(identity_checked=True, cached_scientific_name="Sturnus unicolor")
+    assert not cached_reference_describes_taxon(**other)
+    assert cached_reference_describes_taxon(**{**other, "aliases": ["Sturnus unicolor"]})
+    assert not cached_reference_describes_taxon(**cached(identity_checked=True, cached_scientific_name=None))
 
 
 def test_a_cached_taxon_record_summary_must_be_that_taxons():
@@ -236,8 +244,65 @@ def test_a_cached_taxon_record_summary_must_be_that_taxons():
 
 
 def test_nothing_is_refused_without_a_summary_or_a_taxon_to_check_against():
-    assert cached_reference_describes_taxon(**cached(extract=None, title="Anything"))
-    assert cached_reference_describes_taxon(**cached(scientific_name=None, title="Brueelia nebulosa"))
+    assert cached_reference_describes_taxon(**cached(extract=None))
+    assert cached_reference_describes_taxon(**cached(scientific_name=None))
+
+
+SPARROW = "Passer domesticus"
+
+
+def test_the_linked_title_answering_for_itself_is_the_taxon_whatever_its_text_says():
+    answered = article("House sparrow", "The house sparrow is a bird of the sparrow family Passeridae.")
+    assert linked_article_is_still_the_taxon("House sparrow", answered, SPARROW)
+    # Wikipedia normalises a title's case and underscores; that is not a redirect.
+    assert linked_article_is_still_the_taxon("House_Sparrow", answered, SPARROW)
+    assert linked_article_is_still_the_taxon("Robin (bird)", article("Robin", "A bird."), "Erithacus rubecula")
+
+
+def test_a_redirect_to_a_recorded_name_of_the_taxon_is_still_the_taxon():
+    renamed = article("Eurasian chaffinch", "The Eurasian chaffinch is a common small passerine bird.")
+    assert not linked_article_is_still_the_taxon("Common chaffinch", renamed, "Fringilla coelebs")
+    assert linked_article_is_still_the_taxon(
+        "Common chaffinch", renamed, "Fringilla coelebs", known_names=["Eurasian Chaffinch", "Buchfink"]
+    )
+
+
+def test_a_redirect_to_an_article_with_the_exact_name_as_its_subject_is_still_the_taxon():
+    renamed = article("English sparrow", "The English sparrow (Passer domesticus) is a bird of the sparrow family.")
+    assert linked_article_is_still_the_taxon("House sparrow", renamed, SPARROW)
+    by_synonym = article("English sparrow", "The English sparrow (Fringilla domestica) is a bird.")
+    assert not linked_article_is_still_the_taxon("House sparrow", by_synonym, SPARROW)
+    assert linked_article_is_still_the_taxon("House sparrow", by_synonym, SPARROW, aliases=["Fringilla domestica"])
+
+
+@pytest.mark.parametrize(
+    ("title", "extract"),
+    [
+        (
+            "Eurasian sparrowhawk",
+            "The Eurasian sparrowhawk is a bird of prey that hunts the house sparrow (Passer domesticus).",
+        ),
+        (
+            "Androlaelaps casalis",
+            "Androlaelaps casalis is a species of mite. It has been recorded on Passer domesticus.",
+        ),
+        (
+            "Brueelia",
+            "Brueelia is a genus of lice that lives on songbirds such as the house sparrow, Passer domesticus.",
+        ),
+        (
+            "Indian house sparrow",
+            "The Indian house sparrow (Passer domesticus indicus) is a subspecies of the house sparrow.",
+        ),
+        ("Passer", "Passer is a genus of sparrows, also known as the true sparrows."),
+    ],
+)
+def test_a_redirect_to_another_subject_is_unverified(title, extract):
+    assert not linked_article_is_still_the_taxon("House sparrow", article(title, extract), SPARROW)
+
+
+def test_an_answer_with_no_title_verifies_nothing():
+    assert not linked_article_is_still_the_taxon("House sparrow", {"extract": "A bird."}, SPARROW)
 
 
 WREN = "Troglodytes troglodytes"

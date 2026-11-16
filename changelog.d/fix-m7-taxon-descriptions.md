@@ -2,7 +2,8 @@
   Eastern Gray Squirrel showed Wikipedia's summary of a mite, because the mite's article names the
   squirrel as a host and any mention of the scientific name counted as a match. The description
   is now the article that iNaturalist's record of that exact taxon links to, in your language
-  where Wikipedia has one. Only when the record links no article is one looked for by name, and
+  where Wikipedia has one, and in English where it does not. If Wikipedia has since moved the
+  linked article, the new one is used only when it is still the same taxon. Only when the record links no article is one looked for by name, and
   it is then shown only if the taxon is the subject of its title or opening sentence: a host, a
   prey species, a member of a genus named in passing, or a subspecies' article offered for its
   parent species is refused, and the record shows no description rather than a wrong one.

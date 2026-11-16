@@ -918,8 +918,13 @@ Notes:
   Whenever the taxon is known (a `scientific_name` was given, or the taxonomy knows the bird's),
   the Wikipedia description is the article that the exact active iNaturalist taxon links to
   (`wikipedia_url`), asked for by its title; in another language it is the article Wikipedia's own
-  language link leads to. The summary's text is not consulted for these, because Wikipedia's REST
-  summary leaves the scientific name out. Only a taxon with no linked article is looked for by
+  language link leads to, and when that language has no article, the linked one. The summary's
+  text is not consulted for these, because Wikipedia's REST summary leaves the scientific name
+  out. If Wikipedia answers the linked title with another title (a redirect), the article is
+  accepted only when that title is a name the species catalogue records for the taxon, or when the
+  article has the exact scientific name as its subject; otherwise it is unverified and not used.
+  Cached Wikipedia descriptions are served only when their taxon was checked this way when they
+  were saved; older rows are looked up again on first read. Only a taxon with no linked article is looked for by
   title and search, and what is found is then accepted only when the taxon is the subject of its
   title or opening sentence; a host, prey, parasite or subspecies mention is refused.
   `extract` and `description` are readable plain text: provider HTML, comments,

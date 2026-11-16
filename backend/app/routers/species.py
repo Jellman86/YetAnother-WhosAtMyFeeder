@@ -33,6 +33,7 @@ from app.services.reference_identity import (
     article_describes_taxon,
     cached_reference_describes_taxon,
     linked_article,
+    linked_article_is_still_the_taxon,
     linked_article_names_taxon,
 )
 from app.services.species_catalog_resolver import species_catalog_resolver
@@ -1519,7 +1520,6 @@ async def get_species_info(
     known_scientific_name = await _lookup_scientific_name(species_name, language=lang)
     cached_info = await _get_cached_species_info(species_name, taxa_id, lang, refresh)
     if cached_info and cached_reference_describes_taxon(
-        title=cached_info.title,
         extract=cached_info.extract,
         summary_source=cached_info.summary_source or cached_info.source,
         cached_scientific_name=cached_info.scientific_name,
@@ -1858,15 +1858,33 @@ async def _article_in_language(client: httpx.AsyncClient, language: str, title: 
     return None
 
 
+def _catalogue_names(scientific_name: str) -> frozenset[str]:
+    """Every name the species catalogue records for a taxon: its vernacular names and its synonyms."""
+    from app.services.species_names import species_name_lookup
+
+    try:
+        species_id = species_catalog_resolver.cached_species_id_for_name(scientific_name)
+        vernacular = species_name_lookup.all_names(species_id) if species_id is not None else frozenset()
+    except Exception as error:  # the catalogue is an aid here, never a reason to fail a lookup
+        log.debug("Catalogue names unavailable", error=type(error).__name__)
+        vernacular = frozenset()
+    return vernacular | _trusted_synonyms(scientific_name)
+
+
 async def _fetch_linked_article(
     wikipedia_url: str, species_name: str, lang: str, scientific_name: str
 ) -> SpeciesInfo | None:
     """The summary of exactly the article a taxon's record links to, in the reader's language.
 
-    Asked for by its title, so Wikipedia's own redirect is the only thing that can change which
-    article answers. The record links one language's article; another language is reached through
-    that article's language link, never by searching. None when there is no such article, so the
-    caller can fall back.
+    The record links one language's article. Another language is reached through that article's
+    language link, never by searching, and when the reader's language has no such article the
+    linked one is the description: a description in another language is better than none.
+
+    The article is asked for by its title. If Wikipedia answers with another title (a redirect),
+    the link is the identity only if that title is still this taxon: a name the catalogue records
+    for it, or an article with the exact scientific name as its subject. Anything else is
+    unverified and is not the taxon's description. None then, and when there is no article, so
+    the caller can fall back.
     """
     link = linked_article(wikipedia_url)
     if link is None:
@@ -1877,14 +1895,23 @@ async def _fetch_linked_article(
         async with httpx.AsyncClient(timeout=15.0, follow_redirects=True, headers=headers) as client:
             if language != lang:
                 local = await _article_in_language(client, language, title, lang)
-                if not local:
-                    return None
-                language, title = lang, local
+                if local:
+                    language, title = lang, local
             info = await _get_wikipedia_summary(client, title, species_name, language)
     except httpx.HTTPError as error:
         log.warning("Linked Wikipedia article could not be read", species=species_name, error=type(error).__name__)
         return None
     if not info.extract:
+        return None
+    still_the_taxon = linked_article_is_still_the_taxon(
+        title,
+        {"title": info.title, "extract": info.extract},
+        scientific_name,
+        known_names=await asyncio.to_thread(_catalogue_names, scientific_name),
+        aliases=_trusted_synonyms(scientific_name),
+    )
+    if not still_the_taxon:
+        log.info("Linked Wikipedia article redirects to an unverified subject", species=species_name, title=info.title)
         return None
     info.scientific_name = scientific_name
     info.mark_identity_checked()
