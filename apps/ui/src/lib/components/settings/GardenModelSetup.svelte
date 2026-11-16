@@ -47,7 +47,7 @@
         rowDone = { ...rowDone, [row.role]: false };
         // The check model's download is work a waiting Garden record states too.
         const checkModel = row.install.kind !== 'motion' && row.install.variant === '4.0.3a';
-        if (checkModel) modelActivityStore.set(GARDEN_CHECK_MODEL, 'downloading');
+        if (checkModel) modelActivityStore.hint(GARDEN_CHECK_MODEL, 'downloading');
         try {
             if (row.install.kind === 'motion') service.motion = await installGardenMotion();
             else service.identification = await installGardenModel(row.install.variant);
@@ -61,7 +61,7 @@
             };
         } finally {
             downloading = null;
-            if (checkModel) modelActivityStore.set(GARDEN_CHECK_MODEL, null);
+            if (checkModel) modelActivityStore.hint(GARDEN_CHECK_MODEL, null);
         }
         await service.refresh();
     }

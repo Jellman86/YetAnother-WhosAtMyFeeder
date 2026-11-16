@@ -80,6 +80,8 @@ class FakeBackend {
     frigateConfigFails = false;
     /** Weights on disk, labels unreadable: the server reports the classifier could not load. */
     modelFailedToLoad = false;
+    /** Downloads and hardware checks the server reports as in progress, whoever started them. */
+    activity: Json = {};
     /** Fields laid over the classifier's report, to make one the readiness fixture names. */
     statusOverride: Json = {};
     /** While set, Frigate's camera list does not answer: a Frigate that is down hangs like this. */
@@ -282,6 +284,7 @@ class FakeBackend {
         if (path === '/api/backfill/async' && method === 'POST') return json({ id: 'history-job', status: 'running', processed: 0, total: 20, message: 'Scanning Frigate event history' });
         if (path.startsWith('/api/frigate/camera/')) return route.fulfill({ status: 404, body: '' });
         if (path === '/api/classifier/status') return json(this.status());
+        if (path === '/api/models/activity') return json({ activity: this.activity });
         if (path === '/api/models/available') return json([MODELS[MOBILENET], MODELS[DINO], MODELS[BROKEN], MODELS.small_birds]);
         if (path === '/api/models/families/resolved') return json({ small_birds: { effective_region: this.settings.bird_model_region_override === 'eu' ? 'eu' : 'na' } });
         if (path === '/api/models/installed') return json(this.installedResponse());
@@ -1221,4 +1224,17 @@ test('the review says a model that is still loading is loading', async ({ page }
     const status = wizard(page).getByRole('listitem').filter({ hasText: 'Model and hardware' }).locator('[data-setup-status]');
     await expect(status).toHaveText('Loading');
     await expect(status).toHaveAttribute('data-setup-tone', 'optional');
+});
+
+test('the review shows a download the server reports, and reads the model again when it ends', async ({ page }) => {
+    const fake = new FakeBackend({ installed: [] });
+    fake.activity = { [MOBILENET]: 'downloading' };
+    await openRerun(page, fake);
+    const status = wizard(page).getByRole('listitem').filter({ hasText: 'Model and hardware' }).locator('[data-setup-status]');
+    await expect(status).toHaveText('Downloading');
+    await expect(status).toHaveAttribute('data-setup-tone', 'optional');
+    // The download ends on the server; nobody presses anything on this page.
+    fake.installed.push({ id: MOBILENET, ready: true, reason: 'ready', validated: true, validated_inference_providers: ['cpu'], provider_preference_order: ['cpu'], preferred_inference_provider: 'cpu' });
+    fake.activity = {};
+    await expect(status).toHaveText('Running', { timeout: 10_000 });
 });

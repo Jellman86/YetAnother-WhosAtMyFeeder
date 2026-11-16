@@ -38,7 +38,7 @@
     } from '../api/garden';
     import { withAuthParams } from '../api/core';
     import { toAppPath } from '../app/url-base';
-    import { gardenCheckAvailable, gardenCheckState } from '../settings/model-readiness';
+    import { gardenCheckNeedsSetup, gardenCheckState, gardenManualOverride, type GardenStatusRead } from '../settings/model-readiness';
     import { GARDEN_CHECK_MODEL, modelActivityStore } from '../stores/model_activity.svelte';
     import { fetchSpeciesInfo, type SpeciesInfo } from '../api/species';
     import { getErrorMessage } from '../utils/error-handling';
@@ -111,6 +111,9 @@
     let manualOverride = $state(false);
     let error = $state<string | null>(null);
     let identification = $state.raw<GardenIdentificationStatus | null>(null);
+    // How far the read of Garden's status has got. A read that failed measured nothing, so it opens
+    // nothing: it is stated, with a way to ask again.
+    let identificationRead = $state<GardenStatusRead>('loading');
     const provider = $derived<Provider>(
         identification?.preferred_provider === 'intel_npu' ? 'intel_npu'
         : identification?.preferred_provider === 'intel_gpu' ? 'intel_gpu'
@@ -212,18 +215,14 @@
     // use, or the thing Garden measured that blocks it. Only an owner reads it, so a visitor's capture
     // says only that it waits.
     const checkState = $derived(canReview ? gardenCheckState(identification, modelActivityStore.phase(GARDEN_CHECK_MODEL)) : null);
-    // Setting the model up unblocks the wait only when the model is what is missing.
-    const checkSetupNeeded = $derived(
-        capture.status === 'pending' && view.review === null && checkState?.kind === 'model' && checkState.readiness === 'missing'
-    );
-    // Whether the secondary decisions on a waiting capture are closed. They are a way round the
-    // automatic check, so they open once that check can run. The cause is stated once, in the
-    // waiting line above them. A status that could not be read closes nothing, because nothing was
-    // measured, and a model that is only being checked is about to be able to run.
-    const secondaryBlocked = $derived.by((): boolean => {
-        if (capture.status !== 'pending' || !checkState || gardenCheckAvailable(checkState)) return false;
-        return checkState.kind === 'blocked' || checkState.readiness === 'missing' || checkState.readiness === 'queued';
-    });
+    // Setting the model up clears the wait whenever the model is what is missing, whatever else is
+    // true of the capture: one an owner has already overridden is blocked by it just the same.
+    let readStatus = (): void => {};
+    const checkSetupNeeded = $derived(capture.status === 'pending' && gardenCheckNeedsSetup(checkState));
+    // Whether the owner can confirm this capture by hand. It waits only while the automatic check
+    // is on its way, and opens once that check can run or is known not to be able to run here.
+    // Dismissal is reversible and is never gated on the model.
+    const manual = $derived(capture.status === 'pending' && checkState ? gardenManualOverride(identificationRead, checkState) : null);
     const status = $derived.by((): { text: string; tone: 'review' | 'confirmed' | 'neutral' } => {
         const entry = gardenEntryText(capture, view, (key, fallback, values) => get(_)(key, { values, default: fallback }), viewer, checkState);
         if (view.review === 'species') {
@@ -245,12 +244,24 @@
     onMount(() => {
         const release = lockDocumentScroll();
         const controller = new AbortController();
-        if (canReview) {
+        readStatus = () => {
+            identificationRead = 'loading';
             fetchGardenIdentification(controller.signal)
-                .then((status) => (identification = status))
-                .catch(() => (identification = null));
-        }
+                .then((status) => {
+                    identification = status;
+                    identificationRead = 'read';
+                })
+                .catch(() => {
+                    if (controller.signal.aborted) return;
+                    identification = null;
+                    identificationRead = 'failed';
+                });
+        };
+        // The check model's download is the server's to report; when it ends, the status is read again.
+        const stopWatching = canReview ? modelActivityStore.watch(() => readStatus()) : null;
+        if (canReview) readStatus();
         return () => {
+            stopWatching?.();
             controller.abort();
             clearPhotoCheck();
             peek.destroy();
@@ -393,7 +404,6 @@
     }
 
     function dismissEntry(): Promise<void> {
-        if (secondaryBlocked) return Promise.resolve();
         if (entryKind === 'capture') return review('dismiss');
         if (entryBlocked) return Promise.resolve();
         return group.every((item) => item.status === 'pending') ? dismissGroup() : dismissVisit();
@@ -559,7 +569,7 @@
                                 <span class="text-xs tabular-nums text-white/80" aria-live="polite">{$_('garden.photo_count', { default: 'Photo {index} of {count}', values: { index: groupOffset + index + 1, count: groupTotal } })}</span>
                                 {#if canReview && capture.status !== 'dismissed'}
                                     <!-- One capture out of the group, as a bird's photo is removed from its strip. -->
-                                    <button type="button" class="btn btn-ghost min-h-11 px-3 text-xs text-white hover:bg-white/10" disabled={saving || secondaryBlocked} aria-describedby={secondaryBlocked ? 'garden-capture-secondary-note' : undefined} onclick={() => review('dismiss')} data-garden-capture-dismiss>
+                                    <button type="button" class="btn btn-ghost min-h-11 px-3 text-xs text-white hover:bg-white/10" disabled={saving} onclick={() => review('dismiss')} data-garden-capture-dismiss>
                                         {$_('garden.dismiss', { default: 'Dismiss capture' })}
                                     </button>
                                 {/if}
@@ -734,13 +744,24 @@
                 <!-- The decisions, in the bird record's row: the main one first, each named by its effect. -->
                 {#if canReview}
                     <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap" data-garden-capture-actions>
-                        {#if capture.status === 'pending' && secondaryBlocked}
-                            <!-- Named, so the owner knows the control exists. The cause is in the waiting line above. -->
-                            <div class="w-full py-3" data-garden-secondary-blocked>
+                        {#if capture.status === 'pending' && manual?.state === 'closed'}
+                            <!-- Named, so the owner knows the control exists, and closed with what it waits for. -->
+                            <div class="w-full py-3" data-garden-manual-closed={manual.cause}>
                                 <p class="text-sm font-semibold text-muted">{$_('garden.manual_override', { default: 'Manual override' })}</p>
-                                <p id="garden-capture-secondary-note" class="mt-1 text-xs text-muted">
-                                    {$_('garden.explorer.secondary_blocked', { default: 'Opens once the automatic check can run.' })}
+                                <p id="garden-capture-secondary-note" class="mt-1 text-xs text-muted" role="status">
+                                    {#if manual.cause === 'reading'}
+                                        {$_('garden.explorer.override_reading', { default: 'Checking whether the automatic check can run…' })}
+                                    {:else if manual.cause === 'unread'}
+                                        {$_('garden.explorer.override_unread', { default: 'Could not read whether the automatic check can run.' })}
+                                    {:else}
+                                        {$_('garden.explorer.secondary_blocked', { default: 'Opens once the automatic check can run.' })}
+                                    {/if}
                                 </p>
+                                {#if manual.cause === 'unread'}
+                                    <button type="button" class="btn btn-secondary mt-2 min-h-11 px-4" onclick={() => readStatus()} data-garden-status-retry>
+                                        {$_('garden.explorer.retry_status', { default: 'Try again' })}
+                                    </button>
+                                {/if}
                             </div>
                         {:else if capture.status === 'pending'}
                             <details open={manualOverride} ontoggle={(event) => manualOverride = event.currentTarget.open} class="group/manual w-full" data-garden-manual-override>
@@ -748,6 +769,11 @@
                                     <span>{$_('garden.manual_override', { default: 'Manual override' })}</span>
                                     <svg class="h-4 w-4 shrink-0 transition-transform group-open/manual:rotate-180 motion-reduce:transition-none" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m5 7.5 5 5 5-5" /></svg>
                                 </summary>
+                                {#if manual?.state === 'open' && manual.note === 'by_hand'}
+                                    <p class="mb-2 text-xs text-muted" data-garden-manual-by-hand>
+                                        {$_('garden.explorer.override_by_hand', { default: 'The automatic check can’t run here, so you decide by hand.' })}
+                                    </p>
+                                {/if}
                                 <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                                     <button type="button" class="btn min-h-11 min-w-0 w-full whitespace-normal px-4 text-sm sm:w-auto btn-primary sm:flex-1" disabled={saving || !photoReady} onclick={() => review('confirm')}>
                                         {$_('garden.confirm_manually', { default: 'Confirm animal manually' })}
@@ -825,9 +851,9 @@
                         <button
                             type="button"
                             class="btn btn-secondary min-h-11 min-w-0 gap-2 whitespace-normal px-4 text-sm"
-                            disabled={saving || entryBlocked !== null || secondaryBlocked}
+                            disabled={saving || entryBlocked !== null}
                             onclick={dismissEntry}
-                            aria-describedby={entryBlocked ? 'garden-entry-dismiss-note' : secondaryBlocked ? 'garden-capture-secondary-note' : undefined}
+                            aria-describedby={entryBlocked ? 'garden-entry-dismiss-note' : undefined}
                             data-garden-entry-dismiss={entryKind}
                         >
                             <svg class="h-5 w-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" /></svg>

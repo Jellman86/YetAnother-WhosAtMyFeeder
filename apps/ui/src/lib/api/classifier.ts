@@ -316,6 +316,17 @@ export async function downloadModel(modelId: string): Promise<ModelActionResult>
     });
 }
 
+export type ModelActivity = components['schemas']['ModelActivityResponse']['activity'];
+
+/** Downloads and hardware checks the server has in progress, whichever page or tab started them. */
+export async function fetchModelActivity(): Promise<ModelActivity> {
+    const response = await apiFetch(`${API_BASE}/models/activity`, { timeoutMs: 10_000 });
+    // Read as untrusted: an older server, or a proxy's error page, has no `activity` to give.
+    const body: unknown = await handleResponse<unknown>(response);
+    const activity = body && typeof body === 'object' && 'activity' in body ? body.activity : null;
+    return activity && typeof activity === 'object' ? (activity as ModelActivity) : {};
+}
+
 export async function fetchDownloadStatus(modelId: string): Promise<DownloadProgress | null> {
     const response = await apiFetch(`${API_BASE}/models/download-status/${encodeURIComponent(modelId)}`, {
         timeoutMs: 10_000

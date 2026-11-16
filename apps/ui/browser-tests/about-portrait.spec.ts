@@ -19,7 +19,7 @@ function portrait(event = 'dunnock', name = 'Dunnock') {
 // A default install's report: image work runs in worker processes that have started.
 const RUNNING = { runtime_source: 'worker', image_execution_mode: 'subprocess', active_model_installed: true, effective_model_id: 'Bird classifier', active_provider: 'CPU' };
 
-async function open(page: Page, onPortrait: (route: Route) => Promise<void>, classifier: Record<string, unknown> = RUNNING) {
+async function open(page: Page, onPortrait: (route: Route) => Promise<void>, classifier: Record<string, unknown> = RUNNING, activity: Record<string, string> = {}) {
     page.on('pageerror', error => { throw error; });
     await page.route('https://fonts.googleapis.com/**', route => route.fulfill({ body: '' }));
     await page.route('https://fonts.gstatic.com/**', route => route.abort());
@@ -32,6 +32,7 @@ async function open(page: Page, onPortrait: (route: Route) => Promise<void>, cla
         if (path === '/api/version') return route.fulfill({ json: { version: '2.9.15', base_version: '2.9.15', git_hash: 'fixture', branch: 'dev' } });
         if (path === '/api/about/community') return route.fulfill({ json: { enabled: true, active_installs: 812 } });
         if (path === '/api/classifier/status') return route.fulfill({ json: classifier });
+        if (path === '/api/models/activity') return route.fulfill({ json: { activity } });
         if (path === '/api/stats/uptime') return route.fulfill({ json: { buckets: [], longest_gap_minutes: 0, availability_percent: 100 } });
         if (path === '/api/update-status') return route.fulfill({ json: { enabled: false, update_available: false } });
         throw new Error(`Unexpected About fixture API request: ${path}`);
@@ -193,3 +194,12 @@ for (const [name, report, state, health] of [
         else await expect(step.locator('[data-pipeline-health]')).toHaveCount(0);
     });
 }
+
+test('a guest is told the model\'s own state and never asks for work in progress, which is the owner\'s to read', async ({ page }) => {
+    const asked: string[] = [];
+    page.on('request', request => { if (new URL(request.url()).pathname === '/api/models/activity') asked.push(request.url()); });
+    // The server is downloading the model, and this viewer is not signed in.
+    await open(page, route => route.fulfill({ json: portrait() }), { ...RUNNING, active_model_installed: false, runtime_source: 'planned' }, { 'Bird classifier': 'downloading' });
+    await expect(page.locator('[data-pipeline-step="classifier"]')).toContainText('Needs a download');
+    expect(asked).toEqual([]);
+});

@@ -67,7 +67,7 @@
     // wizard's review, About and Garden records read it too.
     function setDownload(modelId: string, status: DownloadProgress): void {
         downloadStatuses[modelId] = status;
-        modelActivityStore.set(modelId, status.status === 'downloading' || status.status === 'pending' ? 'downloading' : null);
+        modelActivityStore.hint(modelId, status.status === 'downloading' || status.status === 'pending' ? 'downloading' : null);
     }
     let activating = $state<string | null>(null);
     // The catalogue row whose details are open, if any.
@@ -151,7 +151,12 @@
     let pollInterval: ReturnType<typeof setInterval> | undefined;
     let pollingDownloads = false;
 
+    let stopWatchingActivity: (() => void) | undefined;
+
     onMount(async () => {
+        // Work on a model is the server's to report, so it is read here as on every other surface,
+        // and the lists are read again when a download or check ends, whoever started it.
+        stopWatchingActivity = modelActivityStore.watch(() => void refreshModels());
         await loadData();
         // Start polling for downloads
         pollInterval = setInterval(pollDownloads, 2000);
@@ -159,6 +164,7 @@
 
     onDestroy(() => {
         if (pollInterval) clearInterval(pollInterval);
+        stopWatchingActivity?.();
     });
 
     async function loadData() {
@@ -190,9 +196,15 @@
     async function pollDownloads() {
         if (pollingDownloads || document.hidden) return;
         pollingDownloads = true;
-        const activeIds = Object.keys(downloadStatuses).filter(id => 
-            downloadStatuses[id].status === 'downloading' || downloadStatuses[id].status === 'pending'
-        );
+        // The downloads this page started, and any the server reports that it did not: one begun
+        // before the page was left, or in another tab, shows its progress here again.
+        const reported = Object.entries(modelActivityStore.active())
+            .filter(([id, phase]) => phase === 'downloading' && availableModels.some((model) => model.id === id))
+            .map(([id]) => id);
+        const activeIds = [...new Set([
+            ...Object.keys(downloadStatuses).filter(id => downloadStatuses[id].status === 'downloading' || downloadStatuses[id].status === 'pending'),
+            ...reported
+        ])];
 
         try {
             for (const id of activeIds) {
@@ -478,14 +490,14 @@
             stages[i] = { ...stages[i], ...patch };
             wizardStages = [...stages];
             // The phase is the stage that is running: a download while it downloads, a check after.
-            modelActivityStore.set(model.id, activityPhase(stages));
+            modelActivityStore.hint(model.id, activityPhase(stages));
         };
         const fail = async (i: number, message: string) => {
             set(i, { state: 'failed', message });
             for (let j = i + 1; j < stages.length; j++) set(j, { state: 'skipped', message: skipped });
             wizardResult = { ok: false, message };
             wizardBusy = false;
-            modelActivityStore.set(model.id, null);
+            modelActivityStore.hint(model.id, null);
             installedModels = await fetchInstalledModels();
         };
 
@@ -539,7 +551,7 @@
             return;
         }
         wizardBusy = false;
-        modelActivityStore.set(model.id, null);
+        modelActivityStore.hint(model.id, null);
         installedModels = await fetchInstalledModels();
         await onruntimechange?.();
     }
@@ -655,7 +667,7 @@
     {@const recovery = subject === 'chosen' ? chosenRecoveryAction : null}
     {@const validated = isValidated(model.id)}
     {@const download = downloadStatuses[model.id]}
-    {@const inProgress = download?.status === 'downloading' || download?.status === 'pending'}
+    {@const inProgress = download?.status === 'downloading' || download?.status === 'pending' || modelActivityStore.phase(model.id) === 'downloading'}
     {#if inProgress}
         <div class="w-full" role="status">
             <div class="mb-2 flex justify-between text-sm">
@@ -664,10 +676,10 @@
                         ? $_('settings.detection.model_manager_redownloading', { default: 'Re-downloading…' })
                         : $_('settings.detection.model_manager_downloading', { default: 'Downloading…' })}
                 </span>
-                <span class="font-medium text-slate-600 dark:text-slate-300">{download.progress.toFixed(0)}%</span>
+                <span class="font-medium text-slate-600 dark:text-slate-300">{(download?.progress ?? 0).toFixed(0)}%</span>
             </div>
             <div class="h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
-                <div class="h-full bg-brand-500 transition-all duration-300 motion-reduce:transition-none" style="width: {download.progress}%"></div>
+                <div class="h-full bg-brand-500 transition-all duration-300 motion-reduce:transition-none" style="width: {download?.progress ?? 0}%"></div>
             </div>
         </div>
     {:else}

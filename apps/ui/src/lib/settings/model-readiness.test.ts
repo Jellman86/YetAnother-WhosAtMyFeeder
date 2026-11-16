@@ -9,7 +9,9 @@ import {
     chosenRecovery,
     classifierReadiness,
     gardenCheckAvailable,
+    gardenCheckNeedsSetup,
     gardenCheckState,
+    gardenManualOverride,
     identificationReadiness,
     readinessAction,
     readinessLabel,
@@ -138,6 +140,58 @@ describe("what stands before Garden's automatic check", () => {
         expect(gardenCheckState(garden({ busy: true }))).toEqual(model('running'));
         expect(gardenCheckAvailable(gardenCheckState(garden()))).toBe(true);
         expect(gardenCheckAvailable(gardenCheckState(garden({ busy: true })))).toBe(true);
+    });
+});
+
+describe("Garden's manual override on a waiting capture", () => {
+    const ready = gardenCheckState(garden());
+    const missing = gardenCheckState(garden({ models: [{ variant: '4.0.3a', installed: false, size_bytes: 1 }] }));
+
+    it('is open, with nothing to add, when the automatic check can run', () => {
+        expect(gardenManualOverride('read', ready)).toEqual({ state: 'open', note: null });
+        expect(gardenManualOverride('read', gardenCheckState(garden({ busy: true })))).toEqual({ state: 'open', note: null });
+    });
+
+    it('stays closed while the status is still being read, and after a read that failed', () => {
+        expect(gardenManualOverride('loading', gardenCheckState(null))).toEqual({ state: 'closed', cause: 'reading' });
+        // A 503, or no network: nothing was measured, so nothing is opened on a guess.
+        expect(gardenManualOverride('failed', gardenCheckState(null))).toEqual({ state: 'closed', cause: 'unread' });
+    });
+
+    it('stays closed while the model is on its way: the check is about to be able to run', () => {
+        expect(gardenManualOverride('read', gardenCheckState(garden({ models: [] }), 'downloading'))).toEqual({ state: 'closed', cause: 'working' });
+        for (const readiness of ['queued', 'validating', 'loading', 'checking'] as const) {
+            expect(gardenManualOverride('read', { kind: 'model', readiness })).toEqual({ state: 'closed', cause: 'working' });
+        }
+    });
+
+    it('opens, saying the owner decides by hand, once the check is known not to be able to run here', () => {
+        const byHand = { state: 'open', note: 'by_hand' };
+        // Never downloaded, or a download that failed and left nothing: offline included.
+        expect(gardenManualOverride('read', missing)).toEqual(byHand);
+        expect(gardenManualOverride('read', { kind: 'model', readiness: 'failed' })).toEqual(byHand);
+        expect(gardenManualOverride('read', { kind: 'model', readiness: 'unknown' })).toEqual(byHand);
+        // Garden's own blockers.
+        expect(gardenManualOverride('read', gardenCheckState(garden({ catalogue_ready: false })))).toEqual(byHand);
+        expect(gardenManualOverride('read', gardenCheckState(garden({ error: 'Garden worker did not stop.' })))).toEqual(byHand);
+    });
+
+    it('never leaves an owner stuck: every state is either open or working towards open, or says how to retry', () => {
+        const states = [
+            gardenManualOverride('loading', gardenCheckState(null)),
+            gardenManualOverride('failed', gardenCheckState(null)),
+            gardenManualOverride('read', missing),
+            gardenManualOverride('read', ready)
+        ];
+        expect(states.filter((state) => state.state === 'closed').map((state) => state.cause)).toEqual(['reading', 'unread']);
+    });
+
+    it('offers model setup whenever the model is what is missing, whatever else is true of the capture', () => {
+        expect(gardenCheckNeedsSetup(missing)).toBe(true);
+        expect(gardenCheckNeedsSetup(ready)).toBe(false);
+        expect(gardenCheckNeedsSetup(gardenCheckState(garden({ catalogue_ready: false })))).toBe(false);
+        expect(gardenCheckNeedsSetup(gardenCheckState(garden({ models: [] }), 'downloading'))).toBe(false);
+        expect(gardenCheckNeedsSetup(null)).toBe(false);
     });
 });
 

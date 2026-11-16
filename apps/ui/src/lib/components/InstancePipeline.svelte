@@ -65,9 +65,10 @@
     onMount(() => {
         const controller = new AbortController();
 
-        void (async () => {
+        const readClassifier = async (): Promise<void> => {
             try {
                 classifier = await readClassifierStatus();
+                classifierFailed = false;
             } catch (error) {
                 if (controller.signal.aborted) return;
                 classifierFailed = true;
@@ -77,9 +78,16 @@
                     logger.error('Failed to fetch classifier status', error);
                 }
             }
-        })();
+        };
+        void readClassifier();
+        // Work on the model is the server's to report, and only an owner may read it. When a
+        // download or check ends, the model's own report is read again.
+        const stopWatching = isGuestView ? null : modelActivityStore.watch(() => void readClassifier());
 
-        return () => controller.abort();
+        return () => {
+            controller.abort();
+            stopWatching?.();
+        };
     });
 
     const unknown = $_('about.pipeline.unknown', { default: 'Unknown' });

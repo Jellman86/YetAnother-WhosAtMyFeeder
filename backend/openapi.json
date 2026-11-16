@@ -13547,6 +13547,28 @@
         "title": "ModelActionResponse",
         "type": "object"
       },
+      "ModelActivityResponse": {
+        "description": "Models being downloaded or checked on this hardware right now, by model id.",
+        "properties": {
+          "activity": {
+            "additionalProperties": {
+              "enum": [
+                "downloading",
+                "validating"
+              ],
+              "type": "string"
+            },
+            "description": "Each model with work in progress and its phase: `downloading` or `validating`. A model that is absent has none. Garden's automatic check model is reported as `garden-speciesnet-4.0.3a`.",
+            "title": "Activity",
+            "type": "object"
+          }
+        },
+        "required": [
+          "activity"
+        ],
+        "title": "ModelActivityResponse",
+        "type": "object"
+      },
       "ModelDeleteResponse": {
         "properties": {
           "bytes_freed": {
@@ -35344,6 +35366,39 @@
         "summary": "Species Photo Manual Observation",
         "tags": [
           "manual observations"
+        ]
+      }
+    },
+    "/api/models/activity": {
+      "get": {
+        "description": "Downloads and hardware checks in progress. Owner only.\n\nThe server's account of work on models, whichever page or browser tab started it, so that\nSettings, the setup wizard, About and Garden records all state the same thing.",
+        "operationId": "get_model_activity_api_models_activity_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelActivityResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Get Model Activity",
+        "tags": [
+          "models"
         ]
       }
     },

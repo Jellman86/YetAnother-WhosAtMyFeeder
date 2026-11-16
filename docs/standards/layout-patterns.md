@@ -207,10 +207,13 @@ its own. Three things keep them agreeing:
 
 - **Selected is not running.** "In use" is said only of the selected model when it is running. A
   selected model in any other state says that state ("Chosen · Could not load").
-- **Work this app started is shared.** A download or a hardware check is recorded in
-  `stores/model_activity.svelte.ts`, with the phase taken from the stage that is running
-  (`activityPhase`), so every surface says "Downloading" or "Being checked on this hardware" while
-  it lasts.
+- **Work in progress is the server's to report.** A download or a hardware check runs on the
+  server, so the server is the authority (`GET /api/models/activity`), and
+  `stores/model_activity.svelte.ts` keeps every surface reconciled with it while one is shown: in
+  this tab or another, whichever page started the work, and it ends everywhere when it ends there.
+  A page that starts work records a hint so its own button answers at once, with the phase taken
+  from the stage that is running (`activityPhase`); the hint lasts only until the server reports
+  that model. No surface keeps its own memory of work in progress.
 - **A second reading stays a second reading.** About reports inference health beside the model's
   state, never as the state. A Garden check blocked by something other than its model (species
   data that could not be read, a worker that would not stop) keeps that cause and its own way out
@@ -220,9 +223,12 @@ A model that is only chosen is never called configured or installed, and a class
 answered with no evidence reads "Not reported". A state has one action: a download for a missing
 model, a recovery for a failed one (`chosenRecovery`, which gives a bundled model one too). While
 the chosen model needs it, that is the page's only primary button (`setupEmphasis`). A wait a model
-is blocking names the blocker and links to its setup, and a control that goes round the automatic
-check (Garden's manual override and dismissal) stays closed, with the cause, until that check can
-run. Reassurance needs a reading too: the
+is blocking names the blocker and links to its setup, whenever the model is what is missing. An
+owner is never left stuck behind a model: Garden's dismissal is reversible and is never gated, and
+manual override (`gardenManualOverride`) waits only while the automatic check is on its way (its
+status being read, its model downloading). It opens once the check can run, and also once the check
+is known not to be able to run here, with a note that the owner decides by hand. After a read that
+failed it stays closed, says so and offers a retry, because nothing was measured. Reassurance needs a reading too: the
 backend-down screens say nothing about the data they could not ask about.
 
 A page that reads data keeps four states apart: loading, read and empty, failed, and stale. Only a

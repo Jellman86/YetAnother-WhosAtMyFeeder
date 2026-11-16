@@ -24,10 +24,19 @@
         classifierStatus ? classifierReadiness(classifierStatus, modelActivityStore.phase(reportedModelId(classifierStatus))) : null
     );
 
+    // Without it the row keeps the server's own finding, so a failed read claims nothing more.
+    function readClassifier(): void {
+        fetchClassifierStatus().then((status) => (classifierStatus = status)).catch(() => (classifierStatus = null));
+    }
+
     onMount(() => {
         void setupWizardStore.refresh();
-        // Without it the row keeps the server's own finding, so a failed read claims nothing more.
-        fetchClassifierStatus().then((status) => (classifierStatus = status)).catch(() => (classifierStatus = null));
+        readClassifier();
+        // Work on the model is the server's to report; when it ends, the model is read again.
+        return modelActivityStore.watch(() => {
+            void setupWizardStore.refresh();
+            readClassifier();
+        });
     });
 
     function openSection(section: SetupSectionId): void {

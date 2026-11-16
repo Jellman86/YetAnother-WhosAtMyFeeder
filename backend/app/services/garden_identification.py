@@ -1,7 +1,8 @@
 """Explicit owner suggestions, with supervised inference subordinate to birds."""
 
 import asyncio
-from collections.abc import Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable
+from contextlib import asynccontextmanager
 import hashlib
 import os
 from pathlib import Path
@@ -37,6 +38,7 @@ from app.services.frigate_client import frigate_client
 from app.services import garden_motion_privacy
 from app.services.garden_capture_service import garden_capture_service
 from app.services.garden_model_runtime import digest
+from app.services.model_activity import model_activity
 from app.services.garden_visitors import GardenPolicy, Taxon, decide_prediction
 from app.services.garden_worker_supervisor import (
     GardenBusy,
@@ -54,6 +56,13 @@ MODEL_SIZES = {"4.0.3a": 223998782, "4.0.3b": 223999179}
 # Providers that run on the host CPU; any other provider holds an accelerator bird inference may need.
 CPU_PROVIDERS = frozenset({"cpu", "intel_cpu"})
 MODEL_BASE_URL = "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models"
+
+
+@asynccontextmanager
+async def _downloading(variant: str) -> AsyncIterator[None]:
+    """Reports the model as downloading for as long as its file is being fetched."""
+    with model_activity.working(f"garden-speciesnet-{variant}", "downloading"):
+        yield
 
 
 def normalize_country(value: str | None) -> str | None:
@@ -255,7 +264,11 @@ class GardenIdentificationService:
                 staging = Path(temporary)
                 checksum = hashlib.sha256()
                 size = 0
-                async with asyncio.timeout(180), httpx.AsyncClient(follow_redirects=True, timeout=60) as client:
+                async with (
+                    asyncio.timeout(180),
+                    httpx.AsyncClient(follow_redirects=True, timeout=60) as client,
+                    _downloading(variant),
+                ):
                     async with client.stream("GET", f"{MODEL_BASE_URL}/speciesnet-{variant}.onnx") as response:
                         response.raise_for_status()
                         async with aiofiles.open(staging, "wb") as output:

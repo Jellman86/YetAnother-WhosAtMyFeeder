@@ -89,6 +89,39 @@ export function gardenCheckAvailable(state: GardenCheckState): boolean {
     return state.kind === 'model' && (state.readiness === 'ready' || state.readiness === 'running');
 }
 
+/** Whether setting the check model up is what clears the wait: only when the model is what is missing. */
+export function gardenCheckNeedsSetup(state: GardenCheckState | null): boolean {
+    return state?.kind === 'model' && state.readiness === 'missing';
+}
+
+/** How far the read of Garden's status has got: still going, failed, or answered. */
+export type GardenStatusRead = 'loading' | 'failed' | 'read';
+
+/**
+ * Whether an owner can confirm a waiting capture by hand, and what to tell them.
+ *
+ * Manual override is the way round the automatic check, so it waits only while that check is on
+ * its way: its status is being read, or its model is downloading or being checked. It opens as
+ * soon as the check can run, and also once the check is known not to be able to run here (the
+ * model is not here, could not load, or Garden itself is blocked), because an owner offline, or
+ * with a download that keeps failing, must still be able to decide. Then the dialog says so.
+ * After a read that failed, nothing was measured: it stays closed and offers a retry. Dismissal is
+ * a reversible action and is never gated on any of this.
+ */
+export type ManualOverride =
+    | { state: 'open'; note: 'by_hand' | null }
+    | { state: 'closed'; cause: 'reading' | 'unread' | 'working' };
+
+const ON_ITS_WAY: ReadonlySet<ModelReadiness> = new Set(['checking', 'queued', 'validating', 'loading']);
+
+export function gardenManualOverride(read: GardenStatusRead, check: GardenCheckState): ManualOverride {
+    if (read === 'loading') return { state: 'closed', cause: 'reading' };
+    if (read === 'failed') return { state: 'closed', cause: 'unread' };
+    if (gardenCheckAvailable(check)) return { state: 'open', note: null };
+    if (check.kind === 'model' && ON_ITS_WAY.has(check.readiness)) return { state: 'closed', cause: 'working' };
+    return { state: 'open', note: 'by_hand' };
+}
+
 /** The one thing to do about a state. Null while the app is working, or when nothing is needed. */
 export function readinessAction(readiness: ModelReadiness): 'download' | 'recover' | null {
     if (readiness === 'missing') return 'download';

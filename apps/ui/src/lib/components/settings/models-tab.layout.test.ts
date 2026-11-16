@@ -62,6 +62,11 @@ describe('Detection and Models', () => {
         // The chosen model's state and its recovery come from the shared rule and the shared activity.
         expect(modelManagerSource).toContain('classifierReadiness(classifierStatus, modelActivityStore.phase(currentModelId))');
         expect(modelManagerSource).toContain('data-model-recovery="revalidate"');
-        expect(modelManagerSource).toContain('modelActivityStore.set(model.id, activityPhase(stages));');
+        // Work in progress is the server's to report. The page records what it starts as a hint, keeps
+        // itself reconciled while it is shown, and resumes the progress of a download it did not start.
+        expect(modelManagerSource).toContain('modelActivityStore.hint(model.id, activityPhase(stages));');
+        expect(modelManagerSource).toContain('stopWatchingActivity = modelActivityStore.watch(() => void refreshModels());');
+        expect(modelManagerSource).toContain('modelActivityStore.active()');
+        expect(modelManagerSource).not.toContain('modelActivityStore.set(');
     });
 });

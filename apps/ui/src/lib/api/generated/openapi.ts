@@ -1897,6 +1897,9 @@ export interface components {
     message: string;
     status: string;
 };
+    ModelActivityResponse: {
+    activity: Record<string, "downloading" | "validating">;
+};
     ModelDeleteResponse: {
     bytes_freed: number;
     message: string;
@@ -5282,6 +5285,15 @@ export interface paths {
       query: never;
       requestBody: unknown;
       response: unknown;
+    };
+  };
+  "/api/models/activity": {
+    get: {
+      operationId: "get_model_activity_api_models_activity_get";
+      path: never;
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['ModelActivityResponse'];
     };
   };
   "/api/models/available": {

@@ -1069,6 +1069,11 @@ refused with `413` before any classification work runs.
 - `GET /api/models/families/resolved` (owner)
 - `POST /api/models/{model_id}/download` (owner)
 - `GET /api/models/download-status/{model_id}` (owner)
+- `GET /api/models/activity` (owner) — `activity`: each model with work in progress on the server
+  and its phase, `downloading` or `validating`; a model with none is absent. This is the server's
+  account, whichever page or browser tab started the work, and the SPA reconciles every surface
+  that states a model's readiness against it. Garden's automatic check model is reported as
+  `garden-speciesnet-4.0.3a`.
 - `POST /api/models/{model_id}/validate` (owner) — trial-activates a classifier, validates every globally safe or reviewed candidate provider in the running image/host/model intersection in isolated processes, compares accelerator output with a CPU baseline, records schema-4 artifact/runtime/hardware-bound eligibility and median inference latency, orders passing providers by measured latency, and restores the previously active model. Crop-detector artifacts are rejected with `409`.
 - `POST /api/models/{model_id}/activate` (owner) — rejected with `409` if the artifact is a crop detector or the classifier has not been validated for this artifact/runtime/install (unless it is bundled or already active); after activation succeeds, applies the first still-eligible provider and never carries an explicit provider from the previous model.
 - `DELETE /api/models/{model_id}` (owner) — removes an installed model's files and reports `bytes_freed`. Irreversible: the model must be downloaded again. Refused with `409` when the model is active or mid-download, and `404` when it is not installed. The id may contain a slash for a region variant, for example `medium_birds/eu`.
