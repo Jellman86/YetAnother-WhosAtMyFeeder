@@ -6,8 +6,11 @@
  * tab is hidden and reads once when it is shown again.
  */
 export const REFRESH_CADENCE_MS = {
-    /** A visitor's sidebar CPU line. Visitors never receive the pushed status, so they sample it. */
-    sidebarTelemetry: 15_000,
+    /**
+     * A visitor's sidebar CPU line. Visitors never receive the pushed status, so they sample it;
+     * a decorative trace needs no more than a point a minute.
+     */
+    sidebarTelemetry: 60_000,
     /**
      * BirdNET-Go reports a call a few seconds after it happens; the Heard card follows closely. With the
      * live stream connected, an owner's card reads when a call is announced, no more often than this.

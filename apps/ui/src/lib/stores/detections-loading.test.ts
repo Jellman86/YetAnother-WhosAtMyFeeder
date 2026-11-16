@@ -175,6 +175,7 @@ describe('DetectionsStore loading', () => {
 it('withdraws invalidated public rows when list/count refresh fails and signals consumers', async () => {
     const { DetectionsStore } = await import('./detections.svelte');
     const store = new DetectionsStore();
+    await store.follow();
     store.addDetection({ frigate_event: 'now-private', detection_time: new Date().toISOString(), camera_name: 'Owner camera' } as never);
     fetchEvents.mockRejectedValueOnce(new Error('503'));
     fetchEventsCount.mockResolvedValueOnce({ count: 1 });
@@ -235,12 +236,47 @@ it('does not release a pending guest request when a superseded owner request fin
 it('withdraws invalidated rows even if only the count request fails', async () => {
     const { DetectionsStore } = await import('./detections.svelte');
     const store = new DetectionsStore();
+    await store.follow();
     store.addDetection({ frigate_event: 'now-private', detection_time: new Date().toISOString() } as never);
     fetchEvents.mockResolvedValue([]);
     fetchEventsCount.mockRejectedValueOnce(new Error('503'));
     await expect(store.refreshPublicHistory()).rejects.toThrow();
     expect(store.detections).toEqual([]);
     expect(store.totalToday).toBe(0);
+});
+
+it('reads no history for a visitor whose page does not show it, and withdraws anything held', async () => {
+    const { DetectionsStore } = await import('./detections.svelte');
+    const store = new DetectionsStore();
+    fetchEvents.mockClear();
+    fetchEventsCount.mockClear();
+    store.addDetection({ frigate_event: 'now-private', detection_time: new Date().toISOString() } as never);
+    await store.refreshPublicHistory();
+    expect(fetchEvents).not.toHaveBeenCalled();
+    expect(fetchEventsCount).not.toHaveBeenCalled();
+    expect(store.detections).toEqual([]);
+    expect(store.publicHistoryVersion).toBe(1);
+});
+
+it('reads the history for a live announcement even when no page shows it', async () => {
+    const { DetectionsStore } = await import('./detections.svelte');
+    const store = new DetectionsStore();
+    fetchEvents.mockClear();
+    fetchEvents.mockResolvedValue([]);
+    fetchEventsCount.mockResolvedValue({ count: 0 });
+    await store.refreshPublicHistory({ includeList: true });
+    expect(fetchEvents).toHaveBeenCalledTimes(1);
+});
+
+it('reads once for the view that shows it, and again only when stale', async () => {
+    const { DetectionsStore } = await import('./detections.svelte');
+    const store = new DetectionsStore();
+    fetchEvents.mockClear();
+    fetchEvents.mockResolvedValue([]);
+    fetchEventsCount.mockResolvedValue({ count: 0 });
+    await store.follow();
+    await store.follow();
+    expect(fetchEvents).toHaveBeenCalledTimes(1);
 });
 
 it('does not replay an owner summary read before a bird edit, and coalesces the follow-up load', async () => {

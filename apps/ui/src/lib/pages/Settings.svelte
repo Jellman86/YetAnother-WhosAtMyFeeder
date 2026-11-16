@@ -1234,17 +1234,11 @@
 
             // The shell has usually just read the settings; opening this page joins that read,
             // unless a kept draft waits: that is compared with a fresh read, never an older copy.
-            // A repair job started earlier is followed on every tab, so its end is announced wherever you are.
-            await Promise.all([
-                loadSettings(false, !unsavedDraft.pendingFor(currentAccessIdentity())),
-                loadBackfillStatus()
-            ]);
+            // The form is read on its own: no tab's helper data holds it up. Backfill status is read
+            // by the Data tab, or followed from the pushed jobs while one runs (below).
+            await loadSettings(false, !unsavedDraft.pendingFor(currentAccessIdentity()));
         // A quick Back can leave before the read returns; a page already gone must not take the draft.
         if (!destroyed) restoreKeptDraft();
-
-        if ((backfillJob && backfillJob.status === 'running') || (weatherBackfillJob && weatherBackfillJob.status === 'running')) {
-            startBackfillPolling();
-        }
 
         // Taxonomy status for the Maintenance tab is read by the activeTab $effect below.
     });
@@ -1252,12 +1246,12 @@
     // Each operational reading belongs to the tabs that show it, so opening Appearance does not ask
     // Frigate, the classifier, storage and the repair jobs. A tab's readings are taken the first time
     // it opens in this visit; the page's own refresh and the actions on a tab read them again.
-    type TabReading = 'cameras' | 'classifier' | 'storage' | 'cache' | 'version';
+    type TabReading = 'cameras' | 'classifier' | 'storage' | 'cache' | 'version' | 'recordingClips' | 'audioSources' | 'backfill';
     const READINGS_BY_TAB: Partial<Record<SettingsTab, readonly TabReading[]>> = {
-        connection: ['cameras'],
-        integrations: ['cameras'],
-        // Models reads the classifier itself, on its runtime poll.
-        data: ['classifier', 'storage', 'cache'],
+        connection: ['cameras', 'recordingClips'],
+        integrations: ['cameras', 'audioSources'],
+        // Models reads the classifier itself, when the pushed model revision moves.
+        data: ['classifier', 'storage', 'cache', 'backfill'],
         security: ['version']
     };
     const readingsTaken = new Set<TabReading>();
@@ -1269,8 +1263,34 @@
             case 'storage': return loadMaintenanceStats();
             case 'cache': return loadCacheStats();
             case 'version': return loadVersion();
+            case 'recordingClips': return loadRecordingClipCapability();
+            case 'audioSources': return loadBirdnetSources();
+            case 'backfill': return loadBackfillStatus();
         }
     }
+
+    /** The open tab's readings again, for the page's own refresh. */
+    function rereadTab(tab: SettingsTab): Promise<void>[] {
+        return (READINGS_BY_TAB[tab] ?? []).map((reading) => {
+            readingsTaken.add(reading);
+            return takeReading(reading);
+        });
+    }
+
+    // A backfill started here or elsewhere is followed while it runs, on whichever tab is open,
+    // so its end is announced wherever you are. The pushed jobs say when one is running; an idle
+    // visual-preferences tab asks nothing about jobs.
+    const backfillRunningOnServer = $derived(
+        (systemStatusStore.snapshot?.jobs.items ?? []).some(
+            (job) => (job.kind === 'backfill' || job.kind === 'weather_backfill') && job.status === 'running'
+        )
+    );
+    $effect(() => {
+        if (!backfillRunningOnServer || !authStore.showSettings) return;
+        untrack(() => {
+            if (!backfillPollInterval) startBackfillPolling();
+        });
+    });
 
     function readForTab(tab: SettingsTab): void {
         for (const reading of READINGS_BY_TAB[tab] ?? []) {
@@ -1289,7 +1309,7 @@
     $effect(() => {
         if (isDirty) return;
         return pageRefreshAction.register(async () => {
-            await Promise.all([loadSettings(), loadClassifierStatus()]);
+            await Promise.all([loadSettings(), loadClassifierStatus(), ...rereadTab(activeTab)]);
         });
     });
 
@@ -2269,6 +2289,21 @@
         settingsStore.patch(confirmed);
     }
 
+    /** BirdNET-Go sources heard recently, offered on Integrations when mapping a camera's audio. */
+    async function loadBirdnetSources(): Promise<void> {
+        loadingBirdnetSources = true;
+        birdnetSourcesError = null;
+        try {
+            birdnetSourceOptions = await fetchAudioSources(20);
+        } catch (e) {
+            birdnetSourceOptions = [];
+            birdnetSourcesError = e instanceof Error ? e.message : 'Failed to load BirdNET sources';
+            console.error('Failed to load BirdNET source helper data', e);
+        } finally {
+            loadingBirdnetSources = false;
+        }
+    }
+
     async function loadRecordingClipCapability() {
         recordingClipCapabilityLoading = true;
         try {
@@ -2586,8 +2621,6 @@
 
     async function loadSettings(silent = false, shareShellRead = false) {
         if (!silent) loading = true;
-        loadingBirdnetSources = true;
-        birdnetSourcesError = null;
         try {
             const settings = shareShellRead ? await settingsStore.read(SHARED_SETTINGS_READ_MS) : await fetchSettings();
             loadedSetupSettings = settings;
@@ -2597,15 +2630,6 @@
             reportRuntimeProblem();
             loadedInferenceProvider = settings.inference_provider;
             settingsFormLoads += 1;
-            try {
-                birdnetSourceOptions = await fetchAudioSources(20);
-            } catch (e) {
-                birdnetSourceOptions = [];
-                birdnetSourcesError = e instanceof Error ? e.message : 'Failed to load BirdNET sources';
-                console.error('Failed to load BirdNET source helper data', e);
-            } finally {
-                loadingBirdnetSources = false;
-            }
             const migratedBlockedLabels = await migrateLegacyBlockedLabels(
                 settings.blocked_labels || [],
                 (query) => searchSpecies(query, 50, true)
@@ -2617,10 +2641,8 @@
             ]);
             blockedLabelsBaseline = [...blockedLabels];
             blockedSpeciesBaseline = [...blockedSpecies];
-            await loadRecordingClipCapability();
             settingsLoadFailed = false;
         } catch (e) {
-            loadingBirdnetSources = false;
             // A page-opening read that failed leaves nothing trustworthy to edit; the page says so
             // and offers the read again. A refresh behind a form already shown only reports itself.
             if (silent) notify('error', $_('notifications.settings_load_failed'));

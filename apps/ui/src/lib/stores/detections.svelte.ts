@@ -129,6 +129,19 @@ export class DetectionsStore {
         this.markMutated();
     }
 
+    /**
+     * Read the recent history for a view that shows it: the first time in this access, then only
+     * when it has gone stale. Pages that do not show it never call this, so a cold visit to About
+     * or a Settings tab asks nothing about recent detections.
+     */
+    async follow(): Promise<void> {
+        if (this.historyStatus === 'pending') {
+            await this.loadInitial();
+            return;
+        }
+        await this.refreshIfStale();
+    }
+
     async refreshIfStale(): Promise<void> {
         // The first read of an access is the app's to start; a refresh sweep must not race it.
         if (this.isLoading || this.historyStatus === 'pending' || !this.staleTracker.isStale()) return;
@@ -157,8 +170,19 @@ export class DetectionsStore {
         if (hadHistory) this.markMutated();
     }
 
-    async refreshPublicHistory(): Promise<void> {
+    /**
+     * A visitor's history changed. Views that show the recent list read it again; a visitor whose
+     * page does not show it reads it only for live announcements (`includeList`).
+     */
+    async refreshPublicHistory({ includeList = false }: { includeList?: boolean } = {}): Promise<void> {
         const generation = this.accessGeneration;
+        if (this.historyStatus === 'pending' && !this.isLoading && !includeList) {
+            // No view has read the list. Anything held is withdrawn rather than kept past a
+            // visibility change; open guest modals and the Explorer revalidate from the version.
+            this.clearHistory();
+            this.publicHistoryVersion += 1;
+            return;
+        }
         // A notification during an existing fetch must cause a new fetch after it,
         // rather than joining a response that predates an owner visibility change.
         if (this.loadPromise) await this.loadPromise;

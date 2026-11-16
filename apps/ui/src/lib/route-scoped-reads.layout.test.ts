@@ -1,0 +1,34 @@
+import { describe, expect, it } from 'vitest';
+import appSource from '../App.svelte?raw';
+import dashboardSource from './pages/Dashboard.svelte?raw';
+import healthSource from './pages/Errors.svelte?raw';
+import settingsSource from './pages/Settings.svelte?raw';
+
+function body(source: string, signature: string): string {
+    const start = source.indexOf(signature);
+    expect(start).toBeGreaterThan(-1);
+    const next = source.indexOf('\n    async function ', start + signature.length);
+    return source.slice(start, next === -1 ? undefined : next);
+}
+
+describe('each read belongs to the route and task that shows it', () => {
+    it('reads recent history on the Dashboard, not at startup on every route', () => {
+        expect(appSource).not.toContain('detectionsStore.loadInitial();');
+        expect(dashboardSource).toContain('void detectionsStore.follow();');
+        expect(healthSource).not.toContain('detectionsStore');
+    });
+
+    it('loads the Settings form without any tab\'s helper data', () => {
+        const loadSettings = body(settingsSource, 'async function loadSettings(');
+        expect(loadSettings).not.toContain('fetchAudioSources');
+        expect(loadSettings).not.toContain('loadRecordingClipCapability');
+        expect(settingsSource).toContain("connection: ['cameras', 'recordingClips'],");
+        expect(settingsSource).toContain("integrations: ['cameras', 'audioSources'],");
+        expect(settingsSource).toContain("data: ['classifier', 'storage', 'cache', 'backfill'],");
+    });
+
+    it('follows a running backfill from the pushed jobs instead of asking from every tab', () => {
+        expect(settingsSource).not.toMatch(/Promise\.all\(\[\s*loadSettings\([^)]*\),\s*loadBackfillStatus\(\)/);
+        expect(settingsSource).toContain("(job.kind === 'backfill' || job.kind === 'weather_backfill') && job.status === 'running'");
+    });
+});

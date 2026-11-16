@@ -87,7 +87,9 @@ for (const [visitor, status] of [['owner', owner], ['guest', guest]] as const) {
 
     test(`a cold Explorer load as the ${visitor} reads its visits once and no classifier labels`, async ({ page }) => {
         const reads = await countColdLoadReads(page, '/events', status);
-        expect(reads.get('/api/events')).toBe(1);
+        // The Explorer reads visits; the recent history list belongs to the Dashboard that shows it.
+        expect(reads.get('/api/events') ?? 0).toBe(0);
+        expect(reads.get('/api/events/count') ?? 0).toBe(0);
         expect(reads.get('/api/visits')).toBe(1);
         expect(reads.get('/api/classifier/labels') ?? 0).toBe(0);
     });
@@ -126,3 +128,12 @@ test('a cold Settings › Appearance load reads none of the other tabs\' operati
     }
     expect(reads.get('/api/version')).toBe(1);
 });
+
+for (const path of ['/about', '/settings/accessibility', '/notifications']) {
+    test(`a cold ${path} load reads no recent history and no other tab's helper data`, async ({ page }) => {
+        const reads = await countColdLoadReads(page, path, owner);
+        for (const endpoint of ['/api/events', '/api/events/count', '/api/audio/sources', '/api/frigate/recording-clip-capability', '/api/backfill/status']) {
+            expect(reads.get(endpoint) ?? 0, endpoint).toBe(0);
+        }
+    });
+}

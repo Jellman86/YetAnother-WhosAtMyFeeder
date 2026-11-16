@@ -515,6 +515,7 @@
     const audioFollowsLiveStream = $derived(authStore.hasOwnerAccess && detectionsStore.connected);
 
     onMount(() => {
+        void detectionsStore.follow();
         void loadSummary();
         daySafetyReading = startLiveReading({
             read: async () => {
