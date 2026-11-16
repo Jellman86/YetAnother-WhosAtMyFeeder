@@ -675,7 +675,7 @@
                 {#if error}<p class="text-sm font-semibold text-red-700 dark:text-red-300" role="alert">{error}</p>{/if}
 
                 {#if lineageName}
-                    <TaxonomyLineage scientificName={lineageName} subject="animal" />
+                    <TaxonomyLineage scientificName={lineageName} commonName={view.name} subject="animal" />
                 {/if}
 
                 {#if referenceName && (speciesInfoLoading || speciesInfo || speciesInfoError)}

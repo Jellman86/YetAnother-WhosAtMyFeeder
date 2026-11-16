@@ -694,7 +694,7 @@
                 {/if}
 
                 {#if !isUnknownBird && lineageName}
-                    <TaxonomyLineage scientificName={lineageName} class="border-t border-slate-200 pt-8 dark:border-slate-700" />
+                    <TaxonomyLineage scientificName={lineageName} commonName={stats?.common_name ?? null} class="border-t border-slate-200 pt-8 dark:border-slate-700" />
                 {/if}
 
                 <!-- Species Description -->

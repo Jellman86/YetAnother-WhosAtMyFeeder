@@ -4,7 +4,8 @@ import {
     formatScientificName,
     isItalicRank,
     namingStyle,
-    taxonNames
+    taxonNames,
+    withRecordName
 } from './nomenclature';
 
 const text = (rank: string, name: string) => formatScientificName(rank, name).map((part) => part.text).join('');
@@ -155,5 +156,35 @@ describe('taxonNames', () => {
 
     it('treats a blank common name as none', () => {
         expect(taxonNames({ ...dunnock, name: '  ' }, 'standard').primary.kind).toBe('scientific');
+    });
+});
+
+describe('one name for the record and its family tree', () => {
+    const lineage = [
+        { rank: 'family', scientific_name: 'Sturnidae', name: 'Starlings' },
+        { rank: 'genus', scientific_name: 'Sturnus', name: null },
+        { rank: 'species', scientific_name: 'Sturnus vulgaris', name: 'Common Starling' }
+    ];
+
+    it('names the record\'s own species as the record does', () => {
+        const named = withRecordName(lineage, 'Sturnus vulgaris', 'European Starling');
+        expect(named.map((taxon) => taxon.name)).toEqual(['Starlings', null, 'European Starling']);
+        expect(taxonNames(named[2], 'standard').primary.text).toBe('European Starling');
+    });
+
+    it('matches the species whatever the case, and leaves every other rank alone', () => {
+        const named = withRecordName(lineage, ' sturnus VULGARIS ', 'European Starling');
+        expect(named[2].name).toBe('European Starling');
+        expect(named[0]).toBe(lineage[0]);
+    });
+
+    it('keeps the catalogue name when the record has no common name, or only repeats the scientific one', () => {
+        expect(withRecordName(lineage, 'Sturnus vulgaris', null)).toBe(lineage);
+        expect(withRecordName(lineage, 'Sturnus vulgaris', '  ')).toBe(lineage);
+        expect(withRecordName(lineage, 'Sturnus vulgaris', 'Sturnus vulgaris')).toBe(lineage);
+    });
+
+    it('does not rename a different species', () => {
+        expect(withRecordName(lineage, 'Turdus merula', 'Blackbird')).toBe(lineage);
     });
 });

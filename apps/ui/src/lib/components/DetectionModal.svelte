@@ -3331,7 +3331,7 @@
 
 
             {#if !isUnknownSpecies && detection.scientific_name}
-                <TaxonomyLineage scientificName={detection.scientific_name} />
+                <TaxonomyLineage scientificName={detection.scientific_name} commonName={detection.common_name} />
             {/if}
 
             {#if !isUnknownSpecies && (speciesInfoLoading || speciesInfo || speciesInfoError || showEbirdNearby)}
