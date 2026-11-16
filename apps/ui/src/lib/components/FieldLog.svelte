@@ -205,7 +205,7 @@
                             <span class="text-xs font-bold tabular-nums text-muted">
                                 {quietScore(drop.score)}
                             </span>
-                            <span class="h-[3px] w-16 overflow-hidden rounded-full bg-line">
+                            <span class="h-[3px] w-16 overflow-hidden rounded-full bg-track">
                                 <span
                                     class="block h-full rounded-full bg-status-neutral-line"
                                     style="width: {Math.round((drop.score ?? 0) * 100)}%"

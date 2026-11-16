@@ -159,7 +159,7 @@
                                 <span class="min-w-0 wrap-break-word text-strong">{item.species}</span>
                                 <span class="shrink-0 tabular-nums text-muted">{item.count.toLocaleString()}</span>
                             </div>
-                            <div class="h-1 overflow-hidden rounded-full bg-line" aria-hidden="true">
+                            <div class="h-1 overflow-hidden rounded-full bg-track" aria-hidden="true">
                                 <div class="h-full rounded-full bg-status-info-line" style:width="{Math.max(2, (item.count / mostHeardMax) * 100)}%"></div>
                             </div>
                         </li>

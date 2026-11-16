@@ -109,6 +109,10 @@
      `line` and `line-soft` below stay the quiet rules between rows and round panels. */
   --color-line-strong: rgb(var(--line-strong));
 
+  /* A meter's track (a score bar, a level): every status and accent fill reads against it at 3:1,
+     so a bar's extent is never lost, in high contrast included. */
+  --color-track: rgb(var(--track));
+
   /* The accent is the brand, as the colour theme sets it: a primary action's fill (`accent`,
      with `accent-fg` on it), brand-coloured words and links (`accent-ink`), the recessed key of
      a chosen row (`accent-soft`) and a chosen tile's edge (`accent-line`). */
@@ -301,6 +305,7 @@
   --ink-muted: 71 85 105;
   --ink-subtle: 100 116 139;
   --line-strong: 100 116 139;
+  --track: 226 232 240;
   --accent: var(--brand-700);
   --accent-hover: var(--brand-800);
   --accent-fg: 255 255 255;
@@ -346,6 +351,7 @@ html[data-theme='dark'] {
   --ink-muted: 148 163 184;
   --ink-subtle: 100 116 139;
   --line-strong: 100 116 139;
+  --track: 30 41 59;
   --accent-ink: var(--brand-300);
   --accent-soft: var(--brand-950);
   --accent-line: var(--brand-500);
@@ -965,6 +971,7 @@ html.high-contrast.high-contrast.high-contrast {
   --ink-muted: 255 255 255;
   --ink-subtle: 200 200 200;
   --line-strong: 255 255 0;
+  --track: 64 64 64;
   --accent: 255 255 0;
   --accent-hover: 255 255 0;
   --accent-fg: 0 0 0;

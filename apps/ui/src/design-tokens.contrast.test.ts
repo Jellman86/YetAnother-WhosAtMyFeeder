@@ -84,6 +84,9 @@ function check(mode: Map<string, string>, highContrast: boolean) {
     pair('--ink-strong', '--accent-soft', words);
     pair('--accent-ink', '--accent-soft', 3);
     pair('--accent-line', '--surface', 3);
+    // A meter (a score bar, a level): its fill against its track, so the extent reads (UI 3:1).
+    for (const tone of TONES) pair(`--status-${tone}-line`, '--track', 3);
+    pair('--accent-line', '--track', 3);
     // Filled controls: their words on their fill, at rest and on hover.
     pair('--accent-fg', '--accent', words);
     pair('--accent-fg', '--accent-hover', words);

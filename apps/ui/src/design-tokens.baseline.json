@@ -80,8 +80,8 @@
     "arbitrary": 0
   },
   "lib/components/DetectionModal.svelte": {
-    "palette": 453,
-    "dark": 185,
+    "palette": 451,
+    "dark": 184,
     "arbitrary": 7
   },
   "lib/components/DetectionRow.svelte": {
@@ -165,8 +165,8 @@
     "arbitrary": 0
   },
   "lib/components/GardenCaptureModal.svelte": {
-    "palette": 107,
-    "dark": 41,
+    "palette": 105,
+    "dark": 40,
     "arbitrary": 2
   },
   "lib/components/GardenCapturePreview.svelte": {
@@ -680,8 +680,8 @@
     "arbitrary": 0
   },
   "lib/pages/Species.svelte": {
-    "palette": 401,
-    "dark": 195,
+    "palette": 397,
+    "dark": 193,
     "arbitrary": 8
   },
   "lib/pages/models/FinderDevicePanel.svelte": {

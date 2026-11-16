@@ -309,7 +309,14 @@
              They sit above the record's own button, so each keeps its explanation and its action.
              While selecting, the card owns every click, as a list row does: pointer events are turned
              off on every descendant (not `inert`, which would take the readings from a screen reader). -->
-        <div class="relative z-20 mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 {selectionMode ? 'pointer-events-none [&_*]:pointer-events-none!' : ''}" data-detection-card-readings>
+        <!-- The gaps in the line let clicks through to the record; each reading and play takes its
+             own. While an analysis covers the card, the readings keep their place (nothing moves when
+             it ends) but are inert and hidden: no control under the overlay takes focus or a click. -->
+        <div
+            class="pointer-events-none relative z-20 mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 {selectionMode ? '[&_*]:pointer-events-none!' : '*:pointer-events-auto'} {analysisActive ? 'invisible' : ''}"
+            inert={analysisActive}
+            data-detection-card-readings
+        >
             <BadgeHint text={$_('detection.captured_at_hint', { values: { date: formatDateValue(detection.detection_time), time: formatTime(detection.detection_time) } })} class="flex min-h-11 items-center gap-1.5 text-xs font-semibold tabular-nums text-ink">
                 <svg class="w-3 h-3 text-subtle" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />

@@ -58,7 +58,7 @@
                         ? 'bg-accent-line'
                         : bar.value > 0
                           ? 'bg-accent-line/60'
-                          : 'bg-line'}"
+                          : 'bg-track'}"
                     style:height="{Math.max((bar.value / maxVal) * 100, bar.value > 0 ? 6 : 2)}%"
                     title={$_('dashboard.histogram.tooltip_visits', {
                         values: { count: bar.value, time: formatHour(bar.hour) },

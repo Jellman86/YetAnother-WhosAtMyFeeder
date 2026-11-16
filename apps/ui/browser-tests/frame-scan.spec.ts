@@ -118,3 +118,35 @@ test('an Explorer list row draws the scan behind itself without growing or movin
     for (let step = 0; step < 2; step += 1) await page.getByRole('button', { name: 'Read four frames' }).click();
     await expect(backdrop.locator('.frame-scan-playhead')).toHaveCount(0);
 });
+
+test('while a card is analysed, its readings and play leave the keyboard and the pointer', async ({ page }) => {
+    await open(page);
+    const analysing = page.locator('[data-fixture="card-analysing"]');
+    const idle = page.locator('[data-fixture="card-idle"]');
+    // The idle card offers its time, score and play, each reachable by Tab.
+    const idleReadings = idle.locator('[data-detection-card-readings]');
+    await expect(idleReadings.getByRole('button', { name: /Play/ })).toBeVisible();
+    await expect(idleReadings).not.toHaveAttribute('inert', '');
+
+    // Under the opaque analysis overlay they are inert: nothing hidden takes focus or a click.
+    const readings = analysing.locator('[data-detection-card-readings]');
+    await expect(readings).toHaveAttribute('inert', '');
+    await expect(readings).toBeHidden();
+
+    // The card's own record button comes first in it.
+    const record = analysing.locator('button').first();
+    await record.focus();
+    const reached: string[] = [];
+    for (let step = 0; step < 4; step += 1) {
+        await page.keyboard.press('Tab');
+        reached.push(await page.evaluate(() => {
+            const active = document.activeElement as HTMLElement | null;
+            const card = active?.closest('[data-fixture]')?.getAttribute('data-fixture') ?? 'outside';
+            return `${card}:${active?.getAttribute('aria-label') ?? active?.textContent?.trim() ?? ''}`;
+        }));
+    }
+    // Tab leaves the analysed card at once and goes on to the idle card's own controls.
+    expect(reached.filter((stop) => stop.startsWith('card-analysing'))).toEqual([]);
+    expect(reached.some((stop) => stop.startsWith('card-idle'))).toBe(true);
+    await expect(page.locator('[data-fixture-played]')).toHaveAttribute('data-fixture-played', 'none');
+});

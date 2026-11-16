@@ -247,7 +247,7 @@
 
     <span class="hidden flex-col items-end gap-1 log-wide:flex">
         <BadgeHint text={$_('detection.confidence_hint', { values: { score: percent(score) } })} class="rounded-sm text-xs font-bold tabular-nums {SCORE_TEXT[scoreBand(score)]}">{percent(score)}%</BadgeHint>
-        <span class="h-[3px] w-16 overflow-hidden rounded-full bg-line">
+        <span class="h-[3px] w-16 overflow-hidden rounded-full bg-track">
             <span class="block h-full rounded-full {SCORE_FILL[scoreBand(score)]}" style="width: {percent(score)}%"></span>
         </span>
         {#if captureCount > 1}

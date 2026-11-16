@@ -91,9 +91,10 @@
                 <p class="mt-1 wrap-break-word text-2xs font-semibold italic text-muted" data-garden-card-scientific>{detail.scientific}</p>
             {/if}
         </div>
-        <!-- The marks and readings sit in the body, off the photograph, as on a bird's card; above the
-             card's open control, so play plays the clip rather than opening the record. -->
-        <div class="relative z-20 mt-auto flex flex-wrap items-center gap-x-3 gap-y-1" data-garden-card-readings>
+        <!-- The marks and readings sit in the body, off the photograph, as on a bird's card. The line
+             lets clicks through to the card's open control, so its words and gaps open the record;
+             only play takes its own clicks. -->
+        <div class="pointer-events-none relative z-20 mt-auto flex flex-wrap items-center gap-x-3 gap-y-1" data-garden-card-readings>
             <GardenExplorerMarker />
             {#if grouped}
                 <!-- Several photos open from this one card, as a bird visit's captures do. -->
@@ -117,7 +118,7 @@
                     type="button"
                     onclick={(event) => { event.stopPropagation(); onplay?.(capture, text.title); }}
                     aria-label={$_('detection.play_video', { values: { species: text.title } })}
-                    class="btn btn-secondary btn-icon rounded-full"
+                    class="btn btn-secondary btn-icon pointer-events-auto rounded-full"
                     data-garden-card-play
                 >
                     <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg>

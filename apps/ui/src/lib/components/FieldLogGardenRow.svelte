@@ -98,7 +98,7 @@
         {#if score !== null}
             <span class="text-xs font-bold tabular-nums {scoreTone}">{score}%</span>
             <span class="sr-only">{$_('garden.explorer.score_hint', { values: { score }, default: 'Species model score {score}%' })}</span>
-            <span class="h-[3px] w-16 overflow-hidden rounded-full bg-line" aria-hidden="true">
+            <span class="h-[3px] w-16 overflow-hidden rounded-full bg-track" aria-hidden="true">
                 <span class="block h-full rounded-full {barTone}" style="width: {score}%"></span>
             </span>
         {/if}
