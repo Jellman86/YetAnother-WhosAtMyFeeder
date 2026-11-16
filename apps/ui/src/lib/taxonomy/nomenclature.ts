@@ -141,3 +141,24 @@ export function taxonNames(taxon: NamedTaxon, style: NamingStyle): { primary: Ta
     if (style === 'hobbyist') return { primary: scientific, secondary: repeats ? null : commonName(common) };
     return { primary: commonName(common), secondary: repeats ? null : scientific };
 }
+
+/**
+ * The lineage with its own species named as the record names it.
+ *
+ * The record's heading takes its common name from the detection, and the catalogue behind the
+ * family tree can hold another ("European Starling" against "Common Starling"). One bird has one
+ * name on one screen, so the species the record is about takes the record's. Every other rank, and
+ * a record with no common name of its own, keeps the catalogue's.
+ */
+export function withRecordName<T extends NamedTaxon>(
+    lineage: readonly T[],
+    scientificName: string,
+    recordName: string | null | undefined
+): readonly T[] {
+    const subject = scientificName.trim().toLowerCase();
+    const name = recordName?.trim() ?? '';
+    if (!subject || !name || name.toLowerCase() === subject) return lineage;
+    const index = lineage.findIndex((taxon) => taxon.scientific_name.trim().toLowerCase() === subject);
+    if (index === -1 || lineage[index].name?.trim() === name) return lineage;
+    return lineage.map((taxon, position) => (position === index ? { ...taxon, name } : taxon));
+}

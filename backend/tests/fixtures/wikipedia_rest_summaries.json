@@ -1,0 +1,358 @@
+{
+  "about": "Wikipedia REST page summaries (api/rest_v1/page/summary) and the iNaturalist taxon fields that link to them, captured 2026-11-16 and trimmed to the fields the app reads. The REST extract omits the scientific-name parenthetical the article itself opens with, which is why identity is taken from iNaturalist's link and not from the text. Summary text is from Wikipedia, CC BY-SA 4.0.",
+  "birds": [
+    {
+      "species": "Mallard",
+      "scientific_name": "Anas platyrhynchos",
+      "taxon": {
+        "id": 6930,
+        "name": "Anas platyrhynchos",
+        "rank": "species",
+        "is_active": true,
+        "preferred_common_name": "Mallard",
+        "wikipedia_url": "http://en.wikipedia.org/wiki/Mallard"
+      },
+      "summary": {
+        "type": "standard",
+        "title": "Mallard",
+        "titles": {
+          "canonical": "Mallard",
+          "normalized": "Mallard"
+        },
+        "wikibase_item": "Q25348",
+        "lang": "en",
+        "description": "Species of duck",
+        "extract": "The mallard or wild duck is a dabbling duck that breeds throughout temperate and subtropical North America, Eurasia, and North Africa. It has been introduced to New Zealand, Australia, Peru, Brazil, Uruguay, Argentina, Chile, Colombia, the Falkland Islands, and South Africa. Belonging to the subfamily Anatinae of the waterfowl family Anatidae, mallards live in wetlands, eat water plants and small animals, and are social animals preferring to congregate in groups or flocks of varying sizes.",
+        "thumbnail": {
+          "source": "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/bf/Anas_platyrhynchos_male_female_quadrat.jpg/330px-Anas_platyrhynchos_male_female_quadrat.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail",
+          "width": 330,
+          "height": 330
+        },
+        "originalimage": {
+          "source": "https://upload.wikimedia.org/wikipedia/commons/b/bf/Anas_platyrhynchos_male_female_quadrat.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail_unscaled",
+          "width": 2384,
+          "height": 2384
+        },
+        "content_urls": {
+          "desktop": {
+            "page": "https://en.wikipedia.org/wiki/Mallard"
+          }
+        }
+      }
+    },
+    {
+      "species": "House Sparrow",
+      "scientific_name": "Passer domesticus",
+      "taxon": {
+        "id": 13858,
+        "name": "Passer domesticus",
+        "rank": "species",
+        "is_active": true,
+        "preferred_common_name": "House Sparrow",
+        "wikipedia_url": "http://en.wikipedia.org/wiki/House_sparrow"
+      },
+      "summary": {
+        "type": "standard",
+        "title": "House sparrow",
+        "titles": {
+          "canonical": "House_sparrow",
+          "normalized": "House sparrow"
+        },
+        "wikibase_item": "Q14683",
+        "lang": "en",
+        "description": "Species of bird",
+        "extract": "The house sparrow is a bird of the sparrow family Passeridae, found in most parts of the world. It is a small bird that has a typical length of 16 cm (6.3 in) and a mass of 24–39.5 g (0.85–1.39 oz). Females and young birds are coloured pale brown and grey, and males have brighter black, white, and brown markings. One of 28 species in the genus Passer, the house sparrow is native to most of Europe, the Mediterranean Basin, and a large part of Asia. Its intentional or accidental introductions to many regions, including parts of Australasia, Africa, and the Americas, make it the most widely distributed wild bird.",
+        "thumbnail": {
+          "source": "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/9b/House_sparrow_male_in_Prospect_Park_%2853532%29.jpg/330px-House_sparrow_male_in_Prospect_Park_%2853532%29.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail",
+          "width": 330,
+          "height": 257
+        },
+        "originalimage": {
+          "source": "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/9b/House_sparrow_male_in_Prospect_Park_%2853532%29.jpg/3840px-House_sparrow_male_in_Prospect_Park_%2853532%29.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail",
+          "width": 4400,
+          "height": 3422
+        },
+        "content_urls": {
+          "desktop": {
+            "page": "https://en.wikipedia.org/wiki/House_sparrow"
+          }
+        }
+      }
+    },
+    {
+      "species": "Rock Pigeon",
+      "scientific_name": "Columba livia",
+      "taxon": {
+        "id": 3017,
+        "name": "Columba livia",
+        "rank": "species",
+        "is_active": true,
+        "preferred_common_name": "Rock Pigeon",
+        "wikipedia_url": "http://en.wikipedia.org/wiki/Rock_dove"
+      },
+      "summary": {
+        "type": "standard",
+        "title": "Rock dove",
+        "titles": {
+          "canonical": "Rock_dove",
+          "normalized": "Rock dove"
+        },
+        "wikibase_item": "Q42326",
+        "lang": "en",
+        "description": "Ancestor of domestic pigeon",
+        "extract": "The rock dove, also known as the common pigeon or rock pigeon, is a member of the bird family Columbidae. In common usage, it is often simply referred to as the \"pigeon\", although the rock dove is the wild form of the bird; the pigeons familiar to most people are the domesticated forms of the wild rock dove.",
+        "thumbnail": {
+          "source": "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/10/Columba_livia_%28Rock_Dove%2C_wild%29%2C_Duncansby_Head%2C_Caithness%2C_Scotland_1.jpg/330px-Columba_livia_%28Rock_Dove%2C_wild%29%2C_Duncansby_Head%2C_Caithness%2C_Scotland_1.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail",
+          "width": 330,
+          "height": 248
+        },
+        "originalimage": {
+          "source": "https://upload.wikimedia.org/wikipedia/commons/1/10/Columba_livia_%28Rock_Dove%2C_wild%29%2C_Duncansby_Head%2C_Caithness%2C_Scotland_1.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail_unscaled",
+          "width": 2048,
+          "height": 1536
+        },
+        "content_urls": {
+          "desktop": {
+            "page": "https://en.wikipedia.org/wiki/Rock_dove"
+          }
+        }
+      }
+    },
+    {
+      "species": "Common Chaffinch",
+      "scientific_name": "Fringilla coelebs",
+      "taxon": {
+        "id": 10070,
+        "name": "Fringilla coelebs",
+        "rank": "species",
+        "is_active": true,
+        "preferred_common_name": "Common Chaffinch",
+        "wikipedia_url": "http://en.wikipedia.org/wiki/Common_chaffinch"
+      },
+      "summary": {
+        "type": "standard",
+        "title": "Eurasian chaffinch",
+        "titles": {
+          "canonical": "Eurasian_chaffinch",
+          "normalized": "Eurasian chaffinch"
+        },
+        "wikibase_item": "Q25383",
+        "lang": "en",
+        "description": "Species of bird",
+        "extract": "The Eurasian chaffinch, common chaffinch, or simply the chaffinch is a common and widespread small passerine bird – in the finch family. The male is brightly coloured with a blue-grey cap and rust-red underparts. The female is more subdued in colouring, but both sexes have two contrasting white wing bars and white sides to the tail. The male bird has a strong voice and sings from exposed perches to attract a mate.",
+        "thumbnail": {
+          "source": "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a0/Male_Chaffinch_-_Fringilla_coelebs.jpg/330px-Male_Chaffinch_-_Fringilla_coelebs.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail",
+          "width": 330,
+          "height": 335
+        },
+        "originalimage": {
+          "source": "https://upload.wikimedia.org/wikipedia/commons/a/a0/Male_Chaffinch_-_Fringilla_coelebs.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail_unscaled",
+          "width": 2578,
+          "height": 2620
+        },
+        "content_urls": {
+          "desktop": {
+            "page": "https://en.wikipedia.org/wiki/Eurasian_chaffinch"
+          }
+        }
+      }
+    },
+    {
+      "species": "European Robin",
+      "scientific_name": "Erithacus rubecula",
+      "taxon": {
+        "id": 13094,
+        "name": "Erithacus rubecula",
+        "rank": "species",
+        "is_active": true,
+        "preferred_common_name": "European Robin",
+        "wikipedia_url": "http://en.wikipedia.org/wiki/European_robin"
+      },
+      "summary": {
+        "type": "standard",
+        "title": "European robin",
+        "titles": {
+          "canonical": "European_robin",
+          "normalized": "European robin"
+        },
+        "wikibase_item": "Q25334",
+        "lang": "en",
+        "description": "Species of bird",
+        "extract": "The European robin, known simply as the robin or robin redbreast in the British Isles, is a small insectivorous passerine bird belonging to the Old World flycatcher family Muscicapidae. It is found across Europe, as far east as Western Siberia, and as far south as North Africa. It is sedentary in the west and south of its range, and migratory in the north and east of its range where winters are harsher.",
+        "thumbnail": {
+          "source": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f3/Erithacus_rubecula_with_cocked_head.jpg/330px-Erithacus_rubecula_with_cocked_head.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail",
+          "width": 330,
+          "height": 264
+        },
+        "originalimage": {
+          "source": "https://upload.wikimedia.org/wikipedia/commons/f/f3/Erithacus_rubecula_with_cocked_head.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail_unscaled",
+          "width": 2574,
+          "height": 2059
+        },
+        "content_urls": {
+          "desktop": {
+            "page": "https://en.wikipedia.org/wiki/European_robin"
+          }
+        }
+      }
+    },
+    {
+      "species": "Willie Wagtail",
+      "scientific_name": "Rhipidura leucophrys",
+      "taxon": {
+        "id": 8143,
+        "name": "Rhipidura leucophrys",
+        "rank": "species",
+        "is_active": true,
+        "preferred_common_name": "Willie Wagtail",
+        "wikipedia_url": "http://en.wikipedia.org/wiki/Willie_wagtail"
+      },
+      "summary": {
+        "type": "standard",
+        "title": "Willie wagtail",
+        "titles": {
+          "canonical": "Willie_wagtail",
+          "normalized": "Willie wagtail"
+        },
+        "wikibase_item": "Q642235",
+        "lang": "en",
+        "description": "Species of bird",
+        "extract": "The willie wagtail is a passerine bird native to Australia, New Guinea, the Solomon Islands, the Bismarck Archipelago, and Eastern Indonesia. It is a common and familiar bird throughout much of its range, living in most habitats apart from thick forest. Measuring 19–21.5 cm in length, the willie wagtail is contrastingly coloured with almost entirely black upperparts and white underparts; the male and female have similar plumage.",
+        "thumbnail": {
+          "source": "https://thumb.wikimedia.org/wikipedia/commons/thumb/6/6f/Rhipidura_leucophrys_-_Glen_Davis.jpg/330px-Rhipidura_leucophrys_-_Glen_Davis.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail",
+          "width": 330,
+          "height": 220
+        },
+        "originalimage": {
+          "source": "https://thumb.wikimedia.org/wikipedia/commons/thumb/6/6f/Rhipidura_leucophrys_-_Glen_Davis.jpg/3840px-Rhipidura_leucophrys_-_Glen_Davis.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail",
+          "width": 5472,
+          "height": 3648
+        },
+        "content_urls": {
+          "desktop": {
+            "page": "https://en.wikipedia.org/wiki/Willie_wagtail"
+          }
+        }
+      }
+    }
+  ],
+  "others": [
+    {
+      "species": "European Starling",
+      "scientific_name": "Sturnus vulgaris",
+      "taxon": {
+        "id": 14850,
+        "name": "Sturnus vulgaris",
+        "rank": "species",
+        "is_active": true,
+        "preferred_common_name": "European Starling",
+        "wikipedia_url": "http://en.wikipedia.org/wiki/Common_starling"
+      },
+      "summary": {
+        "type": "standard",
+        "title": "Common starling",
+        "titles": {
+          "canonical": "Common_starling",
+          "normalized": "Common starling"
+        },
+        "wikibase_item": "Q25469",
+        "lang": "en",
+        "description": "Species of passerine birds",
+        "extract": "The common starling, also known simply as the starling in Great Britain and Ireland, and as the European starling in North America, is a medium-sized passerine bird in the starling family, Sturnidae. It is about 20 cm (8 in) long and has glossy black plumage with a metallic sheen, which is speckled with white at some times of the year. The legs are pink and the bill is black in winter and yellow in summer; young birds have browner plumage than the adults. Its gift for mimicry has been noted in literature including the Mabinogion and the works of Pliny the Elder and William Shakespeare.",
+        "thumbnail": {
+          "source": "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/af/Common_starling_%28Sturnus_vulgaris%29_breeding_male_Marken.jpg/330px-Common_starling_%28Sturnus_vulgaris%29_breeding_male_Marken.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail",
+          "width": 330,
+          "height": 220
+        },
+        "originalimage": {
+          "source": "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/af/Common_starling_%28Sturnus_vulgaris%29_breeding_male_Marken.jpg/3840px-Common_starling_%28Sturnus_vulgaris%29_breeding_male_Marken.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail",
+          "width": 7056,
+          "height": 4704
+        },
+        "content_urls": {
+          "desktop": {
+            "page": "https://en.wikipedia.org/wiki/Common_starling"
+          }
+        }
+      }
+    },
+    {
+      "species": "Eastern Gray Squirrel",
+      "scientific_name": "Sciurus carolinensis",
+      "taxon": {
+        "id": 46017,
+        "name": "Sciurus carolinensis",
+        "rank": "species",
+        "is_active": true,
+        "preferred_common_name": "Eastern Gray Squirrel",
+        "wikipedia_url": "http://en.wikipedia.org/wiki/Eastern_gray_squirrel"
+      },
+      "summary": {
+        "type": "standard",
+        "title": "Eastern gray squirrel",
+        "titles": {
+          "canonical": "Eastern_gray_squirrel",
+          "normalized": "Eastern gray squirrel"
+        },
+        "wikibase_item": "Q468500",
+        "lang": "en",
+        "description": "Species of squirrel native to North America",
+        "extract": "The eastern gray squirrel, spelled as grey squirrel outside of the United States, is a species of tree squirrel in the genus Sciurus. It is native to eastern North America, where it is the most prodigious and ecologically essential natural forest regenerator. Widely introduced to certain places around the world, the eastern gray squirrel in Europe, in particular, is regarded as an invasive species.",
+        "thumbnail": {
+          "source": "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/15/EasternGraySquirrel_GAm.jpg/330px-EasternGraySquirrel_GAm.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail",
+          "width": 330,
+          "height": 330
+        },
+        "originalimage": {
+          "source": "https://upload.wikimedia.org/wikipedia/commons/1/15/EasternGraySquirrel_GAm.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail_unscaled",
+          "width": 1482,
+          "height": 1482
+        },
+        "content_urls": {
+          "desktop": {
+            "page": "https://en.wikipedia.org/wiki/Eastern_gray_squirrel"
+          }
+        }
+      }
+    },
+    {
+      "species": "Domestic Dog",
+      "scientific_name": "Canis familiaris",
+      "taxon": {
+        "id": 47144,
+        "name": "Canis familiaris",
+        "rank": "species",
+        "is_active": true,
+        "preferred_common_name": "Domestic Dog",
+        "wikipedia_url": "http://en.wikipedia.org/wiki/Dog"
+      },
+      "summary": {
+        "type": "standard",
+        "title": "Dog",
+        "titles": {
+          "canonical": "Dog",
+          "normalized": "Dog"
+        },
+        "wikibase_item": "Q144",
+        "lang": "en",
+        "description": "Domesticated species of canid",
+        "extract": "The dog is a domesticated descendant of wolves. Also called the domestic dog, it was selectively bred during the Late Pleistocene by hunter-gatherers. Dogs and the modern gray wolf share a common ancestor. Dogs were the first species to be domesticated over 14,000 years ago, before the development of agriculture, though genetic studies suggest the domestication process may have begun over 25,000 years ago. Due to their long association with humans, dogs have gained the ability to thrive on a starch-rich diet that would be inadequate for other canids.",
+        "thumbnail": {
+          "source": "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/7a/Huskiesatrest.jpg/330px-Huskiesatrest.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail",
+          "width": 330,
+          "height": 219
+        },
+        "originalimage": {
+          "source": "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/7a/Huskiesatrest.jpg/3840px-Huskiesatrest.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail",
+          "width": 4288,
+          "height": 2848
+        },
+        "content_urls": {
+          "desktop": {
+            "page": "https://en.wikipedia.org/wiki/Dog"
+          }
+        }
+      }
+    }
+  ]
+}

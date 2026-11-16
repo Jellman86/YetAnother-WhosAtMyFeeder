@@ -68,7 +68,8 @@
     import { toastStore } from '../stores/toast.svelte';
     import { confirmAction } from '../stores/confirm_dialog.svelte';
     import { birdNames } from '../naming';
-    import { _ } from 'svelte-i18n';
+    import { _, locale } from 'svelte-i18n';
+    import { summaryInAnotherLanguage } from '../utils/summary-language';
     import { get } from 'svelte/store';
     import { onDestroy, onMount, untrack } from 'svelte';
     import { trapFocus } from '../utils/focus-trap';
@@ -3325,7 +3326,7 @@
 
 
             {#if !isUnknownSpecies && detection.scientific_name}
-                <TaxonomyLineage scientificName={detection.scientific_name} />
+                <TaxonomyLineage scientificName={detection.scientific_name} commonName={detection.common_name} />
             {/if}
 
             {#if !isUnknownSpecies && (speciesInfoLoading || speciesInfo || speciesInfoError || showEbirdNearby)}
@@ -3354,11 +3355,17 @@
                                 {@const summaryText = speciesInfo.extract || speciesInfo.description}
                                 {@const summaryUrl = speciesInfo.summary_source_url || speciesInfo.wikipedia_url || speciesInfo.source_url}
                                 {@const summaryLabel = speciesInfo.summary_source || speciesInfo.source}
+                                {@const summaryLanguage = summaryInAnotherLanguage(speciesInfo, $locale)}
                                 {#if summaryText}
                                     <!-- Only shortened when the rest can be reached. -->
-                                    <p class="text-sm leading-relaxed text-slate-700 dark:text-slate-300 {summaryUrl ? 'line-clamp-3' : ''}" data-detection-reference-text>
+                                    <p class="text-sm leading-relaxed text-slate-700 dark:text-slate-300 {summaryUrl ? 'line-clamp-3' : ''}" lang={summaryLanguage?.code} data-detection-reference-text>
                                         {summaryText}
                                     </p>
+                                    {#if summaryLanguage}
+                                        <p class="mt-1 text-xs text-muted" data-reference-summary-language={summaryLanguage.code}>
+                                            {$_('species_detail.summary_language_note', { default: 'Description from {language} Wikipedia', values: { language: summaryLanguage.name } })}
+                                        </p>
+                                    {/if}
                                 {:else}
                                     <p class="text-xs text-slate-600 dark:text-slate-400">{$_('species_detail.no_info')}</p>
                                 {/if}
