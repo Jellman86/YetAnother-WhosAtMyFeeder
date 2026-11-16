@@ -624,10 +624,232 @@
       "reason": "Imports openvino or openvino.runtime, from a fixed pair of names; neither sends a request"
     }
   ],
+  "reviewed_callers": {
+    "about": "Modules that send no request themselves and call into a module that does. A registered sender's functions are requests waiting to be called, so its callers are where a new request, carrying new data, can start without any new client. Each pair here was reviewed against the About list. A new caller, or a listed caller reaching a sender it did not before, fails the guard until it is reviewed and added. The list is exact: a pair that no longer exists has to be removed.",
+    "callers": {
+      "app/main.py": [
+        "app/routers/audio.py",
+        "app/routers/classifier.py",
+        "app/routers/debug.py",
+        "app/routers/email.py",
+        "app/routers/inaturalist.py",
+        "app/routers/proxy.py",
+        "app/routers/settings.py",
+        "app/routers/species.py",
+        "app/services/frigate_client.py",
+        "app/services/full_visit_clip_service.py",
+        "app/services/garden_automatic_review.py",
+        "app/services/garden_identification.py",
+        "app/services/garden_motion.py",
+        "app/services/model_manager.py",
+        "app/services/mqtt_service.py",
+        "app/services/telemetry_service.py"
+      ],
+      "app/routers/about.py": [
+        "app/routers/proxy.py",
+        "app/services/community_stats_service.py",
+        "app/services/taxonomy/taxonomy_service.py"
+      ],
+      "app/routers/ai.py": [
+        "app/routers/proxy.py",
+        "app/services/ai_service.py",
+        "app/services/frigate_client.py"
+      ],
+      "app/routers/backfill.py": [
+        "app/services/mqtt_service.py",
+        "app/services/weather_service.py"
+      ],
+      "app/routers/diagnostics.py": [
+        "app/routers/classifier.py",
+        "app/routers/settings.py",
+        "app/services/media_probe.py"
+      ],
+      "app/routers/ebird.py": [
+        "app/services/ebird_service.py",
+        "app/services/ha_weather.py",
+        "app/services/taxonomy/taxonomy_service.py"
+      ],
+      "app/routers/events.py": [
+        "app/services/frigate_client.py",
+        "app/services/model_manager.py",
+        "app/services/taxonomy/taxonomy_service.py"
+      ],
+      "app/routers/garden.py": [
+        "app/routers/proxy.py",
+        "app/services/garden_automatic_review.py",
+        "app/services/garden_identification.py",
+        "app/services/garden_motion.py"
+      ],
+      "app/routers/geocoding.py": [
+        "app/services/geocoding_service.py"
+      ],
+      "app/routers/jobs.py": [
+        "app/services/full_visit_clip_service.py"
+      ],
+      "app/routers/model_eval.py": [
+        "app/services/model_eval_service.py"
+      ],
+      "app/routers/models.py": [
+        "app/services/model_manager.py"
+      ],
+      "app/routers/setup.py": [
+        "app/services/model_manager.py"
+      ],
+      "app/routers/stats.py": [
+        "app/services/taxonomy/taxonomy_service.py",
+        "app/services/update_service.py",
+        "app/services/weather_service.py"
+      ],
+      "app/services/archive_service.py": [
+        "app/services/frigate_client.py"
+      ],
+      "app/services/audio/audio_service.py": [
+        "app/services/taxonomy/taxonomy_service.py"
+      ],
+      "app/services/auto_video_classifier_service.py": [
+        "app/routers/proxy.py",
+        "app/services/frigate_client.py",
+        "app/services/model_manager.py",
+        "app/services/mqtt_service.py"
+      ],
+      "app/services/backfill_service.py": [
+        "app/services/frigate_client.py"
+      ],
+      "app/services/bird_crop_service.py": [
+        "app/services/model_manager.py"
+      ],
+      "app/services/bird_finder_revalidation.py": [
+        "app/services/model_manager.py"
+      ],
+      "app/services/canonical_identity_repair_service.py": [
+        "app/services/taxonomy/taxonomy_service.py"
+      ],
+      "app/services/catalogue_labels.py": [
+        "app/services/model_manager.py"
+      ],
+      "app/services/classification_input_provenance.py": [
+        "app/services/frigate_client.py"
+      ],
+      "app/services/classifier_service.py": [
+        "app/services/model_manager.py"
+      ],
+      "app/services/detection_presenter.py": [
+        "app/services/model_manager.py",
+        "app/services/taxonomy/taxonomy_service.py"
+      ],
+      "app/services/detection_service.py": [
+        "app/services/birdweather_service.py",
+        "app/services/ha_weather.py",
+        "app/services/taxonomy/taxonomy_service.py"
+      ],
+      "app/services/event_processor.py": [
+        "app/services/frigate_client.py",
+        "app/services/full_visit_clip_service.py",
+        "app/services/ha_weather.py",
+        "app/services/mqtt_service.py",
+        "app/services/notification_service.py",
+        "app/services/taxonomy/taxonomy_service.py",
+        "app/services/weather_service.py"
+      ],
+      "app/services/garden_capture_service.py": [
+        "app/services/frigate_client.py"
+      ],
+      "app/services/garden_crop_service.py": [
+        "app/services/frigate_client.py",
+        "app/services/garden_identification.py"
+      ],
+      "app/services/garden_media_cache.py": [
+        "app/services/frigate_client.py",
+        "app/services/garden_identification.py"
+      ],
+      "app/services/garden_notifications.py": [
+        "app/services/garden_notification_transport.py"
+      ],
+      "app/services/high_quality_snapshot_service.py": [
+        "app/routers/proxy.py",
+        "app/services/frigate_client.py",
+        "app/services/model_manager.py",
+        "app/services/mqtt_service.py"
+      ],
+      "app/services/label_enrichment.py": [
+        "app/services/ebird_service.py",
+        "app/services/model_manager.py"
+      ],
+      "app/services/label_integrity.py": [
+        "app/services/model_manager.py"
+      ],
+      "app/services/localized_names.py": [
+        "app/services/ebird_service.py"
+      ],
+      "app/services/manual_observation_service.py": [
+        "app/services/model_manager.py",
+        "app/services/taxonomy/taxonomy_service.py"
+      ],
+      "app/services/media_integrity_scan.py": [
+        "app/services/frigate_client.py"
+      ],
+      "app/services/media_storage_service.py": [
+        "app/services/full_visit_clip_service.py"
+      ],
+      "app/services/model_registry_inventory.py": [
+        "app/services/model_manager.py"
+      ],
+      "app/services/model_validation.py": [
+        "app/services/model_manager.py"
+      ],
+      "app/services/native_profile_probe.py": [
+        "app/services/model_manager.py"
+      ],
+      "app/services/native_profile_revalidation.py": [
+        "app/services/mqtt_service.py"
+      ],
+      "app/services/nearby_species_service.py": [
+        "app/services/ebird_service.py"
+      ],
+      "app/services/notification_orchestrator.py": [
+        "app/services/frigate_client.py",
+        "app/services/notification_service.py",
+        "app/services/taxonomy/taxonomy_service.py"
+      ],
+      "app/services/provider_revalidation.py": [
+        "app/services/model_manager.py"
+      ],
+      "app/services/range_filter_service.py": [
+        "app/services/ebird_service.py",
+        "app/services/model_eval_service.py"
+      ],
+      "app/services/recording_snapshot_input.py": [
+        "app/services/frigate_client.py"
+      ],
+      "app/services/service_connections.py": [
+        "app/services/frigate_client.py",
+        "app/services/mqtt_service.py"
+      ],
+      "app/services/settings_update.py": [
+        "app/routers/settings.py",
+        "app/services/model_manager.py"
+      ],
+      "app/services/setup_state_service.py": [
+        "app/services/model_manager.py"
+      ],
+      "app/services/species_catalog_compatibility.py": [
+        "app/services/model_manager.py"
+      ],
+      "app/services/timezone_repair_service.py": [
+        "app/services/frigate_client.py"
+      ],
+      "app/services/visit_film_service.py": [
+        "app/services/frigate_client.py"
+      ],
+      "app/utils/audio_localization.py": [
+        "app/services/taxonomy/taxonomy_service.py"
+      ]
+    }
+  },
   "manual_review": [
     "The guard reads the source of backend/app; it does not run it. It sees which modules can send a request and which hosts are written out. These it cannot see, and each stays a reviewer's responsibility:",
-    "A new request inside a module that is already registered, to a host that is not written as a literal: one built from a setting, a variable or another service's answer. Review every change to a registered module for a new destination, and add the row.",
-    "An import whose module name is computed: importlib.import_module(name) or __import__(name) with a variable, and getattr on what they return. A name written out as a string is read like any import. A computed one has to be acknowledged under dynamic_imports with its reason, and the reviewer checks what it can load.",
+    "A new request inside a module that is already registered, to a host that is not written as a literal: one built from a setting, a variable or another service's answer. Review every change to a registered module for a new destination, and add the row. A new caller of a registered module is not a blind spot: it fails until it is added to reviewed_callers, and adding it is the moment to check what the call sends.",
+    "An import whose module name is computed: importlib.import_module(name) or __import__(name) with a variable, and getattr on what they return. A name written out as a string is read and held to the registry like any import, so only a computed one is a blind spot. It has to be acknowledged under dynamic_imports with its reason, and the reviewer checks what it can load.",
     "A package that arrives without being declared: installed by apt or another system package manager, or already in a base image. Packages named in backend/requirements-*.txt, in a Dockerfile's pip install or pip wheel line, and in pyproject.toml are read and have to be classified; nothing else is.",
     "Code outside backend/app: backend/scripts, backend/download_model.py, custom_components (the Home Assistant integration, which runs on the owner's Home Assistant and talks to this app), the telemetry worker, and anything vendored. None of it is scanned.",
     "A subprocess (ffmpeg, git) or OpenCV given a network address instead of a local file. Both are used on local files only; a change that passes them a URL is an outbound request the guard cannot see.",

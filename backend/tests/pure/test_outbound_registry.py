@@ -226,6 +226,54 @@ def borrows_a_client(module: ModuleFacts, facts: dict[str, ModuleFacts]) -> bool
     return False
 
 
+def _sender_modules(registry: dict) -> set[str]:
+    """Modules registered as making requests themselves: for an entry, or to an address the owner enters."""
+    return _entry_modules(registry) | {item["module"] for item in registry["owner_addresses"]}
+
+
+def callers_of_senders(facts: dict[str, ModuleFacts], registry: dict) -> dict[str, list[str]]:
+    """Each module that reaches into a registered sender, and the senders it reaches.
+
+    A registered sender's functions are requests waiting to be called: `weather_service.fetch()`
+    from a new module sends the feeder's coordinates as surely as an HTTP client would. Every
+    import and attribute chain is resolved, through aliases and re-exports, to the sender it
+    leads into.
+    """
+    by_name = {module.name: module for module in facts.values()}
+    path_of = {module.name: path for path, module in facts.items()}
+    senders = _sender_modules(registry)
+    reached: dict[str, list[str]] = {}
+    for path, module in facts.items():
+        used: set[str] = set()
+        for origin in set(module.bound.values()) | module.chains:
+            parts = origin.split(".")
+            # The module named on the way, and the one a re-export leads on to.
+            direct = next(
+                (".".join(parts[:cut]) for cut in range(len(parts), 0, -1) if ".".join(parts[:cut]) in by_name), None
+            )
+            resolved = _resolve(origin, by_name)
+            for name in {direct, resolved[0].name if resolved else None}:
+                if name and name != module.name and path_of[name] in senders:
+                    used.add(path_of[name])
+        if used:
+            reached[path] = sorted(used)
+    return reached
+
+
+def unreviewed_callers(facts: dict[str, ModuleFacts], registry: dict) -> list[str]:
+    """Caller and sender pairs nobody has reviewed: `caller -> sender`."""
+    reviewed = registry["reviewed_callers"]["callers"]
+    senders = _sender_modules(registry)
+    return sorted(
+        f"{caller} -> {sender}"
+        for caller, reached in callers_of_senders(facts, registry).items()
+        # A sender calling another sender is already a registered place to look.
+        if caller not in senders
+        for sender in reached
+        if sender not in reviewed.get(caller, [])
+    )
+
+
 def able_to_send(facts: dict[str, ModuleFacts]) -> set[str]:
     return {path for path, module in facts.items() if module.imports_an_outbound_library()}
 
@@ -267,6 +315,7 @@ def unregistered(sources: dict[str, str], registry: dict = REGISTRY) -> dict[str
             {path for path, module in facts.items() if module.imports_by_computed_name}
             - {item["module"] for item in registry["dynamic_imports"]}
         ),
+        "callers of a registered sender that nobody reviewed": unreviewed_callers(facts, registry),
         "hosts": sorted(written - known_hosts),
     }
 
@@ -282,6 +331,7 @@ def test_the_backend_sends_nothing_the_registry_does_not_list():
         "modules that import an outbound library": [],
         "modules that send through another module's client or helper": [],
         "modules that import by a computed name": [],
+        "callers of a registered sender that nobody reviewed": [],
         "hosts": [],
     }, FIX
 
@@ -470,7 +520,7 @@ def test_it_catches_a_downloader_that_borrows_another_modules_client():
         assert found["modules that import an outbound library"] == []
 
 
-def test_it_does_not_mistake_an_ordinary_use_of_a_service_for_a_borrowed_client():
+def test_an_ordinary_use_of_a_service_is_a_caller_to_review_not_a_borrowed_client():
     ordinary = (
         "from app.services.notification_service import notification_service\n\n\n"
         "async def announce():\n    return await notification_service.send_detection()\n"
@@ -479,6 +529,9 @@ def test_it_does_not_mistake_an_ordinary_use_of_a_service_for_a_borrowed_client(
         "modules that import an outbound library": [],
         "modules that send through another module's client or helper": [],
         "modules that import by a computed name": [],
+        "callers of a registered sender that nobody reviewed": [
+            "app/services/announcer.py -> app/services/notification_service.py"
+        ],
         "hosts": [],
     }
 
@@ -640,3 +693,64 @@ def test_the_blind_spots_are_each_named_for_reviewers():
     assert "outside backend/app" in notes and "custom_components" in notes
     # And the guarantee is stated as what it is.
     assert "does not prove" in REGISTRY["about"]
+
+
+# ---- Callers of a registered sender ------------------------------------------------------------------
+
+
+def test_a_new_caller_of_a_registered_sender_has_to_be_reviewed():
+    """The sender is registered; its new caller is where a new request, with new data, now starts."""
+    for source in (
+        "from app.services.weather_service import weather_service\n\n\n"
+        "async def report(lat, lon):\n    return await weather_service.get_current_weather(lat, lon)\n",
+        "import app.services.weather_service as weather\n\n\n"
+        "async def report(lat, lon):\n    return await weather.weather_service.get_current_weather(lat, lon)\n",
+        "import importlib\n\nweather = importlib.import_module('app.services.weather_service')\n",
+        "from app.services.frigate_client import frigate_client\n\n\n"
+        "async def read(event):\n    return await frigate_client.get_event(event)\n",
+    ):
+        found = _with({"app/services/new_caller.py": source})
+        assert len(found["callers of a registered sender that nobody reviewed"]) == 1, source
+        assert found["callers of a registered sender that nobody reviewed"][0].startswith(
+            "app/services/new_caller.py -> "
+        )
+
+
+def test_a_sender_reached_through_a_re_export_is_still_a_sender():
+    found = _with(
+        {
+            "app/services/facade.py": "from app.services.weather_service import weather_service\n",
+            "app/services/new_caller.py": (
+                "from app.services.facade import weather_service\n\n\n"
+                "async def report(lat, lon):\n    return await weather_service.get_current_weather(lat, lon)\n"
+            ),
+        }
+    )
+    assert (
+        "app/services/new_caller.py -> app/services/weather_service.py"
+        in (found["callers of a registered sender that nobody reviewed"])
+    )
+
+
+def test_a_reviewed_caller_that_reaches_a_sender_it_did_not_before_is_reviewed_again():
+    reviewed = REGISTRY["reviewed_callers"]["callers"]
+    caller = next(path for path, senders in reviewed.items() if "app/services/weather_service.py" not in senders)
+    extended = _sources()[caller] + "\nfrom app.services.weather_service import weather_service as _new_reach\n"
+
+    assert _with({caller: extended})["callers of a registered sender that nobody reviewed"] == [
+        f"{caller} -> app/services/weather_service.py"
+    ]
+
+
+def test_the_reviewed_callers_list_holds_nothing_stale():
+    facts = analyse(_sources())
+    senders = _sender_modules(REGISTRY)
+    actual = {
+        caller: reached for caller, reached in callers_of_senders(facts, REGISTRY).items() if caller not in senders
+    }
+
+    assert REGISTRY["reviewed_callers"]["callers"] == actual, (
+        "backend/outbound_requests.json reviewed_callers must list exactly the modules that call into a "
+        "registered sender, each with the senders it reaches. Review what the new call sends before adding it."
+    )
+    assert REGISTRY["reviewed_callers"]["about"].strip()
