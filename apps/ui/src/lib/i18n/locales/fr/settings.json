@@ -1479,7 +1479,9 @@
     "measurement_gap": "Aucune mesure d’utilisation pour cet échantillon. Les lignes des processus ci-dessous indiquent leur accélérateur chargé ; cette absence ne prouve pas un basculement vers le processeur.",
     "unreadable_nvidia": "{label} est présent, mais son pilote ne publie aucun compteur d’utilisation lisible depuis un conteneur.",
     "unreadable_accelerator": "{label} est présent, mais son compteur n’est pas lisible depuis le conteneur.",
-    "table_region": "Charge par processus"
+    "table_region": "Charge par processus",
+    "chart_title": "Charge des 30 dernières minutes",
+    "col_time": "Heure"
   },
   "text_size": {
     "label": "Taille du texte",

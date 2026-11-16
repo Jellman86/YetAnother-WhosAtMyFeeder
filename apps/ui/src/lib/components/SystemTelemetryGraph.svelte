@@ -107,7 +107,7 @@
 <div
     bind:this={container}
     data-system-telemetry
-    class="mt-2 flex min-h-4 items-center justify-between gap-2 text-xs leading-4 text-slate-600 dark:text-slate-400"
+    class="mt-2 flex min-h-4 items-center justify-between gap-2 text-xs leading-4 text-muted"
 >
     {#if current}
         <p class="min-w-0 tabular-nums" data-telemetry-readout data-telemetry-stale={stale}>

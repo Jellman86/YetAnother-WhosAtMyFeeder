@@ -43,7 +43,7 @@ test(`navigation targets fit narrow phones and keep distinct hit regions (${text
     await expect(sidebar.getByRole('button', { name: 'Log out', exact: true })).toBeVisible();
     await targetSizes(sidebar.locator('button:visible'));
     await sidebar.getByRole('button', { name: 'English', exact: true }).click();
-    await targetSizes(sidebar.getByRole('menuitem'));
+    await targetSizes(sidebar.getByRole('menuitemradio'));
     await sidebar.getByRole('menu').focus();
     await page.keyboard.press('Escape');
     await expect(sidebar.getByRole('menu')).toHaveCount(0);

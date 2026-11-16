@@ -1,6 +1,6 @@
 <script lang="ts">
     import { locale, _ } from 'svelte-i18n';
-    import { onMount } from 'svelte';
+    import { onMount, tick } from 'svelte';
     import { setAppLocale } from '../i18n';
 
     const languageNames: Record<string, string> = {
@@ -17,7 +17,10 @@
 
     let showDropdown = $state(false);
     let { dropUp = false, compact = false }: { dropUp?: boolean; compact?: boolean } = $props();
-    const menuId = 'language-selector-menu';
+    const uid = $props.id();
+    const menuId = `language-selector-menu-${uid}`;
+    let trigger: HTMLButtonElement | undefined = $state();
+    let menu: HTMLDivElement | undefined = $state();
     let currentLocaleValue = $state('en'); // Local state for locale value
     let languageChanging = $state(false);
     let languageError = $state(false);
@@ -28,6 +31,8 @@
         });
     });
 
+    // While a language loads the items are aria-disabled, not disabled: a disabled button drops
+    // keyboard focus to the page, and a menu item stays focusable when it cannot be chosen (APG).
     async function setLanguage(lang: string): Promise<void> {
         if (languageChanging) return;
         languageChanging = true;
@@ -35,16 +40,79 @@
         const changed = await setAppLocale(lang);
         languageChanging = false;
         languageError = !changed;
-        if (changed) showDropdown = false;
+        if (changed) close({ refocus: true });
+    }
+
+    /*
+     * A menu button (WAI-ARIA APG): opening moves focus to the checked language, the arrows move
+     * through the list with wrap, Home and End reach its ends, Enter or Space chooses, Escape closes
+     * with focus back on the button, and Tab closes and moves on.
+     */
+    function items(): HTMLElement[] {
+        return menu ? [...menu.querySelectorAll<HTMLElement>('[role="menuitemradio"]')] : [];
+    }
+
+    async function open(): Promise<void> {
+        showDropdown = true;
+        await tick();
+        const list = items();
+        (list.find((item) => item.getAttribute('aria-checked') === 'true') ?? list[0])?.focus();
+    }
+
+    function close({ refocus }: { refocus: boolean }): void {
+        showDropdown = false;
+        if (refocus) trigger?.focus();
+    }
+
+    function onTriggerKeydown(event: KeyboardEvent): void {
+        if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+            event.preventDefault();
+            void open();
+        }
+    }
+
+    function onMenuKeydown(event: KeyboardEvent): void {
+        const list = items();
+        const at = list.indexOf(document.activeElement as HTMLElement);
+        const move = (index: number) => list[(index + list.length) % list.length]?.focus();
+        switch (event.key) {
+            case 'ArrowDown':
+                event.preventDefault();
+                move(at + 1);
+                break;
+            case 'ArrowUp':
+                event.preventDefault();
+                move(at - 1);
+                break;
+            case 'Home':
+                event.preventDefault();
+                move(0);
+                break;
+            case 'End':
+                event.preventDefault();
+                move(list.length - 1);
+                break;
+            case 'Escape':
+                event.preventDefault();
+                close({ refocus: true });
+                break;
+            case 'Tab':
+                // Focus moves on as Tab would take it; the menu just closes behind it.
+                close({ refocus: false });
+                break;
+        }
+        event.stopPropagation();
     }
 </script>
 
 <div class="relative">
     <button
-        onclick={() => showDropdown = !showDropdown}
+        bind:this={trigger}
+        onclick={() => (showDropdown ? close({ refocus: false }) : void open())}
+        onkeydown={onTriggerKeydown}
         class={compact
-            ? 'btn btn-ghost min-h-11 min-w-11 p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 transition-all duration-200 focus-ring'
-            : 'btn btn-ghost min-h-11 min-w-11 flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-all duration-200 focus-ring'}
+            ? 'btn btn-ghost min-h-11 min-w-11 p-2.5 rounded-xl hover:bg-surface-raised text-muted transition-all duration-200 focus-ring'
+            : 'btn btn-ghost min-h-11 min-w-11 flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-surface-raised text-muted transition-all duration-200 focus-ring'}
         aria-label={languageNames[currentLocaleValue || 'en'] || 'English'}
         title={compact ? (languageNames[currentLocaleValue || 'en'] || 'English') : undefined}
         aria-haspopup="menu"
@@ -61,12 +129,10 @@
 
     {#if showDropdown}
         <div 
-            class="absolute {compact ? 'left-0' : 'right-0'} w-48 bg-surface rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 z-60 overflow-hidden animate-in fade-in zoom-in-95 {dropUp ? 'bottom-full mb-2' : 'mt-2'}"
+            class="absolute {compact ? 'left-0' : 'right-0'} w-48 bg-surface rounded-2xl shadow-2xl border border-line z-60 overflow-hidden animate-in fade-in zoom-in-95 {dropUp ? 'bottom-full mb-2' : 'mt-2'}"
+            bind:this={menu}
             onclick={(e) => e.stopPropagation()}
-            onkeydown={(e) => {
-                if (e.key === 'Escape') showDropdown = false;
-                e.stopPropagation();
-            }}
+            onkeydown={onMenuKeydown}
             role="menu"
             tabindex="-1"
             id={menuId}
@@ -75,27 +141,36 @@
                 {#each Object.entries(languageNames) as [code, name]}
                     <button
                         onclick={() => setLanguage(code)}
-                        disabled={languageChanging}
-                        role="menuitem"
-                        class="btn min-h-11 min-w-11 w-full justify-start px-4 py-2.5 text-left text-sm font-bold rounded-xl transition-all
-                               {currentLocaleValue === code 
-                                   ? 'bg-brand-700 text-white' 
-                                   : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'}"
+                        aria-disabled={languageChanging || undefined}
+                        role="menuitemradio"
+                        aria-checked={currentLocaleValue === code}
+                        tabindex="-1"
+                        class="btn min-h-11 min-w-11 w-full justify-between px-4 py-2.5 text-left text-sm font-bold rounded-xl transition-all aria-disabled:cursor-wait aria-disabled:opacity-70
+                               {currentLocaleValue === code
+                                   ? 'bg-accent text-accent-fg'
+                                   : 'text-muted hover:bg-surface-raised'}"
                     >
-                        {name}
+                        <span>{name}</span>
+                        {#if currentLocaleValue === code}
+                            <svg class="h-4 w-4 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" data-language-check>
+                                <path d="M3.5 8.5l3 3 6-7" />
+                            </svg>
+                        {/if}
                     </button>
                 {/each}
                 {#if languageError}
-                    <p class="px-3 py-2 text-xs font-medium leading-5 text-attention-700 dark:text-attention-300" role="alert">
+                    <p class="px-3 py-2 text-xs font-medium leading-5 text-status-attention" role="alert">
                         {$_('common.language_load_error', { default: 'That language could not be loaded. Check your connection and try again.' })}
                     </p>
                 {/if}
             </div>
         </div>
         <!-- Backdrop to close dropdown -->
-        <button 
-            class="fixed inset-0 z-55 cursor-default bg-transparent w-full h-full border-none" 
-            onclick={() => showDropdown = false}
+        <!-- A pointer's way out. Keyboard users close with Escape or Tab, so it takes no tab stop. -->
+        <button
+            class="fixed inset-0 z-55 cursor-default bg-transparent w-full h-full border-none"
+            tabindex="-1"
+            onclick={() => close({ refocus: false })}
             aria-label={$_('nav.close_language_selector', { default: 'Close language selector' })}
         ></button>
     {/if}

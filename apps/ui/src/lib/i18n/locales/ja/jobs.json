@@ -62,7 +62,7 @@
   "errors_clear": "エラー履歴を消去",
   "errors_summary": "{groups} グループ • {events} イベント • {snapshots} ヘルススナップショット",
   "errors_latest_health": "最新ステータス: {status}（{at}時点）",
-  "errors_empty": "記録はありません。",
+  "errors_backend_empty": "エラー履歴を最後に消去してから、バックエンドは警告もエラーも記録していません。",
   "errors_count": "{count}回",
   "errors_first_seen": "初回検出",
   "errors_last_seen": "最終検出",

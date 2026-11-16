@@ -1,0 +1,15 @@
+{
+  "state": {
+    "loading": "読み込み中…",
+    "empty": "まだありません",
+    "failed": "読み込めませんでした",
+    "stale": "古い可能性があります",
+    "off": "オフ",
+    "not_measured": "未測定",
+    "try_again": "再試行"
+  },
+  "chart": {
+    "show_data": "データを表で表示",
+    "key": "凡例"
+  }
+}

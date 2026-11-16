@@ -97,11 +97,13 @@ describe('the kit text colours', () => {
     const MUTED_LIGHT = slate(600);
     const MUTED_DARK = slate(400);
 
-    it('names its muted text slate-600 on light and slate-400 on dark', () => {
+    it('paints its muted text with the muted token, which design-tokens.contrast.test.ts holds to 4.5:1', () => {
         for (const name of ['eyebrow', 'taxon-rank']) {
-            expect(utility(name), name).toContain('text-slate-600');
-            expect(utility(name), name).toContain('dark:text-slate-400');
+            expect(utility(name), name).toContain('text-muted');
+            expect(utility(name), name).not.toContain('dark:');
         }
+        expect(token(THEMES['classic light'], '--ink-muted')).toEqual(MUTED_LIGHT);
+        expect(token(THEMES['classic dark'], '--ink-muted')).toEqual(MUTED_DARK);
     });
 
     for (const [themeName, theme] of Object.entries(THEMES)) {
@@ -159,8 +161,10 @@ describe('the kit switch', () => {
 describe('the kit chip over a photograph', () => {
     it('is opaque enough that white text passes on a white frame', () => {
         const source = utility('photo-chip');
-        const fill = source.match(/bg-black\/(\d+)/);
-        expect(fill, 'photo-chip names a black fill').not.toBeNull();
+        const fill = source.match(/bg-media\/(\d+)/);
+        expect(fill, 'photo-chip names the media fill').not.toBeNull();
+        for (const theme of Object.values(THEMES)) expect(token(theme, '--media')).toEqual([0, 0, 0]);
+        expect(source).toContain('text-on-media');
         const onWhite = flatten([0, 0, 0], Number(fill?.[1]) / 100, [255, 255, 255]);
         expect(contrastRatio([255, 255, 255], onWhite)).toBeGreaterThanOrEqual(4.5);
         expect(source).not.toContain('backdrop-blur');

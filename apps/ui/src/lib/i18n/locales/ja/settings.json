@@ -1479,7 +1479,9 @@
     "measurement_gap": "このサンプルの使用率は取得できませんでした。下のワーカー行に読み込み済みのアクセラレーターが表示されます。この欠測だけではCPUへの切り替えは確認できません。",
     "unreadable_nvidia": "{label} はありますが、そのドライバーはコンテナから読める使用率カウンターを公開しません。",
     "unreadable_accelerator": "{label} はありますが、そのカウンターはコンテナ内からは読めません。",
-    "table_region": "プロセス別の負荷"
+    "table_region": "プロセス別の負荷",
+    "chart_title": "過去30分間の負荷",
+    "col_time": "時刻"
   },
   "text_size": {
     "label": "文字サイズ",

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import appSource from '../../App.svelte?raw';
-import pageHeaderSource from './PageHeader.svelte?raw';
+import pageHeaderSource from './AppPageHeader.svelte?raw';
+import sharedPageHeaderSource from './ui/PageHeader.svelte?raw';
 import notificationCenterSource from './NotificationCenter.svelte?raw';
 import notificationsSource from '../pages/Notifications.svelte?raw';
 import mobileTopBarSource from './MobileTopBar.svelte?raw';
@@ -55,7 +56,7 @@ describe('notification state for assistive tech', () => {
 
     it('draws the badge at AA contrast on the spacing scale', () => {
         expect(notificationCenterSource).toContain('min-w-5 h-5');
-        expect(notificationCenterSource).toContain('bg-rose-700');
+        expect(notificationCenterSource).toContain('bg-danger text-danger-fg');
         expect(notificationCenterSource).not.toContain('min-w-[18px]');
         expect(notificationCenterSource).not.toContain('bg-rose-500');
     });
@@ -141,9 +142,10 @@ describe('the About pipeline', () => {
 
 describe('the page header', () => {
     it('never squeezes the title to nothing: the actions wrap below it when they do not fit beside it', () => {
-        expect(pageHeaderSource).toContain('flex flex-wrap items-start justify-between');
-        expect(pageHeaderSource).toContain('page-title-block min-w-0 flex-1 basis-32');
-        expect(pageHeaderSource).toContain('basis-full order-last');
-        expect(pageHeaderSource).not.toContain('page-header-grid');
+        expect(pageHeaderSource).toContain('<PageHeader {title} {subtitle} actions={controls} />');
+        expect(sharedPageHeaderSource).toContain('flex flex-wrap items-start justify-between');
+        expect(sharedPageHeaderSource).toContain('page-title-block min-w-0 flex-1 basis-32');
+        expect(sharedPageHeaderSource).toContain('basis-full order-last');
+        expect(sharedPageHeaderSource).not.toContain('page-header-grid');
     });
 });

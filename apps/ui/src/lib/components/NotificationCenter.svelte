@@ -7,7 +7,7 @@
         showLabel = false,
         label = '',
         collapsed = false,
-        buttonClass = 'relative p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 transition-all duration-200 focus-ring',
+        buttonClass = 'relative p-2.5 rounded-xl hover:bg-surface-raised text-muted transition-all duration-200 focus-ring',
         current = false,
         onNavigate,
     }: {
@@ -52,7 +52,7 @@
             <span class="text-sm font-medium">{title}</span>
         {/if}
         {#if unreadCount > 0}
-            <span class="absolute right-0 top-0 min-w-5 h-5 px-1 rounded-full bg-rose-700 text-white text-3xs font-bold flex items-center justify-center shadow-sm" aria-hidden="true">
+            <span class="absolute right-0 top-0 min-w-5 h-5 px-1 rounded-full bg-danger text-danger-fg text-3xs font-bold flex items-center justify-center shadow-sm" aria-hidden="true">
                 {unreadCount > 9 ? '9+' : unreadCount}
             </span>
         {/if}

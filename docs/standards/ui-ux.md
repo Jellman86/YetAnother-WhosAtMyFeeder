@@ -65,10 +65,11 @@ these rules before.
   brand step, because teal and blue pass at different steps. A control over a photograph or on a
   ground that stays dark in the light theme (the video player) uses
   `focus-ring-on-dark`, `btn-on-dark` or `input-on-dark`.
-- **Muted text is `text-slate-600 dark:text-slate-400`.** Slate 500 passes on pure white only: on
-  a tinted row or the page ground it is 4.3 to 4.4:1. Slate 400 and lighter are for decoration
-  (a placeholder glyph, a separator dot), never for words on a light ground. Coloured small text
-  uses the 700 step on light (`text-brand-700`, `text-amber-700`, `text-red-700`).
+- **Colour comes from the semantic tokens** ([`design-tokens.md`](design-tokens.md)): `text-strong`,
+  `text-ink` and `text-muted` for words, `text-subtle` for marks only, and the status tones for
+  state. Each is proved at 4.5:1 (marks and edges 3:1) on every ground in every mode, so a screen
+  that uses them needs no `dark:` pair. Slate 500 and lighter fail as words on a tinted row or the
+  page ground; that is why `muted` is the lightest ink for words.
 - **No readable text under 12px, and the floor is not in pixels.** `text-3xs`, `text-2xs` and
   `text-xs` are `max(<step>rem, var(--text-floor))`. The floor is half the browser's
   own text size plus a third of the root: 12px at the smallest Appearance size, a little more at
@@ -226,8 +227,9 @@ the upgrade changed nothing on screen. Remove a block from it only together with
 screens that depend on it.
 
 The fixed palette is an `@theme inline` block, so those colours are written into each utility as
-literals; the theme-driven tokens (`brand`, `accent`, `success`, `attention`, `surface`, `line`)
-stay variables, because a colour theme repaints them. Unit tests are left out of the class scan.
+literals; the semantic tokens (`surface`, `strong`, `muted`, `accent`, `status-*`, …) and the scales
+they read (`brand`, `success`, `attention`) stay variables, because a mode or a colour theme
+resolves them. Unit tests are left out of the class scan.
 
 Supported browsers follow from the toolchain: Chrome and Edge 111, Firefox 128 and Safari 16.4 or
 newer ([setup guide](../setup/getting-started.md#supported-browsers)).
