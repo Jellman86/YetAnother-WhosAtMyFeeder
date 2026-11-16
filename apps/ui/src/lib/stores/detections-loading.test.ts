@@ -1,5 +1,5 @@
 import { buildReviewQueue } from '../utils/review-queue';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const fetchEvents = vi.fn();
 const fetchEventsCount = vi.fn();
@@ -162,6 +162,8 @@ describe('DetectionsStore loading', () => {
         fetchEventsCount.mockResolvedValue({ count: 0 });
         const { DetectionsStore } = await import('./detections.svelte');
         const store = new DetectionsStore();
+        // The Dashboard is open, so the list is shown and must be read again.
+        const stopFollowing = store.follow();
         const initial = store.loadInitial();
         const refresh = store.refreshPublicHistory();
         release([]);
@@ -169,13 +171,14 @@ describe('DetectionsStore loading', () => {
         expect(fetchEvents).toHaveBeenCalledTimes(2);
         expect(fetchEventsCount).toHaveBeenCalledTimes(2);
         expect(store.publicHistoryVersion).toBe(1);
+        stopFollowing();
     });
 });
 
 it('withdraws invalidated public rows when list/count refresh fails and signals consumers', async () => {
     const { DetectionsStore } = await import('./detections.svelte');
     const store = new DetectionsStore();
-    await store.follow();
+    store.follow();
     store.addDetection({ frigate_event: 'now-private', detection_time: new Date().toISOString(), camera_name: 'Owner camera' } as never);
     fetchEvents.mockRejectedValueOnce(new Error('503'));
     fetchEventsCount.mockResolvedValueOnce({ count: 1 });
@@ -236,7 +239,7 @@ it('does not release a pending guest request when a superseded owner request fin
 it('withdraws invalidated rows even if only the count request fails', async () => {
     const { DetectionsStore } = await import('./detections.svelte');
     const store = new DetectionsStore();
-    await store.follow();
+    store.follow();
     store.addDetection({ frigate_event: 'now-private', detection_time: new Date().toISOString() } as never);
     fetchEvents.mockResolvedValue([]);
     fetchEventsCount.mockRejectedValueOnce(new Error('503'));
@@ -274,9 +277,76 @@ it('reads once for the view that shows it, and again only when stale', async () 
     fetchEvents.mockClear();
     fetchEvents.mockResolvedValue([]);
     fetchEventsCount.mockResolvedValue({ count: 0 });
-    await store.follow();
-    await store.follow();
+    const release = store.follow();
+    await vi.waitFor(() => expect(store.historyStatus).toBe('ready'));
+    store.follow()();
+    await Promise.resolve();
     expect(fetchEvents).toHaveBeenCalledTimes(1);
+    release();
+});
+
+/** History read by a view that has since closed, and now older than its 30 s freshness. */
+async function staleHistoryNobodyShows() {
+    const { DetectionsStore } = await import('./detections.svelte');
+    const store = new DetectionsStore();
+    fetchEvents.mockResolvedValue([]);
+    fetchEventsCount.mockResolvedValue({ count: 0 });
+    vi.useFakeTimers();
+    const release = store.follow();
+    await vi.waitFor(() => expect(store.historyStatus).toBe('ready'));
+    release();
+    vi.advanceTimersByTime(31_000);
+    fetchEvents.mockClear();
+    return store;
+}
+
+describe('recent history is read only while a view shows it', () => {
+    afterEach(() => vi.useRealTimers());
+
+    it('the refresh sweep reads nothing once the Dashboard has closed', async () => {
+        const store = await staleHistoryNobodyShows();
+        await store.refreshIfStale();
+        expect(fetchEvents).not.toHaveBeenCalled();
+    });
+
+    it("a visitor's history change reads nothing once the Dashboard has closed", async () => {
+        const store = await staleHistoryNobodyShows();
+        await store.refreshPublicHistory();
+        expect(fetchEvents).not.toHaveBeenCalled();
+        expect(store.detections).toEqual([]);
+    });
+
+    it('opening the Dashboard again reads the history again', async () => {
+        const store = await staleHistoryNobodyShows();
+        await store.refreshPublicHistory();
+        const release = store.follow();
+        await vi.waitFor(() => expect(fetchEvents).toHaveBeenCalledTimes(1));
+        release();
+    });
+
+    it('a live announcement still reads the list with no view open', async () => {
+        const store = await staleHistoryNobodyShows();
+        await store.refreshPublicHistory({ includeList: true });
+        expect(fetchEvents).toHaveBeenCalledTimes(1);
+    });
+
+    it('counts each view: the sweep keeps reading while any one is still open', async () => {
+        const { DetectionsStore } = await import('./detections.svelte');
+        const store = new DetectionsStore();
+        fetchEvents.mockResolvedValue([]);
+        fetchEventsCount.mockResolvedValue({ count: 0 });
+        vi.useFakeTimers();
+        const first = store.follow();
+        const second = store.follow();
+        await vi.waitFor(() => expect(store.historyStatus).toBe('ready'));
+        first();
+        first();
+        vi.advanceTimersByTime(31_000);
+        fetchEvents.mockClear();
+        await store.refreshIfStale();
+        expect(fetchEvents).toHaveBeenCalledTimes(1);
+        second();
+    });
 });
 
 it('does not replay an owner summary read before a bird edit, and coalesces the follow-up load', async () => {

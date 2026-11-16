@@ -1,4 +1,4 @@
-import { API_BASE, apiFetch, handleResponse } from './core';
+import { API_BASE, apiFetch, apiFetchJson, handleResponse, type Guarded } from './core';
 import type { components, paths } from './generated/openapi';
 import type { LeaderboardSpan } from './leaderboard';
 
@@ -90,9 +90,9 @@ export async function fetchEventAudioContext(
     return { detections, suppressed_by_mapping: suppressedByMapping };
 }
 
-export async function fetchAudioSources(limit: number = 20): Promise<AudioSourceOption[]> {
-    const response = await apiFetch(`${API_BASE}/audio/sources?limit=${limit}`);
-    return handleResponse<AudioSourceOption[]>(response);
+/** Timed out after 15 s, body included; `signal` cancels it when the tab that asked closes. */
+export function fetchAudioSources(limit: number = 20, signal?: AbortSignal): Guarded<AudioSourceOption[]> {
+    return apiFetchJson<AudioSourceOption[]>(`${API_BASE}/audio/sources?limit=${limit}`, { timeoutMs: 15_000, signal });
 }
 
 export async function setAudioHidden(id: number, hidden: boolean): Promise<paths['/api/audio/history/{detection_id}']['patch']['response']> {

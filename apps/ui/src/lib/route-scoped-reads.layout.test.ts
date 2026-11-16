@@ -14,7 +14,8 @@ function body(source: string, signature: string): string {
 describe('each read belongs to the route and task that shows it', () => {
     it('reads recent history on the Dashboard, not at startup on every route', () => {
         expect(appSource).not.toContain('detectionsStore.loadInitial();');
-        expect(dashboardSource).toContain('void detectionsStore.follow();');
+        expect(dashboardSource).toContain('const stopFollowingHistory = detectionsStore.follow();');
+        expect(dashboardSource).toContain('stopFollowingHistory();');
         expect(healthSource).not.toContain('detectionsStore');
     });
 

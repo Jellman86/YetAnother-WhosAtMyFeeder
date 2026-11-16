@@ -1256,15 +1256,18 @@
     };
     const readingsTaken = new Set<TabReading>();
 
-    async function takeReading(reading: TabReading): Promise<void> {
+    /** The open tab's helper reads; aborted when the tab or the page closes. */
+    let tabReadings: AbortController | null = null;
+
+    async function takeReading(reading: TabReading, signal?: AbortSignal): Promise<void> {
         switch (reading) {
             case 'cameras': return loadCameras();
             case 'classifier': await loadClassifierStatus(); return;
             case 'storage': return loadMaintenanceStats();
             case 'cache': return loadCacheStats();
             case 'version': return loadVersion();
-            case 'recordingClips': return loadRecordingClipCapability();
-            case 'audioSources': return loadBirdnetSources();
+            case 'recordingClips': return loadRecordingClipCapability(signal);
+            case 'audioSources': return loadBirdnetSources(signal);
             case 'backfill': return loadBackfillStatus();
         }
     }
@@ -1273,8 +1276,18 @@
     function rereadTab(tab: SettingsTab): Promise<void>[] {
         return (READINGS_BY_TAB[tab] ?? []).map((reading) => {
             readingsTaken.add(reading);
-            return takeReading(reading);
+            return takeReading(reading, tabReadings?.signal);
         });
+    }
+
+    // What a save can change: the Frigate address behind the cameras and their recording support,
+    // and the BirdNET-Go connection behind its sources. Taken again for the open tab at once, and
+    // for any other tab when it opens.
+    const SAVE_DEPENDENT_READINGS: readonly TabReading[] = ['cameras', 'recordingClips', 'audioSources'];
+
+    function rereadAfterSave(): void {
+        for (const reading of SAVE_DEPENDENT_READINGS) readingsTaken.delete(reading);
+        if (tabReadings) readForTab(activeTab, tabReadings.signal);
     }
 
     // A backfill started here or elsewhere is followed while it runs, on whichever tab is open,
@@ -1292,24 +1305,35 @@
         });
     });
 
-    function readForTab(tab: SettingsTab): void {
+    function readForTab(tab: SettingsTab, signal: AbortSignal): void {
         for (const reading of READINGS_BY_TAB[tab] ?? []) {
             if (readingsTaken.has(reading)) continue;
             readingsTaken.add(reading);
-            void takeReading(reading);
+            // A reading cancelled by leaving was not taken: the tab reads it again when it reopens.
+            void takeReading(reading, signal).finally(() => {
+                if (signal.aborted) readingsTaken.delete(reading);
+            });
         }
     }
 
     $effect(() => {
         const tab = activeTab;
         if (!authStore.showSettings) return;
-        untrack(() => readForTab(tab));
+        const controller = new AbortController();
+        tabReadings = controller;
+        untrack(() => readForTab(tab, controller.signal));
+        return () => {
+            controller.abort();
+            if (tabReadings === controller) tabReadings = null;
+        };
     });
 
     $effect(() => {
         if (isDirty) return;
         return pageRefreshAction.register(async () => {
-            await Promise.all([loadSettings(), loadClassifierStatus(), ...rereadTab(activeTab)]);
+            // A tab that shows the classifier reads it with its own readings; it is read once either way.
+            const tabReadsClassifier = (READINGS_BY_TAB[activeTab] ?? []).includes('classifier');
+            await Promise.all([loadSettings(), ...(tabReadsClassifier ? [] : [loadClassifierStatus()]), ...rereadTab(activeTab)]);
         });
     });
 
@@ -2044,6 +2068,7 @@
             const result = await importConfigBackup(payload);
             await settingsStore.load();
             await loadSettings(true);
+            rereadAfterSave();
             notify('success', $_('settings.data.config_backup_imported', {
                     values: { count: result.changed_fields.length },
                     default: 'Configuration backup imported ({count, plural, one {# section changed} other {# sections changed}}). Run a backfill when you are ready.'
@@ -2290,12 +2315,14 @@
     }
 
     /** BirdNET-Go sources heard recently, offered on Integrations when mapping a camera's audio. */
-    async function loadBirdnetSources(): Promise<void> {
+    async function loadBirdnetSources(signal?: AbortSignal): Promise<void> {
         loadingBirdnetSources = true;
         birdnetSourcesError = null;
         try {
-            birdnetSourceOptions = await fetchAudioSources(20);
+            birdnetSourceOptions = await fetchAudioSources(20, signal);
         } catch (e) {
+            // Cancelled because the tab closed: nothing failed, and nothing is shown.
+            if (signal?.aborted) return;
             birdnetSourceOptions = [];
             birdnetSourcesError = e instanceof Error ? e.message : 'Failed to load BirdNET sources';
             console.error('Failed to load BirdNET source helper data', e);
@@ -2304,11 +2331,12 @@
         }
     }
 
-    async function loadRecordingClipCapability() {
+    async function loadRecordingClipCapability(signal?: AbortSignal): Promise<void> {
         recordingClipCapabilityLoading = true;
         try {
-            recordingClipCapability = await fetchRecordingClipCapability();
+            recordingClipCapability = await fetchRecordingClipCapability(signal);
         } catch (e) {
+            if (signal?.aborted) return;
             console.error('Failed to load recording clip capability', e);
             recordingClipCapability = null;
         } finally {
@@ -2924,6 +2952,7 @@
             await authStore.loadStatus();
             // Sync local state to handle server-side normalization (e.g. stripped slashes)
             await loadSettings(true);
+            rereadAfterSave();
             notify('success', $_('notifications.settings_saved'));
             // A saved provider or worker change re-plans the runtime.
             await Promise.all([loadMaintenanceStats(), loadCacheStats(), loadClassifierStatus()]);

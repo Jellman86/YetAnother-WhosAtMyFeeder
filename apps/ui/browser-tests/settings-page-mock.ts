@@ -17,6 +17,8 @@ export interface SettingsHarnessOptions {
     respond?: (path: string, method: string) => { status?: number; json: unknown } | undefined;
     /** Answers a settings write instead of accepting it, e.g. to refuse it; undefined accepts it. */
     refuseWrite?: (payload: FixtureSettings) => { status: number; json: unknown } | undefined;
+    /** The tab to open on, as its route; Connection when omitted. */
+    route?: string;
 }
 
 export async function openSettings(page: Page, saved: FixtureSettings = {}, options: SettingsHarnessOptions = {}): Promise<SettingsHarness> {
@@ -50,9 +52,10 @@ export async function openSettings(page: Page, saved: FixtureSettings = {}, opti
         if (path.endsWith('/backfill/status')) return route.fulfill({ json: null });
         return route.fulfill({ json: {} });
     });
-    await page.goto('/browser-tests/settings-backfill.html');
+    await page.goto(`/browser-tests/settings-backfill.html${options.route ? `?route=${encodeURIComponent(options.route)}` : ''}`);
     // The first open compiles the page and its tab on the dev server, which is slow under load.
-    await expect(page.locator('#mqtt-server')).toHaveValue('mqtt', { timeout: 15_000 });
+    if (options.route) await expect(page.locator('[data-settings-navigation]')).toBeVisible({ timeout: 15_000 });
+    else await expect(page.locator('#mqtt-server')).toHaveValue('mqtt', { timeout: 15_000 });
     return {
         writes,
         moduleRequests: fileName => requestedPaths.filter(path => path.endsWith(`/${fileName}`)).length

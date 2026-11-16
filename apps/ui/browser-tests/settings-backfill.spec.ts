@@ -1,4 +1,33 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
+
+// Settings reads the repair jobs' status on the Data tab, which shows them, and follows a job the
+// pushed status says is running on whichever tab is open, so its end is announced wherever you are.
+
+/** A status push saying this backfill is running, as the live stream delivers it in the app. */
+async function pushRunningBackfill(page: Page, kind: 'detections' | 'weather'): Promise<void> {
+    await page.evaluate((jobKind) => {
+        const store = (window as unknown as { __systemStatus: { ingest(snapshot: unknown): void; snapshot: { revision: number } | null } }).__systemStatus;
+        const now = new Date().toISOString();
+        store.ingest({
+            revision: (store.snapshot?.revision ?? 0) + 1,
+            generated_at: now,
+            startup_instance_id: 'fixture',
+            version: 'fixture',
+            overall: { state: 'ok', cause: 'ok', subsystem: null },
+            subsystems: [],
+            jobs_summary: { running: 1, queued: 0, progress: null },
+            jobs: { captured_at: now, items: [{ id: 'current-job', kind: jobKind, title: 'Backfill', status: 'running', current: 2, total: 10, updated_at: now }], lanes: [] },
+            analysis: { pending: 0, active: 0, circuit_open: false },
+            model: { state: 'ok', cause: 'ready', revision: 'fixture' },
+            connections: null,
+            cameras: null,
+            telemetry: null,
+            diagnostics_revision: 0,
+            incident_revision: 'fixture',
+            health_revision: 'fixture'
+        });
+    }, kind === 'detections' ? 'backfill' : 'weather_backfill');
+}
 
 for (const terminal of ['completed', 'failed'] as const) {
     test(`opening Settings does not announce historical ${terminal} backfills`, async ({ page }) => {
@@ -23,7 +52,7 @@ for (const terminal of ['completed', 'failed'] as const) {
             if (url.pathname.endsWith('/frigate/config')) return route.fulfill({ json: { cameras: {} } });
             return route.fulfill({ json: {} });
         });
-        await page.goto('/browser-tests/settings-backfill.html');
+        await page.goto('/browser-tests/settings-backfill.html?route=/settings/data');
         await expect.poll(() => reads).toBe(2);
         await expect(page.getByRole('button', { name: 'Setup wizard', exact: true })).toBeVisible();
         await expect(page.locator('[data-toast-container]')).toHaveText('', { timeout: 1000 });
@@ -47,6 +76,7 @@ for (const kind of ['detections', 'weather'] as const) {
             page.on('pageerror', error => errors.push(error.message));
             let finished = false;
             let terminalReads = 0;
+            let runningReads = 0;
             await page.route('https://fonts.googleapis.com/**', route => route.fulfill({ body: '' }));
             await page.route('https://fonts.gstatic.com/**', route => route.abort());
             await page.route(url => url.pathname.startsWith('/api/'), route => {
@@ -54,6 +84,7 @@ for (const kind of ['detections', 'weather'] as const) {
                 if (url.pathname.endsWith('/backfill/status')) {
                     if (url.searchParams.get('kind') !== kind) return route.fulfill({ json: null });
                     if (finished) terminalReads++;
+                    else runningReads++;
                     return route.fulfill({ json: {
                         id: 'current-job', status: finished ? terminal : 'running',
                         processed: finished ? 10 : 2, total: 10, new_detections: 10,
@@ -69,6 +100,9 @@ for (const kind of ['detections', 'weather'] as const) {
             });
             await page.goto('/browser-tests/settings-backfill.html');
             await expect(page.getByRole('button', { name: 'Setup wizard', exact: true })).toBeVisible();
+            await pushRunningBackfill(page, kind);
+            // The job is seen running before it finishes, so its end is a new transition.
+            await expect.poll(() => runningReads).toBeGreaterThan(0);
             await expect(page.locator('[data-toast-container]')).toHaveText('');
             finished = true;
             await expect.poll(() => terminalReads).toBe(1);

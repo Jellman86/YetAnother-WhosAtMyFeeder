@@ -196,7 +196,7 @@ export async function fetchFrigateConfig(signal?: AbortSignal): Promise<unknown>
     return handleResponse<unknown>(response);
 }
 
-export async function fetchRecordingClipCapability(): Promise<RecordingClipCapability> {
-    const response = await apiFetch(`${API_BASE}/frigate/recording-clip-capability`);
-    return handleResponse<RecordingClipCapability>(response);
+/** Asks Frigate, so timed out after 15 s, body included; `signal` cancels it when the tab that asked closes. */
+export function fetchRecordingClipCapability(signal?: AbortSignal): Guarded<RecordingClipCapability> {
+    return apiFetchJson<RecordingClipCapability>(`${API_BASE}/frigate/recording-clip-capability`, { timeoutMs: 15_000, signal });
 }

@@ -129,22 +129,30 @@ export class DetectionsStore {
         this.markMutated();
     }
 
+    /** How many open views show the recent history; it is read only while there is one. */
+    private consumers = 0;
+
     /**
-     * Read the recent history for a view that shows it: the first time in this access, then only
-     * when it has gone stale. Pages that do not show it never call this, so a cold visit to About
-     * or a Settings tab asks nothing about recent detections.
+     * A view that shows the recent history opened: it is read the first time in this access, then
+     * only when stale, while at least one such view is open. Returns the call that closes the view.
+     * Pages that do not show it never call this, so a cold visit to About or a Settings tab, or a
+     * route visited after the Dashboard, asks nothing about recent detections.
      */
-    async follow(): Promise<void> {
-        if (this.historyStatus === 'pending') {
-            await this.loadInitial();
-            return;
-        }
-        await this.refreshIfStale();
+    follow(): () => void {
+        this.consumers += 1;
+        if (this.historyStatus === 'pending') void this.loadInitial();
+        else void this.refreshIfStale();
+        let open = true;
+        return () => {
+            if (!open) return;
+            open = false;
+            this.consumers -= 1;
+        };
     }
 
     async refreshIfStale(): Promise<void> {
         // The first read of an access is the app's to start; a refresh sweep must not race it.
-        if (this.isLoading || this.historyStatus === 'pending' || !this.staleTracker.isStale()) return;
+        if (this.consumers === 0 || this.isLoading || this.historyStatus === 'pending' || !this.staleTracker.isStale()) return;
         await this.loadInitial();
     }
 
@@ -176,10 +184,14 @@ export class DetectionsStore {
      */
     async refreshPublicHistory({ includeList = false }: { includeList?: boolean } = {}): Promise<void> {
         const generation = this.accessGeneration;
-        if (this.historyStatus === 'pending' && !this.isLoading && !includeList) {
-            // No view has read the list. Anything held is withdrawn rather than kept past a
-            // visibility change; open guest modals and the Explorer revalidate from the version.
+        if (this.consumers === 0 && !includeList) {
+            // No open view shows the list. Anything held is withdrawn rather than kept past a
+            // visibility change, including what a read already under way brings, and the next
+            // view to open reads it afresh; open guest modals and the Explorer revalidate from the version.
+            if (this.loadPromise) await this.loadPromise;
+            if (generation !== this.accessGeneration) return;
             this.clearHistory();
+            this.historyStatus = 'pending';
             this.publicHistoryVersion += 1;
             return;
         }
