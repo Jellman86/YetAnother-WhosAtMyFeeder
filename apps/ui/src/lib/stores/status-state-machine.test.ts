@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { fetchSystemStatus } from '../api/status';
 import type { SystemStatus } from '../api/status';
 import { READ_RETRY_MS, createRetryingReader } from '../app/retrying-reader';
 import type { PollDocument } from '../app/visible-poll';
@@ -35,13 +36,24 @@ function snapshot(revision: number): SystemStatus {
     };
 }
 
-interface Pending { settle: (ok: boolean) => void; old: boolean }
+/** A read the test can answer; `settle` says whether a body was actually delivered. */
+interface Pending { settle: (ok: boolean) => boolean; old: boolean }
 
-afterEach(() => vi.useRealTimers());
+// A fixed starting instant, so every run of a seed sees the same timestamps.
+const START = new Date('2026-11-16T12:00:00Z');
+
+beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(START);
+});
+
+afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+});
 
 describe('the status store, under random sequences', () => {
     it('is stale exactly when no snapshot was accepted for the threshold, reads one at a time, and is still after clear', async () => {
-        vi.useFakeTimers();
         for (let seed = 1; seed <= 60; seed += 1) {
             const random = rng(seed);
             let revision = 0;
@@ -49,23 +61,46 @@ describe('the status store, under random sequences', () => {
             let pending: Pending | null = null;
             // Recorded, not thrown: the store catches whatever its read throws.
             const violations: string[] = [];
-            const fetch = vi.fn((signal: AbortSignal) => {
+            // The network as fetch behaves: headers at once, then a body that stays open until the test
+            // settles it, and that errors only when the request itself is aborted. Reads go through the
+            // real API client, so a cancel or timeout that stops short of the body shows up here.
+            const network = vi.fn((_url: RequestInfo | URL, init?: RequestInit) => {
+                const signal = init?.signal ?? new AbortController().signal;
                 inFlight += 1;
                 if (inFlight > 1) violations.push(`seed ${seed}: two reads in flight`);
-                return new Promise<SystemStatus>((resolve, reject) => {
-                    let settled = false;
-                    const settle = (ok: boolean): void => {
-                        if (settled) return;
-                        settled = true;
-                        inFlight -= 1;
-                        if (ok) resolve(snapshot(++revision));
-                        else reject(new Error('HTTP 502'));
-                    };
-                    // An aborted read ends there, as a real request does.
-                    signal.addEventListener('abort', () => settle(false));
-                    pending = { old: false, settle };
+                let finished = false;
+                const finish = (): void => {
+                    if (finished) return;
+                    finished = true;
+                    inFlight -= 1;
+                };
+                const body = new ReadableStream<Uint8Array>({
+                    start(controller) {
+                        signal.addEventListener('abort', () => {
+                            finish();
+                            controller.error(new DOMException('The operation was aborted.', 'AbortError'));
+                        });
+                        pending = {
+                            old: false,
+                            settle: (ok) => {
+                                // A read already timed out or cancelled has nothing left to deliver.
+                                if (finished) return false;
+                                finish();
+                                if (ok) {
+                                    controller.enqueue(new TextEncoder().encode(JSON.stringify(snapshot(++revision))));
+                                    controller.close();
+                                } else {
+                                    controller.error(new TypeError('network error'));
+                                }
+                                return ok;
+                            }
+                        };
+                    }
                 });
+                return Promise.resolve(new Response(body, { status: 200, headers: { 'Content-Type': 'application/json' } }));
             });
+            vi.stubGlobal('fetch', network);
+            const fetch = (signal: AbortSignal) => fetchSystemStatus(signal);
             const store = new SystemStatusStore({ fetch, tab: visibleTab });
             let freshSince = Date.now();
             store.start();
@@ -81,10 +116,10 @@ describe('the status store, under random sequences', () => {
                 } else if (action === 3 && current) {
                     pending = null;
                     const before = store.snapshot;
-                    current.settle(true);
+                    const delivered = current.settle(true);
                     await vi.advanceTimersByTimeAsync(0);
                     if (current.old) expect(store.snapshot, `seed ${seed}: a read from before clear changes nothing`).toBe(before);
-                    else freshSince = Date.now();
+                    else if (delivered) freshSince = Date.now();
                 } else if (action === 4 && current) {
                     pending = null;
                     current.settle(false);
@@ -104,9 +139,9 @@ describe('the status store, under random sequences', () => {
                     if (pending && Date.now() - before > 0 && random() < 0.3) {
                         const answered = pending as Pending;
                         pending = null;
-                        answered.settle(true);
+                        const delivered = answered.settle(true);
                         await vi.advanceTimersByTimeAsync(0);
-                        if (!answered.old) freshSince = Date.now();
+                        if (!answered.old && delivered) freshSince = Date.now();
                     }
                 }
                 expect(store.stale, `seed ${seed} step ${step}`).toBe(Date.now() - freshSince >= STATUS_STALE_AFTER_MS);
@@ -122,7 +157,6 @@ describe('the status store, under random sequences', () => {
     });
 
     it('goes stale on reconnects that never bring a snapshot, and reads again', async () => {
-        vi.useFakeTimers();
         const fetch = vi.fn(async () => { throw new Error('HTTP 502'); });
         const store = new SystemStatusStore({ fetch, tab: visibleTab });
         store.start();
@@ -140,7 +174,6 @@ describe('the status store, under random sequences', () => {
 
 describe('the retrying reader, under random sequences', () => {
     it('reads one at a time, never sooner than the backoff after a failure, and nothing from before a cancel', async () => {
-        vi.useFakeTimers();
         for (let seed = 1; seed <= 60; seed += 1) {
             const random = rng(seed * 7919);
             let inFlight = 0;
@@ -173,6 +206,7 @@ describe('the retrying reader, under random sequences', () => {
                                 }
                             }
                             resolve(ok);
+                            return ok;
                         }
                     };
                 });

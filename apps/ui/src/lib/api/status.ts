@@ -1,4 +1,4 @@
-import { API_BASE, apiFetch, handleResponse } from './core';
+import { API_BASE, apiFetchJson } from './core';
 import type { components, paths } from './generated/openapi';
 
 /** The one status reading every owner screen shows; the live stream pushes it as a `status` event. */
@@ -7,9 +7,9 @@ export type SubsystemVerdict = components['schemas']['SubsystemVerdict'];
 export type SubsystemKey = SubsystemVerdict['key'];
 export type StatusTelemetry = components['schemas']['TelemetrySummary'];
 
-export async function fetchSystemStatus(signal?: AbortSignal): Promise<SystemStatus> {
-    const response = await apiFetch(`${API_BASE}/status`, { cache: 'no-store', timeoutMs: 10_000, signal });
-    return handleResponse<SystemStatus>(response);
+/** The timeout and a cancel cover the whole read, body included: a stalled body never holds a read open. */
+export function fetchSystemStatus(signal?: AbortSignal): Promise<SystemStatus> {
+    return apiFetchJson<SystemStatus>(`${API_BASE}/status`, { cache: 'no-store', timeoutMs: 10_000, signal });
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

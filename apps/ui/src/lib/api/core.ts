@@ -125,7 +125,12 @@ export interface ApiFetchOptions extends RequestInit {
     timeoutMs?: number;
 }
 
-export async function apiFetch(url: string, options: ApiFetchOptions = {}): Promise<Response> {
+/**
+ * One request with the caller's abort and the timeout attached, held until `read` has finished
+ * with the response. Releasing at the headers, as `apiFetch` does, leaves a body that stalls
+ * afterwards with no timeout and nothing to cancel it.
+ */
+async function guardedRequest<T>(url: string, options: ApiFetchOptions, read: (response: Response) => Promise<T>): Promise<T> {
     const { timeoutMs, signal: callerSignal, ...requestOptions } = options;
     const controller = typeof timeoutMs === 'number' || callerSignal ? new AbortController() : null;
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -141,23 +146,37 @@ export async function apiFetch(url: string, options: ApiFetchOptions = {}): Prom
         }, timeoutMs);
     }
 
-    let response: Response;
     try {
-        response = await fetch(normalizeBackendPath(url), {
+        const response = await fetch(normalizeBackendPath(url), {
             ...requestOptions,
             headers: getHeaders(options.headers),
             signal: controller?.signal ?? callerSignal
         });
+        if (response.status === 401 && authErrorCallback) {
+            authErrorCallback();
+        }
+        return await read(response);
     } finally {
         if (timeoutId) clearTimeout(timeoutId);
         callerSignal?.removeEventListener('abort', abortFromCaller);
     }
+}
 
-    if (response.status === 401 && authErrorCallback) {
-        authErrorCallback();
-    }
+/**
+ * The response once its headers arrive. The timeout and the caller's abort cover the request up
+ * to the headers only, so a caller that streams a long body (a download, a clip) is never cut off
+ * by it; a caller that wants the whole body covered uses `apiFetchJson`.
+ */
+export function apiFetch(url: string, options: ApiFetchOptions = {}): Promise<Response> {
+    return guardedRequest(url, options, async (response) => response);
+}
 
-    return response;
+/**
+ * The parsed JSON body, with the timeout and the caller's abort covering the request until the
+ * body has been read: a response that stalls after its headers is still timed out or cancelled.
+ */
+export function apiFetchJson<T>(url: string, options: ApiFetchOptions = {}): Promise<T> {
+    return guardedRequest(url, options, (response) => handleResponse<T>(response));
 }
 
 const abortControllers = new Map<string, AbortController>();
