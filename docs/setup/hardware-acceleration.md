@@ -339,8 +339,10 @@ in whole frames, so the check skips model crops, Frigate-hint crops, retained HQ
 snapshots and thumbnails, and any image whose short side is under 480 px or that does
 not fully decode. Saved full frames (including final-frame captures) come first, across
 every visit, starting with frames where a bird was cropped; an event snapshot is used
-only when its sidecar records an uncropped source and the hash of the exact image it
-describes, because HQ processing can replace it with the bird crop. Snapshots saved
+only when its sidecar records a confirmed uncropped source and the hash of the exact
+image it describes, because HQ processing can replace it with the bird crop. Snapshots
+the media proxy saved from a live event (recorded as unverified) can be crops, so they
+never count. Snapshots saved
 before this release recorded no hash, so only their saved full frames are used. It takes one frame per visit before a second (never more than
 two), newest visits first. It reads only regular files, never symlinks or FIFOs, and at
 most 256 KB to find an image's size. With fewer than three full frames it waits as

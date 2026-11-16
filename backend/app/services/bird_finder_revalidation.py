@@ -108,6 +108,22 @@ MAX_METADATA_BYTES = 64 * 1024
 PHOTO_SELECTION_POLICY = 2
 
 _FULL_FRAME_WITH_BIRD, _FULL_FRAME, _EVENT_SNAPSHOT = 0, 1, 2
+# Event-snapshot sources that are confirmed whole camera frames. Stricter than
+# classification's uncropped set on purpose: the proxy caches Frigate's crop=1
+# answer as "frigate_snapshot_unverified", which is a bird crop on a live event,
+# and a thumbnail is uncropped but downscaled. A new source stays out until it
+# is added here.
+FINDER_FRAME_SOURCES = frozenset(
+    {
+        "frigate_snapshot",
+        "frigate_snapshot_uncropped",
+        "frigate_recording_frame",
+        "frigate_recording_snapshot",
+        "high_quality_snapshot",
+        "video_evidence_full_frame",
+        "hq_candidate_full_frame",
+    }
+)
 
 
 def _read_regular_file(path: str, limit: int) -> bytes | None:
@@ -154,8 +170,6 @@ def _uncropped_event_snapshot_identity(path: str) -> str | None:
 
     Older sidecars recorded no identity, so they cannot vouch for any image.
     """
-    from app.services.classification_input_provenance import snapshot_source_is_uncropped_frame
-
     raw = _read_regular_file(f"{path}.meta.json", MAX_METADATA_BYTES)
     if raw is None or len(raw) >= MAX_METADATA_BYTES:
         return None
@@ -163,7 +177,7 @@ def _uncropped_event_snapshot_identity(path: str) -> str | None:
         metadata = json.loads(raw)
     except ValueError:
         return None
-    if not isinstance(metadata, dict) or not snapshot_source_is_uncropped_frame(metadata.get("source")):
+    if not isinstance(metadata, dict) or metadata.get("source") not in FINDER_FRAME_SOURCES:
         return None
     identity = metadata.get("image_sha256")
     return identity if isinstance(identity, str) and len(identity) == 64 else None

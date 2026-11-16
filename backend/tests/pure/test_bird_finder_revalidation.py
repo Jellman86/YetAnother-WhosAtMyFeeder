@@ -1069,3 +1069,12 @@ async def test_an_unfinished_owner_check_delays_the_automatic_one_by_the_first_b
     now[0] += timedelta(hours=1)
     await runner.run()
     environment.assert_awaited_once()
+
+
+def test_the_finder_trusts_only_confirmed_uncropped_sources():
+    from app.services import classification_input_provenance as provenance
+
+    assert "frigate_snapshot_unverified" not in recovery.FINDER_FRAME_SOURCES
+    assert "frigate_thumbnail" not in recovery.FINDER_FRAME_SOURCES
+    # Never wider than what classification already calls an uncropped frame.
+    assert recovery.FINDER_FRAME_SOURCES <= provenance._FULL_FRAME_SNAPSHOT_SOURCES
