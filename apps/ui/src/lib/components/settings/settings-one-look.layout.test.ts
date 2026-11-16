@@ -3,6 +3,7 @@ import tabsSource from './SettingsTabs.svelte?raw';
 import pageSource from './_primitives/SettingsPage.svelte?raw';
 import advancedSource from './_primitives/AdvancedSection.svelte?raw';
 import segmentedSource from './_primitives/SettingsSegmented.svelte?raw';
+import sharedSegmentedSource from '../ui/Segmented.svelte?raw';
 import cardSource from './_primitives/SettingsCard.svelte?raw';
 import gardenSource from './GardenBetaSettings.svelte?raw';
 import integrationSource from './IntegrationSettings.svelte?raw';
@@ -33,11 +34,15 @@ describe('Settings has one look across tabs', () => {
     });
 
     it('draws every chosen option with the kit\'s one selected style', () => {
-        // A neutral track with the chosen segment raised; no solid fill and no tick.
-        expect(segmentedSource).toContain('rounded-xl bg-slate-100 p-1 dark:bg-slate-800');
-        expect(segmentedSource).toContain('bg-surface font-semibold text-slate-900 shadow-sm');
-        expect(segmentedSource).not.toContain('bg-brand-700');
-        expect(segmentedSource).not.toContain('m5 12 4 4 10-10');
+        // The shared choose-one track (ui/Segmented): a neutral track, the chosen segment raised, set
+        // semibold and checked, so it never reads by tint alone; no solid brand fill.
+        expect(segmentedSource).toContain('<Segmented');
+        expect(sharedSegmentedSource).toContain('rounded-xl bg-surface-raised p-1');
+        expect(sharedSegmentedSource).toContain('bg-surface font-semibold text-strong');
+        expect(sharedSegmentedSource).toContain('data-segment-check');
+        expect(sharedSegmentedSource).toContain('aria-pressed={chosen}');
+        expect(segmentedSource + sharedSegmentedSource).not.toContain('bg-brand-700');
+        expect(sharedSegmentedSource).not.toContain('bg-accent ');
         // Four or more choices, or choices that need a sentence, are a select or a radio list.
         expect(segmentedSource).toContain("options.length >= 4 ? 'select' : 'track'");
         for (const [file, source] of Object.entries(tabSources)) {

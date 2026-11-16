@@ -33,9 +33,10 @@
         variant?: 'inline' | 'block';
         compact?: boolean;
         class?: string;
+        [data: `data-${string}`]: string | boolean | undefined;
     };
 
-    let { state, cause, title, action, children, variant, compact = false, class: className = '' }: Props = $props();
+    let { state, cause, title, action, children, variant, compact = false, class: className = '', ...data }: Props = $props();
 
     const insideCard = isInsideCard();
     const inline = $derived((variant ?? (insideCard ? 'inline' : 'block')) === 'inline');
@@ -65,6 +66,7 @@
     aria-busy={state === 'loading' || undefined}
     data-read-state={state}
     data-read-state-variant={inline ? 'inline' : 'block'}
+    {...data}
 >
     {#if !showIcon}
         <!-- No mark: the sentence says it. -->
@@ -92,7 +94,7 @@
             <div class="mt-2">{@render children()}</div>
         {/if}
         {#if action}
-            <button type="button" class="btn btn-secondary mt-3" onclick={action.onclick} disabled={action.busy} aria-busy={action.busy || undefined}>
+            <button type="button" class="btn btn-secondary {inline ? 'mt-2' : 'mt-3'} text-xs" onclick={action.onclick} disabled={action.busy} aria-busy={action.busy || undefined}>
                 {action.label}
             </button>
         {/if}

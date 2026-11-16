@@ -68,18 +68,18 @@
     }
 </script>
 
+<!-- A panel like the rest of the desk. Amber is kept for what waits on the owner (the flag, the
+     count and each reason), not spread over the whole card. -->
 <section
-    class="rounded-2xl border p-5 {call.total > 0
-        ? 'border-attention-300 bg-attention-50/70 dark:border-attention-800/70 dark:bg-attention-950/25'
-        : 'border-line-soft bg-surface'}"
+    class="rounded-2xl border border-line-soft bg-surface p-5"
     data-dashboard-review-queue
     aria-labelledby="review-queue-title"
 >
     <header class="flex items-center gap-2">
         <svg
             class="h-4 w-4 {call.total > 0
-                ? 'text-attention-700 dark:text-attention-300'
-                : 'text-slate-600 dark:text-slate-400'}"
+                ? 'text-status-attention'
+                : 'text-muted'}"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -88,12 +88,12 @@
         >
             <path stroke-linecap="round" stroke-linejoin="round" d="M5 21V4h9l-1 3h6l-2 4 2 4h-9l-1-3H5" />
         </svg>
-        <h2 id="review-queue-title" class="font-display text-xl font-bold text-slate-950 dark:text-white">
+        <h2 id="review-queue-title" class="font-display text-xl font-bold text-strong">
             {$_('dashboard.review_queue.title', { default: 'Needs your call' })}
         </h2>
         {#if call.total > 0}
             <span
-                class="ml-auto rounded-full bg-attention-500 px-2 py-0.5 text-xs font-bold text-attention-950"
+                class="ml-auto rounded-full border border-status-attention-line bg-status-attention-soft px-2 py-0.5 text-xs font-bold tabular-nums text-status-attention"
                 data-review-queue-count
             >
                 {call.total}
@@ -102,7 +102,7 @@
     </header>
 
     {#if call.nothingWaiting}
-        <p class="mt-2 text-xs text-slate-600 dark:text-slate-400">
+        <p class="mt-2 text-xs text-muted">
             {$_('dashboard.review_queue.empty', {
                 default: 'Every visit in the last 24 hours has a species. Nothing waiting on you.'
             })}
@@ -114,13 +114,13 @@
         <div class="mt-3 space-y-2" aria-hidden="true">
             {#each ['w-28', 'w-20'] as width (width)}
                 <div class="flex items-center gap-2.5 px-1.5">
-                    <span class="h-8 w-8 shrink-0 rounded-lg bg-slate-200/80 animate-pulse motion-reduce:animate-none dark:bg-slate-700/60" data-loading-placeholder></span>
-                    <span class="h-3 rounded-sm bg-slate-200/80 animate-pulse motion-reduce:animate-none dark:bg-slate-700/60 {width}" data-loading-placeholder></span>
+                    <span class="h-8 w-8 shrink-0 rounded-lg bg-line animate-pulse motion-reduce:animate-none" data-loading-placeholder></span>
+                    <span class="h-3 rounded-sm bg-line animate-pulse motion-reduce:animate-none {width}" data-loading-placeholder></span>
                 </div>
             {/each}
         </div>
     {:else if call.visits === 'unavailable'}
-        <p class="mt-2 text-xs text-slate-600 dark:text-slate-300">
+        <p class="mt-2 text-xs text-muted">
             {$_('dashboard.review_queue.unavailable', {
                 default: 'The queue could not be checked, so it is not known whether anything is waiting.'
             })}
@@ -131,12 +131,12 @@
             </button>
         {/if}
     {:else if call.visits === 'clear'}
-        <p class="mt-2 text-xs text-slate-600 dark:text-slate-400" data-review-queue-visits-clear>
+        <p class="mt-2 text-xs text-muted" data-review-queue-visits-clear>
             {$_('dashboard.review_queue.visits_clear', { default: 'Every visit in the last 24 hours has a species.' })}
         </p>
     {:else}
         {#if call.visits === 'stale'}
-            <p class="mt-2 text-xs text-slate-600 dark:text-slate-300" data-review-queue-visits-stale>
+            <p class="mt-2 text-xs text-muted" data-review-queue-visits-stale>
                 {$_('dashboard.review_queue.visits_stale', {
                     default: 'The visit history could not be read again, so this list may be out of date.'
                 })}
@@ -151,7 +151,7 @@
             {#each queue.items as detection (detection.frigate_event)}
                 <li>
                     <button
-                        class="flex w-full items-center gap-2.5 rounded-xl px-1.5 py-1.5 text-left transition-colors hover:bg-white/70 focus-ring dark:hover:bg-slate-800/60"
+                        class="flex w-full items-center gap-2.5 rounded-xl px-1.5 py-1.5 text-left transition-colors hover:bg-surface focus-ring"
                         onclick={() => onreview?.(detection)}
                     >
                         <MediaImage
@@ -161,17 +161,17 @@
                             decoding="async"
                             width={32}
                             height={32}
-                            class="h-8 w-8 shrink-0 rounded-lg bg-slate-100 object-cover dark:bg-slate-800"
+                            class="h-8 w-8 shrink-0 rounded-lg bg-surface-raised object-cover"
                             iconClass="h-4 w-4"
                         />
                         <span class="min-w-0 flex-1">
-                            <span class="block wrap-break-word text-xs font-semibold text-slate-800 dark:text-slate-100">
+                            <span class="block wrap-break-word text-xs font-semibold text-strong">
                                 {name(detection)}
                             </span>
                             <!-- Why it waits comes first, on its own line; when and where follow, and a phone
                                  drops the camera. The separator stays with the camera, so it never ends a line. -->
-                            <span class="block wrap-break-word text-2xs font-semibold text-attention-800 dark:text-attention-300" data-review-queue-reason>{reason(detection)}</span>
-                            <span class="block wrap-break-word text-2xs text-slate-600 dark:text-slate-400">
+                            <span class="block wrap-break-word text-2xs font-semibold text-status-attention" data-review-queue-reason>{reason(detection)}</span>
+                            <span class="block wrap-break-word text-2xs text-muted">
                                 {when(detection)}<span class="hidden sm:inline" data-review-queue-camera><span class="whitespace-nowrap"><Separator spaced />{detection.camera_name}</span></span>
                             </span>
                         </span>
@@ -184,7 +184,7 @@
         </ul>
 
         {#if queue.remaining > 0}
-            <p class="mt-2 text-2xs text-slate-600 dark:text-slate-400">
+            <p class="mt-2 text-2xs text-muted">
                 {$_('dashboard.review_queue.remaining', {
                     values: { count: queue.remaining },
                     default: '{count} more waiting'
@@ -192,7 +192,7 @@
             </p>
         {/if}
 
-        <button class="btn btn-primary mt-3 min-h-11 w-full px-3 py-2 text-xs" onclick={() => onreviewall?.()}>
+        <button class="btn btn-primary mt-3 min-h-11 px-4 py-2 text-xs" onclick={() => onreviewall?.()}>
             {$_('dashboard.review_queue.work_through', { default: 'Work through the queue' })}
         </button>
     {/if}
@@ -203,9 +203,9 @@
                 <p role="status" class="sr-only">
                     {$_('dashboard.review_queue.checks_loading', { default: 'Checking for species that may be misnamed…' })}
                 </p>
-                <span class="block h-3 w-40 rounded-sm bg-slate-200/80 animate-pulse motion-reduce:animate-none dark:bg-slate-700/60" aria-hidden="true" data-loading-placeholder></span>
+                <span class="block h-3 w-40 rounded-sm bg-line animate-pulse motion-reduce:animate-none" aria-hidden="true" data-loading-placeholder></span>
             {:else if call.checks === 'unavailable'}
-                <p class="text-xs text-slate-600 dark:text-slate-300">
+                <p class="text-xs text-muted">
                     {$_('dashboard.review_queue.checks_unavailable', {
                         default: 'The range check could not be read, so it is not known whether a species may be misnamed.'
                     })}
@@ -217,7 +217,7 @@
                 {/if}
             {:else}
                 {#if call.checks === 'stale'}
-                    <p class="mb-2 text-xs text-slate-600 dark:text-slate-300" data-review-queue-checks-stale>
+                    <p class="mb-2 text-xs text-muted" data-review-queue-checks-stale>
                         {$_('dashboard.review_queue.checks_stale', {
                             default: 'The range check could not be read again, so this list may be out of date.'
                         })}
@@ -228,8 +228,8 @@
                         </button>
                     {/if}
                 {/if}
-                <p class="flex items-start gap-2 text-xs font-semibold text-attention-800 dark:text-attention-300">
-                    <span class="mt-1 h-2 w-2 shrink-0 rounded-full bg-attention-500" aria-hidden="true"></span>
+                <p class="flex items-start gap-2 text-xs font-semibold text-status-attention">
+                    <span class="mt-1 h-2 w-2 shrink-0 rounded-full bg-status-attention-line" aria-hidden="true"></span>
                     <span>
                         {$_('dashboard.review_queue.checks_summary', {
                             values: { count: checks.names.length, species: checkNames },
@@ -237,7 +237,7 @@
                         })}
                     </span>
                 </p>
-                <p class="mt-1 text-2xs text-slate-600 dark:text-slate-300">
+                <p class="mt-1 text-2xs text-muted">
                     {checks.nearbyRadiusKm
                         ? $_('dashboard.review_queue.checks_body', {
                               values: { count: checks.names.length, distance: displayDistance(checks.nearbyRadiusKm, $_) },
@@ -251,7 +251,7 @@
                 <!-- It leaves the page for the Species page, so it says so and points onward. -->
                 <button
                     type="button"
-                    class="mt-2 inline-flex min-h-11 items-center gap-1.5 rounded-xl px-2 py-2 text-xs font-semibold text-brand-700 transition-colors hover:bg-brand-50 focus-ring dark:text-brand-300 dark:hover:bg-brand-950/40"
+                    class="mt-2 inline-flex min-h-11 items-center gap-1.5 rounded-xl px-2 py-2 text-xs font-semibold text-accent-ink transition-colors hover:bg-accent-soft focus-ring"
                     onclick={() => onopenchecks?.()}
                     data-review-queue-open-checks
                 >

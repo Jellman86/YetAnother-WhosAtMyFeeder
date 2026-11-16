@@ -126,23 +126,23 @@
 
 <section data-dashboard-audio class="panel space-y-4" aria-labelledby="dashboard-heard-title">
     <div>
-        <h2 id="dashboard-heard-title" class="flex items-center gap-2 font-display text-xl font-bold text-slate-950 dark:text-white">
-            <svg class="h-5 w-5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+        <h2 id="dashboard-heard-title" class="flex items-center gap-2 font-display text-xl font-bold text-strong">
+            <svg class="h-5 w-5 text-accent-ink" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
                 <rect x="9" y="3" width="6" height="11" rx="3" />
                 <path stroke-linecap="round" d="M5 11a7 7 0 0 0 14 0M12 18v3" />
             </svg>
             {$_('dashboard.desk.heard_title', { default: 'Heard' })}
         </h2>
-        <p class="mt-0.5 text-sm text-slate-600 dark:text-slate-400">{$_('dashboard.day_bar.window', { default: 'Last 24 hours' })}</p>
+        <p class="mt-0.5 text-sm text-muted">{$_('dashboard.day_bar.window', { default: 'Last 24 hours' })}</p>
     </div>
 
     {#if (loading || summaryLoading) && !summary}
-        <div class="h-24 animate-pulse rounded-lg bg-slate-100/70 dark:bg-slate-800/40"></div>
+        <div class="h-24 animate-pulse rounded-lg bg-surface-raised"></div>
     {:else if !summary || summary.total === 0}
-        <p class="text-xs text-slate-600 dark:text-slate-400">{$_('dashboard.desk.heard_empty', { default: 'No calls heard in the last 24 hours.' })}</p>
+        <p class="text-xs text-muted">{$_('dashboard.desk.heard_empty', { default: 'No calls heard in the last 24 hours.' })}</p>
     {:else}
         <!-- The day bar already carries calls heard and cross-confirmed; this card says what was heard. -->
-        <p class="font-display text-lg font-bold text-slate-900 dark:text-white" data-dashboard-species-heard>
+        <p class="font-display text-lg font-bold text-strong" data-dashboard-species-heard>
             {$_('dashboard.desk.species_heard', {
                 values: { count: summary.species_count },
                 default: '{count, plural, one {# species heard} other {# species heard}}'
@@ -151,16 +151,16 @@
 
         {#if mostHeard.length > 0}
             <div class="space-y-1.5" data-dashboard-most-heard>
-                <p class="text-xs font-semibold text-slate-600 dark:text-slate-300">{$_('dashboard.desk.most_heard', { default: 'Heard most' })}</p>
+                <p class="text-xs font-semibold text-muted">{$_('dashboard.desk.most_heard', { default: 'Heard most' })}</p>
                 <ol class="space-y-1.5">
                     {#each mostHeard as item, index (`${item.species}|${index}`)}
                         <li class="space-y-1">
                             <div class="flex items-baseline justify-between gap-3 text-sm">
-                                <span class="min-w-0 wrap-break-word text-slate-800 dark:text-slate-100">{item.species}</span>
-                                <span class="shrink-0 tabular-nums text-slate-600 dark:text-slate-400">{item.count.toLocaleString()}</span>
+                                <span class="min-w-0 wrap-break-word text-strong">{item.species}</span>
+                                <span class="shrink-0 tabular-nums text-muted">{item.count.toLocaleString()}</span>
                             </div>
-                            <div class="h-1 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800" aria-hidden="true">
-                                <div class="h-full rounded-full bg-brand-500/70 dark:bg-brand-400/70" style:width="{Math.max(2, (item.count / mostHeardMax) * 100)}%"></div>
+                            <div class="h-1 overflow-hidden rounded-full bg-line" aria-hidden="true">
+                                <div class="h-full rounded-full bg-status-info-line" style:width="{Math.max(2, (item.count / mostHeardMax) * 100)}%"></div>
                             </div>
                         </li>
                     {/each}
@@ -169,7 +169,7 @@
         {/if}
 
         {#if latestCall}
-            <p class="text-xs text-slate-600 dark:text-slate-400" data-dashboard-latest-call>
+            <p class="text-xs text-muted" data-dashboard-latest-call>
                 {$_('dashboard.desk.latest_call', {
                     values: { species: latestCall.species, time: formatTime(latestCall.timestamp) },
                     default: 'Latest call: {species} at {time}'
@@ -178,7 +178,7 @@
         {/if}
 
         {#if matchedCalls === 0}
-            <p class="text-xs leading-relaxed text-slate-600 dark:text-slate-400" data-dashboard-no-match>
+            <p class="text-xs leading-relaxed text-muted" data-dashboard-no-match>
                 {$_('dashboard.desk.no_cross_confirmation', {
                     values: { count: summary.total },
                     default:
@@ -192,7 +192,7 @@
         <button
             data-audio-history-action
             type="button"
-            class="btn btn-secondary min-h-11 rounded-full px-4 text-xs"
+            class="btn btn-secondary min-h-11 px-4 text-xs"
             onclick={() => onNavigate?.('/audio')}
         >
             {$_('dashboard.audio_feed.open_history')}
@@ -202,7 +202,7 @@
                 href={birdnetExternalUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                class="inline-flex min-h-11 items-center gap-1.5 rounded-full px-3 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-100 hover:text-brand-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-brand-300"
+                class="inline-flex min-h-11 items-center gap-1.5 rounded-full px-3 text-xs font-semibold text-muted transition-colors hover:bg-surface-raised hover:text-accent-ink focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus"
                 title={$_('dashboard.audio_feed.open_birdnet')}
             >
                 BirdNET-Go

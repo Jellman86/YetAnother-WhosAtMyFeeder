@@ -20,13 +20,10 @@
         rows: (string | number)[][];
     };
     /**
-     * At least one way to say the chart in words: a key of swatches, a key the caller draws (for
-     * line samples with dashes, say), or a table of the data.
+     * The chart in words. A table of the data it draws is always there (an equivalent record for
+     * anyone who cannot read the canvas); a key of swatches or a caller-drawn legend sits beside it.
      */
-    type Words =
-        | { key: KeyItem[]; legend?: Snippet; table?: DataTable }
-        | { key?: KeyItem[]; legend: Snippet; table?: DataTable }
-        | { key?: KeyItem[]; legend?: Snippet; table: DataTable };
+    type Words = { table: DataTable; key?: KeyItem[]; legend?: Snippet };
 
     type Props = Words & {
         title: string;
@@ -70,7 +67,7 @@
             {/each}
         </ul>
     {/if}
-    {#if table}
+    {#if table.rows.length > 0}
         <details class="group mt-2">
             <summary class="inline-flex min-h-11 cursor-pointer list-none items-center gap-1.5 rounded-lg text-xs font-semibold text-accent-ink focus-ring">
                 <svg class="h-3.5 w-3.5 transition-transform group-open:rotate-90" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">

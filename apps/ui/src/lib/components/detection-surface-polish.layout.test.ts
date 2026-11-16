@@ -12,11 +12,11 @@ describe('detection surface polish', () => {
 
     it('keeps event cards quiet and media-led', () => {
         expect(detectionCardSource).toContain('data-detection-card');
-        expect(detectionCardSource).toContain('hover:border-brand-500/40');
+        expect(detectionCardSource).toContain('hover:border-accent-line/60');
         expect(detectionCardSource).not.toContain('hover:-translate-y-1.5');
         expect(detectionCardSource).not.toContain('group-hover:rotate-1');
         expect(detectionCardSource).not.toContain('ring-1 ring-slate-200/40');
-        expect(detectionCardSource).toContain('inline-flex h-11 w-11 items-center justify-center');
+        expect(detectionCardSource).toContain('btn btn-secondary btn-icon rounded-full');
         expect(detectionCardSource).toContain("let isManualObservation = $derived(detection.observation_source === 'manual_upload')");
         expect(detectionCardSource).not.toContain("manual_observation.uploaded");
     });

@@ -54,17 +54,17 @@
     let closeIndicatorLabel = $derived($_('detection.card_analysis.closing_soon'));
 </script>
 
-<div class="detection-card-analysis-overlay absolute inset-0 z-20 flex flex-col justify-between rounded-2xl border border-brand-300/60 bg-white/85 p-4 text-slate-950 dark:border-brand-400/40 dark:bg-slate-950/85 dark:text-white">
+<div class="detection-card-analysis-overlay absolute inset-0 z-20 flex flex-col justify-between rounded-2xl border border-accent-line bg-surface p-4 text-strong">
 
     <div class="relative flex items-start justify-between gap-3">
         <div class="min-w-0">
             <div class="flex flex-wrap items-center gap-1.5">
                 <span class="inline-flex h-2 w-2 rounded-full bg-brand-300 {isComplete ? '' : 'animate-pulse'}"></span>
-                <span class="text-3xs font-bold text-brand-700 dark:text-brand-200">
+                <span class="text-3xs font-bold text-accent-ink">
                     {statusLabel}
                 </span>
             </div>
-            <p class="mt-1 text-2xs font-semibold text-slate-700 dark:text-slate-200">
+            <p class="mt-1 text-2xs font-semibold text-ink">
                 {statusSubtitle}
             </p>
         </div>
@@ -72,7 +72,7 @@
         <div class="flex shrink-0 items-center gap-2">
             {#if isComplete}
                 <div
-                    class="card-analysis-close-indicator grid h-8 w-8 place-items-center rounded-full border border-slate-300/70 bg-slate-500/10 text-slate-700 dark:border-slate-600/70 dark:text-slate-200"
+                    class="card-analysis-close-indicator grid h-8 w-8 place-items-center rounded-full border border-line bg-slate-500/10 text-ink"
                     role="img"
                     aria-label={closeIndicatorLabel}
                     title={closeIndicatorLabel}
@@ -85,8 +85,8 @@
                 </div>
             {/if}
             <div class="rounded-xl border border-slate-950/10 bg-white/45 px-2 py-1.5 text-right shadow-xs dark:border-white/15 dark:bg-white/10">
-                <p class="text-base font-bold leading-none text-slate-950 dark:text-white">{progressPercent}%</p>
-                <p class="mt-0.5 text-3xs font-bold text-slate-600 dark:text-slate-300">
+                <p class="text-base font-bold leading-none text-strong">{progressPercent}%</p>
+                <p class="mt-0.5 text-3xs font-bold text-muted">
                     {$_('detection.reclassification.analysis', { default: 'Analysis' })}
                 </p>
             </div>
@@ -106,19 +106,19 @@
         {/if}
 
         <div class="rounded-xl border border-white/10 p-2.5 dark:border-white/10">
-            <div class="flex items-center justify-between gap-3 text-3xs font-bold text-slate-600 dark:text-slate-300">
+            <div class="flex items-center justify-between gap-3 text-3xs font-bold text-muted">
                 <span>{$_('detection.reclassification.frame_progress', { values: { current: displayFrameIndex, total: displayClipTotal } })}</span>
                 {#if isAutoVideoReclassification}
-                    <span class="rounded-md border border-slate-300/70 bg-slate-500/10 px-1.5 py-0.5 text-slate-700 dark:border-slate-600/70 dark:text-slate-200">
+                    <span class="rounded-md border border-line bg-slate-500/10 px-1.5 py-0.5 text-ink">
                         {$_('detection.reclassification.auto_video_source', { default: 'Auto Video' })}
                     </span>
                 {/if}
             </div>
             {#if displayLabel}
                 <div class="mt-2 flex items-center justify-between gap-3">
-                    <p class="min-w-0 truncate text-sm font-bold text-slate-950 dark:text-white">{displayLabel}</p>
+                    <p class="min-w-0 truncate text-sm font-bold text-strong">{displayLabel}</p>
                     {#if displayScorePercent !== null}
-                        <span class="shrink-0 text-xs font-bold text-brand-700 dark:text-brand-200">{displayScorePercent}%</span>
+                        <span class="shrink-0 text-xs font-bold text-accent-ink">{displayScorePercent}%</span>
                     {/if}
                 </div>
             {/if}

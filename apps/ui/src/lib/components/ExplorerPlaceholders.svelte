@@ -7,7 +7,7 @@
      */
     let { view, count = view === 'cards' ? 6 : 8 }: { view: 'cards' | 'list'; count?: number } = $props();
 
-    const pulse = 'bg-slate-200/80 animate-pulse motion-reduce:animate-none dark:bg-slate-700/60';
+    const pulse = 'bg-line animate-pulse motion-reduce:animate-none';
     // Varied name widths read as a list of names rather than a barcode.
     const nameWidths = ['w-2/3', 'w-1/2', 'w-3/5', 'w-2/5'];
 </script>
@@ -15,7 +15,7 @@
 {#each Array.from({ length: count }, (_, index) => index) as index (index)}
     {#if view === 'cards'}
         <div
-            class="flex min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white/90 shadow-xs dark:border-slate-700/60 dark:bg-slate-800/75"
+            class="flex min-w-0 flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-xs"
             aria-hidden="true"
             data-explorer-placeholder="card"
         >

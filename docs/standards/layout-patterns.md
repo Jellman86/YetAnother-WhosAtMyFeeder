@@ -727,10 +727,14 @@ build something better."*
 - **Selection**: a selected route, tab or option is a recessed key in the brand tint with a lit
   icon. Never a coloured bar on one edge. A chosen row in a list of choices uses the kit's
   `.choice-active` (brand tint, medium weight, a lit check or other icon); hover stays a neutral
-  wash and keyboard focus a ring, so the three never read as one. A segmented control in a
-  settings row is the one exception: a neutral track with the chosen segment raised and set
-  semibold, no brand fill and no tick (`SettingsSegmented`). Four or more options, or options that
-  need a sentence each, become a select or a radio list instead.
+  wash and keyboard focus a ring, so the three never read as one. A short "choose one" (a
+  settings row, the Explorer's Visitors, Show and When, its Cards/List switch) is the one
+  exception, and it has one shape everywhere: the shared `Segmented` control, a neutral track with
+  the chosen segment raised, set semibold and marked with a small check, no brand fill. The check
+  keeps the choice readable in high contrast, where every button is painted alike. Short options
+  may wrap on the track; four or more long options, or options that need a sentence each, become a
+  select or a radio list instead. So the Explorer's filter rail has two selected styles, not four:
+  the segmented track for short choices and `.choice-active` rows for lists.
 - **Settings rows**: every Settings tab is a column of sections no wider than `max-w-3xl`. A
   section is a plain `h2` (no icon, no coloured band) over one card of rows separated by hairlines,
   and nothing inside the card is boxed again. From 768px a row puts its label (medium weight) and

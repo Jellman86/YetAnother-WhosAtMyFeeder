@@ -72,8 +72,8 @@
 {#if totalPages > 0}
     <div data-pagination class="flex flex-col items-center justify-between gap-4 pt-5 pb-1 sm:flex-row sm:flex-wrap">
         <!-- Items info and page size selector -->
-        <div class="flex flex-wrap items-center justify-center gap-4 text-sm text-slate-600 dark:text-slate-400 sm:justify-start">
-            <span class="font-medium text-slate-700 dark:text-slate-300">
+        <div class="flex flex-wrap items-center justify-center gap-4 text-sm text-muted sm:justify-start">
+            <span class="font-medium text-ink">
                 {$_('pagination.showing', { values: { from: startItem, to: endItem, total: totalItems.toLocaleString() }, default: `Showing ${startItem}-${endItem} of ${totalItems.toLocaleString()}` })}
             </span>
 
@@ -100,7 +100,7 @@
             <button
                 onclick={() => goToPage(currentPage - 1)}
                 disabled={currentPage === 1}
-                class="btn btn-ghost btn-icon text-slate-600 dark:text-slate-400"
+                class="btn btn-ghost btn-icon text-muted"
                 aria-label={$_('pagination.previous_page', { default: 'Previous page' })}
             >
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -109,7 +109,7 @@
             </button>
 
             <!-- No minimum width: at 320px with the largest text a fixed width pushed Next off the screen. -->
-            <span class="min-w-0 text-center text-xs font-semibold text-slate-600 dark:text-slate-300 sm:hidden">
+            <span class="min-w-0 text-center text-xs font-semibold text-muted sm:hidden">
                 {$_('pagination.page_number', { values: { number: currentPage }, default: `Page ${currentPage}` })} / {totalPages}
             </span>
 
@@ -118,14 +118,14 @@
             <span class="hidden flex-wrap items-center justify-center gap-1 sm:flex">
                 {#each pageNumbers() as page}
                     {#if page === 'ellipsis'}
-                        <span class="px-2 text-slate-600 dark:text-slate-400">...</span>
+                        <span class="px-2 text-muted">...</span>
                     {:else}
                         <button
                             onclick={() => goToPage(page)}
                             class="h-11 min-w-11 rounded-xl px-3 text-sm font-semibold transition-colors
                                    {page === currentPage
-                                       ? 'bg-brand-700 text-white shadow-xs dark:bg-brand-500 dark:text-slate-950'
-                                       : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}"
+                                       ? 'bg-accent text-accent-fg shadow-xs'
+                                       : 'text-muted hover:bg-surface-raised'}"
                             aria-current={page === currentPage ? 'page' : undefined}
                             aria-label={$_('pagination.page_number', { values: { number: page }, default: `Page ${page}` })}
                         >
@@ -139,7 +139,7 @@
             <button
                 onclick={() => goToPage(currentPage + 1)}
                 disabled={currentPage === totalPages}
-                class="btn btn-ghost btn-icon text-slate-600 dark:text-slate-400"
+                class="btn btn-ghost btn-icon text-muted"
                 aria-label={$_('pagination.next_page', { default: 'Next page' })}
             >
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">

@@ -11,8 +11,8 @@
 
 <span
     class="inline-flex shrink-0 items-center gap-1 rounded-full border font-bold {compact ? 'px-1.5 text-3xs' : 'px-2 py-0.5 text-2xs'} {overlay
-        ? 'border-white/10 bg-black/60 text-white backdrop-blur-md'
-        : 'border-line bg-surface-raised text-slate-700 dark:text-slate-200'}"
+        ? 'border-on-media/10 bg-media/60 text-on-media backdrop-blur-md'
+        : 'border-line bg-surface-raised text-ink'}"
     data-garden-marker
 >
     <svg class="h-3 w-3" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">

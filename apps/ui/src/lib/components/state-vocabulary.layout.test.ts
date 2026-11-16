@@ -66,8 +66,10 @@ describe('a row that needs a person carries an amber dot beside its reason in wo
     })) {
         it(`${name} keeps the tint faint and puts the dot beside the words`, () => {
             expect(source).toContain('attention-dot');
-            expect(source).toContain('bg-attention-500/5');
-            expect(source).not.toContain('bg-attention-500/10');
+            // The status tone's soft ground: faint in every mode (design-tokens.contrast.test.ts holds
+            // the words on it to AA), and black in high contrast.
+            expect(source).toContain('bg-status-attention-soft');
+            expect(source).not.toMatch(/bg-attention-\d/);
         });
     }
 });

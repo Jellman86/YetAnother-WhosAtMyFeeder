@@ -39,18 +39,20 @@ describe('scoreBand', () => {
 describe('score tone classes', () => {
     const bands: ScoreBand[] = ['low', 'mid', 'high'];
 
-    it('uses only the attention, brand and success scales, never the theme accent', () => {
+    it('takes amber for a person, the brand for normal and green for confirmed, never the theme accent', () => {
+        expect(SCORE_TEXT).toEqual({ low: 'text-status-attention', mid: 'text-status-info', high: 'text-status-ok' });
+        expect(SCORE_FILL).toEqual({ low: 'bg-status-attention-line', mid: 'bg-status-info-line', high: 'bg-status-ok-line' });
+        // Over a photograph the ground is always dark, so the light steps are fixed there.
+        expect(SCORE_TEXT_ON_MEDIA.low).toMatch(/attention-/);
+        expect(SCORE_TEXT_ON_MEDIA.mid).toMatch(/brand-/);
+        expect(SCORE_TEXT_ON_MEDIA.high).toMatch(/success-/);
         for (const map of [SCORE_TEXT, SCORE_TEXT_ON_MEDIA, SCORE_FILL]) {
-            for (const band of bands) expect(map[band]).not.toMatch(/accent-|emerald-|amber-|red-/);
-            expect(map.low).toMatch(/attention-/);
-            expect(map.mid).toMatch(/brand-/);
-            expect(map.high).toMatch(/success-/);
+            for (const band of bands) expect(map[band]).not.toMatch(/emerald-|amber-|red-|dark:/);
         }
     });
 
-    it('sets small text dark enough for AA on light ground and light enough on dark ground', () => {
-        expect(SCORE_TEXT.low).toBe('text-attention-800 dark:text-attention-300');
-        expect(SCORE_TEXT.mid).toBe('text-brand-700 dark:text-brand-300');
-        expect(SCORE_TEXT.high).toBe('text-success-700 dark:text-success-300');
+    it('sets small text at AA in every mode, through the status inks the contrast proof covers', () => {
+        // design-tokens.contrast.test.ts holds each status ink to 4.5:1 on every ground (7:1 in high contrast).
+        for (const band of bands) expect(SCORE_TEXT[band]).toMatch(/^text-status-(?:attention|info|ok)$/);
     });
 });

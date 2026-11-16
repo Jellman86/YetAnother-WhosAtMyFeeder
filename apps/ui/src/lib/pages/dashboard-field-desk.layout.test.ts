@@ -37,9 +37,12 @@ describe('dashboard field desk layout', () => {
     it('handles a disabled notable datasource without making an eBird request', () => {
         expect(notableNearbySource).toContain('if (!sourceEnabled)');
         expect(notableNearbySource).toContain('dashboard.notable_nearby.unavailable');
-        expect(notableNearbySource).toContain('{#if canConfigure}');
+        expect(notableNearbySource).toContain('action={canConfigure ?');
         expect(notableNearbySource).toContain('dashboard.notable_nearby.configure');
-        expect(notableNearbySource).toContain('role="alert"');
+        // Unavailable and failed are one inline line each with their action, never a box in the panel (round 4, F6).
+        expect(notableNearbySource).toMatch(/<StateBlock\s+variant="inline"\s+state="off"/);
+        expect(notableNearbySource).toMatch(/<StateBlock\s+variant="inline"\s+state="failed"/);
+        expect(notableNearbySource).not.toContain('border-dashed');
         expect(notableNearbySource).toContain('dashboard.notable_nearby.retry');
     });
 
@@ -184,7 +187,7 @@ describe('dashboard field desk layout', () => {
         // Each rail section is a ruled panel that opens with the same display heading and a
         // muted window line, so the three columns read as one set rather than three styles.
         for (const source of [recentAudioSource, histogramSource, visitorsSource]) {
-            expect(source).toContain('font-display text-xl font-bold text-slate-950 dark:text-white');
+            expect(source).toContain('font-display text-xl font-bold text-strong');
             expect(source).toMatch(/<section[^>]*class="panel /);
         }
         expect(fieldLogSource).toContain('<section class="field-log space-y-4 sm:panel" data-dashboard-field-log>');
