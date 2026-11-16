@@ -116,8 +116,8 @@
                 </p>
             </fieldset>
         {:else if cameraRead.state === 'reading'}
-            <p role="status" class="flex items-start gap-3 text-sm leading-relaxed text-slate-700 dark:text-slate-200" data-setup-camera-reading>
-                <span class="mt-0.5 h-5 w-5 shrink-0 animate-spin rounded-full border-2 border-brand-200 border-t-brand-600 motion-reduce:animate-none" aria-hidden="true"></span>
+            <p role="status" class="flex items-start gap-3 text-sm leading-relaxed text-ink" data-setup-camera-reading>
+                <span class="mt-0.5 h-5 w-5 shrink-0 animate-spin rounded-full border-2 border-accent-line border-t-accent-ink motion-reduce:animate-none" aria-hidden="true"></span>
                 <span>{$_('setup.cameras.reading', { values: { seconds: READ_LIMIT_SECONDS }, default: 'Asking Frigate for its cameras, for up to {seconds} seconds. You can continue without waiting: the cameras already saved stay as they are.' })}</span>
             </p>
         {:else}

@@ -595,8 +595,8 @@
                             <!-- Opened from a row that counted visits: the same figure leads here, in the row's
                                  own window, so the dialog and the row agree. -->
                             <dl class="mb-3" data-species-row-figure>
-                                <dt class="text-xs font-medium text-slate-600 dark:text-slate-400">{rowVisitsLabel}</dt>
-                                <dd class="mt-1 text-2xl font-bold tracking-tight text-slate-900 dark:text-white">{openedFrom.count.toLocaleString()}</dd>
+                                <dt class="text-xs font-medium text-muted">{rowVisitsLabel}</dt>
+                                <dd class="mt-1 text-2xl font-bold tracking-tight text-strong">{openedFrom.count.toLocaleString()}</dd>
                             </dl>
                         {/if}
                         <dl class="grid grid-cols-2 overflow-hidden border-y border-slate-200 dark:border-slate-700 sm:grid-cols-4">
@@ -608,7 +608,7 @@
                                         ? $_('species_detail.detections_shared', { default: 'Detections, shared history' })
                                         : $_('species_detail.detections_all_time', { default: 'Detections, all time' })}
                                 </dt>
-                                <dd class="mt-1 text-2xl font-bold tracking-tight {statLead === 'row_visits' ? 'text-slate-900 dark:text-white' : 'text-brand-700 dark:text-brand-300'}">{stats.total_sightings}</dd>
+                                <dd class="mt-1 text-2xl font-bold tracking-tight {statLead === 'row_visits' ? 'text-strong' : 'text-accent-ink'}">{stats.total_sightings}</dd>
                             </div>
                             <div class="border-b border-slate-200 px-3 py-4 dark:border-slate-700 sm:border-b-0 sm:border-r sm:px-4">
                                 <dt class="text-xs font-medium text-slate-600 dark:text-slate-400">{$_('species_detail.avg_confidence')}</dt>
