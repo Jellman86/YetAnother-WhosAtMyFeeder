@@ -2,7 +2,8 @@
     import { get } from 'svelte/store';
     import { _ } from 'svelte-i18n';
     import { onMount, onDestroy } from 'svelte';
-    import { fetchAvailableModels, fetchInstalledModels, downloadModel, fetchDownloadStatus, activateModel, deleteModel, validateModel, checkHealth, getVisibleTieredModelLineup, groupTieredModelLineup, categorizeModel, MODEL_CATEGORY_INFO, type ModelMetadata, type InstalledModel, type DownloadProgress, type ClassifierStatus, type HealthStatus } from '../../api';
+    import { fetchAvailableModels, fetchInstalledModels, downloadModel, fetchDownloadStatus, activateModel, deleteModel, validateModel, checkHealth, groupTieredModelLineup, categorizeModel, MODEL_CATEGORY_LABEL, type ModelCategory, type ModelMetadata, type InstalledModel, type DownloadProgress, type ClassifierStatus, type HealthStatus } from '../../api';
+    import { identificationModelName, modelFactsLine, recommendIdentificationModel } from '../../settings/identification-models';
     import { jobProgressStore } from '../../stores/job_progress.svelte';
     import { confirmAction } from '../../stores/confirm_dialog.svelte';
     import { toastStore } from '../../stores/toast.svelte';
@@ -56,6 +57,7 @@
     let error = $state<string | null>(null);
     let downloadStatuses = $state<Record<string, DownloadProgress>>({});
     let activating = $state<string | null>(null);
+    // The catalogue row whose details are open, if any.
     let selectedModelId = $state<string | null>(null);
 
     // Guided install wizard: download (with live progress) → validate on hardware →
@@ -66,15 +68,14 @@
     let wizardResult = $state<DiagnosticResult | null>(null);
     let wizardRunId = $state(0);
     let wizardDownload = $state(false);
-    let showAdvancedModels = $state(false);
-    // The model in use is shown on its own; the full list opens on request, or by itself while
-    // nothing is in use, since choosing a model is then the first thing to do.
-    let catalogueRequested = $state(false);
-    const anyModelInUse = $derived(
-        installedModels.some((model) => model.is_active && model.ready !== false)
-            || (Boolean(classifierStatus?.effective_model_id) && classifierStatus?.active_model_installed === true)
+    // The model in use (or the chosen one, when its files are missing) is shown on its own, with at
+    // most one recommendation. Every other model waits behind one disclosure the owner opens.
+    let catalogueOpen = $state(false);
+    const currentModelId = $derived(
+        classifierStatus?.effective_model_id
+            ?? installedModels.find((model) => model.is_active)?.id
+            ?? null
     );
-    const catalogueOpen = $derived(catalogueRequested || !anyModelInUse);
     const cropDetectorStatus = $derived(classifierStatus?.crop_detector ?? null);
     // What the running service has saved, as opposed to the form's staged choice.
     const savedBirdFinder = $derived<BirdFinder | null>(
@@ -96,11 +97,26 @@
         }
     }
 
-    // Until a worker reports what it loaded, the provider is the plan, not a fact.
-    const runtimePlanned = $derived(classifierStatus?.runtime_source === 'planned');
 
-    function t(key: string, fallback: string, values?: Record<string, string | number>): string {
+    function t(key: string, fallback?: string | { default?: string; values?: Record<string, string | number> }, values?: Record<string, string | number>): string {
+        if (typeof fallback === 'object') return get(_)(key, fallback);
         return get(_)(key, values ? { values, default: fallback } : { default: fallback });
+    }
+
+    function categoryLabel(category: ModelCategory): string {
+        return t(MODEL_CATEGORY_LABEL[category].key, MODEL_CATEGORY_LABEL[category].fallback);
+    }
+
+    // Why the recommended model fits, in a line; the catalogue's own note for anything else.
+    const RECOMMENDATION_REASONS: Record<string, string> = {
+        small_birds: 'Knows the birds of your region and stays quick on an ordinary CPU.',
+        rope_vit_b14_inat21: 'Names birds and other wildlife with good accuracy at a moderate speed.',
+        mobilenet_v2_birds: 'Small enough for this device and needs no graphics hardware.',
+    };
+    function recommendationReason(model: ModelMetadata): string {
+        const id = model.id.split('/')[0];
+        const fallback = RECOMMENDATION_REASONS[id];
+        return fallback ? t(`settings.models.recommend_reason.${id}`, fallback) : model.recommended_for;
     }
 
     function formatMetadataLabel(value: string): string {
@@ -111,34 +127,10 @@
             .join(' ');
     }
 
-    function scopeLabel(scope: string): string {
-        switch (scope) {
-            case 'birds_only':
-                return t('settings.detection.model_manager_scope_birds_only', 'Birds only');
-            case 'wildlife_wide':
-                return t('settings.detection.model_manager_scope_wildlife_wide', 'Broad wildlife');
-            default:
-                return formatMetadataLabel(scope);
-        }
-    }
-
-    function statusLabel(status: string | undefined): string {
-        return formatMetadataLabel(status ?? 'stable');
-    }
-
     // Tier, maturity and execution provider are facts about the model, so every chip is neutral and the
     // word carries the meaning. None of them needs a person, and none is a second accent.
     const FACT_CHIP = 'bg-slate-500/10 text-slate-700 dark:text-slate-300 border-slate-500/20';
 
-    function formatRamLabel(model: ModelMetadata): string | null {
-        if (model.estimated_ram_mb == null) return null;
-        if (model.estimated_ram_mb >= 1024) {
-            const ramGb = model.estimated_ram_mb / 1024;
-            const formatted = Number.isInteger(ramGb) ? ramGb.toFixed(0) : ramGb.toFixed(1);
-            return `~${formatted} GB RAM`;
-        }
-        return `~${model.estimated_ram_mb} MB RAM`;
-    }
 
     let pollInterval: ReturnType<typeof setInterval> | undefined;
     let pollingDownloads = false;
@@ -166,18 +158,6 @@
             installedModels = installed;
             health = healthData;
 
-            if (!selectedModelId && installed.length > 0) {
-                const activeModel = installed.find(m => m.is_active);
-                if (activeModel) selectedModelId = activeModel.id;
-            }
-            const effectiveId = classifierStatus?.effective_model_id;
-            if (!selectedModelId && effectiveId && available.some(m => m.id === effectiveId)) {
-                selectedModelId = effectiveId;
-            }
-            if (!selectedModelId && available.length > 0) {
-                const classModels = available.filter(m => (m.artifact_kind || 'classifier') === 'classifier');
-                if (classModels.length > 0) selectedModelId = classModels[0].id;
-            }
         } catch (e) {
             console.error(e);
             error = t('settings.detection.model_manager_load_error', 'Failed to load models');
@@ -534,6 +514,10 @@
         return runInstallWizard(model, { download: false });
     }
 
+    function ramText(ramMb: number): string {
+        return ramShortLabel(ramMb).replace(/^~/, '');
+    }
+
     function ramShortLabel(ramMb: number): string {
         if (ramMb >= 1024) {
             const gb = ramMb / 1024;
@@ -542,16 +526,6 @@
         return `~${ramMb} MB`;
     }
 
-    // Every RAM meter is drawn against the heaviest model in the lineup, so the
-    // bars compare models to each other rather than to an arbitrary maximum.
-    function lineupMaxRam(models: ModelMetadata[]): number {
-        return models.reduce((max, model) => Math.max(max, model.estimated_ram_mb ?? 0), 0);
-    }
-
-    function ramPercent(ramMb: number | null | undefined, maxRam: number): number {
-        if (!ramMb || maxRam <= 0) return 0;
-        return Math.max(6, Math.round((ramMb / maxRam) * 100));
-    }
 
     // The prediction is model × process mode × concurrency: in-process shares
     // one copy inside the app; isolated workers each hold their own, so the
@@ -611,12 +585,236 @@
     }
 </script>
 
+{#snippet modelHeading(model: ModelMetadata, chip: { label: string; className: string } | null, headingId: string | null)}
+    {@const names = identificationModelName(model, t)}
+    <span class="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+        {#if headingId}
+            <span id={headingId} class="min-w-0 wrap-break-word text-base font-semibold leading-snug text-slate-900 dark:text-white">{names.name}</span>
+        {:else}
+            <span class="min-w-0 wrap-break-word text-sm font-semibold leading-snug text-slate-900 dark:text-white">{names.name}</span>
+        {/if}
+        {#if chip}
+            <span class="shrink-0 rounded-full border px-2 py-0.5 text-xs font-semibold {chip.className}">{chip.label}</span>
+        {/if}
+    </span>
+    {#if names.technical}
+        <span class="block text-xs text-slate-600 dark:text-slate-400" data-model-technical-name>{names.technical}</span>
+    {/if}
+{/snippet}
+
+{#snippet modelActions(model: ModelMetadata)}
+    {@const installed = Boolean(getInstalledModel(model.id))}
+    {@const ready = isReady(model.id)}
+    {@const active = isActive(model.id)}
+    {@const validated = isValidated(model.id)}
+    {@const download = downloadStatuses[model.id]}
+    {@const inProgress = download?.status === 'downloading' || download?.status === 'pending'}
+    {#if inProgress}
+        <div class="w-full" role="status">
+            <div class="mb-2 flex justify-between text-sm">
+                <span class="font-semibold text-brand-700 dark:text-brand-300">
+                    {installed
+                        ? $_('settings.detection.model_manager_redownloading', { default: 'Re-downloading…' })
+                        : $_('settings.detection.model_manager_downloading', { default: 'Downloading…' })}
+                </span>
+                <span class="font-medium text-slate-600 dark:text-slate-300">{download.progress.toFixed(0)}%</span>
+            </div>
+            <div class="h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+                <div class="h-full bg-brand-500 transition-all duration-300 motion-reduce:transition-none" style="width: {download.progress}%"></div>
+            </div>
+        </div>
+    {:else}
+        {#if download?.status === 'error' && download.error}
+            <p class="text-sm font-semibold text-red-700 dark:text-red-300" role="alert">{download.error}</p>
+        {/if}
+        <div class="flex flex-col-reverse gap-3 sm:flex-row sm:flex-wrap sm:justify-end">
+            {#if installed}
+                {#if !active && !getInstalledModel(model.id)?.bundled}
+                    <button
+                        type="button"
+                        onclick={() => handleDelete(model)}
+                        disabled={deleting !== null || wizardBusy}
+                        class="btn btn-ghost min-h-11 px-4 text-rose-700 hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-500/10"
+                    >
+                        {deleting === model.id
+                            ? $_('settings.detection.model_manager_deleting', { default: 'Deleting…' })
+                            : $_('settings.detection.model_manager_delete', { default: 'Delete files' })}
+                    </button>
+                {/if}
+                {#if !getInstalledModel(model.id)?.bundled}
+                    <button type="button" onclick={() => handleDownload(model)} class="btn btn-secondary min-h-11 px-4">
+                        {ready
+                            ? $_('settings.detection.model_manager_redownload', { default: 'Re-download' })
+                            : $_('settings.detection.model_manager_repair_download', { default: 'Repair download' })}
+                    </button>
+                {/if}
+                {#if ready && !active && validated}
+                    <button
+                        type="button"
+                        onclick={() => handleActivate(model.id)}
+                        disabled={activating !== null}
+                        class="btn btn-primary min-h-11 px-4"
+                    >
+                        {activating === model.id
+                            ? $_('settings.detection.model_manager_activating', { default: 'Activating…' })
+                            : $_('settings.detection.model_manager_activate', { default: 'Use this model' })}
+                    </button>
+                {:else if ready && !active && !validated}
+                    <button
+                        type="button"
+                        onclick={() => handleValidate(model)}
+                        disabled={wizardBusy}
+                        class="btn btn-primary min-h-11 px-4"
+                    >
+                        {$_('settings.detection.model_manager_validate_to_enable', { default: 'Validate to enable' })}
+                    </button>
+                {/if}
+            {:else if !active}
+                <button type="button" onclick={() => handleInstall(model)} disabled={wizardBusy} class="btn btn-primary min-h-11 px-4">
+                    {$_('settings.detection.model_manager_download_setup', { default: 'Download and set up' })}
+                </button>
+            {/if}
+        </div>
+    {/if}
+{/snippet}
+
+{#snippet modelDetail(model: ModelMetadata)}
+    {@const installedEntry = getInstalledModel(model.id)}
+    {@const installed = Boolean(installedEntry)}
+    {@const ready = isReady(model.id)}
+    {@const active = isActive(model.id)}
+    {@const validated = isValidated(model.id)}
+    {@const category = categorizeModel(model)}
+    {@const runtimeProviderOrder = active ? getRuntimeProviderOrder(classifierStatus, getProviderSupport(model)) : []}
+    {@const dynamicProviderChips = getDynamicProviderChips(model, active)}
+    <div class="space-y-3">
+        {#if model.description}
+            <p class="max-w-prose text-sm leading-relaxed text-slate-600 dark:text-slate-300">{model.description}</p>
+        {/if}
+        <p class="text-sm text-slate-700 dark:text-slate-200" data-model-facts>
+            {modelFactsLine(model, { installed, bundled: installedEntry?.bundled === true }, t)}
+        </p>
+        {#if model.estimated_ram_mb != null}
+            {@const prediction = predictedCopies()}
+            <p class="text-sm text-slate-600 dark:text-slate-300" data-model-memory>
+                {#if executionMode === 'in_process'}
+                    {$_('settings.models.memory_in_process', { values: { per: ramText(model.estimated_ram_mb) }, default: 'Uses {per} of memory: one copy, shared inside the app.' })}
+                {:else}
+                    {$_('settings.models.memory_workers', {
+                        values: { total: ramText(model.estimated_ram_mb * prediction.copies), per: ramText(model.estimated_ram_mb), copies: prediction.copies },
+                        default: 'Uses {total} of memory in all: {per} for each of the {copies} worker copies.'
+                    })}
+                {/if}
+            </p>
+        {/if}
+        {#if model.recommended_threshold != null}
+            <p class="text-sm text-slate-600 dark:text-slate-300">
+                {$_('settings.detection.model_manager_threshold_hint', { default: 'Recommended confidence threshold for this model:' })}
+                <strong class="font-semibold text-slate-900 dark:text-white">{Math.round(model.recommended_threshold * 100)}%</strong>
+            </p>
+        {/if}
+        {#if usesSavedFeederLocation(model)}
+            <div class="text-sm text-slate-600 dark:text-slate-300">
+                <p class="font-semibold text-slate-900 dark:text-white">
+                    {$_('settings.detection.model_manager_location_title', { default: 'Uses your feeder location' })}
+                </p>
+                <p class="mt-1 max-w-prose leading-relaxed">
+                    {$_('settings.detection.model_manager_location_desc', { default: 'This model also uses the feeder coordinates saved in Settings → Integrations → Location. If no valid coordinates are saved, it identifies birds without location. It does not use the date or a location accuracy radius.' })}
+                </p>
+                <a
+                    href={toAppPath('/settings/integrations')}
+                    onclick={handleLocationSettingsClick}
+                    class="inline-flex min-h-11 items-center rounded-sm font-semibold text-brand-700 underline underline-offset-2 hover:text-brand-800 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus dark:text-brand-300 dark:hover:text-brand-200"
+                >
+                    {$_('settings.detection.model_manager_location_link', { default: 'Open Location settings' })}
+                </a>
+            </div>
+        {/if}
+        {#if installed && !ready}
+            <p class="text-sm font-semibold text-attention-800 dark:text-attention-200" role="alert">
+                {$_('settings.detection.model_manager_repair_needed', { default: 'This model install is incomplete. Re-download it to restore the missing species names or model configuration before activation.' })}
+            </p>
+        {:else if installed && !active && !validated}
+            <p class="text-sm text-slate-700 dark:text-slate-200">
+                {$_('settings.detection.model_manager_validation_needed', { default: 'Downloaded but not yet validated on your hardware. Validate it to confirm it runs here before you select it.' })}
+            </p>
+        {/if}
+
+        <details class="group border-t border-line-soft">
+            <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-4 py-2 text-sm font-medium text-slate-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus dark:text-slate-200">
+                <span>{$_('settings.detection.model_manager_technical_details', { default: 'Technical details' })}</span>
+                <svg class="h-4 w-4 shrink-0 transition-transform group-open:rotate-180 motion-reduce:transition-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m6 9 6 6 6-6" />
+                </svg>
+            </summary>
+            <div class="space-y-4 pb-2 pt-2">
+                <dl class="grid grid-cols-1 gap-3 text-sm wrap-break-word sm:grid-cols-2">
+                    <div>
+                        <dt class="text-slate-600 dark:text-slate-400">{$_('settings.models.technical_name', { default: 'Catalogue name' })}</dt>
+                        <dd class="font-medium text-slate-800 dark:text-slate-100">{model.name}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-slate-600 dark:text-slate-400">{$_('settings.detection.model_manager_best_fit', { default: 'Best fit' })}</dt>
+                        <dd class="font-medium text-slate-800 dark:text-slate-100">{categoryLabel(category)} · {model.inference_speed}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-slate-600 dark:text-slate-400">{$_('settings.detection.model_manager_architecture', { default: 'Architecture' })}</dt>
+                        <dd class="font-medium text-slate-800 dark:text-slate-100">{model.architecture}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-slate-600 dark:text-slate-400">{$_('settings.detection.model_manager_runtime', { default: 'Runtime' })}</dt>
+                        <dd class="font-medium text-slate-800 dark:text-slate-100">{model.runtime} · {health?.ml ? (health.ml.runtimes[model.runtime === 'tflite' ? 'tflite' : 'onnx']?.installed ? $_('settings.models.runtime_installed', { default: 'installed' }) : $_('settings.models.runtime_missing', { default: 'not installed' })) : '—'}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-slate-600 dark:text-slate-400">{$_('settings.detection.model_manager_accuracy', { default: 'Accuracy' })}</dt>
+                        <dd class="font-medium text-slate-800 dark:text-slate-100">{model.accuracy_tier}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-slate-600 dark:text-slate-400">{$_('settings.models.maturity', { default: 'Maturity' })}</dt>
+                        <dd class="font-medium text-slate-800 dark:text-slate-100">{model.status === 'experimental' ? $_('settings.models.maturity_experimental', { default: 'Experimental' }) : $_('settings.models.maturity_stable', { default: 'Stable' })}</dd>
+                    </div>
+                </dl>
+                {#if model.notes}
+                    <p class="text-sm leading-relaxed text-slate-600 dark:text-slate-400">{model.notes}</p>
+                {/if}
+                <p class="text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+                    {$_('settings.detection.model_manager_crop_policy_automatic_desc', { default: 'YA-WAMF uses the crop policy tested for this model. There is nothing to tune when you switch models.' })}
+                </p>
+                <div>
+                    <p class="text-sm font-medium text-slate-700 dark:text-slate-200">
+                        {active
+                            ? $_('settings.detection.model_manager_runtime_order', { default: 'Automatic order' })
+                            : $_('settings.detection.model_manager_provider_pills', { default: 'Supported providers' })}
+                    </p>
+                    <div class="mt-2 flex flex-wrap gap-2">
+                        {#if dynamicProviderChips.length > 0}
+                            {#each dynamicProviderChips as chip (chip.label)}
+                                <span class="max-w-full rounded-full border px-2.5 py-1 text-xs font-semibold wrap-break-word {chip.className}" title={chip.title}>{chip.label}</span>
+                            {/each}
+                        {:else}
+                            {#each getProviderSupport(model) as provider (provider)}
+                                <span class="max-w-full rounded-full border px-2.5 py-1 text-xs font-semibold wrap-break-word {FACT_CHIP}">{providerLabel(provider)}</span>
+                            {/each}
+                        {/if}
+                    </div>
+                    {#if runtimeProviderOrder.length > 1}
+                        <p class="mt-2 text-xs text-slate-600 dark:text-slate-400">{runtimeProviderOrder.map(providerLabel).join(' → ')}</p>
+                    {/if}
+                </div>
+            </div>
+        </details>
+    </div>
+{/snippet}
+
 <!-- At the narrowest widths with enlarged text a long word may break, rather than push the page sideways. -->
 <div class="space-y-6 wrap-anywhere">
     {#if loading}
-        <div class="flex min-h-32 items-center justify-center" role="status">
-            <div class="h-8 w-8 animate-spin rounded-full border-4 border-brand-500 border-t-transparent motion-reduce:animate-none" aria-hidden="true"></div>
+        <!-- Holds the room the current model takes once it arrives, so the page does not jump. -->
+        <div class="min-h-80 space-y-4" role="status" data-model-manager-loading>
             <span class="sr-only">{$_('common.loading', { default: 'Loading…' })}</span>
+            <div class="h-5 w-48 rounded-sm bg-slate-200/70 motion-safe:animate-pulse dark:bg-slate-700/60" aria-hidden="true"></div>
+            <div class="h-32 rounded-xl bg-slate-200/50 motion-safe:animate-pulse dark:bg-slate-700/40" aria-hidden="true"></div>
+            <div class="h-11 w-44 rounded-xl bg-slate-200/50 motion-safe:animate-pulse dark:bg-slate-700/40" aria-hidden="true"></div>
         </div>
     {:else if error}
         <div class="text-sm font-semibold text-red-700 dark:text-red-300" role="alert">
@@ -627,10 +825,9 @@
             .filter((model) => (model.artifact_kind || 'classifier') === 'crop_detector')
             .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))}
         {@const classifierModels = availableModels.filter((model) => (model.artifact_kind || 'classifier') === 'classifier')}
-        {@const visibleModels = getVisibleTieredModelLineup(classifierModels, showAdvancedModels, selectedModelId)}
-        {@const modelGroups = groupTieredModelLineup(classifierModels, showAdvancedModels, selectedModelId)}
-        {@const advancedCount = classifierModels.filter((model) => model.advanced_only).length}
-        {@const maxLineupRam = lineupMaxRam(classifierModels)}
+        {@const modelGroups = groupTieredModelLineup(classifierModels, true, currentModelId)}
+        {@const currentModel = currentModelId ? classifierModels.find((entry) => entry.id === currentModelId) ?? getInstalledModel(currentModelId)?.metadata ?? null : null}
+        {@const recommended = recommendIdentificationModel(classifierModels, { currentId: currentModel && isActive(currentModel.id) ? currentModel.id : null, imageFlavor: classifierStatus?.image_flavor })}
         {@const birdFinderOptions = (['yolox_tiny', 'rfdetr_nano'] as const)
             .map((choice) => ({ choice, model: cropDetectorModels.find((model) => model.id === BIRD_FINDER_MODEL_IDS[choice]) }))
             .filter((option): option is { choice: BirdFinder; model: ModelMetadata } => Boolean(option.model))}
@@ -638,407 +835,117 @@
         {@const chosenFinderDownload = chosenFinder ? downloadStatuses[chosenFinder.model.id] : undefined}
 
         <div class="space-y-6">
-            <div>
-                        <div class="flex flex-wrap items-start justify-between gap-3">
-                            <div class="min-w-0 flex-1 basis-64">
-                                <h3 id="classifier-model-lineup-label" class="text-base font-bold text-slate-900 dark:text-white">
-                                    {$_('settings.detection.identification_title', { default: 'Identification model' })}
-                                </h3>
-                                <p class="mt-1 max-w-3xl text-sm leading-relaxed text-slate-600 dark:text-slate-300">
-                                    {$_('settings.detection.identification_desc', { default: 'Names the species in each bird image. Larger models need more memory for every worker copy and take longer per image. Coverage differs: some know birds only, others birds and other wildlife.' })}
-                                </p>
-                            </div>
-                            <button
-                                type="button"
-                                onclick={refreshModels}
-                                class="btn btn-ghost inline-flex min-h-11 items-center gap-1.5 px-3 text-xs font-bold"
-                                aria-label={$_('settings.detection.model_manager_refresh', { default: 'Refresh' })}
-                                title={$_('settings.detection.model_manager_refresh', { default: 'Refresh' })}
-                            >
-                                <svg class="h-4 w-4 {loading ? 'animate-spin' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 0 0 4.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 0 1-15.357-2m15.357 2H15" />
-                                </svg>
-                                {$_('settings.detection.model_manager_refresh', { default: 'Refresh' })}
-                            </button>
+            <section aria-labelledby="classifier-model-lineup-label" class="space-y-4" data-identification-model>
+                <div class="flex flex-wrap items-start justify-between gap-3">
+                    <div class="min-w-0 flex-1 basis-64">
+                        <h3 id="classifier-model-lineup-label" class="text-base font-semibold text-slate-900 dark:text-white">
+                            {$_('settings.detection.identification_title', { default: 'Identification model' })}
+                        </h3>
+                        <p class="mt-1 max-w-prose text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+                            {$_('settings.models.identification_desc', { default: 'Names the species in each bird picture. Larger models know more species and need more memory.' })}
+                        </p>
+                    </div>
+                    <button
+                        type="button"
+                        onclick={refreshModels}
+                        class="btn btn-secondary inline-flex min-h-11 items-center gap-1.5 px-3"
+                    >
+                        <svg class="h-4 w-4 {loading ? 'animate-spin motion-reduce:animate-none' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 0 0 4.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 0 1-15.357-2m15.357 2H15" />
+                        </svg>
+                        {$_('settings.detection.model_manager_refresh', { default: 'Refresh' })}
+                    </button>
+                </div>
+
+                {#if currentModel}
+                    {@const currentActive = isActive(currentModel.id)}
+                    <div class="rounded-xl border border-line-soft p-4 sm:p-5" data-current-model>
+                        <p class="mb-2 text-xs font-medium text-slate-600 dark:text-slate-400">
+                            {currentActive
+                                ? $_('settings.models.current_label', { default: 'In use now' })
+                                : $_('settings.models.chosen_label', { default: 'Chosen, not on this install' })}
+                        </p>
+                        {@render modelHeading(currentModel, currentActive ? { label: $_('settings.detection.model_manager_in_use', { default: 'In use' }), className: modelCardStateClass('active') } : null, 'current-model-name')}
+                        <div class="mt-3 space-y-4">
+                            {@render modelDetail(currentModel)}
+                            {@render modelActions(currentModel)}
                         </div>
-                        <button
-                            type="button"
-                            class="btn btn-secondary mt-3 min-h-11 px-4"
-                            aria-expanded={catalogueOpen}
-                            aria-controls="classifier-model-catalogue"
-                            onclick={() => (catalogueRequested = !catalogueOpen)}
-                            data-model-catalogue-toggle
-                        >
+                    </div>
+                {/if}
+
+                {#if recommended}
+                    {@const recommendedInstalled = Boolean(getInstalledModel(recommended.id))}
+                    <div class="rounded-xl border border-line-soft p-4 sm:p-5" data-model-recommendation={recommended.id}>
+                        <p class="mb-2 text-xs font-medium text-slate-600 dark:text-slate-400">
+                            {$_('settings.models.recommended_label', { default: 'Recommended next' })}
+                        </p>
+                        {@render modelHeading(recommended, null, null)}
+                        <p class="mt-2 max-w-prose text-sm leading-relaxed text-slate-700 dark:text-slate-200">{recommendationReason(recommended)}</p>
+                        <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">{modelFactsLine(recommended, { installed: recommendedInstalled, bundled: getInstalledModel(recommended.id)?.bundled === true }, t)}</p>
+                        <div class="mt-3">
+                            {@render modelActions(recommended)}
+                        </div>
+                    </div>
+                {/if}
+
+                <div>
+                    <button
+                        type="button"
+                        class="focus-ring inline-flex min-h-11 max-w-full items-center gap-1.5 rounded-md text-left text-sm font-medium text-brand-700 hover:text-brand-800 dark:text-brand-300 dark:hover:text-brand-200"
+                        aria-expanded={catalogueOpen}
+                        aria-controls="classifier-model-catalogue"
+                        onclick={() => (catalogueOpen = !catalogueOpen)}
+                        data-model-catalogue-toggle
+                    >
+                        <span class="min-w-0 wrap-break-word">
                             {catalogueOpen
-                                ? $_('settings.detection.model_manager_hide_catalogue', { default: 'Hide the other models' })
-                                : $_('settings.detection.model_manager_show_catalogue', { default: 'Choose another model' })}
-                        </button>
-                        {#if catalogueOpen}
-                        <div id="classifier-model-catalogue">
-                        <div class="mt-3 space-y-4" role="group" aria-labelledby="classifier-model-lineup-label">
+                                ? $_('settings.models.catalogue_hide', { default: 'Hide the other models' })
+                                : $_('settings.models.catalogue_show', { values: { count: classifierModels.length }, default: 'Choose another model ({count} in the catalogue)' })}
+                        </span>
+                        <svg class="h-4 w-4 shrink-0 transition-transform duration-200 motion-reduce:transition-none {catalogueOpen ? 'rotate-180' : ''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
+                    </button>
+                    {#if catalogueOpen}
+                        <div id="classifier-model-catalogue" class="mt-3 space-y-5" role="group" aria-labelledby="classifier-model-lineup-label">
                             {#each modelGroups as group (group.category)}
                                 <div>
-                                    <p class="mb-2 text-sm font-semibold text-slate-700 dark:text-slate-200">{group.info.label}</p>
-                                    <ul class="divide-y divide-line-soft">
+                                    <h4 class="mb-1 text-sm font-medium text-slate-700 dark:text-slate-200">{categoryLabel(group.category)}</h4>
+                                    <ul class="divide-y divide-line-soft border-y border-line-soft">
                                         {#each group.models as modelOption (modelOption.id)}
                                             {@const cardState = modelCardState(modelOption.id)}
-                                            {@const cardSelected = selectedModelId === modelOption.id}
+                                            {@const expanded = selectedModelId === modelOption.id}
                                             <li>
-                                            <button
-                                                type="button"
-                                                aria-pressed={cardSelected}
-                                                onclick={() => (selectedModelId = modelOption.id)}
-                                                class="model-card flex min-h-11 w-full cursor-pointer flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 text-left transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus {cardSelected ? 'choice-active' : 'hover:bg-surface-raised'}"
-                                            >
-                                                <span class="flex min-w-0 flex-1 basis-48 flex-wrap items-center gap-2">
-                                                    {#if cardSelected}
-                                                        <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 4 4 10-10" /></svg>
-                                                    {/if}
-                                                    <span class="min-w-0 wrap-break-word text-sm font-semibold leading-snug text-slate-900 dark:text-white">{modelOption.name}</span>
-                                                    <!-- Only the exceptions carry a badge; a model with neither is one to download. -->
-                                                    {#if cardState !== 'available'}
-                                                        <span class="shrink-0 rounded-full border px-2 py-0.5 text-xs font-semibold {modelCardStateClass(cardState)}">{modelCardStateLabel(cardState)}</span>
-                                                    {/if}
-                                                </span>
-                                                <span class="flex flex-wrap gap-x-3 gap-y-1">
-                                                    <span class="text-xs font-semibold text-slate-600 dark:text-slate-300">{scopeLabel(modelOption.taxonomy_scope)}</span>
-                                                    <span class="text-xs text-slate-600 dark:text-slate-300">
-                                                        {cardState === 'available'
-                                                            ? t('settings.detection.model_manager_card_download', '{size} MB download', { size: modelOption.file_size_mb })
-                                                            : t('settings.detection.model_manager_card_on_disk', 'On this host')}{#if modelOption.estimated_ram_mb != null}{' · '}{t('settings.detection.bird_finder_ram', '{ram} RAM', { ram: ramShortLabel(modelOption.estimated_ram_mb) })}{/if}
+                                                <button
+                                                    type="button"
+                                                    aria-expanded={expanded}
+                                                    aria-controls="model-option-{modelOption.id.replace(/[^a-z0-9_-]/gi, '-')}"
+                                                    onclick={() => (selectedModelId = expanded ? null : modelOption.id)}
+                                                    class="model-card flex min-h-11 w-full cursor-pointer flex-wrap items-center justify-between gap-x-4 gap-y-1 px-2 py-3 text-left transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus {expanded ? 'choice-active' : 'hover:bg-surface-raised'}"
+                                                >
+                                                    <span class="min-w-0 flex-1 basis-48">
+                                                        {@render modelHeading(modelOption, cardState !== 'available' ? { label: modelCardStateLabel(cardState), className: modelCardStateClass(cardState) } : null, null)}
                                                     </span>
-                                                </span>
-                                            </button>
+                                                    <span class="text-xs text-slate-600 dark:text-slate-300">
+                                                        {modelFactsLine(modelOption, { installed: cardState !== 'available', bundled: getInstalledModel(modelOption.id)?.bundled === true }, t)}
+                                                    </span>
+                                                </button>
+                                                {#if expanded}
+                                                    <div id="model-option-{modelOption.id.replace(/[^a-z0-9_-]/gi, '-')}" class="space-y-4 px-2 pb-4 pt-1">
+                                                        {@render modelDetail(modelOption)}
+                                                        {@render modelActions(modelOption)}
+                                                    </div>
+                                                {/if}
                                             </li>
                                         {/each}
                                     </ul>
                                 </div>
                             {/each}
                         </div>
+                    {/if}
+                </div>
+            </section>
 
-                {#if advancedCount > 0}
-                    <button
-                        type="button"
-                        onclick={() => {
-                            showAdvancedModels = !showAdvancedModels;
-                            if (!showAdvancedModels) {
-                                const collapsedModels = getVisibleTieredModelLineup(classifierModels, false, selectedModelId);
-                                if (!collapsedModels.some((model) => model.id === selectedModelId)) {
-                                    selectedModelId = collapsedModels[0]?.id || null;
-                                }
-                            }
-                        }}
-                        class="mt-4 flex min-h-11 w-full cursor-pointer items-center justify-center text-sm font-semibold text-slate-600 transition-colors hover:text-brand-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus dark:text-slate-300 dark:hover:text-brand-300"
-                    >
-                        {showAdvancedModels
-                            ? $_('settings.detection.model_manager_hide_advanced', { default: 'Show fewer models' })
-                            : $_('settings.detection.model_manager_show_advanced', { values: { count: advancedCount }, default: 'Show all models ({count} more)' })}
-                    </button>
-                {/if}
-                        </div>
-                        {/if}
-            </div>
-
-            {#if selectedModelId}
-                {@const model = visibleModels.find((entry) => entry.id === selectedModelId) || visibleModels[0]}
-                {#if model}
-                    {@const installedEntry = getInstalledModel(model.id)}
-                    {@const installed = Boolean(installedEntry)}
-                    {@const ready = isReady(model.id)}
-                    {@const active = isActive(model.id)}
-                    {@const validated = isValidated(model.id)}
-                    {@const download = downloadStatuses[model.id]}
-                    {@const inProgress = download?.status === 'downloading' || download?.status === 'pending'}
-                    {@const category = categorizeModel(model)}
-                    {@const runtimeProviderOrder = active ? getRuntimeProviderOrder(classifierStatus, getProviderSupport(model)) : []}
-                    {@const dynamicProviderChips = getDynamicProviderChips(model, active)}
-
-                    <section aria-labelledby="selected-model-name" class="border-t border-slate-200 pt-6 dark:border-slate-700">
-                        <div>
-                            <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                                <div class="min-w-0 max-w-3xl">
-                                    <div class="flex flex-wrap items-center gap-2">
-                                        <h3 id="selected-model-name" class="text-xl font-bold text-slate-900 dark:text-white">
-                                            {model.name}
-                                        </h3>
-                                        {#if active}
-                                            <span class="rounded-full bg-brand-100 px-2.5 py-1 text-xs font-semibold text-brand-800 dark:bg-brand-950/60 dark:text-brand-200">
-                                                {$_('settings.detection.model_manager_in_use', { default: 'In use' })}
-                                            </span>
-                                        {/if}
-                                    </div>
-                                    <p class="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">{model.description}</p>
-                                </div>
-                                <div class="flex flex-wrap gap-2">
-                                    <span class="max-w-full rounded-full border px-2.5 py-1 text-xs font-semibold wrap-break-word {FACT_CHIP}">
-                                        {statusLabel(model.status)}
-                                    </span>
-                                </div>
-                            </div>
-
-                            {#if active && classifierStatus?.active_provider}
-                                <p class="mt-3 text-sm text-slate-800 dark:text-slate-100" aria-live="polite">
-                                    <span class="mr-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
-                                        {runtimePlanned
-                                            ? $_('settings.detection.model_manager_planned_runtime', { default: 'Planned runtime' })
-                                            : $_('settings.detection.model_manager_current_runtime', { default: 'Current runtime' })}
-                                    </span>
-                                    <span class="inline-flex max-w-full flex-wrap items-center gap-2 font-semibold">
-                                        <span class="h-2 w-2 rounded-full {runtimePlanned ? 'bg-slate-400' : 'bg-brand-500'}" aria-hidden="true"></span>
-                                        {providerLabel(classifierStatus.active_provider)}
-                                    </span>
-                                    {#if runtimePlanned}
-                                        <span class="ml-1 text-xs font-medium text-slate-600 dark:text-slate-400">{$_('settings.detection.band_runtime_planned', { default: 'loads on first detection' })}</span>
-                                    {/if}
-                                    {#if runtimeProviderOrder.length > 1}
-                                        <span class="mt-1 block text-xs font-medium text-slate-600 dark:text-slate-400">
-                                            {$_('settings.detection.model_manager_runtime_order', { default: 'Automatic order' })}:
-                                            {runtimeProviderOrder.map(providerLabel).join(' → ')}
-                                        </span>
-                                    {/if}
-                                </p>
-                            {/if}
-
-                            {#if model.estimated_ram_mb != null}
-                                {@const prediction = predictedCopies()}
-                                {@const predictedTotalMb = model.estimated_ram_mb * prediction.copies}
-                                <div class="mt-6">
-                                    <div class="flex items-baseline justify-between gap-4">
-                                        <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.detection.model_manager_memory_title', { default: 'Predicted RAM use' })}</span>
-                                        <span class="text-sm font-bold text-slate-800 dark:text-slate-100">
-                                            {$_('settings.detection.model_manager_memory_predicted', { values: { total: ramShortLabel(predictedTotalMb).replace(/^~/, '') }, default: '≈ {total}' })}
-                                        </span>
-                                    </div>
-                                    <div class="model-ram-meter mt-2 h-2.5 overflow-hidden rounded-full bg-slate-200/80 dark:bg-slate-700/60">
-                                        <div class="h-full rounded-full bg-brand-500" style="width: {ramPercent(predictedTotalMb, maxLineupRam * Math.max(1, prediction.copies))}%"></div>
-                                    </div>
-                                    <p class="mt-1.5 text-xs font-medium text-slate-600 dark:text-slate-400">
-                                        {#if executionMode === 'in_process'}
-                                            {$_('settings.detection.model_manager_memory_formula_in_process', {
-                                                values: { per: ramShortLabel(model.estimated_ram_mb) },
-                                                default: '{per} for one copy shared inside the app (in-process mode)'
-                                            })}
-                                        {:else if prediction.video > 0}
-                                            {$_('settings.detection.model_manager_memory_formula_subprocess_video', {
-                                                values: {
-                                                    per: ramShortLabel(model.estimated_ram_mb),
-                                                    live: prediction.live,
-                                                    background: prediction.background,
-                                                    video: prediction.video
-                                                },
-                                                default: '{per} per copy × {live} live + {background} background + {video} video workers (isolated mode)'
-                                            })}
-                                        {:else}
-                                            {$_('settings.detection.model_manager_memory_formula_subprocess', {
-                                                values: {
-                                                    per: ramShortLabel(model.estimated_ram_mb),
-                                                    live: prediction.live,
-                                                    background: prediction.background
-                                                },
-                                                default: '{per} per copy × {live} live + {background} background workers (isolated mode)'
-                                            })}
-                                        {/if}
-                                        · {$_('settings.detection.model_manager_card_download', { values: { size: model.file_size_mb }, default: '{size} MB download' })}
-                                    </p>
-                                </div>
-                            {:else}
-                                <p class="mt-4 text-sm font-medium text-slate-600 dark:text-slate-400">
-                                    {$_('settings.detection.model_manager_card_download', { values: { size: model.file_size_mb }, default: '{size} MB download' })}
-                                </p>
-                            {/if}
-
-                            {#if model.recommended_threshold != null}
-                                <div class="mt-4 text-sm text-slate-600 dark:text-slate-300">
-                                    {$_('settings.detection.model_manager_threshold_hint', { default: 'Recommended confidence threshold for this model:' })}
-                                    <strong class="text-slate-900 dark:text-white">{Math.round(model.recommended_threshold * 100)}%</strong>
-                                </div>
-                            {/if}
-
-                            {#if usesSavedFeederLocation(model)}
-                                <div class="mt-4 text-sm text-slate-600 dark:text-slate-300">
-                                    <p class="font-semibold text-slate-900 dark:text-white">
-                                        {$_('settings.detection.model_manager_location_title', { default: 'Uses your feeder location' })}
-                                    </p>
-                                    <p class="mt-1 max-w-3xl leading-relaxed">
-                                        {$_('settings.detection.model_manager_location_desc', { default: 'This model also uses the feeder coordinates saved in Settings → Integrations → Location. If no valid coordinates are saved, it identifies birds without location. It does not use the date or a location accuracy radius.' })}
-                                    </p>
-                                    <a
-                                        href={toAppPath('/settings/integrations')}
-                                        onclick={handleLocationSettingsClick}
-                                        class="inline-flex min-h-11 items-center rounded-sm font-semibold text-brand-700 underline underline-offset-2 hover:text-brand-800 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus dark:text-brand-300 dark:hover:text-brand-200"
-                                    >
-                                        {$_('settings.detection.model_manager_location_link', { default: 'Open Location settings' })}
-                                    </a>
-                                </div>
-                            {/if}
-
-                            {#if installed && !ready}
-                                <div class="mt-4 text-sm font-semibold text-attention-800 dark:text-attention-200" role="alert">
-                                    {$_('settings.detection.model_manager_repair_needed', { default: 'This model install is incomplete. Re-download it to restore the missing species names or model configuration before activation.' })}
-                                </div>
-                            {:else if installed && !active && !validated}
-                                <div class="mt-4 text-sm text-brand-900 dark:text-brand-100">
-                                    {$_('settings.detection.model_manager_validation_needed', { default: 'Downloaded but not yet validated on your hardware. Validate it to confirm it runs here before you select it.' })}
-                                </div>
-                            {/if}
-                        </div>
-
-                        <details class="group mt-5 border-t border-slate-200 dark:border-slate-700">
-                            <summary class="flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 py-3 text-sm font-semibold text-slate-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus dark:text-slate-200">
-                                <span>{$_('settings.detection.model_manager_technical_details', { default: 'Technical details' })}</span>
-                                <svg class="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m6 9 6 6 6-6" />
-                                </svg>
-                            </summary>
-                            <div class="space-y-6 py-4">
-                                <div>
-                                    <h4 class="text-sm font-bold text-slate-900 dark:text-white">
-                                        {$_('settings.detection.model_manager_crop_policy_automatic', { default: 'Image preparation is automatic' })}
-                                    </h4>
-                                    <p class="mt-1 max-w-3xl text-sm leading-relaxed text-slate-600 dark:text-slate-300">
-                                        {$_('settings.detection.model_manager_crop_policy_automatic_desc', { default: 'YA-WAMF uses the crop policy tested for this model. There is nothing to tune when you switch models.' })}
-                                    </p>
-                                </div>
-
-                                <dl class="grid grid-cols-1 gap-4 text-sm wrap-break-word sm:grid-cols-2">
-                                    <div>
-                                        <dt class="font-semibold text-slate-600 dark:text-slate-400">{$_('settings.detection.model_manager_recommended_for', { default: 'Recommended for' })}</dt>
-                                        <dd class="mt-1 font-medium text-slate-800 dark:text-slate-100">{model.recommended_for}</dd>
-                                    </div>
-                                    <div>
-                                        <dt class="font-semibold text-slate-600 dark:text-slate-400">{$_('settings.detection.model_manager_best_fit', { default: 'Best fit' })}</dt>
-                                        <dd class="mt-1 font-medium text-slate-800 dark:text-slate-100">{MODEL_CATEGORY_INFO[category].label} · {scopeLabel(model.taxonomy_scope)} · {model.inference_speed}</dd>
-                                    </div>
-                                </dl>
-
-                                {#if model.notes}
-                                    <p class="text-sm leading-relaxed text-slate-600 dark:text-slate-400">{model.notes}</p>
-                                {/if}
-
-                                <dl class="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
-                                    <div>
-                                        <dt class="font-semibold text-slate-600 dark:text-slate-400">{$_('settings.detection.model_manager_architecture', { default: 'Architecture' })}</dt>
-                                        <dd class="mt-1 font-medium text-slate-800 dark:text-slate-100">{model.architecture}</dd>
-                                    </div>
-                                    <div>
-                                        <dt class="font-semibold text-slate-600 dark:text-slate-400">{$_('settings.detection.model_manager_runtime', { default: 'Runtime' })}</dt>
-                                        <dd class="mt-1 font-medium text-slate-800 dark:text-slate-100">{model.runtime}</dd>
-                                    </div>
-                                    <div>
-                                        <dt class="font-semibold text-slate-600 dark:text-slate-400">{$_('settings.detection.model_manager_accuracy', { default: 'Accuracy' })}</dt>
-                                        <dd class="mt-1 font-medium text-slate-800 dark:text-slate-100">{model.accuracy_tier}</dd>
-                                    </div>
-                                    <div>
-                                        <dt class="font-semibold text-slate-600 dark:text-slate-400">{$_('settings.detection.model_manager_runtime_health', { default: 'Runtime health' })}</dt>
-                                        <dd class="mt-1 font-medium text-slate-800 dark:text-slate-100">
-                                            {health?.ml
-                                                ? (health.ml.runtimes.tflite.installed ? 'TFLite ✓' : 'TFLite —') + ' · ' + (health.ml.runtimes.onnx.installed ? 'ONNX ✓' : 'ONNX —')
-                                                : '—'}
-                                        </dd>
-                                    </div>
-                                </dl>
-
-                                <div>
-                                    <h4 class="text-sm font-bold text-slate-900 dark:text-white">
-                                        {active
-                                            ? $_('settings.detection.model_manager_runtime_order', { default: 'Automatic order' })
-                                            : $_('settings.detection.model_manager_provider_pills', { default: 'Supported providers' })}
-                                    </h4>
-                                    <div class="mt-2 flex flex-wrap gap-2">
-                                        {#if dynamicProviderChips.length > 0}
-                                            {#each dynamicProviderChips as chip}
-                                                <span class="max-w-full rounded-full border px-2.5 py-1 text-xs font-semibold wrap-break-word {chip.className}" title={chip.title}>{chip.label}</span>
-                                            {/each}
-                                        {:else}
-                                            {#each getProviderSupport(model) as provider}
-                                                <span class="max-w-full rounded-full border px-2.5 py-1 text-xs font-semibold wrap-break-word {FACT_CHIP}">{providerLabel(provider)}</span>
-                                            {/each}
-                                        {/if}
-                                    </div>
-                                </div>
-
-                            </div>
-                        </details>
-
-                        <div class="flex flex-col gap-4 border-t border-slate-200 pt-4 dark:border-slate-700">
-                            {#if inProgress}
-                                <div class="w-full" role="status">
-                                    <div class="mb-2 flex justify-between text-sm">
-                                        <span class="font-semibold text-brand-700 dark:text-brand-300">
-                                            {installed
-                                                ? $_('settings.detection.model_manager_redownloading', { default: 'Re-downloading…' })
-                                                : $_('settings.detection.model_manager_downloading', { default: 'Downloading…' })}
-                                        </span>
-                                        <span class="font-medium text-slate-600 dark:text-slate-300">{download.progress.toFixed(0)}%</span>
-                                    </div>
-                                    <div class="h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
-                                        <div class="h-full bg-brand-500 transition-all duration-300" style="width: {download.progress}%"></div>
-                                    </div>
-                                </div>
-                            {:else}
-                                {#if download?.status === 'error' && download.error}
-                                    <div class="text-sm font-semibold text-red-700 dark:text-red-300" role="alert">
-                                        {download.error}
-                                    </div>
-                                {/if}
-                                <div class="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-                                    {#if installed}
-                                        <button type="button" onclick={() => handleDownload(model)} class="btn btn-secondary min-h-11 px-4">
-                                            {ready
-                                                ? $_('settings.detection.model_manager_redownload', { default: 'Re-download' })
-                                                : $_('settings.detection.model_manager_repair_download', { default: 'Repair download' })}
-                                        </button>
-                                        {#if ready && !active && validated}
-                                            <button
-                                                type="button"
-                                                onclick={() => handleActivate(model.id)}
-                                                disabled={activating !== null}
-                                                class="btn btn-primary min-h-11 px-4"
-                                            >
-                                                {activating === model.id
-                                                    ? $_('settings.detection.model_manager_activating', { default: 'Activating…' })
-                                                    : $_('settings.detection.model_manager_activate', { default: 'Use this model' })}
-                                            </button>
-                                        {:else if ready && !active && !validated}
-                                            <button
-                                                type="button"
-                                                onclick={() => handleValidate(model)}
-                                                disabled={wizardBusy}
-                                                class="btn btn-primary min-h-11 px-4"
-                                            >
-                                                {$_('settings.detection.model_manager_validate_to_enable', { default: 'Validate to enable' })}
-                                            </button>
-                                        {:else if active}
-                                            <span class="flex min-h-11 items-center justify-center px-4 text-sm font-semibold text-brand-700 dark:text-brand-300">
-                                                {$_('settings.detection.model_manager_in_use', { default: 'In use' })}
-                                            </span>
-                                        {/if}
-                                        {#if !active}
-                                            <button
-                                                type="button"
-                                                onclick={() => handleDelete(model)}
-                                                disabled={deleting !== null || wizardBusy}
-                                                class="btn btn-ghost min-h-11 px-4 text-rose-700 hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-500/10"
-                                            >
-                                                {deleting === model.id
-                                                    ? $_('settings.detection.model_manager_deleting', { default: 'Deleting…' })
-                                                    : $_('settings.detection.model_manager_delete', { default: 'Delete files' })}
-                                            </button>
-                                        {/if}
-                                    {:else if active}
-                                        <span class="flex min-h-11 items-center justify-center px-4 text-sm font-semibold text-brand-700 dark:text-brand-300" data-model-in-use>
-                                            {$_('settings.detection.model_manager_in_use', { default: 'In use' })}
-                                        </span>
-                                    {:else}
-                                        <button type="button" onclick={() => handleInstall(model)} disabled={wizardBusy} class="btn btn-primary min-h-11 px-4">
-                                            {$_('settings.detection.model_manager_download_setup', { default: 'Download & set up' })}
-                                        </button>
-                                    {/if}
-                                </div>
-                            {/if}
-                        </div>
-                    </section>
-                {/if}
+            {#if deleteNotice}
+                <p class="text-sm text-slate-700 dark:text-slate-200" role="status">{deleteNotice}</p>
             {/if}
 
             {#if birdFinderOptions.length > 0}
@@ -1082,7 +989,7 @@
                                                 : $_('settings.detection.bird_finder_standard_desc', { default: 'Small and quick. Misses many birds that are small in a wide frame.' })}
                                         </span>
                                         <span class="block text-xs text-slate-600 dark:text-slate-400" data-finder-option-meta>
-                                            {t('settings.detection.model_manager_card_download', '{size} MB download', { size: option.model.file_size_mb })}{#if option.model.estimated_ram_mb != null}{' · '}{t('settings.detection.bird_finder_ram', '{ram} RAM', { ram: ramShortLabel(option.model.estimated_ram_mb) })}{/if}{#if !optionInstalled}{' · '}{t('settings.detection.bird_finder_not_downloaded', 'not downloaded yet')}{/if}
+                                            {t('settings.detection.model_manager_card_download', '{size} MB download', { size: Math.round(option.model.file_size_mb) })}{#if option.model.estimated_ram_mb != null}{' · '}{t('settings.detection.bird_finder_ram', '{ram} RAM', { ram: ramShortLabel(option.model.estimated_ram_mb) })}{/if}{#if !optionInstalled}{' · '}{t('settings.detection.bird_finder_not_downloaded', 'not downloaded yet')}{/if}
                                         </span>
                                     </span>
                                 </label>

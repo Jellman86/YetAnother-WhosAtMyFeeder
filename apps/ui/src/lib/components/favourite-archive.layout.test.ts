@@ -35,9 +35,9 @@ describe('a favourite is durable, and says so (#178)', () => {
 
     it('shows archive use apart from cache use, with the floor beside it', () => {
         expect(dataSettingsSource).toContain('data-archive-usage');
-        expect(dataSettingsSource).toContain('cacheStats?.archive_durable');
+        expect(dataSettingsSource).toContain('cacheStats.archive_durable');
         expect(dataSettingsSource).toContain('data-archive-failed');
-        expect(dataSettingsSource).toContain('bind:value={cachePerSpeciesMinimum}');
+        expect(dataSettingsSource).toContain('value={cachePerSpeciesMinimum}');
     });
 
     it('every destructive action names the archive', () => {

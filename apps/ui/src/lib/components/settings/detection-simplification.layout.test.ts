@@ -6,7 +6,7 @@ import diagnosticDialogSource from '../DiagnosticDialog.svelte?raw';
 import advancedSectionSource from './_primitives/AdvancedSection.svelte?raw';
 import detectionSettingsSource from './DetectionSettings.svelte?raw';
 import modelSettingsSource from './ModelSettings.svelte?raw';
-import statusBandSource from './DetectionStatusBand.svelte?raw';
+import statusLineSource from '../IdentificationStatusLine.svelte?raw';
 import modelManagerSource from '../../pages/models/ModelManager.svelte?raw';
 import settingsPageSource from '../../pages/Settings.svelte?raw';
 import { readFileSync } from 'node:fs';
@@ -17,31 +17,26 @@ import { resolve } from 'node:path';
 const appCss = readFileSync(resolve(__dirname, '../../../app.css'), 'utf-8');
 
 describe('Detection and Models settings, status first', () => {
-    it('opens with the status band: model, runtime, workers, health', () => {
-        const band = modelSettingsSource.indexOf('<DetectionStatusBand');
+    it('opens with one sentence of what names birds right now, not a strip of runtime facts', () => {
+        const status = modelSettingsSource.indexOf('<IdentificationStatusLine');
         const firstCard = modelSettingsSource.indexOf('<SettingsCard');
-        expect(band).toBeGreaterThan(-1);
-        expect(firstCard).toBeGreaterThan(band);
-        expect(statusBandSource).toContain('band_model');
-        expect(statusBandSource).toContain('band_runtime');
-        expect(statusBandSource).toContain('band_workers');
-        expect(statusBandSource).toContain('band_health');
-        // Healthy is calm facts; only trouble grows words.
-        expect(statusBandSource).toContain('band_all_good');
-        expect(statusBandSource).toContain('band_needs_attention');
-        expect(statusBandSource).toContain('role="status"');
+        expect(status).toBeGreaterThan(-1);
+        expect(firstCard).toBeGreaterThan(status);
+        expect(statusLineSource).toContain('role="status"');
+        // Its room is held while the status loads, so the page below does not jump.
+        expect(modelSettingsSource).toContain('<div class="min-h-14 space-y-2" data-models-status>');
     });
 
-    it('counts real problems into the health cell and opens the report on trouble', () => {
+    it('counts real problems for the report link and opens the report on trouble', () => {
         expect(modelSettingsSource).toContain('const healthIssueCount = $derived(');
         expect(modelSettingsSource).toContain('classifierStatus?.fallback_reason ? 1 : 0');
         // A failing video check is reported beside its switch in Detection, not counted twice.
         expect(detectionSettingsSource).toContain('autoVideoClassification && videoCircuitOpen');
         // The report and its card open for a runtime problem through the page (runtime-problem.ts),
         // and the health link opens both.
-        expect(modelSettingsSource).toContain('const RUNTIME_REPORT_SECTION_ID = RUNTIME_DISCLOSURES[1];');
-        expect(modelSettingsSource).toMatch(/hardwareCard\.open = true;\s*runtimeReport\.open = true;/);
-        expect(statusBandSource).toContain('scrollIntoView');
+        expect(modelSettingsSource).toContain('const RUNTIME_REPORT_SECTION_ID = RUNTIME_DISCLOSURES[0];');
+        expect(modelSettingsSource).toMatch(/runtimeReport\.open = true;\s*await tick\(\);/);
+        expect(modelSettingsSource).toContain('scrollIntoView');
     });
 
     it('leads with what decides an identification, and keeps the models and their hardware in Models', () => {
@@ -56,11 +51,12 @@ describe('Detection and Models settings, status first', () => {
         expect(detectionSettingsSource.match(/<SettingsCard/g)).toHaveLength(3);
         expect(detectionSettingsSource).toContain('id="detection-frigate-video"');
         expect(detectionSettingsSource.match(/<SettingsCard\s+collapsible/g)).toHaveLength(1);
-        // Models opens on the running model, then the catalogue, then hardware, then testing.
-        const modelsOrder = ['<DetectionStatusBand', 'models_card_title', 'hardware_title', 'testing_title'].map((key) => modelSettingsSource.indexOf(key));
+        // Models opens on what names birds, then the models (with the evaluation row), then hardware.
+        const modelsOrder = ['<IdentificationStatusLine', 'models_card_title', 'setting-model-evaluation', 'hardware_title'].map((key) => modelSettingsSource.indexOf(key));
         for (const at of modelsOrder) expect(at).toBeGreaterThan(-1);
         expect([...modelsOrder].sort((a, b) => a - b)).toEqual(modelsOrder);
-        expect(modelSettingsSource).toContain('const HARDWARE_CARD_ID = RUNTIME_DISCLOSURES[0];');
+        // Hardware is a plain section: its device choice is on the surface, the rest under advanced options.
+        expect(modelSettingsSource).not.toMatch(/<SettingsCard\s+collapsible/);
         expect(modelSettingsSource).not.toContain('tuning_column');
     });
 
@@ -99,26 +95,30 @@ describe('Detection and Models settings, status first', () => {
         expect(settingsPageSource).toContain('bird_crop_accurate_detector: birdFinder,');
     });
 
-    it('picks the model from cards with one honest state chip, not a select', () => {
+    it('shows the model in use and one recommendation, with every other model behind one disclosure', () => {
         expect(modelManagerSource).not.toContain('<select id="classifier-model-select"');
-        expect(modelManagerSource).toContain('aria-pressed={cardSelected}');
+        // One disclosure for the whole catalogue, closed until the owner opens it, even when no
+        // model is in use: the current model and the recommendation already say what to do.
+        expect(modelManagerSource).toContain('let catalogueOpen = $state(false);');
+        expect(modelManagerSource.match(/data-model-catalogue-toggle/g)).toHaveLength(1);
+        expect(modelManagerSource).not.toContain('showAdvancedModels');
+        expect(modelManagerSource).toContain('data-current-model');
+        expect(modelManagerSource).toContain('recommendIdentificationModel(classifierModels');
+        // A catalogue row opens its own details in place, so choosing never jumps the page.
+        expect(modelManagerSource).toContain('aria-expanded={expanded}');
         expect(modelManagerSource).toContain('modelCardState(modelOption.id)');
         for (const state of ['model_manager_state_repair', 'model_manager_state_installed', 'model_manager_state_available']) {
             expect(modelManagerSource).toContain(state);
         }
         // Only the exceptions carry a chip: every card saying "Available" distinguished nothing.
-        expect(modelManagerSource).toContain("{#if cardState !== 'available'}");
-        // Each card states its costs in words: the download (or that it is already here) and its
-        // memory. A bar under the download size read as download progress, so there is none.
-        // The one memory meter left is the labelled total under the chosen model.
-        expect(modelManagerSource.match(/model-ram-meter/g)).toHaveLength(1);
-        expect(modelManagerSource).toContain("t('settings.detection.bird_finder_ram', '{ram} RAM', { ram: ramShortLabel(modelOption.estimated_ram_mb) })");
-        // Coverage is the other everyday question: birds only, or wider wildlife.
-        expect(modelManagerSource).toContain('scopeLabel(modelOption.taxonomy_scope)');
-        // The flat look marks the selected card with its border, a brand tint and
-        // aria-pressed; no decorative animated gradient behind either surface.
+        expect(modelManagerSource).toContain("cardState !== 'available' ? { label: modelCardStateLabel(cardState)");
+        // Costs and coverage are one sentence-case line, in words; there is no memory bar.
+        expect(modelManagerSource).toContain('modelFactsLine(modelOption');
+        expect(modelManagerSource).not.toContain('model-ram-meter');
+        // Names lead with what the model is for; the code name is secondary.
+        expect(modelManagerSource).toContain('identificationModelName(model, t)');
         expect(modelManagerSource).not.toContain('card-aurora');
-        expect(statusBandSource).not.toContain('card-aurora');
+        expect(statusLineSource).not.toContain('card-aurora');
         expect(appCss).not.toContain('.card-aurora');
         expect(appCss).toContain('prefers-reduced-motion');
     });

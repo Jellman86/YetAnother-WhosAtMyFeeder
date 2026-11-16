@@ -1,6 +1,9 @@
 <script lang="ts">
     import { _ } from 'svelte-i18n';
-    import type { BackfillResult, WeatherBackfillResult, TaxonomySyncStatus, AnalysisStatus, TimezoneRepairPreview } from '../../api';
+    import { onMount } from 'svelte';
+    import { fetchMaintenanceLastRuns, type BackfillResult, type WeatherBackfillResult, type TaxonomySyncStatus, type AnalysisStatus, type TimezoneRepairPreview, type MaintenanceLastRun } from '../../api';
+    import { formatDateTime, formatTime } from '../../utils/datetime';
+    import { lastRunSentence, timezoneRepairBlockedReason } from '../../utils/maintenance-runs';
     import SettingsCard from './_primitives/SettingsCard.svelte';
     import SettingsRow from './_primitives/SettingsRow.svelte';
     import SettingsToggle from './_primitives/SettingsToggle.svelte';
@@ -85,16 +88,45 @@
         return Number.isFinite(parsed) ? Math.max(0, Math.floor(parsed)) : 0;
     };
     const fmtCount = (value: unknown): string => safeCount(value).toLocaleString();
-    const formatSafeTime = (value: unknown): string => {
-        if (!value) return '';
-        const date = new Date(String(value));
-        if (Number.isNaN(date.getTime())) return '';
-        return date.toLocaleTimeString();
-    };
+    // Times follow the app's own date and 12/24-hour settings, never the browser's.
+    const formatSafeTime = (value: unknown): string => (value ? formatTime(String(value)) : '');
+    // Stored detection times are UTC without a zone; read them as UTC before showing local time.
     const formatPreviewTimestamp = (value: unknown): string => {
         if (!value) return '';
-        return String(value).replace('T', ' ').replace(/Z$/, ' UTC');
+        const text = String(value);
+        return formatDateTime(/(Z|[+-]\d{2}:?\d{2})$/.test(text) ? text : `${text}Z`);
     };
+
+    // When each job last ran, from the server's durable record; re-read whenever a job finishes.
+    let lastRuns = $state.raw<MaintenanceLastRun[] | null>(null);
+    let lastRunsFailed = $state(false);
+    async function loadLastRuns(): Promise<void> {
+        try {
+            lastRuns = await fetchMaintenanceLastRuns();
+            lastRunsFailed = false;
+        } catch {
+            lastRunsFailed = true;
+        }
+    }
+    onMount(() => {
+        void loadLastRuns();
+    });
+    const anyJobBusy = $derived(
+        syncingTaxonomy || Boolean(taxonomyStatus?.is_running) || previewingTimezoneRepair || applyingTimezoneRepair
+            || backfilling || weatherBackfilling || analyzingUnknowns
+    );
+    let wasBusy = false;
+    $effect(() => {
+        const busy = anyJobBusy;
+        if (wasBusy && !busy) void loadLastRuns();
+        wasBusy = busy;
+    });
+    const translate = (key: string, options?: { default?: string; values?: Record<string, string | number> }): string => $_(key, options);
+    function lastRunLine(kind: MaintenanceLastRun['kind']): string {
+        if (lastRunsFailed) return $_('settings.maintenance.last_run_unread', { default: 'The last run could not be read.' });
+        if (lastRuns === null) return $_('settings.maintenance.last_run_loading', { default: 'Reading the last run…' });
+        return lastRunSentence(lastRuns.find((run) => run.kind === kind), kind, { translate, formatWhen: formatDateTime });
+    }
 
     const formatDateOnly = (date: Date): string => {
         const year = date.getFullYear();
@@ -140,7 +172,16 @@
         if (!parseDateOnly(backfillEndDate)) backfillEndDate = todayDateOnly();
     });
 
-    const timezoneRepairCandidates = $derived(timezoneRepairPreview?.summary.repair_candidate_count ?? 0);
+    const timezoneRepairBlocked = $derived(timezoneRepairBlockedReason(timezoneRepairPreview));
+    function candidateStatusLabel(status: string): string {
+        switch (status) {
+            case 'repair_candidate': return $_('settings.maintenance.candidate_repair', { default: 'Needs repair' });
+            case 'ok': return $_('settings.maintenance.candidate_ok', { default: 'Correct' });
+            case 'missing_frigate_event': return $_('settings.data.timezone_repair_missing', { default: 'Missing in Frigate' });
+            case 'unsupported_delta': return $_('settings.maintenance.candidate_unsupported', { default: 'Offset not safe to repair' });
+            default: return $_('settings.maintenance.candidate_lookup_error', { default: 'Could not be checked' });
+        }
+    }
 
     const buttonNeutralClass = 'btn btn-secondary min-h-11 px-4 py-3';
     const buttonDangerOutlineClass = 'btn btn-danger min-h-11 px-4 py-3';
@@ -155,50 +196,37 @@
 {/snippet}
 
 <div class="space-y-6">
-    <SettingsCard
-        title={$_('settings.data.taxonomy_title')}
-        description={$_('settings.data.taxonomy_desc')}
-    >
-        {#if taxonomyStatus}
-            {#if taxonomyStatus.is_running}
-                <div class="flex items-center justify-between gap-3 text-brand-700 dark:text-brand-300">
-                    <span class="text-sm font-semibold">{taxonomyStatus.message || taxonomyStatus.current_item || $_('settings.data.taxonomy_repairing')}</span>
-                    <span class="text-xs font-bold">{taxonomyStatus.processed} / {taxonomyStatus.total}</span>
-                </div>
-            {:else if taxonomyStatus.current_item || taxonomyStatus.message || taxonomyStatus.error}
-                <div class="border-t border-line-soft pt-4 flex items-center gap-3">
-                    {#if taxonomyStatus.error}
-                        <div class="w-2 h-2 rounded-full bg-red-500"></div>
-                        <p class="text-xs font-bold text-red-700 dark:text-red-300">{taxonomyStatus.error}</p>
-                    {:else}
-                        <div class="w-2 h-2 rounded-full bg-brand-500"></div>
-                        <p class="text-xs font-bold text-slate-600 dark:text-slate-300">{taxonomyStatus.message || taxonomyStatus.current_item}</p>
-                    {/if}
-                </div>
-            {/if}
-        {/if}
-
-        <div>
+    <SettingsCard title={$_('settings.data.taxonomy_title')}>
+        <SettingsRow
+            label={$_('settings.maintenance.taxonomy_row', { default: 'Repair species names' })}
+            description={`${$_('settings.data.taxonomy_desc')} ${lastRunLine('taxonomy')}`}
+            descriptionId="maintenance-taxonomy-desc"
+        >
             <button
                 type="button"
                 onclick={handleStartTaxonomySync}
                 disabled={taxonomyStatus?.is_running || syncingTaxonomy}
-                aria-label={$_('settings.data.taxonomy_run_button')}
+                aria-describedby="maintenance-taxonomy-desc"
                 class={buttonNeutralClass}
             >
                 {#if syncingTaxonomy || taxonomyStatus?.is_running}{@render spinner()}{/if}
                 {$_('settings.data.taxonomy_run_button')}
             </button>
-        </div>
+        </SettingsRow>
+        {#if taxonomyStatus?.is_running}
+            <div class="flex items-center justify-between gap-3 text-brand-700 dark:text-brand-300" role="status">
+                <span class="text-sm font-semibold">{taxonomyStatus.message || taxonomyStatus.current_item || $_('settings.data.taxonomy_repairing')}</span>
+                <span class="text-xs font-bold tabular-nums">{taxonomyStatus.processed} / {taxonomyStatus.total}</span>
+            </div>
+        {:else if taxonomyStatus?.error}
+            <p class="text-sm font-semibold text-red-700 dark:text-red-300" role="alert">{taxonomyStatus.error}</p>
+        {/if}
     </SettingsCard>
 
     <SettingsCard
         title={$_('settings.data.timezone_repair_title', { default: 'Timezone repair' })}
         description={$_('settings.data.timezone_repair_desc', { default: 'Validate older detection timestamps against Frigate and repair only safe whole-hour timezone offsets.' })}
     >
-        <p class="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-            {$_('settings.data.timezone_repair_note', { default: 'This only updates detections when Frigate still has the matching event and the timestamp difference looks like a real timezone offset.' })}
-        </p>
 
         {#if timezoneRepairPreview}
             <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
@@ -234,12 +262,12 @@
                             <div class="px-5 py-4 space-y-1">
                                 <div class="flex items-center justify-between gap-3">
                                     <p class="text-sm font-bold text-slate-900 dark:text-white truncate">{candidate.display_name || candidate.frigate_event}</p>
-                                    <span class="text-xs font-bold {candidate.status === 'repair_candidate' ? 'text-attention-600 dark:text-attention-400' : 'text-slate-600 dark:text-slate-400'}">{candidate.status.replace(/_/g, ' ')}</span>
+                                    <span class="text-xs font-bold {candidate.status === 'repair_candidate' ? 'text-attention-700 dark:text-attention-300' : 'text-slate-600 dark:text-slate-400'}">{candidateStatusLabel(candidate.status)}</span>
                                 </div>
                                 <p class="text-xs text-slate-600 dark:text-slate-400 truncate">{candidate.frigate_event}</p>
                                 <div class="text-xs text-slate-600 dark:text-slate-300">
                                     <span>{formatPreviewTimestamp(candidate.stored_detection_time)}</span>
-                                    {#if candidate.repaired_detection_time}<span> -> {formatPreviewTimestamp(candidate.repaired_detection_time)}</span>{/if}
+                                    {#if candidate.repaired_detection_time}<span> → {formatPreviewTimestamp(candidate.repaired_detection_time)}</span>{/if}
                                     {#if candidate.delta_hours != null}<span class="ml-2">({candidate.delta_hours > 0 ? '+' : ''}{candidate.delta_hours}h)</span>{/if}
                                 </div>
                             </div>
@@ -249,30 +277,38 @@
             {/if}
         {/if}
 
+        <p class="text-sm text-slate-600 dark:text-slate-300" data-maintenance-last-run="timezone_scan">{lastRunLine('timezone_scan')}</p>
+        <p class="text-sm text-slate-600 dark:text-slate-300" data-maintenance-last-run="timezone_repair">{lastRunLine('timezone_repair')}</p>
         <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
             <button
                 type="button"
                 onclick={handlePreviewTimezoneRepair}
                 disabled={previewingTimezoneRepair || applyingTimezoneRepair}
-                aria-label={$_('settings.data.timezone_repair_preview_button', { default: 'Scan for timezone issues' })}
                 class={buttonNeutralClass}
             >
                 {previewingTimezoneRepair
-                    ? $_('settings.data.timezone_repair_preview_loading', { default: 'Scanning...' })
+                    ? $_('settings.data.timezone_repair_preview_loading', { default: 'Scanning…' })
                     : $_('settings.data.timezone_repair_preview_button', { default: 'Scan for timezone issues' })}
             </button>
             <button
                 type="button"
                 onclick={handleApplyTimezoneRepair}
-                disabled={previewingTimezoneRepair || applyingTimezoneRepair || timezoneRepairCandidates === 0}
-                aria-label={$_('settings.data.timezone_repair_apply_button', { default: 'Apply timezone repair' })}
+                disabled={previewingTimezoneRepair || applyingTimezoneRepair || timezoneRepairBlocked !== null}
+                aria-describedby={timezoneRepairBlocked ? 'timezone-repair-blocked' : undefined}
                 class={buttonNeutralClass}
             >
                 {applyingTimezoneRepair
-                    ? $_('settings.data.timezone_repair_apply_loading', { default: 'Repairing...' })
+                    ? $_('settings.data.timezone_repair_apply_loading', { default: 'Repairing…' })
                     : $_('settings.data.timezone_repair_apply_button', { default: 'Apply timezone repair' })}
             </button>
         </div>
+        {#if timezoneRepairBlocked}
+            <p id="timezone-repair-blocked" class="text-sm text-slate-600 dark:text-slate-300" data-timezone-repair-blocked={timezoneRepairBlocked}>
+                {timezoneRepairBlocked === 'scan_first'
+                    ? $_('settings.maintenance.timezone_scan_first', { default: 'Scan first. The repair is offered once a scan finds detections that need it.' })
+                    : $_('settings.maintenance.timezone_nothing_to_repair', { default: 'The scan found nothing to repair.' })}
+            </p>
+        {/if}
     </SettingsCard>
 
     <SettingsCard
@@ -384,6 +420,7 @@
             {/if}
         {/if}
 
+        <p class="text-sm text-slate-600 dark:text-slate-300" data-maintenance-last-run="detections">{lastRunLine('detections')}</p>
         <div>
             <button
                 type="button"
@@ -421,6 +458,7 @@
                     </div>
                 {/if}
             {/if}
+            <p class="text-sm text-slate-600 dark:text-slate-300" data-maintenance-last-run="weather">{lastRunLine('weather')}</p>
             <button
                 type="button"
                 onclick={handleWeatherBackfill}
@@ -434,26 +472,23 @@
         </AdvancedSection>
     </SettingsCard>
 
-    <SettingsCard
-        title={$_('settings.data.batch_analysis_title')}
-        description={$_('settings.data.batch_analysis_desc')}
-    >
-        <p class="text-sm text-slate-600 dark:text-slate-400 font-medium">
-            {$_('settings.data.batch_analysis_long_desc')}
-        </p>
-
-        <div>
+    <SettingsCard title={$_('settings.data.batch_analysis_title')}>
+        <SettingsRow
+            label={$_('settings.maintenance.analyse_row', { default: 'Analyse Unknown bird visits again' })}
+            description={`${$_('settings.data.batch_analysis_long_desc')} ${lastRunLine('analyze_unknowns')}`}
+            descriptionId="maintenance-analyse-desc"
+        >
             <button
                 type="button"
                 onclick={handleAnalyzeUnknowns}
                 disabled={analyzingUnknowns}
-                aria-label={$_('settings.data.batch_analysis_button')}
+                aria-describedby="maintenance-analyse-desc"
                 class={buttonNeutralClass}
             >
                 {#if analyzingUnknowns}{@render spinner()}{/if}
                 {analyzingUnknowns ? $_('settings.data.batch_analysis_queueing') : $_('settings.data.batch_analysis_button')}
             </button>
-        </div>
+        </SettingsRow>
 
         <SettingsRow
             labelId="setting-auto-analyze"
@@ -504,7 +539,6 @@
     </SettingsCard>
 
     <SettingsCard
-        collapsible
         id="maintenance-concurrency"
         title={$_('settings.data.maintenance_jobs_title', { default: 'Jobs at once' })}
         description={$_('settings.data.maintenance_jobs_desc', { default: 'The jobs above run one at a time, so they never compete with bird identification.' })}
@@ -529,11 +563,9 @@
     </SettingsCard>
 
     <SettingsCard
-        collapsible
         id="data-danger"
         title={$_('settings.danger.title')}
         description={$_('settings.danger.subtitle')}
-        openByDefault={resettingDatabase || clearingFavorites || clearingFeedback}
     >
         <!-- One block per action, narrowest reach first, each consequence beside its own button. -->
         <ul class="@container divide-y divide-red-500/15" data-danger-actions>

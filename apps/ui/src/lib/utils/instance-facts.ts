@@ -21,6 +21,11 @@ export interface RuntimeDescription {
     device: string | null;
 }
 
+/** The device a provider runs on, as a product name; null for one it does not recognise. */
+export function deviceName(provider: string | null | undefined): string | null {
+    return DEVICES[provider?.trim().toLowerCase() ?? ''] ?? null;
+}
+
 /** The inference runtime and the device it runs on, as product names rather than config tokens. */
 export function describeRuntime(
     classifier: { inference_backend?: string | null; active_provider?: string | null } | null | undefined
@@ -28,7 +33,7 @@ export function describeRuntime(
     const backend = classifier?.inference_backend?.trim();
     if (!backend) return null;
     const provider = classifier?.active_provider?.trim().toLowerCase() ?? '';
-    return { runtime: RUNTIMES[backend.toLowerCase()] ?? backend, device: DEVICES[provider] ?? null };
+    return { runtime: RUNTIMES[backend.toLowerCase()] ?? backend, device: deviceName(provider) };
 }
 
 type StartSource = { startup_started_at?: string | null } | null | undefined;

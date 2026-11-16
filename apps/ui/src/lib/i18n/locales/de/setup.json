@@ -57,8 +57,8 @@
     "watching_some": "{count, plural, one {# Kamera wird beobachtet.} other {# Kameras werden beobachtet.}} Andere Kameras werden ignoriert."
   },
   "model": {
-    "title": "Klassifizierungsmodell & Hardware",
-    "description": "YA-WAMF bringt ein kleines Modell mit, das auf jeder CPU läuft. Wähle dieses oder ein größeres, lade es bei Bedarf hier herunter und prüfe dann, ob es auf diesem Gerät läuft, bevor du fortfährst.",
+    "title": "Modell und Hardware",
+    "description": "Wählen Sie das Modell, das die Vögel bestimmt. Laden Sie es hier herunter, falls diese Installation es nicht hat, und prüfen Sie vor dem Fortfahren, dass es auf diesem Rechner läuft.",
     "download_required": "Laden Sie dieses Modell hier herunter und verifizieren Sie es, bevor Sie es auf dieser Hardware prüfen.",
     "download_timeout": "Der Download dauert länger als erwartet. Prüfe die Verbindung und versuche es erneut.",
     "validation_timeout": "Die Hardwareprüfung hat 30 Minuten überschritten. Sie läuft möglicherweise noch unter Diagnose; prüfen Sie dort den Status, bevor Sie einen neuen Lauf starten.",
@@ -101,7 +101,8 @@
     "blocked_download": "Lade dieses Modell herunter, um fortzufahren, oder überspringe diesen Schritt, um das aktuell verwendete Modell zu behalten.",
     "blocked_check": "Prüfe dieses Modell auf dieser Hardware, um fortzufahren, oder überspringe diesen Schritt, um das aktuell verwendete Modell zu behalten.",
     "blocked_location": "Gib Breiten- und Längengrad der Futterstelle ein, um fortzufahren, oder lass beide Felder leer.",
-    "blocked_provider": "Dieser Host hat das gewählte Gerät nicht. Wähle ein anderes oder Automatisch, um fortzufahren."
+    "blocked_provider": "Dieser Host hat das gewählte Gerät nicht. Wähle ein anderes oder Automatisch, um fortzufahren.",
+    "download_needed": "Download nötig"
   },
   "quality": {
     "title": "Bestmögliche Schnappschüsse",

@@ -30,6 +30,15 @@ export type TimezoneRepairPreview = paths['/api/maintenance/timezone-repair/prev
 
 export type TimezoneRepairApplyResult = paths['/api/maintenance/timezone-repair/apply']['post']['response'];
 
+export type MaintenanceLastRun = components['schemas']['MaintenanceLastRun'];
+
+/** When each Maintenance job last ran and what it found; a job with no entry has no recorded run. */
+export async function fetchMaintenanceLastRuns(): Promise<MaintenanceLastRun[]> {
+    const response = await apiFetch(`${API_BASE}/maintenance/last-runs`);
+    const body = await handleResponse<Partial<components['schemas']['MaintenanceLastRunsResponse']> | null>(response);
+    return body?.runs ?? [];
+}
+
 /** With `previewRetentionDays`, the stats also count what that window would delete. Read-only. */
 export async function fetchMaintenanceStats(previewRetentionDays?: number): Promise<MaintenanceStats> {
     const query = previewRetentionDays === undefined ? '' : `?retention_days=${encodeURIComponent(previewRetentionDays)}`;

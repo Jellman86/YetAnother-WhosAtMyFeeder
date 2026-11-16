@@ -110,6 +110,7 @@
     import { policyChannels } from '../settings/notification-policy';
     import { RUNTIME_DISCLOSURES, runtimeProblemKey } from '../settings/runtime-problem';
     import { currentAccessIdentity, draftFromForm, mergeDraft, unsavedDraft, type DraftConflict } from '../settings/unsaved-draft';
+    import { conflictValueText } from '../settings/conflict-values';
     import {
         buildBirdModelRegionOverrideSettings,
         resolveBirdModelRegionOverrideFromSettings,
@@ -2904,7 +2905,7 @@
     {saveProblem}
     refusedFields={standingErrors.map((error) => ({ field: error.field, label: fieldLabelWithTab(error.field) }))}
     onOpenField={openRefusedField}
-    conflicts={draftConflicts.map((conflict) => ({ field: conflict.field, label: fieldLabelWithTab(conflict.field) }))}
+    conflicts={draftConflicts.map((conflict) => ({ field: conflict.field, label: fieldLabelWithTab(conflict.field), saved: conflictValueText(conflict.saved, $_), mine: conflictValueText(conflict.mine, $_) }))}
     onUseSaved={keepSavedValue}
     onUseMine={keepMyChange}
     restoredNotice={restoredDraft ? $_('settings.save_bar.restored', { default: "You left with unsaved changes. They're still here." }) : null}

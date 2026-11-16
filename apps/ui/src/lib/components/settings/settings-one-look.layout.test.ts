@@ -136,8 +136,14 @@ describe('Settings has one look across tabs', () => {
     });
 
     it('says that buttons act at once and fields wait for Save in the unsaved-changes bar, not above every tab', () => {
-        const rule = pageSource.indexOf('data-settings-save-rule');
+        const rule = pageSource.indexOf('data-settings-save-rule>');
         expect(rule).toBeGreaterThan(pageSource.indexOf('data-settings-save-bar'));
-        expect(pageSource.indexOf('data-settings-save-rule', rule + 1)).toBe(-1);
+        expect(pageSource.indexOf('data-settings-save-rule>', rule + 1)).toBe(-1);
+    });
+
+    it('keeps the save bar to one line and the buttons: the save rule waits behind its own toggle', () => {
+        // The rule repeated in full on every change filled two thirds of a phone at 200% text.
+        expect(pageSource).toContain('aria-controls="settings-save-rule"');
+        expect(pageSource).toMatch(/\{#if saveRuleOpen\}\s*<p[^>]*id="settings-save-rule"/);
     });
 });

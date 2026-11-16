@@ -57,8 +57,8 @@
     "watching_some": "{count, plural, one {# telecamera sorvegliata.} other {# telecamere sorvegliate.}} Le altre telecamere vengono ignorate."
   },
   "model": {
-    "title": "Modello di classificazione e hardware",
-    "description": "YA-WAMF include un piccolo modello che funziona su qualsiasi CPU. Scegli quello o uno più grande, scaricalo qui se serve, poi verifica che funzioni su questa macchina prima di continuare.",
+    "title": "Modello e hardware",
+    "description": "Scegli il modello che identifica gli uccelli. Scaricalo qui se questa installazione non lo ha, poi verifica che funzioni su questo computer prima di continuare.",
     "download_required": "Scarica e verifica qui questo modello prima di convalidarlo su questo hardware.",
     "download_timeout": "Il download sta richiedendo più tempo del previsto. Controlla la connessione e riprova.",
     "validation_timeout": "La convalida hardware ha superato 30 minuti. Potrebbe essere ancora in corso in Diagnostica; controllane lo stato prima di avviare un’altra esecuzione.",
@@ -101,7 +101,8 @@
     "blocked_download": "Scarica questo modello per continuare, oppure salta questo passaggio per mantenere il modello in uso ora.",
     "blocked_check": "Verifica questo modello su questo hardware per continuare, oppure salta questo passaggio per mantenere il modello in uso ora.",
     "blocked_location": "Inserisci latitudine e longitudine della mangiatoia per continuare, oppure lascia entrambe vuote.",
-    "blocked_provider": "Questo host non dispone del dispositivo scelto. Scegline un altro, o Automatico, per continuare."
+    "blocked_provider": "Questo host non dispone del dispositivo scelto. Scegline un altro, o Automatico, per continuare.",
+    "download_needed": "download necessario"
   },
   "quality": {
     "title": "Migliori istantanee disponibili",

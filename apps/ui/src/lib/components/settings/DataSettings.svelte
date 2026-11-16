@@ -9,6 +9,7 @@
     import SettingsToggle from './_primitives/SettingsToggle.svelte';
     import SettingsSelect from './_primitives/SettingsSelect.svelte';
     import AdvancedSection from './_primitives/AdvancedSection.svelte';
+    import { gigabytesToStoredMegabytes, storedMegabytesToGigabytes } from '../../settings/storage-budget';
 
     // What YA-WAMF keeps, for how long, and the backup of its configuration. Jobs that repair or
     // fill in history, and the actions that delete it, are on the Maintenance tab.
@@ -127,6 +128,35 @@
     });
 
     const historyTotal = $derived(safeCount(maintenanceStats?.total_detections));
+
+    // Each limit is a switch with its number beside it, so "0 means off" never has to be typed or
+    // explained. Turning one off and on again brings back the number it had.
+    const DEFAULT_LIMIT_MB = 20 * 1024;
+    const DEFAULT_SPECIES_FLOOR = 10;
+    const DEFAULT_SPECIES_MAXIMUM = 100;
+    const remembered = { size: DEFAULT_LIMIT_MB, floor: DEFAULT_SPECIES_FLOOR, maximum: DEFAULT_SPECIES_MAXIMUM };
+    function setStorageLimit(on: boolean): void {
+        if (!on && cacheMaxSizeMb > 0) remembered.size = cacheMaxSizeMb;
+        cacheMaxSizeMb = on ? remembered.size : 0;
+    }
+    function setSpeciesFloor(on: boolean): void {
+        if (!on && cachePerSpeciesMinimum > 0) remembered.floor = cachePerSpeciesMinimum;
+        cachePerSpeciesMinimum = on ? remembered.floor : 0;
+    }
+    function setSpeciesMaximum(on: boolean): void {
+        if (!on && cachePerSpeciesMaximum > 0) remembered.maximum = cachePerSpeciesMaximum;
+        cachePerSpeciesMaximum = on ? remembered.maximum : 0;
+    }
+    const wholeCount = (value: string): number => Math.max(1, Math.min(10000, Math.round(Number(value)) || 1));
+    // One sentence of what the storage rules add up to, so the owner never works out precedence.
+    const storagePolicy = $derived(
+        cacheMaxSizeMb > 0
+            ? $_('settings.data.storage_policy_limited', {
+                values: { size: storedMegabytesToGigabytes(cacheMaxSizeMb) },
+                default: 'When photos and video pass {size} GB, the oldest go first. Favourites and their archive are always kept.'
+            })
+            : $_('settings.data.storage_policy_unlimited', { default: 'No size limit: photos and video stay until the history window removes their visits. Favourites are always kept.' })
+    );
     const buttonNeutralClass = 'btn btn-secondary min-h-11 px-4 py-3';
     const buttonDangerOutlineClass = 'btn btn-danger min-h-11 px-4 py-3';
 </script>
@@ -258,7 +288,7 @@
 
     <SettingsCard title={$_('settings.data.cache_title', { default: 'Photos and video' })}>
         <p class="text-sm text-slate-600 dark:text-slate-300" data-media-always-kept>
-            {$_('settings.data.cache_always_kept', { default: 'Photos, full-visit clips and previews are kept until one of the limits below removes them.' })}
+            {$_('settings.data.cache_always_kept', { default: 'Photos, full-visit clips and previews are kept with their visits until the history window or the storage limit removes them.' })}
         </p>
         {#if cacheStats && cacheStats.storage_available === false}
             <p class="text-sm text-attention-800 dark:text-attention-200" role="status" data-media-storage-unavailable>
@@ -315,12 +345,19 @@
         <div class="border-t border-line-soft pt-4 flex flex-col gap-1" data-archive-usage>
             <div class="flex items-center justify-between gap-3">
                 <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.data.archive_usage', { default: 'Archived favourites' })}</span>
-                <span class="text-sm font-bold text-slate-900 dark:text-white">
-                    {$_('settings.data.archive_usage_detail', {
-                        values: { count: cacheStats?.archive_durable ?? 0, size: `${cacheStats?.archive_size_mb ?? 0} MB` },
-                        default: '{count} kept, {size}'
-                    })}
-                </span>
+                <!-- Zero only after a measurement: until then the figure is not known, so it is not shown. -->
+                {#if cacheStats}
+                    <span class="text-sm font-bold text-slate-900 dark:text-white">
+                        {$_('settings.data.archive_usage_detail', {
+                            values: { count: cacheStats.archive_durable ?? 0, size: `${cacheStats.archive_size_mb ?? 0} MB` },
+                            default: '{count} kept, {size}'
+                        })}
+                    </span>
+                {:else if cacheStatsError}
+                    <span class="text-sm text-slate-600 dark:text-slate-300">{$_('settings.data.cache_size_unavailable', { default: "Couldn't load" })}</span>
+                {:else}
+                    <span class="text-sm text-slate-600 dark:text-slate-300">{$_('settings.data.cache_size_loading', { default: 'Measuring…' })}</span>
+                {/if}
             </div>
             {#if (cacheStats?.archive_failed ?? 0) > 0}
                 <p class="text-xs text-rose-700 dark:text-rose-300" data-archive-failed>
@@ -333,39 +370,33 @@
         </div>
 
         <SettingsRow
-            labelId="setting-cache-species-floor"
-            label={$_('settings.data.per_species_minimum', { default: 'Keep photos of the newest visits per species' })}
-            description={$_('settings.data.per_species_minimum_help', { default: "This many of each species' newest visits keep their photos after they pass the history window, so a rare bird keeps its pictures. Video is not kept longer. 0 turns this off." })}
-        >
-            <input
-                type="number"
-                min="0"
-                max="10000"
-                step="1"
-                bind:value={cachePerSpeciesMinimum}
-                aria-labelledby="setting-cache-species-floor"
-                class="input-base w-24 py-2 text-right font-semibold"
-            />
-        </SettingsRow>
-
-        <SettingsRow
-            labelId="setting-cache-per_species_maximum"
-            label={$_('settings.data.per_species_maximum', { default: 'Most visits per species with photos and video' })}
-            description={$_('settings.data.per_species_maximum_help', { default: "A species' visits beyond this number lose their photos and video, oldest first. The visits stay in history. Favourites don't count. 0 means no limit." })}
-        >
-            <input type="number" min="0" max="10000" step="1"
-                bind:value={cachePerSpeciesMaximum} aria-labelledby="setting-cache-per_species_maximum"
-                class="input-base w-24 py-2 text-right font-semibold" />
-        </SettingsRow>
-
-        <SettingsRow
             labelId="setting-cache-max_size_mb"
-            label={$_('settings.data.max_size_mb', { default: 'Storage limit (MiB)' })}
-            description={$_('settings.data.max_size_mb_help', { default: 'When photos and video use more than this, the oldest are removed first. Favourites and their archive are kept. This limit and the one above win over the photo floor. 0 means no limit.' })}
+            label={$_('settings.data.storage_limit', { default: 'Limit the space photos and video use' })}
+            description={storagePolicy}
         >
-            <input type="number" min="0" max="1048576" step="1"
-                bind:value={cacheMaxSizeMb} aria-labelledby="setting-cache-max_size_mb"
-                class="input-base w-24 py-2 text-right font-semibold" />
+            <div class="flex flex-wrap items-center justify-end gap-3">
+                {#if cacheMaxSizeMb > 0}
+                    <label class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
+                        <span class="sr-only">{$_('settings.data.storage_limit_size', { default: 'Storage limit in GB' })}</span>
+                        <input
+                            type="number"
+                            min="0.5"
+                            max="1024"
+                            step="0.5"
+                            value={storedMegabytesToGigabytes(cacheMaxSizeMb)}
+                            onchange={(event) => (cacheMaxSizeMb = gigabytesToStoredMegabytes(Number(event.currentTarget.value)))}
+                            class="input-base w-24 py-2 text-right font-semibold"
+                        />
+                        <span aria-hidden="true">GB</span>
+                    </label>
+                {/if}
+                <SettingsToggle
+                    checked={cacheMaxSizeMb > 0}
+                    labelledBy="setting-cache-max_size_mb"
+                    srLabel={$_('settings.data.storage_limit', { default: 'Limit the space photos and video use' })}
+                    onchange={setStorageLimit}
+                />
+            </div>
         </SettingsRow>
 
         <div>
@@ -379,6 +410,58 @@
                 {cleaningCache ? $_('settings.data.cleaning') : $_('settings.data.cache_clear_button')}
             </button>
         </div>
+
+        <AdvancedSection
+            id="data-cache-species"
+            title={$_('settings.data.species_limits_title', { default: 'Per-species limits' })}
+            openByDefault={cachePerSpeciesMinimum > 0 || cachePerSpeciesMaximum > 0}
+        >
+            <SettingsRow
+                labelId="setting-cache-species-floor"
+                label={$_('settings.data.per_species_minimum', { default: "Keep photos of each species' newest visits" })}
+                description={$_('settings.data.per_species_minimum_help', { default: "That many of each species' newest visits keep their photos after they leave the history window, so a rare bird keeps its pictures. Video is not kept longer. The storage limit still applies." })}
+            >
+                <div class="flex flex-wrap items-center justify-end gap-3">
+                    {#if cachePerSpeciesMinimum > 0}
+                        <label class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
+                            <span class="sr-only">{$_('settings.data.per_species_minimum_count', { default: 'Visits kept per species' })}</span>
+                            <input type="number" min="1" max="10000" step="1" value={cachePerSpeciesMinimum}
+                                onchange={(event) => (cachePerSpeciesMinimum = wholeCount(event.currentTarget.value))}
+                                class="input-base w-24 py-2 text-right font-semibold" />
+                        </label>
+                    {/if}
+                    <SettingsToggle
+                        checked={cachePerSpeciesMinimum > 0}
+                        labelledBy="setting-cache-species-floor"
+                        srLabel={$_('settings.data.per_species_minimum', { default: "Keep photos of each species' newest visits" })}
+                        onchange={setSpeciesFloor}
+                    />
+                </div>
+            </SettingsRow>
+
+            <SettingsRow
+                labelId="setting-cache-per_species_maximum"
+                label={$_('settings.data.per_species_maximum', { default: 'Limit visits per species with photos and video' })}
+                description={$_('settings.data.per_species_maximum_help', { default: "A species' visits beyond this number lose their photos and video, oldest first. The visits stay in history. Favourites don't count." })}
+            >
+                <div class="flex flex-wrap items-center justify-end gap-3">
+                    {#if cachePerSpeciesMaximum > 0}
+                        <label class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
+                            <span class="sr-only">{$_('settings.data.per_species_maximum_count', { default: 'Visits per species with photos and video' })}</span>
+                            <input type="number" min="1" max="10000" step="1" value={cachePerSpeciesMaximum}
+                                onchange={(event) => (cachePerSpeciesMaximum = wholeCount(event.currentTarget.value))}
+                                class="input-base w-24 py-2 text-right font-semibold" />
+                        </label>
+                    {/if}
+                    <SettingsToggle
+                        checked={cachePerSpeciesMaximum > 0}
+                        labelledBy="setting-cache-per_species_maximum"
+                        srLabel={$_('settings.data.per_species_maximum', { default: 'Limit visits per species with photos and video' })}
+                        onchange={setSpeciesMaximum}
+                    />
+                </div>
+            </SettingsRow>
+        </AdvancedSection>
 
         <AdvancedSection
             id="data-cache-advanced"

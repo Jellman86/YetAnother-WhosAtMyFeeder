@@ -16,7 +16,9 @@
         type InferenceProvider,
     } from '../../settings/inference-providers';
     import SettingsCard from './_primitives/SettingsCard.svelte';
-    import DetectionStatusBand from './DetectionStatusBand.svelte';
+    import IdentificationStatusLine from '../IdentificationStatusLine.svelte';
+    import { classifierRuntimeState } from '../../utils/classifier-runtime-state';
+    import { settingsScrollBehaviour } from '../../settings/scroll-behaviour';
     import SettingsRow from './_primitives/SettingsRow.svelte';
     import SettingsToggle from './_primitives/SettingsToggle.svelte';
     import SettingsSelect from './_primitives/SettingsSelect.svelte';
@@ -68,12 +70,9 @@
         imageExecutionMode !== 'subprocess' || liveWorkerCount !== null || backgroundWorkerCount !== null
     );
 
-    // The status band's anchors: the model cell jumps to the Models card, the
-    // health cell to the runtime report.
-    const MODELS_CARD_ID = 'detection-models-card';
+    // The status line's report link opens the runtime report and scrolls to it.
     const RUNTIME_REPORT_ID = 'detection-runtime-report';
-    const HARDWARE_CARD_ID = RUNTIME_DISCLOSURES[0];
-    const RUNTIME_REPORT_SECTION_ID = RUNTIME_DISCLOSURES[1];
+    const RUNTIME_REPORT_SECTION_ID = RUNTIME_DISCLOSURES[0];
 
 
     const healthIssueCount = $derived(
@@ -81,27 +80,19 @@
             (classifierStatus?.model_config_warnings?.length ?? 0) +
             (classifierStatus?.openvino_model_compile_ok === false ? 1 : 0) +
             (classifierStatus?.image_flavor_warning ? 1 : 0) +
-            (classifierStatus?.cuda_probe_error ? 1 : 0) +
-            (classifierStatus?.active_model_installed === false ? 1 : 0)
+            (classifierStatus?.cuda_probe_error ? 1 : 0)
     );
+    const runtimeState = $derived(classifierRuntimeState(classifierStatus, imageExecutionMode));
 
-    // Hardware is advanced and starts closed, unless the runtime has something to report; the
-    // status line's health link opens it before scrolling to the report inside it.
-    // Both open themselves for a runtime problem (the Settings page reports it on every status
-    // read); the status line's health link opens both too, whatever was remembered.
-    const hardwareCard = useDisclosure(() => ({ id: HARDWARE_CARD_ID }));
+    // The report opens itself for a runtime problem (the Settings page reports it on every status
+    // read); the status line's link opens it too, whatever was remembered.
     const runtimeReport = useDisclosure(() => ({ id: RUNTIME_REPORT_SECTION_ID }));
-    async function revealAnchor(anchorId: string): Promise<void> {
-        if (anchorId === RUNTIME_REPORT_ID) {
-            hardwareCard.open = true;
-            runtimeReport.open = true;
-        }
+    async function openRuntimeReport(): Promise<void> {
+        runtimeReport.open = true;
         await tick();
+        document.getElementById(RUNTIME_REPORT_ID)?.scrollIntoView({ block: 'start', behavior: settingsScrollBehaviour() });
     }
 
-    const bandProviderLabel = $derived(
-        classifierStatus?.active_provider ? compatProviderLabel(classifierStatus.active_provider) : '—'
-    );
     const openvinoUnsupportedOps = $derived(classifierStatus?.openvino_model_compile_unsupported_ops || []);
     const hasOpenvinoOpIncompatibility = $derived(
         (classifierStatus?.openvino_model_compile_ok === false) && openvinoUnsupportedOps.length > 0
@@ -393,29 +384,26 @@
 
     <NativeProfileRevalidation />
 
-    <div class="space-y-3">
-        <DetectionStatusBand
-            {classifierStatus}
-            {imageExecutionMode}
-            autoVideoEnabled={autoVideoClassification}
-            activeProviderLabel={bandProviderLabel}
-            issueCount={healthIssueCount}
-            modelsAnchorId={MODELS_CARD_ID}
-            reportAnchorId={RUNTIME_REPORT_ID}
-            onreveal={revealAnchor}
-        />
-
-
-        {#if classifierStatus?.fallback_reason || classifierStatus?.model_config_warnings?.length || classifierStatus?.openvino_model_compile_ok === false}
-            <div role="alert" class="text-sm text-attention-800 dark:text-attention-200">
-                {#if classifierStatus.fallback_reason}
-                    {$_('settings.detection.provider_fallback_reason', { default: 'Fallback:' })} {classifierStatus.fallback_reason}
-                {:else if classifierStatus.model_config_warnings?.length}
-                    {$_('settings.detection.model_config_warning', { default: 'Model config warning:' })} {classifierStatus.model_config_warnings[0]}
-                {:else}
-                    {$_('settings.detection.openvino_compile_failure', { default: 'OpenVINO model incompatibility on this host' })}
-                {/if}
-            </div>
+    <!-- One sentence of what names birds right now; trouble adds a line that says where to look. -->
+    <div class="min-h-14 space-y-2" data-models-status>
+        <IdentificationStatusLine {classifierStatus} />
+        {#if healthIssueCount > 0}
+            <button
+                type="button"
+                onclick={openRuntimeReport}
+                class="focus-ring inline-flex min-h-11 items-center rounded-md text-left text-sm font-medium text-brand-700 underline underline-offset-2 hover:text-brand-800 dark:text-brand-300 dark:hover:text-brand-200"
+                data-models-report-link
+            >
+                {$_('settings.models.status_report_link', { values: { count: healthIssueCount }, default: '{count, plural, one {# thing to check in the runtime report} other {# things to check in the runtime report}}' })}
+            </button>
+        {/if}
+        {#if runtimeState.restartRecommended}
+            <p class="text-sm text-attention-800 dark:text-attention-200" role="status">
+                {runtimeState.recovering
+                    ? $_('settings.detection.band_native_recovering', { default: 'Waiting for isolated workers to resume classification.' })
+                    : $_('settings.detection.band_native_recovered', { default: 'Classification resumed in isolated workers.' })}
+                {$_('settings.detection.band_native_restart', { default: 'Restart the container to release the stalled runtime.' })}
+            </p>
         {/if}
     </div>
 
@@ -447,7 +435,7 @@
                 </SettingsRow>
 
         </div>
-        <div id={MODELS_CARD_ID} class="scroll-mt-24">
+        <div class="scroll-mt-24">
             <ModelManager
                 executionMode={imageExecutionMode}
                 autoVideoEnabled={autoVideoClassification}
@@ -460,12 +448,25 @@
                 {onopenlocationsettings}
             />
         </div>
+        {#if onopenmodelevaluation}
+            <SettingsRow
+                labelId="setting-model-evaluation"
+                label={$_('settings.models.evaluation_row', { default: 'Compare the installed models' })}
+                description={$_('settings.models.evaluation_row_desc', { default: 'Model evaluation runs each installed model on reference photos of known species from iNaturalist and Wikimedia Commons, and shows how often it is right and how long it takes.' })}
+            >
+                <a
+                    href="/diagnostics/model-eval"
+                    class="btn btn-secondary min-h-11 max-w-full px-4 whitespace-normal"
+                    onclick={(event) => { event.preventDefault(); onopenmodelevaluation?.(); }}
+                >
+                    {$_('settings.models.testing_open', { default: 'Open model evaluation' })}
+                </a>
+            </SettingsRow>
+        {/if}
     </SettingsCard>
 
     <SettingsCard
-        collapsible
-        id={HARDWARE_CARD_ID}
-
+        id="models-hardware"
         title={$_('settings.detection.hardware_title', { default: 'Hardware' })}
         description={$_('settings.detection.hardware_desc', { default: 'Which device runs the models, and how much memory they may use. Auto picks the fastest device that passed the check on this host.' })}
     >
@@ -652,6 +653,20 @@
                         </div>
                     </SettingsRow>
                 {/if}
+                {#if debugUiEnabled}
+                    <SettingsRow
+                        labelId="setting-strict-non-finite-output"
+                        label={$_('settings.debug.strict_non_finite_output', { default: 'Discard results the model could not compute' })}
+                        description={$_('settings.debug.strict_non_finite_output_desc', { default: 'On, a result that is not a number is thrown away and the model is restarted. Turn it off only while you look into a model fault.' })}
+                    >
+                        <SettingsToggle
+                            checked={strictNonFiniteOutput}
+                            labelledBy="setting-strict-non-finite-output"
+                            srLabel={$_('settings.debug.strict_non_finite_output', { default: 'Discard results the model could not compute' })}
+                            onchange={(value) => (strictNonFiniteOutput = value)}
+                        />
+                    </SettingsRow>
+                {/if}
             </div>
         </AdvancedSection>
 
@@ -827,41 +842,6 @@
         </div>
     </SettingsCard>
 
-    <SettingsCard
-        collapsible
-        id="models-testing"
-        title={$_('settings.models.testing_title', { default: 'Testing the models' })}
-        description={$_('settings.models.testing_desc', { default: 'Compare the installed models on reference photos of known species from iNaturalist and Wikimedia Commons.' })}
-    >
-        <div class="flex flex-wrap items-center justify-between gap-3">
-            <p class="min-w-0 flex-1 basis-56 text-sm text-slate-600 dark:text-slate-300">
-                {$_('settings.models.testing_action', { default: 'Model evaluation runs every installed model on those photos and shows how often each is right and how long it takes.' })}
-            </p>
-            {#if onopenmodelevaluation}
-                <a
-                    href="/diagnostics/model-eval"
-                    class="btn btn-secondary min-h-11 max-w-full px-4 whitespace-normal"
-                    onclick={(event) => { event.preventDefault(); onopenmodelevaluation?.(); }}
-                >
-                    {$_('settings.models.testing_open', { default: 'Open model evaluation' })}
-                </a>
-            {/if}
-        </div>
-        {#if debugUiEnabled}
-            <SettingsRow
-                labelId="setting-strict-non-finite-output"
-                label={$_('settings.debug.strict_non_finite_output', { default: 'Discard results the model could not compute' })}
-                description={$_('settings.debug.strict_non_finite_output_desc', { default: 'On, a result that is not a number is thrown away and the model is restarted. Turn it off only while you look into a model fault.' })}
-            >
-                <SettingsToggle
-                    checked={strictNonFiniteOutput}
-                    labelledBy="setting-strict-non-finite-output"
-                    srLabel={$_('settings.debug.strict_non_finite_output', { default: 'Discard results the model could not compute' })}
-                    onchange={(value) => (strictNonFiniteOutput = value)}
-                />
-            </SettingsRow>
-        {/if}
-    </SettingsCard>
 </div>
 
 {#if cdOpen}

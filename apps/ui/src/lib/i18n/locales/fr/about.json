@@ -98,7 +98,7 @@
     "history_unavailable": "La disponibilité n’a pas pu être lue.",
     "availability_partial": "{percent} % disponible sur les {hours} h enregistrées",
     "no_gaps_since": "Aucune interruption depuis le début de l’enregistrement à {when}.",
-    "runtime": "Identification des oiseaux avec",
+    "runtime": "Identification des oiseaux",
     "runtime_on": "{runtime} sur {device}",
     "runtime_unread": "Pas encore lu. Le modèle l’indique une fois chargé.",
     "uptime_unmeasured": "Le backend n’a pas indiqué quand il a démarré.",

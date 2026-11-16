@@ -96,7 +96,7 @@ test('Connection chooses Garden cameras per camera, while Garden-only settings s
     const patio = watchFor(page, 'patio');
     await expect(patio.locator('option')).toHaveText(['Off', 'Birds', 'Garden animals', 'Both']);
     await expect(page.getByLabel('Frigate animal labels', { exact: true })).toHaveCount(0);
-    await expect(page.getByRole('slider', { name: 'How sure before an animal is suggested' })).toHaveCount(0);
+    await expect(page.getByRole('slider', { name: 'Suggest a motion photo when this sure it shows an animal' })).toHaveCount(0);
 });
 
 test('Garden cameras chosen in Connection save with Beta settings without touching the bird role', async ({ page }) => {
@@ -112,7 +112,7 @@ test('Garden cameras chosen in Connection save with Beta settings without touchi
     const garden = page.locator('[data-garden-beta-settings]');
     await expect(garden.locator('[data-garden-camera-summary]')).toContainText('Watching patio for Garden animals.');
     await garden.getByLabel('Frigate animal labels', { exact: true }).fill('cat, dog, squirrel');
-    await garden.getByRole('slider', { name: 'How sure before an animal is suggested' }).fill('0.64');
+    await garden.getByRole('slider', { name: 'Suggest a motion photo when this sure it shows an animal' }).fill('0.64');
     await page.getByRole('button', { name: 'Save changes', exact: true }).click();
 
     await expect.poll(() => writes.length).toBe(1);
@@ -158,7 +158,7 @@ for (const [calibrated, shown, up, saved] of [[0.63, '63', '64', 0.64], [0.625, 
     test(`a calibrated ${calibrated} proposal threshold shows as ${shown}% and moves a whole point`, async ({ page }) => {
         const { writes } = await openSettings(page, { garden_motion_confidence: calibrated });
         await openBeta(page);
-        const threshold = page.getByRole('slider', { name: 'How sure before an animal is suggested' });
+        const threshold = page.getByRole('slider', { name: 'Suggest a motion photo when this sure it shows an animal' });
         await expect(threshold).toHaveAttribute('aria-valuetext', `${shown}%`);
         await expect(threshold).toHaveAttribute('step', '0.01');
         await threshold.press('ArrowUp');
@@ -180,7 +180,7 @@ test('a calibrated proposal threshold left alone is saved exactly as it was', as
 });
 
 // A slider cannot leave its range, so a value the server would refuse is never offered.
-for (const [name, low, high] of [['How sure before an animal is suggested', '50%', '95%'], ['How sure before an animal is named', '70%', '99%']] as const) {
+for (const [name, low, high] of [['Suggest a motion photo when this sure it shows an animal', '50%', '95%'], ['Name an animal when this sure which one it is', '70%', '99%']] as const) {
     test(`"${name}" stays between ${low} and ${high}`, async ({ page }) => {
         const { writes } = await openSettings(page);
         await openBeta(page);
@@ -202,7 +202,7 @@ test('automatic naming is on at 0.80 by default and both choices save with the p
     await openBeta(page);
     const garden = page.locator('[data-garden-beta-settings]');
     const naming = garden.getByRole('switch', { name: 'Name animals automatically' });
-    const threshold = garden.getByRole('slider', { name: 'How sure before an animal is named' });
+    const threshold = garden.getByRole('slider', { name: 'Name an animal when this sure which one it is' });
     await expect(naming).toHaveAttribute('aria-checked', 'true');
     await expect(threshold).toHaveAttribute('aria-valuetext', '80%');
     await threshold.fill('0.9');
@@ -435,10 +435,10 @@ test('collection status shows the collector state, its limits and bounded catch-
         : undefined);
     await openBeta(page);
     const status = page.locator('[data-garden-collection-status]');
-    await expect(status.locator('[data-garden-fact="motion"]')).toHaveText(/Motion photos\s*On for patio/);
+    await expect(status.locator('[data-garden-fact="motion"]')).toHaveText('Motion photos are collected on patio.');
     await expect(status.locator('[data-garden-motion-status]')).toHaveText('Waiting for bird inference to become idle.');
     // The service words its automatic check state itself and reports no count, so it is shown as sent.
-    await expect(status.locator('[data-garden-fact="automatic"]')).toHaveText(/Automatic checks\s*No automatic check is due\./);
+    await expect(status.locator('[data-garden-fact="automatic"]')).toHaveText('No automatic check is due.');
     await expect(status.getByText('Motion detector only: CPU · At least 10s between scans · Up to 128 photos · 3-day photo retention')).toBeVisible();
     await expect(status.getByText('Up to 24 short windows queued per camera from the last 30 minutes. Birds and camera pressure pause collection; brief visits can be missed.')).toBeVisible();
     await expect(status.getByText(/patio: 24 windows waiting when checked at/)).toBeVisible();
@@ -463,7 +463,7 @@ test('collection status says so when the Garden service cannot report it', async
         ? route.fulfill({ status: 503, json: { detail: 'Garden status unavailable.' } })
         : undefined);
     await openBeta(page);
-    await expect(page.locator('[data-garden-fact="motion"]')).toHaveText(/Motion photos\s*Could not be read\. Refresh to try again\./);
+    await expect(page.locator('[data-garden-fact="motion"]')).toHaveText('Motion photo status could not be read. Refresh to try again.');
 });
 
 
@@ -475,9 +475,9 @@ test('Garden shows the actual last NPU execution separately from CPU-only motion
         } } }) : undefined);
     await openBeta(page);
     const status = page.locator('[data-garden-collection-status]');
-    await expect(status.locator('[data-garden-fact="device"]')).toHaveText(/Device\s*NPU \(checked against CPU before first use\)/);
-    await expect(status.locator('[data-garden-fact="last_check"]')).toHaveText(/Last check\s*NPU · \S.*\d{2}:\d{2}$/);
-    await expect(status.locator('[data-garden-fact="motion"]')).toHaveText(/Motion photos\s*Off/);
+    await expect(status.locator('[data-garden-fact="device"]')).toHaveText('Automatic checks run on NPU, which matched the CPU before its first use.');
+    await expect(status.locator('[data-garden-fact="last_check"]')).toHaveText(/^Last check \S.*\d{2}:\d{2} on NPU\.$/);
+    await expect(status.locator('[data-garden-fact="motion"]')).toHaveText('Motion photos are off.');
     await expect(status.locator('[data-garden-motion-status]')).toHaveCount(0);
 });
 
@@ -486,10 +486,11 @@ test('collection status never claims a device that has not run', async ({ page }
         ? route.fulfill({ json: { ...identificationStatus, preferred_provider: 'intel_npu', last_execution: null, saved_crops: { count: 12, limit: 2000 } } }) : undefined);
     await openBeta(page);
     const status = page.locator('[data-garden-collection-status]');
-    await expect(status.getByRole('term')).toHaveText(['Device', 'Last check', 'Automatic checks', 'Motion photos', 'Saved crops']);
-    await expect(status.locator('[data-garden-fact="device"]')).toHaveText(/Device\s*NPU preferred, not used yet/);
-    await expect(status.locator('[data-garden-fact="last_check"]')).toHaveText(/Last check\s*None yet/);
-    await expect(status.locator('[data-garden-crop-storage]')).toHaveText(/Saved crops\s*12 crops of 2,000/);
+    // Worded sentences, not a list of bold keys and values.
+    await expect(status.getByRole('term')).toHaveCount(0);
+    await expect(status.locator('[data-garden-fact="device"]')).toHaveText('Automatic checks will try NPU first. It has not run a check yet.');
+    await expect(status.locator('[data-garden-fact="last_check"]')).toHaveText('No check has run yet.');
+    await expect(status.locator('[data-garden-crop-storage]')).toHaveText('12 crops saved of 2,000 allowed.');
 });
 
 test('collection status names CPU, not the preferred device, after a fallback', async ({ page }) => {
@@ -500,8 +501,8 @@ test('collection status names CPU, not the preferred device, after a fallback', 
         } } }) : undefined);
     await openBeta(page);
     const status = page.locator('[data-garden-collection-status]');
-    await expect(status.locator('[data-garden-fact="device"]')).toHaveText(/NPU preferred, not used yet/);
-    await expect(status.locator('[data-garden-fact="last_check"]')).toHaveText(/CPU · .* \(the preferred device failed, so CPU was used\)/);
+    await expect(status.locator('[data-garden-fact="device"]')).toHaveText('Automatic checks will try NPU first. It has not run a check yet.');
+    await expect(status.locator('[data-garden-fact="last_check"]')).toHaveText(/^Last check .* on CPU, because the preferred device failed\.$/);
 });
 
 const notificationStatus = {

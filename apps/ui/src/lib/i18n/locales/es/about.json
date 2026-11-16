@@ -98,7 +98,7 @@
     "history_unavailable": "No se pudo consultar la disponibilidad.",
     "availability_partial": "{percent}% activo en las {hours} h registradas",
     "no_gaps_since": "Sin interrupciones desde que empezó el registro a las {when}.",
-    "runtime": "Identifica aves con",
+    "runtime": "Identificación de aves",
     "runtime_on": "{runtime} en {device}",
     "runtime_unread": "Aún no se ha leído. El modelo lo indica cuando termina de cargarse.",
     "uptime_unmeasured": "El backend no indicó cuándo se inició.",

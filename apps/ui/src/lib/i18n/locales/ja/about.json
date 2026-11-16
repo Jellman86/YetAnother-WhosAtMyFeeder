@@ -98,7 +98,7 @@
     "history_unavailable": "稼働状況を取得できませんでした。",
     "availability_partial": "記録された {hours} 時間のうち {percent}% 稼働",
     "no_gaps_since": "{when} の記録開始以降、途切れはありません。",
-    "runtime": "鳥の識別に使用中",
+    "runtime": "鳥の識別",
     "runtime_on": "{runtime}（{device}）",
     "runtime_unread": "まだ読み取れていません。モデルの読み込みが終わると表示されます。",
     "uptime_unmeasured": "バックエンドから起動時刻が報告されませんでした。",

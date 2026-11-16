@@ -3,8 +3,16 @@ import { test, expect } from '@playwright/test';
 test('cache limits and scanning use the existing settings controls without overflow', async ({ page }, testInfo) => {
     page.on('pageerror', error => { throw error; });
     await page.goto('/browser-tests/media-settings.html');
-    await page.getByRole('spinbutton', { name: /^Most visits per species with photos and video/ }).fill('50');
-    await page.getByRole('spinbutton', { name: /^Storage limit \(MiB\)/ }).fill('2048');
+    // No limit is a switch that is off, never a 0 to type: the size field appears with the switch.
+    await expect(page.getByRole('spinbutton', { name: /^Storage limit in GB/ })).toHaveCount(0);
+    await page.getByRole('switch', { name: /^Limit the space photos and video use/ }).click();
+    const limit = page.getByRole('spinbutton', { name: /^Storage limit in GB/ });
+    await limit.fill('2');
+    await limit.blur();
+    // The interacting per-species limits wait under advanced options, each behind its own switch.
+    await page.getByRole('button', { name: /^Show advanced options.*Per-species limits/ }).click();
+    await page.getByRole('switch', { name: /^Limit visits per species with photos and video/ }).click();
+    await page.getByRole('spinbutton', { name: /^Visits per species with photos and video/ }).fill('50');
     await page.getByRole('button', { name: /^Show advanced options.*Snapshot quality/ }).click();
     await page.getByRole('combobox', { name: 'Bird scanning effort', exact: true }).selectOption('standard');
     await expect(page.getByRole('status', { name: 'Selected cache settings' })).toHaveText('50 / 2048 / standard');
@@ -25,6 +33,13 @@ test('cache limits and scanning use the existing settings controls without overf
     await expect(card.locator('[data-settings-section-body]')).toHaveCSS('background-color', 'rgb(11, 19, 34)');
     await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(5, 10, 20)');
     await card.screenshot({ path: testInfo.outputPath('media-settings-dark.png'), animations: 'disabled' });
+});
+
+test('favourites archive figures wait for a measurement instead of showing zero', async ({ page }) => {
+    await page.goto('/browser-tests/media-settings.html');
+    const archive = page.locator('[data-archive-usage]');
+    await expect(archive).toContainText('Measuring…');
+    await expect(archive).not.toContainText('0 kept');
 });
 
 test('a media folder that cannot be written is said plainly on the card', async ({ page }) => {

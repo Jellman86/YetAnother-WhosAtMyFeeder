@@ -1,0 +1,52 @@
+import { test, expect, type Page } from '@playwright/test';
+import { openSettings } from './settings-page-mock';
+
+// Maintenance says, for every job, when it last ran and what it found, and why a button that
+// cannot run yet is disabled. The last runs come from the server's durable record.
+test.use({ viewport: { width: 1440, height: 900 } });
+
+const lastRuns = {
+    runs: [
+        { kind: 'taxonomy', status: 'completed', finished_at: '2026-11-15T09:30:00Z', checked: 120, changed: 7 },
+        { kind: 'detections', status: 'failed', finished_at: '2026-11-14T22:00:00Z', checked: null, changed: null }
+    ]
+};
+
+async function openMaintenance(page: Page, preview: { summary: Record<string, number>; candidates: unknown[] } | null = null): Promise<void> {
+    await openSettings(page, {}, {
+        respond: (path) => {
+            if (path === '/api/maintenance/last-runs') return { json: lastRuns };
+            if (path === '/api/maintenance/timezone-repair/preview' && preview) return { json: preview };
+            return undefined;
+        }
+    });
+    await page.getByRole('link', { name: 'Maintenance', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Timezone repair', exact: true })).toBeVisible();
+}
+
+test('each job says when it last ran and what it found, or that no run is recorded', async ({ page }) => {
+    await openMaintenance(page);
+    await expect(page.getByText(/Last run .*: 7 of 120 names repaired\./)).toBeVisible();
+    await expect(page.locator('[data-maintenance-last-run="detections"]')).toHaveText(/^The last run, .*, did not finish\.$/);
+    await expect(page.locator('[data-maintenance-last-run="timezone_scan"]')).toHaveText('No run recorded yet.');
+});
+
+test('Apply timezone repair says why it cannot run before a scan, and after a scan that found nothing', async ({ page }) => {
+    await openMaintenance(page, {
+        summary: { scanned_count: 40, repair_candidate_count: 0, ok_count: 40, missing_frigate_event_count: 0, unsupported_delta_count: 0, lookup_error_count: 0 },
+        candidates: []
+    });
+    const apply = page.getByRole('button', { name: 'Apply timezone repair', exact: true });
+    await expect(apply).toBeDisabled();
+    await expect(apply).toHaveAccessibleDescription(/^Scan first\./);
+    await page.getByRole('button', { name: 'Scan for timezone issues', exact: true }).click();
+    await expect(apply).toHaveAccessibleDescription('The scan found nothing to repair.');
+    await expect(apply).toBeDisabled();
+});
+
+test('the job sections are plain headings, with no collapsed sections to open', async ({ page }) => {
+    await openMaintenance(page);
+    for (const name of ['Jobs at once', 'Delete data']) {
+        await expect(page.getByRole('button', { name, exact: true })).toHaveCount(0);
+    }
+});

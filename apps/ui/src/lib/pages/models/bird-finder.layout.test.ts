@@ -112,8 +112,11 @@ describe('bird finder choice', () => {
         expect(en.settings.detection.bird_finder_pending).toMatch(/Save changes/);
     });
 
-    it('states the cost of the wide-frame finder up front, without em dashes', () => {
-        expect(en.settings.detection.bird_finder_wide_desc).toMatch(/103 MB/);
+    it('states the cost of the wide-frame finder once, rounded, without em dashes', () => {
+        // The download size is in the option's own facts line, from the catalogue, rounded to whole
+        // megabytes; the description no longer repeats a second, differently rounded figure.
+        expect(en.settings.detection.bird_finder_wide_desc).not.toMatch(/\d+(\.\d+)? MB/);
+        expect(modelManagerSource).toContain('{ size: Math.round(option.model.file_size_mb) }');
         for (const key of Object.keys(en.settings.detection).filter((k) => k.startsWith('bird_finder'))) {
             expect(String((en.settings.detection as Record<string, string>)[key])).not.toContain('—');
         }

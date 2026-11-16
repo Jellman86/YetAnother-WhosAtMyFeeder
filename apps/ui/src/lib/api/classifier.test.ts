@@ -17,9 +17,8 @@ import {
     getVisibleTieredModelLineup,
     groupTieredModelLineup,
     categorizeModel,
-    MODEL_CATEGORY_INFO,
+    MODEL_CATEGORY_LABEL,
     selectSetupModelId,
-    summarizeModelMetadata,
     type ClassifierStatus,
     type InstalledModel,
     type ModelMetadata
@@ -144,14 +143,6 @@ describe('fetchAvailableModels', () => {
         expect(installed.metadata?.status).toBe('stable');
         expect(installed.metadata?.notes).toBe('Elite accuracy model.');
 
-        const summary = summarizeModelMetadata(installed.metadata);
-        expect(summary).toEqual({
-            tierLabel: 'Advanced',
-            taxonomyScopeLabel: 'Wildlife Wide',
-            advancedStateLabel: 'Advanced only',
-            statusLabel: 'Stable',
-            labels: ['Advanced', 'Wildlife Wide', 'Advanced only', 'Stable'],
-        });
     });
 });
 
@@ -426,9 +417,11 @@ describe('categorizeModel', () => {
         expect(categorizeModel(base({ supported_inference_providers: ['cpu', 'intel_cpu', 'intel_gpu'] }))).toBe('igpu_recommended');
     });
 
-    it('returns bundled for tier=cpu_only or tflite runtime', () => {
-        expect(categorizeModel(base({ tier: 'cpu_only', supported_inference_providers: ['cpu'] }))).toBe('bundled');
-        expect(categorizeModel(base({ runtime: 'tflite', tier: 'small' }))).toBe('bundled');
+    it('groups the small CPU model as small and quick, never as built in', () => {
+        expect(categorizeModel(base({ tier: 'cpu_only', supported_inference_providers: ['cpu'] }))).toBe('compact');
+        expect(categorizeModel(base({ runtime: 'tflite', tier: 'small' }))).toBe('compact');
+        // Whether a model ships with the app is a fact about one install, not a group.
+        expect(Object.values(MODEL_CATEGORY_LABEL).map((label) => label.fallback)).not.toContain('Built-in fallback');
     });
 
     it('returns cpu_high_accuracy for Elite / Very High accuracy without iGPU', () => {
@@ -437,9 +430,10 @@ describe('categorizeModel', () => {
     });
 
     it('keeps model-fit labels independent from the currently active hardware', () => {
-        expect(MODEL_CATEGORY_INFO.cpu_high_accuracy.label).toBe('Highest accuracy');
-        expect(MODEL_CATEGORY_INFO.cpu_standard.label).toBe('Balanced');
-        expect(MODEL_CATEGORY_INFO.cpu_alternative.label).toBe('Architectural alternatives');
+        expect(MODEL_CATEGORY_LABEL.cpu_high_accuracy.fallback).toBe('Most accurate');
+        expect(MODEL_CATEGORY_LABEL.cpu_standard.fallback).toBe('Balanced');
+        expect(MODEL_CATEGORY_LABEL.cpu_alternative.fallback).toBe('Experimental');
+        expect(MODEL_CATEGORY_LABEL.cpu_alternative.key).toBe('settings.models.group.cpu_alternative');
     });
 
     it('returns cpu_alternative for advanced_only experimental models', () => {
@@ -481,9 +475,9 @@ describe('groupTieredModelLineup', () => {
             model('c', { accuracy_tier: 'Elite', supported_inference_providers: ['cpu'], sort_order: 30, tier: 'advanced' }),
         ];
         const groups = groupTieredModelLineup(ms, true);
-        expect(groups.map((g) => g.category)).toEqual(['igpu_recommended', 'cpu_high_accuracy', 'bundled']);
-        expect(groups[0].models).toHaveLength(1);
-        expect(groups[0].models[0].id).toBe('a');
+        expect(groups.map((g) => g.category)).toEqual(['compact', 'igpu_recommended', 'cpu_high_accuracy']);
+        expect(groups[1].models).toHaveLength(1);
+        expect(groups[1].models[0].id).toBe('a');
     });
 
     it('respects showAdvanced for advanced_only models', () => {
