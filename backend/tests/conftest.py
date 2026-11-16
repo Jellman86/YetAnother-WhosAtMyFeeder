@@ -249,20 +249,17 @@ def isolate_service_connections(monkeypatch):
 
 @pytest.fixture(autouse=True)
 def isolate_system_status(monkeypatch):
-    """The status snapshot is read for real in tests, except Frigate's camera stats, and no reading
-    carries over from one test to the next."""
+    """The status snapshot is read for real in tests, except Frigate's camera stats, and every test
+    gets a fresh collector and an unpublished service, so no cache or revision carries over."""
     from app.services import system_status_readings
-    from app.services.system_status_runtime import system_status_service
+    from tests.status_isolation import fresh_system_status_state
 
     async def frigate_does_not_answer():
         raise ConnectionError("Frigate is not reachable from tests")
 
     monkeypatch.setattr(system_status_readings, "read_camera_health", frigate_does_not_answer)
-    system_status_service._latest = None
-    system_status_service._latest_at = None
+    fresh_system_status_state(monkeypatch)
     yield
-    system_status_service._latest = None
-    system_status_service._latest_at = None
 
 
 @pytest.fixture(autouse=True)

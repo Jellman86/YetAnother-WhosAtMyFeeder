@@ -176,14 +176,25 @@ export class ServerJobsStore {
                 etaSeconds: localJob.etaSeconds ?? serverJob.etaSeconds
             };
         });
-        const serverEventIds = new Set(reconciledServerJobs.map(correlationEventId).filter((id): id is string => Boolean(id)));
-        const serverIds = new Set(reconciledServerJobs.map((job) => job.id));
-        const local = localJobs.filter((job) => {
+        return [...reconciledServerJobs, ...this.withoutServerJobs(localJobs, reconciledServerJobs)];
+    }
+
+    /**
+     * The jobs only this browser follows: those the server reports neither by id nor by event.
+     * The banner counts these on top of the server's own totals.
+     */
+    browserOnlyActive(localJobs: JobProgressItem[]): JobProgressItem[] {
+        return this.withoutServerJobs(localJobs, this.activeJobs);
+    }
+
+    private withoutServerJobs(localJobs: JobProgressItem[], serverJobs: JobProgressItem[]): JobProgressItem[] {
+        const serverEventIds = new Set(serverJobs.map(correlationEventId).filter((id): id is string => Boolean(id)));
+        const serverIds = new Set(serverJobs.map((job) => job.id));
+        return localJobs.filter((job) => {
             if (serverIds.has(job.id)) return false;
             const eventId = correlationEventId(job);
             return !eventId || !serverEventIds.has(eventId);
         });
-        return [...reconciledServerJobs, ...local];
     }
 
     mergeHistory(localJobs: JobProgressItem[]): JobProgressItem[] {

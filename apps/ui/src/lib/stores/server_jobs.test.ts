@@ -191,3 +191,24 @@ describe('ServerJobsStore', () => {
         expect(merged[0]).toMatchObject({ id: 'backfill:weather:da620f73', current: 52, total: 94, startedAt: 1 });
     });
 });
+
+describe('ServerJobsStore browser-only work', () => {
+    it('keeps only the browser\'s jobs that the server does not report, by id or by event', () => {
+        const store = new ServerJobsStore();
+        store.ingest({
+            captured_at: '2026-11-16T10:00:00Z',
+            items: [
+                { id: 'video:evt-1', event_id: 'evt-1', kind: 'video_analysis', source: 'maintenance', status: 'running', phase: 'processing', current: 1, total: 15, unit: 'frames', visibility: 'prominent' },
+                { id: 'backfill:detections:b1', kind: 'backfill', source: 'owner', status: 'running', phase: 'processing', current: 3, total: 9, unit: 'detections', visibility: 'prominent' }
+            ],
+            lanes: []
+        });
+        const local = (id: string, kind: string) => ({ id, kind, title: kind, status: 'running' as const, current: 0, total: 0, startedAt: 1, updatedAt: 1, source: 'sse' as const });
+        const only = store.browserOnlyActive([
+            local('reclassify:evt-1', 'reclassify'),
+            local('backfill:detections:b1', 'backfill'),
+            local('model-download:x', 'model_download')
+        ]);
+        expect(only.map((job) => job.id)).toEqual(['model-download:x']);
+    });
+});

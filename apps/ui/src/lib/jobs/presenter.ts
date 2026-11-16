@@ -51,7 +51,11 @@ function formatRunningHeadline(count: number, t: JobsTranslateFn): string {
 function formatActiveHeadline(activeJobs: JobProgressItem[], t: JobsTranslateFn): string {
     const queued = activeJobs.filter((job) => job.status === 'queued').length;
     const stale = activeJobs.filter((job) => job.status === 'stale').length;
-    const running = activeJobs.length - queued - stale;
+    return formatCountsHeadline(activeJobs.length - queued - stale, queued, stale, t);
+}
+
+function formatCountsHeadline(running: number, queued: number, stale: number, t: JobsTranslateFn): string {
+    const total = running + queued + stale;
     if (queued === 0 && stale === 0) return formatRunningHeadline(running, t);
     if (running === 0 && stale === 0) {
         return t('jobs.global_queued_only', { count: queued }, '{count, plural, one {# job queued} other {# jobs queued}}');
@@ -66,7 +70,7 @@ function formatActiveHeadline(activeJobs: JobProgressItem[], t: JobsTranslateFn)
     ].filter((part): part is string => part !== null);
     return t(
         'jobs.global_breakdown',
-        { count: activeJobs.length, parts: parts.join(', ') },
+        { count: total, parts: parts.join(', ') },
         '{count, plural, one {# job} other {# jobs}}: {parts}'
     );
 }
@@ -346,15 +350,29 @@ export function presentWorkLane(
     };
 }
 
+/**
+ * The server's own count of its prominent work (`jobs_summary` in the pushed status), with the work
+ * only this browser follows. The snapshot lists at most a hundred jobs while its lanes count every
+ * one, so counting the listed jobs would put "100 queued" above a lane saying "151 queued".
+ */
+export interface ServerJobCounts {
+    running: number;
+    queued: number;
+    progress: { current: number; total: number; unit: string } | null;
+    browserOnly: JobProgressItem[];
+}
+
 export function buildGlobalProgressSummary(
     activeJobs: JobProgressItem[],
     rowsByKind: Map<string, JobPipelineKindRow>,
     analysisStatus: AnalysisStatus | null | undefined,
     _nowTs: number,
     t: JobsTranslateFn,
-    kindLabel: (kind: string) => string
+    kindLabel: (kind: string) => string,
+    server?: ServerJobCounts
 ): PresentedGlobalProgressSummary {
-    if (activeJobs.length === 0) {
+    const serverTotal = server ? server.running + server.queued + server.browserOnly.length : activeJobs.length;
+    if (activeJobs.length === 0 || serverTotal === 0) {
         const dominantRow = [...rowsByKind.values()].sort((a, b) => {
             const diff = rankRow(b) - rankRow(a);
             if (diff !== 0) return diff;
@@ -403,6 +421,36 @@ export function buildGlobalProgressSummary(
         const unit = resolveProgressUnit(activeJobs[0]);
         progressLabel = formatProgress(current, total, unit, t);
         percent = total > 0 ? Math.min(100, Math.max(0, Math.round((current / total) * 100))) : null;
+    }
+
+    if (server) {
+        const local = server.browserOnly;
+        const localQueued = local.filter((job) => job.status === 'queued').length;
+        const localStale = local.filter((job) => job.status === 'stale').length;
+        const headline = formatCountsHeadline(
+            server.running + local.length - localQueued - localStale,
+            server.queued + localQueued,
+            localStale,
+            t
+        );
+        // A bar only for work that shares one total: the server's alone, or the browser's alone.
+        const serverProgress = local.length === 0 ? server.progress : null;
+        const onlyLocal = server.running + server.queued === 0;
+        const progress = serverProgress
+            ? {
+                  label: formatProgress(serverProgress.current, serverProgress.total, serverProgress.unit, t),
+                  percent: Math.min(100, Math.max(0, Math.round((serverProgress.current / serverProgress.total) * 100)))
+              }
+            : onlyLocal && compatible
+                ? { label: progressLabel, percent }
+                : null;
+        return {
+            headline,
+            subline: resolveSummarySubline(dominantJob, dominantRow, analysisStatus, t, kindLabel),
+            progressLabel: progress?.label ?? null,
+            determinate: progress !== null,
+            percent: progress?.percent ?? null
+        };
     }
 
     return {

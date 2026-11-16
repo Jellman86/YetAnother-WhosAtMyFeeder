@@ -187,7 +187,11 @@ curl -N "http://localhost:9852/api/sse?ticket=$TICKET"
   session token is **not** accepted in the query string; see [Stream ticket](#stream-ticket).
   An owner stream sends the status snapshot as `{"type": "status", "data": <snapshot>}` right
   after `connected`, again within about a second of any change, and otherwise every 15 s with
-  fresh figures. The snapshot is the body of `GET /api/status`. Guests never receive it.
+  fresh figures. The snapshot is the body of `GET /api/status`. Guests never receive it. A
+  stream that falls so far behind that the server stops queueing messages for it is closed, so
+  the page reconnects and starts again from a fresh snapshot instead of trusting heartbeats alone;
+  the UI also treats a status older than 45 s as out of date, says so, and reads
+  `GET /api/status` until pushes resume.
 - `GET /api/status` (owner): the one status reading the shell, Health, the Dashboard and
   Settings › Models all show, so none of them can disagree. Not cacheable. It holds:
   - `overall`: `state` (`ok`, `degraded` or `unknown`, the same judgement as `/health`'s
@@ -197,8 +201,9 @@ curl -N "http://localhost:9852/api/sse?ticket=$TICKET"
     switched off, `unknown` for one not yet measured) and a `cause` code the page words, such as
     `disconnected`, `unreachable`, `cameras_offline`, `cpu_fallback`, `not_writable`,
     `nothing_heard` or `none_enabled`.
-  - `jobs_summary`: the prominent work as one count (`running`, `queued`) and `progress`, set
-    only when every running job counts the same unit towards a known total; `jobs` is the
+  - `jobs_summary`: the prominent work as one count (`running`, `queued`, from the lane totals,
+    which count every job) and `progress`, set only when every running job counts the same unit
+    towards a known total; the banner shows these counts. `jobs` is the
     `GET /api/jobs` snapshot (100 newest items, lane totals over every item) and `analysis` the
     `GET /api/maintenance/analysis/status` reading.
   - `model`: the model in use, the chosen and the running inference provider, whether the chosen
@@ -207,10 +212,14 @@ curl -N "http://localhost:9852/api/sse?ticket=$TICKET"
   - `connections` (as `GET /api/diagnostics/connections`, addresses and errors redacted),
     `cameras` (per-camera health from Frigate's stats, read at most once a minute; null while
     Frigate does not answer), `telemetry` (the latest host sample), `version`,
-    `startup_instance_id`, a `revision` that rises with every material change, and
-    `diagnostics_revision`, which moves when the server records a fault.
+    `startup_instance_id`, a `revision` that rises with every material change,
+    `diagnostics_revision`, which moves when the server records a fault, and `health_revision`,
+    which moves with the pipeline's counters, any verdict and the finder (Health reads its workspace
+    again when it changes; it does not cause a push by itself).
   The snapshot carries no secret: every field is a declared state, count, model name or redacted
-  address. The server reads it only while a stream is open, so an idle install with no page open
+  address, and free text (a job's phase and error, the queue's message, the provider's fallback
+  reason) is cleaned of configured secrets, credential URLs and `name=value` tokens. The same
+  cleaning applies to `GET /api/jobs`. The server reads it only while a stream is open, so an idle install with no page open
   does no extra work.
 
 ## Endpoint Map

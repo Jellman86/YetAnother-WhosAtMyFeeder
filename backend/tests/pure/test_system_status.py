@@ -430,3 +430,12 @@ def test_the_health_revision_follows_the_counters_and_the_finder_without_forcing
     assert base.health_revision != finder_on_cpu.health_revision
     # Counters move with every event; they reach Health with the next figure refresh, not as a push.
     assert material_key(base) == material_key(counted)
+
+
+def test_the_job_count_is_the_lane_total_when_the_list_is_cut_at_a_hundred():
+    listed = [job(f"video:{index}", "video_analysis", "queued") for index in range(100)]
+    jobs = JobsSnapshotResponse(captured_at="t", items=listed, lanes=[lane("video_analysis", queued=151)])
+
+    summary = summarise_jobs(jobs)
+
+    assert (summary.running, summary.queued) == (0, 151)
