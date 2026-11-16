@@ -48,13 +48,20 @@ describe('About surface polish', () => {
         expect(pipelineSource).toContain('about.pipeline.legend_note');
     });
 
-    it('lists every browser-side network call the sighting map makes', () => {
-        // The panel promises "nothing leaves your network except the calls listed
-        // below", and the eBird map fetches OpenStreetMap tiles from each
-        // viewer's browser, so both rows must be in the list.
-        expect(privacySummarySource).toContain("key: 'ebird'");
-        expect(privacySummarySource).toContain("key: 'osm'");
-        expect(en.about.outbound.osm_desc.toLowerCase()).toContain('browser');
+    it('makes no promise that the list is everything, and builds it from the features that send', () => {
+        // The old line said nothing else leaves the network, over a list without Google Fonts or Wikipedia.
+        expect(en.about.pipeline.legend_note).toBe('What leaves your network is listed below.');
+        expect(JSON.stringify(en.about)).not.toMatch(/Nothing leaves your network/i);
+        expect(privacySummarySource).toContain('outboundRequests(facts)');
+        expect(privacySummarySource).not.toContain("on: ebirdEnabled");
+        // Who sends each request is said in words, and every entry has a name and what it sends.
+        expect(en.about.outbound.from_server).toBe('Sent by this server');
+        expect(en.about.outbound.from_browser).toBe('Sent by each viewer’s browser');
+        const outbound = en.about.outbound as Record<string, string>;
+        for (const key of ['inat', 'wikipedia', 'gbif', 'weather', 'geolocate', 'places', 'ebird', 'birdweather', 'inat_submit', 'llm', 'notify', 'telemetry', 'updates', 'downloads', 'fonts', 'photos', 'osm', 'gbif_tiles']) {
+            expect(outbound[key], key).toBeTruthy();
+            expect(outbound[`${key}_desc`], key).toMatch(/Sends|sees|see |Fetches|Anonymous|Asks/);
+        }
     });
     it('sweeps a pulse along the pipeline in the direction data travels', () => {
         // Svelte scopes @keyframes, so a name referenced from a class resolves to nothing

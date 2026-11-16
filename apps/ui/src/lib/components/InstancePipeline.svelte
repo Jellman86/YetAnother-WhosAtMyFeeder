@@ -279,7 +279,7 @@
     </ol>
 
     <p class="text-2xs text-slate-600 dark:text-slate-400">
-        {$_('about.pipeline.legend_note', { default: 'Nothing leaves your network except the calls listed below.' })}
+        {$_('about.pipeline.legend_note', { default: 'What leaves your network is listed below.' })}
     </p>
 
 </div>

@@ -190,6 +190,14 @@ or Frigate is down, and its MQTT and Frigate rows lead with the connection state
 Its subsystems are one ruled list in full-contrast ink, each state a worded chip; a reason code it
 knows is said in words with what to try, and the backend's own text sits under Technical details.
 
+An amount needs a price as well as a count. Settings → AI shows a cost only for usage that has a
+rate (`settings/ai-cost.ts`): a model without one is "Not priced", usage with no prices is "Cost not
+estimated: add prices", and a total over part of the usage states the requests it covers. About's
+list of what leaves the network is built from the features that send each request
+(`utils/outbound-requests.ts`), names who sends it (this server, or each viewer's browser) and what
+it sends, and makes no promise that the list is all there is. A setting a guest cannot read is
+"Owner only", never "Disabled".
+
 A page that reads data keeps four states apart: loading, read and empty, failed, and stale. Only a
 reading may show a number, so a pending or failed read never shows a zero or "no activity"; a
 failure is said in the page's own sentence with the next step, the server's words behind a

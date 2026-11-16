@@ -116,11 +116,10 @@ describe('the About page opens on a portrait of this feeder', () => {
     });
 
     it('lists the install-count read among what leaves the network', () => {
-        expect(privacySource).toContain("key: 'community'");
         // Guests cannot read settings, so the row states what the community read itself reported.
-        expect(privacySource).toContain('communityReadEnabled ?? Boolean(settingsStore.settings?.update_check_enabled)');
+        expect(privacySource).toContain('updateChecks: communityReadEnabled ?? (settings ? Boolean(settings.update_check_enabled) : null)');
         expect(aboutSource).toContain('<PrivacySummary {communityReadEnabled} />');
-        expect(en.about.outbound.community_desc).toContain('update checks');
+        expect(en.about.outbound.updates_desc).toContain('update checks');
         for (const value of JSON.stringify(en.about.portrait).match(/"[^"]*"/g) ?? []) {
             expect(value).not.toContain('—');
         }
