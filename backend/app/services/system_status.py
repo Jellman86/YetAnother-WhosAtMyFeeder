@@ -306,6 +306,36 @@ def _redacted_analysis(analysis: AnalysisStatusResponse, secrets: tuple[str, ...
     )
 
 
+_PIPELINE_COUNTERS = (
+    "status",
+    "started_events",
+    "completed_events",
+    "dropped_events",
+    "incomplete_events",
+    "critical_failures",
+    "critical_failure_active",
+)
+
+
+def _health_revision(inputs: SystemStatusInputs, overall: OverallVerdict, subsystems: list[SubsystemVerdict]) -> str:
+    pipeline = inputs.event_pipeline or {}
+    finder = _finder_health(inputs)
+    fingerprint = json.dumps(
+        [
+            overall.model_dump(),
+            [verdict.model_dump() for verdict in subsystems],
+            {name: pipeline.get(name) for name in _PIPELINE_COUNTERS},
+            bool(finder.get("active")),
+            inputs.diagnostics_revision,
+            inputs.startup_warning_count,
+            inputs.db_pool_degraded,
+        ],
+        sort_keys=True,
+        default=str,
+    )
+    return hashlib.sha256(fingerprint.encode()).hexdigest()[:16]
+
+
 def derive_system_status(inputs: SystemStatusInputs, *, revision: int, now: datetime) -> SystemStatusSnapshot:
     """The snapshot every owner screen reads, from readings already taken.
 
@@ -322,12 +352,13 @@ def derive_system_status(inputs: SystemStatusInputs, *, revision: int, now: date
         _notifications_verdict(inputs),
     ]
     classifier = next(verdict for verdict in subsystems if verdict.key == "classifier")
+    overall = _overall_verdict(inputs, subsystems)
     return SystemStatusSnapshot(
         revision=revision,
         generated_at=now.astimezone(timezone.utc).isoformat(),
         startup_instance_id=inputs.startup_instance_id,
         version=inputs.version,
-        overall=_overall_verdict(inputs, subsystems),
+        overall=overall,
         subsystems=subsystems,
         jobs_summary=summarise_jobs(inputs.jobs),
         jobs=_redacted_jobs(inputs.jobs, inputs.secrets),
@@ -337,6 +368,7 @@ def derive_system_status(inputs: SystemStatusInputs, *, revision: int, now: date
         cameras=inputs.cameras,
         telemetry=inputs.telemetry,
         diagnostics_revision=inputs.diagnostics_revision,
+        health_revision=_health_revision(inputs, overall, subsystems),
     )
 
 

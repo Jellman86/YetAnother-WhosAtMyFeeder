@@ -8,6 +8,8 @@ import { notificationPolicy } from '../notifications/policy';
 import { statusNotificationCause, verdictFor } from '../stores/system_status.svelte';
 
 const STALE_PROCESS_MAX_AGE_MS = 45 * 60 * 1000;
+/** The waits before a failed incident-workspace read is tried again; the last repeats until one succeeds. */
+export const WORKSPACE_RETRY_MS: readonly number[] = [5_000, 15_000, 60_000, 300_000];
 const ORPHAN_PROCESS_GRACE_MS = 2 * 60 * 1000;
 const RECLASSIFY_PROGRESS_ID = 'reclassify:progress';
 const RECLASSIFY_STATE_MAX_IDLE_MS = 5 * 60 * 1000;
@@ -262,6 +264,10 @@ export function toDetection(data: SseData): Detection {
     };
 }
 
+function verdictsKey(snapshot: SystemStatus): string {
+    return JSON.stringify([snapshot.overall, snapshot.subsystems]);
+}
+
 export class LiveUpdateCoordinator {
     private deps: LiveUpdateDeps;
     private activeReclassifyEvents = new Map<string, { strategy?: string; fallbackFrom?: string }>();
@@ -271,6 +277,8 @@ export class LiveUpdateCoordinator {
     private reclassifyCompletedCount = 0;
     private analysisQueueBaselineTotal = 0;
     private lastStartupInstanceId: string | null = null;
+    private workspaceRetryTimer: ReturnType<typeof setTimeout> | null = null;
+    private workspaceFailures = 0;
 
     constructor(deps: LiveUpdateDeps) {
         this.deps = deps;
@@ -302,14 +310,13 @@ export class LiveUpdateCoordinator {
         if (changed) {
             this.deps.refreshOwnerHistory?.().catch(() => this.deps.logger.warn('owner_history_refresh_failed'));
         }
+        // A recorded fault, a restart, or any verdict changing (a recovery records no new fault, but
+        // its incident must close) means the incident workspace has moved on.
         const workspaceChanged = previous === null
             || previous.diagnostics_revision !== snapshot.diagnostics_revision
-            || previous.startup_instance_id !== snapshot.startup_instance_id;
-        if (workspaceChanged && this.deps.syncDiagnosticsWorkspace) {
-            this.deps.syncDiagnosticsWorkspace().catch((error: unknown) => {
-                this.deps.logger.warn('diagnostics_workspace_sync_failed', { error });
-            });
-        }
+            || previous.startup_instance_id !== snapshot.startup_instance_id
+            || verdictsKey(previous) !== verdictsKey(snapshot);
+        if (workspaceChanged) this.syncWorkspace();
         if (!this.deps.shouldNotify()) return;
 
         const startupInstanceId = snapshot.startup_instance_id || 'unknown';
@@ -352,6 +359,28 @@ export class LiveUpdateCoordinator {
         } else {
             this.removeNotificationsByPrefix('system:media-storage-unavailable');
         }
+    }
+
+    /** One workspace read; a failure is tried again with a growing wait until a read succeeds. */
+    private syncWorkspace(): void {
+        const sync = this.deps.syncDiagnosticsWorkspace;
+        if (!sync) return;
+        if (this.workspaceRetryTimer !== null) clearTimeout(this.workspaceRetryTimer);
+        this.workspaceRetryTimer = null;
+        sync().then(
+            () => {
+                this.workspaceFailures = 0;
+            },
+            (error: unknown) => {
+                this.deps.logger.warn('diagnostics_workspace_sync_failed', { error });
+                const wait = WORKSPACE_RETRY_MS[Math.min(this.workspaceFailures, WORKSPACE_RETRY_MS.length - 1)];
+                this.workspaceFailures += 1;
+                this.workspaceRetryTimer = setTimeout(() => {
+                    this.workspaceRetryTimer = null;
+                    this.syncWorkspace();
+                }, wait);
+            }
+        );
     }
 
     handlePayload(payload: unknown) {

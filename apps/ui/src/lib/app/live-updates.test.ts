@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { SystemStatus } from '../api/status';
-import { LiveUpdateCoordinator, toDetection } from './live-updates';
+import { LiveUpdateCoordinator, WORKSPACE_RETRY_MS, toDetection } from './live-updates';
 
 describe('toDetection', () => {
     it('normalizes required fields at the untrusted SSE boundary', () => {
@@ -42,6 +42,7 @@ function buildCoordinator(options?: {
     refreshOwnerHistory?: () => Promise<void>;
     onGardenHistoryChanged?: () => void;
     onStatus?: (snapshot: unknown) => void;
+    syncDiagnosticsWorkspace?: () => Promise<void>;
     onAudioChanged?: () => void;
     onSettingsChanged?: () => void;
 }) {
@@ -132,9 +133,9 @@ function buildCoordinator(options?: {
         diagnostics: {
             recordError: (input: any) => calls.recordError.push(input)
         },
-        syncDiagnosticsWorkspace: async () => {
+        syncDiagnosticsWorkspace: options?.syncDiagnosticsWorkspace ?? (async () => {
             calls.syncDiagnosticsWorkspace.push(true);
-        }
+        })
     });
 
     return { coordinator, calls, notificationItems, jobProgress };
@@ -171,6 +172,7 @@ function status(overrides: Partial<SystemStatus> & { storage?: 'ok' | 'error' } 
             generated_at: '2026-11-16T09:00:00Z'
         },
         diagnostics_revision: 0,
+        health_revision: 'h1',
         ...rest
     };
 }
@@ -364,6 +366,39 @@ describe('LiveUpdateCoordinator reclassify fallback', () => {
         expect(calls.syncDiagnosticsWorkspace).toHaveLength(1);
         coordinator.applySystemStatus(status({ revision: 2, diagnostics_revision: 4 }), figures);
         expect(calls.syncDiagnosticsWorkspace).toHaveLength(2);
+    });
+
+    it('reads the incident workspace again when a verdict changes, so a recovery closes its incident', () => {
+        const { coordinator, calls } = buildCoordinator();
+        const onCpu = status({ subsystems: [{ key: 'finder', state: 'degraded', cause: 'cpu_fallback' }] });
+        coordinator.applySystemStatus(onCpu, null);
+        // The finder is back on its accelerator; no new fault was recorded for that.
+        coordinator.applySystemStatus(status({ revision: 2, subsystems: [{ key: 'finder', state: 'ok', cause: 'ready' }] }), onCpu);
+        expect(calls.syncDiagnosticsWorkspace).toHaveLength(2);
+    });
+
+    it('retries a failed workspace read with a growing wait until one succeeds', async () => {
+        vi.useFakeTimers();
+        try {
+            const sync = vi.fn<() => Promise<void>>()
+                .mockRejectedValueOnce(new Error('HTTP 502'))
+                .mockRejectedValueOnce(new Error('HTTP 502'))
+                .mockResolvedValue(undefined);
+            const { coordinator } = buildCoordinator({ syncDiagnosticsWorkspace: sync });
+            coordinator.applySystemStatus(status(), null);
+            await vi.advanceTimersByTimeAsync(0);
+            expect(sync).toHaveBeenCalledTimes(1);
+            await vi.advanceTimersByTimeAsync(WORKSPACE_RETRY_MS[0]);
+            expect(sync).toHaveBeenCalledTimes(2);
+            await vi.advanceTimersByTimeAsync(WORKSPACE_RETRY_MS[0]);
+            expect(sync).toHaveBeenCalledTimes(2);
+            await vi.advanceTimersByTimeAsync(WORKSPACE_RETRY_MS[1] - WORKSPACE_RETRY_MS[0]);
+            expect(sync).toHaveBeenCalledTimes(3);
+            await vi.advanceTimersByTimeAsync(10 * WORKSPACE_RETRY_MS[WORKSPACE_RETRY_MS.length - 1]);
+            expect(sync).toHaveBeenCalledTimes(3);
+        } finally {
+            vi.useRealTimers();
+        }
     });
 
     it('refreshes stale owner history when the status changes, even when notifications are off', () => {

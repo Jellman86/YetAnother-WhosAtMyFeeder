@@ -3043,6 +3043,7 @@ export interface components {
     connections: components['schemas']['ServiceConnectionsResponse'];
     diagnostics_revision: number;
     generated_at: string;
+    health_revision: string;
     jobs: components['schemas']['JobsSnapshotResponse'];
     jobs_summary: components['schemas']['JobsSummary'];
     model: components['schemas']['ModelState'];

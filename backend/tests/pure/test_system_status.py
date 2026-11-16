@@ -408,3 +408,25 @@ def test_free_text_in_the_snapshot_is_redacted_before_it_is_published():
     for leaked in (secret, "fixture-url-pass-8812", "tok-8812", "key-8812", "owner:"):
         assert leaked not in payload
     assert "frigate:5000" in payload
+
+
+def test_the_health_revision_follows_the_counters_and_the_finder_without_forcing_a_push():
+    def snapshot(**overrides):
+        return derive_system_status(healthy(**overrides), revision=1, now=NOW)
+
+    base = snapshot(event_pipeline={"status": "ok", "started_events": 10, "completed_events": 9})
+    counted = snapshot(event_pipeline={"status": "ok", "started_events": 11, "completed_events": 10})
+    finder_on_cpu = snapshot(
+        event_pipeline={"status": "ok", "started_events": 10, "completed_events": 9},
+        classifier_health={
+            "status": "degraded",
+            "live_image": {"status": "ok"},
+            "bird_finder": {"active": True, "model_id": "rfdetr"},
+            "models": {"bird": {"loaded": True}},
+        },
+    )
+
+    assert base.health_revision != counted.health_revision
+    assert base.health_revision != finder_on_cpu.health_revision
+    # Counters move with every event; they reach Health with the next figure refresh, not as a push.
+    assert material_key(base) == material_key(counted)

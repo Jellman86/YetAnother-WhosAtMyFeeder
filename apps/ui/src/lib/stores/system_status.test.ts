@@ -34,6 +34,7 @@ function snapshot(overrides: Partial<SystemStatus> = {}): SystemStatus {
         cameras: null,
         telemetry: null,
         diagnostics_revision: 0,
+        health_revision: 'h1',
         ...overrides
     };
 }

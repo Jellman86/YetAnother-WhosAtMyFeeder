@@ -23203,6 +23203,11 @@
             "title": "Generated At",
             "type": "string"
           },
+          "health_revision": {
+            "description": "Changes when Health's details change: the pipeline's counters, a verdict, the finder, or a recorded fault. It travels with the next push rather than causing one; Health reads its workspace again when it moves.",
+            "title": "Health Revision",
+            "type": "string"
+          },
           "jobs": {
             "$ref": "#/components/schemas/JobsSnapshotResponse"
           },
@@ -23260,7 +23265,8 @@
           "analysis",
           "model",
           "connections",
-          "diagnostics_revision"
+          "diagnostics_revision",
+          "health_revision"
         ],
         "title": "SystemStatusSnapshot",
         "type": "object"

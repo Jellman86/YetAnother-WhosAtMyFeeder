@@ -64,6 +64,7 @@
     import { toAppPath } from '../app/url-base';
     import { authStore } from '../stores/auth.svelte';
     import { systemStatusStore } from '../stores/system_status.svelte';
+    import { followRevisions } from '../app/revision-follower';
     import { passwordProblemMessage, validateAuthSettingsSave } from '../auth-password-policy';
     import { toastStore } from '../stores/toast.svelte';
     import { confirmAction } from '../stores/confirm_dialog.svelte';
@@ -1283,20 +1284,21 @@
     });
 
     // A harness can finish in another tab, and isolated workers can start after
-    // the completion response. The pushed status names the model's runtime by a
-    // revision; the runtime line is read again only when that revision moves, so
-    // an idle Models tab asks nothing and the form is never touched.
+    // the completion response. The tab reads the runtime once when it opens, then
+    // again whenever the pushed model revision moves (a revision arriving during a
+    // read queues one more), so an idle Models tab asks nothing and the form is
+    // never touched.
     $effect(() => {
         if (activeTab !== 'models' || !authStore.showSettings) return;
-        let seenRevision = untrack(() => systemStatusStore.snapshot?.model.revision ?? null);
-        const stop = systemStatusStore.subscribe((snapshot) => {
-            const revision = snapshot.model.revision;
-            if (revision === seenRevision) return;
-            seenRevision = revision;
-            if (classifierStatusReads === 0) void loadClassifierStatus();
-        });
+        const follower = followRevisions(
+            loadClassifierStatus,
+            untrack(() => systemStatusStore.snapshot?.model.revision ?? null)
+        );
+        follower.start();
+        const stopFollowing = systemStatusStore.subscribe((snapshot) => follower.observe(snapshot.model.revision));
         return () => {
-            stop();
+            stopFollowing();
+            follower.stop();
             classifierStatusRequest += 1;
         };
     });

@@ -27,6 +27,7 @@
     import { connectionCauseMessage } from '../api/error-message';
     import { serviceConnectionsStore } from '../stores/service_connections.svelte';
     import { systemStatusStore } from '../stores/system_status.svelte';
+    import { followRevisions } from '../app/revision-follower';
     import { pageRefreshAction } from '../stores/page_refresh_action.svelte';
     import { detectionsStore } from '../stores/detections.svelte';
     import { settingsStore } from '../stores/settings.svelte';
@@ -196,6 +197,14 @@
     onMount(() => {
         void detectionsStore.loadInitial();
         void refreshWorkspace();
+        // The counters, verdicts and incidents move without a new fault being recorded (a recovery,
+        // events counted). The pushed status names them by a revision; Health reads again when it moves.
+        const follower = followRevisions(refreshWorkspace, systemStatusStore.snapshot?.health_revision ?? null);
+        const stop = systemStatusStore.subscribe((snapshot) => follower.observe(snapshot.health_revision));
+        return () => {
+            stop();
+            follower.stop();
+        };
     });
 
     $effect(() => {

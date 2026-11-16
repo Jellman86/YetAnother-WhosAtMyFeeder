@@ -114,3 +114,10 @@ class SystemStatusSnapshot(BaseModel):
     diagnostics_revision: int = Field(
         ge=0, description="Recorded fault occurrences; when it changes, the incident workspace has something new."
     )
+    health_revision: str = Field(
+        description=(
+            "Changes when Health's details change: the pipeline's counters, a verdict, the finder, or a "
+            "recorded fault. It travels with the next push rather than causing one; Health reads its "
+            "workspace again when it moves."
+        )
+    )
