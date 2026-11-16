@@ -147,7 +147,7 @@
 >
     <!-- The time is text. One control per row opens the captures: the count chip under the name
          where the log is narrow, the count button at the row's end where it is wide. -->
-    <span class="text-xs tabular-nums {expandable ? 'font-medium text-ink' : 'text-muted'} {cell.time}">
+    <span class="text-xs tabular-nums {expandable ? 'font-medium text-ink' : 'text-muted'} {cell.time}" data-field-log-time>
         <!-- Beside the photo on the narrowest log there is room for only a few digits: break rather than spill. -->
         <span class="block wrap-anywhere">{@render timeSpan()}</span>
     </span>
