@@ -7,7 +7,7 @@
     import { settingsStore } from '../stores/settings.svelte';
     import { fetchEventFilters } from '../api/events';
     import {
-        fetchCameraStatuses,
+        readCameraStatuses,
         fetchLatestCameraSnapshot,
         type CameraStatusResponse
     } from '../api/media';
@@ -134,7 +134,7 @@
 
         const currentRefresh = (async () => {
             try {
-                const response = await fetchCameraStatuses(controller.signal);
+                const response = await readCameraStatuses(controller.signal);
                 if (controller.signal.aborted) return;
                 cameraHealth = Object.fromEntries(response.cameras.map((camera) => [camera.camera, camera]));
                 if (monitorAllCameras && response.cameras.length > 0) {

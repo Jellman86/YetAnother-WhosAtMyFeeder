@@ -1,11 +1,21 @@
 import { API_BASE, apiFetch, fetchWithAbort, handleResponse } from './core';
 import type { components, paths } from './generated/openapi';
+import { createSharedRead, STATUS_SHARE_MS } from './shared-read';
 
 export type ClassifierStatus = components['schemas']['ClassifierStatusResponse'];
 
 export async function fetchClassifierStatus(): Promise<ClassifierStatus> {
     const response = await apiFetch(`${API_BASE}/classifier/status`);
     return handleResponse<ClassifierStatus>(response);
+}
+
+// The Dashboard's accelerator warning and About's summary and pipeline each show this reading.
+// A view that has just changed the model reads `fetchClassifierStatus` itself, never this.
+const sharedClassifierStatus = createSharedRead(fetchClassifierStatus, { shareForMs: STATUS_SHARE_MS });
+
+/** What names birds right now, for a view that shows it; views mounting together share one request. */
+export function readClassifierStatus(): Promise<ClassifierStatus> {
+    return sharedClassifierStatus.read();
 }
 
 /** The bundled CPU model: it needs no download, so it is the recommended place to start. */

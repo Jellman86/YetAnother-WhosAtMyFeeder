@@ -4,7 +4,7 @@ import cameraStatusSource from './CameraStatus.svelte?raw';
 describe('Camera status health and viewer behavior', () => {
     it('polls lightweight health independently from selected-camera frames', () => {
         expect(cameraStatusSource).toContain('await loadCameras();');
-        expect(cameraStatusSource).toContain('fetchCameraStatuses');
+        expect(cameraStatusSource).toContain('readCameraStatuses');
         expect(cameraStatusSource).toContain('startHealthRefresh(false);');
         expect(cameraStatusSource).toContain('if (!popoverOpen) return;');
         expect(cameraStatusSource).toContain('refreshSelectedFrame');
@@ -41,7 +41,7 @@ describe('Camera status health and viewer behavior', () => {
 
     it('uses the shared API client instead of an inline fetch', () => {
         expect(cameraStatusSource).toContain('fetchLatestCameraSnapshot');
-        expect(cameraStatusSource).toContain('fetchCameraStatuses');
+        expect(cameraStatusSource).toContain('readCameraStatuses');
         expect(cameraStatusSource).not.toContain('fetch(`${appApiPath(');
     });
 });

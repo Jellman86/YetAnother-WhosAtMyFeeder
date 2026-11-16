@@ -30,7 +30,7 @@
         resetError = null;
         try {
             await resetVideoCircuit();
-            await analysisQueueStatusStore.refresh();
+            await analysisQueueStatusStore.refresh({ fresh: true });
         } catch {
             resetError = $_('jobs.circuit_reset_failed', {
                 default: 'The queue could not be resumed. Try again.'

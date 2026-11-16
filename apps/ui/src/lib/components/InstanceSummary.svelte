@@ -1,6 +1,6 @@
 <script lang="ts">
     import { onMount } from 'svelte';
-    import { checkHealth, fetchClassifierStatus, fetchReadiness, fetchUpdateStatus } from '../api';
+    import { checkHealth, fetchReadiness, readClassifierStatus, readUpdateStatus } from '../api';
     import type { UpdateStatus } from '../api';
     import { fetchUptimeWindow, type UptimeWindowResponse } from '../api/leaderboard';
     import type { ClassifierStatus, VersionInfo } from '../api';
@@ -46,7 +46,7 @@
                 uptimeLoadState = 'error';
             }
             try {
-                updateStatus = await fetchUpdateStatus();
+                updateStatus = await readUpdateStatus();
             } catch {
                 // Update checking is optional and may be disabled.
             }
@@ -54,7 +54,7 @@
 
         void (async () => {
             try {
-                classifier = await fetchClassifierStatus();
+                classifier = await readClassifierStatus();
             } catch (error) {
                 if (isTransientRequestError(error)) {
                     logger.warn('Classifier status unavailable', { message: getErrorMessage(error) });

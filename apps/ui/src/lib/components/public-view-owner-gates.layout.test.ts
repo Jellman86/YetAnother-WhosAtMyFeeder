@@ -10,12 +10,12 @@ import instancePipelineSource from './InstancePipeline.svelte?raw';
 describe('Public view owner-reading gates', () => {
     it('the dashboard desk only asks for camera status with owner access', () => {
         expect(deskContextCardsSource).toContain('authStore.hasOwnerAccess');
-        expect(deskContextCardsSource).toContain('fetchCameraStatuses');
+        expect(deskContextCardsSource).toContain('readCameraStatuses');
     });
 
     it('the about pipeline only asks for camera status with owner access', () => {
         expect(instancePipelineSource).toContain('authStore.hasOwnerAccess');
-        expect(instancePipelineSource).toContain('fetchCameraStatuses');
+        expect(instancePipelineSource).toContain('readCameraStatuses');
     });
 
     it('the about pipeline tells guests a reading is owner-only instead of implying a fault', () => {

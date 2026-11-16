@@ -1,6 +1,6 @@
 <script lang="ts">
     import Separator from './Separator.svelte';
-    import { fetchCameraStatuses } from '../api';
+    import { readCameraStatuses } from '../api';
     import type { CameraStatusResponse, Detection } from '../api';
     import type { DetectionVisit } from '../utils/visit-grouping';
     import { buildDashboardCameraRows } from '../utils/dashboard-cameras';
@@ -39,7 +39,7 @@
 
         void (async () => {
             try {
-                cameraStatus = await fetchCameraStatuses(controller.signal);
+                cameraStatus = await readCameraStatuses(controller.signal);
             } catch (error) {
                 if (controller.signal.aborted) return;
                 // Camera health is supporting context; the desk stays usable without it.

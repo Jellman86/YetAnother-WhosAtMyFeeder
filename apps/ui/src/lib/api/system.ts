@@ -1,5 +1,6 @@
 import { API_BASE, apiFetch, handleResponse } from './core';
 import type { paths } from './generated/openapi';
+import { createSharedRead, STATUS_SHARE_MS } from './shared-read';
 
 export type VersionInfo = paths['/api/version']['get']['response'] & {
     git_hash: string;   // resolved from build-time constant; not returned by the API
@@ -93,7 +94,7 @@ export type FrigateTestResult = paths['/api/frigate/test']['get']['response'];
 
 export type RecordingClipCapability = paths['/api/frigate/recording-clip-capability']['get']['response'];
 
-export async function fetchVersion(): Promise<VersionInfo> {
+async function fetchVersion(): Promise<VersionInfo> {
     const gitHash = typeof __GIT_HASH__ === 'string' ? __GIT_HASH__ : 'unknown';
     const appBranch = typeof __APP_BRANCH__ === 'string' ? __APP_BRANCH__ : 'unknown';
     try {
@@ -115,6 +116,14 @@ export async function fetchVersion(): Promise<VersionInfo> {
         git_hash: gitHash,
         branch: appBranch
     };
+}
+
+// The footer names the version on every page, and About and Settings name it again.
+const sharedVersion = createSharedRead(fetchVersion, { shareForMs: STATUS_SHARE_MS });
+
+/** The running version for a view that shows it; views mounting together share one request. */
+export function readVersion(): Promise<VersionInfo> {
+    return sharedVersion.read();
 }
 
 export async function checkHealth(): Promise<HealthStatus> {
@@ -157,6 +166,14 @@ export interface UpdateStatus {
 export async function fetchUpdateStatus(): Promise<UpdateStatus> {
     const response = await apiFetch(`${API_BASE}/update-status`, { cache: 'no-store' });
     return handleResponse<UpdateStatus>(response);
+}
+
+// The shell's update banner and About's instance summary both show this reading.
+const sharedUpdateStatus = createSharedRead(fetchUpdateStatus, { shareForMs: STATUS_SHARE_MS });
+
+/** Whether an update is out, for a view that shows it; views mounting together share one request. */
+export function readUpdateStatus(): Promise<UpdateStatus> {
+    return sharedUpdateStatus.read();
 }
 
 /**

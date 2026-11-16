@@ -104,8 +104,10 @@
         audio_only: boolean;
     };
 
-    let species: LeaderboardRow[] = $state([]);
-    let audioSpecies = $state<AudioSpeciesLeaderboardItem[]>([]);
+    // Whole responses, replaced on each read and never edited in place: raw, so the page does not
+    // wrap hundreds of rows in reactive proxies on every load.
+    let species: LeaderboardRow[] = $state.raw([]);
+    let audioSpecies = $state.raw<AudioSpeciesLeaderboardItem[]>([]);
     let audioLoadState = $state<AudioLoadState>('disabled');
     let sourceMode = $state<SourceMode>('seen');
     let loading = $state(true);
@@ -141,8 +143,8 @@
     let selectedSpecies = $state<string | null>(null);
     /** The flagged species the owner opened the check sheet on, or null when it is closed. */
     let checkStart = $state<string | null>(null);
-    let timeline = $state<DetectionsTimelineSpanResponse | null>(null);
-    let activityHeatmap = $state<DetectionsActivityHeatmapResponse | null>(null);
+    let timeline = $state.raw<DetectionsTimelineSpanResponse | null>(null);
+    let activityHeatmap = $state.raw<DetectionsActivityHeatmapResponse | null>(null);
     let speciesInfoCache = $state<Record<string, SpeciesInfo>>({});
     let speciesInfoPending = $state<Record<string, boolean>>({});
     let chartEl = $state<HTMLCanvasElement | null>(null);
@@ -247,7 +249,7 @@
     let sourceLeader = $derived(leaderboardRows[0] ?? null);
     // This feeder's own photograph of each leading species, fetched beside the standings and
     // never blocking them; a species without one shows its reference image, labelled.
-    let portraits = $state<LeaderboardPortrait[]>([]);
+    let portraits = $state.raw<LeaderboardPortrait[]>([]);
     $effect(() => {
         const requestedSpan = span;
         const publicVersion = authStore.isGuest ? detectionsStore.publicHistoryVersion : 0;
@@ -305,7 +307,7 @@
     const GUEST_WALL_TILES = 24;
     // The captures are kept with the span they were fetched for, so a wall never shows one window
     // under another's heading while the next load is in flight.
-    let wallFetched = $state<{ span: LeaderboardSpan | null; detections: Detection[] }>({ span: null, detections: [] });
+    let wallFetched = $state.raw<{ span: LeaderboardSpan | null; detections: Detection[] }>({ span: null, detections: [] });
     // Dates select whole days, so the captures are cut to the window's own start and end.
     let wallDetections = $derived.by(() => {
         if (wallFetched.span !== span) return [];

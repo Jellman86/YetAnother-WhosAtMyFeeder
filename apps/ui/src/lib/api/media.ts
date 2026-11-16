@@ -1,6 +1,7 @@
 import { createSlotGate } from '../utils/concurrency';
 import { API_BASE, apiFetch, getHeaders, handleResponse, withAuthParams } from './core';
 import type { paths } from './generated/openapi';
+import { createSharedRead, STATUS_SHARE_MS } from './shared-read';
 
 export function getSnapshotUrl(frigateEvent: string): string {
     return withAuthParams(`${API_BASE}/frigate/${frigateEvent}/snapshot.jpg`);
@@ -94,13 +95,21 @@ export async function fetchLatestCameraSnapshot(camera: string, signal?: AbortSi
 
 export type CameraStatusResponse = paths['/api/frigate/cameras/status']['get']['response'];
 
-export async function fetchCameraStatuses(signal?: AbortSignal): Promise<CameraStatusResponse> {
+async function fetchCameraStatuses(signal?: AbortSignal): Promise<CameraStatusResponse> {
     const response = await apiFetch(`${API_BASE}/frigate/cameras/status`, {
         cache: 'no-store',
         signal,
         timeoutMs: 10_000
     });
     return handleResponse<CameraStatusResponse>(response);
+}
+
+// The shell's camera list, the Dashboard's camera rows and About's pipeline all show this reading.
+const sharedCameraStatuses = createSharedRead(() => fetchCameraStatuses(), { shareForMs: STATUS_SHARE_MS });
+
+/** Camera reachability for a view that shows it; views mounting together share one request. */
+export function readCameraStatuses(signal?: AbortSignal): Promise<CameraStatusResponse> {
+    return sharedCameraStatuses.read(signal);
 }
 
 export type VideoShareCreateResponse = paths['/api/video-share']['post']['response'];

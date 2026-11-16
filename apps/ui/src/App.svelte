@@ -20,7 +20,7 @@
   import LazyModal from './lib/components/LazyModal.svelte';
   import Login from './lib/components/Login.svelte';
   import { setupWizardStore } from './lib/stores/setup_wizard.svelte';
-  import { checkHealth, fetchAnalysisStatus, fetchCacheStats, fetchEventClassificationStatus, setAuthErrorCallback } from './lib/api';
+  import { checkHealth, fetchCacheStats, fetchEventClassificationStatus, readAnalysisStatus, setAuthErrorCallback } from './lib/api';
   import { createStreamTicket } from './lib/api/auth';
   import { resolveStreamUrl } from './lib/app/stream-url';
   import { themeStore } from './lib/stores/theme.svelte';
@@ -45,6 +45,7 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
   import { logger } from './lib/utils/logger';
   import { LiveUpdateCoordinator } from './lib/app/live-updates';
   import { gardenHistory } from './lib/stores/garden_history.svelte';
+  import { audioActivity } from './lib/stores/audio_activity.svelte';
   import { guestHistoryRefreshDelayMs } from './lib/app/public-refresh-budget';
   import { createPublicHistoryRefresh } from './lib/app/public-history-refresh';
   import { createDeployRecovery } from './lib/app/deploy-recovery';
@@ -277,6 +278,7 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
 
   let appInitialized = $state(false);
   let activeAccessIdentity: string | null = null;
+  let liveStreamConnectedBefore = false;
   let canAccess = $derived(!authStore.authRequired || authStore.publicAccessEnabled || authStore.isAuthenticated);
   // The first-run wizard replaces the whole app until it is finished.
   let showsFirstRunWizard = $derived(
@@ -367,16 +369,20 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
       },
       // A storage measurement walks the media folder; whether it is writable changes rarely.
       fetchCacheStats: readAtMostEvery(fetchCacheStats, REFRESH_CADENCE_MS.mediaStorageCheck),
-      fetchAnalysisStatus,
+      fetchAnalysisStatus: readAnalysisStatus,
       diagnostics: jobDiagnosticsStore,
       syncDiagnosticsWorkspace: () => incidentWorkspaceStore.refresh(),
       onConnected: () => {
           reconnectAttempts = 0;
-          if (authStore.hasOwnerAccess) gardenHistory.invalidate();
+          // The first connect follows the pages' own first reads; only a reconnect can have
+          // missed a Garden change, so only a reconnect reads Garden again.
+          if (authStore.hasOwnerAccess && liveStreamConnectedBefore) gardenHistory.invalidate();
+          liveStreamConnectedBefore = true;
           refreshOwnerConnections();
       },
-      onServiceConnectionsChanged: () => refreshOwnerConnections(),
+      onServiceConnectionsChanged: () => refreshOwnerConnections({ fresh: true }),
       onGardenHistoryChanged: () => gardenHistory.invalidate(),
+      onAudioDetected: () => audioActivity.announce(),
       onPublicHistoryChanged: () => publicHistoryRefresh.notify(),
       // Refresh every public view and its caches when the owner changes sharing.
       // Only the generic signal arrives; no owner settings are sent to visitors.
@@ -415,8 +421,8 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
   });
 
   /** The live tile's broker and Frigate reading; owners only, since guests are never told it. */
-  function refreshOwnerConnections(): void {
-      if (authStore.showSettings) void serviceConnectionsStore.refresh();
+  function refreshOwnerConnections(options: { fresh?: boolean } = {}): void {
+      if (authStore.showSettings) void serviceConnectionsStore.refresh(options);
   }
 
   function startOperationalPolling(): () => void {
@@ -635,6 +641,7 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
       if (canAccess) {
           if (!appInitialized || activeAccessIdentity !== accessIdentity) {
               closeLiveConnection();
+              liveStreamConnectedBefore = false;
               untrack(() => detectionsStore.resetForAccessChange());
               untrack(() => serviceConnectionsStore.clear());
               if (authStore.isAuthenticated || !authStore.authRequired) {

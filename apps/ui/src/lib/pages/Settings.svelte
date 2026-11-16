@@ -30,7 +30,7 @@
         fetchAudioSources,
         searchSpecies,
         fetchRecordingClipCapability,
-        fetchVersion,
+        readVersion,
         initiateGmailOAuth,
         initiateOutlookOAuth,
         disconnectEmailOAuth,
@@ -1216,27 +1216,56 @@
         // Settings route canonicalisation lives in a reactive $effect below so it
         // also self-heals after popstate / back-button to non-canonical URLs.
 
-            await Promise.all([
-                // The shell has usually just read the settings; opening this page joins that read,
-                // unless a kept draft waits: that is compared with a fresh read, never an older copy.
-                loadSettings(false, !unsavedDraft.pendingFor(currentAccessIdentity())),
-                loadCameras(),
-                loadClassifierStatus(),
-                loadMaintenanceStats(),
-                loadCacheStats(),
-                loadTaxonomyStatus(),
-                loadVersion(),
-                loadBackfillStatus()
-            ]);
+            // The shell has usually just read the settings; opening this page joins that read,
+            // unless a kept draft waits: that is compared with a fresh read, never an older copy.
+            await loadSettings(false, !unsavedDraft.pendingFor(currentAccessIdentity()));
         // A quick Back can leave before the read returns; a page already gone must not take the draft.
         if (!destroyed) restoreKeptDraft();
 
-        // Taxonomy polling lifecycle for the data tab is handled by the activeTab
-        // $effect below, so no need to start it explicitly here.
+        // Taxonomy status for the Maintenance tab is read by the activeTab $effect below.
+    });
 
-        if ((backfillJob && backfillJob.status === 'running') || (weatherBackfillJob && weatherBackfillJob.status === 'running')) {
-            startBackfillPolling();
+    // Each operational reading belongs to the tabs that show it, so opening Appearance does not ask
+    // Frigate, the classifier, storage and the repair jobs. A tab's readings are taken the first time
+    // it opens in this visit; the page's own refresh and the actions on a tab read them again.
+    type TabReading = 'cameras' | 'classifier' | 'storage' | 'cache' | 'version' | 'backfill';
+    const READINGS_BY_TAB: Partial<Record<SettingsTab, readonly TabReading[]>> = {
+        connection: ['cameras'],
+        integrations: ['cameras'],
+        // Models reads the classifier itself, on its runtime poll.
+        data: ['classifier', 'storage', 'cache'],
+        maintenance: ['backfill'],
+        security: ['version']
+    };
+    const readingsTaken = new Set<TabReading>();
+
+    async function takeReading(reading: TabReading): Promise<void> {
+        switch (reading) {
+            case 'cameras': return loadCameras();
+            case 'classifier': await loadClassifierStatus(); return;
+            case 'storage': return loadMaintenanceStats();
+            case 'cache': return loadCacheStats();
+            case 'version': return loadVersion();
+            case 'backfill':
+                await loadBackfillStatus();
+                if ((backfillJob && backfillJob.status === 'running') || (weatherBackfillJob && weatherBackfillJob.status === 'running')) {
+                    startBackfillPolling();
+                }
         }
+    }
+
+    function readForTab(tab: SettingsTab): void {
+        for (const reading of READINGS_BY_TAB[tab] ?? []) {
+            if (readingsTaken.has(reading)) continue;
+            readingsTaken.add(reading);
+            void takeReading(reading);
+        }
+    }
+
+    $effect(() => {
+        const tab = activeTab;
+        if (!authStore.showSettings) return;
+        untrack(() => readForTab(tab));
     });
 
     $effect(() => {
@@ -1452,7 +1481,7 @@
 
     async function loadVersion() {
         try {
-            versionInfo = await fetchVersion();
+            versionInfo = await readVersion();
         } catch (e) {
             console.error('Failed to load version info', e);
         }
@@ -1604,6 +1633,8 @@
 
     /** Asks before a save that deletes history. False means the owner kept what they have. */
     async function confirmRetentionChange(): Promise<boolean> {
+        // A kept draft can be saved from another tab before Data has read the storage figures.
+        if (retentionShrinking && maintenanceStats === null) await loadMaintenanceStats();
         if (!retentionShrinking || maintenanceStats?.automatic_cleanup === false) return true;
         const days = retentionDays;
         // Counted again at the moment of asking, so the number is not minutes stale.
@@ -2043,7 +2074,7 @@
             const result = await analyzeUnknowns();
             notify('success', result.message);
             if (result.count > 0 || (result.skipped_duplicate ?? 0) > 0 || (result.dropped_full ?? 0) > 0) {
-                await analysisQueueStatusStore.refresh();
+                await analysisQueueStatusStore.refresh({ fresh: true });
                 const refreshedStatus = analysisQueueStatusStore.analysisStatus;
                 const remaining = (refreshedStatus?.pending ?? 0) + (refreshedStatus?.active ?? 0);
                 if (analysisTotal === 0 || analysisTotal < remaining) {

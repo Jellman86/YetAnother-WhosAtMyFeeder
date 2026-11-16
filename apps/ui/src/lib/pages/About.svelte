@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { fetchVersion, type VersionInfo } from '../api';
+    import { readVersion, type VersionInfo } from '../api';
     import { docsRefForBranch } from '../app/app-version';
     import { APP_ICON_192_URL } from '../assets';
     import InstancePipeline from '../components/InstancePipeline.svelte';
@@ -38,7 +38,7 @@
     $effect(() => {
         (async () => {
             try {
-                const info = await fetchVersion();
+                const info = await readVersion();
                 versionInfo = info;
             } catch {
                 // Fall back to build-time version info when runtime fetch fails.

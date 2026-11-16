@@ -85,4 +85,17 @@ describe('AnalysisQueueStatusStore', () => {
         expect(notification?.meta?.current).toBe(21);
         expect(notification?.meta?.total).toBe(21);
     });
+    it('shares the reading taken as the page opens, and asks the server again after the owner changes the queue', async () => {
+        const status: AnalysisStatus = { pending: 0, active: 0, circuit_open: false };
+        const fetchAnalysisStatus = vi.fn().mockResolvedValue(status);
+        const invalidateAnalysisStatus = vi.fn();
+        const store = new AnalysisQueueStatusStore({ fetchAnalysisStatus, invalidateAnalysisStatus, hasOwnerAccess: () => true });
+
+        await store.refresh();
+        expect(invalidateAnalysisStatus).not.toHaveBeenCalled();
+
+        await store.refresh({ fresh: true });
+        expect(invalidateAnalysisStatus).toHaveBeenCalledTimes(1);
+        expect(fetchAnalysisStatus).toHaveBeenCalledTimes(2);
+    });
 });

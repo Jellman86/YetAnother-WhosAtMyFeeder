@@ -84,7 +84,12 @@
     const target = $derived(width < 520 ? 56 : width < 900 ? 68 : 78);
     const columns = $derived(Math.max(4, Math.round((width - FRAME * 2 + GAP) / (target + GAP))));
     const cell = $derived(Math.max(24, (width - FRAME * 2 - GAP * (columns - 1)) / columns));
-    const rowCount = $derived(opened ? OPENED_ROWS : width < 520 ? 8 : 6);
+    // The first screen keeps a short contact sheet so the rankings the page is named for are in reach;
+    // "Show more visits" opens the full wall. Each photograph is a request, so this also bounds a load.
+    const CLOSED_ROWS = 3;
+    const CLOSED_ROWS_NARROW = 4;
+    const rowCount = $derived(opened ? OPENED_ROWS : width < 520 ? CLOSED_ROWS_NARROW : CLOSED_ROWS);
+    const tilePixels = (tile: WallTile): number => Math.round(large(tile) ? cell * 2 + GAP : cell);
 
     let failed = $state<Set<string>>(new Set());
     function markFailed(event: string): void {
@@ -498,6 +503,8 @@
                                 <img
                                     src={getReelImageUrl(tile.frigateEvent, large(tile) ? 'card' : 'tile')}
                                     alt=""
+                                    width={tilePixels(tile)}
+                                    height={tilePixels(tile)}
                                     loading="lazy"
                                     decoding="async"
                                     draggable="false"

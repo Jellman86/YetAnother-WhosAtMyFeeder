@@ -1,4 +1,4 @@
-import { fetchUpdateStatus, shouldShowUpdateBanner, type UpdateStatus } from '../api';
+import { readUpdateStatus, shouldShowUpdateBanner, type UpdateStatus } from '../api';
 import { StaleTracker } from '../utils/stale_tracker';
 import { refreshCoordinator } from './refresh_coordinator.svelte';
 
@@ -40,7 +40,7 @@ export class UpdateStatusStore {
 
         this.loadPromise = (async () => {
             try {
-                this.status = await fetchUpdateStatus();
+                this.status = await readUpdateStatus();
                 this.staleTracker.touch();
             } catch {
                 // Keep a last-known status if one exists. A failed first check remains stale,
