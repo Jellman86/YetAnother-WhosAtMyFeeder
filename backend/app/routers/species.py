@@ -29,6 +29,7 @@ from app.services.taxonomy.taxonomy_service import taxonomy_service
 from app.services.i18n_service import i18n_service
 from app.services.classifier_service import get_classifier
 from app.services.ebird_service import ebird_service
+from app.services.reference_identity import article_describes_taxon
 from app.services.leaderboard_window import previous_window_is_complete
 from app.services.nearby_species_service import nearby_species_service, reported_nearby
 from app.utils.classifier_labels import collapse_classifier_label
@@ -210,6 +211,17 @@ async def _lookup_taxa_id(species_name: str, language: str | None = None) -> int
     if taxonomy.get("taxa_id") is not None:
         return int(taxonomy["taxa_id"])
     return None
+
+
+async def _lookup_scientific_name(species_name: str, language: str | None = None) -> str | None:
+    """The scientific name the taxonomy cache holds for a bird, or None when it does not know it.
+
+    A description fetched by name is checked against this identity before it is cached or shown.
+    """
+    async with get_db() as db:
+        taxonomy = await DetectionRepository(db).get_taxonomy_names(species_name, language=language)
+    scientific_name = str(taxonomy.get("scientific_name") or "").strip()
+    return scientific_name or None
 
 
 def _should_hydrate_species_label(label: str) -> bool:
@@ -1498,11 +1510,14 @@ async def get_species_info(
     if cached_info:
         return cached_info
 
+    # The taxon this name stands for, where the taxonomy knows it: a fetched article must be about it.
+    known_scientific_name = await _lookup_scientific_name(species_name, language=lang)
+
     summary_sources = _resolve_summary_sources()
     primary = summary_sources[0]
 
     if primary == "wikipedia":
-        info = await _fetch_wikipedia_info(species_name, lang)
+        info = await _fetch_wikipedia_info(species_name, lang, expected_scientific_name=known_scientific_name)
         if info.extract:
             info.summary_source = info.source
             info.summary_source_url = info.source_url
@@ -1510,7 +1525,7 @@ async def get_species_info(
             inat_info = await _fetch_inaturalist_info(
                 species_name,
                 lang,
-                expected_scientific_name=info.scientific_name,
+                expected_scientific_name=info.scientific_name or known_scientific_name,
             )
             if not info.extract and inat_info.extract:
                 info.extract = inat_info.extract
@@ -2199,14 +2214,30 @@ async def _find_wikipedia_article(
             best_score = 1000
             return
         candidate_title = data.get("title") or title
+        asked_by_scientific_name = bool(expected_scientific_name) and _normalize_lookup_text(
+            title
+        ) == _normalize_lookup_text(expected_scientific_name)
+        if (
+            expected_scientific_name
+            and not asked_by_scientific_name
+            and not article_describes_taxon(data, expected_scientific_name)
+        ):
+            # The taxon is known, so a name overlap is not enough: an article that only mentions
+            # the bird (a parasite listing its hosts, a predator its prey) describes something else.
+            log.debug(
+                "Wikipedia candidate is about another subject",
+                species=species_name,
+                language=lang,
+                title=candidate_title,
+                strategy=strategy,
+            )
+            return
         score = _score_wikipedia_candidate(
             data,
             requested_name=species_name,
             expected_scientific_name=expected_scientific_name,
         )
-        if expected_scientific_name and _normalize_lookup_text(title) == _normalize_lookup_text(
-            expected_scientific_name
-        ):
+        if asked_by_scientific_name:
             # Explicit scientific-name lookup is a strong signal even on localized pages.
             score = max(score, 1000 + _bird_relevance_score(data))
         if score <= 0:
@@ -2333,11 +2364,7 @@ async def _find_wikipedia_article(
 
 
 def _has_scientific_identity(data: dict, scientific_name: str | None) -> bool:
-    identity = _normalize_lookup_text(scientific_name)
-    if not identity or data.get("type") == "disambiguation":
-        return False
-    text = _normalize_lookup_text(" ".join(str(data.get(key) or "") for key in ("title", "description", "extract")))
-    return re.search(rf"(?<!\w){re.escape(identity)}(?!\w)", text) is not None
+    return article_describes_taxon(data, scientific_name)
 
 
 async def _get_wikipedia_summary(

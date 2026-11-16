@@ -13,6 +13,8 @@ from app.auth import AuthContext
 from app.models import SpeciesInfo
 from app.routers import species as router
 
+# The real client, taken before any test swaps `httpx.AsyncClient` for one on a mock transport.
+REAL_ASYNC_CLIENT = httpx.AsyncClient
 
 DOG = {
     "title": "Dog",
@@ -172,3 +174,63 @@ def test_disambiguation_page_cannot_supply_a_reference():
     assert not router._has_scientific_identity(
         {"type": "disambiguation", "title": "Canis familiaris"}, "Canis familiaris"
     )
+
+
+SQUIRREL = {
+    "title": "Eastern gray squirrel",
+    "description": "Species of mammal",
+    "extract": "The eastern gray squirrel (Sciurus carolinensis) is a tree squirrel in the genus Sciurus. It is common.",
+    "thumbnail": {"source": "https://example.com/squirrel.jpg"},
+}
+MITE = {
+    "title": "Androlaelaps fahrenholzi",
+    "description": "Species of mite",
+    "extract": (
+        "Androlaelaps fahrenholzi is a species of mite in the genus Androlaelaps of the family Laelapidae. "
+        "It has been recorded on the following mammals: Blarina brevicauda, Sciurus carolinensis."
+    ),
+    "thumbnail": {"source": "https://example.com/mite.jpg"},
+}
+
+
+def _squirrel_wikipedia(monkeypatch, *, direct: dict | None):
+    """Wikipedia as the squirrel lookup meets it: the direct title, then a search that finds a mite."""
+
+    def response(request):
+        if request.url.host == "api.inaturalist.org":
+            return httpx.Response(200, json={"results": []})
+        if request.url.path.endswith("/w/api.php"):
+            return httpx.Response(200, json={"query": {"search": [{"title": MITE["title"]}]}})
+        title = unquote(request.url.path.split("/")[-1]).replace("_", " ")
+        if title == MITE["title"]:
+            return httpx.Response(200, json=MITE)
+        if title in {"Sciurus carolinensis", SQUIRREL["title"]} and direct is not None:
+            return httpx.Response(200, json=direct)
+        return httpx.Response(404)
+
+    monkeypatch.setattr(
+        router.httpx,
+        "AsyncClient",
+        lambda **kwargs: REAL_ASYNC_CLIENT(transport=httpx.MockTransport(response), **kwargs),
+    )
+
+
+def test_a_squirrel_is_never_described_by_a_mite_that_lists_it_as_a_host(reference_api, monkeypatch):
+    api, _, _ = reference_api
+    _squirrel_wikipedia(monkeypatch, direct=None)
+    body = api.get(
+        "/api/species/Eastern%20Gray%20Squirrel/info", params={"scientific_name": "Sciurus carolinensis"}
+    ).json()
+    assert body["extract"] is None
+    assert body["thumbnail_url"] is None
+    assert body["wikipedia_url"] is None
+
+
+def test_a_squirrel_is_described_by_its_own_article(reference_api, monkeypatch):
+    api, _, _ = reference_api
+    _squirrel_wikipedia(monkeypatch, direct=SQUIRREL)
+    body = api.get(
+        "/api/species/Eastern%20Gray%20Squirrel/info", params={"scientific_name": "Sciurus carolinensis"}
+    ).json()
+    assert body["title"] == "Eastern gray squirrel"
+    assert "tree squirrel" in body["extract"]

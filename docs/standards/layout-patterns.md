@@ -392,7 +392,12 @@ Dunnock"), never by a reference image. Reference lookups go through `utils/taxon
 taxon per page: a species by its scientific name as the hint, so a mammal is not searched for among
 birds, and a family or order by its name and rank, which the route describes only from the taxon of
 that exact name and rank and caches apart from species. A genus is never described, because genus
-names repeat across kingdoms. Every fact has its own loading, absent and failed state; a failed one
+names repeat across kingdoms. A description is shown only when its article is about the taxon: titled
+with the scientific name, or naming it in its opening sentence (`services/reference_identity.py`). An
+article that merely mentions the name, such as a parasite's that lists its hosts, is rejected before it
+is cached, and the card shows no description rather than a wrong one. The species a record is about is
+named in its ladder and tree as the record's heading names it (`withRecordName` in
+`taxonomy/nomenclature.ts`), so one bird has one name on one screen. Every fact has its own loading, absent and failed state; a failed one
 offers Try again, and one that is not known is left out. The card stays inside the dialog its name sits in (the family
 tree, a record), else the window, and never covers the name it describes: below it, else above, else
 beside it on the roomier side, else on the roomier side with its own scroll (`taxonomy/card-placement.ts`).
