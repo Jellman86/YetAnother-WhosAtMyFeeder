@@ -106,6 +106,12 @@ describe('identificationModelName', () => {
 });
 
 describe('modelFactsLine', () => {
+    it('leaves memory out where the card states it in full, so it is said once', () => {
+        expect(modelFactsLine(model({ taxonomy_scope: 'birds_only', estimated_ram_mb: 64 }), { installed: true, memory: false }, translate)).toBe(
+            'Birds only · on this install'
+        );
+    });
+
     it('states coverage, download and memory in sentence case, with one rounded size', () => {
         expect(modelFactsLine(model({ file_size_mb: 102.8, estimated_ram_mb: 1100 }), { installed: false }, translate)).toBe(
             'Birds and other wildlife · 103 MB download · about 1.1 GB memory'

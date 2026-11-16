@@ -278,7 +278,10 @@
         {/if}
 
         <p class="text-sm text-slate-600 dark:text-slate-300" data-maintenance-last-run="timezone_scan">{lastRunLine('timezone_scan')}</p>
-        <p class="text-sm text-slate-600 dark:text-slate-300" data-maintenance-last-run="timezone_repair">{lastRunLine('timezone_repair')}</p>
+        <!-- The scan line already says when nothing has run; a repair is mentioned once one has. -->
+        {#if lastRuns?.some((run) => run.kind === 'timezone_repair')}
+            <p class="text-sm text-slate-600 dark:text-slate-300" data-maintenance-last-run="timezone_repair">{lastRunLine('timezone_repair')}</p>
+        {/if}
         <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
             <button
                 type="button"

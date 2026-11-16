@@ -692,7 +692,7 @@
             <p class="max-w-prose text-sm leading-relaxed text-slate-600 dark:text-slate-300">{model.description}</p>
         {/if}
         <p class="text-sm text-slate-700 dark:text-slate-200" data-model-facts>
-            {modelFactsLine(model, { installed, bundled: installedEntry?.bundled === true }, t)}
+            {modelFactsLine(model, { installed, bundled: installedEntry?.bundled === true, memory: model.estimated_ram_mb == null }, t)}
         </p>
         {#if model.estimated_ram_mb != null}
             {@const prediction = predictedCopies()}

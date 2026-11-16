@@ -93,7 +93,7 @@ function memoryText(ramMb: number, translate: Translate): string {
 /** The everyday costs of a model in one sentence-case line: coverage, getting it, and memory. */
 export function modelFactsLine(
     model: ModelMetadata,
-    install: { installed: boolean; bundled?: boolean },
+    install: { installed: boolean; bundled?: boolean; memory?: boolean },
     translate: Translate
 ): string {
     const scope = model.taxonomy_scope === 'wildlife_wide'
@@ -108,7 +108,8 @@ export function modelFactsLine(
                 values: { size: sizeText(model.file_size_mb ?? 0, translate) },
             });
     const facts = [scope, source];
-    if (model.estimated_ram_mb != null) facts.push(memoryText(model.estimated_ram_mb, translate));
+    // A card that states total memory in its own sentence leaves it out here, so it is said once.
+    if (model.estimated_ram_mb != null && install.memory !== false) facts.push(memoryText(model.estimated_ram_mb, translate));
     return facts.join(' · ');
 }
 

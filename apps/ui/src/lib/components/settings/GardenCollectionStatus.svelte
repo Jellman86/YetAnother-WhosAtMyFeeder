@@ -30,6 +30,8 @@
         if (fact.kind === 'not_used') return null;
         const device = EXECUTION_DEVICE_LABEL[fact.provider];
         if (fact.kind === 'preferred_used') return $_('settings.beta.garden_sentence_device_checked', { default: 'Automatic checks run on {device}, which matched the CPU before its first use.', values: { device } });
+        // A preferred CPU is nothing to try first: the last-check line already says no check has run.
+        if (fact.kind === 'preferred_unused' && fact.provider === 'cpu') return null;
         if (fact.kind === 'preferred_unused') return $_('settings.beta.garden_sentence_device_unused', { default: 'Automatic checks will try {device} first. It has not run a check yet.', values: { device } });
         return $_('settings.beta.garden_sentence_device_ran', { default: 'Automatic checks ran on {device}.', values: { device } });
     }
