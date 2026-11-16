@@ -231,3 +231,50 @@ async def test_a_cached_summary_of_another_taxon_from_inaturalist_is_not_returne
     body = api.get("/api/species/European%20Starling/info").json()
 
     assert body["title"] == "Common starling"
+
+
+SPARROWHAWK = {
+    "title": "Eurasian sparrowhawk",
+    "description": "Species of bird of prey",
+    "extract": "The Eurasian sparrowhawk hunts the house sparrow (Passer domesticus) and other small birds.",
+    "thumbnail": {"source": "https://example.com/hawk.jpg"},
+}
+HOST_LOUSE = {
+    "title": "Brueelia nebulosa",
+    "description": "Species of louse",
+    "extract": "Brueelia nebulosa lives on the common starling (Sturnus vulgaris), a passerine bird.",
+    "thumbnail": {"source": "https://example.com/louse.jpg"},
+}
+
+
+@pytest.mark.parametrize(
+    ("species", "scientific", "wrong"),
+    [("House Sparrow", "Passer domesticus", SPARROWHAWK), ("European Starling", "Sturnus vulgaris", HOST_LOUSE)],
+)
+def test_a_direct_scientific_name_lookup_that_lands_on_a_predator_or_parasite_is_refused(
+    info_api, monkeypatch, species, scientific, wrong
+):
+    api, articles, _search = info_api
+    monkeypatch.setattr(router, "_lookup_scientific_name", AsyncMock(return_value=scientific))
+    # The title lookup by scientific name resolves, as a redirect would, to an article about something else.
+    articles[scientific] = wrong
+
+    body = api.get(f"/api/species/{species}/info").json()
+
+    assert body["extract"] is None
+    assert body["thumbnail_url"] is None
+
+
+def test_a_subspecies_article_is_not_returned_for_its_parent_species(info_api, monkeypatch):
+    api, articles, search = info_api
+    monkeypatch.setattr(router, "_lookup_scientific_name", AsyncMock(return_value="Troglodytes troglodytes"))
+    articles["St Kilda wren"] = {
+        "title": "St Kilda wren",
+        "description": "Subspecies of bird",
+        "extract": "The St Kilda wren (Troglodytes troglodytes hirtensis) is a small passerine bird.",
+    }
+    search.append("St Kilda wren")
+
+    body = api.get("/api/species/Eurasian%20Wren/info").json()
+
+    assert body["extract"] is None

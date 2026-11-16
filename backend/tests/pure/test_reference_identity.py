@@ -96,6 +96,23 @@ def article(title: str, extract: str) -> dict:
             "The Eurasian sparrowhawk (Accipiter nisus) is a small bird of prey that hunts Passer domesticus.",
             "Passer domesticus",
         ),
+        # The parenthetical belongs to the prey, not to the article's subject.
+        (
+            "Eurasian sparrowhawk",
+            "The Eurasian sparrowhawk hunts the house sparrow (Passer domesticus) and other small birds.",
+            "Passer domesticus",
+        ),
+        # The same shape for a parasite and its host.
+        (
+            "Brueelia nebulosa",
+            "Brueelia nebulosa lives on the common starling (Sturnus vulgaris).",
+            "Sturnus vulgaris",
+        ),
+        (
+            "Brueelia nebulosa",
+            "Brueelia nebulosa, a parasite of starlings (Sturnus vulgaris), is a chewing louse.",
+            "Sturnus vulgaris",
+        ),
         # A genus, or a place, that mentions a species in passing.
         ("Sciurus", "Sciurus is a genus of tree squirrels that includes Sciurus carolinensis.", "Sciurus carolinensis"),
     ],
@@ -221,3 +238,58 @@ def test_a_cached_taxon_record_summary_must_be_that_taxons():
 def test_nothing_is_refused_without_a_summary_or_a_taxon_to_check_against():
     assert cached_reference_describes_taxon(**cached(extract=None, title="Anything"))
     assert cached_reference_describes_taxon(**cached(scientific_name=None, title="Brueelia nebulosa"))
+
+
+WREN = "Troglodytes troglodytes"
+ST_KILDA = "Troglodytes troglodytes hirtensis"
+
+
+@pytest.mark.parametrize(
+    ("title", "extract"),
+    [
+        ("St Kilda wren", "The St Kilda wren (Troglodytes troglodytes hirtensis) is a small passerine bird."),
+        ("Troglodytes troglodytes hirtensis", "A subspecies of wren found on St Kilda."),
+        ("St Kilda wren", "Troglodytes troglodytes hirtensis is a subspecies of the Eurasian wren."),
+        ("St Kilda wren", "The St Kilda wren (Troglodytes troglodytes hirtensis Seebohm, 1884) is a wren."),
+    ],
+)
+def test_a_subspecies_does_not_describe_its_parent_species(title, extract):
+    assert not article_describes_taxon(article(title, extract), WREN)
+    # The same article is the subspecies' own.
+    assert article_describes_taxon(article(title, extract), ST_KILDA)
+
+
+@pytest.mark.parametrize(
+    "extract",
+    [
+        "The Eurasian wren (Troglodytes troglodytes) is a very small bird.",
+        "The Eurasian wren (Troglodytes troglodytes (Linnaeus, 1758)) is a very small bird.",
+        "The Eurasian wren (Troglodytes troglodytes Linnaeus, 1758) is a very small bird.",
+        "The Eurasian wren (Troglodytes troglodytes L.) is a very small bird.",
+        "Troglodytes troglodytes is a very small bird.",
+        "Troglodytes troglodytes, the Eurasian wren, is a very small bird.",
+    ],
+)
+def test_the_complete_name_with_or_without_its_authority_describes_the_species(extract):
+    assert article_describes_taxon(article("Eurasian wren", extract), WREN)
+    assert not article_describes_taxon(article("Eurasian wren", extract), ST_KILDA)
+
+
+def test_a_synonym_is_matched_whole_too():
+    renamed = article("Western jackdaw", "The western jackdaw (Coloeus monedula spermologus) is a subspecies.")
+    assert not article_describes_taxon(renamed, "Corvus monedula", aliases=["Coloeus monedula"])
+
+
+@pytest.mark.parametrize(
+    ("title", "extract", "scientific"),
+    [
+        ("Mallard", "The mallard or wild duck (Anas platyrhynchos) is a dabbling duck.", "Anas platyrhynchos"),
+        (
+            "Rock dove",
+            "The rock dove, rock pigeon, or common pigeon (Columba livia) is a member of the bird family Columbidae.",
+            "Columba livia",
+        ),
+    ],
+)
+def test_the_subjects_other_names_may_stand_before_its_parenthetical(title, extract, scientific):
+    assert article_describes_taxon(article(title, extract), scientific)
