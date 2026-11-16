@@ -1,4 +1,4 @@
-import { API_BASE, apiFetch, handleResponse, requestScope } from './core';
+import { API_BASE, apiFetch, apiFetchJson, handleResponse, requestScope, type Guarded } from './core';
 import type { paths } from './generated/openapi';
 import { createSharedRead, STATUS_SHARE_MS } from './shared-read';
 
@@ -126,30 +126,30 @@ export function readVersion(): Promise<VersionInfo> {
     return sharedVersion.read().catch(() => buildVersion());
 }
 
-export async function checkHealth(): Promise<HealthStatus> {
-    const response = await apiFetch('/health', { timeoutMs: 10_000 });
-    return handleResponse<HealthStatus>(response);
+export function checkHealth(): Guarded<HealthStatus> {
+    return apiFetchJson<HealthStatus>('/health', { timeoutMs: 10_000 });
 }
 
 export type SystemTelemetry = paths['/api/system-telemetry']['get']['response'];
 export type SystemTelemetryHistory = paths['/api/system-telemetry/history']['get']['response'];
 
-/** The owner's half hour of host load and this app's share of it; kept by the server. */
-export async function fetchSystemTelemetryHistory(signal?: AbortSignal): Promise<SystemTelemetryHistory> {
-    const response = await apiFetch(`${API_BASE}/system-telemetry/history`, {
+/**
+ * The owner's half hour of host load and this app's share of it; kept by the server. The timeout
+ * and `signal` (the chart unmounting) cover the body as well as the headers.
+ */
+export function fetchSystemTelemetryHistory(signal?: AbortSignal): Guarded<SystemTelemetryHistory> {
+    return apiFetchJson<SystemTelemetryHistory>(`${API_BASE}/system-telemetry/history`, {
         cache: 'no-store',
         timeoutMs: 5_000,
         signal
     });
-    return handleResponse<SystemTelemetryHistory>(response);
 }
 
-export async function fetchSystemTelemetry(): Promise<SystemTelemetry> {
-    const response = await apiFetch(`${API_BASE}/system-telemetry`, {
+export function fetchSystemTelemetry(): Guarded<SystemTelemetry> {
+    return apiFetchJson<SystemTelemetry>(`${API_BASE}/system-telemetry`, {
         cache: 'no-store',
         timeoutMs: 2_500
     });
-    return handleResponse<SystemTelemetry>(response);
 }
 
 export interface UpdateStatus {

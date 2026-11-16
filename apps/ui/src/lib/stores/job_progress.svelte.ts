@@ -19,6 +19,11 @@ export interface JobProgressItem {
     phase?: string;
     unit?: string;
     visibility?: 'prominent' | 'routine';
+    /**
+     * The server job this row follows, when it follows one: the server already counts that work,
+     * so the banner never counts it again. A row without one is work only this browser knows of.
+     */
+    serverJobId?: string;
 }
 
 export interface JobProgressUpdateInput {
@@ -31,6 +36,7 @@ export interface JobProgressUpdateInput {
     total?: number;
     source?: JobSource;
     timestamp?: number;
+    serverJobId?: string;
 }
 
 export interface JobProgressTerminalInput {
@@ -43,6 +49,7 @@ export interface JobProgressTerminalInput {
     total?: number;
     source?: JobSource;
     timestamp?: number;
+    serverJobId?: string;
 }
 
 const MAX_HISTORY_ITEMS = 100;
@@ -117,7 +124,8 @@ class JobProgressStore {
             updatedAt: now,
             ratePerMinute: blendedRate ?? undefined,
             etaSeconds: etaSeconds ?? undefined,
-            source: input.source ?? existing?.source ?? 'sse'
+            source: input.source ?? existing?.source ?? 'sse',
+            serverJobId: input.serverJobId ?? existing?.serverJobId
         };
 
         const withoutFinished = { ...next };
@@ -236,7 +244,8 @@ class JobProgressStore {
             finishedAt: now,
             ratePerMinute: existing?.ratePerMinute,
             etaSeconds: undefined,
-            source: input.source ?? existing?.source ?? 'sse'
+            source: input.source ?? existing?.source ?? 'sse',
+            serverJobId: input.serverJobId ?? existing?.serverJobId
         };
 
         this.upsert(next);

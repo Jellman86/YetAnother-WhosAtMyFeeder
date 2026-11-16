@@ -4,6 +4,7 @@
     import { fetchSystemTelemetry } from '../api/system';
     import { telemetrySampleDelayMs } from '../app/public-refresh-budget';
     import { authStore } from '../stores/auth.svelte';
+    import { systemStatusStore, telemetrySampleFrom } from '../stores/system_status.svelte';
     import Separator from './Separator.svelte';
     import {
         appendTelemetrySample,
@@ -16,6 +17,7 @@
     let stale = $state(false);
     let failures = 0;
     let sampling = false;
+    let lastPushedAt: number | null = null;
     let inViewport = false;
     let nextSample: number | null = null;
     let container: HTMLDivElement;
@@ -50,8 +52,28 @@
         nextSample = window.setTimeout(() => void takeSample(), delay);
     }
 
+    /**
+     * An owner's samples arrive with the pushed status, so the line costs no requests. A visitor
+     * never receives the status and samples the endpoint as before.
+     */
+    function pushedSamples(): boolean {
+        return authStore.showSettings;
+    }
+
+    function takePushedSample(): void {
+        const telemetry = systemStatusStore.snapshot?.telemetry;
+        if (!telemetry || !watched() || telemetry.sampled_at === lastPushedAt) return;
+        lastPushedAt = telemetry.sampled_at;
+        history = appendTelemetrySample(history, telemetrySampleFrom(telemetry));
+        stale = false;
+    }
+
     async function takeSample(): Promise<void> {
         cancelNextSample();
+        if (pushedSamples()) {
+            takePushedSample();
+            return;
+        }
         if (sampling || !watched()) return;
         sampling = true;
         try {
@@ -74,6 +96,7 @@
         cancelNextSample();
         history = [];
         stale = false;
+        lastPushedAt = null;
     }
 
     onMount(() => {
@@ -91,7 +114,11 @@
             else pause();
         };
         document.addEventListener('visibilitychange', handleVisibility);
+        const stopFollowingStatus = systemStatusStore.subscribe(() => {
+            if (pushedSamples()) takePushedSample();
+        });
         return () => {
+            stopFollowingStatus();
             observer.disconnect();
             cancelNextSample();
             document.removeEventListener('visibilitychange', handleVisibility);

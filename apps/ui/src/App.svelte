@@ -20,7 +20,11 @@
   import LazyModal from './lib/components/LazyModal.svelte';
   import Login from './lib/components/Login.svelte';
   import { setupWizardStore } from './lib/stores/setup_wizard.svelte';
-  import { checkHealth, fetchCacheStats, fetchEventClassificationStatus, invalidateClassifierStatus, readAnalysisStatus, setAuthErrorCallback } from './lib/api';
+  import { fetchEventClassificationStatus, invalidateClassifierStatus, setAuthErrorCallback } from './lib/api';
+  import { isSystemStatus } from './lib/api/status';
+  import { mapGuarded } from './lib/api/core';
+  import { systemStatusStore } from './lib/stores/system_status.svelte';
+  import { serverJobsStore } from './lib/stores/server_jobs.svelte';
   import { createStreamTicket } from './lib/api/auth';
   import { resolveStreamUrl } from './lib/app/stream-url';
   import { themeStore } from './lib/stores/theme.svelte';
@@ -57,8 +61,7 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
       isNotificationRoute
   } from './lib/app/notifications_route';
   import { createReclassifyRecovery } from './lib/app/reclassify_recovery';
-  import { createCooldownSingleFlightRunner, createSingleFlightRunner } from './lib/app/single-flight';
-  import { REFRESH_CADENCE_MS, readAtMostEvery } from './lib/app/refresh-cadence';
+  import { createSingleFlightRunner } from './lib/app/single-flight';
   import { refreshCoordinator } from './lib/stores/refresh_coordinator.svelte';
   import { pageRefreshAction } from './lib/stores/page_refresh_action.svelte';
   import { appApiPath, fromAppPath, toAppPath } from './lib/app/url-base';
@@ -269,10 +272,6 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
   let mobileSidebarOpen = $state(false);
   const BACKEND_STATUS_RETRY_MS = 5_000;
   const STALE_RECLASSIFY_STATUS_POLL_MS = 20_000;
-  const ANALYSIS_QUEUE_POLL_MS = REFRESH_CADENCE_MS.analysisQueueActive;
-  const ANALYSIS_QUEUE_IDLE_POLL_MS = REFRESH_CADENCE_MS.analysisQueueIdle;
-  const ANALYSIS_QUEUE_POLL_COOLDOWN_MS = 4_000;
-  const OWNER_SYSTEM_CHECK_COOLDOWN_MS = 30_000;
 
   // Keyboard shortcuts
   let showKeyboardShortcuts = $state(false);
@@ -363,25 +362,26 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
       settingsStore,
       announcer,
       logger,
-      checkHealth: async () => {
-          const health = await checkHealth();
-          deployRecovery.observeHealth(health);
-          return health;
-      },
-      // A storage measurement walks the media folder; whether it is writable changes rarely.
-      fetchCacheStats: readAtMostEvery(fetchCacheStats, REFRESH_CADENCE_MS.mediaStorageCheck),
-      fetchAnalysisStatus: readAnalysisStatus,
       diagnostics: jobDiagnosticsStore,
-      syncDiagnosticsWorkspace: async () => { await incidentWorkspaceStore.refresh(); },
+      // Read when the server records a new fault, not on a timer; its health reading also goes
+      // into the browser's own diagnostics, as the two-minute health check used to.
+      syncDiagnosticsWorkspace: (signal) => mapGuarded(incidentWorkspaceStore.refresh(200, signal), (applied) => {
+          const health = incidentWorkspaceStore.workspacePayload?.health;
+          if (applied && health) jobDiagnosticsStore.ingestHealth(health);
+          return applied;
+      }),
+      onStatus: (snapshot) => {
+          if (isSystemStatus(snapshot)) systemStatusStore.ingest(snapshot);
+      },
       onConnected: () => {
           reconnectAttempts = 0;
           // The first connect follows the pages' own first reads; only a reconnect can have
           // missed a Garden change, so only a reconnect reads Garden again.
           if (authStore.hasOwnerAccess && liveStreamConnectedBefore) gardenHistory.invalidate();
           liveStreamConnectedBefore = true;
-          refreshOwnerConnections();
+          // The stream pushes the status snapshot right after this, and every change after it.
+          systemStatusStore.setStreamLive(authStore.showSettings);
       },
-      onServiceConnectionsChanged: () => refreshOwnerConnections({ fresh: true }),
       onGardenHistoryChanged: () => gardenHistory.invalidate(),
       onAudioChanged: () => audioActivity.announce(),
       onSettingsChanged: () => invalidateClassifierStatus(),
@@ -402,17 +402,16 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
   });
 
   const reconcileReclassificationsOnce = createSingleFlightRunner(() => reclassifyRecovery.reconcile());
-  const syncAnalysisQueueStatusOnce = createCooldownSingleFlightRunner(
-      async () => {
-          const status = await liveUpdates.syncAnalysisQueueStatus();
-          if (status) analysisQueueStatusStore.ingest(status);
-      },
-      ANALYSIS_QUEUE_POLL_COOLDOWN_MS
-  );
-  const runOwnerSystemChecksOnce = createCooldownSingleFlightRunner(
-      () => liveUpdates.runOwnerSystemChecks(),
-      OWNER_SYSTEM_CHECK_COOLDOWN_MS
-  );
+
+  // One pushed snapshot feeds every store that used to poll its own endpoint, so the banner,
+  // the status tiles, Health and Settings read the same moment.
+  systemStatusStore.subscribe((snapshot, previous) => {
+      serverJobsStore.ingest(snapshot.jobs);
+      analysisQueueStatusStore.ingest(snapshot.analysis);
+      serviceConnectionsStore.ingest(snapshot.connections);
+      deployRecovery.observeHealth({ version: snapshot.version });
+      liveUpdates.applySystemStatus(snapshot, previous);
+  });
 
   $effect(() => {
       if (!authStore.statusLoaded || authStore.statusHealthy) return;
@@ -422,37 +421,9 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
       return () => window.clearInterval(retryInterval);
   });
 
-  /** The live tile's broker and Frigate reading; owners only, since guests are never told it. */
-  function refreshOwnerConnections(options: { fresh?: boolean } = {}): void {
-      if (authStore.showSettings) void serviceConnectionsStore.refresh(options);
-  }
-
   function startOperationalPolling(): () => void {
       void reconcileReclassificationsOnce();
-      void runOwnerSystemChecksOnce();
 
-      let stopped = false;
-      let analysisPollTimeout: number | null = null;
-      const scheduleAnalysisPoll = (): void => {
-          if (stopped) return;
-          const status = analysisQueueStatusStore.analysisStatus;
-          const hasActiveAnalysis = Number(status?.pending ?? 0) > 0 || Number(status?.active ?? 0) > 0;
-          const delay = document.hidden ? ANALYSIS_QUEUE_IDLE_POLL_MS
-              : hasActiveAnalysis ? ANALYSIS_QUEUE_POLL_MS
-              : ANALYSIS_QUEUE_IDLE_POLL_MS;
-          analysisPollTimeout = window.setTimeout(async () => {
-              if (stopped) return;
-              if (!document.hidden) await syncAnalysisQueueStatusOnce();
-              scheduleAnalysisPoll();
-          }, delay);
-      };
-      void syncAnalysisQueueStatusOnce().finally(scheduleAnalysisPoll);
-
-      const ownerInterval = window.setInterval(() => {
-          if (document.hidden) return;
-          void runOwnerSystemChecksOnce();
-          refreshOwnerConnections();
-      }, REFRESH_CADENCE_MS.ownerSystemChecks);
       const staleInterval = window.setInterval(() => {
           liveUpdates.pruneStaleProcessNotifications();
           detectionsStore.pruneReclassifications();
@@ -463,9 +434,6 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
       }, STALE_RECLASSIFY_STATUS_POLL_MS);
 
       return (): void => {
-          stopped = true;
-          if (analysisPollTimeout !== null) window.clearTimeout(analysisPollTimeout);
-          window.clearInterval(ownerInterval);
           window.clearInterval(staleInterval);
           window.clearInterval(reclassifyInterval);
       };
@@ -579,7 +547,6 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
               }
               if (!document.hidden && authStore.statusHealthy) {
                   void reconcileReclassificationsOnce();
-                  void syncAnalysisQueueStatusOnce();
                   refreshCoordinator.onVisibilityChange();
               }
           };
@@ -646,6 +613,10 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
               liveStreamConnectedBefore = false;
               untrack(() => detectionsStore.resetForAccessChange());
               untrack(() => serviceConnectionsStore.clear());
+              untrack(() => systemStatusStore.clear());
+              untrack(() => serverJobsStore.clear());
+              untrack(() => incidentWorkspaceStore.clear());
+              liveUpdates.resetForAccessChange();
               if (authStore.isAuthenticated || !authStore.authRequired) {
                   settingsStore.load();
               } else {
@@ -656,11 +627,8 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
               void publicSettingsStore.load();
               detectionsStore.loadInitial();
               void connectSSE();
-              if (authStore.showSettings) {
-                  void syncAnalysisQueueStatusOnce();
-                  void runOwnerSystemChecksOnce();
-                  refreshOwnerConnections();
-              }
+              // The first paint's status; the stream keeps it current from then on.
+              if (authStore.showSettings) untrack(() => systemStatusStore.start());
               activeAccessIdentity = accessIdentity;
               appInitialized = true;
           }
@@ -671,6 +639,10 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
           closeLiveConnection();
           untrack(() => detectionsStore.resetForAccessChange());
           untrack(() => serviceConnectionsStore.clear());
+          untrack(() => systemStatusStore.clear());
+          untrack(() => serverJobsStore.clear());
+          untrack(() => incidentWorkspaceStore.clear());
+          liveUpdates.resetForAccessChange();
           settingsStore.clear();
           activeAccessIdentity = null;
           appInitialized = false;
@@ -689,6 +661,7 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
       isReconnecting = false;
       reconnectAttempts = 0;
       detectionsStore.setConnected(false);
+      systemStatusStore.setStreamLive(false);
   }
 
   function scheduleReconnect() {
@@ -793,6 +766,8 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
                   attempt: reconnectAttempts + 1
               });
               liveUpdates.handleDisconnect(err, document.hidden);
+              // Until the stream is back, the status is read once a minute instead.
+              systemStatusStore.setStreamLive(false);
 
               source.close();
               evtSource = null;
@@ -859,6 +834,7 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
                   {notificationsActive}
                   feed={liveFeedState(detectionsStore.connected, serviceConnectionsStore.connections)}
                   {collapsed}
+                  staleSince={systemStatusStore.stale ? systemStatusStore.receivedAt : null}
               />
               <UpdateIndicator {collapsed} />
           {/snippet}

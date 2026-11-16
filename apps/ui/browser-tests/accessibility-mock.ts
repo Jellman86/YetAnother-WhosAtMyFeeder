@@ -63,6 +63,129 @@ const NOTIFICATIONS = (now: number) => [
 
 export type Theme = 'light' | 'dark';
 
+/** Both connections measured up. A test that wants them says so by passing these. */
+export const HEALTHY_CONNECTIONS = {
+    mqtt: { state: 'connected', server: 'mqtt', port: 1883 },
+    frigate: { state: 'reachable', url: 'http://frigate:5000', availability: 'online' },
+    generated_at: '2026-11-16T00:00:00Z'
+};
+
+/** Nobody measured them: what a status says before its first reading, never "healthy". */
+const UNMEASURED_CONNECTIONS = {
+    mqtt: { state: 'connecting', server: 'mqtt', port: 1883 },
+    frigate: { state: 'unchecked', url: 'http://frigate:5000', availability: 'unknown' },
+    generated_at: '2026-11-16T00:00:00Z'
+};
+
+function recordedJson(path: string): unknown {
+    return recordedFor(new URL(path, 'http://fixture'))?.json;
+}
+
+interface ConnectionsLike {
+    mqtt?: { state?: string };
+    frigate?: { state?: string };
+}
+
+interface HealthLike {
+    status?: string;
+    event_pipeline?: { status?: string; critical_failure_active?: boolean };
+}
+
+type Verdict = { key: string; state: string; cause: string };
+
+/**
+ * The server's judgement (`app/services/system_status.py`), for the parts a fixture supplies:
+ * the connections, and the workspace's own health report. A failure in either is never smoothed
+ * into a healthy status, and connections nobody supplied stay unmeasured.
+ */
+function judgedStatus(connections: ConnectionsLike, health: HealthLike | undefined): {
+    overall: { state: string; cause: string; subsystem: string | null };
+    subsystems: Verdict[];
+} {
+    const mqttState = connections.mqtt?.state ?? 'connecting';
+    const frigateState = connections.frigate?.state ?? 'unchecked';
+    const mqtt: Verdict = mqttState === 'connected' ? { key: 'mqtt', state: 'ok', cause: 'connected' }
+        : mqttState === 'connecting' ? { key: 'mqtt', state: 'unknown', cause: 'connecting' }
+        : { key: 'mqtt', state: 'error', cause: mqttState };
+    const frigate: Verdict = frigateState === 'reachable' ? { key: 'frigate', state: 'ok', cause: 'reachable' }
+        : frigateState === 'unreachable' ? { key: 'frigate', state: 'error', cause: 'unreachable' }
+        : { key: 'frigate', state: 'unknown', cause: 'unchecked' };
+    const subsystems = [mqtt, frigate];
+    const failed = subsystems.find((verdict) => verdict.state === 'error');
+    if (failed) return { overall: { state: 'degraded', cause: failed.cause, subsystem: failed.key }, subsystems };
+    const pipeline = health?.event_pipeline;
+    if (pipeline?.critical_failure_active) return { overall: { state: 'degraded', cause: 'pipeline_critical', subsystem: null }, subsystems };
+    if (pipeline?.status && pipeline.status !== 'ok') return { overall: { state: 'degraded', cause: 'pipeline_degraded', subsystem: null }, subsystems };
+    const reported = (health?.status ?? '').toLowerCase();
+    if (reported && reported !== 'ok' && reported !== 'healthy') return { overall: { state: 'degraded', cause: 'other', subsystem: null }, subsystems };
+    const unmeasured = subsystems.find((verdict) => verdict.state === 'unknown');
+    if (unmeasured) return { overall: { state: 'unknown', cause: unmeasured.cause, subsystem: unmeasured.key }, subsystems };
+    return { overall: { state: 'ok', cause: 'ok', subsystem: null }, subsystems };
+}
+
+/** The recorded sidebar sample, as the status carries it, so the owner's CPU line has a reading. */
+function replayedTelemetry(): unknown {
+    const sample = recordedJson('/api/system-telemetry') as {
+        cpu_percent?: number | null;
+        accelerator?: { kind: string; label: string; utilization_percent: number | null } | null;
+    } | undefined;
+    if (!sample) return null;
+    return {
+        sampled_at: Date.now() / 1000,
+        cpu_percent: sample.cpu_percent ?? null,
+        accelerator_percent: sample.accelerator?.utilization_percent ?? null,
+        accelerator_kind: sample.accelerator?.kind ?? null,
+        accelerator_label: sample.accelerator?.label ?? null
+    };
+}
+
+/**
+ * The pushed status the shell reads (`/api/status`), built from what the test supplied and the
+ * recording's own answers: the jobs, queue, connections and cameras shown are the replayed ones,
+ * and the verdicts are judged from those connections and the workspace's health, failures included.
+ */
+function replayedStatus(overrides: Record<string, unknown>): unknown {
+    const workspace = (overrides['/api/diagnostics/workspace'] ?? recordedJson('/api/diagnostics/workspace')) as
+        { connections?: ConnectionsLike; health?: HealthLike } | undefined;
+    // A test that passes null connections means "nobody has measured them".
+    const connections = '/api/diagnostics/connections' in overrides
+        ? (overrides['/api/diagnostics/connections'] as ConnectionsLike | null) ?? UNMEASURED_CONNECTIONS
+        : workspace?.connections
+            ?? (recordedJson('/api/diagnostics/connections') as ConnectionsLike | undefined)
+            ?? UNMEASURED_CONNECTIONS;
+    const jobs = overrides['/api/jobs'] ?? recordedJson('/api/jobs?include_routine=true')
+        ?? { captured_at: new Date().toISOString(), items: [], lanes: [] };
+    const lanes = (jobs as { lanes?: { kind: string; running?: number; queued?: number }[] }).lanes ?? [];
+    const routine = new Set(['auto_video', 'high_quality_snapshot', 'full_visit', 'favorite_archive']);
+    const prominent = lanes.filter((lane) => !routine.has(lane.kind));
+    const judged = judgedStatus(connections, workspace?.health);
+    const fingerprint = JSON.stringify([judged, workspace?.health ?? null]);
+    return {
+        revision: 1,
+        generated_at: new Date().toISOString(),
+        startup_instance_id: 'fixture',
+        // A version other than the page's own would make deploy recovery reload the page.
+        version: 'unknown',
+        overall: judged.overall,
+        subsystems: judged.subsystems,
+        jobs_summary: {
+            running: prominent.reduce((sum, lane) => sum + (lane.running ?? 0), 0),
+            queued: prominent.reduce((sum, lane) => sum + (lane.queued ?? 0), 0),
+            progress: null
+        },
+        jobs,
+        analysis: overrides['/api/maintenance/analysis/status'] ?? recordedJson('/api/maintenance/analysis/status')
+            ?? { pending: 0, active: 0, circuit_open: false },
+        model: { state: 'ok', cause: 'ready', revision: 'fixture' },
+        connections,
+        cameras: overrides['/api/frigate/cameras/status'] ?? recordedJson('/api/frigate/cameras/status') ?? null,
+        telemetry: replayedTelemetry(),
+        diagnostics_revision: 0,
+        incident_revision: fingerprint,
+        health_revision: fingerprint
+    };
+}
+
 /** Answer the app's requests from the recording, and open it in `theme` with motion settled. */
 export async function replayFeeder(
     page: Page,
@@ -90,6 +213,7 @@ export async function replayFeeder(
         const url = new URL(route.request().url());
         if (url.pathname in overrides) return route.fulfill({ json: overrides[url.pathname] });
         if (url.pathname === '/api/sse') return route.abort();
+        if (url.pathname === '/api/status') return route.fulfill({ json: replayAt(replayedStatus(overrides), shiftMs) });
         if (route.request().resourceType() === 'image' || /\.(?:jpg|jpeg|png|webp)$/.test(url.pathname)) {
             return route.fulfill({ contentType: 'image/svg+xml', body: PHOTOGRAPH });
         }

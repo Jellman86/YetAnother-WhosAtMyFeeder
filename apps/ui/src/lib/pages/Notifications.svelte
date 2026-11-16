@@ -1,5 +1,4 @@
 <script lang="ts">
-    import { untrack } from 'svelte';
     import { _ } from 'svelte-i18n';
     import { notificationCenter, type NotificationItem } from '../stores/notification_center.svelte';
     import { jobProgressStore } from '../stores/job_progress.svelte';
@@ -39,7 +38,7 @@
     let items = $derived(buildTimelineItems(notificationItems, timelineJobs));
     // An owner's history is not whole until the first jobs reading is in. Drawing the part this
     // device already holds and then pushing job rows into it moved everything under them.
-    let historyPending = $derived(isOwner && serverJobsStore.snapshot === null && serverJobsStore.error === null);
+    let historyPending = $derived(isOwner && serverJobsStore.snapshot === null);
     let counts = $derived(countByFilter(items));
     let unread = $derived(items.filter((item) => !item.read).length);
 
@@ -52,13 +51,6 @@
     let filteredItems = $derived(filterNotifications(items, effectiveFilter));
     let timelinePage = $derived(paginateItems(filteredItems, requestedPage, pageSize));
     let groups = $derived(groupNotifications(timelinePage.items));
-
-    $effect(() => {
-        if (!isOwner) return;
-        // retain() starts a refresh that reads and updates reactive store state. Keep those reads
-        // outside this effect's dependency graph so a response cannot restart its own polling loop.
-        return untrack(() => serverJobsStore.retain());
-    });
 
     // Clearing is saved at once, so the toast offers the history back for a few seconds.
     function clearWithUndo(): void {

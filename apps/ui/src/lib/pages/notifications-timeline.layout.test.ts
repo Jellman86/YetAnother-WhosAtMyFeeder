@@ -37,7 +37,8 @@ describe('Notifications timeline layout', () => {
         expect(appSource).toContain('const isOwnerOnly = isNotificationRoute(currentRoute)');
         expect(source).toContain('serverJobsStore.mergeActive(jobProgressStore.activeJobs)');
         expect(source).toContain('buildTimelineItems(');
-        expect(source).toContain('untrack(() => serverJobsStore.retain())');
+        // The jobs come with the pushed status; nothing is claimed before the first one.
+        expect(source).toContain('isOwner && serverJobsStore.snapshot === null');
     });
 
     it('keeps every timeline control at the repository touch-target minimum', () => {

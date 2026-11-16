@@ -1,44 +1,13 @@
 <script lang="ts">
-    import { providerNeedsAttention } from '../utils/provider-warning';
     import { _ } from 'svelte-i18n';
-    import { untrack } from 'svelte';
-    import { REFRESH_CADENCE_MS } from '../app/refresh-cadence';
-    import { startVisiblePoll } from '../app/visible-poll';
     import { authStore } from '../stores/auth.svelte';
-    import { fetchProviderValidationStatus, readClassifierStatus, type ClassifierStatus, type ProviderValidationStatus } from '../api/classifier';
+    import { systemStatusStore } from '../stores/system_status.svelte';
 
     let { onnavigate }: { onnavigate?: (path: string) => void } = $props();
-    let classifier = $state<ClassifierStatus | null>(null);
-    let validation = $state<ProviderValidationStatus | null>(null);
-    const checking = $derived(validation?.state === 'running');
-    const fallback = $derived(providerNeedsAttention(classifier));
-
-    $effect(() => {
-        if (!authStore.hasOwnerAccess) return;
-        let cancelled = false;
-        async function refresh(): Promise<void> {
-            try {
-                const [nextClassifier, nextValidation] = await Promise.all([readClassifierStatus(), fetchProviderValidationStatus()]);
-                if (!cancelled) {
-                    classifier = nextClassifier;
-                    validation = nextValidation;
-                }
-            } catch {
-                // Retain the last measured warning during a transient outage.
-            }
-        }
-        const stop = untrack(() => startVisiblePoll({
-            read: refresh,
-            // A running check finishes within seconds; a settled provider changes only when the runtime does.
-            delayMs: () => validation?.state === 'running'
-                ? REFRESH_CADENCE_MS.providerWarningChecking
-                : REFRESH_CADENCE_MS.providerWarning
-        }));
-        return () => {
-            cancelled = true;
-            stop();
-        };
-    });
+    // The pushed status carries the model's provider and its accelerator check, so this asks nothing.
+    const model = $derived(systemStatusStore.snapshot?.model ?? null);
+    const checking = $derived(model?.validation_state === 'running');
+    const fallback = $derived(model?.provider_fallback === true);
 </script>
 
 {#if authStore.hasOwnerAccess && (checking || fallback)}
@@ -51,7 +20,7 @@
         <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">
             {checking
                 ? $_('dashboard.provider_checking_detail', { default: 'This check runs once. The classifier reloads automatically if the accelerator passes.' })
-                : classifier?.fallback_reason ?? $_('dashboard.provider_review', { default: 'Review model and provider' })}
+                : model?.fallback_reason ?? $_('dashboard.provider_review', { default: 'Review model and provider' })}
         </p>
         <button class="btn btn-secondary mt-3 min-h-11" onclick={() => onnavigate?.('/settings/detection')}>
             {$_('dashboard.provider_review', { default: 'Review model and provider' })}
