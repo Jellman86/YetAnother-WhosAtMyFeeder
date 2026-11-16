@@ -171,7 +171,12 @@ async def presentation_history(migrated_history_db, monkeypatch):
         "batch_check_clips",
         AsyncMock(
             side_effect=lambda ids: {
-                event: {"has_clip": event == "gp-robin", "has_snapshot": True, "has_frigate_event": True}
+                event: {
+                    "has_clip": event == "gp-robin",
+                    "has_snapshot": True,
+                    "has_frigate_event": True,
+                    "frigate_event_check": "found",
+                }
                 for event in ids
             }
         ),

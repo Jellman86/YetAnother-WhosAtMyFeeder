@@ -1,4 +1,5 @@
 import type { Detection } from '../api';
+import { frigateEventReading } from './frigate-event-reading';
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;
 
@@ -40,17 +41,22 @@ function isFrigateMediaError(code: string): boolean {
     );
 }
 
+/** True only on evidence that Frigate no longer has the event, never because it could not be asked. */
+function eventGone(detection: Detection): boolean {
+    return frigateEventReading(detection) === 'gone';
+}
+
 function hasAccessibleMedia(detection: Detection): boolean {
     return detection.has_clip === true || detection.has_snapshot === true;
 }
 
 export function hasFrigateMediaIssue(detection: Detection): boolean {
     const code = String(detection.video_classification_error || '');
-    if ((detection.has_frigate_event === false || code === 'event_not_found') && hasAccessibleMedia(detection)) {
+    if (eventGone(detection) && hasAccessibleMedia(detection)) {
         return false;
     }
     return (
-        detection.has_frigate_event === false ||
+        eventGone(detection) ||
         detection.has_snapshot === false ||
         detection.has_clip === false ||
         isFrigateMediaError(code)
@@ -60,7 +66,7 @@ export function hasFrigateMediaIssue(detection: Detection): boolean {
 export function getVideoFailureInsight(detection: Detection, t: Translate): VideoFailureInsight {
     const code = String(detection.video_classification_error || 'unknown');
 
-    if ((detection.has_frigate_event === false || code === 'event_not_found') && hasAccessibleMedia(detection)) {
+    if (eventGone(detection) && hasAccessibleMedia(detection)) {
         return {
             errorCode: code,
             summary: t('detection.video_analysis.errors.event_missing_media_cached', {
@@ -86,7 +92,7 @@ export function getVideoFailureInsight(detection: Detection, t: Translate): Vide
         };
     }
 
-    if (detection.has_frigate_event === false || code === 'event_not_found') {
+    if (eventGone(detection)) {
         return {
             errorCode: code,
             summary: t('detection.video_analysis.errors.event_missing', { default: 'Event not found in Frigate.' }),

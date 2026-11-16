@@ -19,6 +19,8 @@ export interface Detection {
     has_clip?: boolean;
     has_snapshot?: boolean;
     has_frigate_event?: boolean;
+    /** What Frigate answered when asked about the event; only `not_found` means it is gone. */
+    frigate_event_check?: 'found' | 'not_found' | 'unreachable' | 'timed_out' | 'failed' | 'not_checked';
     frigate_status?: 'present' | 'missing' | string;
     frigate_missing_since?: string | null;
     frigate_last_checked_at?: string | null;

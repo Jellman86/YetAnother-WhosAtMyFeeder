@@ -80,6 +80,13 @@
   "id": "Erkennungs-ID",
   "open_in_frigate": "In Frigate öffnen",
   "open_in_frigate_gone": "Nicht mehr in Frigate",
+  "upstream_check": {
+    "gone": "Frigate hat dieses Ereignis oder seine Medien nicht mehr.",
+    "unreachable": "YA-WAMF konnte Frigate nicht erreichen. Daher ist nicht bekannt, ob Frigate dieses Ereignis noch hat. Prüfen Sie, ob Frigate läuft, und öffnen Sie diesen Eintrag dann erneut.",
+    "timed_out": "Frigate hat nicht rechtzeitig geantwortet. Daher ist nicht bekannt, ob das Ereignis dort noch vorhanden ist. Öffnen Sie diesen Eintrag gleich noch einmal. Wenn das wiederholt passiert, prüfen Sie die Auslastung von Frigate.",
+    "failed": "Frigate hat mit einem Fehler geantwortet. Daher ist nicht bekannt, ob das Ereignis dort noch vorhanden ist. Prüfen Sie das Protokoll von Frigate und öffnen Sie diesen Eintrag dann erneut.",
+    "not_checked": "Frigate wurde zu diesem Ereignis noch nicht abgefragt. Öffnen Sie diesen Eintrag erneut, um es zu prüfen."
+  },
   "upstream_missing": {
     "title": "In Frigate fehlend",
     "card_label": "Upstream fehlt",

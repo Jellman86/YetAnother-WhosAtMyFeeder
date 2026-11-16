@@ -6442,6 +6442,19 @@
             "title": "Frigate Event",
             "type": "string"
           },
+          "frigate_event_check": {
+            "default": "not_checked",
+            "enum": [
+              "found",
+              "not_found",
+              "unreachable",
+              "timed_out",
+              "failed",
+              "not_checked"
+            ],
+            "title": "Frigate Event Check",
+            "type": "string"
+          },
           "has_clip": {
             "default": false,
             "title": "Has Clip",
@@ -6685,6 +6698,19 @@
           },
           "frigate_event": {
             "title": "Frigate Event",
+            "type": "string"
+          },
+          "frigate_event_check": {
+            "default": "not_checked",
+            "enum": [
+              "found",
+              "not_found",
+              "unreachable",
+              "timed_out",
+              "failed",
+              "not_checked"
+            ],
+            "title": "Frigate Event Check",
             "type": "string"
           },
           "frigate_last_checked_at": {

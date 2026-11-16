@@ -16,6 +16,7 @@ from app.config import settings
 from app.services.classifier_service import get_classifier
 from app.services.frigate_client import frigate_client
 from app.services.frigate_event_absence import frigate_event_absence
+from app.services.frigate_event_check import EventAvailability, classify_event_check
 from app.services.auto_video_classifier_service import auto_video_classifier
 from app.services.media_cache import media_cache
 from app.services.archive_service import archive_service, retry_due_at
@@ -237,10 +238,11 @@ def _get_active_model_id_for_feedback() -> str:
     return configured_model or "unknown"
 
 
-async def batch_check_clips(event_ids: list[str]) -> dict[str, dict[str, bool]]:
+async def batch_check_clips(event_ids: list[str]) -> dict[str, EventAvailability]:
     """
     Check Frigate event/media availability for multiple events.
-    Returns a dict mapping event_id -> availability flags.
+    Returns a dict mapping event_id -> availability flags, with what Frigate
+    answered: only `not_found` means the event is gone upstream.
     """
     if not event_ids:
         return {}
@@ -257,7 +259,7 @@ async def batch_check_clips(event_ids: list[str]) -> dict[str, dict[str, bool]]:
             "has_snapshot": bool(cached_snapshot or await archive_service.snapshot_path(event_id)),
         }
 
-    async def check(event_id: str) -> tuple[str, dict[str, bool]]:
+    async def check(event_id: str) -> tuple[str, EventAvailability]:
         async with semaphore:
             if event_id.startswith("manual_"):
                 from app.services.manual_observation_service import manual_observation_service
@@ -266,6 +268,7 @@ async def batch_check_clips(event_ids: list[str]) -> dict[str, dict[str, bool]]:
                 media = await manual_observation_service.path_for_event(event_id, preview=False)
                 return event_id, {
                     "has_frigate_event": False,
+                    "frigate_event_check": "not_checked",
                     "has_clip": bool(media and media.suffix.lower() in {".mp4", ".mov", ".webm"}),
                     "has_snapshot": bool(snapshot),
                 }
@@ -286,12 +289,14 @@ async def batch_check_clips(event_ids: list[str]) -> dict[str, dict[str, bool]]:
                         )
                     return event_id, {
                         "has_frigate_event": False,
+                        "frigate_event_check": classify_event_check(None, error),
                         "has_clip": cached_flags["has_clip"],
                         "has_snapshot": cached_flags["has_snapshot"],
                     }
                 frigate_event_absence.record_present(event_id)
                 return event_id, {
                     "has_frigate_event": True,
+                    "frigate_event_check": "found",
                     "has_clip": bool(event_data.get("has_clip", False)) or cached_flags["has_clip"],
                     "has_snapshot": bool(event_data.get("has_snapshot", True)) or cached_flags["has_snapshot"],
                 }
@@ -299,6 +304,7 @@ async def batch_check_clips(event_ids: list[str]) -> dict[str, dict[str, bool]]:
                 cached_flags = await cached_media_flags(event_id)
                 return event_id, {
                     "has_frigate_event": False,
+                    "frigate_event_check": "failed",
                     "has_clip": cached_flags["has_clip"],
                     "has_snapshot": cached_flags["has_snapshot"],
                 }
@@ -580,6 +586,7 @@ _LIST_FIELDS = {
     "has_clip",
     "has_snapshot",
     "has_frigate_event",
+    "frigate_event_check",
     "audio_species",
     "audio_score",
     "audio_confirmed",

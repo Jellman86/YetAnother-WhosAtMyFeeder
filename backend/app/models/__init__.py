@@ -1,9 +1,14 @@
 from app.models.classification_evidence import ClassificationEvidence
 from pydantic import BaseModel, Field, field_serializer, field_validator
 from datetime import datetime
+from typing import Literal
 from app.utils.api_datetime import serialize_api_datetime
 from app.utils.reference_images import bounded_reference_thumbnail
 from app.utils.reference_text import reference_plain_text
+
+# What Frigate answered when YA-WAMF asked about one event. Only `not_found` is evidence
+# that the event is gone; the rest are a question that went unanswered.
+FrigateEventCheck = Literal["found", "not_found", "unreachable", "timed_out", "failed", "not_checked"]
 
 
 class OAuthAuthorizeResponse(BaseModel):
@@ -124,6 +129,9 @@ class DetectionResponse(Detection):
     has_clip: bool = False  # Clip availability from Frigate
     has_snapshot: bool = True  # Snapshot availability from Frigate
     has_frigate_event: bool = True  # Event still exists in Frigate
+    # What Frigate answered when asked about the event. Only `not_found` means it is gone;
+    # `has_frigate_event` is also false when Frigate could not be asked.
+    frigate_event_check: FrigateEventCheck = "not_checked"
     observation_notes: str | None = None
     observation_latitude: float | None = None
     observation_longitude: float | None = None
@@ -150,6 +158,7 @@ class DetectionListItemResponse(APIModel):
     has_clip: bool = False
     has_snapshot: bool = True
     has_frigate_event: bool = True
+    frigate_event_check: FrigateEventCheck = "not_checked"
     audio_species: str | None = None
     audio_score: float | None = None
     audio_confirmed: bool = False
