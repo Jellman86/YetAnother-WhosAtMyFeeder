@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { REFRESH_CADENCE_MS, SHELL_READINGS } from './refresh-cadence';
 import { startVisiblePoll, type PollDocument } from './visible-poll';
 
 /** A tab whose visibility the test controls, with the listeners the poll attaches to it. */
@@ -205,27 +204,5 @@ describe('startVisiblePoll', () => {
         expect(tab.listeners()).toBe(0);
         await vi.advanceTimersByTimeAsync(10 * 60_000);
         expect(read).toHaveBeenCalledTimes(2);
-    });
-});
-
-describe('the idle request budget, counted from running polls', () => {
-    it('an idle owner page makes at most a dozen shell requests in a minute', async () => {
-        let requests = 0;
-        const stops = SHELL_READINGS.map(({ reading, requests: perRead }) =>
-            startVisiblePoll({
-                read: async () => { requests += perRead; },
-                delayMs: () => REFRESH_CADENCE_MS[reading],
-                tab: fakeTab(),
-                readAtStart: false
-            })
-        );
-
-        await vi.advanceTimersByTimeAsync(60_000);
-        expect(requests).toBeLessThanOrEqual(12);
-        // Over ten minutes every reading has fired, and the rate holds.
-        await vi.advanceTimersByTimeAsync(9 * 60_000);
-        expect(requests / 10).toBeLessThanOrEqual(12);
-        expect(requests).toBeGreaterThan(0);
-        for (const stop of stops) stop();
     });
 });

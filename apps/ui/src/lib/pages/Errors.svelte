@@ -26,6 +26,7 @@
     import { diagnosticWordsKey } from '../utils/diagnostic-words';
     import { connectionCauseMessage } from '../api/error-message';
     import { serviceConnectionsStore } from '../stores/service_connections.svelte';
+    import { systemStatusStore } from '../stores/system_status.svelte';
     import { pageRefreshAction } from '../stores/page_refresh_action.svelte';
     import { detectionsStore } from '../stores/detections.svelte';
     import { settingsStore } from '../stores/settings.svelte';
@@ -131,8 +132,10 @@
             ? workspacePayload.health as DiagnosticsHealth
             : null
     );
-    // Read with the workspace, so the verdict and the cards come from one measurement.
-    let connections = $derived(workspacePayload?.connections ?? null);
+    // The pushed status, the same reading the sidebar, the banner and the Dashboard show, so no two
+    // of them disagree; the workspace's own reading stands in until the first status arrives.
+    const pushedStatus = $derived(systemStatusStore.snapshot);
+    let connections = $derived(pushedStatus?.connections ?? workspacePayload?.connections ?? null);
     let problems = $derived(connectionProblems(connections));
     // Everything open, from the one workspace reading: the failed connections, then any incident
     // not yet resolved. The verdict card lists these, so a count elsewhere can never disagree.
@@ -345,7 +348,7 @@
     }
 
     function overallStatus(): string {
-        return asText(health?.status, 'unknown');
+        return pushedStatus?.overall.state ?? asText(health?.status, 'unknown');
     }
 
     /** The hero's verdict: never healthy while the broker or Frigate is down or unread. */

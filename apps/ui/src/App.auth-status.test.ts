@@ -20,7 +20,7 @@ describe('App auth status failure handling', () => {
         expect(appSource).toContain('if (!authStore.statusLoaded || authStore.statusHealthy) return;');
         expect(appSource).toContain('if (!document.hidden) void authStore.loadStatus();');
         expect(appSource).toContain('if (!authStore.statusLoaded || !authStore.statusHealthy) return;');
-        expect(appSource).toContain('void runOwnerSystemChecksOnce();');
+        expect(appSource).toContain('void reconcileReclassificationsOnce();');
         expect(appSource).toContain('if (!document.hidden && authStore.statusHealthy)');
         expect(appSource).toContain('if (authStore.statusHealthy) {\n              const accessAdjustedPath');
     });
@@ -28,15 +28,7 @@ describe('App auth status failure handling', () => {
     it('does not let operational polling subscribe to the reactive job state it updates', () => {
         expect(appSource).toContain("import { onMount, untrack } from 'svelte';");
         expect(appSource).toContain('return untrack(startOperationalPolling);');
-        expect(appSource).toContain('const syncAnalysisQueueStatusOnce = createCooldownSingleFlightRunner');
-        expect(appSource).toContain('const runOwnerSystemChecksOnce = createCooldownSingleFlightRunner');
         expect(appSource).toContain('if (!document.hidden) void authStore.loadStatus();');
-    });
-
-    it('rate-limits authenticated polling even if its lifecycle is retriggered', () => {
-        expect(appSource).toContain('createCooldownSingleFlightRunner');
-        expect(appSource).toContain('ANALYSIS_QUEUE_POLL_COOLDOWN_MS');
-        expect(appSource).toContain('OWNER_SYSTEM_CHECK_COOLDOWN_MS');
     });
 
     it('replaces live state whenever the authenticated session identity changes', () => {
@@ -49,10 +41,20 @@ describe('App auth status failure handling', () => {
         expect(appSource).toContain("{#key `${authStore.isAuthenticated ? 'owner' : 'guest'}:${authStore.token ?? 'anonymous'}`}");
     });
 
-    it('uses one adaptive analysis polling path and pauses network work in hidden tabs', () => {
-        expect(appSource).toContain('const ANALYSIS_QUEUE_IDLE_POLL_MS = REFRESH_CADENCE_MS.analysisQueueIdle;');
-        expect(appSource).toContain('analysisQueueStatusStore.ingest(status);');
-        expect(appSource).toContain('document.hidden ? ANALYSIS_QUEUE_IDLE_POLL_MS');
-        expect(appSource).not.toContain('const analysisInterval = window.setInterval');
+    it('takes the owner status from one pushed snapshot instead of polling each part of it', () => {
+        expect(appSource).toContain('systemStatusStore.subscribe((snapshot, previous) => {');
+        expect(appSource).toContain('serverJobsStore.ingest(snapshot.jobs);');
+        expect(appSource).toContain('analysisQueueStatusStore.ingest(snapshot.analysis);');
+        expect(appSource).toContain('serviceConnectionsStore.ingest(snapshot.connections);');
+        expect(appSource).toContain('liveUpdates.applySystemStatus(snapshot, previous);');
+        // Nothing in the shell reads the status parts on a timer any more.
+        expect(appSource).not.toContain('ANALYSIS_QUEUE_IDLE_POLL_MS');
+        expect(appSource).not.toContain('ownerSystemChecks');
+        expect(appSource).not.toContain('refreshOwnerConnections');
+    });
+
+    it('reads the status once a minute only while the live stream is down', () => {
+        expect(appSource).toContain('systemStatusStore.setStreamLive(authStore.showSettings);');
+        expect(appSource).toContain('systemStatusStore.setStreamLive(false);');
     });
 });

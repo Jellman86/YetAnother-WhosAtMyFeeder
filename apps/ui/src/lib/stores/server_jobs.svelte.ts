@@ -1,10 +1,7 @@
 import { get } from 'svelte/store';
 import { _, locale } from 'svelte-i18n';
-import { fetchJobsSnapshot, type JobsSnapshot, type ServerJob } from '../api/jobs';
+import type { JobsSnapshot, ServerJob } from '../api/jobs';
 import type { QueueTelemetryByKind } from '../jobs/pipeline';
-import { REFRESH_CADENCE_MS } from '../app/refresh-cadence';
-import { startVisiblePoll, type PollDocument } from '../app/visible-poll';
-import { authStore } from './auth.svelte';
 import type { JobProgressItem } from './job_progress.svelte';
 
 function parseTimestamp(value: string | null | undefined, fallback: number): number {
@@ -88,32 +85,20 @@ function correlationEventId(job: JobProgressItem): string | null {
     return null;
 }
 
-interface ServerJobsStoreOptions {
-    fetchSnapshot?: () => Promise<JobsSnapshot>;
-    /** Jobs are an owner reading; a guest's poll would only collect refusals. */
-    canReadJobs?: () => boolean;
-    tab?: PollDocument;
-}
-
+/** The server's jobs, as the pushed status snapshot last reported them. */
 export class ServerJobsStore {
-    snapshot = $state<JobsSnapshot | null>(null);
-    loading = $state(false);
-    error = $state<string | null>(null);
-    private retainCount = 0;
-    private stopPoll: (() => void) | null = null;
-    private request: Promise<void> | null = null;
+    snapshot = $state.raw<JobsSnapshot | null>(null);
     private materializedSnapshot: JobsSnapshot | null = null;
     private materializedActive: JobProgressItem[] = [];
     private materializedHistory: JobProgressItem[] = [];
     private previousById = new Map<string, JobProgressItem>();
-    private readonly fetchSnapshot: () => Promise<JobsSnapshot>;
-    private readonly canReadJobs: () => boolean;
-    private readonly tab: PollDocument | undefined;
 
-    constructor(options: ServerJobsStoreOptions = {}) {
-        this.fetchSnapshot = options.fetchSnapshot ?? (() => fetchJobsSnapshot(true));
-        this.canReadJobs = options.canReadJobs ?? (() => authStore.showSettings);
-        this.tab = options.tab;
+    ingest(snapshot: JobsSnapshot): void {
+        this.snapshot = snapshot;
+    }
+
+    clear(): void {
+        this.snapshot = null;
     }
 
     private materializeSnapshot(): void {
@@ -205,51 +190,6 @@ export class ServerJobsStore {
         const byId = new Map(localJobs.map((job) => [job.id, job]));
         for (const job of this.historyJobs) byId.set(job.id, job);
         return [...byId.values()];
-    }
-
-    async refresh(): Promise<void> {
-        if (!this.canReadJobs()) {
-            this.snapshot = null;
-            this.error = null;
-            this.loading = false;
-            return;
-        }
-        if (this.request) return this.request;
-        this.loading = this.snapshot === null;
-        this.request = (async () => {
-            try {
-                this.snapshot = await this.fetchSnapshot();
-                this.error = null;
-            } catch (error) {
-                this.error = error instanceof Error ? error.message : 'Jobs status is temporarily unavailable.';
-            } finally {
-                this.loading = false;
-                this.request = null;
-            }
-        })();
-        return this.request;
-    }
-
-    /** Keeps the snapshot current for as long as something on screen shows it. */
-    retain(): () => void {
-        this.retainCount += 1;
-        if (this.retainCount === 1) {
-            this.stopPoll = startVisiblePoll({
-                read: () => this.refresh(),
-                // Running work is followed closely; an idle queue only needs noticing.
-                delayMs: () => (this.activeJobs.length > 0 ? REFRESH_CADENCE_MS.serverJobsActive : REFRESH_CADENCE_MS.serverJobsIdle),
-                tab: this.tab
-            });
-        }
-        let released = false;
-        return () => {
-            if (released) return;
-            released = true;
-            this.retainCount -= 1;
-            if (this.retainCount > 0) return;
-            this.stopPoll?.();
-            this.stopPoll = null;
-        };
     }
 }
 

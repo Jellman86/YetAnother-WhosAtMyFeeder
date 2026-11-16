@@ -3051,6 +3051,7 @@ export interface components {
     startup_instance_id: string;
     subsystems: Array<components['schemas']['SubsystemVerdict']>;
     telemetry?: components['schemas']['TelemetrySummary'] | null;
+    version: string;
 };
     SystemTelemetryHistoryResponse: {
     accelerator?: components['schemas']['SystemAcceleratorIdentity'] | null;

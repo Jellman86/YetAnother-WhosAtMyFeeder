@@ -79,6 +79,7 @@ class SystemStatusInputs:
     cameras: CameraHealthReading | None = None
     telemetry: TelemetrySummary | None = None
     diagnostics_revision: int = 0
+    version: str = "unknown"
 
 
 def _mqtt_verdict(inputs: SystemStatusInputs) -> SubsystemVerdict:
@@ -297,6 +298,7 @@ def derive_system_status(inputs: SystemStatusInputs, *, revision: int, now: date
         revision=revision,
         generated_at=now.astimezone(timezone.utc).isoformat(),
         startup_instance_id=inputs.startup_instance_id,
+        version=inputs.version,
         overall=_overall_verdict(inputs, subsystems),
         subsystems=subsystems,
         jobs_summary=summarise_jobs(inputs.jobs),
@@ -336,6 +338,7 @@ def material_key(snapshot: SystemStatusSnapshot) -> str:
     analysis = snapshot.analysis.model_dump()
     material = {
         "instance": snapshot.startup_instance_id,
+        "version": snapshot.version,
         "overall": snapshot.overall.model_dump(),
         "subsystems": [verdict.model_dump() for verdict in snapshot.subsystems],
         "jobs_summary": snapshot.jobs_summary.model_dump(),

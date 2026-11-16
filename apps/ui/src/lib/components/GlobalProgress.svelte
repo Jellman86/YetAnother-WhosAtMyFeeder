@@ -3,7 +3,6 @@
     import { slide } from 'svelte/transition';
     import { _ } from 'svelte-i18n';
     import { jobProgressStore } from '../stores/job_progress.svelte';
-    import { authStore } from '../stores/auth.svelte';
     import { buildJobsPipelineModel } from '../jobs/pipeline';
     import { buildGlobalProgressSummary, presentWorkLane, type JobsTranslateFn } from '../jobs/presenter';
     import { analysisQueueStatusStore } from '../stores/analysis_queue_status.svelte';
@@ -20,7 +19,6 @@
         const tick = setInterval(() => {
             nowTs = Date.now();
         }, 1000);
-        const releaseServerJobs = serverJobsStore.retain();
         const closeOnEscape = (event: KeyboardEvent) => {
             if (event.key === 'Escape') showDetails = false;
         };
@@ -35,7 +33,6 @@
         return () => {
             window.removeEventListener('keydown', closeOnEscape);
             window.removeEventListener('pointerdown', closeOnOutsidePress);
-            releaseServerJobs();
             clearInterval(tick);
         };
     });
@@ -77,10 +74,6 @@
     $effect(() => {
         if (!hasRunningBackfill) return;
         return backfillStatusStore.retain();
-    });
-
-    $effect(() => {
-        if (authStore.showSettings) void serverJobsStore.refresh();
     });
 
     function openJobsPage() {

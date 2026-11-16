@@ -23241,12 +23241,18 @@
                 "type": "null"
               }
             ]
+          },
+          "version": {
+            "description": "The backend's version; a page built for another version reloads.",
+            "title": "Version",
+            "type": "string"
           }
         },
         "required": [
           "revision",
           "generated_at",
           "startup_instance_id",
+          "version",
           "overall",
           "subsystems",
           "jobs_summary",

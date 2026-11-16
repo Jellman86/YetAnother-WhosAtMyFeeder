@@ -1,12 +1,11 @@
 import type { Detection } from '../api';
 import type { AnalysisStatus } from '../api/maintenance';
-import type { HealthStatus } from '../api/system';
+import type { SystemStatus } from '../api/status';
 import type { NotificationItem } from '../stores/notification_center.svelte';
-import { isTransientGatewayError } from '../api/error-message';
 import { formatBackfillProgressSummary, resolveRunningBackfillMessage } from '../backfill/progress';
 import { formatTerminalBackfillMessage } from '../backfill/terminal-message';
 import { notificationPolicy } from '../notifications/policy';
-import { healthNotificationCause } from '../utils/health-notification';
+import { statusNotificationCause, verdictFor } from '../stores/system_status.svelte';
 
 const STALE_PROCESS_MAX_AGE_MS = 45 * 60 * 1000;
 const ORPHAN_PROCESS_GRACE_MS = 2 * 60 * 1000;
@@ -21,16 +20,12 @@ const JOB_STALE_OVERRIDES: Record<string, number> = {
     weather_backfill: LONG_RUNNING_JOB_IDLE_MS,
     reclassify_batch: LONG_RUNNING_JOB_IDLE_MS
 };
-const ANALYSIS_STATUS_POLL_ROUTE = '/api/maintenance/analysis/status';
 
 type TranslationValue = string | number | boolean | Date | null | undefined;
 type TranslateFn = (key: string, values?: Record<string, TranslationValue>) => string;
 type NotificationInput = Omit<NotificationItem, 'timestamp' | 'read'> & {
     timestamp?: number;
     read?: boolean;
-};
-type HealthPayload = Partial<HealthStatus> & {
-    video_classifier?: { pending?: number; active?: number };
 };
 
 interface SseData extends Omit<Partial<Detection>, 'id'> {
@@ -177,7 +172,6 @@ interface LoggerLike {
 }
 
 interface JobDiagnosticsLike {
-    ingestHealth(health: unknown): void;
     recordError(input: {
         source: 'health' | 'sse' | 'runtime' | 'job' | 'system';
         component: string;
@@ -203,16 +197,13 @@ interface LiveUpdateDeps {
     settingsStore: SettingsStoreLike;
     announcer: { announce(message: string): void };
     logger: LoggerLike;
-    checkHealth: () => Promise<HealthPayload>;
-    fetchCacheStats: () => Promise<{ storage_available?: boolean }>;
-    fetchAnalysisStatus: () => Promise<AnalysisStatus>;
     diagnostics?: JobDiagnosticsLike;
     syncDiagnosticsWorkspace?: () => Promise<void>;
+    /** The server pushed a status snapshot; it is untrusted until the receiver has checked it. */
+    onStatus?: (snapshot: unknown) => void;
     onConnected?: () => void;
     onPublicHistoryChanged?: () => void;
     onGardenHistoryChanged?: () => void;
-    /** The broker or Frigate changed state; the server sends this to owners only. */
-    onServiceConnectionsChanged?: () => void;
     /** A call was heard, hidden or restored; the server sends these to owners only. */
     onAudioChanged?: () => void;
     /** Settings were saved here or elsewhere; readings that depend on them may be out of date. */
@@ -297,132 +288,69 @@ export class LiveUpdateCoordinator {
         this.pruneStaleReclassifyState();
     }
 
-    async runOwnerSystemChecks() {
+    /**
+     * Follows the pushed status: the health and storage notifications, a backend restart, the
+     * analysis queue, and the incident workspace when the server recorded a new fault. Replaces
+     * the reads the shell used to take every two minutes.
+     */
+    applySystemStatus(snapshot: SystemStatus, previous: SystemStatus | null): void {
         if (this.deps.hasOwnerAccess && !this.deps.hasOwnerAccess()) return;
-        // HQ work does not emit per-capture count updates. Reuse the existing
-        // owner check cadence, with the store's stale/single-flight guard.
-        try {
-            await this.deps.refreshOwnerHistory?.();
-        } catch {
-            this.deps.logger.warn('owner_history_refresh_failed');
+        const changed = previous === null
+            || previous.revision !== snapshot.revision
+            || previous.startup_instance_id !== snapshot.startup_instance_id;
+        // Photograph work does not announce each capture; a change in the work is the cue.
+        if (changed) {
+            this.deps.refreshOwnerHistory?.().catch(() => this.deps.logger.warn('owner_history_refresh_failed'));
+        }
+        const workspaceChanged = previous === null
+            || previous.diagnostics_revision !== snapshot.diagnostics_revision
+            || previous.startup_instance_id !== snapshot.startup_instance_id;
+        if (workspaceChanged && this.deps.syncDiagnosticsWorkspace) {
+            this.deps.syncDiagnosticsWorkspace().catch((error: unknown) => {
+                this.deps.logger.warn('diagnostics_workspace_sync_failed', { error });
+            });
         }
         if (!this.deps.shouldNotify()) return;
-        let startupInstanceId = 'unknown';
 
-        try {
-            const health = await this.deps.checkHealth();
-            this.deps.diagnostics?.ingestHealth(health);
-            startupInstanceId = String(health?.startup_instance_id ?? 'unknown');
-            this.reconcileBackendInstance(startupInstanceId);
-            this.reconcileSyntheticBatchFromHealth(health);
-            const status = String(health?.status ?? '').trim().toLowerCase();
-            if (status && !this.isSystemHealthyStatus(status)) {
-                // The message is the cause, not the backend's word for the state; a new cause replaces it.
-                const cause = healthNotificationCause(health);
-                const id = `system:health:${startupInstanceId}:${cause}`;
-                if (!this.deps.notificationCenter.items.some((item) => item.id === id)) {
-                    this.removeNotificationsByPrefix('system:health');
-                    this.deps.notificationCenter.add({
-                        id,
-                        type: 'system',
-                        title: this.deps.t('notifications.system_health_title'),
-                        message: this.deps.t(`notifications.system_health_cause.${cause}`),
-                        meta: { source: 'health', route: '/system-health' }
-                    });
-                }
-            } else {
+        const startupInstanceId = snapshot.startup_instance_id || 'unknown';
+        this.reconcileBackendInstance(startupInstanceId);
+        this.reconcileAnalysisQueueStatus(snapshot.analysis);
+
+        if (snapshot.overall.state === 'degraded') {
+            // The message is the cause, not the backend's word for the state; a new cause replaces it.
+            const cause = statusNotificationCause(snapshot);
+            const id = `system:health:${startupInstanceId}:${cause}`;
+            if (!this.deps.notificationCenter.items.some((item) => item.id === id)) {
                 this.removeNotificationsByPrefix('system:health');
-            }
-        } catch (error) {
-            this.deps.logger.warn('health_check_failed', { error });
-            if (!isTransientGatewayError(error)) {
-                this.deps.diagnostics?.recordError({
-                    source: 'health',
-                    component: 'health_check',
-                    reasonCode: 'request_failed',
-                    message: this.toErrorMessage(error, 'Health check request failed'),
-                    severity: 'warning',
-                    context: { scope: 'runOwnerSystemChecks' }
+                this.deps.notificationCenter.add({
+                    id,
+                    type: 'system',
+                    title: this.deps.t('notifications.system_health_title'),
+                    message: this.deps.t(`notifications.system_health_cause.${cause}`),
+                    meta: { source: 'health', route: '/system-health' }
                 });
             }
+        } else {
+            this.removeNotificationsByPrefix('system:health');
         }
 
-        try {
-            const cache = await this.deps.fetchCacheStats();
-            // Photographs and visit media are always kept (#622). The one thing that stops it is a
-            // media folder that cannot be written, and only an explicit false means that: an older
-            // backend that does not report it must not raise a false alarm.
-            this.removeNotificationsByPrefix('system:cache-disabled');
-            if (cache.storage_available === false) {
-                const id = `system:media-storage-unavailable:${startupInstanceId}`;
-                this.removeNotificationsByPrefix('system:media-storage-unavailable');
-                if (!this.deps.notificationCenter.items.some((item) => item.id === id)) {
-                    this.deps.notificationCenter.add({
-                        id,
-                        type: 'system',
-                        title: this.deps.t('notifications.system_media_storage_unavailable_title'),
-                        message: this.deps.t('notifications.system_media_storage_unavailable_message'),
-                        meta: { source: 'cache', route: '/settings' }
-                    });
-                }
-            } else {
-                this.removeNotificationsByPrefix('system:media-storage-unavailable');
-            }
-        } catch (error) {
-            this.deps.logger.warn('cache_stats_check_failed', { error });
-            if (!isTransientGatewayError(error)) {
-                this.deps.diagnostics?.recordError({
-                    source: 'health',
-                    component: 'cache_stats',
-                    reasonCode: 'request_failed',
-                    message: this.toErrorMessage(error, 'Cache stats request failed'),
-                    severity: 'warning',
-                    context: { scope: 'runOwnerSystemChecks' }
+        // Photographs and visit media are always kept (#622). The one thing that stops it is a
+        // media folder that cannot be written.
+        this.removeNotificationsByPrefix('system:cache-disabled');
+        if (verdictFor(snapshot, 'storage')?.state === 'error') {
+            const id = `system:media-storage-unavailable:${startupInstanceId}`;
+            this.removeNotificationsByPrefix('system:media-storage-unavailable');
+            if (!this.deps.notificationCenter.items.some((item) => item.id === id)) {
+                this.deps.notificationCenter.add({
+                    id,
+                    type: 'system',
+                    title: this.deps.t('notifications.system_media_storage_unavailable_title'),
+                    message: this.deps.t('notifications.system_media_storage_unavailable_message'),
+                    meta: { source: 'cache', route: '/settings' }
                 });
             }
-        }
-
-        if (this.deps.syncDiagnosticsWorkspace) {
-            try {
-                await this.deps.syncDiagnosticsWorkspace();
-            } catch (error) {
-                this.deps.logger.warn('diagnostics_workspace_sync_failed', { error });
-                if (!isTransientGatewayError(error)) {
-                    this.deps.diagnostics?.recordError({
-                        source: 'health',
-                        component: 'diagnostics_workspace',
-                        reasonCode: 'request_failed',
-                        message: this.toErrorMessage(error, 'Diagnostics workspace refresh failed'),
-                        severity: 'warning',
-                        context: { scope: 'runOwnerSystemChecks' }
-                    });
-                }
-            }
-        }
-    }
-
-    async syncAnalysisQueueStatus(): Promise<AnalysisStatus | null> {
-        if (!this.deps.shouldNotify()) return null;
-        if (this.deps.hasOwnerAccess && !this.deps.hasOwnerAccess()) return null;
-
-        try {
-            const status = await this.deps.fetchAnalysisStatus();
-            this.reconcileAnalysisQueueStatus(status);
-            return status;
-        } catch (error) {
-            this.deps.logger.warn('analysis_status_check_failed', { error });
-            if (!isTransientGatewayError(error)) {
-                this.deps.diagnostics?.recordError({
-                    source: 'job',
-                    component: 'analysis_status',
-                    stage: 'poll',
-                    reasonCode: 'status_fetch_failed',
-                    message: this.toErrorMessage(error, 'Failed to load analysis status'),
-                    severity: 'warning',
-                    context: { route: ANALYSIS_STATUS_POLL_ROUTE, scope: 'syncAnalysisQueueStatus' }
-                });
-            }
-            return null;
+        } else {
+            this.removeNotificationsByPrefix('system:media-storage-unavailable');
         }
     }
 
@@ -464,6 +392,11 @@ export class LiveUpdateCoordinator {
                 return;
             }
 
+            if (payload.type === 'status') {
+                if (this.deps.hasOwnerAccess?.()) this.deps.onStatus?.((payload as { data?: unknown }).data);
+                return;
+            }
+
             if (payload.type === 'garden_history_changed') {
                 if (this.deps.hasOwnerAccess?.()) this.deps.onGardenHistoryChanged?.();
                 return;
@@ -475,7 +408,7 @@ export class LiveUpdateCoordinator {
             }
 
             if (payload.type === 'service_connections_changed') {
-                if (this.deps.hasOwnerAccess?.()) this.deps.onServiceConnectionsChanged?.();
+                // The server reads its status again on this announcement; the `status` push carries it.
                 return;
             }
 
@@ -771,10 +704,6 @@ export class LiveUpdateCoordinator {
         }
     }
 
-    private isSystemHealthyStatus(status: string): boolean {
-        return status === 'healthy' || status === 'ok';
-    }
-
     private settleOrphanProcessNotifications(): void {
         const activeJobs = Array.isArray(this.deps.jobProgress.activeJobs)
             ? this.deps.jobProgress.activeJobs
@@ -965,15 +894,6 @@ export class LiveUpdateCoordinator {
             return;
         }
 
-        this.settleSyntheticBatchAnalysisState();
-    }
-
-    private reconcileSyntheticBatchFromHealth(health: HealthPayload) {
-        const videoClassifier = health?.video_classifier;
-        if (!videoClassifier || typeof videoClassifier !== 'object') return;
-        const pending = Number.isFinite(Number(videoClassifier.pending)) ? Math.max(0, Math.floor(Number(videoClassifier.pending))) : 0;
-        const active = Number.isFinite(Number(videoClassifier.active)) ? Math.max(0, Math.floor(Number(videoClassifier.active))) : 0;
-        if (pending > 0 || active > 0) return;
         this.settleSyntheticBatchAnalysisState();
     }
 

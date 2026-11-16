@@ -126,8 +126,8 @@ describe('one load asks each question once', () => {
         expect(instanceSummarySource).toContain('await readUpdateStatus()');
         expect(instanceSummarySource).toContain('await readClassifierStatus()');
         expect(instancePipelineSource).toContain('await readClassifierStatus()');
-        expect(providerWarningSource).toContain('readClassifierStatus()');
-        expect(appSource).toContain('fetchAnalysisStatus: readAnalysisStatus');
+        expect(providerWarningSource).toContain('systemStatusStore.snapshot?.model');
+        expect(appSource).toContain('analysisQueueStatusStore.ingest(snapshot.analysis);');
         expect(jobCircuitBannerSource).toContain('void analysisQueueStatusStore.refresh();');
     });
 

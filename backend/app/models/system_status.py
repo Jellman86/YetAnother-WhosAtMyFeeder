@@ -99,6 +99,7 @@ class SystemStatusSnapshot(BaseModel):
     revision: int = Field(ge=0, description="Rises with every published change; a client keeps the highest it saw.")
     generated_at: str
     startup_instance_id: str
+    version: str = Field(description="The backend's version; a page built for another version reloads.")
     overall: OverallVerdict
     subsystems: list[SubsystemVerdict]
     jobs_summary: JobsSummary

@@ -59,12 +59,11 @@
     import { ApiRequestError } from '../api/core';
     import { themeStore, type Theme } from '../stores/theme.svelte';
     import { settingsStore } from '../stores/settings.svelte';
-    import { REFRESH_CADENCE_MS } from '../app/refresh-cadence';
-    import { startVisiblePoll } from '../app/visible-poll';
     import { analysisQueueStatusStore } from '../stores/analysis_queue_status.svelte';
     import { pageRefreshAction } from '../stores/page_refresh_action.svelte';
     import { toAppPath } from '../app/url-base';
     import { authStore } from '../stores/auth.svelte';
+    import { systemStatusStore } from '../stores/system_status.svelte';
     import { passwordProblemMessage, validateAuthSettingsSave } from '../auth-password-policy';
     import { toastStore } from '../stores/toast.svelte';
     import { confirmAction } from '../stores/confirm_dialog.svelte';
@@ -1284,14 +1283,18 @@
     });
 
     // A harness can finish in another tab, and isolated workers can start after
-    // the completion response. Keep the visible runtime current without touching
-    // the settings form or accumulating overlapping background reads.
+    // the completion response. The pushed status names the model's runtime by a
+    // revision; the runtime line is read again only when that revision moves, so
+    // an idle Models tab asks nothing and the form is never touched.
     $effect(() => {
         if (activeTab !== 'models' || !authStore.showSettings) return;
-        const stop = untrack(() => startVisiblePoll({
-            read: () => (classifierStatusReads === 0 ? loadClassifierStatus() : undefined),
-            delayMs: () => REFRESH_CADENCE_MS.classifierRuntime
-        }));
+        let seenRevision = untrack(() => systemStatusStore.snapshot?.model.revision ?? null);
+        const stop = systemStatusStore.subscribe((snapshot) => {
+            const revision = snapshot.model.revision;
+            if (revision === seenRevision) return;
+            seenRevision = revision;
+            if (classifierStatusReads === 0) void loadClassifierStatus();
+        });
         return () => {
             stop();
             classifierStatusRequest += 1;

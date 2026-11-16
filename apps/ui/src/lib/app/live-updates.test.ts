@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import type { SystemStatus } from '../api/status';
 import { LiveUpdateCoordinator, toDetection } from './live-updates';
 
 describe('toDetection', () => {
@@ -37,13 +38,10 @@ describe('toDetection', () => {
 function buildCoordinator(options?: {
     activeJobs?: any[];
     shouldNotify?: boolean;
-    fetchAnalysisStatus?: () => Promise<any>;
-    fetchCacheStats?: () => Promise<{ storage_available?: boolean }>;
-    checkHealth?: () => Promise<any>;
     hasOwnerAccess?: boolean;
     refreshOwnerHistory?: () => Promise<void>;
     onGardenHistoryChanged?: () => void;
-    onServiceConnectionsChanged?: () => void;
+    onStatus?: (snapshot: unknown) => void;
     onAudioChanged?: () => void;
     onSettingsChanged?: () => void;
 }) {
@@ -55,7 +53,6 @@ function buildCoordinator(options?: {
         remove: [] as any[],
         notificationUpserts: [] as any[],
         notificationRemoves: [] as any[],
-        ingestHealth: [] as any[],
         recordError: [] as any[],
         startReclassification: [] as any[],
         updateReclassificationProgress: [] as any[],
@@ -83,7 +80,7 @@ function buildCoordinator(options?: {
         hasOwnerAccess: () => options?.hasOwnerAccess ?? true,
         refreshOwnerHistory: options?.refreshOwnerHistory,
         onGardenHistoryChanged: options?.onGardenHistoryChanged,
-        onServiceConnectionsChanged: options?.onServiceConnectionsChanged,
+        onStatus: options?.onStatus,
         onAudioChanged: options?.onAudioChanged,
         onSettingsChanged: options?.onSettingsChanged,
         applyNotificationPolicy: () => true,
@@ -132,19 +129,7 @@ function buildCoordinator(options?: {
             error: () => undefined,
             sseEvent: () => undefined
         },
-        checkHealth: options?.checkHealth ?? (async () => ({})),
-        fetchCacheStats: options?.fetchCacheStats ?? (async () => ({})),
-        fetchAnalysisStatus: options?.fetchAnalysisStatus ?? (async () => ({
-            pending: 0,
-            active: 0,
-            circuit_open: false,
-            open_until: null,
-            failure_count: 0,
-            pending_capacity: 1000,
-            pending_available: 1000
-        })),
         diagnostics: {
-            ingestHealth: (health: any) => calls.ingestHealth.push(health),
             recordError: (input: any) => calls.recordError.push(input)
         },
         syncDiagnosticsWorkspace: async () => {
@@ -153,6 +138,41 @@ function buildCoordinator(options?: {
     });
 
     return { coordinator, calls, notificationItems, jobProgress };
+}
+
+function queue(pending: number, active: number): SystemStatus['analysis'] {
+    return {
+        pending,
+        active,
+        circuit_open: false,
+        open_until: null,
+        failure_count: 0,
+        pending_capacity: 1000,
+        pending_available: 1000 - pending - active
+    };
+}
+
+function status(overrides: Partial<SystemStatus> & { storage?: 'ok' | 'error' } = {}): SystemStatus {
+    const { storage = 'ok', ...rest } = overrides;
+    return {
+        revision: 1,
+        generated_at: '2026-11-16T09:00:00Z',
+        startup_instance_id: 'instance-a',
+        version: '2.24.0',
+        overall: { state: 'ok', cause: 'ok', subsystem: null },
+        subsystems: [{ key: 'storage', state: storage, cause: storage === 'ok' ? 'writable' : 'not_writable' }],
+        jobs_summary: { running: 0, queued: 0, progress: null },
+        jobs: { captured_at: '2026-11-16T09:00:00Z', items: [], lanes: [] },
+        analysis: queue(0, 0),
+        model: { state: 'ok', cause: 'ready', revision: 'abc' },
+        connections: {
+            mqtt: { state: 'connected', server: 'mqtt', port: 1883 },
+            frigate: { state: 'reachable', url: 'http://frigate:5000' },
+            generated_at: '2026-11-16T09:00:00Z'
+        },
+        diagnostics_revision: 0,
+        ...rest
+    };
 }
 
 describe('LiveUpdateCoordinator reclassify fallback', () => {
@@ -279,18 +299,7 @@ describe('LiveUpdateCoordinator reclassify fallback', () => {
             settingsStore: { liveAnnouncements: false },
             announcer: { announce: () => undefined },
             logger: { warn: () => undefined, error: () => undefined, sseEvent: () => undefined },
-            checkHealth: async () => ({}),
-            fetchCacheStats: async () => ({}),
-            fetchAnalysisStatus: async () => ({
-                pending: 0,
-                active: 0,
-                circuit_open: false,
-                open_until: null,
-                failure_count: 0,
-                pending_capacity: 1000,
-                pending_available: 1000
-            }),
-            diagnostics: { ingestHealth: () => undefined, recordError: () => undefined }
+            diagnostics: { recordError: () => undefined }
         });
 
         coordinator.handlePayload({
@@ -314,140 +323,96 @@ describe('LiveUpdateCoordinator reclassify fallback', () => {
         expect(updates[0].category_name).toBe('blue jay');
     });
 
-    it('warns the owner only when the media folder cannot be written, and clears the retired cache notice', async () => {
-        const unwritable = buildCoordinator({ fetchCacheStats: async () => ({ storage_available: false }) });
+    it('warns the owner only when the media folder cannot be written, and clears the retired cache notice', () => {
+        const unwritable = buildCoordinator();
         unwritable.notificationItems.push({ id: 'system:cache-disabled:old-start' });
-        await unwritable.coordinator.runOwnerSystemChecks();
+        unwritable.coordinator.applySystemStatus(status({ storage: 'error' }), null);
         const ids = unwritable.notificationItems.map((item) => String(item.id));
         expect(ids.some((id) => id.startsWith('system:media-storage-unavailable:'))).toBe(true);
         expect(ids.some((id) => id.startsWith('system:cache-disabled'))).toBe(false);
 
-        // An older backend that does not report storage must not raise a false alarm.
-        const silent = buildCoordinator({ fetchCacheStats: async () => ({}) });
-        await silent.coordinator.runOwnerSystemChecks();
-        expect(silent.notificationItems.some((item) => String(item.id).startsWith('system:media-storage-unavailable'))).toBe(false);
+        const writable = buildCoordinator();
+        writable.coordinator.applySystemStatus(status(), null);
+        expect(writable.notificationItems.some((item) => String(item.id).startsWith('system:media-storage-unavailable'))).toBe(false);
     });
 
-    it('says why health is not ok instead of the backend word, and follows a change of cause', async () => {
-        const checkHealth = vi
-            .fn()
-            .mockResolvedValueOnce({ startup_instance_id: 'instance-a', status: 'degraded', mqtt: { connection_state: 'disconnected' } })
-            .mockResolvedValueOnce({ startup_instance_id: 'instance-a', status: 'degraded', mqtt: { connection_state: 'connected' }, frigate_api: { state: 'unreachable' } });
-        const { coordinator, notificationItems } = buildCoordinator({ checkHealth });
-
-        await coordinator.runOwnerSystemChecks();
+    it('says why health is not ok instead of the backend word, and follows a change of cause', () => {
+        const { coordinator, notificationItems } = buildCoordinator();
+        const first = status({ overall: { state: 'degraded', cause: 'disconnected', subsystem: 'mqtt' } });
+        coordinator.applySystemStatus(first, null);
         let health = notificationItems.filter((item) => String(item.id).startsWith('system:health'));
         expect(health).toHaveLength(1);
         expect(health[0].message).toBe('notifications.system_health_cause.mqtt_down');
         expect(health[0].message).not.toContain('degraded');
 
-        await coordinator.runOwnerSystemChecks();
+        const second = status({ revision: 2, overall: { state: 'degraded', cause: 'unreachable', subsystem: 'frigate' } });
+        coordinator.applySystemStatus(second, first);
         health = notificationItems.filter((item) => String(item.id).startsWith('system:health'));
         expect(health).toHaveLength(1);
         expect(health[0].message).toBe('notifications.system_health_cause.frigate_down');
+
+        coordinator.applySystemStatus(status({ revision: 3 }), second);
+        expect(notificationItems.some((item) => String(item.id).startsWith('system:health'))).toBe(false);
     });
 
-    it('forwards health payloads to diagnostics ingest', async () => {
+    it('reads the incident workspace on the first status and when the server records a new fault, not on every push', () => {
         const { coordinator, calls } = buildCoordinator();
-        await coordinator.runOwnerSystemChecks();
-        expect(calls.ingestHealth.length).toBe(1);
-    });
-
-    it('refreshes owner diagnostics workspace during owner system checks', async () => {
-        const { coordinator, calls } = buildCoordinator();
-        await coordinator.runOwnerSystemChecks();
+        const first = status();
+        coordinator.applySystemStatus(first, null);
+        const figures = status({ generated_at: '2026-11-16T09:00:15Z' });
+        coordinator.applySystemStatus(figures, first);
         expect(calls.syncDiagnosticsWorkspace).toHaveLength(1);
+        coordinator.applySystemStatus(status({ revision: 2, diagnostics_revision: 4 }), figures);
+        expect(calls.syncDiagnosticsWorkspace).toHaveLength(2);
     });
 
-    it('refreshes stale owner history during existing checks even when notifications are off', async () => {
+    it('refreshes stale owner history when the status changes, even when notifications are off', () => {
         const refreshOwnerHistory = vi.fn(async () => undefined);
-        const { coordinator, calls } = buildCoordinator({ refreshOwnerHistory, shouldNotify: false });
-        await coordinator.runOwnerSystemChecks();
+        const { coordinator } = buildCoordinator({ refreshOwnerHistory, shouldNotify: false });
+        const first = status();
+        coordinator.applySystemStatus(first, null);
+        coordinator.applySystemStatus(status(), first);
         expect(refreshOwnerHistory).toHaveBeenCalledOnce();
-        expect(calls.ingestHealth).toEqual([]);
+        coordinator.applySystemStatus(status({ revision: 2 }), first);
+        expect(refreshOwnerHistory).toHaveBeenCalledTimes(2);
     });
 
-    it('does not refresh owner history during guest system checks', async () => {
+    it('does nothing with a status for a guest', () => {
         const refreshOwnerHistory = vi.fn(async () => undefined);
-        const { coordinator } = buildCoordinator({ refreshOwnerHistory, hasOwnerAccess: false });
-        await coordinator.runOwnerSystemChecks();
+        const { coordinator, calls } = buildCoordinator({ refreshOwnerHistory, hasOwnerAccess: false });
+        coordinator.applySystemStatus(status({ overall: { state: 'degraded', cause: 'disconnected', subsystem: 'mqtt' } }), null);
         expect(refreshOwnerHistory).not.toHaveBeenCalled();
+        expect(calls.syncDiagnosticsWorkspace).toEqual([]);
     });
 
-    it('clears synthetic batch analysis state when the backend instance changes', async () => {
-        const fetchAnalysisStatus = vi.fn(async () => ({
-            pending: 8,
-            active: 1,
-            circuit_open: false,
-            open_until: null,
-            failure_count: 0,
-            pending_capacity: 1000,
-            pending_available: 991
-        }));
-        const checkHealth = vi
-            .fn()
-            .mockResolvedValueOnce({ startup_instance_id: 'instance-a', status: 'ok' })
-            .mockResolvedValueOnce({ startup_instance_id: 'instance-b', status: 'ok' });
-        const { coordinator, calls, notificationItems } = buildCoordinator({ fetchAnalysisStatus, checkHealth });
-
-        await coordinator.syncAnalysisQueueStatus();
+    it('clears synthetic batch analysis state when the backend instance changes', () => {
+        const { coordinator, calls, notificationItems } = buildCoordinator();
+        const busy = status({ analysis: queue(8, 1) });
+        coordinator.applySystemStatus(busy, null);
         expect(notificationItems.some((item) => item.id === 'reclassify:progress')).toBe(true);
-
-        await coordinator.runOwnerSystemChecks();
         expect(calls.remove).toEqual([]);
         expect(calls.notificationRemoves).toEqual([]);
 
-        await coordinator.runOwnerSystemChecks();
+        coordinator.applySystemStatus(status({ startup_instance_id: 'instance-b', analysis: queue(8, 1) }), busy);
 
         expect(calls.remove).toContain('reclassify:progress');
         expect(calls.notificationRemoves).toContain('reclassify:progress');
-        expect(notificationItems.some((item) => item.id === 'reclassify:progress')).toBe(false);
     });
 
-    it('does not remove per-event reclassify jobs when clearing synthetic batch state after restart', async () => {
-        const fetchAnalysisStatus = vi.fn(async () => ({
-            pending: 3,
-            active: 1,
-            circuit_open: false,
-            open_until: null,
-            failure_count: 0,
-            pending_capacity: 1000,
-            pending_available: 996
-        }));
-        const checkHealth = vi
-            .fn()
-            .mockResolvedValueOnce({ startup_instance_id: 'instance-a', status: 'ok' })
-            .mockResolvedValueOnce({ startup_instance_id: 'instance-b', status: 'ok' });
+    it('does not remove per-event reclassify jobs when clearing synthetic batch state after restart', () => {
         const { coordinator, calls } = buildCoordinator({
-            fetchAnalysisStatus,
-            checkHealth,
             activeJobs: [{ id: 'reclassify:evt-1', kind: 'reclassify', status: 'running' }]
         });
-
-        await coordinator.syncAnalysisQueueStatus();
-        await coordinator.runOwnerSystemChecks();
-        await coordinator.runOwnerSystemChecks();
+        const busy = status({ analysis: queue(3, 1) });
+        coordinator.applySystemStatus(busy, null);
+        coordinator.applySystemStatus(status({ startup_instance_id: 'instance-b', analysis: queue(3, 1) }), busy);
 
         expect(calls.remove).toContain('reclassify:progress');
         expect(calls.remove).not.toContain('reclassify:evt-1');
     });
 
-    it('preserves per-event reclassify progress notifications when clearing synthetic batch state after restart', async () => {
-        const fetchAnalysisStatus = vi.fn(async () => ({
-            pending: 2,
-            active: 1,
-            circuit_open: false,
-            open_until: null,
-            failure_count: 0,
-            pending_capacity: 1000,
-            pending_available: 997
-        }));
-        const checkHealth = vi
-            .fn()
-            .mockResolvedValueOnce({ startup_instance_id: 'instance-a', status: 'ok' })
-            .mockResolvedValueOnce({ startup_instance_id: 'instance-b', status: 'ok' });
-        const { coordinator, calls, notificationItems } = buildCoordinator({ fetchAnalysisStatus, checkHealth });
-
+    it('preserves per-event reclassify progress notifications when clearing synthetic batch state after restart', () => {
+        const { coordinator, calls, notificationItems } = buildCoordinator();
         notificationItems.push({
             id: 'reclassify:progress:evt-1',
             type: 'process',
@@ -457,32 +422,20 @@ describe('LiveUpdateCoordinator reclassify fallback', () => {
             read: false,
             meta: { source: 'sse', event_id: 'evt-1' }
         });
-
-        await coordinator.syncAnalysisQueueStatus();
-        await coordinator.runOwnerSystemChecks();
-        await coordinator.runOwnerSystemChecks();
+        const busy = status({ analysis: queue(2, 1) });
+        coordinator.applySystemStatus(busy, null);
+        coordinator.applySystemStatus(status({ startup_instance_id: 'instance-b', analysis: queue(2, 1) }), busy);
 
         expect(calls.notificationRemoves).toContain('reclassify:progress');
         expect(calls.notificationRemoves).not.toContain('reclassify:progress:evt-1');
         expect(notificationItems.some((item) => item.id === 'reclassify:progress:evt-1')).toBe(true);
     });
 
-    it('creates a synthetic batch analysis job when queue status shows work but no event jobs are active', async () => {
-        const fetchAnalysisStatus = vi.fn(async () => ({
-            pending: 6,
-            active: 1,
-            circuit_open: false,
-            open_until: null,
-            failure_count: 0,
-            pending_capacity: 1000,
-            pending_available: 993
-        }));
-        const { coordinator, calls } = buildCoordinator({ fetchAnalysisStatus });
+    it('creates a synthetic batch analysis job when queue status shows work but no event jobs are active', () => {
+        const { coordinator, calls } = buildCoordinator();
 
-        const status = await coordinator.syncAnalysisQueueStatus();
+        coordinator.applySystemStatus(status({ analysis: queue(6, 1) }), null);
 
-        expect(fetchAnalysisStatus).toHaveBeenCalledTimes(1);
-        expect(status).toMatchObject({ pending: 6, active: 1 });
         expect(calls.upsertRunning.length).toBe(1);
         expect(calls.upsertRunning[0].id).toBe('reclassify:progress');
         expect(calls.upsertRunning[0].kind).toBe('reclassify_batch');
@@ -493,41 +446,14 @@ describe('LiveUpdateCoordinator reclassify fallback', () => {
         expect(calls.notificationUpserts[0].meta?.source).toBe('poll');
     });
 
-    it('settles synthetic batch UI when queue status reports idle', async () => {
-        const fetchAnalysisStatus = vi
-            .fn()
-            .mockResolvedValueOnce({
-                pending: 4,
-                active: 1,
-                circuit_open: false,
-                open_until: null,
-                failure_count: 0,
-                pending_capacity: 1000,
-                pending_available: 995
-            })
-            .mockResolvedValueOnce({
-                pending: 0,
-                active: 0,
-                circuit_open: false,
-                open_until: null,
-                failure_count: 0,
-                pending_capacity: 1000,
-                pending_available: 1000
-            })
-            .mockResolvedValueOnce({
-                pending: 0,
-                active: 0,
-                circuit_open: false,
-                open_until: null,
-                failure_count: 0,
-                pending_capacity: 1000,
-                pending_available: 1000
-            });
-        const { coordinator, calls } = buildCoordinator({ fetchAnalysisStatus });
+    it('settles synthetic batch UI when queue status reports idle', () => {
+        const { coordinator, calls } = buildCoordinator();
+        const busy = status({ analysis: queue(4, 1) });
+        const idle = status({ revision: 2, analysis: queue(0, 0) });
 
-        await coordinator.syncAnalysisQueueStatus();
-        await coordinator.syncAnalysisQueueStatus();
-        await coordinator.syncAnalysisQueueStatus();
+        coordinator.applySystemStatus(busy, null);
+        coordinator.applySystemStatus(idle, busy);
+        coordinator.applySystemStatus(status({ revision: 3, analysis: queue(0, 0) }), idle);
 
         expect(calls.markCompleted.length).toBe(1);
         expect(calls.markCompleted[0].id).toBe('reclassify:progress');
@@ -537,51 +463,12 @@ describe('LiveUpdateCoordinator reclassify fallback', () => {
         expect(terminalNotification.read).toBe(true);
     });
 
-    it('settles synthetic batch UI when health reports an idle queue', async () => {
-        const fetchAnalysisStatus = vi.fn(async () => ({
-            pending: 21,
-            active: 0,
-            circuit_open: false,
-            open_until: null,
-            failure_count: 0,
-            pending_capacity: 1000,
-            pending_available: 979
-        }));
-        const checkHealth = vi.fn(async () => ({
-            startup_instance_id: 'instance-a',
-            status: 'ok',
-            video_classifier: {
-                pending: 0,
-                active: 0,
-                circuit_open: false
-            }
-        }));
-        const { coordinator, calls } = buildCoordinator({ checkHealth, fetchAnalysisStatus });
-
-        await coordinator.syncAnalysisQueueStatus();
-        calls.upsertRunning.length = 0;
-
-        await coordinator.runOwnerSystemChecks();
-
-        expect(calls.markCompleted.some((input) => input.id === 'reclassify:progress')).toBe(true);
-    });
-
-    it('does not add a synthetic batch job when per-event reclassify jobs are already active', async () => {
-        const fetchAnalysisStatus = vi.fn(async () => ({
-            pending: 2,
-            active: 1,
-            circuit_open: false,
-            open_until: null,
-            failure_count: 0,
-            pending_capacity: 1000,
-            pending_available: 997
-        }));
+    it('does not add a synthetic batch job when per-event reclassify jobs are already active', () => {
         const { coordinator, calls } = buildCoordinator({
-            fetchAnalysisStatus,
             activeJobs: [{ id: 'reclassify:evt-1', kind: 'reclassify', status: 'running' }]
         });
 
-        await coordinator.syncAnalysisQueueStatus();
+        coordinator.applySystemStatus(status({ analysis: queue(2, 1) }), null);
 
         expect(calls.upsertRunning.length).toBe(0);
         expect(calls.notificationUpserts.length).toBe(1);
@@ -840,11 +727,18 @@ describe('private Garden live updates', () => {
         expect(onSettingsChanged).toHaveBeenCalledTimes(1);
     });
 
-    it.each([true, false])('rereads the broker and Frigate connections only with owner access (%s)', (owner) => {
-        const onServiceConnectionsChanged = vi.fn();
-        const { coordinator, calls } = buildCoordinator({ hasOwnerAccess: owner, shouldNotify: false, onServiceConnectionsChanged });
+    it('leaves a connection change to the status push that follows it', () => {
+        const { coordinator, calls } = buildCoordinator({ shouldNotify: false });
         coordinator.handlePayload({ type: 'service_connections_changed' });
-        expect(onServiceConnectionsChanged).toHaveBeenCalledTimes(owner ? 1 : 0);
         expect(calls.notificationUpserts).toEqual([]);
+        expect(calls.recordError).toEqual([]);
+    });
+
+    it.each([true, false])('hands a pushed status to the owner only (%s)', (owner) => {
+        const onStatus = vi.fn();
+        const { coordinator } = buildCoordinator({ hasOwnerAccess: owner, onStatus });
+        coordinator.handlePayload({ type: 'status', data: { revision: 1 } });
+        expect(onStatus).toHaveBeenCalledTimes(owner ? 1 : 0);
+        if (owner) expect(onStatus).toHaveBeenCalledWith({ revision: 1 });
     });
 });

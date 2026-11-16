@@ -62,12 +62,14 @@ class SystemStatusReadings:
         self,
         *,
         startup_instance_id: Callable[[], str],
+        version: str,
         startup_warning_count: Callable[[], int],
         event_pipeline_status: Callable[[], dict[str, Any] | None],
         db_pool_degraded: Callable[[], bool],
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
         self._startup_instance_id = startup_instance_id
+        self._version = version
         self._startup_warning_count = startup_warning_count
         self._event_pipeline_status = event_pipeline_status
         self._db_pool_degraded = db_pool_degraded
@@ -145,4 +147,5 @@ class SystemStatusReadings:
             cameras=await self._camera_health(),
             telemetry=latest_telemetry(),
             diagnostics_revision=error_diagnostics_history.revision,
+            version=self._version,
         )

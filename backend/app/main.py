@@ -910,6 +910,7 @@ def db_pool_is_degraded(db_pool_health: dict) -> bool:
 configure_status_readings(
     SystemStatusReadings(
         startup_instance_id=lambda: str(getattr(app.state, "startup_instance_id", "unknown")),
+        version=APP_VERSION,
         startup_warning_count=lambda: len(getattr(app.state, "startup_warnings", []) or []),
         event_pipeline_status=lambda: event_processor.get_status() if event_processor is not None else None,
         db_pool_degraded=lambda: db_pool_is_degraded(get_db_pool_status()),
