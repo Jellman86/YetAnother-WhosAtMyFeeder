@@ -41,6 +41,14 @@ or imports `app.main`. Every other test then runs against a suite database migra
 once, within ten minutes. Coverage from both lanes is combined into one report.
 A printed pass summary does not excuse a teardown hang or a failed coverage report.
 
+Install `backend/requirements-dev.txt` as well as the runtime requirements.
+`backend/pytest.ini` gives each test a 120-second timeout using a watchdog thread,
+so a blocked event loop also fails. Faulthandler dumps every Python thread after
+110 seconds; the timeout then prints the stacks and stops the test process.
+These diagnostics apply to direct local `pytest` commands and both gate lanes.
+The gate prints each test's name before running it, including async tests whose
+suspended coroutine does not appear in a Python thread stack.
+
 A test that needs an empty schema at head takes the `migrated_history_db` fixture,
 a private copy of the suite database taken right after migration, instead of
 running Alembic again. Tests about a migration itself still run the real chain.

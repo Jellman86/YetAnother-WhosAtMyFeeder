@@ -1,4 +1,5 @@
 import asyncio
+from collections.abc import Callable
 import signal
 import sys
 
@@ -71,6 +72,21 @@ async def classify(recovery, priority="live", timeout=1):
         timeout_seconds=timeout,
         payload={"image_b64": "unused", "camera_name": None, "model_id": None},
     )
+
+
+async def wait_for_request(task: asyncio.Task, received: Callable[[], bool]) -> None:
+    try:
+        async with asyncio.timeout(5):
+            while not received():
+                if task.done():
+                    task.result()
+                    raise AssertionError("Recovery finished without sending a worker request")
+                # Let the profile lookup's executor threads run between observations.
+                await asyncio.sleep(0.001)
+    except BaseException:
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+        raise
 
 
 @pytest.mark.asyncio
@@ -245,8 +261,7 @@ async def test_cancellation_reaps_worker_and_never_claims_recovery(tmp_path):
     worker.delay = 10
     runner = recovery(tmp_path, worker)
     task = asyncio.create_task(classify(runner))
-    while not worker.sent:
-        await asyncio.sleep(0)
+    await wait_for_request(task, lambda: bool(worker.sent))
     task.cancel()
     with pytest.raises(asyncio.CancelledError):
         await task
@@ -260,8 +275,7 @@ async def test_queue_timeout_does_not_kill_another_pools_active_request(tmp_path
     worker.delay = 0.05
     runner = recovery(tmp_path, worker)
     task = asyncio.create_task(classify(runner, "background"))
-    while not worker.sent:
-        await asyncio.sleep(0)
+    await wait_for_request(task, lambda: bool(worker.sent))
     with pytest.raises(NativeCpuRecoveryUnavailable):
         await classify(runner, timeout=0.01)
     assert await task
@@ -279,12 +293,30 @@ async def test_cpu_ready_without_completed_inference_is_only_recovering(tmp_path
     worker.delay = 0.05
     runner = recovery(tmp_path, worker)
     task = asyncio.create_task(classify(runner))
-    while not worker.sent:
-        await asyncio.sleep(0)
+    await wait_for_request(task, lambda: bool(worker.sent))
     assert runner.snapshot()["live"]["status"] == "recovering"
     assert runner.snapshot()["live"]["recovered"] is False
     await task
     await runner.shutdown()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "scenario",
+    [
+        test_cancellation_reaps_worker_and_never_claims_recovery,
+        test_queue_timeout_does_not_kill_another_pools_active_request,
+        test_cpu_ready_without_completed_inference_is_only_recovering,
+    ],
+)
+async def test_worker_request_observers_propagate_startup_failure(tmp_path, monkeypatch, scenario):
+    def failed_profile(_self, _source):
+        raise TimeoutError("Profile lookup exceeded the request budget")
+
+    monkeypatch.setattr(NativeCpuRecovery, "_cpu_profile", failed_profile)
+    with pytest.raises(NativeCpuRecoveryUnavailable, match="workload budget"):
+        async with asyncio.timeout(1):
+            await scenario(tmp_path)
 
 
 @pytest.mark.asyncio
@@ -618,8 +650,7 @@ async def test_caller_cancellation_allows_later_same_workload_to_recover(tmp_pat
         for worker in workers:
             worker.delay = 10
         task = asyncio.create_task(request())
-        while not workers or len(workers[-1].sent) < 1 + int(previous_success):
-            await asyncio.sleep(0)
+        await wait_for_request(task, lambda: bool(workers) and len(workers[-1].sent) >= 1 + int(previous_success))
         task.cancel()
         with pytest.raises(asyncio.CancelledError):
             await task
@@ -639,8 +670,7 @@ async def test_queued_retry_waits_for_cancelled_worker_cleanup(tmp_path):
     runner, workers = recovery_with_fresh_workers(tmp_path, delays)
     cleanup_started, release_cleanup = asyncio.Event(), asyncio.Event()
     active = asyncio.create_task(classify(runner, timeout=5))
-    while not workers or not workers[0].sent:
-        await asyncio.sleep(0)
+    await wait_for_request(active, lambda: bool(workers) and bool(workers[0].sent))
     original_kill = workers[0].kill
 
     async def delayed_kill():
@@ -679,8 +709,7 @@ async def test_request_that_spent_its_budget_queueing_does_not_disable_its_workl
     assert await classify(runner, "live", timeout=5)
     workers[0].delay = 0.3
     background = asyncio.create_task(classify(runner, "background", timeout=5))
-    while len(workers[0].sent) < 2:
-        await asyncio.sleep(0)
+    await wait_for_request(background, lambda: len(workers[0].sent) >= 2)
     with pytest.raises(NativeCpuRecoveryUnavailable):
         await classify(runner, "live", timeout=0.45)
     assert await background
@@ -702,8 +731,7 @@ async def test_warm_worker_is_kept_when_a_queued_request_cannot_fit(tmp_path):
     runner = recovery(tmp_path, worker)
     assert await classify(runner, "live", timeout=5)
     background = asyncio.create_task(classify(runner, "background", timeout=5))
-    while len(worker.sent) < 2:
-        await asyncio.sleep(0)
+    await wait_for_request(background, lambda: len(worker.sent) >= 2)
     with pytest.raises(NativeCpuRecoveryUnavailable):
         await classify(runner, "live", timeout=0.3)
     assert await background
