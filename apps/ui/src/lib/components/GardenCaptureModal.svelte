@@ -766,6 +766,8 @@
                         {:else if capture.status === 'pending'}
                             <details open={manualOverride} ontoggle={(event) => manualOverride = event.currentTarget.open} class="group/manual w-full" data-garden-manual-override>
                                 <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 py-3 text-sm font-semibold focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus [&::-webkit-details-marker]:hidden">
+                                    <!-- First in the markup and last on screen, so the open-state indicator is found at the head of the summary however long its label runs. -->
+                                    <svg class="order-last h-4 w-4 shrink-0 transition-transform group-open/manual:rotate-180 motion-reduce:transition-none" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m5 7.5 5 5 5-5" /></svg>
                                     <span class="min-w-0">
                                         <span class="block">{$_('garden.manual_override', { default: 'Manual override' })}</span>
                                         {#if manual?.state === 'open' && manual.note === 'by_hand'}
@@ -775,7 +777,6 @@
                                             </span>
                                         {/if}
                                     </span>
-                                    <svg class="h-4 w-4 shrink-0 transition-transform group-open/manual:rotate-180 motion-reduce:transition-none" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m5 7.5 5 5 5-5" /></svg>
                                 </summary>
                                 <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                                     <button type="button" class="btn min-h-11 min-w-0 w-full whitespace-normal px-4 text-sm sm:w-auto btn-primary sm:flex-1" disabled={saving || !photoReady} onclick={() => review('confirm')}>
