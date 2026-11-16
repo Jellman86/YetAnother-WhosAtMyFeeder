@@ -80,6 +80,8 @@ class FakeBackend {
     frigateConfigFails = false;
     /** Weights on disk, labels unreadable: the server reports the classifier could not load. */
     modelFailedToLoad = false;
+    /** Fields laid over the classifier's report, to make one the readiness fixture names. */
+    statusOverride: Json = {};
     /** While set, Frigate's camera list does not answer: a Frigate that is down hangs like this. */
     frigateConfigHeld: Promise<void> | null = null;
     downloadDone = false;
@@ -166,7 +168,8 @@ class FakeBackend {
             selected_provider: this.settings.inference_provider, active_provider: 'intel_cpu',
             provider_preference_order: active?.provider_preference_order ?? [],
             active_model_validated_providers: active?.validated_inference_providers ?? [],
-            validated_provider_preference_order: active?.provider_preference_order ?? []
+            validated_provider_preference_order: active?.provider_preference_order ?? [],
+            ...this.statusOverride
         };
     }
 
@@ -1196,4 +1199,26 @@ test('the step bar marks the steps done, the current one and those ahead differe
     expect(drawn[4]).not.toBe(drawn[3]);
     expect(drawn[4]).not.toBe(drawn[0]);
     expect(drawn[3]).not.toBe(drawn[0]);
+});
+
+test('the review says "Not reported" when the classifier answers with no evidence, not "Chosen" or an old "Running"', async ({ page }, testInfo) => {
+    const fake = new FakeBackend({});
+    // A report that names the model and says nothing of a worker, a plan or a load.
+    fake.statusOverride = { runtime_source: null, loaded: null };
+    await openRerun(page, fake);
+    const status = wizard(page).getByRole('listitem').filter({ hasText: 'Model and hardware' }).locator('[data-setup-status]');
+    await expect(status).toHaveText('Not reported');
+    await expect(status).toHaveAttribute('data-setup-readiness', 'unknown');
+    // Neutral: nothing was measured, so it is neither green nor a call to act.
+    await expect(status).toHaveAttribute('data-setup-tone', 'optional');
+    await page.screenshot({ path: testInfo.outputPath('review-model-not-reported.png') });
+});
+
+test('the review says a model that is still loading is loading', async ({ page }) => {
+    const fake = new FakeBackend({});
+    fake.statusOverride = { runtime_source: 'in_process', loaded: null };
+    await openRerun(page, fake);
+    const status = wizard(page).getByRole('listitem').filter({ hasText: 'Model and hardware' }).locator('[data-setup-status]');
+    await expect(status).toHaveText('Loading');
+    await expect(status).toHaveAttribute('data-setup-tone', 'optional');
 });

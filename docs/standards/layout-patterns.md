@@ -198,14 +198,31 @@ back to zero. The record says "Frigate no longer has this event" only on a not-f
 step. A wait is named for what it waits on and is bounded: the wizard's Cameras step is ready once
 the settings load, and asks Frigate for at most 8 seconds beside it. The model's state is one
 reading everywhere: `identificationStatus()` words the sentence, and `settings/model-readiness.ts`
-names the state in one vocabulary (missing, queued, validating, ready, running, failed, or still
-checking) with one word each (`readinessLabel`). The server reads the same runtime report through
-`services/model_readiness.py`, and both are held to `tests/fixtures/model_readiness_cases.json`. Settings › Models, the wizard's review, About's
-pipeline and a Garden capture's wait all take their word from it, and a model that is only chosen
-is never called configured or installed. A state has one action: a download for a missing model, a
-recovery for a failed one (`readinessAction`). While the chosen model needs it, that is the page's
-only primary button (`setupEmphasis`), and a wait a model is blocking names the blocker and links to
-its setup. Reassurance needs a reading too: the
+names the state in one vocabulary (checking, missing, queued, validating, failed, loading, ready,
+running, unknown) with one word and one tone each (`readinessLabel`, `readinessTone`). The server
+reads the same runtime report through `services/model_readiness.py`, and both are held to
+`tests/fixtures/model_readiness_cases.json`. Settings › Models, the wizard's review, About's
+pipeline and a Garden capture's wait all call that one rule (`classifierReadiness`); none derives
+its own. Three things keep them agreeing:
+
+- **Selected is not running.** "In use" is said only of the selected model when it is running. A
+  selected model in any other state says that state ("Chosen · Could not load").
+- **Work this app started is shared.** A download or a hardware check is recorded in
+  `stores/model_activity.svelte.ts`, with the phase taken from the stage that is running
+  (`activityPhase`), so every surface says "Downloading" or "Being checked on this hardware" while
+  it lasts.
+- **A second reading stays a second reading.** About reports inference health beside the model's
+  state, never as the state. A Garden check blocked by something other than its model (species
+  data that could not be read, a worker that would not stop) keeps that cause and its own way out
+  (`gardenCheckState`); it is never a model that "could not load".
+
+A model that is only chosen is never called configured or installed, and a classifier that
+answered with no evidence reads "Not reported". A state has one action: a download for a missing
+model, a recovery for a failed one (`chosenRecovery`, which gives a bundled model one too). While
+the chosen model needs it, that is the page's only primary button (`setupEmphasis`). A wait a model
+is blocking names the blocker and links to its setup, and a control that goes round the automatic
+check (Garden's manual override and dismissal) stays closed, with the cause, until that check can
+run. Reassurance needs a reading too: the
 backend-down screens say nothing about the data they could not ask about.
 
 A page that reads data keeps four states apart: loading, read and empty, failed, and stale. Only a

@@ -76,7 +76,8 @@ async function openExplorer(page: Page, query = '', cropped = false, birdCameraC
             return item ? route.fulfill({ json: item }) : route.fulfill({ status: 404, json: { detail: 'Garden capture not found' } });
         }
         if (path === '/api/garden/identification') {
-            return route.fulfill({ json: { country: 'GBR', catalogue_ready: true, busy: false, models: [{ variant: '4.0.3b', installed: true, size_bytes: 1 }] } });
+            // Both Garden models are here: manual review and dismissal open once the automatic check can run.
+            return route.fulfill({ json: { country: 'GBR', catalogue_ready: true, busy: false, models: [{ variant: '4.0.3a', installed: true, size_bytes: 1 }, { variant: '4.0.3b', installed: true, size_bytes: 1 }] } });
         }
         if (path.endsWith('/confirm')) {
             const id = path.split('/')[3];
@@ -204,8 +205,8 @@ test('Garden on its own lists only captures, and its record confirms an animal w
 
     await page.getByRole('button', { name: /Open Garden capture: Possible animal/ }).click();
     const dialog = page.getByRole('dialog');
-    // This install has only the species suggestion model, so the wait names what blocks it.
-    await expect(dialog).toContainText('Waiting: the automatic check model is not downloaded');
+    // Both Garden models are here, so the capture only waits; a missing model is covered below.
+    await expect(dialog).toContainText('Waiting for automatic identification');
     await expect(dialog.locator('[data-garden-capture-status]')).not.toHaveAttribute('data-garden-capture-status', 'confirmed');
     await expect(dialog.getByRole('button', { name: /Reclassify|Play/i })).toHaveCount(0);
     if (shots) await page.screenshot({ path: `${shots}/garden-explorer-record.png` });
@@ -1000,12 +1001,19 @@ test('a visitor sees a Garden row pop-out only for a photo the owner shares', as
     expect(errors).toEqual([]);
 });
 
-for (const [checkModel, installed] of [['missing', false], ['ready', true]] as const) {
+const WORKER_STUCK = 'Garden worker did not stop. Restart the application before running more Garden work.';
+for (const [checkModel, installed, extra] of [
+    ['missing', false, {}],
+    ['ready', true, {}],
+    ['blocked by missing species data', true, { catalogue_ready: false }],
+    ['blocked by a stopped worker', true, { error: WORKER_STUCK }]
+] as const) {
     test(`a pending capture says why it waits when the automatic check model is ${checkModel}`, async ({ page }, testInfo) => {
         await openExplorer(page, '&garden=1');
         await page.route('**/api/garden/identification', route => route.fulfill({ json: {
             country: 'GBR', catalogue_ready: true, busy: false,
-            models: [{ variant: '4.0.3a', installed, size_bytes: 1 }, { variant: '4.0.3b', installed: true, size_bytes: 1 }]
+            models: [{ variant: '4.0.3a', installed, size_bytes: 1 }, { variant: '4.0.3b', installed: true, size_bytes: 1 }],
+            ...extra
         } }));
         const option = page.locator('[data-explorer-subjects-option="garden"]');
         if (!(await option.isVisible())) await page.locator('[data-explorer-filter-toggle]').click();
@@ -1014,10 +1022,31 @@ for (const [checkModel, installed] of [['missing', false], ['ready', true]] as c
         const dialog = page.getByRole('dialog');
         const status = dialog.locator('[data-garden-capture-status]');
         const setup = dialog.locator('[data-garden-model-setup]');
-        if (installed) {
+        const closed = dialog.locator('[data-garden-secondary-blocked]');
+        const override = dialog.locator('[data-garden-manual-override]');
+        if ('catalogue_ready' in extra || 'error' in extra) {
+            // What Garden measured, in its own words: never a model that "could not load", and no
+            // model-setup link, because setting a model up would not clear it.
+            const cause = 'error' in extra ? WORKER_STUCK : 'Garden species data is unavailable. Check the application startup diagnostics.';
+            await expect(status).toHaveText('error' in extra
+                ? `Waiting: Garden checks have stopped. ${WORKER_STUCK}`
+                : 'Waiting: Garden species data is unavailable, so nothing can identify this yet.');
+            await expect(dialog).not.toContainText('could not load');
+            await expect(setup).toHaveCount(0);
+            // The secondary decisions are named and closed, with the cause.
+            await expect(override).toHaveCount(0);
+            await expect(closed).toContainText('Manual override');
+            await expect(closed).toContainText(`Manual override and dismissal open once Garden’s automatic check can run. ${cause}`);
+            await page.screenshot({ path: testInfo.outputPath(`garden-pending-${'error' in extra ? 'worker-stopped' : 'species-data'}.png`) });
+        } else if (installed) {
             await expect(status).toHaveText('Waiting for automatic identification');
             await expect(setup).toHaveCount(0);
+            // The model can run, so the secondary decisions are offered.
+            await expect(closed).toHaveCount(0);
+            await expect(override).toBeVisible();
         } else {
+            await expect(override).toHaveCount(0);
+            await expect(closed).toContainText('The automatic check model is not downloaded.');
             // The wait has a cause the owner can act on, and the one action that clears it.
             await expect(status).toHaveText('Waiting: the automatic check model is not downloaded, so nothing can identify this yet.');
             await expect(setup).toHaveText('Set up the automatic check model');

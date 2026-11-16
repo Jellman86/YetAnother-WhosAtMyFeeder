@@ -134,8 +134,11 @@ describe('the sign-in screen', () => {
 });
 
 describe('the About pipeline', () => {
-    it('reads the classifier through the helper that never guesses not loaded', () => {
-        expect(pipelineSource).toContain('pipelineClassifierState(classifier)');
+    it('reads the classifier through the shared readiness rule, with no derivation of its own', () => {
+        expect(pipelineSource).toContain('pipelineClassifierStep(classifier, modelActivityStore.phase(reportedModelId(classifier)))');
+        // Inference health is its own line, beside the state and never instead of it.
+        expect(pipelineSource).toContain('data-pipeline-health');
+        expect(pipelineSource).not.toContain('inference_health');
         expect(pipelineSource).not.toContain('classifier.loaded');
         expect(pipelineSource).not.toContain("about.pipeline.not_loaded");
     });

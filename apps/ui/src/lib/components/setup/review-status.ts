@@ -1,5 +1,5 @@
 import type { SetupSectionState, SetupSectionStatus } from '../../api/setup';
-import { readinessAction, readinessLabel, type ModelReadiness } from '../../settings/model-readiness';
+import { readinessLabel, readinessTone, type ModelReadiness } from '../../settings/model-readiness';
 
 type Translate = (key: string, options?: { default?: string }) => string;
 
@@ -41,18 +41,21 @@ export function reviewStatusLabel(section: SetupSectionState, t: Translate, mode
 /** The badge's tone. Green is for a measured state, so a model that was only chosen stays neutral. */
 export function reviewStatusTone(section: SetupSectionState, model: ModelReadiness | null = null): SetupSectionStatus {
     if (modelFollowsReadiness(section, model)) {
-        if (readinessAction(model) !== null) return 'attention';
-        return model === 'ready' || model === 'running' ? 'ok' : 'optional';
+        const tone = readinessTone(model);
+        return tone === 'neutral' ? 'optional' : tone;
     }
     if (section.detail_code === 'model_selected' || section.detail_code === 'model_fallback') return 'optional';
     return section.status;
 }
 
 /**
- * The model row reads the classifier's own report once it has arrived and says something, in the
- * words the model step uses. A retired model or a detector saved as the classifier is the server's finding and stays.
+ * The model row reads the classifier's own report, in the words the model step uses, whenever a
+ * report arrived: one that carries no evidence reads "Not reported", never the server's "Chosen"
+ * or an earlier "Running". The server's word is kept only when there is no report to read (`null`,
+ * or still being fetched). A retired model or a detector saved as the classifier is the server's
+ * finding and stays.
  */
 function modelFollowsReadiness(section: SetupSectionState, model: ModelReadiness | null): model is ModelReadiness {
-    if (section.id !== 'model' || model === null || model === 'checking' || model === 'unknown') return false;
+    if (section.id !== 'model' || model === null || model === 'checking') return false;
     return section.detail_code !== 'model_retired' && section.detail_code !== 'model_wrong_kind';
 }

@@ -9,8 +9,9 @@
     import { getErrorMessage, isTransientRequestError } from '../utils/error-handling';
     import { logger } from '../utils/logger';
     import { describeRuntime } from '../utils/instance-facts';
-    import { pipelineClassifierState, pipelineReadiness } from '../utils/pipeline-classifier-state';
-    import { readinessLabel } from '../settings/model-readiness';
+    import { pipelineClassifierStep } from '../utils/pipeline-classifier-state';
+    import { readinessLabel, reportedModelId } from '../settings/model-readiness';
+    import { modelActivityStore } from '../stores/model_activity.svelte';
     import { _ } from 'svelte-i18n';
 
     /**
@@ -27,6 +28,8 @@
         tone: Tone;
         /** A muted second line under the detail, such as the runtime a model runs on. */
         note?: string | null;
+        /** A second reading beside the state, such as inference health; never part of the state. */
+        health?: string | null;
     }
 
     let cameraStatus = $state<CameraStatusResponse | null>(null);
@@ -136,21 +139,19 @@
         // The model's own name, as the Models tab shows it. Its file id belongs in the issue report.
         const modelName = classifier.effective_model_name?.trim() || null;
         const runtime = describeRuntime(classifier)?.runtime ?? null;
-        const reading = pipelineClassifierState(classifier);
-        // One vocabulary for a model's state on every surface; a health check and an unknown are the
-        // pipeline's own.
-        const readiness = pipelineReadiness(reading);
-        const state = readiness
-            ? readinessLabel(readiness, $_)
-            : reading === 'check'
-              ? $_('about.pipeline.degraded', { default: 'Check' })
-              : unknown;
-        const tone: Tone = reading === 'loaded' ? 'ok' : reading === 'unknown' ? 'unknown' : 'off';
+        // The model's state by the rule every other surface uses, with work this app started on it.
+        const step = pipelineClassifierStep(classifier, modelActivityStore.phase(reportedModelId(classifier)));
         return {
             detail: modelName ?? runtime ?? noReading,
             note: modelName ? runtime : null,
-            state,
-            tone
+            health: step.health === 'unhealthy'
+                ? $_('about.pipeline.inference_unhealthy', { default: 'Recent inferences are failing' })
+                : step.health === 'degraded'
+                  ? $_('about.pipeline.inference_degraded', { default: 'Some recent inferences failed' })
+                  : null,
+            state: readinessLabel(step.readiness, $_),
+            tone: step.tone as Tone,
+            readiness: step.readiness
         };
     });
 
@@ -185,6 +186,7 @@
             key: 'classifier',
             detail: classifierSummary.detail,
             note: 'note' in classifierSummary ? classifierSummary.note : null,
+            health: 'health' in classifierSummary ? classifierSummary.health : null,
             state: classifierSummary.state,
             tone: classifierSummary.tone
         },
@@ -250,6 +252,7 @@
             <li
                 class="pipeline-step relative overflow-hidden rounded-xl border border-line-soft p-3"
                 style="--flow-index: {index}"
+                data-pipeline-step={step.key}
             >
                 <!-- The pulse sweeps each card in turn, so the eye is carried along the chain in the
                      direction the data actually moves. Decorative: the order is already in the DOM. -->
@@ -279,6 +282,9 @@
                 </span>
                 {#if step.note}
                     <span class="relative block text-2xs leading-snug text-slate-600 wrap-anywhere dark:text-slate-400" data-pipeline-note>{step.note}</span>
+                {/if}
+                {#if step.health}
+                    <span class="relative block text-2xs font-medium leading-snug text-ink wrap-anywhere" data-pipeline-health>{step.health}</span>
                 {/if}
             </li>
         {/each}

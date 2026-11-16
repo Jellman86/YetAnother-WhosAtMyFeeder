@@ -7,6 +7,7 @@
      */
     import { _ } from 'svelte-i18n';
     import { installGardenModel, installGardenMotion } from '../../api/garden';
+    import { GARDEN_CHECK_MODEL, modelActivityStore } from '../../stores/model_activity.svelte';
     import { settingsStore } from '../../stores/settings.svelte';
     import {
         formatModelSize,
@@ -44,6 +45,9 @@
         downloading = row.role;
         rowErrors = { ...rowErrors, [row.role]: undefined };
         rowDone = { ...rowDone, [row.role]: false };
+        // The check model's download is work a waiting Garden record states too.
+        const checkModel = row.install.kind !== 'motion' && row.install.variant === '4.0.3a';
+        if (checkModel) modelActivityStore.set(GARDEN_CHECK_MODEL, 'downloading');
         try {
             if (row.install.kind === 'motion') service.motion = await installGardenMotion();
             else service.identification = await installGardenModel(row.install.variant);
@@ -57,6 +61,7 @@
             };
         } finally {
             downloading = null;
+            if (checkModel) modelActivityStore.set(GARDEN_CHECK_MODEL, null);
         }
         await service.refresh();
     }

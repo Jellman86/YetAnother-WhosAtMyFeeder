@@ -31,6 +31,8 @@
     "browser": "Ваш браузер",
     "unknown": "Неизвестно",
     "degraded": "Проверьте",
+    "inference_unhealthy": "Последние операции распознавания завершаются ошибкой",
+    "inference_degraded": "Часть последних операций распознавания завершилась ошибкой",
     "cameras_count": "{online} из {total} камер в сети",
     "mqtt_detail": "frigate/events",
     "audio_detail": "Сверка с BirdNET-Go",

@@ -31,6 +31,8 @@
     "browser": "Your browser",
     "unknown": "Unknown",
     "degraded": "Check",
+    "inference_unhealthy": "Recent inferences are failing",
+    "inference_degraded": "Some recent inferences failed",
     "cameras_count": "{online} of {total} cameras online",
     "mqtt_detail": "frigate/events",
     "audio_detail": "BirdNET-Go correlation",

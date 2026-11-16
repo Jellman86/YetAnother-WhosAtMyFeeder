@@ -1800,6 +1800,7 @@
     "readiness_unknown": "Not reported",
     "chosen_state": "Chosen · {state}",
     "download_switch": "Download and switch to this model",
+    "recover_revalidate": "Check and load again",
     "status_missing_next_settings": "Download it below, or choose another model.",
     "status_missing_next_wizard": "Download it here, or choose another model.",
     "status_missing_next_about": "Download it in Settings › Models.",

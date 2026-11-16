@@ -73,9 +73,25 @@ describe("the review's word for each section", () => {
         expect(reviewStatusTone(saved, 'loading')).toBe('optional');
     });
 
-    it("keeps the server's word when the runtime report gives no evidence", () => {
-        const saved = section({ status: 'optional', detail_code: 'model_selected' });
-        expect(reviewStatusLabel(saved, t, 'unknown')).toBe('Chosen');
-        expect(reviewStatusTone(saved, 'unknown')).toBe('optional');
+    it('says "Not reported", in a neutral tone, when the classifier answered with no evidence', () => {
+        // Neither the server's "Chosen" nor an earlier "Running" survives a report that says nothing.
+        for (const detail_code of ['model_selected', 'model_fallback', 'model_running', 'model_ready']) {
+            const row = section({ status: 'ok', detail_code });
+            expect(reviewStatusLabel(row, t, 'unknown')).toBe('Not reported');
+            expect(reviewStatusTone(row, 'unknown')).toBe('optional');
+        }
+    });
+
+    it("keeps the server's word only when there is no classifier response to read", () => {
+        const row = section({ status: 'ok', detail_code: 'model_running' });
+        expect(reviewStatusLabel(row, t, null)).toBe('Running');
+        expect(reviewStatusLabel(section({ detail_code: 'model_selected' }), t, null)).toBe('Chosen');
+    });
+
+    it('shows work this app started on the model: a download or a hardware check', () => {
+        const row = section({ status: 'attention', detail_code: 'model_missing' });
+        expect(reviewStatusLabel(row, t, 'queued')).toBe('Downloading');
+        expect(reviewStatusTone(row, 'queued')).toBe('optional');
+        expect(reviewStatusLabel(row, t, 'validating')).toBe('Being checked on this hardware');
     });
 });

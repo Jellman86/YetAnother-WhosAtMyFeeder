@@ -38,7 +38,8 @@
     } from '../api/garden';
     import { withAuthParams } from '../api/core';
     import { toAppPath } from '../app/url-base';
-    import { gardenCheckReadiness, readinessAction } from '../settings/model-readiness';
+    import { gardenCheckAvailable, gardenCheckState } from '../settings/model-readiness';
+    import { GARDEN_CHECK_MODEL, modelActivityStore } from '../stores/model_activity.svelte';
     import { fetchSpeciesInfo, type SpeciesInfo } from '../api/species';
     import { getErrorMessage } from '../utils/error-handling';
     import { gardenPhotoOutline, gardenPreviewStyle } from '../utils/garden-photo';
@@ -207,14 +208,30 @@
             ? $_('garden.named_from.motion_crop', { default: 'Named from the animal crop in motion footage' })
             : $_('garden.named_from.tracked_crop', { default: "Named from Frigate's tracked animal in the snapshot" });
     });
-    // The automatic check model's state, in the words Settings and the wizard use. Only an owner
-    // reads it, so a visitor's capture says only that it waits.
-    const checkReadiness = $derived(canReview ? gardenCheckReadiness(identification) : null);
+    // What stands before the automatic check: its model's state, in the words Settings and the wizard
+    // use, or the thing Garden measured that blocks it. Only an owner reads it, so a visitor's capture
+    // says only that it waits.
+    const checkState = $derived(canReview ? gardenCheckState(identification, modelActivityStore.phase(GARDEN_CHECK_MODEL)) : null);
+    // Setting the model up unblocks the wait only when the model is what is missing.
     const checkSetupNeeded = $derived(
-        capture.status === 'pending' && view.review === null && checkReadiness !== null && readinessAction(checkReadiness) !== null
+        capture.status === 'pending' && view.review === null && checkState?.kind === 'model' && checkState.readiness === 'missing'
     );
+    // Why the secondary decisions on a waiting capture are not offered yet. They are a way round the
+    // automatic check, so they open once that check can run; until then the cause is stated, as
+    // measured. A status that could not be read blocks nothing, because nothing was measured.
+    const secondaryBlocked = $derived.by((): string | null => {
+        if (capture.status !== 'pending' || !checkState || gardenCheckAvailable(checkState)) return null;
+        if (checkState.kind === 'blocked') {
+            return checkState.blocker === 'species_data'
+                ? $_('garden.catalogue_unavailable', { default: 'Garden species data is unavailable. Check the application startup diagnostics.' })
+                : checkState.detail;
+        }
+        if (checkState.readiness === 'missing') return $_('garden.explorer.reason_model_missing', { default: 'The automatic check model is not downloaded.' });
+        if (checkState.readiness === 'queued') return $_('garden.explorer.reason_model_queued', { default: 'The automatic check model is still downloading.' });
+        return null;
+    });
     const status = $derived.by((): { text: string; tone: 'review' | 'confirmed' | 'neutral' } => {
-        const entry = gardenEntryText(capture, view, (key, fallback, values) => get(_)(key, { values, default: fallback }), viewer, checkReadiness);
+        const entry = gardenEntryText(capture, view, (key, fallback, values) => get(_)(key, { values, default: fallback }), viewer, checkState);
         if (view.review === 'species') {
             return { text: $_('garden.explorer.review_species', { default: 'Needs review: the species was suggested, not confirmed.' }), tone: 'review' };
         }
@@ -382,6 +399,7 @@
     }
 
     function dismissEntry(): Promise<void> {
+        if (secondaryBlocked !== null) return Promise.resolve();
         if (entryKind === 'capture') return review('dismiss');
         if (entryBlocked) return Promise.resolve();
         return group.every((item) => item.status === 'pending') ? dismissGroup() : dismissVisit();
@@ -547,7 +565,7 @@
                                 <span class="text-xs tabular-nums text-white/80" aria-live="polite">{$_('garden.photo_count', { default: 'Photo {index} of {count}', values: { index: groupOffset + index + 1, count: groupTotal } })}</span>
                                 {#if canReview && capture.status !== 'dismissed'}
                                     <!-- One capture out of the group, as a bird's photo is removed from its strip. -->
-                                    <button type="button" class="btn btn-ghost min-h-11 px-3 text-xs text-white hover:bg-white/10" disabled={saving} onclick={() => review('dismiss')} data-garden-capture-dismiss>
+                                    <button type="button" class="btn btn-ghost min-h-11 px-3 text-xs text-white hover:bg-white/10" disabled={saving || secondaryBlocked !== null} aria-describedby={secondaryBlocked ? 'garden-capture-secondary-note' : undefined} onclick={() => review('dismiss')} data-garden-capture-dismiss>
                                         {$_('garden.dismiss', { default: 'Dismiss capture' })}
                                     </button>
                                 {/if}
@@ -722,7 +740,15 @@
                 <!-- The decisions, in the bird record's row: the main one first, each named by its effect. -->
                 {#if canReview}
                     <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap" data-garden-capture-actions>
-                        {#if capture.status === 'pending'}
+                        {#if capture.status === 'pending' && secondaryBlocked !== null}
+                            <!-- Named, so the owner knows the control exists, and closed with its cause. -->
+                            <div class="w-full py-3" data-garden-secondary-blocked>
+                                <p class="text-sm font-semibold text-muted">{$_('garden.manual_override', { default: 'Manual override' })}</p>
+                                <p id="garden-capture-secondary-note" class="mt-1 text-xs text-muted">
+                                    {$_('garden.explorer.secondary_blocked', { default: 'Manual override and dismissal open once Garden’s automatic check can run. {reason}', values: { reason: secondaryBlocked } })}
+                                </p>
+                            </div>
+                        {:else if capture.status === 'pending'}
                             <details open={manualOverride} ontoggle={(event) => manualOverride = event.currentTarget.open} class="group/manual w-full" data-garden-manual-override>
                                 <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 py-3 text-sm font-semibold focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus [&::-webkit-details-marker]:hidden">
                                     <span>{$_('garden.manual_override', { default: 'Manual override' })}</span>
@@ -805,9 +831,9 @@
                         <button
                             type="button"
                             class="btn btn-secondary min-h-11 min-w-0 gap-2 whitespace-normal px-4 text-sm"
-                            disabled={saving || entryBlocked !== null}
+                            disabled={saving || entryBlocked !== null || secondaryBlocked !== null}
                             onclick={dismissEntry}
-                            aria-describedby={entryBlocked ? 'garden-entry-dismiss-note' : undefined}
+                            aria-describedby={entryBlocked ? 'garden-entry-dismiss-note' : secondaryBlocked ? 'garden-capture-secondary-note' : undefined}
                             data-garden-entry-dismiss={entryKind}
                         >
                             <svg class="h-5 w-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" /></svg>

@@ -1800,6 +1800,7 @@
     "readiness_unknown": "Não informado",
     "chosen_state": "Escolhido · {state}",
     "download_switch": "Baixar e mudar para este modelo",
+    "recover_revalidate": "Verificar e carregar de novo",
     "status_missing_next_settings": "Transfira-o abaixo ou escolha outro modelo.",
     "status_missing_next_wizard": "Transfira-o aqui ou escolha outro modelo.",
     "status_missing_next_about": "Transfira-o em Configurações › Modelos.",

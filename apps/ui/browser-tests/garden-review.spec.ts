@@ -7,7 +7,11 @@ import { expect, test, type Page, type Route } from '@playwright/test';
 
 type Capture = Record<string, unknown> & { id: string };
 
-const modelStatus = { country: 'GBR', catalogue_ready: true, busy: false, error: null, models: [{ variant: '4.0.3b', installed: true, size_bytes: 223999179 }] };
+// Both Garden models are here: manual review and dismissal open once the automatic check can run.
+const modelStatus = {
+    country: 'GBR', catalogue_ready: true, busy: false, error: null,
+    models: [{ variant: '4.0.3a', installed: true, size_bytes: 223998782 }, { variant: '4.0.3b', installed: true, size_bytes: 223999179 }]
+};
 const motionStatus = { cameras: [], installed: false, catalogue_ready: true, busy: false, state: 'disabled', message: 'Motion collection is off.' };
 
 const id = 'a'.repeat(32);

@@ -1800,6 +1800,7 @@
     "readiness_unknown": "未报告",
     "chosen_state": "已选择 · {state}",
     "download_switch": "下载并切换到此模型",
+    "recover_revalidate": "检查并重新加载",
     "status_missing_next_settings": "请在下方下载，或选择其他模型。",
     "status_missing_next_wizard": "请在此下载，或选择其他模型。",
     "status_missing_next_about": "请在 设置 › 模型 中下载。",

@@ -3,7 +3,7 @@ import type { DetectionVisit } from '../api/visits';
 import { heardWindow } from './heard-timeline';
 import { groupGardenReview } from './garden-review-groups';
 import { domesticBirdName } from './domestic-birds';
-import type { ModelReadiness } from '../settings/model-readiness';
+import type { GardenCheckState } from '../settings/model-readiness';
 
 /**
  * Where Garden captures sit in the Explorer.
@@ -160,24 +160,27 @@ export function gardenRowDetail(capture: GardenCapture, view: GardenEntryView): 
 export type GardenViewer = 'owner' | 'visitor';
 
 /**
- * Why a capture nobody has identified is still waiting. When the automatic check model cannot run,
- * the wait has a cause the owner can act on, so it is named; otherwise nothing more is claimed.
+ * Why a capture nobody has identified is still waiting. When the automatic check cannot run, the
+ * wait has a cause the owner can act on, so it is named as what was measured: the model's own
+ * state, or the thing that blocks Garden's checks. Otherwise nothing more is claimed.
  */
-function waitingState(checkModel: ModelReadiness | null | undefined, t: Translate): string {
-    if (checkModel === 'missing') {
+function waitingState(check: GardenCheckState | null | undefined, t: Translate): string {
+    if (check?.kind === 'blocked') {
+        return check.blocker === 'species_data'
+            ? t('garden.explorer.state_waiting_species_data', 'Waiting: Garden species data is unavailable, so nothing can identify this yet.')
+            : t('garden.explorer.state_waiting_service', 'Waiting: Garden checks have stopped. {detail}', { detail: check.detail });
+    }
+    if (check?.readiness === 'missing') {
         return t('garden.explorer.state_waiting_model_missing', 'Waiting: the automatic check model is not downloaded, so nothing can identify this yet.');
     }
-    if (checkModel === 'queued') {
+    if (check?.readiness === 'queued') {
         return t('garden.explorer.state_waiting_model_queued', 'Waiting: the automatic check model is downloading. Identification starts when it finishes.');
-    }
-    if (checkModel === 'failed') {
-        return t('garden.explorer.state_waiting_model_failed', 'Waiting: the automatic check model could not load, so nothing can identify this yet.');
     }
     return t('garden.explorer.state_waiting_automatic', 'Waiting for automatic identification');
 }
 
 /**
- * `checkModel` is the automatic check model's readiness where the caller has read it (the capture
+ * `checkModel` is what stands before the automatic check, where the caller has read it (the capture
  * dialog, for an owner); a list row that has not read it passes nothing and says only that it waits.
  */
 export function gardenEntryText(
@@ -185,7 +188,7 @@ export function gardenEntryText(
     view: GardenEntryView,
     t: Translate,
     viewer: GardenViewer,
-    checkModel?: ModelReadiness | null
+    checkModel?: GardenCheckState | null
 ): { title: string; state: string } {
     if (capture.status === 'dismissed') {
         return {

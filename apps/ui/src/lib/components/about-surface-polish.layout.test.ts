@@ -38,7 +38,7 @@ describe('About surface polish', () => {
         expect(pipelineSource).not.toMatch(/effective_model_id|active_model_id|font-mono|break-all/);
         expect(pipelineSource).toContain('data-pipeline-note');
         // The step's state is worded by the readiness vocabulary the Models tab and the wizard use.
-        expect(pipelineSource).toContain('readinessLabel(readiness, $_)');
+        expect(pipelineSource).toContain('readinessLabel(step.readiness, $_)');
         expect(en.about.pipeline).not.toHaveProperty('standby');
     });
 

@@ -1800,6 +1800,7 @@
     "readiness_unknown": "Non signalé",
     "chosen_state": "Choisi · {state}",
     "download_switch": "Télécharger et passer à ce modèle",
+    "recover_revalidate": "Vérifier et charger à nouveau",
     "status_missing_next_settings": "Téléchargez-le ci-dessous ou choisissez un autre modèle.",
     "status_missing_next_wizard": "Téléchargez-le ici ou choisissez un autre modèle.",
     "status_missing_next_about": "Téléchargez-le dans Paramètres › Modèles.",
