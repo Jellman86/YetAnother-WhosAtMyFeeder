@@ -36,7 +36,7 @@
   "settings_updated_message": "La configuration a été modifiée avec succès.",
   "live_updates_disconnected_title": "Reconnexion en cours…",
   "live_updates_disconnected_message": "Les mises à jour en direct se reconnectent en arrière-plan.",
-  "system_health_title": "Alerte d’état du système",
+  "system_health_title": "L’état demande votre attention",
   "system_health_message": "État du système : {status}",
   "open_action": "Ouvrir",
   "global_progress_last": "Mis à jour il y a {age}",
@@ -69,5 +69,12 @@
   "filter_group": "Filtrer les notifications",
   "count_unread_unit": "{count, plural, one {non lue} other {non lues}}",
   "cleared": "{count, plural, one {# notification effacée.} other {# notifications effacées.}}",
-  "owner_only_note": "Les tâches de fond et les événements d’état et du système ne sont affichés qu’à vous, pas aux visiteurs."
+  "owner_only_note": "Les tâches de fond et les événements d’état et du système ne sont affichés qu’à vous, pas aux visiteurs.",
+  "system_health_cause": {
+    "mqtt_down": "Le broker MQTT n’est pas connecté : aucune nouvelle détection ne peut arriver.",
+    "mqtt_not_configured": "Aucun broker MQTT n’est défini : aucune détection ne peut arriver.",
+    "frigate_down": "Frigate ne répond pas : les nouvelles détections ne peuvent pas être enregistrées.",
+    "pipeline_critical": "La chaîne de détection a une défaillance critique.",
+    "other": "Quelque chose ne fonctionne pas comme prévu. Ouvrez la page État pour voir quoi."
+  }
 }

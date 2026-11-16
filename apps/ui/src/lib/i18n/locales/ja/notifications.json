@@ -36,7 +36,7 @@
   "settings_updated_message": "設定が正常に変更されました。",
   "live_updates_disconnected_title": "再接続中…",
   "live_updates_disconnected_message": "ライブ更新はバックグラウンドで再接続中です。",
-  "system_health_title": "システム状態の警告",
+  "system_health_title": "稼働状況に確認が必要です",
   "system_health_message": "システム状態: {status}",
   "open_action": "開く",
   "global_progress_last": "{age}前に更新",
@@ -69,5 +69,12 @@
   "filter_group": "通知を絞り込む",
   "count_unread_unit": "{count, plural, other {未読}}",
   "cleared": "{count, plural, other {# 件の通知を消去しました。}}",
-  "owner_only_note": "バックグラウンドの処理、状態やシステムのイベントはあなたにだけ表示され、訪問者には表示されません。"
+  "owner_only_note": "バックグラウンドの処理、状態やシステムのイベントはあなたにだけ表示され、訪問者には表示されません。",
+  "system_health_cause": {
+    "mqtt_down": "MQTT ブローカーに接続されていないため、新しい検出が届きません。",
+    "mqtt_not_configured": "MQTT ブローカーが設定されていないため、検出が届きません。",
+    "frigate_down": "Frigate が応答しないため、新しい検出を保存できません。",
+    "pipeline_critical": "検出パイプラインに重大な障害があります。",
+    "other": "正常に動作していないものがあります。稼働状況を開いて確認してください。"
+  }
 }

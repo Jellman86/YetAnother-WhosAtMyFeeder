@@ -2074,6 +2074,7 @@ export interface components {
     connected_since?: string | null;
     last_attempt_at?: string | null;
     last_error?: string | null;
+    last_error_cause?: "host_not_found" | "refused" | "timeout" | "not_authorised" | "unreachable" | null;
     last_failure_at?: string | null;
     port: number;
     server: string;

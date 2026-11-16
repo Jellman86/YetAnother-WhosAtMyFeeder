@@ -10,6 +10,7 @@ from collections.abc import Callable
 from datetime import datetime
 
 from app.models.service_connections import (
+    ConnectionFailureCause,
     FrigateApiState,
     FrigateApiStatus,
     FrigateAvailability,
@@ -30,6 +31,7 @@ class MqttConnectionTracker:
         self.last_attempt_at: datetime | None = None
         self.last_failure_at: datetime | None = None
         self.last_error: str | None = None
+        self.last_error_cause: ConnectionFailureCause | None = None
 
     def _set_state(self, state: MqttConnectionState) -> None:
         if state == self.state:
@@ -47,12 +49,14 @@ class MqttConnectionTracker:
 
     def connected(self, now: datetime) -> None:
         self.connected_since = now
+        self.last_error_cause = None
         self._set_state("connected")
 
-    def failed(self, now: datetime, error: str) -> None:
+    def failed(self, now: datetime, error: str, cause: ConnectionFailureCause | None = None) -> None:
         self.connected_since = None
         self.last_failure_at = now
         self.last_error = error.strip()[:_MAX_ERROR_LENGTH] or None
+        self.last_error_cause = cause
         self._set_state("disconnected")
 
     def not_configured(self) -> None:
@@ -72,6 +76,7 @@ class MqttConnectionTracker:
             last_attempt_at=serialize_api_datetime(self.last_attempt_at),
             last_failure_at=serialize_api_datetime(self.last_failure_at),
             last_error=self.last_error,
+            last_error_cause=self.last_error_cause,
         )
 
 

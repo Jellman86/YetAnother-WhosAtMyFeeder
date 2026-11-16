@@ -68,7 +68,7 @@
     "config_backup_import_error": "无法导入配置备份",
     "diagnostics_title": "诊断",
     "diagnostics_desc": "打开运行状况页面，查看后端状态、分组事件和支持包。",
-    "open_diagnostics": "打开健康",
+    "open_diagnostics": "打开运行状况",
     "taxonomy_title": "分类学修复",
     "taxonomy_desc": "在更换模型或导入历史后，如果到访显示学名或旧的俗名，请运行此项。它会把每次到访关联到该物种的当前名称。",
     "taxonomy_syncing": "同步中…",

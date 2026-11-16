@@ -68,7 +68,7 @@
     "config_backup_import_error": "Impossible d'importer la sauvegarde de la configuration",
     "diagnostics_title": "Diagnostics",
     "diagnostics_desc": "Ouvre la page État : état du backend, incidents groupés et lots de support.",
-    "open_diagnostics": "Ouvrir santé",
+    "open_diagnostics": "Ouvrir la page État",
     "taxonomy_title": "Réparation taxonomique",
     "taxonomy_desc": "À lancer après un changement de modèle ou une importation, quand des visites affichent un nom scientifique ou un ancien nom commun. Relie chaque visite aux noms actuels de son espèce.",
     "taxonomy_syncing": "Synchronisation…",

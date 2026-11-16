@@ -1460,7 +1460,9 @@ The response keeps each workload in its own lane: `auto_video`, `video_analysis`
 event ID when applicable, status, current phase, progress counters and unit, timestamps, and an
 application route. Lane summaries report queued/running/terminal counts, queue capacity, configured
 and effective worker concurrency, and a machine-readable blocker such as
-`paused_after_failures`, `waiting_for_live_detections`, or `waiting_for_capacity`.
+`paused_after_failures`, `waiting_for_live_detections`, or `waiting_for_capacity`. A video
+analysis that is waiting for Frigate to answer before it reads its event (as restored work does
+after a restart) reports the phase `waiting_for_frigate` until Frigate answers.
 
 `include_routine=false` omits automatic per-detection media work while retaining prominent
 owner-triggered work. `limit` controls returned item detail (`1`–`500`); lane totals are calculated
@@ -1584,7 +1586,10 @@ The callback exception grants no owner role and does not expand cookie authentic
 - `GET /api/diagnostics/connections` — the broker session and Frigate's API as last measured, for
   the Health page and the sidebar's live tile. `mqtt` has `state` (`connecting`, `connected`,
   `disconnected`, `not_configured`, `stopped`), `server`, `port`, `connected_since`,
-  `last_attempt_at`, `last_failure_at` and `last_error` (the broker client's own words). `frigate`
+  `last_attempt_at`, `last_failure_at`, `last_error` (the broker client's own words) and
+  `last_error_cause`, the cause read from that failure as a code the page words in its own language
+  (`host_not_found`, `refused`, `timeout`, `not_authorised`, `unreachable`; null while connected or
+  before any failure). `frigate`
   has `state` (`reachable`, `unreachable`, `unchecked`), `url`, `checked_at`, `last_success_at`,
   `last_failure_at`, `last_failure` (`timeout`, `connection`, `unauthorized`, `server_error`) and
   `availability` (what Frigate last announced on its MQTT availability topic, `unknown` without the

@@ -501,5 +501,26 @@
   "reference_read_more_on": "Lire la suite sur {source}",
   "reference_read_more": "Lire la suite",
   "reference_source": "Source \u0001 {source}",
-  "reference_conservation": "Statut de conservation \u0001 {status}"
+  "reference_conservation": "Statut de conservation \u0001 {status}",
+  "archive_failed_both": "La copie propre de la photo et du clip de ce favori n’a pas pu être enregistrée.",
+  "archive_failed_photo": "La copie propre de la photo de ce favori n’a pas pu être enregistrée.",
+  "archive_failed_clip": "La copie propre du clip de ce favori n’a pas pu être enregistrée.",
+  "archive_cause": {
+    "frigate_unreachable": "Frigate est injoignable. Vérifiez que Frigate fonctionne et son adresse dans Paramètres → Connexion.",
+    "frigate_timeout": "Frigate n’a pas répondu à temps. Vérifiez que Frigate fonctionne et n’est pas surchargé.",
+    "frigate_refused": "Frigate a refusé la requête de YA-WAMF. Vérifiez l’accès à Frigate dans Paramètres → Connexion.",
+    "frigate_error": "Frigate a répondu par une erreur qui lui est propre. Consultez ses journaux.",
+    "clip_cut_short": "Le téléchargement du clip a été interrompu.",
+    "disk_full": "Le disque du dossier de données est plein. Libérez de l’espace.",
+    "disk_error": "Impossible d’écrire dans le dossier de données. Vérifiez qu’il existe et que YA-WAMF peut y écrire.",
+    "unknown": "La cause n’a pas été enregistrée."
+  },
+  "archive_retry_scheduled": "YA-WAMF réessaiera de lui-même à {at}. La visite reste dans votre historique dans tous les cas.",
+  "archive_retry_spent": "YA-WAMF a cessé de réessayer de lui-même. La visite reste dans votre historique dans tous les cas.",
+  "archive_retry_now": "Réessayer maintenant",
+  "audio_match_evidence": "Le chant correspondant",
+  "archive_retry_due": "YA-WAMF réessaiera de lui-même sous peu. La visite reste dans votre historique dans tous les cas.",
+  "archive_checking": "Vérification de ce que la copie propre de ce favori a conservé…",
+  "archive_unchecked": "La copie propre de ce favori a signalé un problème, mais ce qu’elle a conservé n’a pas pu être vérifié.",
+  "archive_check_again": "Vérifier à nouveau"
 }

@@ -36,7 +36,7 @@
   "settings_updated_message": "La configurazione è stata aggiornata correttamente.",
   "live_updates_disconnected_title": "Riconnessione in corso…",
   "live_updates_disconnected_message": "Gli aggiornamenti in tempo reale si stanno ricollegando in background.",
-  "system_health_title": "Avviso stato del sistema",
+  "system_health_title": "Lo stato richiede attenzione",
   "system_health_message": "Stato del sistema: {status}",
   "open_action": "Apri",
   "global_progress_last": "Aggiornato {age} fa",
@@ -69,5 +69,12 @@
   "filter_group": "Filtra notifiche",
   "count_unread_unit": "{count, plural, one {non letta} other {non lette}}",
   "cleared": "{count, plural, one {# notifica cancellata.} other {# notifiche cancellate.}}",
-  "owner_only_note": "Le attività in background e gli eventi di stato e di sistema sono mostrati solo a te, non ai visitatori."
+  "owner_only_note": "Le attività in background e gli eventi di stato e di sistema sono mostrati solo a te, non ai visitatori.",
+  "system_health_cause": {
+    "mqtt_down": "Il broker MQTT non è connesso, quindi non possono arrivare nuovi rilevamenti.",
+    "mqtt_not_configured": "Nessun broker MQTT è impostato, quindi non possono arrivare rilevamenti.",
+    "frigate_down": "Frigate non risponde, quindi i nuovi rilevamenti non possono essere salvati.",
+    "pipeline_critical": "La pipeline dei rilevamenti ha un errore critico.",
+    "other": "Qualcosa non funziona come dovrebbe. Apri Stato per vedere cosa."
+  }
 }

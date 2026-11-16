@@ -68,7 +68,7 @@
     "config_backup_import_error": "設定のバックアップをインポートできませんでした",
     "diagnostics_title": "診断",
     "diagnostics_desc": "バックエンド状態、グループ化されたインシデント、サポート用バンドルを含む稼働状況ページを開きます。",
-    "open_diagnostics": "ヘルスを開く",
+    "open_diagnostics": "稼働状況を開く",
     "taxonomy_title": "タクソノミー修復",
     "taxonomy_desc": "モデルの変更や履歴の取り込みの後、訪問に学名や古い一般名が表示される場合に実行します。各訪問をその種の現在の名前に結び付けます。",
     "taxonomy_syncing": "同期中…",

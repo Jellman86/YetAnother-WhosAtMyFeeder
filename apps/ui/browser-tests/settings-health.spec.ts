@@ -43,7 +43,7 @@ function workspace(connections: Record<string, unknown>) {
 
 test('Health never reads healthy while the broker and Frigate are down, and lists them as the open problems', async ({ page }) => {
     await openHealth(page, workspace({
-        mqtt: { state: 'disconnected', server: 'mqtt.invalid', port: 1883, last_attempt_at: '2026-11-13T18:18:00Z', last_error: '[Errno -2] Name or service not known' },
+        mqtt: { state: 'disconnected', server: 'mqtt.invalid', port: 1883, last_attempt_at: '2026-11-13T18:18:00Z', last_error: '[Errno -2] Name or service not known', last_error_cause: 'host_not_found' },
         frigate: { state: 'unreachable', url: 'http://frigate.invalid:5000', checked_at: '2026-11-13T18:19:00Z', last_failure: 'connection', availability: 'unknown' },
         generated_at: '2026-11-13T18:20:00Z'
     }));
@@ -63,11 +63,14 @@ test('Health never reads healthy while the broker and Frigate are down, and list
     await expect(page.locator('[data-health-earlier-incidents]')).toContainText('Earlier incidents');
     await expect(page.getByRole('button', { name: 'Clear error history' })).toBeVisible();
 
-    await page.locator('[data-subsystem-detail] summary').click();
+    await page.locator('[data-subsystem-detail] > summary').click();
     const mqtt = page.locator('[data-health-card="mqtt"]');
     await expect(mqtt).toHaveAttribute('data-health-card-status', 'disconnected');
     await expect(mqtt).toContainText('Not connected');
     await expect(mqtt).toContainText('Not connected to mqtt.invalid:1883.');
+    // The cause is worded from its code; the resolver's errno text is only a technical detail.
+    await expect(mqtt.locator('[data-health-mqtt-cause]')).toHaveText('MQTT broker: the host name in mqtt.invalid:1883 was not found. Check the address.');
+    await expect(mqtt.locator('[data-health-mqtt-cause]')).not.toContainText('Errno');
     await expect(mqtt).toContainText('Name or service not known');
     await expect(mqtt).not.toContainText('flowing normally');
     const frigate = page.locator('[data-health-card="frigate"]');
@@ -82,7 +85,35 @@ test('Health is healthy only with both connections measured up', async ({ page }
         generated_at: '2026-11-13T18:20:00Z'
     }));
     await expect(page.locator('[data-health-status-pill]')).toHaveText('Healthy');
-    await page.locator('[data-subsystem-detail] summary').click();
+    await page.locator('[data-subsystem-detail] > summary').click();
     await expect(page.locator('[data-health-card="mqtt"]')).toContainText('Connected to mqtt:1883 since');
     await expect(page.locator('[data-health-card="frigate"]')).toContainText('Frigate announces itself online over MQTT.');
+});
+
+test('a backend error is said in words; its raw text, paths and addresses stay under Technical details', async ({ page }) => {
+    const event = (reason: string, message: string) => ({
+        id: `diag:test:${reason}`, timestamp: '2026-11-13T18:19:00Z', source: 'event_pipeline', component: 'event_processor',
+        stage: 'classify', reason_code: reason, message, severity: 'critical', event_id: 'evt-1', context: null,
+        correlation_key: null, count: 1, first_seen: '2026-11-13T18:19:00Z', last_seen: '2026-11-13T18:19:00Z'
+    });
+    const payload = workspace({
+        mqtt: { state: 'connected', server: 'mqtt', port: 1883, connected_since: '2026-11-13T17:00:00Z' },
+        frigate: { state: 'reachable', url: 'http://frigate:5000', checked_at: '2026-11-13T18:19:00Z', availability: 'online' },
+        generated_at: '2026-11-13T18:20:00Z'
+    });
+    payload.backend_diagnostics.events = [
+        event('stage_failure', "Stage classify failed: [Errno 2] No such file or directory: '/data/models/bird.onnx' via http://frigate:5000/api"),
+        event('something_new', 'Unrecognised failure at /config/secret-path')
+    ] as never[];
+    await openHealth(page, payload);
+
+    const rows = page.locator('[data-health-diagnostic]');
+    await expect(rows).toHaveCount(2);
+    await expect(rows.nth(0).locator('[data-health-diagnostic-title]')).toHaveText('A detection could not be processed because one of its steps failed.');
+    await expect(rows.nth(1).locator('[data-health-diagnostic-title]')).toHaveText('A processing step failed. Technical details have the exact error.');
+    // Nothing raw is on screen until Technical details is opened; the whole page is checked, verdict included.
+    const visible = await page.locator('main').innerText();
+    for (const raw of ['/data/models', 'http://frigate:5000/api', '/config/secret-path', 'Errno']) expect(visible).not.toContain(raw);
+    await rows.nth(0).locator('summary').click();
+    await expect(rows.nth(0)).toContainText("'/data/models/bird.onnx'");
 });

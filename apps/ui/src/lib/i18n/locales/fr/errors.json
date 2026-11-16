@@ -1,6 +1,6 @@
 {
   "stack_trace": "Trace de pile :",
-  "server_failure": "Quelque chose sur le serveur a interrompu cette requête. Réessayez \u0001 si cela continue, ouvrez État du système pour voir ce qui ne va pas.",
+  "server_failure": "Quelque chose sur le serveur a interrompu cette requête. Réessayez \u0001 si cela continue, ouvrez la page État pour voir ce qui ne va pas.",
   "connection": {
     "service_mqtt": "Broker MQTT",
     "host_not_found": "{service} \u0001 le nom d’hôte dans {address} est introuvable. Vérifiez l’adresse.",

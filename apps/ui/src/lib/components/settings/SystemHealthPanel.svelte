@@ -449,11 +449,46 @@
                             {/each}
                         </div>
                     {/if}
-                    <!-- A table keeps its columns: when they cannot fit, as with enlarged text on a phone, it
+                    <!-- On a phone each process is a short list of its own, so no column is ever cut off. -->
+                    <ul class="mt-3 divide-y divide-slate-200/70 sm:hidden dark:divide-slate-700/50" data-system-health-stacked>
+                        {#each rows as row (row.role)}
+                            {#if row.role !== 'idle'}
+                                <li class="py-2" data-system-health-row={row.role}>
+                                    <p class="flex flex-wrap items-center gap-x-2 text-sm">
+                                        <span class="{swatch[row.role]} inline-block h-2.5 w-2.5 rounded-xs" aria-hidden="true"></span>
+                                        <span class="font-semibold text-slate-800 dark:text-slate-100" class:italic={row.role === 'other_host'}>{roleLabel(row)}</span>
+                                        {#if memberNote(row)}
+                                            <span class="text-xs text-slate-600 dark:text-slate-400">{memberNote(row)}</span>
+                                        {/if}
+                                    </p>
+                                    {#if row.role === 'other_host'}
+                                        <p class="mt-0.5 text-xs text-slate-600 dark:text-slate-400">
+                                            {$_('settings.system_health.role_other_host_note', { default: 'Not this app. Cannot be named without the Docker socket.' })}
+                                        </p>
+                                    {/if}
+                                    <dl class="mt-1 grid grid-cols-3 gap-x-3 text-xs">
+                                        <div class="min-w-0">
+                                            <dt class="text-slate-600 dark:text-slate-400">{$_('settings.system_health.col_cpu', { default: 'CPU' })}</dt>
+                                            <dd class="font-semibold tabular-nums text-slate-800 dark:text-slate-100">{formatPercent(row.cpuPercent) ?? '—'}</dd>
+                                        </div>
+                                        <div class="min-w-0">
+                                            <dt class="text-slate-600 dark:text-slate-400">{$_('settings.system_health.col_accelerator', { default: 'Accelerator' })}</dt>
+                                            <dd class="wrap-break-word font-semibold text-slate-800 dark:text-slate-100">{row.acceleratorLabels.length > 0 ? row.acceleratorLabels.join(', ') : '—'}</dd>
+                                        </div>
+                                        <div class="min-w-0">
+                                            <dt class="text-slate-600 dark:text-slate-400">{$_('settings.system_health.col_memory', { default: 'Memory' })}</dt>
+                                            <dd class="font-semibold tabular-nums text-slate-800 dark:text-slate-100">{formatBytes(row.rssBytes) ?? '—'}</dd>
+                                        </div>
+                                    </dl>
+                                </li>
+                            {/if}
+                        {/each}
+                    </ul>
+                    <!-- A table keeps its columns: when they cannot fit, as with enlarged text, it
                          scrolls sideways within its own box instead of widening the page. -->
                     <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
                     <!-- When the columns cannot fit it scrolls on its own, so a keyboard must be able to reach it. -->
-                    <div class="mt-3 overflow-x-auto rounded-lg focus-ring" tabindex="0" role="region" aria-label={$_('settings.system_health.table_region', { default: 'Work by process' })} data-system-health-table-region>
+                    <div class="mt-3 hidden overflow-x-auto rounded-lg focus-ring sm:block" tabindex="0" role="region" aria-label={$_('settings.system_health.table_region', { default: 'Work by process' })} data-system-health-table-region>
                     <table class="w-full text-xs sm:text-sm" data-system-health-table>
                         <thead class="text-xs font-semibold text-slate-700 dark:text-slate-200">
                             <tr>

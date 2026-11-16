@@ -34,6 +34,9 @@
     import { doughnutInsightPlugin } from '../actions/chartjs-doughnut';
     import { audioSpeciesMix } from './audio-species-mix';
     import { SCORE_TEXT, scoreBand } from '../utils/score-tone';
+    import { audioReading } from './audio-history-state';
+    import { dailySeries, hourlySeries } from './audio-chart-series';
+    import { whenNearViewport } from '../actions/near-viewport';
 
     const PAGE_SIZE = 25;
 
@@ -55,7 +58,10 @@
     let history = $state<AudioHistoryResponse | null>(null);
     let summary = $state<AudioSummaryResponse | null>(null);
     let loading = $state(true);
+    // The read's own words, kept for Technical details; the page states the failure in its own sentence.
     let error = $state<string | null>(null);
+    let stale = $state(false);
+    let readAt = $state<number | null>(null);
     let offset = $state(0);
     let birdnetExternalUrl = $state('');
     let reduceMotion = $state(false);
@@ -107,7 +113,11 @@
         }
     }
 
+    // The reference photos sit below the log and the charts, so they are fetched only once that list
+    // comes near the screen, not as six requests on every visit.
+    let topSpeciesNear = $state(false);
     $effect(() => {
+        if (!topSpeciesNear) return;
         for (const item of (summary?.top_species ?? []).slice(0, 6)) {
             if (item.species) void loadSpeciesInfo(item.species);
         }
@@ -120,6 +130,9 @@
     let isDark = $derived(themeStore.isDark);
     // slate-500 on a light page and slate-400 on a dark one: slate-400 on white is 2.56:1, too faint for axis labels.
     let chartTickColor = $derived(isDark ? '#94a3b8' : '#64748b');
+    const reading = $derived(audioReading({ loading, error, stale, total: summary?.total ?? null }));
+    /** A reading is on screen: numbers can be shown, and zero means none were heard. */
+    const measured = $derived(reading === 'ready' || reading === 'empty' || reading === 'stale');
     let hasDaily = $derived((summary?.daily_counts?.length ?? 0) > 0);
     let hasHourly = $derived((summary?.hourly_counts?.length ?? 0) > 0);
     let hasSpecies = $derived((summary?.top_species?.length ?? 0) > 0);
@@ -141,20 +154,24 @@
     }
 
     const audioHistoryLoader = createAudioHistoryLoader({
+        requestKey: () => JSON.stringify(requestParams(true)),
         fetchHistory: () => fetchAudioHistory(requestParams(true)),
         fetchSummary: () => fetchAudioSummary(requestParams(false)),
-        begin: () => { loading = true; error = null; },
+        begin: () => { loading = true; error = null; stale = false; },
         apply: (nextHistory, nextSummary) => {
             history = nextHistory;
             summary = nextSummary;
+            readAt = Date.now();
             hiddenChartState = { theme: '', indices: [] };
         },
         clear: () => {
             history = null;
             summary = null;
+            readAt = null;
             if (authStore.isGuest) selectedSpecies = null;
         },
-        fail: (e) => {
+        fail: (e, state) => {
+            stale = state.stale;
             error = getErrorMessage(e) || 'Unable to load BirdNET history.';
             if (isTransientRequestError(e)) {
                 logger.warn('BirdNET history fetch failed (transient)', { message: error });
@@ -267,16 +284,20 @@
         return speciesSeriesColor(index, isDark);
     }
 
+    // One series per chart, drawn by the canvas and listed by its table, so the two always agree.
+    const dailyPoints = $derived(dailySeries(summary?.daily_counts ?? [], $locale ?? undefined));
+    const hourlyPoints = $derived(hourlySeries(summary?.hourly_counts ?? []));
+
     let dailyChartConfig = $derived((): CanvasChartConfig => {
         const points = summary?.daily_counts ?? [];
-        const labels = points.map((point) => new Date(`${point.date}T00:00:00Z`).toLocaleDateString(undefined, { day: 'numeric', month: 'short', timeZone: 'UTC' }));
+        const labels = dailyPoints.map((point) => point.label);
         return {
             type: 'line',
             data: {
                 labels,
                 datasets: [{
                     label: $_('audio.chart.heard', { default: 'Heard' }),
-                    data: points.map((point) => point.count),
+                    data: dailyPoints.map((point) => point.count),
                     borderColor: audioPrimary,
                     backgroundColor: audioPrimaryFill,
                     fill: true,
@@ -304,11 +325,8 @@
     });
 
     let hourlyChartConfig = $derived((): CanvasChartConfig => {
-        const counts = new Array<number>(24).fill(0);
-        for (const item of summary?.hourly_counts ?? []) {
-            if (item.hour >= 0 && item.hour < 24) counts[item.hour] = item.count;
-        }
-        const labels = counts.map((_, hour) => String(hour).padStart(2, '0'));
+        const counts = hourlyPoints.map((point) => point.count);
+        const labels = hourlyPoints.map((point) => String(point.hour).padStart(2, '0'));
         return {
             type: 'bar',
             data: {
@@ -401,27 +419,88 @@
     </section>
 {:else}
 
-<div class="space-y-10" data-audio-history-page>
-    <section class="border-y border-slate-200/80 dark:border-slate-800" data-audio-history-summary aria-label={$_('audio.history.title')}>
+{#snippet statValue(value: string)}
+    {#if measured}
+        <dd class="mt-1 text-2xl font-bold tabular-nums text-slate-900 dark:text-white">{value}</dd>
+    {:else if reading === 'failed'}
+        <!-- Not measured, so said in words at body size, never as a zero (layout-patterns 5). -->
+        <dd class="mt-2 text-sm font-semibold text-slate-700 dark:text-slate-200" data-audio-stat-unavailable>{$_('audio.stat.not_available', { default: 'Not available' })}</dd>
+    {:else}
+        <dd class="mt-1 h-8" data-audio-stat-pending>
+            <span class="block h-7 w-16 animate-pulse rounded-md bg-slate-100 motion-reduce:animate-none dark:bg-slate-800" aria-hidden="true"></span>
+            <span class="sr-only">{$_('common.loading', { default: 'Loading' })}</span>
+        </dd>
+    {/if}
+{/snippet}
+
+{#snippet technicalDetails(text: string)}
+    <details class="group">
+        <summary class="flex min-h-11 cursor-pointer items-center gap-1.5 text-xs font-semibold text-slate-700 focus-ring dark:text-slate-300">
+            <svg class="h-3.5 w-3.5 shrink-0 transition-transform duration-200 group-open:rotate-90" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m8 5 5 5-5 5" /></svg>
+            {$_('common.technical_details', { default: 'Technical details' })}
+        </summary>
+        <p class="pb-1 font-mono text-xs wrap-anywhere text-slate-700 dark:text-slate-300">{text}</p>
+    </details>
+{/snippet}
+
+{#snippet chartPending()}
+    {#if reading === 'failed'}
+        <div class="flex h-[240px] items-center justify-center px-4 text-center text-sm font-semibold text-slate-700 dark:text-slate-200" data-audio-chart-unavailable>{$_('audio.chart.unavailable', { default: 'Not available while the history cannot be read.' })}</div>
+    {:else}
+        <div class="mt-3 h-[240px] animate-pulse bg-slate-100/80 motion-reduce:animate-none dark:bg-slate-800/60" aria-hidden="true"></div>
+    {/if}
+{/snippet}
+
+<!-- The numbers behind a chart, as a table anyone can read without hovering the canvas. -->
+{#snippet chartNumbers(heading: string, columns: [string, string], rows: Array<[string, string]>)}
+    <details class="group mt-2" data-audio-chart-numbers>
+        <summary class="flex min-h-11 cursor-pointer items-center gap-1.5 text-xs font-semibold text-slate-700 focus-ring dark:text-slate-300">
+            <svg class="h-3.5 w-3.5 shrink-0 transition-transform duration-200 group-open:rotate-90" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m8 5 5 5-5 5" /></svg>
+            {$_('audio.chart.show_numbers', { default: 'Show the numbers' })}
+        </summary>
+        <table class="mt-1 w-full max-w-sm text-xs">
+            <caption class="sr-only">{heading}</caption>
+            <thead>
+                <tr class="text-left text-slate-600 dark:text-slate-400">
+                    <th scope="col" class="py-1 pr-3 font-semibold">{columns[0]}</th>
+                    <th scope="col" class="py-1 text-right font-semibold">{columns[1]}</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-200/80 dark:divide-slate-800">
+                {#each rows as [label, value], index (index)}
+                    <tr>
+                        <th scope="row" class="py-1 pr-3 text-left font-normal wrap-break-word text-slate-700 dark:text-slate-200">{label}</th>
+                        <td class="py-1 text-right font-semibold tabular-nums text-slate-900 dark:text-slate-100">{value}</td>
+                    </tr>
+                {/each}
+            </tbody>
+        </table>
+    </details>
+{/snippet}
+
+<div class="space-y-10" data-audio-history-page data-audio-reading={reading}>
+    <section class="border-y border-slate-200/80 dark:border-slate-800" data-audio-history-summary aria-label={$_('audio.history.title')} aria-busy={reading === 'loading'}>
         <dl class="grid grid-cols-2 lg:grid-cols-4">
             <div class="border-b border-r border-slate-200/80 px-3 py-4 dark:border-slate-800 sm:px-5 lg:border-b-0">
                 <dt class="text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('audio.stat.heard', { default: 'Heard' })}</dt>
-                <dd class="mt-1 text-2xl font-bold tabular-nums text-slate-900 dark:text-white">{(summary?.total ?? 0).toLocaleString()}</dd>
+                {@render statValue((summary?.total ?? 0).toLocaleString())}
                 <dd class="mt-1 text-xs text-slate-600 dark:text-slate-400">{$_('audio.stat.heard_sub', { default: 'BirdNET-Go detections in this window' })}</dd>
             </div>
             <div class="border-b border-slate-200/80 px-3 py-4 dark:border-slate-800 sm:px-5 lg:border-b-0 lg:border-r">
                 <dt class="text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('audio.stat.species', { default: 'Species' })}</dt>
-                <dd class="mt-1 text-2xl font-bold tabular-nums text-slate-900 dark:text-white">{summary?.species_count ?? 0}</dd>
+                {@render statValue((summary?.species_count ?? 0).toLocaleString())}
                 <dd class="mt-1 text-xs text-slate-600 dark:text-slate-400">{$_('audio.stat.species_sub', { default: 'Heard in this window' })}</dd>
             </div>
             <div class="border-r border-slate-200/80 px-3 py-4 dark:border-slate-800 sm:px-5">
                 <dt class="text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('audio.stat.peak_hour', { default: 'Peak hour' })}</dt>
-                <dd class="mt-1 text-2xl font-bold tabular-nums text-slate-900 dark:text-white">{peakHour ? hourLabel(peakHour.hour) : '—'}</dd>
-                <dd class="mt-1 text-xs text-slate-600 dark:text-slate-400">{peakHour ? $_('audio.stat.peak_hour_sub', { values: { count: peakHour.count }, default: '{count, plural, one {# detection} other {# detections}}' }) : $_('audio.stat.no_activity', { default: 'No activity yet' })}</dd>
+                {@render statValue(peakHour ? hourLabel(peakHour.hour) : '—')}
+                {#if measured}
+                    <dd class="mt-1 text-xs text-slate-600 dark:text-slate-400">{peakHour ? $_('audio.stat.peak_hour_sub', { values: { count: peakHour.count }, default: '{count, plural, one {# detection} other {# detections}}' }) : $_('audio.stat.no_calls', { default: 'No calls in this window' })}</dd>
+                {/if}
             </div>
             <div class="px-3 py-4 sm:px-5">
                 <dt class="text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('audio.stat.sources', { default: 'Sources' })}</dt>
-                <dd class="mt-1 text-2xl font-bold tabular-nums text-slate-900 dark:text-white">{summary?.source_count ?? 0}</dd>
+                {@render statValue((summary?.source_count ?? 0).toLocaleString())}
                 <dd class="mt-1 text-xs text-slate-600 dark:text-slate-400">{$_('audio.stat.sources_sub', { default: 'Microphones or streams' })}</dd>
             </div>
         </dl>
@@ -492,18 +571,32 @@
             </button>
         </div>
 
-        {#if error}
-            <div role="alert" class="flex flex-col gap-3 border-y border-red-200 bg-red-50/70 px-4 py-4 text-sm font-semibold text-red-700 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-200 sm:flex-row sm:items-center sm:justify-between">
-                <span>{error}</span>
-                <button type="button" class="btn btn-secondary min-h-11 px-4 focus-visible:ring-2 focus-visible:ring-focus" onclick={() => void loadAudioHistory()}>{$_('common.retry')}</button>
+        {#if reading === 'failed'}
+            <!-- The app's own sentence and next step; what the server said is a detail behind a disclosure. -->
+            <div role="alert" class="space-y-2 border-y border-rose-200 px-4 py-4 text-sm dark:border-rose-900/60" data-audio-read-failed>
+                <p class="font-semibold text-rose-700 dark:text-rose-300">{$_('audio.history.read_failed', { default: 'Audio history could not be read from YA-WAMF, so nothing on this page is a measurement.' })}</p>
+                <p class="text-slate-700 dark:text-slate-200">{$_('audio.history.read_failed_next', { default: 'Try again. If it keeps failing, open Health to see whether the backend reports a fault.' })}</p>
+                <div class="flex flex-wrap items-center gap-x-4">
+                    <button type="button" class="btn btn-secondary min-h-11 px-4 focus-visible:ring-2 focus-visible:ring-focus" onclick={() => void loadAudioHistory()}>{$_('common.retry')}</button>
+                    {#if error}{@render technicalDetails(error)}{/if}
+                </div>
             </div>
-        {:else if loading}
+        {:else if reading === 'loading'}
             <div class="space-y-1 border-y border-slate-200/80 py-2 dark:border-slate-800" aria-label={$_('common.loading', { default: 'Loading' })}>
                 {#each Array.from({ length: 8 }) as _}
                     <div class="h-16 animate-pulse bg-slate-100/80 dark:bg-slate-800/60"></div>
                 {/each}
             </div>
-        {:else if detections.length === 0}
+        {:else}
+            {#if reading === 'stale'}
+                <div role="status" class="flex flex-col gap-2 border-y border-slate-300 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between dark:border-slate-700" data-audio-stale>
+                    <p class="font-semibold text-slate-800 dark:text-slate-100">
+                        {$_('audio.history.stale', { values: { at: readAt ? formatDateTime(readAt) : '' }, default: 'The latest refresh failed, so this is the reading from {at}.' })}
+                    </p>
+                    <button type="button" class="btn btn-secondary min-h-11 shrink-0 px-4 focus-visible:ring-2 focus-visible:ring-focus" onclick={() => void loadAudioHistory()}>{$_('common.retry')}</button>
+                </div>
+            {/if}
+        {#if detections.length === 0}
             <div class="border-y border-dashed border-slate-300 px-4 py-12 text-center text-sm font-semibold text-slate-600 dark:border-slate-700 dark:text-slate-400">
                 {$_('audio.history.empty', { default: 'No BirdNET detections match these filters.' })}
             </div>
@@ -587,6 +680,7 @@
                 </div>
             </div>
         {/if}
+        {/if}
     </section>
 
     <section class="min-w-0 space-y-8 border-t border-slate-200/80 pt-8 dark:border-slate-800" data-audio-history-analytics>
@@ -604,12 +698,17 @@
 
         <section class="min-w-0 border-y border-slate-200/80 py-6 dark:border-slate-800">
             <h3 class="text-base font-bold text-slate-900 dark:text-white">{$_('audio.chart.daily_title', { default: 'Activity over time' })}</h3>
-            {#if loading}
-                <div class="mt-3 h-[240px] animate-pulse bg-slate-100/80 dark:bg-slate-800/60"></div>
+            {#if !measured}
+                {@render chartPending()}
             {:else if hasDaily}
                 {#key `${applied.days}-${isDark}-${reduceMotion}`}
                     <div class="relative mt-3 chart-h w-full"><canvas use:chartjs={dailyChartConfig()} aria-label={$_('audio.chart.daily_title', { default: 'Activity over time' })}></canvas></div>
                 {/key}
+                {@render chartNumbers(
+                    $_('audio.chart.daily_title', { default: 'Activity over time' }),
+                    [$_('audio.chart.col_day', { default: 'Day' }), $_('audio.chart.col_calls', { default: 'Calls' })],
+                    dailyPoints.map((point) => [point.label, point.count.toLocaleString()])
+                )}
             {:else}
                 <div class="flex h-[240px] items-center justify-center text-sm font-semibold text-slate-600 dark:text-slate-400">{$_('audio.chart.empty', { default: 'No activity in this window.' })}</div>
             {/if}
@@ -618,31 +717,43 @@
         <div class="grid min-w-0 border-b border-slate-200/80 lg:grid-cols-2 lg:divide-x lg:divide-slate-200/80 dark:border-slate-800 dark:lg:divide-slate-800">
             <section class="min-w-0 border-b border-slate-200/80 py-6 lg:border-b-0 lg:pr-6 dark:border-slate-800">
                 <h3 class="text-base font-bold text-slate-900 dark:text-white">{$_('audio.chart.hourly_title', { default: 'Time of day' })}</h3>
-                {#if loading}
-                    <div class="mt-3 h-[240px] animate-pulse bg-slate-100/80 dark:bg-slate-800/60"></div>
+                {#if !measured}
+                    {@render chartPending()}
                 {:else if hasHourly}
                     {#key `${applied.days}-${isDark}-${reduceMotion}`}
                         <div class="relative mt-3 h-[240px] w-full"><canvas use:chartjs={hourlyChartConfig()} aria-label={$_('audio.chart.hourly_title', { default: 'Time of day' })}></canvas></div>
                     {/key}
+                    {@render chartNumbers(
+                        $_('audio.chart.hourly_title', { default: 'Time of day' }),
+                        [$_('audio.chart.col_hour', { default: 'Hour' }), $_('audio.chart.col_calls', { default: 'Calls' })],
+                        hourlyPoints.map((point) => [point.label, point.count.toLocaleString()])
+                    )}
                 {:else}
                     <div class="flex h-[240px] items-center justify-center text-sm font-semibold text-slate-600 dark:text-slate-400">{$_('audio.chart.empty', { default: 'No activity in this window.' })}</div>
                 {/if}
             </section>
             <section class="min-w-0 py-6 lg:pl-6">
                 <h3 class="text-base font-bold text-slate-900 dark:text-white">{$_('audio.chart.species_title', { default: 'Species mix' })}</h3>
-                {#if loading}
-                    <div class="mt-3 h-[240px] animate-pulse bg-slate-100/80 dark:bg-slate-800/60"></div>
+                {#if !measured}
+                    {@render chartPending()}
                 {:else if hasSpecies}
                     {#key `${applied.days}-${isDark}-${reduceMotion}`}
                         <div class="relative mt-3 chart-h w-full"><canvas use:chartjs={speciesDonutConfig()} bind:this={speciesChartEl} aria-label={$_('audio.chart.species_title', { default: 'Species mix' })}></canvas></div>
                         <div class="mt-2 flex flex-wrap justify-center gap-2" role="group" aria-label={$_('audio.chart.species_title', { default: 'Species mix' })}>
                             {#each speciesMix as item, index}
                                 <button type="button" class="btn btn-ghost min-h-9 gap-1.5 px-2 text-xs focus-visible:ring-2 focus-visible:ring-focus {hiddenChartSpecies.includes(index) ? 'opacity-45 line-through' : ''}"
-                                    aria-pressed={!hiddenChartSpecies.includes(index)} aria-label="{hiddenChartSpecies.includes(index) ? $_('common.show') : $_('common.hide')} {item.species}" onclick={() => toggleSpeciesSlice(index)}>
+                                    aria-pressed={!hiddenChartSpecies.includes(index)} aria-label="{hiddenChartSpecies.includes(index) ? $_('common.show') : $_('common.hide')} {item.species} {item.count.toLocaleString()}" onclick={() => toggleSpeciesSlice(index)}>
                                     <span class="h-2.5 w-2.5 rounded-xs" style="background-color: {item.other ? otherSpeciesColor : audioSpeciesColor(index)}"></span>{item.species}
+                                    <!-- The slice's count beside its name, "Other species" included, so the ring is readable without hovering it. -->
+                                    <span class="tabular-nums text-slate-600 dark:text-slate-400" data-audio-mix-count>{item.count.toLocaleString()}</span>
                                 </button>
                             {/each}
                         </div>
+                        {@render chartNumbers(
+                            $_('audio.chart.species_title', { default: 'Species mix' }),
+                            [$_('audio.chart.col_species', { default: 'Species' }), $_('audio.chart.col_calls', { default: 'Calls' })],
+                            speciesMix.map((item) => [item.species, item.count.toLocaleString()])
+                        )}
                     {/key}
                 {:else}
                     <div class="flex h-[240px] items-center justify-center text-sm font-semibold text-slate-600 dark:text-slate-400">{$_('audio.chart.empty', { default: 'No activity in this window.' })}</div>
@@ -651,9 +762,13 @@
         </div>
 
         <div class="grid gap-8 lg:grid-cols-[minmax(0,1fr)_18rem]">
-            <section>
+            <section use:whenNearViewport={() => (topSpeciesNear = true)}>
                 <h3 class="text-base font-bold text-slate-900 dark:text-white">{$_('audio.top_species', { default: 'Top heard species' })}</h3>
-                {#if hasSpecies}
+                {#if !measured}
+                    <p class="mt-4 border-y border-slate-200/80 py-6 text-sm text-slate-600 dark:border-slate-800 dark:text-slate-400">
+                        {reading === 'failed' ? $_('audio.chart.unavailable', { default: 'Not available while the history cannot be read.' }) : $_('common.loading', { default: 'Loading' })}
+                    </p>
+                {:else if hasSpecies}
                     <ol class="mt-4 grid border-y border-slate-200/80 sm:grid-cols-2 dark:border-slate-800">
                         {#each (summary?.top_species ?? []).slice(0, 6) as item, index}
                             {@const thumb = cachedSpeciesThumb(item.species)}
@@ -696,6 +811,11 @@
             <section class="lg:border-l lg:border-slate-200/80 lg:pl-8 dark:lg:border-slate-800">
                 <h3 class="text-base font-bold text-slate-900 dark:text-white">{$_('audio.sources.title', { default: 'Sources' })}</h3>
                 <div class="mt-4 divide-y divide-slate-200/80 border-y border-slate-200/80 dark:divide-slate-800 dark:border-slate-800">
+                    {#if !measured}
+                        <p class="py-6 text-sm text-slate-600 dark:text-slate-400">
+                            {reading === 'failed' ? $_('audio.chart.unavailable', { default: 'Not available while the history cannot be read.' }) : $_('common.loading', { default: 'Loading' })}
+                        </p>
+                    {:else}
                     {#each (summary?.sources ?? []).slice(0, 8) as item}
                         <div class="flex items-center justify-between gap-3 py-3">
                             <div class="min-w-0">
@@ -707,6 +827,7 @@
                     {:else}
                         <p class="py-6 text-sm text-slate-600 dark:text-slate-400">{$_('audio.sources.empty', { default: 'No sources yet.' })}</p>
                     {/each}
+                    {/if}
                 </div>
             </section>
         </div>

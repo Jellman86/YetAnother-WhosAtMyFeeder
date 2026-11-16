@@ -369,7 +369,7 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
       fetchCacheStats: readAtMostEvery(fetchCacheStats, REFRESH_CADENCE_MS.mediaStorageCheck),
       fetchAnalysisStatus,
       diagnostics: jobDiagnosticsStore,
-      syncDiagnosticsWorkspace: () => incidentWorkspaceStore.refresh(),
+      syncDiagnosticsWorkspace: async () => { await incidentWorkspaceStore.refresh(); },
       onConnected: () => {
           reconnectAttempts = 0;
           if (authStore.hasOwnerAccess) gardenHistory.invalidate();

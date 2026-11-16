@@ -294,5 +294,77 @@
   "errors_clear_effect": "Entfernt aufgezeichnete Fehler und Vorfälle sofort. Laufende Prüfungen gehen weiter.",
   "earlier_incidents_title": "Frühere Vorfälle",
   "earlier_incidents_desc": "Probleme, die inzwischen behoben sind. Was jetzt offen ist, steht oben beim Systemstatus.",
-  "earlier_incidents_empty": "Seit dem letzten Löschen des Fehlerverlaufs wurde nichts behoben."
+  "earlier_incidents_empty": "Seit dem letzten Löschen des Fehlerverlaufs wurde nichts behoben.",
+  "global_queued_only": "{count, plural, one {# Job in der Warteschlange} other {# Jobs in der Warteschlange}}",
+  "global_breakdown": "{count, plural, one {# Job} other {# Jobs}}: {parts}",
+  "global_summary_activity": "{kind}: {activity}",
+  "activity_waiting_for_frigate": "Wartet, bis Frigate antwortet",
+  "phase_waiting_for_frigate": "Wartet, bis Frigate antwortet",
+  "lane_running_count": "{count} laufen",
+  "lane_queued_count": "{count} in der Warteschlange",
+  "errors_reading": "Der aktuelle Zustand wird gelesen…",
+  "errors_read_failed": "Der Zustand konnte nicht geladen werden, daher behauptet diese Seite keinen Zustand.",
+  "errors_read_failed_next": "Aktualisieren Sie, um es erneut zu versuchen. Wenn es weiter fehlschlägt, prüfen Sie, ob das YA-WAMF-Backend läuft.",
+  "errors_read_stale": "Die letzte Aktualisierung ist fehlgeschlagen, dies ist der Stand von {at}. Aktualisieren Sie, um es erneut zu versuchen.",
+  "errors_read_at": "Gelesen um {at}",
+  "errors_pipeline_unmeasured": "Solange der MQTT-Broker nicht verbunden ist, kann nichts ankommen. Diese Zahlen zeigen daher nicht, ob die Pipeline funktioniert.",
+  "errors_mqtt_cause_unknown": "Der Broker-Client nannte einen Grund, den YA-WAMF nicht kennt. Er steht unter Technische Details.",
+  "errors_video_paused_until": "Die Videoanalyse ist bis {at} pausiert, nach {count, plural, one {# Fehlschlag} other {# Fehlschlägen}} in Folge.",
+  "errors_video_paused": "Die Videoanalyse ist nach {count, plural, one {# Fehlschlag} other {# Fehlschlägen}} in Folge pausiert.",
+  "errors_video_not_paused": "Die Videoanalyse ist nicht pausiert: {queued} wartend, {running} laufend.",
+  "errors_background_plain": "Hintergrundarbeit: {queued} wartend, {running} laufend.",
+  "errors_summary_unknown": "Diese Messung sagt nicht, ob YA-WAMF funktioniert, daher wird kein Zustand behauptet.",
+  "errors_subsystems_unread": "Nichts anzuzeigen, bis ein Zustand geladen wurde.",
+  "errors_activity_unread": "Aktivität kann erst angezeigt werden, wenn ein Zustand geladen wurde.",
+  "errors_clear_failed": "Der Fehlerverlauf konnte nicht gelöscht werden. Versuchen Sie es erneut.",
+  "errors_metric_handling": "Nachrichten in Bearbeitung",
+  "errors_metric_of": "{count} von {total}",
+  "errors_metric_waiting": "Wartend",
+  "errors_metric_being_named": "Werden gerade bestimmt",
+  "errors_metric_at_once": "Höchstens gleichzeitig",
+  "errors_metric_given_up": "Aufgegeben",
+  "errors_metric_running": "Laufend",
+  "errors_metric_failures_in_a_row": "Fehlschläge in Folge",
+  "errors_metric_held_back": "Für Live-Arbeit zurückgestellt",
+  "errors_metric_notifications_dropped": "Verworfene Benachrichtigungen",
+  "errors_metric_waiting_to_send": "Warten auf Versand",
+  "errors_metric_db_longest_wait": "Längste Wartezeit auf die Datenbank",
+  "errors_metric_db_waits_timed_out": "Abgelaufene Datenbank-Wartezeiten",
+  "diagnostic_words": {
+    "classify_snapshot_timeout": {
+      "title": "Eine Erkennung wurde verworfen, weil die Bestimmung ihres Schnappschusses zu lange dauerte.",
+      "next": "Der Klassifikator ist möglicherweise überlastet. Prüfen Sie oben die Ressourcennutzung oder wählen Sie unter Einstellungen → Modelle ein leichteres Modell."
+    },
+    "classify_snapshot_overloaded": {
+      "title": "Eine Erkennung wurde verworfen, weil der Klassifikator zu beschäftigt war.",
+      "next": "Prüfen Sie oben die Ressourcennutzung. Wenn es oft passiert, wählen Sie unter Einstellungen → Modelle ein leichteres Modell."
+    },
+    "classify_snapshot_unavailable": {
+      "title": "Eine Erkennung wurde verworfen, weil Frigate keinen Schnappschuss dafür hatte.",
+      "next": "Prüfen Sie, ob in Frigate Schnappschüsse für diese Kamera eingeschaltet sind."
+    },
+    "classifier_empty_results": {
+      "title": "Eine Erkennung wurde verworfen, weil der Klassifikator keine Antwort gab.",
+      "next": "Prüfen Sie unter Einstellungen → Modelle, ob ein Modell geladen ist."
+    },
+    "save_and_notify_failed": {
+      "title": "Eine Erkennung wurde bestimmt, konnte aber nicht gespeichert werden.",
+      "next": "Prüfen Sie, ob der Datenordner freien Speicher hat und beschreibbar ist."
+    },
+    "stale_job": {
+      "title": "Ein Hintergrundjob kommt nicht mehr voran.",
+      "next": "Er wird unter Benachrichtigungen angezeigt. Starten Sie ihn dort oder im zuständigen Einstellungs-Tab neu."
+    },
+    "generic": {
+      "title": "Ein Verarbeitungsschritt ist fehlgeschlagen. Die technischen Details enthalten den genauen Fehler."
+    },
+    "stage_failure": {
+      "title": "Eine Erkennung konnte nicht verarbeitet werden, weil einer ihrer Schritte fehlgeschlagen ist.",
+      "next": "Wenn es weiter passiert, kopieren Sie die technischen Details in ein GitHub-Issue."
+    },
+    "stage_timeout": {
+      "title": "Ein Erkennungsschritt hat zu lange gedauert und wurde abgebrochen.",
+      "next": "Klassifikator oder Frigate sind möglicherweise überlastet. Prüfen Sie oben die Ressourcennutzung."
+    }
+  }
 }

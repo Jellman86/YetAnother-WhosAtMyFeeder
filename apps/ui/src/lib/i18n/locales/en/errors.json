@@ -1,6 +1,6 @@
 {
   "stack_trace": "Stack trace:",
-  "server_failure": "Something on the server stopped this request. Try again; if it keeps happening, open System health to see what is wrong.",
+  "server_failure": "Something on the server stopped this request. Try again; if it keeps happening, open Health to see what is wrong.",
   "connection": {
     "service_mqtt": "MQTT broker",
     "host_not_found": "{service}: the host name in {address} was not found. Check the address.",

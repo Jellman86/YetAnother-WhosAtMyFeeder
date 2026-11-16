@@ -6,7 +6,13 @@
     "hourly_title": "Time of day",
     "species_title": "Species mix",
     "empty": "No activity in this window.",
-    "other_species": "Other species"
+    "other_species": "Other species",
+    "unavailable": "Not available while the history cannot be read.",
+    "show_numbers": "Show the numbers",
+    "col_day": "Day",
+    "col_hour": "Hour",
+    "col_calls": "Calls",
+    "col_species": "Species"
   },
   "stat": {
     "heard": "Heard",
@@ -17,7 +23,9 @@
     "peak_hour_sub": "{count, plural, one {# detection} other {# detections}}",
     "no_activity": "No activity yet",
     "sources": "Sources",
-    "sources_sub": "Microphones or streams"
+    "sources_sub": "Microphones or streams",
+    "not_available": "Not available",
+    "no_calls": "No calls in this window"
   },
   "filter": {
     "window": "Window",
@@ -47,7 +55,10 @@
     "hide": "Hide from YA-WAMF",
     "undo": "Undo",
     "hidden_message": "Audio detection hidden.",
-    "local_only": "Hiding removes an entry from YA-WAMF history and future audio matches. BirdNET-Go is unchanged; upstream deletions are not automatically synced."
+    "local_only": "Hiding removes an entry from YA-WAMF history and future audio matches. BirdNET-Go is unchanged; upstream deletions are not automatically synced.",
+    "read_failed": "Audio history could not be read from YA-WAMF, so nothing on this page is a measurement.",
+    "read_failed_next": "Try again. If it keeps failing, open Health to see whether the backend reports a fault.",
+    "stale": "The latest refresh failed, so this is the reading from {at}."
   },
   "table": {
     "sound": "Sound",
