@@ -43,7 +43,7 @@ function workspace(connections: Record<string, unknown>) {
 
 test('Health never reads healthy while the broker and Frigate are down, and lists them as the open problems', async ({ page }) => {
     await openHealth(page, workspace({
-        mqtt: { state: 'disconnected', server: 'mqtt.invalid', port: 1883, last_attempt_at: '2026-11-13T18:18:00Z', last_error: '[Errno -2] Name or service not known' },
+        mqtt: { state: 'disconnected', server: 'mqtt.invalid', port: 1883, last_attempt_at: '2026-11-13T18:18:00Z', last_error: '[Errno -2] Name or service not known', last_error_cause: 'host_not_found' },
         frigate: { state: 'unreachable', url: 'http://frigate.invalid:5000', checked_at: '2026-11-13T18:19:00Z', last_failure: 'connection', availability: 'unknown' },
         generated_at: '2026-11-13T18:20:00Z'
     }));
@@ -63,11 +63,14 @@ test('Health never reads healthy while the broker and Frigate are down, and list
     await expect(page.locator('[data-health-earlier-incidents]')).toContainText('Earlier incidents');
     await expect(page.getByRole('button', { name: 'Clear error history' })).toBeVisible();
 
-    await page.locator('[data-subsystem-detail] summary').click();
+    await page.locator('[data-subsystem-detail] > summary').click();
     const mqtt = page.locator('[data-health-card="mqtt"]');
     await expect(mqtt).toHaveAttribute('data-health-card-status', 'disconnected');
     await expect(mqtt).toContainText('Not connected');
     await expect(mqtt).toContainText('Not connected to mqtt.invalid:1883.');
+    // The cause is worded from its code; the resolver's errno text is only a technical detail.
+    await expect(mqtt.locator('[data-health-mqtt-cause]')).toHaveText('MQTT broker: the host name in mqtt.invalid:1883 was not found. Check the address.');
+    await expect(mqtt.locator('[data-health-mqtt-cause]')).not.toContainText('Errno');
     await expect(mqtt).toContainText('Name or service not known');
     await expect(mqtt).not.toContainText('flowing normally');
     const frigate = page.locator('[data-health-card="frigate"]');
@@ -82,7 +85,7 @@ test('Health is healthy only with both connections measured up', async ({ page }
         generated_at: '2026-11-13T18:20:00Z'
     }));
     await expect(page.locator('[data-health-status-pill]')).toHaveText('Healthy');
-    await page.locator('[data-subsystem-detail] summary').click();
+    await page.locator('[data-subsystem-detail] > summary').click();
     await expect(page.locator('[data-health-card="mqtt"]')).toContainText('Connected to mqtt:1883 since');
     await expect(page.locator('[data-health-card="frigate"]')).toContainText('Frigate announces itself online over MQTT.');
 });
