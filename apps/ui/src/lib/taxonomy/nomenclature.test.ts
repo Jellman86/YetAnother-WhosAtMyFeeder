@@ -187,4 +187,14 @@ describe('one name for the record and its family tree', () => {
     it('does not rename a different species', () => {
         expect(withRecordName(lineage, 'Turdus merula', 'Blackbird')).toBe(lineage);
     });
+
+    it('names the subject the same way in a branch fetched later, which carries the catalogue name again', () => {
+        const subject = withRecordName(lineage, 'Sturnus vulgaris', 'European Starling')[2];
+        const branch = [
+            { rank: 'species', scientific_name: 'Sturnus unicolor', name: 'Spotless Starling' },
+            { rank: 'species', scientific_name: 'Sturnus vulgaris', name: 'Common Starling' }
+        ];
+        const named = withRecordName(branch, subject.scientific_name, subject.name);
+        expect(named.map((taxon) => taxon.name)).toEqual(['Spotless Starling', 'European Starling']);
+    });
 });

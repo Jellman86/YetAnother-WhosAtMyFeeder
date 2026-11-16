@@ -733,6 +733,17 @@ test('the ladder and the tree name the species as the record that opened them do
     await expect(card.locator('li')).toHaveText([/Class\s*Aves/, /Order\s*Passeriformes/, /Family\s*Accentors/, /Genus\s*Prunella/, /Species\s*Hedge Sparrow/]);
     await card.screenshot({ path: testInfo.outputPath('ladder-record-name.png') });
     await page.getByRole('button', { name: 'Open the family tree' }).click();
-    await expect(page.getByRole('dialog', { name: 'Family tree of Hedge Sparrow' })).toBeVisible();
+    const dialog = page.getByRole('dialog', { name: 'Family tree of Hedge Sparrow' });
+    await expect(dialog).toBeVisible();
+    // The selected node is the same bird as the title, so it carries the same name in every layout.
+    const selected = dialog.getByRole('treeitem', { selected: true });
+    await expect(selected.first()).toContainText('Hedge Sparrow');
+    await expect(dialog).not.toContainText('Dunnock');
+    await dialog.screenshot({ path: testInfo.outputPath('tree-record-name.png') });
+    for (const layout of ['fan', 'outline']) {
+        await dialog.locator(`[data-family-tree-mode="${layout}"]`).click();
+        await expect(dialog.getByRole('treeitem', { selected: true }).first()).toContainText('Hedge Sparrow');
+        await expect(dialog).not.toContainText('Dunnock');
+    }
     expect(errors).toEqual([]);
 });
