@@ -63,6 +63,73 @@ const NOTIFICATIONS = (now: number) => [
 
 export type Theme = 'light' | 'dark';
 
+const HEALTHY_CONNECTIONS = {
+    mqtt: { state: 'connected', server: 'mqtt', port: 1883 },
+    frigate: { state: 'reachable', url: 'http://frigate:5000', availability: 'online' },
+    generated_at: '2026-11-16T00:00:00Z'
+};
+
+function recordedJson(path: string): unknown {
+    return recordedFor(new URL(path, 'http://fixture'))?.json;
+}
+
+/** The recorded sidebar sample, as the status carries it, so the owner's CPU line has a reading. */
+function replayedTelemetry(): unknown {
+    const sample = recordedJson('/api/system-telemetry') as {
+        cpu_percent?: number | null;
+        accelerator?: { kind: string; label: string; utilization_percent: number | null } | null;
+    } | undefined;
+    if (!sample) return null;
+    return {
+        sampled_at: Date.now() / 1000,
+        cpu_percent: sample.cpu_percent ?? null,
+        accelerator_percent: sample.accelerator?.utilization_percent ?? null,
+        accelerator_kind: sample.accelerator?.kind ?? null,
+        accelerator_label: sample.accelerator?.label ?? null
+    };
+}
+
+/**
+ * The pushed status the shell reads (`/api/status`), built from the recording's own answers for the
+ * parts it carries, so the replayed jobs, queue, connections and cameras are the ones shown. A test
+ * that overrides the workspace without connections gets measured, healthy connections, as before
+ * the status existed, when such a workspace counted no connection problem.
+ */
+function replayedStatus(overrides: Record<string, unknown>): unknown {
+    const workspace = overrides['/api/diagnostics/workspace'] as { connections?: unknown } | undefined;
+    const connections = overrides['/api/diagnostics/connections']
+        ?? workspace?.connections
+        ?? (workspace ? HEALTHY_CONNECTIONS : recordedJson('/api/diagnostics/connections'));
+    const jobs = overrides['/api/jobs'] ?? recordedJson('/api/jobs?include_routine=true')
+        ?? { captured_at: new Date().toISOString(), items: [], lanes: [] };
+    const lanes = (jobs as { lanes?: { kind: string; running?: number; queued?: number }[] }).lanes ?? [];
+    const routine = new Set(['auto_video', 'high_quality_snapshot', 'full_visit', 'favorite_archive']);
+    const prominent = lanes.filter((lane) => !routine.has(lane.kind));
+    return {
+        revision: 1,
+        generated_at: new Date().toISOString(),
+        startup_instance_id: 'fixture',
+        // A version other than the page's own would make deploy recovery reload the page.
+        version: 'unknown',
+        overall: { state: 'ok', cause: 'ok', subsystem: null },
+        subsystems: [],
+        jobs_summary: {
+            running: prominent.reduce((sum, lane) => sum + (lane.running ?? 0), 0),
+            queued: prominent.reduce((sum, lane) => sum + (lane.queued ?? 0), 0),
+            progress: null
+        },
+        jobs,
+        analysis: overrides['/api/maintenance/analysis/status'] ?? recordedJson('/api/maintenance/analysis/status')
+            ?? { pending: 0, active: 0, circuit_open: false },
+        model: { state: 'ok', cause: 'ready', revision: 'fixture' },
+        connections,
+        cameras: overrides['/api/frigate/cameras/status'] ?? recordedJson('/api/frigate/cameras/status') ?? null,
+        telemetry: replayedTelemetry(),
+        diagnostics_revision: 0,
+        health_revision: 'fixture'
+    };
+}
+
 /** Answer the app's requests from the recording, and open it in `theme` with motion settled. */
 export async function replayFeeder(
     page: Page,
@@ -90,6 +157,7 @@ export async function replayFeeder(
         const url = new URL(route.request().url());
         if (url.pathname in overrides) return route.fulfill({ json: overrides[url.pathname] });
         if (url.pathname === '/api/sse') return route.abort();
+        if (url.pathname === '/api/status') return route.fulfill({ json: replayAt(replayedStatus(overrides), shiftMs) });
         if (route.request().resourceType() === 'image' || /\.(?:jpg|jpeg|png|webp)$/.test(url.pathname)) {
             return route.fulfill({ contentType: 'image/svg+xml', body: PHOTOGRAPH });
         }
