@@ -320,8 +320,15 @@ export interface components {
     clips_deleted: number;
     snapshots_deleted: number;
 };
+    BackfillResetCountChanged: {
+    code?: "reset_count_changed";
+    detection_count: number;
+};
     BackfillResetPreviewResponse: {
     detection_count: number;
+};
+    BackfillResetRefusal: {
+    detail: components['schemas']['BackfillResetCountChanged'] | string;
 };
     BackfillResetResponse: {
     cache_stats: components['schemas']['BackfillResetCacheStats'];

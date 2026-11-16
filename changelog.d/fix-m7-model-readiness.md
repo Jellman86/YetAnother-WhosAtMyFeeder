@@ -10,3 +10,6 @@
 - A Garden capture that is waiting says why when the automatic check model cannot run ("the
   automatic check model is not downloaded, so nothing can identify this yet") and links straight
   to its setup, instead of "Waiting for automatic identification" with no cause.
+- For integrators: the API reference now documents how the setup state's classifier section maps
+  the model's measured readiness to its status and detail code, and the OpenAPI contract declares
+  the 409 that "Delete all history" answers when the confirmed count has changed.

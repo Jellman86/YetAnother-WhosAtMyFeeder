@@ -210,12 +210,33 @@ This is the current route map (grouped). Use OpenAPI for full schemas.
 - `GET /api/setup/state` (owner; also reachable before auth is enabled) — returns
   `ok`, `attention`, or `optional` states for account, connection,
   cameras, classifier, snapshot quality, and integrations. These are saved
-  configuration/credential readiness, with two exceptions: running without a password is
-  `optional` (`account_auth_disabled`), never `ok`, and the connection section reads the
-  measured broker and Frigate state from [`GET /api/diagnostics/connections`](#debug-owner).
+  configuration/credential readiness, with three exceptions: running without a password is
+  `optional` (`account_auth_disabled`), never `ok`; the connection section reads the
+  measured broker and Frigate state from [`GET /api/diagnostics/connections`](#debug-owner);
+  and the classifier section reads the model's measured readiness (below).
   Saved values that could not be reached are `attention` with `detail_code`
   `connection_unreachable` and `detail_values.items` (`mqtt`, `frigate`); values measured working
   are `ok` with `connection_connected`; values not measured yet keep `connection_ready`.
+
+  The classifier (`model`) section is derived from the classifier's runtime report, the one
+  [`GET /api/classifier/status`](#classifier-and-models) returns, not from the saved model name or from a
+  weights file being on disk. The report is read as one of seven readiness states, and a model is
+  called ready or running only on positive evidence:
+
+  | Readiness | Meaning | `status` | `detail_code` |
+  |---|---|---|---|
+  | `checking` | No report could be read yet | `ok` | `model_selected`, or `model_fallback` for the bundled model |
+  | `missing` | The model's files are not on this install | `attention` | `model_missing` |
+  | `failed` | Installed, and it could not be loaded | `attention` | `model_failed` |
+  | `loading` | Installed, and an in-app runtime is still loading it | `optional` | `model_loading` |
+  | `ready` | Installed; workers start with the first detection | `ok` | `model_ready` |
+  | `running` | Loaded in the app, or running in workers | `ok` | `model_running` |
+  | `unknown` | A report arrived and gave no evidence either way | `ok` | `model_selected`, or `model_fallback` |
+
+  `model_selected` and `model_fallback` therefore mean "chosen, not measured": a client should not
+  present them as a working model. `detail_values.model` carries the model's name where one is
+  known. Two findings come before readiness and are always `attention`: `model_retired` (the saved
+  classifier has been retired) and `model_wrong_kind` (a crop detector is saved as the classifier).
 
 ### Events
 
@@ -1436,7 +1457,9 @@ archived videos return 404 so the player uses the retained MP4; no archive trans
 - `DELETE /api/backfill/reset` (owner) — irreversibly deletes all detections and cached media after
   cancelling and awaiting in-process backfill work. With `?expected_count=N` it deletes only if `N`
   is still the number of detections once ingest has stopped; otherwise it answers 409 with
-  `{"code": "reset_count_changed", "detection_count": <current>}` and deletes nothing.
+  `{"detail": {"code": "reset_count_changed", "detection_count": <current>}}` and deletes nothing.
+  The count and the delete run in one write-locked transaction. A reset requested while another is
+  under way also answers 409, with a sentence in `detail`.
 
 Backfill accepts `day`, `week`, `month`, or `custom`. Custom `start_date` and `end_date` values are
 calendar dates in the browser timezone, and the final day is inclusive. Detection import is
