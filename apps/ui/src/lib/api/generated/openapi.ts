@@ -320,6 +320,9 @@ export interface components {
     clips_deleted: number;
     snapshots_deleted: number;
 };
+    BackfillResetPreviewResponse: {
+    detection_count: number;
+};
     BackfillResetResponse: {
     cache_stats: components['schemas']['BackfillResetCacheStats'];
     deleted_count: number;
@@ -3552,9 +3555,20 @@ export interface paths {
     delete: {
       operationId: "reset_database_api_backfill_reset_delete";
       path: never;
-      query: never;
+      query: {
+    expected_count?: number | null;
+};
       requestBody: unknown;
       response: components['schemas']['BackfillResetResponse'];
+    };
+  };
+  "/api/backfill/reset/preview": {
+    get: {
+      operationId: "preview_reset_api_backfill_reset_preview_get";
+      path: never;
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['BackfillResetPreviewResponse'];
     };
   };
   "/api/backfill/status": {

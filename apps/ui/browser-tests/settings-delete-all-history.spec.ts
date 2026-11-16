@@ -9,39 +9,43 @@ test.use({ viewport: { width: 1440, height: 900 } });
 interface StatsFixture {
     requests: number;
     resets: number;
+    /** The `expected_count` each reset request carried; null when it carried none. */
+    expected: Array<string | null>;
+    /** How many detections the server holds when the reset arrives. */
+    serverCount: number;
     release: () => void;
 }
 
 async function openDangerZone(page: Page, answer: { status: number; json: unknown }): Promise<StatsFixture> {
     let release = (): void => {};
     const held = new Promise<void>((resolve) => { release = resolve; });
-    const fixture: StatsFixture = { requests: 0, resets: 0, release };
+    const fixture: StatsFixture = { requests: 0, resets: 0, expected: [], serverCount: 931, release };
     await openSettings(page);
-    await page.route(url => url.pathname === '/api/maintenance/stats', async route => {
+    await page.route(url => url.pathname === '/api/backfill/reset/preview', async route => {
         fixture.requests += 1;
         await held;
         await route.fulfill(answer);
     });
     await page.route(url => url.pathname === '/api/backfill/reset', async route => {
+        const expected = new URL(route.request().url()).searchParams.get('expected_count');
+        fixture.expected.push(expected);
+        // The server deletes only the number it was shown; with another number it refuses and reports its own.
+        if (expected !== null && Number(expected) !== fixture.serverCount) {
+            return route.fulfill({ status: 409, json: { detail: { code: 'reset_count_changed', detection_count: fixture.serverCount } } });
+        }
         fixture.resets += 1;
-        await route.fulfill({ json: { status: 'completed', message: 'Deleted 931 detections.', deleted_count: 931, cache_stats: {} } });
+        await route.fulfill({ json: { status: 'completed', message: `Deleted ${fixture.serverCount} detections.`, deleted_count: fixture.serverCount, cache_stats: {} } });
     });
     await page.getByRole('link', { name: 'Maintenance', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Delete data', exact: true })).toBeVisible();
     return fixture;
 }
 
-const stats = (total: unknown) => ({
-    status: 200,
-    json: {
-        total_detections: total, oldest_detection: '2026-10-18T07:08:46', retention_days: 0, detections_to_cleanup: 0,
-        kept_newest_per_species: 0, automatic_cleanup: true, preview_retention_days: null, preview_detections_to_cleanup: null
-    }
-});
+const stats = (total: unknown) => ({ status: 200, json: { detection_count: total } });
 
 test('the question counts the detections first and cannot be confirmed until it has', async ({ page }, testInfo) => {
     const fixture = await openDangerZone(page, stats(931));
-    // Maintenance never reads the storage figures on its own.
+    // The count is read when the owner asks, never before.
     expect(fixture.requests).toBe(0);
 
     await page.getByRole('button', { name: 'Delete all history', exact: true }).click();
@@ -53,13 +57,35 @@ test('the question counts the detections first and cannot be confirmed until it 
     await page.screenshot({ path: testInfo.outputPath('delete-all-counting.png') });
 
     fixture.release();
-    await expect(dialog).toContainText('Delete all 931 detections, every cached photo and clip, and every archived favourite? This cannot be undone.');
+    await expect(dialog).toContainText('Delete all 931 detections, hidden ones included, every cached photo and clip, and every archived favourite? This cannot be undone.');
     await expect(confirm).toBeEnabled();
     await page.screenshot({ path: testInfo.outputPath('delete-all-counted.png') });
     expect(fixture.resets).toBe(0);
 
     await confirm.click();
     await expect.poll(() => fixture.resets).toBe(1);
+    // The request carries the number the owner confirmed.
+    expect(fixture.expected).toEqual(['931']);
+});
+
+test('detections that arrive after the count stop the delete, and the owner is asked again with the new number', async ({ page }, testInfo) => {
+    const fixture = await openDangerZone(page, stats(931));
+    fixture.release();
+    await page.getByRole('button', { name: 'Delete all history', exact: true }).click();
+    const dialog = page.getByRole('alertdialog');
+    const confirm = dialog.getByRole('button', { name: 'Delete all history permanently', exact: true });
+    await expect(dialog).toContainText('Delete all 931 detections');
+
+    // Two visits are recorded while the question is still on screen.
+    fixture.serverCount = 933;
+    await confirm.click();
+    await expect(dialog).toContainText('The number of detections changed while this was open. Delete all 933 detections, hidden ones included');
+    expect(fixture.resets).toBe(0);
+    await page.screenshot({ path: testInfo.outputPath('delete-all-count-changed.png') });
+
+    await confirm.click();
+    await expect.poll(() => fixture.resets).toBe(1);
+    expect(fixture.expected).toEqual(['931', '933']);
 });
 
 test('a count that cannot be read is left out, and the question still says it cannot be undone', async ({ page }, testInfo) => {

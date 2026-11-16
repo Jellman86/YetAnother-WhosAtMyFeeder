@@ -25,6 +25,7 @@
         fetchTimezoneRepairPreview,
         applyTimezoneRepair,
         resetDatabase,
+        fetchResetPreview,
         clearClassificationFeedback,
         analyzeUnknowns,
         fetchAudioSources,
@@ -69,6 +70,7 @@
     import { toastStore } from '../stores/toast.svelte';
     import { confirmAction, type ConfirmWording } from '../stores/confirm_dialog.svelte';
     import { measuredCount } from '../settings/measured-count';
+    import { resetWithConfirmedCount } from '../settings/reset-history';
     import { jobProgressStore } from '../stores/job_progress.svelte';
     import { jobDiagnosticsStore } from '../stores/job_diagnostics.svelte';
     import { notificationCenter } from '../stores/notification_center.svelte';
@@ -1774,41 +1776,60 @@
         };
     }
 
-    /** What "Delete all history" asks. A count nobody read is left out, never shown as zero. */
-    function resetQuestion(count: number | null): ConfirmWording {
-        return {
-            message: count === null
-                ? $_('settings.danger.confirm_uncounted', {
+    /**
+     * What "Delete all history" asks. A count nobody read is left out, never shown as zero, and a
+     * count that changed while the question was open says so before it asks again.
+     */
+    function resetQuestion(count: number | null, changed = false): ConfirmWording {
+        if (count === null) {
+            return {
+                message: $_('settings.danger.confirm_uncounted', {
                     default: 'Delete all detections, every cached photo and clip, and every archived favourite? The number of detections could not be read. This cannot be undone.'
+                })
+            };
+        }
+        return {
+            message: changed
+                ? $_('settings.danger.confirm_changed', {
+                    values: { count },
+                    default: 'The number of detections changed while this was open. Delete all {count, plural, one {# detection} other {# detections}}, hidden ones included, every cached photo and clip, and every archived favourite? This cannot be undone.'
                 })
                 : $_('settings.danger.confirm', {
                     values: { count },
-                    default: 'Delete all {count, plural, one {# detection} other {# detections}}, every cached photo and clip, and every archived favourite? This cannot be undone.'
+                    default: 'Delete all {count, plural, one {# detection} other {# detections}}, hidden ones included, every cached photo and clip, and every archived favourite? This cannot be undone.'
                 })
         };
     }
 
     async function handleResetDatabase() {
-        // Maintenance never loads the storage figures, so the count is read when the owner asks.
-        const confirmed = await confirmAction({
-            title: $_('settings.danger.reset_button', { default: 'Delete all history' }),
-            message: $_('settings.danger.confirm_counting', { default: 'Counting the detections this would delete…' }),
-            confirmLabel: $_('settings.danger.reset_confirm_button', { default: 'Delete all history permanently' }),
-            reading: {
-                read: async () => resetQuestion(measuredCount((await fetchMaintenanceStats()).total_detections)),
-                unread: resetQuestion(null)
-            }
-        });
-        if (!confirmed) {
-            return;
-        }
-
-        resettingDatabase = true;
-        toastStore.show($_('settings.danger.resetting'), 'info');
+        const title = $_('settings.danger.reset_button', { default: 'Delete all history' });
+        const confirmLabel = $_('settings.danger.reset_confirm_button', { default: 'Delete all history permanently' });
         try {
-            const result = await resetDatabase();
+            // The count is the reset's own scope, read when the owner asks, and sent back with the
+            // request: the server deletes that number or refuses and reports the new one.
+            const result = await resetWithConfirmedCount({
+                readCount: async () => measuredCount((await fetchResetPreview()).detection_count),
+                ask: async (question) => {
+                    const confirmed = await confirmAction(question.kind === 'count'
+                        ? {
+                            title,
+                            message: $_('settings.danger.confirm_counting', { default: 'Counting the detections this would delete…' }),
+                            confirmLabel,
+                            reading: { read: async () => resetQuestion(await question.read()), unread: resetQuestion(null) }
+                        }
+                        : { title, message: resetQuestion(question.count, true).message, confirmLabel });
+                    if (!confirmed) resettingDatabase = false;
+                    return confirmed;
+                },
+                reset: (expectedCount) => {
+                    resettingDatabase = true;
+                    toastStore.show($_('settings.danger.resetting'), 'info');
+                    return resetDatabase(expectedCount);
+                }
+            });
+            if (result === null) return;
             notify('success', result.message);
-            toastStore.success(result.message || $_('settings.danger.reset_button', { default: 'Delete all history' }));
+            toastStore.success(result.message || title);
             await Promise.all([loadMaintenanceStats(), loadCacheStats(), loadClassifierStatus()]);
         } catch (e) {
             const errorMessage = getErrorMessage(e) || $_('settings.data.reset_error');

@@ -3672,6 +3672,12 @@ class DetectionRepository:
 
         return total_deleted
 
+    async def count_all(self) -> int:
+        """Every detection row `delete_all` would remove: hidden rows included, no filter at all."""
+        async with self.db.execute("SELECT COUNT(*) FROM detections") as cursor:
+            row = await cursor.fetchone()
+        return int(row[0]) if row and row[0] is not None else 0
+
     async def delete_all(self) -> int:
         """Delete ALL detections. Use with caution."""
         async with self.db.execute("DELETE FROM detections") as cursor:

@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, timezone, tzinfo
 from typing import Optional, List
-from fastapi import APIRouter, HTTPException, Request, Depends
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 import structlog
 import asyncio
@@ -57,6 +57,12 @@ class BackfillResetCacheStats(BaseModel):
     snapshots_deleted: int
     clips_deleted: int
     bytes_freed: int
+
+
+class BackfillResetPreviewResponse(BaseModel):
+    """What a reset would delete right now, counted over the reset's own scope."""
+
+    detection_count: int = Field(description="Every detection row a reset removes, hidden ones included.")
 
 
 class BackfillResetResponse(BaseModel):
@@ -440,10 +446,28 @@ def _resolve_date_range(
     raise HTTPException(status_code=400, detail=i18n_service.translate("errors.backfill.invalid_time_range", lang))
 
 
+@router.get("/backfill/reset/preview", response_model=BackfillResetPreviewResponse)
+async def preview_reset(_auth: AuthContext = Depends(require_owner)) -> BackfillResetPreviewResponse:
+    """How many detections a reset would delete: the number its confirmation states. Owner only."""
+    async with get_db() as db:
+        return BackfillResetPreviewResponse(detection_count=await DetectionRepository(db).count_all())
+
+
 @router.delete("/backfill/reset", response_model=BackfillResetResponse)
-async def reset_database(request: Request, _auth: AuthContext = Depends(require_owner)) -> BackfillResetResponse:
+async def reset_database(
+    request: Request,
+    expected_count: int | None = Query(
+        None,
+        ge=0,
+        description="The detection count the owner was shown. The reset is refused if it no longer holds.",
+    ),
+    _auth: AuthContext = Depends(require_owner),
+) -> BackfillResetResponse:
     """
     Reset the database: Delete ALL detections and clear media cache. Owner only.
+
+    With `expected_count`, nothing is deleted unless that is still the number of detections once
+    ingest has stopped: a 409 carries the current count so the owner can be asked again.
     """
     global _RESET_IN_PROGRESS
     async with _JOB_LOCK:
@@ -461,9 +485,17 @@ async def reset_database(request: Request, _auth: AuthContext = Depends(require_
             await asyncio.gather(*tasks, return_exceptions=True)
         await auto_video_classifier.reset_state()
 
-        # Clear detections
+        # Ingest is paused and background jobs are stopped, so the count checked here is the count
+        # deleted: nothing can be recorded between the two.
         async with get_db() as db:
             repo = DetectionRepository(db)
+            if expected_count is not None:
+                current_count = await repo.count_all()
+                if current_count != expected_count:
+                    raise HTTPException(
+                        status_code=409,
+                        detail={"code": "reset_count_changed", "detection_count": current_count},
+                    )
             deleted_count = await repo.delete_all()
 
         # Clear media cache, and the favourite archive: a reset is the one action meant to leave nothing.
@@ -488,6 +520,8 @@ async def reset_database(request: Request, _auth: AuthContext = Depends(require_
             "deleted_count": deleted_count,
             "cache_stats": cache_stats,
         }
+    except HTTPException:
+        raise
     except Exception as e:
         log.error("Database reset failed", error=safe_error_message(e))
         raise HTTPException(status_code=500, detail=safe_error_message(e))

@@ -1,9 +1,11 @@
 - **Delete all history** in Settings → Maintenance now counts the detections before it can be
   confirmed. The question said "Delete all 0 detections" on an install holding hundreds, because
-  the count was only ever read on the Data tab. It now says it is counting, then states the real
-  number, and if the count cannot be read it says "all detections" with no number. The confirm
-  button reads **Delete all history permanently**. **Purge old records** reads its count the same
-  way, at the moment of asking.
+  the count was only ever read on the Data tab. It now says it is counting, then states the number
+  the reset will really delete, hidden detections included, and if the count cannot be read it
+  says "all detections" with no number. The number confirmed is sent with the request: if
+  detections arrived while the question was open, nothing is deleted and the question is asked
+  again with the new number. The confirm button reads **Delete all history permanently**.
+  **Purge old records** reads its count at the moment of asking too.
 - A detection record says "Frigate no longer has this event or media" only when Frigate answered
   that the event is not found, or the media integrity scan recorded it missing. When Frigate was
   unreachable, slow, erroring or simply not asked, the record now says that instead, with what to
