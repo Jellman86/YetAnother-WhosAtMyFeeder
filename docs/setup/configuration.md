@@ -253,7 +253,8 @@ on the leaderboard.
   1280×720 frames to check that the provider accepts a multi-frame image request. A pass
   confirms this test request succeeded; it does not guarantee every later analysis will succeed.
 - **Usage:** calls, tokens, and estimated cost per feature, with the reference pricing the
-  estimate used.
+  estimate used. A cost is shown only for models that have a price: a model without one reads
+  "Not priced", and the total says how many requests it covers and which models it leaves out.
 
 ## Notifications
 
