@@ -12,6 +12,39 @@ export interface ReviewReasonMessage {
     values?: { count: number };
 }
 
+/**
+ * The reason a queued visit states. The queue's own reason wins. A visit that arrived without one
+ * is judged by what it shows: a bird with no species is unknown, never "below the naming
+ * threshold", and a named one is waiting on its score.
+ */
+export function reviewReasonFor(detection: Detection, reasons: ReadonlyMap<string, ReviewReason> | undefined): ReviewReason {
+    const given = reasons?.get(detection.frigate_event);
+    if (given) return given;
+    const name = (detection.display_name ?? '').trim();
+    return !name || isUnknownBirdLabel(name) ? 'unknown_species' : 'low_score';
+}
+
+/** The sentence the review dialog opens with: why this visit needs a person, and what to do. */
+export function reviewReasonNote(
+    reason: ReviewReason,
+    species: string
+): { key: string; default: string; values?: { species: string } } {
+    if (reason === 'new_species') {
+        return {
+            key: 'dashboard.review_session.new_species_note',
+            default: 'First {species} recorded here. Confirm it, correct it, or block the species.',
+            values: { species }
+        };
+    }
+    if (reason === 'unknown_species') {
+        return {
+            key: 'dashboard.review_session.unknown_note',
+            default: 'The model could not name this bird, so there is no species to confirm. Pick one below.'
+        };
+    }
+    return { key: 'dashboard.review_session.threshold_note', default: 'The model scored this below the naming threshold.' };
+}
+
 /** The words a queue row uses to say why it needs a person. */
 export function reviewReasonMessage(reason: ReviewReason, sightings: number): ReviewReasonMessage {
     if (reason === 'new_species') {

@@ -22,3 +22,10 @@
 - The "not responding" and "could not finish starting" screens no longer say "Your feeder data is
   safe", which nothing had checked while the service was down. About's browser step says
   "Connected" instead of "Live", a word kept for camera events.
+- A saved diagnostics bundle on the Health page reads "1 group · 1 event · 1 snapshot" instead of
+  "1 groups • 1 events • 1 snapshots", in every language.
+- The review queue gives each visit its own reason. A bird the model could not name is no longer
+  described as "below the naming threshold"; the dialog says there is no species to confirm, as
+  the Dashboard card does for the same visit.
+- Species details opened from a Leaderboard row lead with the visits that row showed, in its
+  window ("Visits, last 30 days"), followed by the all-time detections.
