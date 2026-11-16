@@ -14,6 +14,7 @@
     "unreachable": "Injoignable",
     "model_missing": "À télécharger",
     "model_failed": "Chargement impossible",
+    "model_loading": "Chargement",
     "model_ready": "Prêt",
     "model_running": "En service",
     "model_chosen": "Choisi"

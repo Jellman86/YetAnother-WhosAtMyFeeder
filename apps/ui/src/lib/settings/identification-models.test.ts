@@ -203,6 +203,8 @@ describe('the SPA and the server read a classifier report as the same readiness'
         missing: 'missing',
         failed: 'failed',
         unavailable: 'failed',
+        loading: 'loading',
+        unknown: 'unknown',
         planned: 'ready',
         running: 'running'
     };

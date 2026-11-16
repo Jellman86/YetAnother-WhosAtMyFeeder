@@ -51,6 +51,10 @@
                     : $_('settings.models.status_failed_runtime', { default: '{model} is installed but failed to load: the runtime could not open it on this machine. Nothing is naming birds until it loads.', values: { model } });
             case 'unavailable':
                 return $_('settings.models.status_unavailable', { default: '{model} is installed but not loaded, so nothing is naming birds right now.', values: { model } });
+            case 'loading':
+                return $_('settings.models.status_loading', { default: '{model} is loading. Nothing is naming birds until it has loaded.', values: { model } });
+            case 'unknown':
+                return $_('settings.models.status_unknown', { default: 'The classifier did not say whether {model} is naming birds.', values: { model } });
             case 'planned':
                 return status.device
                     ? $_('settings.models.status_planned', { default: '{model} will name birds on {device}. It loads with the first detection.', values: { model, device: status.device } })

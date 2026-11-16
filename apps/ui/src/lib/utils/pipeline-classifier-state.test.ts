@@ -59,4 +59,11 @@ describe('pipelineClassifierState', () => {
         expect(pipelineClassifierState(absent)).toBe('missing');
         expect(identificationStatus(absent).kind).toBe('missing');
     });
+
+    it('does not call an in-app model loaded while it is being reloaded', () => {
+        // The old model is gone and its replacement is not in: the report has no `loaded` at all.
+        const reloading = { labels_count: 10, enabled: true, image_execution_mode: 'in_process', runtime_source: 'in_process', effective_model_id: 'small_birds', inference_health: { status: 'ok' } } as ClassifierStatus;
+        expect(pipelineClassifierState(reloading)).toBe('unknown');
+        expect(identificationStatus(reloading).kind).toBe('loading');
+    });
 });

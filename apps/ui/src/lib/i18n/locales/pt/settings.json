@@ -1787,6 +1787,8 @@
     "status_checking": "A verificar que modelo identifica as aves…",
     "status_missing": "Ainda nada identifica as aves: o modelo escolhido, {model}, não está nesta instalação.",
     "status_missing_unnamed": "Ainda nada identifica as aves: o modelo escolhido não está nesta instalação.",
+    "status_loading": "{model} está carregando. Nada identifica as aves até que termine.",
+    "status_unknown": "O classificador não informou se {model} está identificando aves.",
     "status_missing_next_settings": "Transfira-o abaixo ou escolha outro modelo.",
     "status_missing_next_wizard": "Transfira-o aqui ou escolha outro modelo.",
     "status_missing_next_about": "Transfira-o em Configurações › Modelos.",

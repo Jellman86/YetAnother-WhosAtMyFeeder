@@ -17,6 +17,12 @@ describe("the review's word for each section", () => {
         expect(reviewStatusLabel(section({ detail_code: 'model_fallback' }), t)).toBe('Chosen');
     });
 
+    it('says a model that is still loading is loading, in a neutral tone', () => {
+        const loading = section({ status: 'optional', detail_code: 'model_loading' });
+        expect(reviewStatusLabel(loading, t)).toBe('Loading');
+        expect(reviewStatusTone(loading)).toBe('optional');
+    });
+
     it('never calls a model whose files are here but could not be loaded ready', () => {
         expect(reviewStatusLabel(section({ status: 'attention', detail_code: 'model_failed' }), t)).toBe('Could not load');
         expect(reviewStatusTone(section({ status: 'attention', detail_code: 'model_failed' }))).toBe('attention');

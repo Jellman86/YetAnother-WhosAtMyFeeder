@@ -1787,6 +1787,8 @@
     "status_checking": "どのモデルが鳥を識別しているか確認しています…",
     "status_missing": "まだ鳥を識別できるものがありません: 選択したモデル「{model}」はこのインストールにありません。",
     "status_missing_unnamed": "まだ鳥を識別できるものがありません: 選択したモデルはこのインストールにありません。",
+    "status_loading": "{model} を読み込んでいます。読み込みが終わるまで鳥は識別されません。",
+    "status_unknown": "分類器は {model} が鳥を識別しているかどうかを報告していません。",
     "status_missing_next_settings": "下でダウンロードするか、別のモデルを選んでください。",
     "status_missing_next_wizard": "ここでダウンロードするか、別のモデルを選んでください。",
     "status_missing_next_about": "設定 › モデル でダウンロードしてください。",

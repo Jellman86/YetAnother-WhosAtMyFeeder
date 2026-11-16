@@ -1787,6 +1787,8 @@
     "status_checking": "Checking which model names birds…",
     "status_missing": "Nothing is naming birds yet: the chosen model, {model}, is not on this install.",
     "status_missing_unnamed": "Nothing is naming birds yet: the chosen model is not on this install.",
+    "status_loading": "{model} is loading. Nothing is naming birds until it has loaded.",
+    "status_unknown": "The classifier did not say whether {model} is naming birds.",
     "status_missing_next_settings": "Download it below, or choose another model.",
     "status_missing_next_wizard": "Download it here, or choose another model.",
     "status_missing_next_about": "Download it in Settings › Models.",

@@ -14,6 +14,7 @@
     "unreachable": "Nicht erreichbar",
     "model_missing": "Download nötig",
     "model_failed": "Konnte nicht geladen werden",
+    "model_loading": "Wird geladen",
     "model_ready": "Bereit",
     "model_running": "Läuft",
     "model_chosen": "Gewählt"

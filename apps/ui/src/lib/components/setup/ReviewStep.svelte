@@ -82,6 +82,7 @@
                 return text('model')
                     ? $_('setup.review.detail.model_failed', { values: { model: text('model') }, default: '{model} is installed but could not be loaded, so nothing is naming birds.' })
                     : $_('setup.review.detail.model_failed_bundled', { default: 'The bundled model is installed but could not be loaded, so nothing is naming birds.' });
+            case 'model_loading':
             case 'model_ready':
             case 'model_running':
                 return text('model') || $_('setup.review.detail.model_bundled', { default: 'Bundled model' });

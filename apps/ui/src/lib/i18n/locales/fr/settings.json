@@ -1787,6 +1787,8 @@
     "status_checking": "Vérification du modèle qui nomme les oiseaux…",
     "status_missing": "Rien ne nomme encore les oiseaux : le modèle choisi, {model}, n’est pas sur cette installation.",
     "status_missing_unnamed": "Rien ne nomme encore les oiseaux : le modèle choisi n’est pas sur cette installation.",
+    "status_loading": "{model} est en cours de chargement. Rien ne nomme les oiseaux tant qu’il n’est pas chargé.",
+    "status_unknown": "Le classificateur n’a pas indiqué si {model} nomme les oiseaux.",
     "status_missing_next_settings": "Téléchargez-le ci-dessous ou choisissez un autre modèle.",
     "status_missing_next_wizard": "Téléchargez-le ici ou choisissez un autre modèle.",
     "status_missing_next_about": "Téléchargez-le dans Paramètres › Modèles.",

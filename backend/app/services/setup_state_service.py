@@ -174,6 +174,15 @@ def _model(settings, active_model_id: str | None, readiness: ModelReadiness | No
             detail_code="model_failed",
             detail_values={"model": name or ""},
         )
+    if readiness == "loading":
+        # Neither working nor broken: it is said as it is, and never as ready.
+        return SetupSectionState(
+            id="model",
+            status="optional",
+            detail=f"{shown} is loading",
+            detail_code="model_loading",
+            detail_values={"model": name or ""},
+        )
     if readiness in ("ready", "running"):
         return SetupSectionState(
             id="model",

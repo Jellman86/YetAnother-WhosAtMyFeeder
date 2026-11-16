@@ -14,6 +14,7 @@
     "unreachable": "到達不可",
     "model_missing": "ダウンロードが必要",
     "model_failed": "読み込めませんでした",
+    "model_loading": "読み込み中",
     "model_ready": "準備完了",
     "model_running": "動作中",
     "model_chosen": "選択済み"

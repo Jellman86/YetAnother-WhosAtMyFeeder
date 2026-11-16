@@ -21,6 +21,8 @@ export function reviewStatusLabel(section: SetupSectionState, t: Translate): str
             return t('setup.status.model_missing', { default: 'Needs a download' });
         case 'model_failed':
             return t('setup.status.model_failed', { default: 'Could not load' });
+        case 'model_loading':
+            return t('setup.status.model_loading', { default: 'Loading' });
         case 'model_ready':
             return t('setup.status.model_ready', { default: 'Ready' });
         case 'model_running':

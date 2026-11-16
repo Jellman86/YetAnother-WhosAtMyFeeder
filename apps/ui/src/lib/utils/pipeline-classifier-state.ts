@@ -28,5 +28,10 @@ export function pipelineClassifierState(status: ClassifierStatus | null): Pipeli
 
     const modelId = status.effective_model_id ?? status.active_model_id;
     if (!modelId || health !== 'ok') return 'unknown';
+    // Loaded and standing by each need evidence. An in-app model with no `loaded` reading is being
+    // (re)loaded, and that is not a state this step can claim.
+    const inApp = status.runtime_source === 'in_process' || status.runtime_source === 'in_process_fallback'
+        || (status.image_execution_mode === 'in_process' && status.runtime_source !== 'worker' && status.runtime_source !== 'planned');
+    if (inApp) return 'unknown';
     return status.runtime_source === 'planned' ? 'standby' : 'loaded';
 }

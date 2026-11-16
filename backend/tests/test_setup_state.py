@@ -201,7 +201,33 @@ def test_the_bundled_fallback_is_not_called_configured_when_its_file_is_absent()
     assert model.detail_values == {"model": ""}
 
 
-@pytest.mark.parametrize("readiness", [None, "checking"])
+def test_a_model_that_is_still_loading_is_not_called_running():
+    model = _by_id(compute_setup_state(_settings(), active_model_id="small_birds", model_readiness="loading"))["model"]
+
+    assert model.status == "optional"
+    assert model.detail_code == "model_loading"
+    assert model.detail_values == {"model": "Small Birds"}
+
+
+@pytest.mark.asyncio
+async def test_the_endpoint_does_not_report_a_reloading_classifier_as_running(client, monkeypatch):
+    from app.routers import setup as setup_router
+
+    class Reloading:
+        def get_status(self) -> dict:
+            # The old model has been dropped and its replacement is not loaded yet.
+            return {"active_model_installed": True, "runtime_source": "in_process"}
+
+    monkeypatch.setattr(setup_router, "get_classifier", lambda: Reloading())
+
+    payload = (await client.get("/api/setup/state")).json()
+    model = next(section for section in payload["sections"] if section["id"] == "model")
+
+    assert model["detail_code"] == "model_loading"
+    assert model["status"] != "ok"
+
+
+@pytest.mark.parametrize("readiness", [None, "checking", "unknown"])
 def test_a_model_nobody_checked_is_reported_as_chosen_only(readiness):
     model = _by_id(compute_setup_state(_settings(), active_model_id="small_birds", model_readiness=readiness))["model"]
 

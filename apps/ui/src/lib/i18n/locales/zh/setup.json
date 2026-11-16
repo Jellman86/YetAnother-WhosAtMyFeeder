@@ -14,6 +14,7 @@
     "unreachable": "无法访问",
     "model_missing": "需要下载",
     "model_failed": "无法加载",
+    "model_loading": "正在加载",
     "model_ready": "就绪",
     "model_running": "运行中",
     "model_chosen": "已选择"

@@ -29,3 +29,13 @@ def test_weights_on_disk_are_not_readiness_when_the_runtime_could_not_load_them(
         "error": "labels unreadable",
     }
     assert identification_readiness(status) == "failed"
+
+
+def test_running_needs_positive_evidence_not_the_absence_of_a_failure():
+    # During an in-app reload the report has no `loaded` at all.
+    assert identification_readiness({"active_model_installed": True, "runtime_source": "in_process"}) == "loading"
+    assert (
+        identification_readiness({"active_model_installed": True, "runtime_source": "in_process", "loaded": True})
+        == "running"
+    )
+    assert identification_readiness({"active_model_installed": True}) == "unknown"

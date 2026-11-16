@@ -2,9 +2,9 @@
   confirmed. The question said "Delete all 0 detections" on an install holding hundreds, because
   the count was only ever read on the Data tab. It now says it is counting, then states the number
   the reset will really delete, hidden detections included, and if the count cannot be read it
-  says "all detections" with no number. The number confirmed is sent with the request: if
-  detections arrived while the question was open, nothing is deleted and the question is asked
-  again with the new number. The confirm button reads **Delete all history permanently**.
+  says "all detections" with no number. The number confirmed is sent with the request, and the
+  server compares and deletes under one database write lock: if detections arrived while the
+  question was open, nothing is deleted and the question is asked again with the new number. The confirm button reads **Delete all history permanently**.
   **Purge old records** reads its count at the moment of asking too.
 - A detection record says "Frigate no longer has this event or media" only when Frigate answered
   that the event is not found, or the media integrity scan recorded it missing. When Frigate was
@@ -19,8 +19,9 @@
   the wizard's card while the step scrolls above them, instead of being cut off at 1440×900.
 - The wizard's review no longer says "Configured" for a model that cannot name a bird. It reads
   the classifier's own runtime report, as the model step does: **Needs a download** when the files
-  are missing, **Could not load** when they are there but the model failed to load, **Ready** or
-  **Running** when it works, and **Chosen** when nobody could check. About's pipeline says "Not
+  are missing, **Could not load** when they are there but the model failed to load, **Loading** while it is being
+  loaded, **Ready** or **Running** only on positive evidence that it is, and **Chosen** when
+  nobody could check. About's pipeline says "Not
   installed" for a missing model instead of "Not loaded yet", and the status sentence names it as
   the chosen model.
 - The "not responding" and "could not finish starting" screens no longer say "Your feeder data is
