@@ -50,6 +50,7 @@ export function startLiveReading({
     let stopped = false;
     let reading = false;
     let announced = false;
+    let wasLive = live();
     let lastReadAt = now();
     let timer: ReturnType<typeof setTimeout> | null = null;
 
@@ -105,7 +106,12 @@ export function startLiveReading({
         },
         liveChanged(): void {
             if (stopped) return;
-            if (!live()) announced = true;
+            const isLive = live();
+            // Only a real change counts: a view reports the state as it mounts, often unchanged.
+            if (isLive === wasLive) return;
+            wasLive = isLive;
+            // Losing the stream may have lost an announcement with it.
+            if (!isLive) announced = true;
             plan();
         },
         stop(): void {

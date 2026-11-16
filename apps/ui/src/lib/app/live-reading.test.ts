@@ -88,6 +88,22 @@ describe('startLiveReading', () => {
         reading.stop();
     });
 
+    it('is told about the stream before it connects without counting that as a missed change', async () => {
+        // A view reports the stream's state as it mounts, while the stream is still connecting.
+        let live = false;
+        const read = vi.fn(async () => {});
+        const reading = startLiveReading({ read, live: () => live, pollMs: () => POLL, quietMs: QUIET, tab: fakeTab(), readAtStart: false });
+        reading.liveChanged();
+        live = true;
+        reading.liveChanged();
+
+        await vi.advanceTimersByTimeAsync(QUIET - 1);
+        expect(read).not.toHaveBeenCalled();
+        await vi.advanceTimersByTimeAsync(1);
+        expect(read).toHaveBeenCalledTimes(1);
+        reading.stop();
+    });
+
     it('holds no timer while the tab is hidden, and reads once when it is shown', async () => {
         const tab = fakeTab();
         const read = vi.fn(async () => {});
