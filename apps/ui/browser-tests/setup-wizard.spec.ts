@@ -78,6 +78,8 @@ class FakeBackend {
     mqttFailure: string | null = null;
     evalWarnings: Json[] = [];
     frigateConfigFails = false;
+    /** While set, Frigate's camera list does not answer: a Frigate that is down hangs like this. */
+    frigateConfigHeld: Promise<void> | null = null;
     downloadDone = false;
     evalState: 'idle' | 'running' | 'done' | 'error' = 'idle';
     evalError = '';
@@ -256,6 +258,10 @@ class FakeBackend {
                 : json({ status: 'ok', message: 'Test message published' });
         }
         if (path === '/api/audio/sources') return json([]);
+        if (path === '/api/frigate/config' && this.frigateConfigHeld) {
+            await this.frigateConfigHeld;
+            return route.abort().catch(() => undefined);
+        }
         if (path === '/api/frigate/config') return this.frigateConfigFails ? json({ detail: 'unreachable' }, 502) : json({ cameras: { feeder: {}, nestbox: {} } });
         if (path === '/api/backfill/status') return json(null);
         if (path === '/api/backfill/async' && method === 'POST') return json({ id: 'history-job', status: 'running', processed: 0, total: 20, message: 'Scanning Frigate event history' });
@@ -1060,3 +1066,66 @@ test('a failed broker test is worded from its cause code in the page language', 
     await expect(failed).toContainText('MQTT-Broker');
     await expect(dialog).not.toContainText('English fallback sentence.');
 });
+
+test('the cameras step says it is waiting for Frigate, lets setup continue, and stops waiting after 8 seconds', async ({ page }, testInfo) => {
+    const fake = new FakeBackend({ settings: { cameras: ['feeder'] } });
+    let release = (): void => {};
+    fake.frigateConfigHeld = new Promise<void>((resolve) => { release = resolve; });
+    await page.clock.install();
+    await openRerun(page, fake);
+    await openSectionFromReview(page, 'Cameras & detection');
+    await expectStep(page, 'Cameras & detection');
+
+    // The settings have loaded; what is still outstanding is Frigate, and the step says so.
+    const waiting = wizard(page).locator('[data-setup-camera-reading]');
+    await expect(waiting).toHaveText("Asking Frigate for its cameras, for up to 8 seconds. You can continue without waiting: the cameras already saved stay as they are.");
+    await expect(wizard(page).getByText('Loading your saved settings…')).toHaveCount(0);
+    await expect(continueButton(page)).toBeEnabled();
+    await expect(wizard(page).locator('[data-setup-continue-blocked]')).toHaveCount(0);
+    await page.screenshot({ path: testInfo.outputPath('cameras-waiting-for-frigate.png') });
+
+    await page.clock.runFor(8000);
+    await expect(waiting).toHaveCount(0);
+    await expect(wizard(page).locator('[data-setup-camera-unread]')).toContainText('Frigate did not answer within 8 seconds, so these names cannot be checked.');
+    await expect(wizard(page).getByLabel('Cameras (comma-separated)')).toHaveValue('feeder');
+    await page.screenshot({ path: testInfo.outputPath('cameras-frigate-timed-out.png') });
+    release();
+});
+
+test('continuing while Frigate is still being asked keeps the saved cameras', async ({ page }) => {
+    const fake = new FakeBackend({ settings: { cameras: ['feeder'] } });
+    fake.frigateConfigHeld = new Promise<void>(() => {});
+    await openRerun(page, fake);
+    await openSectionFromReview(page, 'Cameras & detection');
+    await expect(wizard(page).locator('[data-setup-camera-reading]')).toBeVisible();
+    await continueButton(page).click();
+    await expectStep(page, 'Review setup');
+    expect(fake.settingsWrites()).toContainEqual({ cameras: ['feeder'] });
+});
+
+for (const section of ['Model and hardware', 'Cameras & detection']) {
+    test(`${section}: Back and Continue stay inside the card at 1440x900 while the step scrolls`, async ({ page }, testInfo) => {
+        await page.setViewportSize({ width: 1440, height: 900 });
+        const fake = new FakeBackend({});
+        await openRerun(page, fake);
+        await openSectionFromReview(page, section);
+        await expectStep(page, section);
+        const action = section === 'Model and hardware' ? validateButton(page) : continueButton(page);
+        const footer = wizard(page).locator('[data-setup-footer]');
+        await expect(footer).toBeVisible();
+        const inside = async (): Promise<boolean> => {
+            const card = await wizard(page).boundingBox();
+            const bar = await footer.boundingBox();
+            if (!card || !bar) return false;
+            return bar.y >= card.y && bar.y + bar.height <= card.y + card.height + 1 && card.y >= 0 && card.y + card.height <= 900;
+        };
+        await expect.poll(inside).toBe(true);
+        // The footer is not part of what scrolls.
+        const scroller = wizard(page).locator('[data-setup-scroll]');
+        await scroller.evaluate((element) => { element.scrollTop = element.scrollHeight; });
+        await expect.poll(inside).toBe(true);
+        expect(await footer.evaluate((element) => element.closest('[data-setup-scroll]') === null)).toBe(true);
+        await expect(action).toBeAttached();
+        await page.screenshot({ path: testInfo.outputPath(`footer-pinned-${section.split(' ')[0].toLowerCase()}.png`) });
+    });
+}

@@ -49,6 +49,8 @@
     "gates_link": "Guia de ajuste →",
     "list": "Câmeras (separadas por vírgula)",
     "list_unread": "Não foi possível ler a lista de câmaras do Frigate, por isso estes nomes não podem ser verificados. Um nome que não corresponda exatamente nunca verá uma ave. Deixe vazio para vigiar todas as câmaras.",
+    "list_timed_out": "O Frigate não respondeu em {seconds} segundos, então estes nomes não podem ser verificados. Um nome que não corresponde exatamente nunca vê uma ave. Deixe em branco para observar todas as câmeras.",
+    "reading": "Consultando as câmeras no Frigate, por até {seconds} segundos. Você pode continuar sem esperar: as câmeras já salvas ficam como estão.",
     "not_in_frigate": "O Frigate não tem nenhuma câmara com este nome, por isso nunca verá uma ave.",
     "offline": "Sem pré-visualização",
     "pick": "Câmaras a vigiar",

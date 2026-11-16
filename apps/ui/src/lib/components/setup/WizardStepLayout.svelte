@@ -3,6 +3,8 @@
     import { setupWizardStore } from '../../stores/setup_wizard.svelte';
     import { onMount } from 'svelte';
     import type { Snippet } from 'svelte';
+    import BrandMark from '../BrandMark.svelte';
+    import SetupStepIcon from './SetupStepIcon.svelte';
 
     interface Props {
         title: string;
@@ -72,27 +74,38 @@
     }
 </script>
 
-<div class="space-y-6">
-    <div class="space-y-1">
-        <!-- The heading takes focus on each step. On the first one the dialog is still being moved to
-             the body when this mounts, which drops focus, so the focus trap is told to start here too. -->
-        <h2 bind:this={heading} tabindex="-1" data-initial-focus class="text-2xl font-bold text-slate-900 outline-hidden dark:text-white">{title}</h2>
-        {#if description}
-            <p class="text-sm text-slate-600 dark:text-slate-300">{description}</p>
+<!-- The step fills the card: what it says scrolls, and the actions below it never leave the card. -->
+<div class="flex min-h-0 flex-1 flex-col">
+    <div class="min-h-0 flex-1 space-y-6 overflow-y-auto p-6" data-setup-scroll>
+        <!-- Setup opens under the app's own mark; each later step has an icon for what it sets up. -->
+        <div>
+            {#if setupWizardStore.current.id === 'welcome'}
+                <BrandMark alt="" class="h-10 w-10 rounded-xl" width={40} height={40} sizes="40px" />
+            {:else}
+                <SetupStepIcon step={setupWizardStore.current.id} />
+            {/if}
+        </div>
+        <div class="space-y-1">
+            <!-- The heading takes focus on each step. On the first one the dialog is still being moved to
+                 the body when this mounts, which drops focus, so the focus trap is told to start here too. -->
+            <h2 bind:this={heading} tabindex="-1" data-initial-focus class="text-2xl font-bold text-slate-900 outline-hidden dark:text-white">{title}</h2>
+            {#if description}
+                <p class="text-sm text-slate-600 dark:text-slate-300">{description}</p>
+            {/if}
+        </div>
+
+        <div class="space-y-4">
+            {@render children()}
+        </div>
+
+        {#if actionError}
+            <div role="alert" class="border-l-2 border-rose-500 bg-rose-50/70 px-3 py-2 text-sm text-rose-800 dark:bg-rose-950/20 dark:text-rose-200">
+                {actionError}
+            </div>
         {/if}
     </div>
 
-    <div class="space-y-4">
-        {@render children()}
-    </div>
-
-    {#if actionError}
-        <div role="alert" class="border-l-2 border-rose-500 bg-rose-50/70 px-3 py-2 text-sm text-rose-800 dark:bg-rose-950/20 dark:text-rose-200">
-            {actionError}
-        </div>
-    {/if}
-
-    <div class="space-y-2 border-t border-slate-200 pt-4 dark:border-slate-700">
+    <div class="shrink-0 space-y-2 border-t border-slate-200 px-6 py-4 dark:border-slate-700" data-setup-footer>
         {#if blocked}
             <p id="setup-continue-blocked" class="text-sm text-slate-700 sm:text-right dark:text-slate-200" data-setup-continue-blocked>
                 {blockedReason}

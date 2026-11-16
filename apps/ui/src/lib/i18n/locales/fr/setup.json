@@ -49,6 +49,8 @@
     "gates_link": "Guide de réglage →",
     "list": "Caméras (séparées par des virgules)",
     "list_unread": "La liste des caméras de Frigate n’a pas pu être lue : ces noms ne peuvent donc pas être vérifiés. Un nom qui ne correspond pas exactement ne verra jamais d’oiseau. Laissez vide pour surveiller toutes les caméras.",
+    "list_timed_out": "Frigate n’a pas répondu en {seconds} secondes, ces noms ne peuvent donc pas être vérifiés. Un nom qui ne correspond pas exactement ne voit jamais d’oiseau. Laissez ce champ vide pour surveiller toutes les caméras.",
+    "reading": "Demande à Frigate de la liste de ses caméras, pendant {seconds} secondes au plus. Vous pouvez continuer sans attendre, les caméras déjà enregistrées restent telles quelles.",
     "not_in_frigate": "Frigate n’a aucune caméra portant ce nom : elle ne verra donc jamais d’oiseau.",
     "offline": "Pas d’aperçu",
     "pick": "Caméras à surveiller",
