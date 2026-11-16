@@ -129,6 +129,12 @@ jobs:
         run: npm run lint:dead
         working-directory: apps/ui
 
+      # Colour comes from the semantic tokens: no file may add a raw palette class, a dark:
+      # colour override or an arbitrary value, and every token pair is proved at WCAG AA.
+      - name: Design-token ratchet
+        run: npm run lint:tokens
+        working-directory: apps/ui
+
       - name: Frontend unit tests
         run: npm test
         working-directory: apps/ui

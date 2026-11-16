@@ -87,11 +87,72 @@
   --color-brand-600: rgb(var(--brand-600)); --color-brand-700: rgb(var(--brand-700)); --color-brand-800: rgb(var(--brand-800));
   --color-brand-900: rgb(var(--brand-900)); --color-brand-950: rgb(var(--brand-950));
 
-  /* Secondary accent, theme-driven (classic = emerald, bluetit = amber). */
-  --color-accent-50: rgb(var(--accent-50)); --color-accent-100: rgb(var(--accent-100)); --color-accent-200: rgb(var(--accent-200));
-  --color-accent-300: rgb(var(--accent-300)); --color-accent-400: rgb(var(--accent-400)); --color-accent-500: rgb(var(--accent-500));
-  --color-accent-600: rgb(var(--accent-600)); --color-accent-700: rgb(var(--accent-700)); --color-accent-800: rgb(var(--accent-800));
-  --color-accent-900: rgb(var(--accent-900)); --color-accent-950: rgb(var(--accent-950));
+  /* ── Semantic tokens: what a colour is for, not which colour it is ──
+     Every screen paints with these. Each is resolved once per mode further down (light in
+     :root, dark in html.dark, high contrast in html.high-contrast), so a component names no mode
+     and needs no `dark:` pair. design-tokens.contrast.test.ts proves every foreground against
+     every ground it can sit on, in every mode and colour theme; design-tokens.ratchet.test.ts
+     stops new raw palette classes. docs/standards/design-tokens.md says which token to reach for. */
+
+  /* Grounds: a panel, a well or hover fill inside it, and the recessed page ground behind panels. */
+  --color-surface-sunken: rgb(var(--surface-sunken));
+
+  /* Inks. `strong` for headings and figures, `ink` for body text, `muted` for secondary text (all
+     4.5:1 on every ground). `subtle` is for marks only (an icon beside words, a separator dot):
+     3:1, never the only carrier of words. */
+  --color-strong: rgb(var(--ink-strong));
+  --color-ink: rgb(var(--ink));
+  --color-muted: rgb(var(--ink-muted));
+  --color-subtle: rgb(var(--ink-subtle));
+
+  /* An edge that has to be seen (a control's boundary, a meter's track): 3:1 on every ground.
+     `line` and `line-soft` below stay the quiet rules between rows and round panels. */
+  --color-line-strong: rgb(var(--line-strong));
+
+  /* The accent is the brand, as the colour theme sets it: a primary action's fill (`accent`,
+     with `accent-fg` on it), brand-coloured words and links (`accent-ink`), the recessed key of
+     a chosen row (`accent-soft`) and a chosen tile's edge (`accent-line`). */
+  --color-accent: rgb(var(--accent));
+  --color-accent-hover: rgb(var(--accent-hover));
+  --color-accent-fg: rgb(var(--accent-fg));
+  --color-accent-ink: rgb(var(--accent-ink));
+  --color-accent-soft: rgb(var(--accent-soft));
+  --color-accent-line: rgb(var(--accent-line));
+
+  /* A destructive action's solid fill, with white words. */
+  --color-danger: rgb(var(--danger));
+  --color-danger-hover: rgb(var(--danger-hover));
+  --color-danger-fg: rgb(var(--danger-fg));
+
+  /* Status tones. Each has its ink (`text-status-ok`, also the colour of its icon or dot), a soft
+     ground (`bg-status-ok-soft`) and an edge (`border-status-ok-line`, 3:1). The ink passes 4.5:1
+     on its own soft ground and on every page ground.
+       ok         confirmed, passed, healthy, connected (green in every theme)
+       attention  this needs a person (amber, and for nothing else; layout-patterns.md §1.3)
+       fail       failed or broken (rose)
+       info       running, in flight, normal emphasis (the brand)
+       neutral    off by choice, idle, not measured, unknown (slate)
+     A tone never carries meaning alone: StatusChip and StateBlock always say it in words too. */
+  --color-status-ok: rgb(var(--status-ok));
+  --color-status-ok-soft: rgb(var(--status-ok-soft));
+  --color-status-ok-line: rgb(var(--status-ok-line));
+  --color-status-attention: rgb(var(--status-attention));
+  --color-status-attention-soft: rgb(var(--status-attention-soft));
+  --color-status-attention-line: rgb(var(--status-attention-line));
+  --color-status-fail: rgb(var(--status-fail));
+  --color-status-fail-soft: rgb(var(--status-fail-soft));
+  --color-status-fail-line: rgb(var(--status-fail-line));
+  --color-status-info: rgb(var(--status-info));
+  --color-status-info-soft: rgb(var(--status-info-soft));
+  --color-status-info-line: rgb(var(--status-info-line));
+  --color-status-neutral: rgb(var(--status-neutral));
+  --color-status-neutral-soft: rgb(var(--status-neutral-soft));
+  --color-status-neutral-line: rgb(var(--status-neutral-line));
+
+  /* A photograph or the video player is the same dark ground in every mode, so what sits on it
+     (`text-on-media`, a scrim of `bg-media/75`) does not follow the theme either. */
+  --color-media: rgb(var(--media));
+  --color-on-media: rgb(var(--on-media));
 
   /* Semantic success, deliberately NOT theme-driven. `accent` is a brand colour and the
      bluetit theme paints it amber, which is reserved for "needs a person"
@@ -232,6 +293,40 @@
   --ai-code: var(--brand-700);
   --ai-muted: 100 116 139;
   --ai-marker: var(--brand-600);
+
+  /* Semantic tokens, light. */
+  --surface-sunken: 248 250 252;
+  --ink-strong: 15 23 42;
+  --ink: 51 65 85;
+  --ink-muted: 71 85 105;
+  --ink-subtle: 100 116 139;
+  --line-strong: 100 116 139;
+  --accent: var(--brand-700);
+  --accent-hover: var(--brand-800);
+  --accent-fg: 255 255 255;
+  --accent-ink: var(--brand-700);
+  --accent-soft: var(--brand-50);
+  --accent-line: var(--brand-600);
+  --danger: 185 28 28;
+  --danger-hover: 153 27 27;
+  --danger-fg: 255 255 255;
+  --status-ok: var(--success-700);
+  --status-ok-soft: var(--success-50);
+  --status-ok-line: var(--success-600);
+  --status-attention: var(--attention-800);
+  --status-attention-soft: var(--attention-50);
+  --status-attention-line: var(--attention-700);
+  --status-fail: 190 18 60;
+  --status-fail-soft: 255 241 242;
+  --status-fail-line: 225 29 72;
+  --status-info: var(--brand-700);
+  --status-info-soft: var(--brand-50);
+  --status-info-line: var(--brand-600);
+  --status-neutral: 51 65 85;
+  --status-neutral-soft: 241 245 249;
+  --status-neutral-line: 100 116 139;
+  --media: 0 0 0;
+  --on-media: 255 255 255;
 }
 
 html.dark,
@@ -241,6 +336,32 @@ html[data-theme='dark'] {
   --line: 51 65 85;
   --line-soft: 34 46 66;
   --focus: var(--brand-400);
+
+  /* Semantic tokens, dark. */
+  --surface-sunken: 2 6 23;
+  --ink-strong: 255 255 255;
+  --ink: 226 232 240;
+  --ink-muted: 148 163 184;
+  --ink-subtle: 100 116 139;
+  --line-strong: 100 116 139;
+  --accent-ink: var(--brand-300);
+  --accent-soft: var(--brand-950);
+  --accent-line: var(--brand-500);
+  --status-ok: var(--success-300);
+  --status-ok-soft: var(--success-950);
+  --status-ok-line: var(--success-600);
+  --status-attention: var(--attention-200);
+  --status-attention-soft: var(--attention-950);
+  --status-attention-line: var(--attention-600);
+  --status-fail: 253 164 175;
+  --status-fail-soft: 76 5 25;
+  --status-fail-line: 244 63 94;
+  --status-info: var(--brand-300);
+  --status-info-soft: var(--brand-950);
+  --status-info-line: var(--brand-500);
+  --status-neutral: 226 232 240;
+  --status-neutral-soft: 30 41 59;
+  --status-neutral-line: 100 116 139;
   --ai-ink: 241 245 249;
   --ai-heading: 94 234 212;
   --ai-strong: var(--brand-200);
@@ -250,9 +371,9 @@ html[data-theme='dark'] {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
-   Accent tokens. Utilities use brand-* (primary) and accent-* (secondary);
-   the active colour theme swaps these values, so the whole app follows it.
-   The :root values below are teal + emerald; the bluetit theme is blue + amber.
+   The brand scale. The active colour theme swaps these values, and the semantic
+   accent tokens read them, so the whole app follows it. The :root values below
+   are teal; the bluetit theme is blue.
    Bluetit is what a new install actually gets — the shipped defaults live in
    stores/theme.svelte.ts (bluetit + the classic font pairing + dark).
    ═══════════════════════════════════════════════════════════════════════ */
@@ -261,21 +382,17 @@ html[data-theme='dark'] {
   --brand-300: 94 234 212;  --brand-400: 45 212 191;  --brand-500: 20 184 166;
   --brand-600: 13 148 136;  --brand-700: 15 118 110;  --brand-800: 17 94 89;
   --brand-900: 19 78 74;    --brand-950: 4 47 46;
-  --accent-50: 236 253 245; --accent-100: 209 250 229; --accent-200: 167 243 208;
-  --accent-300: 110 231 183;--accent-400: 52 211 153;  --accent-500: 16 185 129;
-  --accent-600: 5 150 105;  --accent-700: 4 120 87;    --accent-800: 6 95 70;
-  --accent-900: 6 78 59;    --accent-950: 2 44 34;
 
   /* Semantic, never re-themed: layout-patterns.md §1.3 gives green to
      "confirmed or healthy" and reserves amber for "this needs a person".
-     A theme may repaint --accent-*; it may not repaint success. */
+     A theme may repaint --brand-*; it may not repaint success. */
   --success-50: 236 253 245; --success-100: 209 250 229;--success-200: 167 243 208;
   --success-300: 110 231 183;--success-400: 52 211 153; --success-500: 16 185 129;
   --success-600: 5 150 105;  --success-700: 4 120 87;   --success-800: 6 95 70;
   --success-900: 6 78 59;    --success-950: 2 44 34;
 
   /* Attention is the amber that says "this needs a person", in every theme.
-     A theme may repaint --accent-*; it may not repaint attention. */
+     A theme may repaint --brand-*; it may not repaint attention. */
   --attention-50: 255 251 235; --attention-100: 254 243 199; --attention-200: 253 230 138;
   --attention-300: 252 211 77; --attention-400: 251 191 36;  --attention-500: 245 158 11;
   --attention-600: 217 119 6;  --attention-700: 180 83 9;    --attention-800: 146 64 14;
@@ -287,10 +404,6 @@ html.theme-bluetit {
   --brand-300: 147 197 253; --brand-400: 96 165 250;  --brand-500: 59 130 246;
   --brand-600: 37 99 235;   --brand-700: 29 78 216;   --brand-800: 30 64 175;
   --brand-900: 30 58 138;   --brand-950: 23 37 84;
-  --accent-50: 255 251 235; --accent-100: 254 243 199;--accent-200: 253 230 138;
-  --accent-300: 252 211 77; --accent-400: 251 191 36; --accent-500: 245 158 11;
-  --accent-600: 217 119 6;  --accent-700: 180 83 9;   --accent-800: 146 64 14;
-  --accent-900: 120 53 15;  --accent-950: 69 26 3;
 }
 
 html.dark,
@@ -303,7 +416,7 @@ html[data-theme='dark'] {
 @layer base {
   html,
   body {
-    @apply text-slate-700 dark:text-slate-200;
+    @apply text-ink;
     font-family: var(--font-body);
     /* Normal text is the base step, not the bare root: the root can sit on the small-print floor. */
     font-size: var(--text-base);
@@ -402,15 +515,15 @@ html[data-theme='dark'] {
    case at normal tracking, like every other label; it stays subordinate to its heading by size,
    weight and a muted ink, never by capitals. */
 @utility eyebrow {
-  @apply text-xs font-semibold text-slate-600 dark:text-slate-400;
+  @apply text-xs font-semibold text-muted;
   /* A long translated label may break rather than push its row past the edge. */
   overflow-wrap: anywhere;
 }
 
 /* A taxonomic rank named beside a name: small and muted, the same wherever a rank appears so the
-   eye learns one label. Slate 600 and 400 keep AA contrast on a panel, a well and the page. */
+   eye learns one label. The muted ink keeps AA contrast on a panel, a well and the page. */
 @utility taxon-rank {
-  @apply text-3xs font-semibold text-slate-600 dark:text-slate-400;
+  @apply text-3xs font-semibold text-muted;
 }
 
 /* A figure set in the display face with lining, tabular digits so columns of numbers align. */
@@ -429,11 +542,11 @@ html[data-theme='dark'] {
 }
 
 @utility tab-button-active {
-  @apply bg-surface text-brand-700 shadow-xs ring-1 ring-inset ring-line-soft dark:text-brand-300;
+  @apply bg-surface text-accent-ink shadow-xs ring-1 ring-inset ring-line-soft;
 }
 
 @utility tab-button-inactive {
-  @apply text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-surface-raised;
+  @apply text-muted hover:text-strong hover:bg-surface-raised;
 }
 
 /* Unified buttons */
@@ -449,32 +562,32 @@ html[data-theme='dark'] {
 
 /* A solid fill, dark enough under white text to pass AA in every theme. */
 @utility btn-primary {
-  @apply bg-brand-700 text-white hover:bg-brand-800;
+  @apply bg-accent text-accent-fg hover:bg-accent-hover;
 }
 
 @utility btn-secondary {
-  @apply bg-surface text-slate-700 dark:text-slate-200 border border-line;
-  @apply hover:bg-surface-raised hover:text-slate-900 dark:hover:text-white;
+  @apply bg-surface text-ink border border-line;
+  @apply hover:bg-surface-raised hover:text-strong;
 }
 
 @utility btn-ghost {
-  @apply text-slate-600 dark:text-slate-300 hover:bg-surface-raised hover:text-slate-900 dark:hover:text-white;
+  @apply text-muted hover:bg-surface-raised hover:text-strong;
 }
 
 @utility btn-danger {
-  @apply text-red-700 dark:text-red-300 border border-red-200/70 dark:border-red-900/50 hover:bg-red-50/80 dark:hover:bg-red-950/40;
+  @apply text-status-fail border border-status-fail-line hover:bg-status-fail-soft;
 }
 
 /* The widest-reaching destructive action on a screen: a solid fill that passes AA under white text. */
 @utility btn-danger-solid {
-  @apply bg-red-700 text-white hover:bg-red-800;
+  @apply bg-danger text-danger-fg hover:bg-danger-hover;
 }
 
 /* A button over a photograph or on a fixed dark media ground (the video player, a picture's
    toolbar): white on a faint white fill, edged in white, the same in both themes because the
    ground does not change with the theme. `:not(_)` puts its ring ahead of the one `btn` sets. */
 @utility btn-on-dark {
-  @apply border border-white/40 bg-white/10 text-white hover:bg-white/20;
+  @apply border border-on-media/40 bg-on-media/10 text-on-media hover:bg-on-media/20;
 
   &:focus-visible:not(_) {
     --tw-ring-color: var(--color-focus-on-dark);
@@ -499,7 +612,7 @@ html[data-theme='dark'] {
 /* Unified fields */
 @utility input-base {
   @apply w-full px-3 py-2.5 rounded-xl bg-surface border border-line;
-  @apply text-sm text-slate-900 dark:text-white placeholder:text-slate-500 dark:placeholder:text-slate-400;
+  @apply text-sm text-strong placeholder:text-muted;
   @apply outline-hidden transition-colors focus:ring-2 focus:ring-focus focus:border-focus;
 }
 
@@ -535,7 +648,7 @@ html[data-theme='dark'] {
 /* A label set over a photograph (a time, a score, a camera): white on a fill dark enough to pass
    AA over the palest frame, with no blur, so the words never depend on what the camera saw. */
 @utility photo-chip {
-  @apply bg-black/75 text-white;
+  @apply bg-media/75 text-on-media;
 }
 
 @utility select-base {
@@ -556,25 +669,25 @@ html[data-theme='dark'] {
 }
 
 @utility sidebar-nav-active {
-  @apply bg-brand-50 font-semibold text-slate-900 dark:bg-brand-950/60 dark:text-white;
+  @apply bg-accent-soft font-semibold text-strong;
 
   & svg {
-    @apply text-brand-600 dark:text-brand-400;
+    @apply text-accent-ink;
   }
 }
 
 @utility sidebar-nav-inactive {
-  @apply text-slate-600 hover:bg-surface-raised hover:text-slate-900 dark:text-slate-300 dark:hover:text-white;
+  @apply text-muted hover:bg-surface-raised hover:text-strong;
 }
 
 /* A chosen row in a list of choices (the Explorer rail, the search's active result): the same
    recessed brand key as the selected route, with a lit check so it never reads by tint alone.
    Never a coloured bar on one edge. */
 @utility choice-active {
-  @apply bg-brand-50 font-medium text-slate-900 dark:bg-brand-950/60 dark:text-white;
+  @apply bg-accent-soft font-medium text-strong;
 
   & svg {
-    @apply text-brand-600 dark:text-brand-400;
+    @apply text-accent-ink;
   }
 }
 
@@ -582,11 +695,11 @@ html[data-theme='dark'] {
    Chosen, it takes the same recessed brand key as .choice-active, a brand edge and a lit check
    beside its name, so every tab marks a choice the same way and never by tint alone. */
 @utility choice-option {
-  @apply rounded-2xl border border-line-soft bg-surface text-slate-700 transition-colors hover:bg-surface-raised dark:text-slate-200;
+  @apply rounded-2xl border border-line-soft bg-surface text-ink transition-colors hover:bg-surface-raised;
 }
 
 @utility choice-option-selected {
-  @apply choice-active border-brand-300 hover:bg-brand-50 dark:border-brand-700 dark:hover:bg-brand-950/60;
+  @apply choice-active border-accent-line hover:bg-accent-soft;
 }
 
 /* Settings: calm rows of label and control, in the app's own fonts. A section is a plain heading
@@ -644,9 +757,9 @@ html[data-theme='dark'] {
 }
 
 /* Work that needs a person: a small amber dot set beside the reason in words. The words carry
-   the meaning; the dot lets the eye find the row. */
+   the meaning; the dot lets the eye find the row, at 3:1 on any ground. */
 @utility attention-dot {
-  @apply inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-attention-500;
+  @apply inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-status-attention-line;
 }
 
 /* Badges */
@@ -707,6 +820,7 @@ html.theme-bluetit:not(.dark) {
   --surface-raised: 239 244 251;
   --line: 208 219 234;
   --line-soft: 226 233 243;
+  --surface-sunken: 244 247 252;
 }
 
 html.theme-bluetit.dark {
@@ -718,6 +832,7 @@ html.theme-bluetit.dark {
   --surface-raised: 17 27 46;
   --line: 30 44 72;
   --line-soft: 21 32 54;
+  --surface-sunken: 5 10 20;
 }
 
 /* ── 2. Scrollbar & Selection ── */
@@ -836,6 +951,40 @@ html.high-contrast.high-contrast.high-contrast {
   --ai-muted: 255 255 255;
   --ai-marker: 255 255 0;
 
+  /* The semantic tokens: one black ground, white words, yellow edges and accent, and each
+     status ink at 7:1 or better. A soft status ground is black, so a chip is told by its edge
+     and its words, never by a tint. */
+  --surface-sunken: 0 0 0;
+  --ink-strong: 255 255 255;
+  --ink: 255 255 255;
+  --ink-muted: 255 255 255;
+  --ink-subtle: 200 200 200;
+  --line-strong: 255 255 0;
+  --accent: 255 255 0;
+  --accent-hover: 255 255 0;
+  --accent-fg: 0 0 0;
+  --accent-ink: 255 255 0;
+  --accent-soft: 0 0 0;
+  --accent-line: 255 255 0;
+  --danger: 122 0 0;
+  --danger-hover: 122 0 0;
+  --danger-fg: 255 255 255;
+  --status-ok: 125 255 155;
+  --status-ok-soft: 0 0 0;
+  --status-ok-line: 125 255 155;
+  --status-attention: 255 194 102;
+  --status-attention-soft: 0 0 0;
+  --status-attention-line: 255 194 102;
+  --status-fail: 255 156 156;
+  --status-fail-soft: 0 0 0;
+  --status-fail-line: 255 156 156;
+  --status-info: 255 255 0;
+  --status-info-soft: 0 0 0;
+  --status-info-line: 255 255 0;
+  --status-neutral: 255 255 255;
+  --status-neutral-soft: 0 0 0;
+  --status-neutral-line: 255 255 255;
+
   /* The inks. Each is 7:1 or better on black; meaning still never rests on the hue alone. */
   --hc-ink: #ffffff;
   --hc-ink-brand: #ffff00;
@@ -885,7 +1034,7 @@ html.high-contrast.high-contrast.high-contrast {
   color: var(--hc-ink) !important;
 }
 
-.high-contrast :is([class*='text-brand-'], [class*='text-accent-'], [class*='text-blue-'], [class*='text-teal-'], [class*='text-violet-']) {
+.high-contrast :is([class*='text-brand-'], [class*='text-blue-'], [class*='text-teal-'], [class*='text-violet-']) {
   color: var(--hc-ink-brand) !important;
 }
 

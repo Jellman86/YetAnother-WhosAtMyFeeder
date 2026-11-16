@@ -146,7 +146,7 @@
     <div
         role="button"
         tabindex="0"
-        class="fixed inset-0 z-40 bg-black/50 transition-opacity duration-300 md:hidden"
+        class="fixed inset-0 z-40 bg-media/50 transition-opacity duration-300 md:hidden"
         onclick={onMobileClose}
         onkeydown={(event) => event.key === 'Enter' ? onMobileClose?.() : null}
         aria-label={$_('nav.close_menu', { default: 'Close menu' })}
@@ -176,10 +176,10 @@
             {#if !collapsed}
                 <div class="flex flex-col items-center gap-0.5 overflow-hidden">
                     <!-- The wordmark, not a heading: each page carries its own h1. -->
-                    <span class="truncate font-display text-lg font-bold leading-tight text-slate-900 dark:text-white">
+                    <span class="truncate font-display text-lg font-bold leading-tight text-strong">
                         {$_('app.logo_title')}
                     </span>
-                    <span class="truncate text-sm text-slate-600 dark:text-slate-400">
+                    <span class="truncate text-sm text-muted">
                         {$_('app.logo_subtitle')}
                     </span>
                 </div>
@@ -192,7 +192,7 @@
             <div data-sidebar-section={section.id} class={sectionIndex === 0 ? '' : 'mt-5'}>
                 {#if !collapsed}
                     <!-- Headed like the Settings rail's groups, so the two navigations read as one. -->
-                    <div class="px-3 pb-1 text-sm font-semibold text-slate-900 dark:text-white">
+                    <div class="px-3 pb-1 text-sm font-semibold text-strong">
                         {section.label}
                     </div>
                 {/if}
@@ -232,7 +232,7 @@
                 {#if authStore.showSettings}
                     <a
                         href="/system-health"
-                        class="focus-ring relative grid h-11 w-11 place-items-center rounded-lg text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+                        class="focus-ring relative grid h-11 w-11 place-items-center rounded-lg text-ink transition-colors hover:bg-surface-raised"
                         title={healthLinkName}
                         data-sidebar-status-link
                         data-health-attention={health.needsAttention}
@@ -243,7 +243,7 @@
                             <path d="M3 12h4l2-6 4 12 2-6h6" />
                         </svg>
                         {#if health.needsAttention}
-                            <span class="absolute right-1.5 top-1.5 h-2 w-2 rotate-45 bg-attention-600 dark:bg-attention-400" aria-hidden="true"></span>
+                            <span class="absolute right-1.5 top-1.5 h-2 w-2 rotate-45 bg-status-attention-line" aria-hidden="true"></span>
                         {/if}
                     </a>
                 {/if}
@@ -254,7 +254,7 @@
                 aria-labelledby="sidebar-status-title"
                 data-sidebar-status-card
             >
-                <h2 id="sidebar-status-title" class="mb-2 text-xs font-semibold leading-4 text-slate-700 dark:text-slate-300">
+                <h2 id="sidebar-status-title" class="mb-2 text-xs font-semibold leading-4 text-ink">
                     {$_('status.title')}
                 </h2>
                 {@render status?.(false)}
@@ -265,14 +265,14 @@
                          link is just "Health". -->
                     <a
                         href="/system-health"
-                        class="focus-ring -mx-1 mt-2 flex min-h-7 items-center justify-between gap-x-2 rounded-md border-t border-line-soft px-1 pt-2 text-xs font-semibold leading-4 text-slate-700 transition-colors hover:text-brand-700 dark:text-slate-300 dark:hover:text-brand-300"
+                        class="focus-ring -mx-1 mt-2 flex min-h-7 items-center justify-between gap-x-2 rounded-md border-t border-line-soft px-1 pt-2 text-xs font-semibold leading-4 text-ink transition-colors hover:text-accent-ink"
                         data-sidebar-status-link
                         data-health-attention={health.needsAttention}
                         onclick={openHealth}
                     >
                         {#if health.needsAttention}
-                            <span class="flex min-w-0 items-center gap-2 text-attention-800 dark:text-attention-300">
-                                <span class="h-2 w-2 shrink-0 rotate-45 bg-attention-600 dark:bg-attention-400" aria-hidden="true"></span>
+                            <span class="flex min-w-0 items-center gap-2 text-status-attention">
+                                <span class="h-2 w-2 shrink-0 rotate-45 bg-status-attention-line" aria-hidden="true"></span>
                                 <span class="min-w-0">
                                     <span class="sr-only">{healthLinkPrefix}</span><span data-health-issues>{issuesLabel}</span>
                                 </span>
@@ -294,16 +294,16 @@
                     {#if avatarStore.url}
                         <img src={avatarStore.url} alt="" class="h-8 w-8 shrink-0 rounded-lg object-cover" data-sidebar-avatar />
                     {:else}
-                        <div class="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-brand-100 text-xs font-bold text-brand-700 dark:bg-brand-900/50 dark:text-brand-300">
+                        <div class="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-accent-soft text-xs font-bold text-accent-ink">
                             {accountInitial}
                         </div>
                     {/if}
                     <div class="min-w-0 flex-1">
-                        <div class="truncate text-xs font-semibold text-slate-800 dark:text-slate-100">{authStore.username}</div>
-                        <div class="truncate text-xs text-slate-600 dark:text-slate-400">{$_('app.title')}</div>
+                        <div class="truncate text-xs font-semibold text-strong">{authStore.username}</div>
+                        <div class="truncate text-xs text-muted">{$_('app.title')}</div>
                     </div>
                     <button
-                        class="btn btn-ghost min-h-11 min-w-11 focus-ring rounded-lg p-2 text-slate-600 transition hover:bg-red-50 hover:text-red-700 dark:text-slate-400 dark:hover:bg-red-900/30 dark:hover:text-red-400"
+                        class="btn btn-ghost min-h-11 min-w-11 focus-ring rounded-lg p-2 text-muted transition hover:bg-status-fail-soft hover:text-status-fail"
                         onclick={() => authStore.logout()}
                         title={$_('auth.logout')}
                         aria-label={$_('auth.logout')}
@@ -315,17 +315,17 @@
                 </div>
             {:else if authStore.isGuest}
                 <div data-sidebar-account class="flex min-w-0 items-center gap-2 rounded-xl border border-line-soft bg-surface-raised p-2">
-                    <div class="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                    <div class="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-surface-raised text-ink">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                             <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                         </svg>
                     </div>
-                    <div class="min-w-0 flex-1 truncate text-xs font-semibold text-slate-700 dark:text-slate-200">
+                    <div class="min-w-0 flex-1 truncate text-xs font-semibold text-ink">
                         {$_('auth.public_view')}
                     </div>
                     <button
-                        class="btn btn-ghost min-h-11 min-w-11 focus-ring rounded-lg p-2 text-slate-600 transition hover:bg-brand-50 hover:text-brand-700 dark:text-slate-400 dark:hover:bg-brand-900/30 dark:hover:text-brand-300"
+                        class="btn btn-ghost min-h-11 min-w-11 focus-ring rounded-lg p-2 text-muted transition hover:bg-accent-soft hover:text-accent-ink"
                         onclick={() => authStore.requestLogin()}
                         title={$_('auth.login')}
                         aria-label={$_('auth.login')}
@@ -339,7 +339,7 @@
         {:else}
             {#if authStore.isAuthenticated}
                 <button
-                    class="sidebar-nav sidebar-nav-inactive justify-center px-0 hover:text-red-700 dark:hover:text-red-400"
+                    class="sidebar-nav sidebar-nav-inactive justify-center px-0 hover:text-status-fail"
                     onclick={() => authStore.logout()}
                     title={$_('auth.logout')}
                     aria-label={$_('auth.logout')}
@@ -367,7 +367,7 @@
         <div class="flex items-center {collapsed ? 'flex-col gap-1' : 'justify-around gap-1'}">
             <LanguageSelector dropUp compact />
             <button
-                class="btn btn-ghost min-h-11 min-w-11 focus-ring rounded-xl p-2.5 text-slate-600 transition-all duration-200 hover:bg-surface-raised dark:text-slate-400"
+                class="btn btn-ghost min-h-11 min-w-11 focus-ring rounded-xl p-2.5 text-muted transition-all duration-200 hover:bg-surface-raised"
                 onclick={() => themeStore.toggle()}
                 title={themeStore.prefersDark ? $_('theme.switch_light') : $_('theme.switch_dark')}
                 aria-label={themeStore.prefersDark ? $_('theme.switch_light') : $_('theme.switch_dark')}
@@ -385,7 +385,7 @@
             <!-- Collapsing to an icon rail is a desktop choice; the phone drawer is either open or closed. -->
             {#if !isMobile}
             <button
-                class="btn btn-ghost min-h-11 min-w-11 focus-ring rounded-xl p-2.5 text-slate-600 transition-all duration-200 hover:bg-surface-raised dark:text-slate-400"
+                class="btn btn-ghost min-h-11 min-w-11 focus-ring rounded-xl p-2.5 text-muted transition-all duration-200 hover:bg-surface-raised"
                 onclick={() => layoutStore.toggleSidebar()}
                 title={collapsed ? $_('nav.expand_sidebar') : $_('nav.collapse_sidebar')}
                 aria-label={collapsed ? $_('nav.expand_sidebar') : $_('nav.collapse_sidebar')}

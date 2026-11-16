@@ -1473,7 +1473,9 @@
     "measurement_gap": "Não há leitura de utilização para esta amostra. As linhas dos processos abaixo mostram o acelerador carregado; esta lacuna não comprova uma mudança para a CPU.",
     "unreadable_nvidia": "{label} está presente, mas o seu controlador não publica nenhum contador de utilização que um contentor consiga ler.",
     "unreadable_accelerator": "{label} está presente, mas o seu contador não é legível a partir de dentro do contentor.",
-    "table_region": "Carga por processo"
+    "table_region": "Carga por processo",
+    "chart_title": "Carga dos últimos 30 minutos",
+    "col_time": "Hora"
   },
   "text_size": {
     "label": "Tamanho do texto",

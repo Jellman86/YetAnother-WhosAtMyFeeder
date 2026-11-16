@@ -121,17 +121,17 @@ Amber is reserved for "this needs a person". It is not decoration and it is not 
 Green means confirmed or healthy, brand blue means normal emphasis. A row is never coloured to
 mean "recent" or "interesting".
 
-Success and attention are therefore semantic scales of their own, `success-*` and `attention-*`,
-and never the theme's secondary accent. `accent-*` is a brand colour: the classic theme paints it
-emerald and the shipped bluetit theme paints it amber. Anything meaning confirmed, passed, healthy,
-connected or verified must use `success-*` so it stays green in every theme. Anything meaning "this
-needs a person" (a flagged row, the review queue, a warning toast, a degraded subsystem) must use
-`attention-*`, which is amber in every theme. Both are defined once in `app.css`; a theme may
-repaint `--accent-*` but must never define `--success-*` or `--attention-*`. Score and state code
-never names `accent-*` at all (`colour-language.layout.test.ts`).
+Success and attention are therefore semantic tones of their own, never the brand. Anything
+meaning confirmed, passed, healthy, connected or verified uses the `ok` status tone
+(`text-status-ok`, `StatusChip tone="ok"`) so it stays green in every theme. Anything meaning
+"this needs a person" (a flagged row, the review queue, a warning toast, a degraded subsystem) uses
+the `attention` tone, which is amber in every theme. Both are defined once in `app.css`; a colour
+theme repaints the brand (and with it `accent`), never a status tone
+([`design-tokens.md`](design-tokens.md)). The older `success-*` and `attention-*` step scales still
+appear in screens not yet moved onto the tokens, under the same rule.
 
 The palette is closed. Component code paints with brand, `success-*`, `attention-*`, rose (and the
-kit's red danger buttons) and slate, and nothing else: no `accent-*`, no raw `amber-*`, and no
+kit's red danger buttons) and slate, and nothing else: no raw `amber-*`, and no
 second accent such as indigo, sky or cyan to make a panel look distinct. A panel is told apart by
 its heading, not its tint. The few reasons to step outside are named, with their reason, in
 `PALETTE_EXCEPTIONS` (`colour-language.layout.test.ts`): a theme picker's swatches, categorical

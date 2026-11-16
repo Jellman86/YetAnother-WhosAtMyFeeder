@@ -13,7 +13,9 @@
     "test": "vitest run",
     "test:browser": "playwright test",
     "test:browser:smoke": "playwright test --project=chromium",
-    "lint:dead": "knip --no-progress --include files,dependencies,devDependencies,unlisted,unresolved,exports,types,nsExports,nsTypes,enumMembers"
+    "lint:dead": "knip --no-progress --include files,dependencies,devDependencies,unlisted,unresolved,exports,types,nsExports,nsTypes,enumMembers",
+    "lint:tokens": "vitest run src/design-tokens.ratchet.test.ts src/design-tokens.contrast.test.ts",
+    "tokens:baseline": "UPDATE_TOKEN_BASELINE=1 vitest run src/design-tokens.ratchet.test.ts"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.14.0",

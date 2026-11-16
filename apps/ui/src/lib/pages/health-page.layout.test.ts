@@ -55,7 +55,7 @@ describe('Health page', () => {
         expect(en.settings.system_health.cpu_unmeasured).toContain('cannot be measured');
         // Dense resource headers remain separated at phone widths without introducing
         // a nested horizontal scroller.
-        expect(panelSource).toContain('<thead class="text-xs font-semibold text-slate-700 dark:text-slate-200">');
+        expect(panelSource).toContain('<thead class="text-xs font-semibold text-ink">');
         expect(panelSource).not.toContain('data-system-health-table-container');
         // The keyboard's crosshair is a real range control, not a focusable picture, and it
         // stays out of sight until focused so it is not a handle attached to nothing.
@@ -105,7 +105,7 @@ describe('Health page', () => {
         // No tinted cards and no dimmed text: those failed contrast on 64 nodes.
         expect(errorsSource).not.toMatch(/<article class="rounded-2xl border p-5 shadow-xs \{toneClass/);
         expect(errorsSource).not.toMatch(/class="[^"]*\bopacity-(60|70|80)\b/);
-        expect(errorsSource).toContain('STATUS_PILL[statusTone(tone)]');
+        expect(errorsSource).toContain('<StatusChip tone={STATUS_TONE[statusTone(tone)]} label={chip} title={rawStatus}');
         // Labels wrap rather than cut off at large text.
         expect(errorsSource).not.toMatch(/<dt class="[^"]*truncate/);
     });

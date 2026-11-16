@@ -62,7 +62,7 @@
   "errors_clear": "Fehlerverlauf löschen",
   "errors_summary": "{groups} Gruppen • {events} Ereignisse • {snapshots} Status-Snapshots",
   "errors_latest_health": "Aktueller Status: {status} um {at}",
-  "errors_empty": "Keine aufgezeichnet.",
+  "errors_backend_empty": "Das Backend hat seit dem letzten Leeren des Fehlerverlaufs keine Warnungen oder Fehler aufgezeichnet.",
   "errors_count": "{count}x",
   "errors_first_seen": "Zuerst gesehen",
   "errors_last_seen": "Zuletzt gesehen",

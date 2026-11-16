@@ -1473,7 +1473,9 @@
     "measurement_gap": "Nessuna misura di utilizzo per questo campione. Le righe dei processi sotto mostrano l’acceleratore caricato; questa lacuna non dimostra un passaggio alla CPU.",
     "unreadable_nvidia": "{label} è presente, ma il suo driver non pubblica alcun contatore di utilizzo leggibile da un contenitore.",
     "unreadable_accelerator": "{label} è presente, ma il suo contatore non è leggibile dall’interno del contenitore.",
-    "table_region": "Carico per processo"
+    "table_region": "Carico per processo",
+    "chart_title": "Carico degli ultimi 30 minuti",
+    "col_time": "Ora"
   },
   "text_size": {
     "label": "Dimensione del testo",
