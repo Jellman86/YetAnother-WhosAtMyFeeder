@@ -80,6 +80,10 @@ class FakeBackend {
     frigateConfigFails = false;
     /** Weights on disk, labels unreadable: the server reports the classifier could not load. */
     modelFailedToLoad = false;
+    /** Downloads and hardware checks the server reports as in progress, whoever started them. */
+    activity: Json = {};
+    /** Fields laid over the classifier's report, to make one the readiness fixture names. */
+    statusOverride: Json = {};
     /** While set, Frigate's camera list does not answer: a Frigate that is down hangs like this. */
     frigateConfigHeld: Promise<void> | null = null;
     downloadDone = false;
@@ -155,10 +159,10 @@ class FakeBackend {
     private status(): Json {
         const active = this.installed.find((m) => m.id === this.activeModelId);
         return {
-            loaded: true, error: null, labels_count: 100, enabled: true,
+            loaded: !this.modelFailedToLoad, error: this.modelFailedToLoad ? 'labels.txt: No such file or directory' : null, labels_count: 100, enabled: true,
             active_model_id: this.activeModelId, effective_model_id: this.activeModelId,
             active_model_installed: this.activeModelInstalled(),
-            image_flavor: 'intel', runtime_source: 'worker',
+            image_flavor: 'intel', runtime_source: this.modelFailedToLoad ? 'in_process' : 'worker',
             available_providers: ['cpu', 'intel_cpu', 'intel_gpu', 'intel_npu'],
             host_available_providers: ['cpu', 'intel_cpu', 'intel_gpu', 'intel_npu'],
             packaged_inference_providers: ['cpu', 'intel_cpu', 'intel_gpu', 'intel_npu'],
@@ -166,7 +170,8 @@ class FakeBackend {
             selected_provider: this.settings.inference_provider, active_provider: 'intel_cpu',
             provider_preference_order: active?.provider_preference_order ?? [],
             active_model_validated_providers: active?.validated_inference_providers ?? [],
-            validated_provider_preference_order: active?.provider_preference_order ?? []
+            validated_provider_preference_order: active?.provider_preference_order ?? [],
+            ...this.statusOverride
         };
     }
 
@@ -279,6 +284,7 @@ class FakeBackend {
         if (path === '/api/backfill/async' && method === 'POST') return json({ id: 'history-job', status: 'running', processed: 0, total: 20, message: 'Scanning Frigate event history' });
         if (path.startsWith('/api/frigate/camera/')) return route.fulfill({ status: 404, body: '' });
         if (path === '/api/classifier/status') return json(this.status());
+        if (path === '/api/models/activity') return json({ activity: this.activity });
         if (path === '/api/models/available') return json([MODELS[MOBILENET], MODELS[DINO], MODELS[BROKEN], MODELS.small_birds]);
         if (path === '/api/models/families/resolved') return json({ small_birds: { effective_region: this.settings.bird_model_region_override === 'eu' ? 'eu' : 'na' } });
         if (path === '/api/models/installed') return json(this.installedResponse());
@@ -774,6 +780,8 @@ test('a validation response already in flight cannot refresh a step after Back',
     await expect.poll(() => Boolean(held.route)).toBe(true);
     await wizard(page).getByRole('button', { name: 'Back', exact: true }).click();
     await expectStep(page, 'Review setup');
+    // The review reads the classifier once for its own model row; what follows is the late response.
+    await expect(wizard(page).locator('[data-setup-readiness]')).toHaveAttribute('data-setup-readiness', 'running');
     const atLeave = fake.requests.length;
     if (!held.route) throw new Error('Validation response was not held');
     await held.route.fulfill({ json: { run_id: RUN_ID, finished_at: '2026-10-10T12:05:00Z', models: [] } });
@@ -1164,6 +1172,8 @@ test('the review words a working model from its runtime report', async ({ page }
     await openRerun(page, new FakeBackend({}));
     const model = wizard(page).getByRole('listitem').filter({ hasText: 'Model and hardware' });
     await expect(model.locator('[data-setup-status]')).toHaveText('Running');
+    // The word comes from the classifier's own report, the one the model step reads.
+    await expect(model.locator('[data-setup-status]')).toHaveAttribute('data-setup-readiness', 'running');
 });
 
 test('the review does not call a model ready when its files are here but it could not be loaded', async ({ page }, testInfo) => {
@@ -1192,4 +1202,39 @@ test('the step bar marks the steps done, the current one and those ahead differe
     expect(drawn[4]).not.toBe(drawn[3]);
     expect(drawn[4]).not.toBe(drawn[0]);
     expect(drawn[3]).not.toBe(drawn[0]);
+});
+
+test('the review says "Not reported" when the classifier answers with no evidence, not "Chosen" or an old "Running"', async ({ page }, testInfo) => {
+    const fake = new FakeBackend({});
+    // A report that names the model and says nothing of a worker, a plan or a load.
+    fake.statusOverride = { runtime_source: null, loaded: null };
+    await openRerun(page, fake);
+    const status = wizard(page).getByRole('listitem').filter({ hasText: 'Model and hardware' }).locator('[data-setup-status]');
+    await expect(status).toHaveText('Not reported');
+    await expect(status).toHaveAttribute('data-setup-readiness', 'unknown');
+    // Neutral: nothing was measured, so it is neither green nor a call to act.
+    await expect(status).toHaveAttribute('data-setup-tone', 'optional');
+    await page.screenshot({ path: testInfo.outputPath('review-model-not-reported.png') });
+});
+
+test('the review says a model that is still loading is loading', async ({ page }) => {
+    const fake = new FakeBackend({});
+    fake.statusOverride = { runtime_source: 'in_process', loaded: null };
+    await openRerun(page, fake);
+    const status = wizard(page).getByRole('listitem').filter({ hasText: 'Model and hardware' }).locator('[data-setup-status]');
+    await expect(status).toHaveText('Loading');
+    await expect(status).toHaveAttribute('data-setup-tone', 'optional');
+});
+
+test('the review shows a download the server reports, and reads the model again when it ends', async ({ page }) => {
+    const fake = new FakeBackend({ installed: [] });
+    fake.activity = { [MOBILENET]: 'downloading' };
+    await openRerun(page, fake);
+    const status = wizard(page).getByRole('listitem').filter({ hasText: 'Model and hardware' }).locator('[data-setup-status]');
+    await expect(status).toHaveText('Downloading');
+    await expect(status).toHaveAttribute('data-setup-tone', 'optional');
+    // The download ends on the server; nobody presses anything on this page.
+    fake.installed.push({ id: MOBILENET, ready: true, reason: 'ready', validated: true, validated_inference_providers: ['cpu'], provider_preference_order: ['cpu'], preferred_inference_provider: 'cpu' });
+    fake.activity = {};
+    await expect(status).toHaveText('Running', { timeout: 10_000 });
 });

@@ -2155,6 +2155,27 @@
         "title": "BackfillResetCacheStats",
         "type": "object"
       },
+      "BackfillResetCountChanged": {
+        "description": "The count the owner confirmed no longer holds. Nothing was deleted.",
+        "properties": {
+          "code": {
+            "const": "reset_count_changed",
+            "default": "reset_count_changed",
+            "title": "Code",
+            "type": "string"
+          },
+          "detection_count": {
+            "description": "What a reset would delete now, to ask the owner again with.",
+            "title": "Detection Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "detection_count"
+        ],
+        "title": "BackfillResetCountChanged",
+        "type": "object"
+      },
       "BackfillResetPreviewResponse": {
         "description": "What a reset would delete right now, counted over the reset's own scope.",
         "properties": {
@@ -2168,6 +2189,27 @@
           "detection_count"
         ],
         "title": "BackfillResetPreviewResponse",
+        "type": "object"
+      },
+      "BackfillResetRefusal": {
+        "description": "A reset that did not run: the confirmed count changed, or another reset is under way.",
+        "properties": {
+          "detail": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BackfillResetCountChanged"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Detail"
+          }
+        },
+        "required": [
+          "detail"
+        ],
+        "title": "BackfillResetRefusal",
         "type": "object"
       },
       "BackfillResetResponse": {
@@ -13677,6 +13719,28 @@
           "message"
         ],
         "title": "ModelActionResponse",
+        "type": "object"
+      },
+      "ModelActivityResponse": {
+        "description": "Models being downloaded or checked on this hardware right now, by model id.",
+        "properties": {
+          "activity": {
+            "additionalProperties": {
+              "enum": [
+                "downloading",
+                "validating"
+              ],
+              "type": "string"
+            },
+            "description": "Each model with work in progress and its phase: `downloading` or `validating`. A model that is absent has none. Garden's automatic check model is reported as `garden-speciesnet-4.0.3a`.",
+            "title": "Activity",
+            "type": "object"
+          }
+        },
+        "required": [
+          "activity"
+        ],
+        "title": "ModelActivityResponse",
         "type": "object"
       },
       "ModelDeleteResponse": {
@@ -26698,6 +26762,16 @@
             },
             "description": "Successful Response"
           },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackfillResetRefusal"
+                }
+              }
+            },
+            "description": "Nothing was deleted. Either `expected_count` is no longer the number of detections (`detail.code` is `reset_count_changed` and `detail.detection_count` is the current number), or a reset is already in progress (`detail` is a sentence)."
+          },
           "422": {
             "content": {
               "application/json": {
@@ -35834,6 +35908,39 @@
         "summary": "Species Photo Manual Observation",
         "tags": [
           "manual observations"
+        ]
+      }
+    },
+    "/api/models/activity": {
+      "get": {
+        "description": "Downloads and hardware checks in progress. Owner only.\n\nThe server's account of work on models, whichever page or browser tab started it, so that\nSettings, the setup wizard, About and Garden records all state the same thing.",
+        "operationId": "get_model_activity_api_models_activity_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelActivityResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Get Model Activity",
+        "tags": [
+          "models"
         ]
       }
     },

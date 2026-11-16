@@ -3,7 +3,9 @@
     import { _ } from 'svelte-i18n';
     import { onMount, onDestroy } from 'svelte';
     import { fetchAvailableModels, fetchInstalledModels, downloadModel, fetchDownloadStatus, activateModel, deleteModel, validateModel, checkHealth, groupTieredModelLineup, categorizeModel, MODEL_CATEGORY_LABEL, type ModelCategory, type ModelMetadata, type InstalledModel, type DownloadProgress, type ClassifierStatus, type HealthStatus } from '../../api';
-    import { identificationModelName, modelFactsLine, recommendIdentificationModel } from '../../settings/identification-models';
+    import { identificationModelName, identificationStatus, modelFactsLine, recommendIdentificationModel } from '../../settings/identification-models';
+    import { activityPhase, chosenRecovery, classifierReadiness, readinessLabel, setupEmphasis } from '../../settings/model-readiness';
+    import { modelActivityStore } from '../../stores/model_activity.svelte';
     import { jobProgressStore } from '../../stores/job_progress.svelte';
     import { confirmAction } from '../../stores/confirm_dialog.svelte';
     import { toastStore } from '../../stores/toast.svelte';
@@ -61,6 +63,12 @@
     let loading = $state(true);
     let error = $state<string | null>(null);
     let downloadStatuses = $state<Record<string, DownloadProgress>>({});
+    // A download is work on a model that its own report does not show, so it is recorded where the
+    // wizard's review, About and Garden records read it too.
+    function setDownload(modelId: string, status: DownloadProgress): void {
+        downloadStatuses[modelId] = status;
+        modelActivityStore.hint(modelId, status.status === 'downloading' || status.status === 'pending' ? 'downloading' : null);
+    }
     let activating = $state<string | null>(null);
     // The catalogue row whose details are open, if any.
     let selectedModelId = $state<string | null>(null);
@@ -81,6 +89,9 @@
             ?? installedModels.find((model) => model.is_active)?.id
             ?? null
     );
+    // The chosen model's state, in the one vocabulary the wizard, About and Garden records use, with
+    // the work this app has started on it. Every label and action for the chosen model follows it.
+    const chosenReadiness = $derived(classifierReadiness(classifierStatus, modelActivityStore.phase(currentModelId)));
     const cropDetectorStatus = $derived(classifierStatus?.crop_detector ?? null);
     // What the running service has saved, as opposed to the form's staged choice.
     const savedBirdFinder = $derived<BirdFinder | null>(
@@ -140,7 +151,12 @@
     let pollInterval: ReturnType<typeof setInterval> | undefined;
     let pollingDownloads = false;
 
+    let stopWatchingActivity: (() => void) | undefined;
+
     onMount(async () => {
+        // Work on a model is the server's to report, so it is read here as on every other surface,
+        // and the lists are read again when a download or check ends, whoever started it.
+        stopWatchingActivity = modelActivityStore.watch(() => void refreshModels());
         await loadData();
         // Start polling for downloads
         pollInterval = setInterval(pollDownloads, 2000);
@@ -148,6 +164,7 @@
 
     onDestroy(() => {
         if (pollInterval) clearInterval(pollInterval);
+        stopWatchingActivity?.();
     });
 
     async function loadData() {
@@ -179,9 +196,15 @@
     async function pollDownloads() {
         if (pollingDownloads || document.hidden) return;
         pollingDownloads = true;
-        const activeIds = Object.keys(downloadStatuses).filter(id => 
-            downloadStatuses[id].status === 'downloading' || downloadStatuses[id].status === 'pending'
-        );
+        // The downloads this page started, and any the server reports that it did not: one begun
+        // before the page was left, or in another tab, shows its progress here again.
+        const reported = Object.entries(modelActivityStore.active())
+            .filter(([id, phase]) => phase === 'downloading' && availableModels.some((model) => model.id === id))
+            .map(([id]) => id);
+        const activeIds = [...new Set([
+            ...Object.keys(downloadStatuses).filter(id => downloadStatuses[id].status === 'downloading' || downloadStatuses[id].status === 'pending'),
+            ...reported
+        ])];
 
         try {
             for (const id of activeIds) {
@@ -189,7 +212,7 @@
                     const status = await fetchDownloadStatus(id);
                     const model = availableModels.find((entry) => entry.id === id);
                     if (status) {
-                        downloadStatuses[id] = status;
+                        setDownload(id, status);
                         if (model) {
                             syncModelDownloadProgress(jobProgressStore, model, status);
                         }
@@ -204,7 +227,7 @@
                             progress: downloadStatuses[id]?.progress ?? 0,
                             error: t('settings.detection.model_manager_status_unavailable', 'Download status unavailable')
                         };
-                        downloadStatuses[id] = errorStatus;
+                        setDownload(id, errorStatus);
                         if (model) {
                             syncModelDownloadProgress(jobProgressStore, model, errorStatus);
                         }
@@ -219,7 +242,7 @@
                         progress: downloadStatuses[id]?.progress ?? 0,
                         error: message
                     };
-                    downloadStatuses[id] = errorStatus;
+                    setDownload(id, errorStatus);
                     if (model) {
                         syncModelDownloadProgress(jobProgressStore, model, errorStatus);
                     }
@@ -243,12 +266,33 @@
         return Boolean(installed && installed.ready !== false);
     }
 
-    // In use is what the runtime reports, not only the stored choice: the bundled model runs under
-    // its file name, so the model list alone would offer it for download while it identifies birds.
-    function isActive(modelId: string): boolean {
-        if (classifierStatus?.effective_model_id === modelId && classifierStatus?.active_model_installed === true) return true;
-        return installedModels.some(m => m.id === modelId && m.is_active && m.ready !== false);
+    // Selected is the model the runtime names, or the stored choice: the bundled model runs under its
+    // file name, so the model list alone would offer it for download. Being selected says nothing
+    // about whether it works; that is `chosenReadiness`.
+    function isSelected(modelId: string): boolean {
+        if (currentModelId) return currentModelId === modelId;
+        return installedModels.some((model) => model.id === modelId && model.is_active);
     }
+
+    // In use means selected and running, on the classifier's evidence that it is.
+    function isRunning(modelId: string): boolean {
+        return isSelected(modelId) && chosenReadiness === 'running';
+    }
+
+    // Selected and able to name birds: running, or installed with workers that start on first use.
+    function isWorking(modelId: string): boolean {
+        return isSelected(modelId) && (chosenReadiness === 'running' || chosenReadiness === 'ready');
+    }
+
+    // What recovers the chosen model when it needs a person, so it always has a primary action.
+    const chosenRecoveryAction = $derived.by(() => {
+        const installed = currentModelId ? getInstalledModel(currentModelId) : undefined;
+        return chosenRecovery(chosenReadiness, {
+            installed: Boolean(installed),
+            complete: installed?.ready !== false,
+            bundled: installed?.bundled === true
+        });
+    });
 
     function isValidated(modelId: string): boolean {
         const installed = getInstalledModel(modelId);
@@ -323,17 +367,13 @@
                     progress: 0,
                     error: result.message || t('settings.detection.model_manager_start_failed', 'Failed to start download')
                 };
-                downloadStatuses[model.id] = errorStatus;
+                setDownload(model.id, errorStatus);
                 syncModelDownloadProgress(jobProgressStore, model, errorStatus);
                 return;
             }
             startModelDownloadProgress(jobProgressStore, model);
             // Initialize local status to trigger polling
-            downloadStatuses[model.id] = {
-                model_id: model.id,
-                status: 'downloading',
-                progress: 0
-            };
+            setDownload(model.id, { model_id: model.id, status: 'downloading', progress: 0 });
         } catch (e) {
             console.error(e);
             const message = e instanceof Error ? e.message : t('settings.detection.model_manager_start_failed', 'Failed to start download');
@@ -343,7 +383,7 @@
                 progress: 0,
                 error: message
             };
-            downloadStatuses[model.id] = errorStatus;
+            setDownload(model.id, errorStatus);
             syncModelDownloadProgress(jobProgressStore, model, errorStatus);
         }
     }
@@ -449,12 +489,15 @@
         const set = (i: number, patch: Partial<DiagnosticStage>) => {
             stages[i] = { ...stages[i], ...patch };
             wizardStages = [...stages];
+            // The phase is the stage that is running: a download while it downloads, a check after.
+            modelActivityStore.hint(model.id, activityPhase(stages));
         };
         const fail = async (i: number, message: string) => {
             set(i, { state: 'failed', message });
             for (let j = i + 1; j < stages.length; j++) set(j, { state: 'skipped', message: skipped });
             wizardResult = { ok: false, message };
             wizardBusy = false;
+            modelActivityStore.hint(model.id, null);
             installedModels = await fetchInstalledModels();
         };
 
@@ -508,6 +551,7 @@
             return;
         }
         wizardBusy = false;
+        modelActivityStore.hint(model.id, null);
         installedModels = await fetchInstalledModels();
         await onruntimechange?.();
     }
@@ -547,10 +591,12 @@
         return { copies: live + background + video, live, background, video };
     }
 
-    type ModelCardState = 'active' | 'repair' | 'installed' | 'available';
+    type ModelCardState = 'active' | 'chosen' | 'repair' | 'installed' | 'available';
 
     function modelCardState(modelId: string): ModelCardState {
-        if (isActive(modelId)) return 'active';
+        if (isRunning(modelId)) return 'active';
+        // Selected and not running: the chip states its readiness, never "In use".
+        if (isSelected(modelId)) return 'chosen';
         const installed = getInstalledModel(modelId);
         if (installed?.ready === false) return 'repair';
         if (installed) return 'installed';
@@ -561,6 +607,8 @@
         switch (state) {
             case 'active':
                 return t('settings.detection.model_manager_in_use', 'In use');
+            case 'chosen':
+                return $_('settings.models.chosen_state', { values: { state: readinessLabel(chosenReadiness, $_) }, default: 'Chosen · {state}' });
             case 'repair':
                 return t('settings.detection.model_manager_state_repair', 'Repair needed');
             case 'installed':
@@ -574,6 +622,8 @@
         switch (state) {
             case 'active':
                 return 'border-brand-500/30 bg-brand-100 text-brand-800 dark:bg-brand-950/60 dark:text-brand-200';
+            case 'chosen':
+                return 'border-line bg-surface-raised text-ink';
             case 'repair':
                 return 'border-attention-500/30 bg-attention-500/10 text-attention-700 dark:text-attention-300';
             case 'installed':
@@ -608,13 +658,16 @@
     {/if}
 {/snippet}
 
-{#snippet modelActions(model: ModelMetadata)}
+{#snippet modelActions(model: ModelMetadata, subject: 'chosen' | 'other' = 'other')}
+    <!-- While the chosen model needs a download or a recovery, that is the page's one primary action. -->
+    {@const setupClass = setupEmphasis(chosenReadiness, subject) === 'primary' ? 'btn btn-primary min-h-11 px-4' : 'btn btn-secondary min-h-11 px-4'}
     {@const installed = Boolean(getInstalledModel(model.id))}
     {@const ready = isReady(model.id)}
-    {@const active = isActive(model.id)}
+    {@const selected = isSelected(model.id)}
+    {@const recovery = subject === 'chosen' ? chosenRecoveryAction : null}
     {@const validated = isValidated(model.id)}
     {@const download = downloadStatuses[model.id]}
-    {@const inProgress = download?.status === 'downloading' || download?.status === 'pending'}
+    {@const inProgress = download?.status === 'downloading' || download?.status === 'pending' || modelActivityStore.phase(model.id) === 'downloading'}
     {#if inProgress}
         <div class="w-full" role="status">
             <div class="mb-2 flex justify-between text-sm">
@@ -623,10 +676,10 @@
                         ? $_('settings.detection.model_manager_redownloading', { default: 'Re-downloading…' })
                         : $_('settings.detection.model_manager_downloading', { default: 'Downloading…' })}
                 </span>
-                <span class="font-medium text-slate-600 dark:text-slate-300">{download.progress.toFixed(0)}%</span>
+                <span class="font-medium text-slate-600 dark:text-slate-300">{(download?.progress ?? 0).toFixed(0)}%</span>
             </div>
             <div class="h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
-                <div class="h-full bg-brand-500 transition-all duration-300 motion-reduce:transition-none" style="width: {download.progress}%"></div>
+                <div class="h-full bg-brand-500 transition-all duration-300 motion-reduce:transition-none" style="width: {download?.progress ?? 0}%"></div>
             </div>
         </div>
     {:else}
@@ -635,7 +688,7 @@
         {/if}
         <div class="flex flex-col-reverse gap-3 sm:flex-row sm:flex-wrap sm:justify-end">
             {#if installed}
-                {#if !active && !getInstalledModel(model.id)?.bundled}
+                {#if !selected && !getInstalledModel(model.id)?.bundled}
                     <button
                         type="button"
                         onclick={() => handleDelete(model)}
@@ -648,36 +701,44 @@
                     </button>
                 {/if}
                 {#if !getInstalledModel(model.id)?.bundled}
-                    <button type="button" onclick={() => handleDownload(model)} class="btn btn-secondary min-h-11 px-4">
+                    <button type="button" onclick={() => handleDownload(model)} class={recovery === 'repair_download' ? 'btn btn-primary min-h-11 px-4' : 'btn btn-secondary min-h-11 px-4'} data-model-recovery={recovery === 'repair_download' ? recovery : undefined}>
                         {ready
                             ? $_('settings.detection.model_manager_redownload', { default: 'Re-download' })
                             : $_('settings.detection.model_manager_repair_download', { default: 'Repair download' })}
                     </button>
                 {/if}
-                {#if ready && !active && validated}
+                {#if recovery === 'revalidate'}
+                    <!-- Installed and not loaded: checked on this hardware and loaded again, which is also
+                         the only recovery a bundled model has. -->
+                    <button type="button" onclick={() => handleValidate(model)} disabled={wizardBusy} class="btn btn-primary min-h-11 px-4" data-model-recovery="revalidate">
+                        {$_('settings.models.recover_revalidate', { default: 'Check and load again' })}
+                    </button>
+                {:else if ready && !selected && validated}
                     <button
                         type="button"
                         onclick={() => handleActivate(model.id)}
                         disabled={activating !== null}
-                        class="btn btn-primary min-h-11 px-4"
+                        class={setupClass}
                     >
                         {activating === model.id
                             ? $_('settings.detection.model_manager_activating', { default: 'Activating…' })
                             : $_('settings.detection.model_manager_activate', { default: 'Use this model' })}
                     </button>
-                {:else if ready && !active && !validated}
+                {:else if ready && !selected && !validated}
                     <button
                         type="button"
                         onclick={() => handleValidate(model)}
                         disabled={wizardBusy}
-                        class="btn btn-primary min-h-11 px-4"
+                        class={setupClass}
                     >
                         {$_('settings.detection.model_manager_validate_to_enable', { default: 'Validate to enable' })}
                     </button>
                 {/if}
-            {:else if !active}
-                <button type="button" onclick={() => handleInstall(model)} disabled={wizardBusy} class="btn btn-primary min-h-11 px-4">
-                    {$_('settings.detection.model_manager_download_setup', { default: 'Download and set up' })}
+            {:else}
+                <button type="button" onclick={() => handleInstall(model)} disabled={wizardBusy} class={setupClass} data-model-setup={setupEmphasis(chosenReadiness, subject)}>
+                    {setupEmphasis(chosenReadiness, subject) === 'secondary'
+                        ? $_('settings.models.download_switch', { default: 'Download and switch to this model' })
+                        : $_('settings.detection.model_manager_download_setup', { default: 'Download and set up' })}
                 </button>
             {/if}
         </div>
@@ -688,7 +749,8 @@
     {@const installedEntry = getInstalledModel(model.id)}
     {@const installed = Boolean(installedEntry)}
     {@const ready = isReady(model.id)}
-    {@const active = isActive(model.id)}
+    {@const active = isRunning(model.id)}
+    {@const selected = isSelected(model.id)}
     {@const validated = isValidated(model.id)}
     {@const category = categorizeModel(model)}
     {@const runtimeProviderOrder = active ? getRuntimeProviderOrder(classifierStatus, getProviderSupport(model)) : []}
@@ -740,7 +802,7 @@
             <p class="text-sm font-semibold text-attention-800 dark:text-attention-200" role="alert">
                 {$_('settings.detection.model_manager_repair_needed', { default: 'This model install is incomplete. Re-download it to restore the missing species names or model configuration before activation.' })}
             </p>
-        {:else if installed && !active && !validated}
+        {:else if installed && !selected && !validated}
             <p class="text-sm text-slate-700 dark:text-slate-200">
                 {$_('settings.detection.model_manager_validation_needed', { default: 'Downloaded but not yet validated on your hardware. Validate it to confirm it runs here before you select it.' })}
             </p>
@@ -833,7 +895,7 @@
         {@const classifierModels = availableModels.filter((model) => (model.artifact_kind || 'classifier') === 'classifier')}
         {@const modelGroups = groupTieredModelLineup(classifierModels, true, currentModelId)}
         {@const currentModel = currentModelId ? classifierModels.find((entry) => entry.id === currentModelId) ?? getInstalledModel(currentModelId)?.metadata ?? null : null}
-        {@const recommended = recommendIdentificationModel(classifierModels, { currentId: currentModel?.id ?? currentModelId, currentInUse: currentModel ? isActive(currentModel.id) : false, imageFlavor: classifierStatus?.image_flavor })}
+        {@const recommended = recommendIdentificationModel(classifierModels, { currentId: currentModel?.id ?? currentModelId, currentInUse: currentModel ? isWorking(currentModel.id) : false, imageFlavor: classifierStatus?.image_flavor })}
         {@const birdFinderOptions = (['yolox_tiny', 'rfdetr_nano'] as const)
             .map((choice) => ({ choice, model: cropDetectorModels.find((model) => model.id === BIRD_FINDER_MODEL_IDS[choice]) }))
             .filter((option): option is { choice: BirdFinder; model: ModelMetadata } => Boolean(option.model))}
@@ -864,17 +926,17 @@
                 </div>
 
                 {#if currentModel}
-                    {@const currentActive = isActive(currentModel.id)}
-                    <div class="rounded-xl border border-line-soft p-4 sm:p-5" data-current-model>
+                    {@const currentActive = isRunning(currentModel.id)}
+                    <div class="rounded-xl border border-line-soft p-4 sm:p-5" data-current-model data-model-readiness={chosenReadiness}>
                         <p class="mb-2 text-xs font-medium text-slate-600 dark:text-slate-400">
                             {currentActive
                                 ? $_('settings.models.current_label', { default: 'In use now' })
-                                : $_('settings.models.chosen_label', { default: 'Chosen, not on this install' })}
+                                : $_('settings.models.chosen_state', { values: { state: readinessLabel(chosenReadiness, $_) }, default: 'Chosen · {state}' })}
                         </p>
                         {@render modelHeading(currentModel, currentActive ? { label: $_('settings.detection.model_manager_in_use', { default: 'In use' }), className: modelCardStateClass('active') } : null, 'current-model-name')}
                         <div class="mt-3 space-y-4">
                             {@render modelDetail(currentModel)}
-                            {@render modelActions(currentModel)}
+                            {@render modelActions(currentModel, 'chosen')}
                         </div>
                     </div>
                 {/if}

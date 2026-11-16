@@ -325,8 +325,15 @@ export interface components {
     clips_deleted: number;
     snapshots_deleted: number;
 };
+    BackfillResetCountChanged: {
+    code?: "reset_count_changed";
+    detection_count: number;
+};
     BackfillResetPreviewResponse: {
     detection_count: number;
+};
+    BackfillResetRefusal: {
+    detail: components['schemas']['BackfillResetCountChanged'] | string;
 };
     BackfillResetResponse: {
     cache_stats: components['schemas']['BackfillResetCacheStats'];
@@ -1915,6 +1922,9 @@ export interface components {
     ModelActionResponse: {
     message: string;
     status: string;
+};
+    ModelActivityResponse: {
+    activity: Record<string, "downloading" | "validating">;
 };
     ModelDeleteResponse: {
     bytes_freed: number;
@@ -5350,6 +5360,15 @@ export interface paths {
       query: never;
       requestBody: unknown;
       response: unknown;
+    };
+  };
+  "/api/models/activity": {
+    get: {
+      operationId: "get_model_activity_api_models_activity_get";
+      path: never;
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['ModelActivityResponse'];
     };
   };
   "/api/models/available": {

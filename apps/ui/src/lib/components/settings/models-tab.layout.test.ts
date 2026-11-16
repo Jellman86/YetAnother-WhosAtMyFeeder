@@ -53,8 +53,20 @@ describe('Detection and Models', () => {
         expect(statusSource).toContain('status.active_model_installed === false');
         expect(statusLineSource).toContain("settings.models.status_missing'");
         expect(statusLineSource).toContain('identificationModelName(');
-        // The model in use says so; it is never offered for download as if it were not here.
+        // "In use" is said only of a model that is selected and running on the classifier's evidence;
+        // a selected model that failed, is loading or was not reported states that readiness instead.
         expect(modelManagerSource).toContain('model_manager_in_use');
-        expect(modelManagerSource).toContain('{:else if !active}');
+        expect(modelManagerSource).toContain("return isSelected(modelId) && chosenReadiness === 'running';");
+        expect(modelManagerSource).toContain('{@const currentActive = isRunning(currentModel.id)}');
+        expect(modelManagerSource).not.toContain('isActive(');
+        // The chosen model's state and its recovery come from the shared rule and the shared activity.
+        expect(modelManagerSource).toContain('classifierReadiness(classifierStatus, modelActivityStore.phase(currentModelId))');
+        expect(modelManagerSource).toContain('data-model-recovery="revalidate"');
+        // Work in progress is the server's to report. The page records what it starts as a hint, keeps
+        // itself reconciled while it is shown, and resumes the progress of a download it did not start.
+        expect(modelManagerSource).toContain('modelActivityStore.hint(model.id, activityPhase(stages));');
+        expect(modelManagerSource).toContain('stopWatchingActivity = modelActivityStore.watch(() => void refreshModels());');
+        expect(modelManagerSource).toContain('modelActivityStore.active()');
+        expect(modelManagerSource).not.toContain('modelActivityStore.set(');
     });
 });

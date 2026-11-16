@@ -11,9 +11,9 @@ describe('Model Manager guided install + selection gate', () => {
 
     it('gates activation on validation for an already-downloaded model', () => {
         // "Use this model" is only offered once the model is validated on this host.
-        expect(modelManagerSource).toContain('ready && !active && validated');
+        expect(modelManagerSource).toContain('ready && !selected && validated');
         // The unvalidated branch runs the wizard from the validate stage (no re-download).
-        expect(modelManagerSource).toContain('ready && !active && !validated');
+        expect(modelManagerSource).toContain('ready && !selected && !validated');
         expect(modelManagerSource).toContain('model_manager_validate_to_enable');
         expect(modelManagerSource).toContain("runInstallWizard(model, { download: false })");
     });
@@ -51,5 +51,15 @@ describe('Model Manager guided install + selection gate', () => {
         expect(modelManagerSource).not.toContain('model_manager_current_runtime');
         expect(modelManagerSource).toContain('model_manager_runtime_order');
         expect(modelManagerSource).toContain("case 'intel_npu':");
+    });
+
+    it('keeps one primary setup action while the chosen model needs a download or a recovery', () => {
+        expect(modelManagerSource).toContain("setupEmphasis(chosenReadiness, subject) === 'primary'");
+        expect(modelManagerSource).toContain("{@render modelActions(currentModel, 'chosen')}");
+        // Any other model's download is secondary then, and says what it does instead.
+        expect(modelManagerSource).toContain("$_('settings.models.download_switch'");
+        // The chosen model's state is worded by the shared readiness vocabulary.
+        expect(modelManagerSource).toContain('readinessLabel(chosenReadiness, $_)');
+        expect(modelManagerSource).not.toContain('settings.models.chosen_label');
     });
 });

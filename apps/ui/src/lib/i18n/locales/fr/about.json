@@ -31,7 +31,8 @@
     "browser": "Votre navigateur",
     "unknown": "Inconnu",
     "degraded": "À vérifier",
-    "loaded": "Chargé",
+    "inference_unhealthy": "Les inférences récentes échouent",
+    "inference_degraded": "Certaines inférences récentes ont échoué",
     "cameras_count": "{online} caméras en ligne sur {total}",
     "mqtt_detail": "frigate/events",
     "audio_detail": "Corrélation BirdNET-Go",
@@ -43,9 +44,7 @@
     "not_checked": "Non vérifié",
     "no_reading": "aucune lecture depuis ici",
     "owner_only": "Propriétaire uniquement",
-    "owner_only_detail": "relevé visible par le propriétaire",
-    "standby": "Pas encore chargé",
-    "missing": "Non installé"
+    "owner_only_detail": "relevé visible par le propriétaire"
   },
   "storage": {
     "title": "Ce qui est stocké",

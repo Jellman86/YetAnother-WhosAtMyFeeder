@@ -9,6 +9,7 @@ from app.services.model_manager import (
     model_manager,
     registry_artifact_kind,
 )
+from app.services.model_activity import ActivityPhase, model_activity
 from app.services.model_validation import activation_provider_recommendation, run_validation_probe
 from app.services.settings_update import commit_settings_change
 from app.models.ai_models import ModelMetadata, InstalledModel, DownloadProgress
@@ -124,6 +125,29 @@ async def get_download_status(model_id: str, auth: AuthContext = Depends(require
     return status
 
 
+class ModelActivityResponse(BaseModel):
+    """Models being downloaded or checked on this hardware right now, by model id."""
+
+    activity: dict[str, ActivityPhase] = Field(
+        description=(
+            "Each model with work in progress and its phase: `downloading` or `validating`. A model that is "
+            "absent has none. Garden's automatic check model is reported as `garden-speciesnet-4.0.3a`."
+        )
+    )
+
+
+@router.get("/models/activity", response_model=ModelActivityResponse)
+async def get_model_activity(auth: AuthContext = Depends(require_owner)) -> ModelActivityResponse:
+    """Downloads and hardware checks in progress. Owner only.
+
+    The server's account of work on models, whichever page or browser tab started it, so that
+    Settings, the setup wizard, About and Garden records all state the same thing.
+    """
+    model_manager._cleanup_downloads()
+    downloads = {model_id: progress.status for model_id, (progress, _at) in model_manager.active_downloads.items()}
+    return ModelActivityResponse(activity=model_activity.phases(downloads))
+
+
 @router.post("/models/{model_id}/validate", response_model=ModelValidateResponse)
 async def validate_model(model_id: str, auth: AuthContext = Depends(require_owner)):
     """Validate an installed model and recommend its fastest passing provider.
@@ -147,8 +171,10 @@ async def validate_model(model_id: str, auth: AuthContext = Depends(require_owne
         )
 
     # The probe trial-activates the candidate and restores the previously active model
-    # before returning, so no extra reconciliation is needed here.
-    result = await run_validation_probe(model_id)
+    # before returning, so no extra reconciliation is needed here. It is reported as work in
+    # progress for as long as it runs, so every page and tab says the model is being checked.
+    with model_activity.working(model_id, "validating"):
+        result = await run_validation_probe(model_id)
 
     # Validation is a trial: keep the live model and its provider unchanged. The
     # recommended provider is applied atomically only after activation succeeds.
