@@ -16,10 +16,12 @@ import asyncio
 from datetime import datetime, timedelta, timezone
 from dataclasses import dataclass
 from collections.abc import Callable
+import hashlib
 import json
 import os
 import re
 import stat
+import time
 from pathlib import Path
 from typing import Any, Literal, Self
 
@@ -147,21 +149,32 @@ def _frame_variant(name: str) -> tuple[str, str | None] | None:
     return "event", None
 
 
-def _event_snapshot_is_uncropped(path: str) -> bool:
+def _uncropped_event_snapshot_identity(path: str) -> str | None:
+    """The image hash a sidecar vouches for, when it records an uncropped source and an identity.
+
+    Older sidecars recorded no identity, so they cannot vouch for any image.
+    """
     from app.services.classification_input_provenance import snapshot_source_is_uncropped_frame
 
     raw = _read_regular_file(f"{path}.meta.json", MAX_METADATA_BYTES)
     if raw is None or len(raw) >= MAX_METADATA_BYTES:
-        return False
+        return None
     try:
         metadata = json.loads(raw)
     except ValueError:
-        return False
-    return isinstance(metadata, dict) and snapshot_source_is_uncropped_frame(metadata.get("source"))
+        return None
+    if not isinstance(metadata, dict) or not snapshot_source_is_uncropped_frame(metadata.get("source")):
+        return None
+    identity = metadata.get("image_sha256")
+    return identity if isinstance(identity, str) and len(identity) == 64 else None
 
 
-def _is_full_camera_frame(path: str) -> bool:
-    """A whole, decodable frame at least ``MIN_FRAME_SHORT_SIDE`` on its short side."""
+def _is_full_camera_frame(path: str, *, expected_sha256: str | None = None) -> bool:
+    """A whole, decodable frame at least ``MIN_FRAME_SHORT_SIDE`` on its short side.
+
+    With ``expected_sha256``, the bytes decoded here must be the image a sidecar
+    vouched for, so a replacement written between the two reads is rejected.
+    """
     import io
 
     from PIL import Image
@@ -177,6 +190,8 @@ def _is_full_camera_frame(path: str) -> bool:
         return False
     data = _read_regular_file(path, MAX_FRAME_BYTES + 1)
     if not data or len(data) > MAX_FRAME_BYTES:
+        return False
+    if expected_sha256 is not None and hashlib.sha256(data).hexdigest() != expected_sha256:
         return False
     try:
         with Image.open(io.BytesIO(data)) as image:
@@ -257,30 +272,42 @@ def select_check_frames(directory: Path, *, limit: int) -> list[str]:
     reads = 0
     for visits, rounds, needs_provenance in stages:
         queues = [(visit, list(paths)) for visit, paths in visits]
+        # Rounds count this stage's own picks; the per-visit cap counts both stages.
+        taken_this_stage: dict[str, int] = {}
         for round_index in range(rounds):
             for visit, paths in queues:
-                if taken.get(visit, 0) >= MAX_FRAMES_PER_VISIT or taken.get(visit, 0) > round_index:
+                if taken.get(visit, 0) >= MAX_FRAMES_PER_VISIT or taken_this_stage.get(visit, 0) > round_index:
                     continue
                 while paths and len(chosen) < limit and reads < MAX_FRAME_HEADER_READS:
                     path = paths.pop(0)
                     reads += 1
-                    if needs_provenance and not _event_snapshot_is_uncropped(path):
-                        continue
-                    if _is_full_camera_frame(path):
+                    expected = None
+                    if needs_provenance:
+                        expected = _uncropped_event_snapshot_identity(path)
+                        if expected is None:
+                            continue
+                    if _is_full_camera_frame(path, expected_sha256=expected):
                         chosen.append(path)
                         taken[visit] = taken.get(visit, 0) + 1
+                        taken_this_stage[visit] = taken_this_stage.get(visit, 0) + 1
                         break
     return chosen if len(chosen) >= MIN_CHECK_FRAMES else []
 
 
-_selection_cache: tuple[str, int, int, list[str], bool] | None = None
+# Only reached when a check is due or waiting for frames; a settled context
+# never lists the cache. The age limit covers filesystems whose coarse
+# timestamps can leave the directory mtime unchanged across a write.
+SELECTION_CACHE_MAX_AGE_SECONDS = 30 * 60
+_monotonic = time.monotonic
+_selection_cache: tuple[str, int, int, float, list[str], bool] | None = None
 
 
 def _cached_selection() -> tuple[list[str], bool]:
     """The panel and whether any snapshot exists, listed again only after the directory changes.
 
     Any write, rename or delete in the snapshot cache changes its mtime, so an
-    unchanged directory reuses the last listing instead of scanning it again.
+    unchanged directory reuses the last listing instead of scanning it again,
+    for at most ``SELECTION_CACHE_MAX_AGE_SECONDS``.
     """
     global _selection_cache
     from app.services.media_cache import SNAPSHOTS_DIR
@@ -290,11 +317,16 @@ def _cached_selection() -> tuple[list[str], bool]:
         info = os.stat(directory)
     except OSError:
         return [], False
-    if _selection_cache is not None and _selection_cache[:3] == (directory, info.st_mtime_ns, info.st_ino):
-        return list(_selection_cache[3]), _selection_cache[4]
+    now = _monotonic()
+    if (
+        _selection_cache is not None
+        and _selection_cache[:3] == (directory, info.st_mtime_ns, info.st_ino)
+        and now - _selection_cache[3] < SELECTION_CACHE_MAX_AGE_SECONDS
+    ):
+        return list(_selection_cache[4]), _selection_cache[5]
     frames = select_check_frames(SNAPSHOTS_DIR, limit=MAX_CHECK_PHOTOS)
     present = bool(frames) or _any_snapshot(directory)
-    _selection_cache = (directory, info.st_mtime_ns, info.st_ino, list(frames), present)
+    _selection_cache = (directory, info.st_mtime_ns, info.st_ino, now, list(frames), present)
     return frames, present
 
 

@@ -592,6 +592,11 @@ class MediaCacheService:
         if isinstance(event_hints, dict):
             metadata["event_hints"] = event_hints
         if image_bytes is not None:
+            # Binds this sidecar's provenance to the exact photograph it describes.
+            # The image is written before its sidecar, so a reader that checks
+            # this against the bytes it decoded can never pair new pixels with
+            # old provenance. Hint-only updates keep the existing identity.
+            metadata["image_sha256"] = hashlib.sha256(image_bytes).hexdigest()
             # Localization refreshed without writing the image cannot redefine its origin.
             metadata["snapshot_photo_hints"] = (
                 {"image_sha256": hashlib.sha256(image_bytes).hexdigest(), "event_hints": event_hints}

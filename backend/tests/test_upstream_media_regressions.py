@@ -613,3 +613,26 @@ async def test_late_final_event_does_not_regenerate_media_evicted_by_limits(monk
             await db.execute("DELETE FROM detections WHERE frigate_event=?", (event,))
             await db.commit()
         await close_db()
+
+
+@pytest.mark.asyncio
+async def test_every_snapshot_write_records_the_identity_of_the_image_it_wrote(tmp_path, monkeypatch):
+    import hashlib
+    import json
+
+    monkeypatch.setattr(cache_module, "SNAPSHOTS_DIR", tmp_path)
+    service = cache_module.MediaCacheService()
+
+    def recorded() -> str | None:
+        return json.loads((tmp_path / "visit.jpg.meta.json").read_text()).get("image_sha256")
+
+    first = jpeg((1280, 720))
+    await service.cache_snapshot("visit", first, source="frigate_snapshot")
+    assert recorded() == hashlib.sha256(first).hexdigest()
+    crop = jpeg((600, 600))
+    await service.replace_snapshot("visit", crop, source="high_quality_bird_crop")
+    assert recorded() == hashlib.sha256(crop).hexdigest()
+    await service.update_snapshot_event_hints("visit", {"box": [0.1, 0.1, 0.2, 0.2]})
+    await service.set_manual_snapshot_selection("visit", False)
+    # Updates that leave the photograph alone keep its identity.
+    assert recorded() == hashlib.sha256((tmp_path / "visit.jpg").read_bytes()).hexdigest()

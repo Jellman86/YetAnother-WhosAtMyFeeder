@@ -194,10 +194,14 @@ def test_frames_where_a_bird_was_cropped_come_before_other_frames_of_the_visit(t
     assert chosen[3] == "v1__full_frame__f900__aaaaaaaaaa__image.jpg"
 
 
-def _meta(path, source):
+def _meta(path, source, *, bound=True):
+    import hashlib
     import json
 
-    (path.parent / f"{path.name}.meta.json").write_text(json.dumps({"event_id": path.stem, "source": source}))
+    metadata = {"event_id": path.stem, "source": source}
+    if bound:
+        metadata["image_sha256"] = hashlib.sha256(path.read_bytes()).hexdigest()
+    (path.parent / f"{path.name}.meta.json").write_text(json.dumps(metadata))
 
 
 def test_an_original_event_snapshot_counts_only_when_its_provenance_is_uncropped(tmp_path):
@@ -216,6 +220,69 @@ def test_large_bird_crops_that_replaced_the_event_snapshot_never_qualify(tmp_pat
         if source is not None:
             _meta(path, source)
     assert recovery.select_check_frames(tmp_path, limit=12) == []
+
+
+def test_provenance_for_an_earlier_image_never_vouches_for_its_replacement(tmp_path):
+    # HQ processing replaces the image before its sidecar: old full-frame
+    # provenance must not admit the new bird crop that now sits beside it.
+    for index in range(3):
+        path = tmp_path / f"visit{index}.jpg"
+        _jpeg(path, (1280, 720), 100 + index)
+        _meta(path, "frigate_snapshot")
+        _jpeg(path, (600, 600), 100 + index)
+    assert recovery.select_check_frames(tmp_path, limit=12) == []
+
+
+def test_an_event_snapshot_replaced_during_the_check_is_judged_on_the_bytes_it_decoded(tmp_path, monkeypatch):
+    for index in range(3):
+        path = tmp_path / f"visit{index}.jpg"
+        _jpeg(path, (1280, 720), 100 + index)
+        _meta(path, "frigate_snapshot")
+    real_read = recovery._read_regular_file
+
+    def replace_after_header(path, limit):
+        # Swap in a crop between the provenance read and the full image read.
+        if path.endswith(".jpg") and limit > recovery.MAX_HEADER_BYTES:
+            _jpeg(tmp_path / os.path.basename(path), (800, 800), 100)
+        return real_read(path, limit)
+
+    monkeypatch.setattr(recovery, "_read_regular_file", replace_after_header)
+    assert recovery.select_check_frames(tmp_path, limit=12) == []
+
+
+def test_older_snapshots_without_a_recorded_identity_are_not_event_frames(tmp_path):
+    for index in range(3):
+        path = tmp_path / f"visit{index}.jpg"
+        _jpeg(path, (1280, 720), 100 + index)
+        _meta(path, "frigate_snapshot", bound=False)
+    assert recovery.select_check_frames(tmp_path, limit=12) == []
+
+
+def test_visits_with_one_saved_frame_still_add_their_proven_event_snapshot(tmp_path):
+    for visit in ("v1", "v2"):
+        _jpeg(tmp_path / f"{visit}__full_frame__f1__{'a' * 10}__image.jpg", (1280, 720), 100)
+        snapshot = tmp_path / f"{visit}.jpg"
+        _jpeg(snapshot, (1280, 720), 101)
+        _meta(snapshot, "frigate_snapshot")
+    assert len(recovery.select_check_frames(tmp_path, limit=12)) == 4
+
+
+def test_a_cached_panel_expires_even_when_the_directory_time_does_not_change(tmp_path, monkeypatch):
+    from app.services import media_cache
+
+    monkeypatch.setattr(media_cache, "SNAPSHOTS_DIR", tmp_path)
+    now = [1000.0]
+    monkeypatch.setattr(recovery, "_monotonic", lambda: now[0])
+    for index in range(3):
+        _jpeg(tmp_path / f"v{index}__full_frame__f1__{index:010x}__image.jpg", (1280, 720), 100 + index)
+    assert len(recovery.recent_bird_photos()) == 3
+    # A coarse-timestamp filesystem: a new file lands without moving the directory mtime.
+    listed = os.stat(tmp_path)
+    _jpeg(tmp_path / "v9__full_frame__f1__9999999999__image.jpg", (1280, 720), 200)
+    os.utime(tmp_path, ns=(listed.st_atime_ns, listed.st_mtime_ns))
+    assert len(recovery.recent_bird_photos()) == 3
+    now[0] += recovery.SELECTION_CACHE_MAX_AGE_SECONDS
+    assert len(recovery.recent_bird_photos()) == 4
 
 
 def test_final_full_frames_are_full_frames_too(tmp_path):
