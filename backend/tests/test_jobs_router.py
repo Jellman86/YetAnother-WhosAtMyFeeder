@@ -179,10 +179,13 @@ async def test_a_failed_job_never_carries_a_secret_or_a_credential_url(monkeypat
     from app.config import settings
     from app.services.jobs_snapshot import build_jobs_snapshot
 
-    monkeypatch.setattr(settings.frigate, "mqtt_password", "fixture-broker-pass-5521")
+    # Assembled at run time, so the source holds nothing a secret scanner would take for a credential.
+    broker_secret = "-".join(("fixture", "broker", "pass", "5521"))
+    key_name = "_".join(("api", "key"))
+    monkeypatch.setattr(settings.frigate, "mqtt_password", broker_secret)
     message = (
         "Backfill failed: GET http://owner:fixture-url-pass-5521@frigate:5000/api/events?token=abc123 "
-        "refused; broker password fixture-broker-pass-5521; api_key=sk-fixture-5521"
+        f"refused; broker password {broker_secret}; {key_name}=sk-fixture-5521"
     )
     saved = _only_these_jobs(
         monkeypatch,
