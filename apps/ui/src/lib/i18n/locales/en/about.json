@@ -98,7 +98,7 @@
     "history_unavailable": "Availability could not be read.",
     "availability_partial": "{percent}% up over the {hours} h recorded",
     "no_gaps_since": "No gaps since recording began at {when}.",
-    "runtime": "Identifying birds with",
+    "runtime": "Bird identification",
     "runtime_on": "{runtime} on {device}",
     "runtime_unread": "Not read yet. The model reports this once it has loaded.",
     "uptime_unmeasured": "The backend did not report when it started.",

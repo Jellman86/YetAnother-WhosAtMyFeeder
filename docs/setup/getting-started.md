@@ -87,7 +87,7 @@ Follow the connection, cameras, model and optional integration steps. Connection
 tests use the values in the form. Optional history import runs in **Jobs** after
 setup and can recover only bird events Frigate still retains, not missing BirdNET-Go audio.
 
-In **Classifier model & hardware**, download missing models before validating them.
+In **Model and hardware**, download missing models before validating them.
 **Continue** waits for the check to finish. It measures provider compatibility and
 speed, not species accuracy; review any fallback explanation. After setup, check
 **Settings → Models → Runtime diagnostics** for the actual active provider.

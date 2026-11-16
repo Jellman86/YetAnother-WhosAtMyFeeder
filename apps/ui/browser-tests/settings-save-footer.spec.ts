@@ -67,6 +67,24 @@ for (const width of [320, 393]) {
             expect(saves[0].mqtt_server).toBe('mqtt-broker');
         });
 
+        test('the save bar takes well under half the phone, with the save rule one tap away', async ({ page }) => {
+            await openConnectionSettings(page);
+            await page.locator('#mqtt-server').fill('mqtt-broker');
+            const bar = page.getByRole('region', { name: 'Unsaved changes' });
+            await expect(bar).toBeVisible();
+            const height = (await bar.boundingBox())?.height ?? Infinity;
+            // About two thirds of a 390px phone before; under half there now. At 320px the column is
+            // too narrow for both buttons on one row, so they stack, and the bar stays under two thirds.
+            expect(height).toBeLessThan(740 * (width === 320 ? 0.65 : 0.45));
+            // The rule is not repeated on every change; it opens in place and says what waits.
+            await expect(bar.locator('[data-settings-save-rule]')).toHaveCount(0);
+            const how = bar.getByRole('button', { name: 'How saving works', exact: true });
+            await expect(how).toHaveAttribute('aria-expanded', 'false');
+            await how.click();
+            await expect(bar.locator('#settings-save-rule')).toContainText('Changes to settings wait until you choose Save changes.');
+            await expectNoHorizontalOverflow(page);
+        });
+
         test('the saved notification wraps inside the screen', async ({ page }) => {
             await openConnectionSettings(page);
             await page.locator('#mqtt-server').fill('mqtt-broker');

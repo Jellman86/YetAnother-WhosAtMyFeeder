@@ -116,7 +116,8 @@ test('the irreversible actions live in Maintenance, each consequence beside its 
     await openDataSettings(page, 30);
     await expect(page.locator('[data-danger-actions]')).toHaveCount(0);
     await page.getByRole('link', { name: 'Maintenance', exact: true }).click();
-    await page.getByRole('button', { name: 'Delete data' }).click();
+    // The last section, a plain heading: each action asks first in its own confirmation.
+    await expect(page.getByRole('heading', { name: 'Delete data', exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Delete corrections' })).toHaveAccessibleDescription(/Detections and photos stay/);
     await expect(page.getByRole('button', { name: 'Delete all favourites' })).toHaveAccessibleDescription(/Removes every favourite marker/);
     await expect(page.getByRole('button', { name: 'Delete all history' })).toHaveAccessibleDescription(/Deletes every detection/);

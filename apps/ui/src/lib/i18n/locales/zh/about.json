@@ -98,7 +98,7 @@
     "history_unavailable": "无法读取可用性。",
     "availability_partial": "已记录的 {hours} 小时内运行 {percent}%",
     "no_gaps_since": "自 {when} 开始记录以来没有中断。",
-    "runtime": "识别鸟类所用",
+    "runtime": "鸟类识别",
     "runtime_on": "{runtime}（{device}）",
     "runtime_unread": "尚未读取。模型加载完成后会报告。",
     "uptime_unmeasured": "后端没有报告启动时间。",

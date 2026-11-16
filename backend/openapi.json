@@ -11659,6 +11659,11 @@
       },
       "InstalledModel": {
         "properties": {
+          "bundled": {
+            "default": false,
+            "title": "Bundled",
+            "type": "boolean"
+          },
           "id": {
             "title": "Id",
             "type": "string"
@@ -12572,6 +12577,108 @@
           }
         },
         "title": "MQTTTestRequest",
+        "type": "object"
+      },
+      "MaintenanceLastRun": {
+        "properties": {
+          "changed": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Records it changed, found or queued",
+            "title": "Changed"
+          },
+          "checked": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Records the run looked at",
+            "title": "Checked"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "kind": {
+            "enum": [
+              "taxonomy",
+              "timezone_scan",
+              "timezone_repair",
+              "analyze_unknowns",
+              "detections",
+              "weather"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When it started, where recorded (a running backfill has no finish yet)",
+            "title": "Started At"
+          },
+          "status": {
+            "description": "completed or failed; a backfill job can also report running or cancelled",
+            "title": "Status",
+            "type": "string"
+          },
+          "unchecked": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Records it looked at but could not check, e.g. Frigate did not answer; not an all-clear",
+            "title": "Unchecked"
+          }
+        },
+        "required": [
+          "kind",
+          "status"
+        ],
+        "title": "MaintenanceLastRun",
+        "type": "object"
+      },
+      "MaintenanceLastRunsResponse": {
+        "properties": {
+          "runs": {
+            "items": {
+              "$ref": "#/components/schemas/MaintenanceLastRun"
+            },
+            "title": "Runs",
+            "type": "array"
+          }
+        },
+        "required": [
+          "runs"
+        ],
+        "title": "MaintenanceLastRunsResponse",
         "type": "object"
       },
       "MaintenanceStatsResponse": {
@@ -34295,6 +34402,36 @@
           }
         ],
         "summary": "Clear Classification Feedback"
+      }
+    },
+    "/api/maintenance/last-runs": {
+      "get": {
+        "description": "The newest recorded run of each Maintenance job, so the tab can say when it last ran. Owner only.",
+        "operationId": "get_maintenance_last_runs_api_maintenance_last_runs_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MaintenanceLastRunsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Get Maintenance Last Runs"
       }
     },
     "/api/maintenance/purge-missing-clips": {

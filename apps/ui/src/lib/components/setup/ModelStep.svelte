@@ -12,7 +12,6 @@
         getVisibleTieredModelLineup,
         selectSetupModelId,
         setupModelOptions,
-        summarizeModelMetadata,
         type ClassifierStatus,
         type DownloadProgress,
         type InstalledModel,
@@ -42,6 +41,8 @@
     import { usesSavedFeederLocation } from '../../pages/models/model_location_input';
     import { feederCoordinates, regionMessage, validationRecommendation } from './model-choices';
     import { BIRD_MODEL_REGION_OVERRIDE_VALUES, normalizeBirdModelRegionOverride, type BirdModelRegionOverride } from '../../settings/bird-model-region-override';
+    import { identificationModelName, modelFactsLine } from '../../settings/identification-models';
+    import IdentificationStatusLine from '../IdentificationStatusLine.svelte';
 
     let status = $state<ClassifierStatus | null>(null);
     let loadState = $state<WizardLoadStatus>('loading');
@@ -89,7 +90,7 @@
     let modelOptions = $derived(setupModelOptions(availableModels, installedModels));
     let selectedInstalledModel = $derived(installedModels.find((model) => model.id === selectedModelId) ?? null);
     let selectedModel = $derived(availableModels.find((model) => model.id === selectedModelId) ?? installedModels.find((model) => model.id === selectedModelId)?.metadata ?? null);
-    let selectedModelSummary = $derived(summarizeModelMetadata(selectedModel));
+    let selectedInstall = $derived({ installed: installedIds.has(selectedModelId), bundled: selectedInstalledModel?.bundled === true });
     let selectedValidation = $derived(results?.find((result) => result.model_id === selectedModelId) ?? null);
     let recommendation = $derived(validationRecommendation(selectedModelId, selectedValidation ?? undefined, matrix));
     let usesLocation = $derived(selectedModel !== null && usesSavedFeederLocation(selectedModel));
@@ -395,10 +396,13 @@
         return validationRecommendation(m.model_id, m, matrix).providers.length > 0;
     }
 
-    function modelHardwareNote(model: ModelMetadata | null): string {
-        if (!model) return '';
-        if (!model.estimated_ram_mb) return model.recommended_for;
-        return `${model.recommended_for} ${$_('setup.model.ram_note', { values: { ram: model.estimated_ram_mb }, default: 'Around {ram} MB RAM recommended.' })}`;
+    const translate = (key: string, options?: { default?: string; values?: Record<string, string | number> }): string => $_(key, options);
+
+    // Purpose first, with the catalogue's code name after it so it still matches Model evaluation.
+    function optionLabel(model: ModelMetadata): string {
+        const names = identificationModelName(model, translate);
+        const name = names.technical ? `${names.name} (${names.technical})` : names.name;
+        return installedIds.has(model.id) ? name : `${name} · ${$_('setup.model.download_needed', { default: 'download needed' })}`;
     }
 
     function phaseLabel(phase: string): string {
@@ -500,9 +504,9 @@
 </script>
 
 <WizardStepLayout
-    title={$_('setup.model.title', { default: 'Classifier model & hardware' })}
+    title={$_('setup.model.title', { default: 'Model and hardware' })}
     description={$_('setup.model.description', {
-        default: 'YA-WAMF comes with a small model that runs on any CPU. Choose that or a larger one, download it here if needed, then check that it runs on this machine before continuing.'
+        default: 'Choose the model that names the birds. Download it here if this install does not have it, then check that it runs on this machine before continuing.'
     })}
     showSkip
     canContinue={canSave}
@@ -511,18 +515,16 @@
     onContinue={save}
 >
     <WizardLoadState state={loadState} onRetry={load}>
+        <IdentificationStatusLine classifierStatus={status} context="wizard" />
         <div>
             <label for="setup-model-id" class="text-sm font-medium text-slate-700 dark:text-slate-300">{$_('setup.model.choose_model', { default: 'Model' })}</label>
             <select id="setup-model-id" bind:value={selectedModelId} onchange={(event) => resetValidationResult(event.currentTarget.value)} disabled={validating || downloading || saving} class="select-base mt-1">
                 {#each modelOptions as model (model.id)}
-                    <option value={model.id}>{model.name}{installedIds.has(model.id) ? '' : ` · ${$_('common.download_required', { default: 'Download required' })}`}</option>
+                    <option value={model.id}>{optionLabel(model)}</option>
                 {/each}
             </select>
             {#if selectedModel}
-                <p class="mt-1 text-xs text-slate-600 dark:text-slate-400">{modelHardwareNote(selectedModel)}</p>
-                {#if selectedModelSummary}
-                    <p class="mt-1 text-2xs font-semibold text-slate-600 dark:text-slate-400">{selectedModelSummary.labels.join(' · ')}</p>
-                {/if}
+                <p class="mt-1 text-sm text-slate-600 dark:text-slate-400" data-setup-model-facts>{modelFactsLine(selectedModel, selectedInstall, translate)}</p>
                 {#if selectedInstalledModel?.ready === false}
                     <p role="status" class="mt-1 text-xs font-semibold text-attention-700 dark:text-attention-300">{$_('setup.model.incomplete_install', { default: 'This model install is incomplete. Download and verify it again before continuing.' })}</p>
                 {:else if needsDownload}
@@ -569,7 +571,7 @@
         {/if}
 
         <div>
-            <label for="setup-provider" class="text-sm font-medium text-slate-700 dark:text-slate-300">{$_('settings.detection.inference_provider', { default: 'Inference Provider' })}</label>
+            <label for="setup-provider" class="text-sm font-medium text-slate-700 dark:text-slate-300">{$_('settings.detection.inference_provider', { default: 'Identification model runs on' })}</label>
             <select id="setup-provider" bind:value={selectedProvider} onchange={() => { providerTouched = true; providerMessage = ''; }} disabled={validating || downloading || saving} class="select-base mt-1">
                 {#each providerChoices as choice (choice.value)}
                     <option value={choice.value} disabled={choice.unavailable}>
@@ -709,7 +711,7 @@
                         {@const outcome = validationRecommendation(m.model_id, m, matrix)}
                         <li class="flex items-center justify-between gap-3 p-2.5">
                             <div class="min-w-0">
-                                <p class="truncate text-sm font-medium text-slate-800 dark:text-slate-100">{availableModels.find((model) => model.id === m.model_id)?.name ?? m.model_id}</p>
+                                <p class="text-sm font-medium text-slate-800 dark:text-slate-100">{identificationModelName({ id: m.model_id, name: availableModels.find((model) => model.id === m.model_id)?.name }, translate).name}</p>
                                 <p class="text-xs text-slate-600 dark:text-slate-400">
                                     {#if outcome.provider && outcome.medianMs !== null}
                                         {$_('setup.model.best_provider', { values: { provider: providerLabel(outcome.provider), ms: outcome.medianMs.toFixed(0) }, default: `Best validated provider: ${providerLabel(outcome.provider)}, ${outcome.medianMs.toFixed(0)} ms per image` })}

@@ -57,8 +57,8 @@
     "watching_some": "{count, plural, one {A vigiar # câmara.} other {A vigiar # câmaras.}} As outras câmaras são ignoradas."
   },
   "model": {
-    "title": "Modelo de classificação e hardware",
-    "description": "O YA-WAMF inclui um modelo pequeno que funciona em qualquer CPU. Escolha esse ou um maior, transfira-o aqui se necessário e verifique se funciona nesta máquina antes de continuar.",
+    "title": "Modelo e hardware",
+    "description": "Escolha o modelo que identifica as aves. Transfira-o aqui se esta instalação não o tiver e verifique que funciona nesta máquina antes de continuar.",
     "download_required": "Transfira e verifique este modelo aqui antes de o validar neste hardware.",
     "download_timeout": "O download está demorando mais do que o esperado. Verifique a conexão e tente novamente.",
     "validation_timeout": "A validação do hardware ultrapassou 30 minutos. Ela ainda pode estar terminando em Diagnóstico; verifique o status antes de iniciar outra execução.",
@@ -101,7 +101,8 @@
     "blocked_download": "Transfira este modelo para continuar, ou ignore este passo para manter o modelo em uso agora.",
     "blocked_check": "Verifique este modelo neste hardware para continuar, ou ignore este passo para manter o modelo em uso agora.",
     "blocked_location": "Introduza a latitude e a longitude do comedouro para continuar, ou deixe ambas vazias.",
-    "blocked_provider": "Este anfitrião não tem o dispositivo escolhido. Escolha outro, ou Automático, para continuar."
+    "blocked_provider": "Este anfitrião não tem o dispositivo escolhido. Escolha outro, ou Automático, para continuar.",
+    "download_needed": "transferência necessária"
   },
   "quality": {
     "title": "Melhores snapshots disponíveis",

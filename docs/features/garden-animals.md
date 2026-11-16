@@ -18,8 +18,8 @@ results without an owner override are reconsidered once under the updated policy
 The required 224 MB tracked-crop model is the **Automatic check model** under
 **Settings → Beta features → Garden animals → Models**. Download it there before your first
 captures arrive; if you have not, it downloads and verifies automatically when an
-enabled Garden camera has a new photo to check. Checks use the Detection device
-preference, one photo at a time, while birds and Frigate cameras are idle. They use the detector's exact box;
+enabled Garden camera has a new photo to check. Checks use the device chosen under
+**Settings → Models → Hardware**, one photo at a time, while birds and Frigate cameras are idle. They use the detector's exact box;
 missing boxes or unavailable checks stay in **Needs review** for retry. With automatic naming
 enabled, a photo whose species score is below the naming threshold moves to restorable
 **Dismissed**, whether or not the check is confident an animal is there.
@@ -381,7 +381,7 @@ The panel reports waiting, failures, the last attempted scan and the latest chec
 camera's remaining queue count and check time. A full queue can have further footage
 waiting in Frigate. Refresh the page to read the latest state.
 
-In **Settings → Beta features**, **How sure before an animal is suggested** (a slider) adjusts Cedar's minimum animal
+In **Settings → Beta features**, **Suggest a motion photo when this sure it shows an animal** (a slider) adjusts Cedar's minimum animal
 score for new motion photos, shown as a percentage (50% by default, configurable from 50% to
 95%; saved as 0.5 to 0.95).
 A higher threshold reduces proposals but can miss small, distant or infrared animals;
@@ -520,7 +520,7 @@ animal presence. Dismissing animal presence also revokes its identification conf
 ## Automatic naming
 
 **Name animals automatically** in **Settings → Beta features** is on by default, with a
-**How sure before an animal is named** of 80% (from 70% to 99%, saved as 0.7 to 0.99). When the automatic check finds an animal,
+**Name an animal when this sure which one it is** of 80% (from 70% to 99%, saved as 0.7 to 0.99). When the automatic check finds an animal,
 it reads SpeciesNet's top result from the same detector-crop pass; no second model run is
 needed. If that result is a non-bird animal, or a [domestic bird you keep](#domestic-birds),
 scoring at or above the threshold, after the

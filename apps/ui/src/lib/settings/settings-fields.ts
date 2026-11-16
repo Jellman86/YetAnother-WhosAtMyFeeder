@@ -141,7 +141,8 @@ const FIELD_PLACES: Readonly<Record<string, SettingsFieldPlace>> = {
     video_classification_delay: { labelKey: 'settings.detection.video_delay', inputId: 'video-delay', disclosures: ['detection-frigate-video'] },
     video_classification_max_retries: { labelKey: 'settings.detection.video_retries', inputId: 'video-retries', disclosures: ['detection-frigate-video'] },
     video_classification_frames: { labelKey: 'settings.detection.video_frames', inputId: 'video-frames', disclosures: ['detection-frigate-video'] },
-    maintenance_max_concurrent: { labelKey: 'settings.data.maintenance_max_concurrent', inputId: 'maintenance-max-concurrent', disclosures: ['maintenance-concurrency'] },
+    media_cache_max_size_mb: { labelKey: 'settings.data.storage_limit', inputId: 'cache-max-size-gb' },
+    maintenance_max_concurrent: { labelKey: 'settings.data.maintenance_max_concurrent', inputId: 'maintenance-max-concurrent' },
     garden_labels: { labelKey: 'garden.labels', inputId: 'garden-labels', disclosures: ['garden-section-cameras'] },
     garden_motion_confidence: { labelKey: 'garden.confidence', inputId: 'garden-motion-confidence', disclosures: ['garden-section-cameras'] },
     garden_naming_threshold: { labelKey: 'settings.beta.garden_naming_threshold', inputId: 'garden-naming-threshold', disclosures: ['garden-section-checks'] },
@@ -168,10 +169,10 @@ const FIELD_PLACES: Readonly<Record<string, SettingsFieldPlace>> = {
     public_access_rate_limit_per_minute: { labelKey: 'settings.public_access.rate_limit', inputId: 'public-rate', disclosures: ['public-access-windows'] },
     public_access_external_base_url: { labelKey: 'settings.public_access.share_base_url', inputId: 'public-share-base-url', disclosures: ['public-access-windows'] },
     notifications_instance_url: { labelKey: 'settings.notifications.instance_url', inputId: 'notification-instance-url' },
-    inference_provider: { labelKey: 'settings.detection.inference_provider', inputId: 'inference-provider', disclosures: ['detection-hardware'] },
-    image_execution_mode: { labelKey: 'settings.detection.execution_mode', inputId: 'image-execution-mode', disclosures: ['detection-hardware', 'detection-memory-advanced'] },
-    live_worker_count: { labelKey: 'settings.detection.worker_counts_live', inputId: 'live-worker-count', disclosures: ['detection-hardware', 'detection-memory-advanced'] },
-    background_worker_count: { labelKey: 'settings.detection.worker_counts_background', inputId: 'background-worker-count', disclosures: ['detection-hardware', 'detection-memory-advanced'] }
+    inference_provider: { labelKey: 'settings.detection.inference_provider', inputId: 'inference-provider' },
+    image_execution_mode: { labelKey: 'settings.detection.execution_mode', inputId: 'image-execution-mode', disclosures: ['detection-memory-advanced'] },
+    live_worker_count: { labelKey: 'settings.detection.worker_counts_live', inputId: 'live-worker-count', disclosures: ['detection-memory-advanced'] },
+    background_worker_count: { labelKey: 'settings.detection.worker_counts_background', inputId: 'background-worker-count', disclosures: ['detection-memory-advanced'] }
 };
 
 /** Every field with a place of its own, so a test can hold each place to the markup. */

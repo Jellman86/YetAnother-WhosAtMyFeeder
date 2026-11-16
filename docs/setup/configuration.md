@@ -103,19 +103,28 @@ The rules for accepting an identification. Which model runs, and on what hardwar
 
 ## Models
 
-Which models identify birds and on what hardware. The page opens with a status line naming the
-model in use as its card does (model, runtime, workers, health), then:
+Which models identify birds and on what hardware. The page opens with one sentence of what names
+birds right now, worded from the classifier's own report: for example "Naming birds with Birds
+and wildlife, balanced on Intel GPU.", "… will name birds on CPU. It loads with the first
+detection." before a worker has loaded it, or "Nothing is naming birds yet: … is not on this
+install." when the chosen model's files are missing. The first-run wizard's model step and About
+show the same sentence. When the runtime has something to report, a link under it says how many
+things to check and opens the **Runtime report**. Then:
 
-- **Models**: **Bird model region**, then the **Identification model** in use, which names the
-  species, with **Choose another model** opening the full list, and the **Bird finder**,
-  which locates birds in the frame so YA-WAMF can crop and count them. Each model card states
-  its download size (or that it is already on this host), its memory and whether it covers birds
-  only or wider wildlife. Only the active, installed or broken models carry a badge.
-- **Hardware** (starts closed, and opens on its own when the runtime has something to report,
-  when you follow the status line's health link, or when a save refuses a value inside it): **Inference provider**, **Check devices on this
-  host**, and the folded **Memory and isolation** and **Runtime report** sections.
-- **Testing the models** (starts closed): a link to **Model evaluation**, and, with the debug
-  interface on, **Discard results the model could not compute**.
+- **Models**: **Bird model region**, then the **Identification model**: the model in use (or the
+  chosen one, when its files are missing), and at most one **Recommended next** model when the
+  install still runs the small starter model or nothing at all. Models are named by what they are
+  for ("Birds of your region, quick"), with the catalogue's code name beside it. **Choose another
+  model** opens the whole catalogue, grouped (Small and quick, Balanced, Fast on Intel graphics,
+  Most accurate, Experimental); a row opens its details and actions in place. Each model states
+  its coverage, its download size (or that it is on this install, or comes with the app) and its
+  memory in one line. Then the **Bird finder**, which locates birds in the frame so YA-WAMF can
+  crop and count them, and a **Compare the installed models** row that opens **Model evaluation**.
+- **Hardware**: **Identification model runs on** (the inference provider) and **Check devices on this host**,
+  whose button is **Check devices for every installed model**, then the
+  folded **Memory and isolation** (which also holds **Discard results the model could not
+  compute** with the debug interface on) and **Runtime report** sections. The report opens on its
+  own when the runtime has something to report, or when a save refuses a value inside it.
 
 ![Settings → Models: the status line, then the Models card with the identification model lineup and the two bird finder choices, each showing download size, estimated RAM and the device it runs on](../images/settings-detection.png)
 
@@ -127,7 +136,7 @@ model in use as its card does (model, runtime, workers, health), then:
 | **Write Labels Back to Frigate** | Enabled | Push YA-WAMF's own identification back to the Frigate event as a sublabel. |
 | **Bird Model Region** | `Auto` | Override regional model selection (`Auto`, `Europe`, `North America`) for birds-only model families. |
 | **Device** | `Auto` | `Auto`, `CPU`, `NVIDIA CUDA`, `Intel GPU (OpenVINO)`, `Intel CPU (OpenVINO)`, or `Intel NPU (OpenVINO)`. Only providers your image packages, your host exposes, and the active model supports are listed. |
-| **Device** (bird finder) | `Automatic` | Device preference for the accurate finder, separate from identification. **Automatic** uses the fastest device that passed its check. A device without a passing check is listed as **not passed on this host**. A saved one stays saved, and the finder runs on CPU until it passes **Check devices**; one that is not saved cannot be chosen until it passes. The **Runs on** row above it states the device in use and why. **Save changes** saves the preference. |
+| **Device** (bird finder) | `Automatic` | Device preference for the accurate finder, separate from identification. **Automatic** uses the fastest device that passed its check. A device without a passing check is listed as **not passed on this host**. A saved one stays saved, and the finder runs on CPU until it passes **Check devices for the bird finder**; one that is not saved cannot be chosen until it passes. The **Runs on** row above it states the device in use and why. **Save changes** saves the preference. |
 | **Bird finder** | `Standard (YOLOX-Tiny)` | Which detector locates birds before they are identified and counted. **Wide frame (RF-DETR Nano)** is optional. Like every other field on the page, a change is saved by **Save changes**. |
 | **Isolation** | `Separate worker processes` | Separate worker processes run inference in isolated workers the app can restart, so a stalled or crashed classification cannot take the interface with it. `In-process` shares one model copy with the app: less memory, but heavy inference competes with the UI. |
 | **Models** | — | Download, validate, and activate identification models, and download the bird finders. Activating a model takes effect at once; it is not part of **Save changes**. |
@@ -337,7 +346,7 @@ Security (see [Telemetry](../features/telemetry.md)).
 ![Settings → Data with retention controls and Photos and video settings for locally kept media, Frigate event-clip copies and storage limits](../images/settings-data.png)
 
 - **Retention Policy** — **History Duration** sets how long sightings are kept
-  (`maintenance.retention_days`; **Keep Everything (∞)** is the default). Cleanup runs once at
+  (`maintenance.retention_days`; **Keep everything** is the default). Cleanup runs once at
   startup and then every 24 hours from that point, so the time of day it lands on follows when the
   container last started. Choosing a shorter window (or any window after **Keep Everything**)
   shows, under the picker, how many detections the next cleanup would delete, and **Save
@@ -405,13 +414,16 @@ Security (see [Telemetry](../features/telemetry.md)).
 
 ![Photos and video settings explain always-kept photographs and generated media, optional Frigate event-clip copies, media retention and per-species storage limits](../images/settings-media-retention.png)
 
-- **Most visits per species with photos and video** — keep media for the newest configured number of visits
-  of each canonical species. Favourites are exempt. `0` means unlimited. This removes cached media,
-  including alternate photos and clips, while keeping visits and counted-bird records.
-- **Storage limit (MiB)** — periodically remove the oldest non-favourite cached visits until
-  ordinary cached snapshots, choices, thumbnails, clips, previews and metadata, and confirmed
-  Garden animals' kept photos and clips, fit the budget.
-  `0` means unlimited. Favourites and their archive are protected; active work is deferred, so the
+- **Limit the space photos and video use** — a switch, with the limit in GB beside it once it is
+  on; the line under it says what the rules add up to. It periodically removes the oldest
+  non-favourite cached visits until ordinary cached snapshots, choices, thumbnails, clips,
+  previews and metadata, and confirmed Garden animals' kept photos and clips, fit the budget.
+  Off means unlimited (stored as `media_cache.max_size_mb: 0`; the limit is stored in MiB).
+- **Show advanced options · Per-species limits**: **Keep photos of each species' newest visits**
+  (the per-species floor) and **Limit visits per species with photos and video**, each a switch
+  with its number beside it. The second keeps media for the newest configured number of visits of
+  each canonical species; favourites are exempt. Off means unlimited (stored as `0`). It removes
+  cached media, including alternate photos and clips, while keeping visits and counted-bird records. Favourites and their archive are protected; active work is deferred, so the
   cache can temporarily exceed the budget, or stay above it if protected media alone exceed it.
   Limits run at startup and every five minutes, and when **Clear Cached Files** is used. The budget
   and species maximum take priority over the minimum kept through age cleanup.
@@ -427,6 +439,10 @@ Security (see [Telemetry](../features/telemetry.md)).
 
 Jobs that repair or fill in the history, and the actions that delete it. Every button here acts
 straight away; only **Run automatically (daily)** and **Jobs at once** wait for **Save changes**.
+Each job says when to run it and what it changes, and has a line for its last run ("Last run
+15/11/2026 09:30: 7 of 120 names repaired.", or "No run recorded yet."), read from the server's
+maintenance history so it survives a restart. **Apply timezone repair** stays disabled until a
+scan finds something, and says so beside the button.
 
 - **Missed detections** — import bird events Frigate still retains, over a day, week, month, or a
   custom range. Import is idempotent by Frigate event ID, so running it twice is safe.
@@ -448,7 +464,7 @@ straight away; only **Run automatically (daily)** and **Jobs at once** wait for 
   `DB_PRE_MIGRATION_BACKUP_RETENTION` to keep more. At least one restore point is always kept,
   and manual backups are never removed.
 
-**Delete data** (a closed card at the end of the tab) lists one action per row, narrowest first,
+**Delete data** (the last section of the tab) lists one action per row, narrowest first,
 each with its consequence beside its button: **Delete corrections**, **Delete all favourites**,
 then **Delete all history**. Only these buttons are red.
 
@@ -461,7 +477,7 @@ then **Delete all history**. Only these buttons are red.
 
 ### Jobs at once
 
-**Jobs at once** (a closed card) sets `maintenance_max_concurrent` (default `1`) controls how many jobs of the *same* maintenance
+**Jobs at once** sets `maintenance_max_concurrent` (default `1`) controls how many jobs of the *same* maintenance
 kind may overlap — backfill, weather backfill, video classification, taxonomy repair, timezone
 repair, and analyse-unknowns each get that many slots. Different kinds already run
 independently, subject to `maintenance.total_max_concurrent` (default `3`) across all kinds.
@@ -510,7 +526,7 @@ Optional developer tools, hidden unless you enable them:
 - Compose: `DEBUG_UI_ENABLED=true`
 
 This adds a troubleshooting switch, **Discard results the model could not compute**, to
-**Settings → Models → Testing the models**, and shows the iNaturalist submission preview in a
+**Settings → Models → Hardware → Memory and isolation**, and shows the iNaturalist submission preview in a
 detection's details. The **Model evaluation** page is linked from the same card for every owner.
 
 

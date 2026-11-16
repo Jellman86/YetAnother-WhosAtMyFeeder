@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { scrollBehaviourFor } from './scroll-behaviour';
-import detectionBandSource from '../components/settings/DetectionStatusBand.svelte?raw';
+import modelSettingsSource from '../components/settings/ModelSettings.svelte?raw';
 import notificationSentenceSource from '../components/settings/NotificationPolicySentence.svelte?raw';
 
 describe('how Settings scrolls to a section', () => {
@@ -11,7 +11,7 @@ describe('how Settings scrolls to a section', () => {
     });
 
     it('is the behaviour every Settings jump uses, never a fixed smooth scroll', () => {
-        for (const source of [detectionBandSource, notificationSentenceSource]) {
+        for (const source of [modelSettingsSource, notificationSentenceSource]) {
             expect(source).not.toContain("behavior: 'smooth'");
             expect(source).toContain('behavior: settingsScrollBehaviour()');
         }
