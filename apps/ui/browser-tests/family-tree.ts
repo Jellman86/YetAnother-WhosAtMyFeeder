@@ -17,4 +17,5 @@ authStore.scientificNamePrimary = params.get('style') === 'hobbyist';
 document.getElementById('toggle-theme')?.addEventListener('click', () => themeStore.toggle());
 const target = document.getElementById('app');
 if (!target) throw new Error('Missing family tree fixture mount');
-mount(TaxonomyLineage, { target, props: { scientificName: params.get('name') ?? 'Prunella modularis', subject: params.get('subject') === 'animal' ? 'animal' : 'bird' } });
+// ?common= is the common name the record's heading gives the species.
+mount(TaxonomyLineage, { target, props: { scientificName: params.get('name') ?? 'Prunella modularis', commonName: params.get('common'), subject: params.get('subject') === 'animal' ? 'animal' : 'bird' } });

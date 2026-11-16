@@ -2,7 +2,7 @@
     import { _ } from 'svelte-i18n';
     import { fetchSpeciesLineage, type Taxon } from '../api/taxonomy';
     import { currentNamingStyle } from '../taxonomy/naming-style';
-    import { byRank, taxonNames } from '../taxonomy/nomenclature';
+    import { byRank, taxonNames, withRecordName } from '../taxonomy/nomenclature';
     import { logger } from '../utils/logger';
     import { TaxonFactsStore } from '../utils/taxon-facts.svelte';
     import { isHoverPointer, isKeyboardFocus, TaxonPeek } from '../utils/taxon-peek.svelte';
@@ -17,15 +17,19 @@
      */
     interface Props {
         scientificName: string;
+        /** The common name the record's heading gives this species, so the tree names it the same way. */
+        commonName?: string | null;
         /** A Garden animal: the catalogue holds only the model's animals, so no count is worldwide. */
         subject?: 'bird' | 'animal';
         /** Chrome around the lineage, such as a rule above it, drawn only when there is a lineage. */
         class?: string;
     }
 
-    let { scientificName, subject = 'bird', class: className = '' }: Props = $props();
+    let { scientificName, commonName = null, subject = 'bird', class: className = '' }: Props = $props();
 
-    let lineage = $state.raw<Taxon[] | null>(null);
+    let catalogueLineage = $state.raw<Taxon[] | null>(null);
+    // One bird, one name: the species this record is about is named as its heading names it.
+    const lineage = $derived(catalogueLineage ? [...withRecordName(catalogueLineage, scientificName, commonName)] : null);
     let loading = $state(true);
     let open = $state(false);
     const peek = new TaxonPeek();
@@ -35,17 +39,17 @@
 
     $effect(() => {
         const name = scientificName.trim();
-        lineage = null;
+        catalogueLineage = null;
         loading = Boolean(name);
         if (!name) return;
         const controller = new AbortController();
         fetchSpeciesLineage(name, controller.signal)
             .then((response) => {
-                if (!controller.signal.aborted) lineage = response.lineage;
+                if (!controller.signal.aborted) catalogueLineage = response.lineage;
             })
             .catch((error) => {
                 if (controller.signal.aborted) return;
-                lineage = null;
+                catalogueLineage = null;
                 logger.debug('Lineage unavailable', { scientificName: name, error });
             })
             .finally(() => {

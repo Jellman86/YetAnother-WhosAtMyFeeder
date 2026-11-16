@@ -4,7 +4,7 @@
     import { _ } from 'svelte-i18n';
     import { fetchTaxonChildren, type Taxon } from '../api/taxonomy';
     import { currentNamingStyle } from '../taxonomy/naming-style';
-    import { byRank, formatScientificName, taxonNames, type NamePart } from '../taxonomy/nomenclature';
+    import { byRank, formatScientificName, taxonNames, type NamePart, withRecordName } from '../taxonomy/nomenclature';
     import { elbowPath, fanLinkPath, fanPoint, layoutTree, type PlacedNode } from '../taxonomy/tree-layout';
     import { nodeMarker, visibleTree, type BranchState, type NodeMarker, type TreeItem } from '../taxonomy/tree-model';
     import { heardCount, ownPhoto } from '../taxonomy/taxon-facts';
@@ -75,7 +75,10 @@
         setBranch(id, { loading: true });
         try {
             const response = await fetchTaxonChildren(id);
-            setBranch(id, { children: response.children, loading: false });
+            // A branch arrives with the catalogue's names. The bird this tree is about keeps the name
+            // its record gave it, in the node as in the title, so one bird is never named two ways.
+            const children = current ? [...withRecordName(response.children, current.scientific_name, current.name)] : response.children;
+            setBranch(id, { children, loading: false });
             // The facts of what the branch shows when it opens; the rest when "more" opens it all.
             facts.request(response.children.filter((child) => path.has(child.taxon_id) || (child.seen_species ?? 0) > 0).map((child) => child.taxon_id));
         } catch (error) {
