@@ -256,7 +256,11 @@
     "snapshot_subtitle": "Bestes verfügbares Standbild wird verwendet",
     "finalizing": "Ergebnis wird abgeschlossen",
     "finalizing_subtitle": "Beste Übereinstimmung wird angewendet",
-    "closing_soon": "Schließt bald"
+    "closing_soon": "Schließt bald",
+    "announce_started": "{species} wird analysiert",
+    "announce_finished": "Analyse für {species} abgeschlossen",
+    "announce_started_count": "{count, plural, one {# Besuch wird analysiert} other {# Besuche werden analysiert}}",
+    "announce_finished_count": "{count, plural, one {Analyse für # Besuch abgeschlossen} other {Analyse für # Besuche abgeschlossen}}"
   },
   "reclassification": {
     "unchanged_reason_non_bird": "Das Modell hat ein anderes Lebewesen als einen Vogel erkannt. Die bisherige Bestimmung wurde beibehalten.",

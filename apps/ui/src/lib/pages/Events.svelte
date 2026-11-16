@@ -58,6 +58,7 @@
     import { confirmAction } from '../stores/confirm_dialog.svelte';
     import { _ } from 'svelte-i18n';
     import Pagination from '../components/Pagination.svelte';
+    import Segmented from '../components/ui/Segmented.svelte';
     import DetectionCard from '../components/DetectionCard.svelte';
     import DetectionRow from '../components/DetectionRow.svelte';
     import LazyModal from '../components/LazyModal.svelte';
@@ -2048,7 +2049,7 @@
         <button
             type="button"
             class="btn min-h-11 px-3 text-xs focus-visible:ring-2 focus-visible:ring-focus {explorerHeardStore.enabled
-                ? 'border border-brand-300 bg-brand-100 text-brand-700 dark:border-brand-400/60 dark:bg-brand-500/20 dark:text-brand-100'
+                ? 'border border-accent-line bg-accent-soft text-accent-ink'
                 : 'btn-secondary'}"
             aria-pressed={explorerHeardStore.enabled}
             use:explanation={$_('events.heard.toggle_hint', { default: 'Show BirdNET-Go calls between the camera visits. Off until you turn it on; this device remembers the choice.' })}
@@ -2064,32 +2065,18 @@
 {/snippet}
 
 {#snippet viewSwitch()}
-    <!-- At the largest text size on a phone the two choices wrap inside the frame rather than off the screen. -->
-    <div
-        class="inline-flex min-h-11 items-stretch max-w-full flex-wrap rounded-xl border border-slate-200/80 bg-white/90 p-0.5 shadow-xs dark:border-slate-700/60 dark:bg-slate-800/80"
-        role="group"
-        aria-label={$_('settings.explorer_view.label')}
-    >
-        {#each [{ value: 'cards', label: $_('settings.explorer_view.cards') }, { value: 'list', label: $_('settings.explorer_view.list') }] as option (option.value)}
-            <button
-                type="button"
-                aria-pressed={explorerView === option.value}
-                onclick={() => explorerViewStore.set(option.value as 'cards' | 'list')}
-                data-explorer-view-toggle={option.value}
-                class="inline-flex items-center gap-1.5 rounded-lg px-3 text-xs font-bold transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus
-                       {explorerView === option.value
-                    ? 'bg-brand-700 text-white'
-                    : 'text-slate-600 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}"
-            >
-                {#if option.value === 'cards'}
-                    <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
-                {:else}
-                    <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
-                {/if}
-                {option.label}
-            </button>
-        {/each}
-    </div>
+    <!-- The shared choose-one track: at the largest text size on a phone the two choices wrap
+         inside it rather than off the screen. -->
+    <Segmented
+        value={explorerView}
+        options={[{ value: 'cards', label: $_('settings.explorer_view.cards') }, { value: 'list', label: $_('settings.explorer_view.list') }]}
+        onchange={(next) => explorerViewStore.set(next as 'cards' | 'list')}
+        labelledBy="explorer-view-label"
+        width="content"
+        size="sm"
+        optionAttribute="data-explorer-view-toggle"
+    />
+    <span id="explorer-view-label" class="sr-only">{$_('settings.explorer_view.label')}</span>
 {/snippet}
 
 {#snippet multiSelectToggle()}
@@ -2097,7 +2084,7 @@
         <button
             type="button"
             class="btn min-h-11 px-3 py-2 text-xs {selectionMode
-                ? 'border border-brand-300 bg-brand-100 text-brand-700 dark:border-brand-400/60 dark:bg-brand-500/20 dark:text-brand-100'
+                ? 'border border-accent-line bg-accent-soft text-accent-ink'
                 : 'btn-secondary'}"
             onclick={toggleSelectionMode}
         >
@@ -2126,18 +2113,18 @@
         <div class="basis-full lg:order-last" data-explorer-count-line>
             <div
                 bind:this={countElement}
-                class="w-fit max-w-full rounded-sm text-sm text-slate-600 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-focus dark:text-slate-400"
+                class="w-fit max-w-full rounded-sm text-sm text-muted focus:outline-hidden focus-visible:ring-2 focus-visible:ring-focus"
                 role="status"
                 tabindex="-1"
                 data-explorer-count={pane.count}
             >
                 {#if pane.count === 'pending'}
                     <span class="sr-only">{$_('events.results_loading', { default: 'Loading results…' })}</span>
-                    <span class="inline-block h-3 w-20 rounded-sm bg-slate-200/80 align-middle animate-pulse motion-reduce:animate-none dark:bg-slate-700/60" aria-hidden="true" data-loading-placeholder></span>
+                    <span class="inline-block h-3 w-20 rounded-sm bg-line align-middle animate-pulse motion-reduce:animate-none" aria-hidden="true" data-loading-placeholder></span>
                 {:else if pane.count === 'unavailable'}
-                    <span class="font-semibold text-slate-700 dark:text-slate-200">{$_('events.count_unavailable', { default: 'Count unavailable' })}</span>
+                    <span class="font-semibold text-ink">{$_('events.count_unavailable', { default: 'Count unavailable' })}</span>
                 {:else}
-                <span class="font-semibold text-slate-700 dark:text-slate-200">{gardenOnly
+                <span class="font-semibold text-ink">{gardenOnly
                     ? $_('garden.explorer.entry_total', { values: { count: totalCount, captures: gardenCaptureTotal }, default: '{count, plural, one {# Garden visit} other {# Garden visits}} · {captures, plural, one {# capture} other {# captures}}' })
                     : groupVisits && !selectionMode
                     ? $_('visits.total', { values: { count: totalCount }, default: '{count} visits' })
@@ -2189,12 +2176,12 @@
     </div>
 
     {#if authStore.hasOwnerAccess && selectionMode}
-        <div class="card-base rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3 border border-brand-200/80 dark:border-brand-500/30 bg-brand-50/70 dark:bg-brand-500/10">
+        <div class="card-base rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3 border border-accent-line bg-accent-soft">
             <div>
-                <p class="text-sm font-semibold text-brand-800 dark:text-brand-100">
+                <p class="text-sm font-semibold text-accent-ink">
                     {$_('common.multi_select', { default: 'Multi-Select' })}
                 </p>
-                <p class="text-xs text-brand-700 dark:text-brand-300" role="status" data-explorer-selection-count>
+                <p class="text-xs text-accent-ink" role="status" data-explorer-selection-count>
                     {$_('events.selection_count', {
                         values: { count: selectedEventIds.length },
                         default: '{count, plural, =0 {No captures selected} one {# capture selected} other {# captures selected}}'
@@ -2336,11 +2323,11 @@
             <!-- With nothing to show the failure takes the pane; earlier results stay, dimmed, beneath it. -->
             <div
                 role="alert"
-                class="card-base flex rounded-2xl border border-red-200 bg-red-50/80 dark:border-red-800/70 dark:bg-red-950/30
+                class="flex rounded-2xl border border-status-fail-line bg-status-fail-soft
                     {pane.state === 'error' ? 'flex-col items-center px-6 py-10 text-center' : 'mb-4 flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3'}"
                 data-explorer-error={pane.state}
             >
-                <span class="flex min-w-0 items-start gap-2 text-sm font-semibold text-red-800 dark:text-red-200 {pane.state === 'error' ? 'flex-col items-center' : 'flex-1'}">
+                <span class="flex min-w-0 items-start gap-2 text-sm font-semibold text-status-fail {pane.state === 'error' ? 'flex-col items-center' : 'flex-1'}">
                     <svg class="{pane.state === 'error' ? 'h-8 w-8' : 'mt-0.5 h-4 w-4'} shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" />
                     </svg>
@@ -2368,7 +2355,7 @@
                 <p
                     id="events-timeline-scope"
                     data-events-timeline-scope
-                    class="mb-2 text-2xs font-semibold text-slate-600 dark:text-slate-400"
+                    class="mb-2 text-2xs font-semibold text-muted"
                 >
                     {$_('events.timeline_scope', { default: 'Days on this page' })}
                 </p>
@@ -2381,8 +2368,8 @@
                             type="button"
                             class="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus
                                 {chosen
-                                    ? 'bg-brand-100/90 dark:bg-brand-500/20 border-brand-300/80 dark:border-brand-400/60 text-brand-800 dark:text-brand-100 shadow-xs'
-                                    : 'bg-white/80 dark:bg-slate-800/60 border-slate-300/80 dark:border-slate-600/70 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/70'}"
+                                    ? 'bg-accent-soft border-accent-line text-accent-ink shadow-xs'
+                                    : 'bg-surface border-line text-ink hover:bg-surface-raised'}"
                             onclick={() => selectedTimelineBucket = key}
                             aria-pressed={chosen}
                             data-events-timeline-day={key}
@@ -2400,40 +2387,40 @@
         {/if}
 
         {#if heardBlocker}
-            <p class="mb-4 flex items-start gap-2 rounded-xl border border-line-soft bg-surface px-3 py-2.5 text-sm text-slate-600 dark:text-slate-300" role="status" data-explorer-heard-notice>
-                <svg class="mt-0.5 h-4 w-4 shrink-0 text-brand-600 dark:text-brand-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" /></svg>
+            <p class="mb-4 flex items-start gap-2 rounded-xl border border-line-soft bg-surface px-3 py-2.5 text-sm text-muted" role="status" data-explorer-heard-notice>
+                <svg class="mt-0.5 h-4 w-4 shrink-0 text-accent-ink" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" /></svg>
                 <span>{heardBlocker}</span>
             </p>
         {:else if heardActive && heardFailed}
-            <p class="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-line-soft bg-surface px-3 py-2 text-sm text-slate-600 dark:text-slate-300" role="alert" data-explorer-heard-notice>
+            <p class="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-line-soft bg-surface px-3 py-2 text-sm text-muted" role="alert" data-explorer-heard-notice>
                 {$_('events.heard.load_failed', { default: 'Could not load the heard calls. The visits are unaffected.' })}
                 <button type="button" class="btn btn-secondary min-h-11 px-3 text-xs" onclick={() => void loadHeard()}>{$_('common.retry', { default: 'Retry' })}</button>
             </p>
         {:else if heardActive && heardGroups !== null && heardGroups.length === 0 && pageVisits.length > 0}
             <!-- Nothing stored is not the same as nothing heard: BirdNET-Go may have been offline. -->
-            <p class="mb-4 rounded-xl border border-line-soft bg-surface px-3 py-2.5 text-sm text-slate-600 dark:text-slate-300" role="status" data-explorer-heard-notice>
+            <p class="mb-4 rounded-xl border border-line-soft bg-surface px-3 py-2.5 text-sm text-muted" role="status" data-explorer-heard-notice>
                 {$_('events.heard.none_stored', { default: 'No BirdNET-Go calls are stored for the time these visits cover. If calls were expected, check that BirdNET-Go is running in Settings, Integrations.' })}
             </p>
         {:else if heardActive && heardTruncated}
-            <p class="mb-4 rounded-xl border border-line-soft bg-surface px-3 py-2.5 text-sm text-slate-600 dark:text-slate-300" role="status" data-explorer-heard-notice>
+            <p class="mb-4 rounded-xl border border-line-soft bg-surface px-3 py-2.5 text-sm text-muted" role="status" data-explorer-heard-notice>
                 {$_('events.heard.truncated', { default: 'This page spans more calls than can be shown at once, so the oldest calls are left out. Narrow the dates to see them.' })}
             </p>
         {/if}
 
         {#if gardenNoticeText}
-            <p class="mb-4 flex items-start gap-2 rounded-xl border border-line-soft bg-surface px-3 py-2.5 text-sm text-slate-600 dark:text-slate-300" role="status" data-explorer-garden-notice>
-                <svg class="mt-0.5 h-4 w-4 shrink-0 text-brand-600 dark:text-brand-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" /></svg>
+            <p class="mb-4 flex items-start gap-2 rounded-xl border border-line-soft bg-surface px-3 py-2.5 text-sm text-muted" role="status" data-explorer-garden-notice>
+                <svg class="mt-0.5 h-4 w-4 shrink-0 text-accent-ink" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" /></svg>
                 <span>{gardenNoticeText}</span>
             </p>
         {/if}
         {#if gardenRequested && authStore.hasOwnerAccess && settingsStore.settings?.beta_garden_animals === false}
-            <div class="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-line-soft bg-surface px-3 py-2.5 text-sm text-slate-600 dark:text-slate-300" role="status" data-garden-beta-off>
+            <div class="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-line-soft bg-surface px-3 py-2.5 text-sm text-muted" role="status" data-garden-beta-off>
                 <span class="min-w-0 flex-1">{$_('garden.beta_off_desc', { default: 'Garden animals is a beta feature. Turn it on in Settings, Beta features, to collect and review non-bird visitors. Saved captures are kept while it is off.' })}</span>
                 <a href={toAppPath('/settings/beta')} class="btn btn-secondary inline-flex min-h-11 items-center px-3 text-xs">{$_('garden.beta_off_action', { default: 'Open Beta features' })}</a>
             </div>
         {/if}
         {#if gardenUndo}
-            <div class="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-line-soft bg-surface px-3 py-2 text-sm text-slate-600 dark:text-slate-300" role="status" data-explorer-garden-undo>
+            <div class="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-line-soft bg-surface px-3 py-2 text-sm text-muted" role="status" data-explorer-garden-undo>
                 <span class="min-w-0 flex-1">
                     {$_('garden.batch_dismissed', { default: '{count, plural, one {# photo dismissed.} other {# photos dismissed.}}', values: { count: gardenUndo.ids.length } })}
                     {#if gardenUndo.skipped > 0}{' '}{$_('garden.batch_skipped', { default: '{count, plural, one {# photo was unchanged because its review or availability changed.} other {# photos were unchanged because their review or availability changed.}}', values: { count: gardenUndo.skipped } })}{/if}
@@ -2448,7 +2435,7 @@
         {/if}
         {#if lateGarden && gardenInTimeline}
             <!-- One height in every state, so the read finishing moves nothing beneath it. -->
-            <div class="mb-4 flex h-16 items-center gap-x-3 rounded-xl border border-line-soft bg-surface px-3 text-sm text-slate-600 dark:text-slate-300" role="status" data-explorer-garden-late={lateGarden.state}>
+            <div class="mb-4 flex h-16 items-center gap-x-3 rounded-xl border border-line-soft bg-surface px-3 text-sm text-muted" role="status" data-explorer-garden-late={lateGarden.state}>
                 <span class="line-clamp-2 min-w-0 flex-1">
                     {#if lateGarden.state === 'reading'}
                         {$_('garden.explorer.late_reading', { default: 'Reading Garden captures…' })}
@@ -2468,12 +2455,12 @@
             </div>
         {/if}
         {#if gardenInTimeline && gardenFailed}
-            <p class="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-line-soft bg-surface px-3 py-2 text-sm text-slate-600 dark:text-slate-300" role="alert" data-explorer-garden-notice>
+            <p class="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-line-soft bg-surface px-3 py-2 text-sm text-muted" role="alert" data-explorer-garden-notice>
                 {$_('garden.explorer.load_failed', { default: 'Could not load the Garden captures. The visits are unaffected.' })}
                 <button type="button" class="btn btn-secondary min-h-11 px-3 text-xs" onclick={() => void loadGarden()}>{$_('common.retry', { default: 'Retry' })}</button>
             </p>
         {:else if gardenInTimeline && gardenItems !== null && gardenTotal > gardenItems.length}
-            <p class="mb-4 rounded-xl border border-line-soft bg-surface px-3 py-2.5 text-sm text-slate-600 dark:text-slate-300" role="status" data-explorer-garden-notice>
+            <p class="mb-4 rounded-xl border border-line-soft bg-surface px-3 py-2.5 text-sm text-muted" role="status" data-explorer-garden-notice>
                 {$_('garden.explorer.truncated', { values: { shown: gardenItems.length, total: gardenTotal }, default: 'This page spans {total} Garden visits; {shown} are shown. Choose Garden animals to page through them all.' })}
             </p>
         {/if}
@@ -2487,14 +2474,14 @@
         {#if pane.state === 'error' || pane.state === 'idle'}
             <!-- The failure is stated above; with no read asked for, nothing is claimed. -->
         {:else if pane.state === 'empty' && gardenOnly && authStore.hasOwnerAccess && gardenCameraCount === 0}
-            <div class="border-y border-dashed border-slate-200 py-12 text-center dark:border-slate-700" data-explorer-garden-empty>
-                <h2 class="text-lg font-semibold text-slate-900 dark:text-white">{$_('garden.explorer.no_cameras_title', { default: 'No camera has Garden animals turned on' })}</h2>
-                <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">{$_('garden.explorer.no_cameras_desc', { default: 'Turn Garden animals on for a camera, and its confirmed animals and captures waiting for review appear here.' })}</p>
+            <div class="border-y border-dashed border-line py-12 text-center" data-explorer-garden-empty>
+                <h2 class="text-lg font-semibold text-strong">{$_('garden.explorer.no_cameras_title', { default: 'No camera has Garden animals turned on' })}</h2>
+                <p class="mt-2 text-sm text-muted">{$_('garden.explorer.no_cameras_desc', { default: 'Turn Garden animals on for a camera, and its confirmed animals and captures waiting for review appear here.' })}</p>
                 <a href={toAppPath('/settings/beta')} class="btn btn-secondary mt-4 inline-flex min-h-11 items-center px-4">{$_('garden.open_settings', { default: 'Garden settings' })}</a>
             </div>
         {:else if pane.state === 'empty' && gardenOnly}
-            <div class="border-y border-dashed border-slate-200 py-12 text-center dark:border-slate-700" data-explorer-garden-empty>
-                <h2 class="text-lg font-semibold text-slate-900 dark:text-white">
+            <div class="border-y border-dashed border-line py-12 text-center" data-explorer-garden-empty>
+                <h2 class="text-lg font-semibold text-strong">
                     {gardenReview === 'pending'
                         ? $_('garden.explorer.empty_pending', { default: 'No Garden captures need review' })
                         : gardenReview === 'confirmed'
@@ -2504,17 +2491,17 @@
                             : $_('garden.explorer.empty_title', { default: 'No Garden captures yet' })}
                 </h2>
                 {#if gardenAwaitingCheck > 0 && authStore.hasOwnerAccess}
-                    <p class="mt-2 text-sm text-slate-600 dark:text-slate-300" data-garden-awaiting-check-empty>
+                    <p class="mt-2 text-sm text-muted" data-garden-awaiting-check-empty>
                         {$_('garden.explorer.awaiting_check_empty', { values: { count: gardenAwaitingCheck }, default: '{count, plural, one {# camera capture is waiting for the automatic check.} other {# camera captures are waiting for the automatic check.}} Animals it names go to Confirmed animals, photos without one go to Dismissed, and any it cannot decide appear here.' })}
                     </p>
                 {/if}
-                <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">{authStore.hasOwnerAccess
+                <p class="mt-2 text-sm text-muted">{authStore.hasOwnerAccess
                     ? $_('garden.explorer.empty_desc', { default: 'Confirmed animals and captures waiting for review appear here. Dismissed captures are under Review, Dismissed.' })
                     : $_('garden.explorer.empty_guest_desc', { default: 'Animals confirmed on the Garden cameras appear here.' })}</p>
             </div>
         {:else if pane.state === 'empty' || pane.state === 'empty-filtered'}
-            <div class="border-y border-dashed border-slate-200 py-12 text-center dark:border-slate-700" data-explorer-empty={pane.state}>
-                <svg class="mx-auto mb-4 h-10 w-10 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+            <div class="border-y border-dashed border-line py-12 text-center" data-explorer-empty={pane.state}>
+                <svg class="mx-auto mb-4 h-10 w-10 text-accent-ink" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M16 7h.01M3.5 18H12a8 8 0 0 0 8-8V7a4 4 0 0 0-7.3-2.3L2 20" />
                     <path stroke-linecap="round" stroke-linejoin="round" d="m20 7 2 .5-2 .5M10 18v3m4-3.25V21M7 18a6 6 0 0 0 3.8-10.6" />
                 </svg>
@@ -2523,8 +2510,8 @@
                          filters, never about the feeder (#301): saying "no events
                          yet" here told an owner their history was gone. A failed read
                          is neither; explorerPane() keeps it out of both empty states. -->
-                    <h2 class="text-lg font-semibold text-slate-900 dark:text-white">{$_('events.empty_filtered_title', { default: 'No visits match these filters' })}</h2>
-                    <p class="text-sm text-slate-600 dark:text-slate-400 mt-2">{$_('events.empty_filtered_desc', { default: 'Your history is still here. Widen the date range or remove a filter to see it.' })}</p>
+                    <h2 class="text-lg font-semibold text-strong">{$_('events.empty_filtered_title', { default: 'No visits match these filters' })}</h2>
+                    <p class="text-sm text-muted mt-2">{$_('events.empty_filtered_desc', { default: 'Your history is still here. Widen the date range or remove a filter to see it.' })}</p>
                     <button
                         type="button"
                         class="btn btn-secondary mt-4 min-h-11 px-4"
@@ -2547,15 +2534,15 @@
                         {$_('events.empty_filtered_clear', { default: 'Clear all filters' })}
                     </button>
                 {:else}
-                    <h2 class="text-lg font-semibold text-slate-900 dark:text-white">{$_('events.empty_title')}</h2>
-                    <p class="text-sm text-slate-600 dark:text-slate-400 mt-2">{$_('events.empty_desc')}</p>
+                    <h2 class="text-lg font-semibold text-strong">{$_('events.empty_title')}</h2>
+                    <p class="text-sm text-muted mt-2">{$_('events.empty_desc')}</p>
                 {/if}
             </div>
         {:else if explorerView === 'list'}
             <!-- Visits are divided from each other; inside one, only its captures footer is. -->
             <!-- The list takes the page's width like every other surface (#663); a capped column left
                  half of a large display empty beside it. -->
-            <div class="divide-y divide-slate-200 overflow-hidden rounded-2xl border border-slate-200 bg-white/80 dark:divide-slate-800 dark:border-slate-800 dark:bg-slate-900/50" data-explorer-list>
+            <div class="divide-y divide-line-soft overflow-hidden rounded-2xl border border-line-soft bg-surface" data-explorer-list>
                 {#if pane.state === 'first-load'}
                     <ExplorerPlaceholders view="list" />
                 {/if}
@@ -2737,7 +2724,7 @@
 {/if}
 {#if authStore.hasOwnerAccess && showBulkTagModal}
     <div
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-media/60 backdrop-blur-xs p-4"
         onclick={(e) => {
             if (e.target === e.currentTarget && !bulkTagging) {
                 showBulkTagModal = false;
@@ -2752,13 +2739,13 @@
         role="button"
         tabindex="0"
     >
-        <div class="w-full max-w-md mx-2 bg-surface rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden" aria-busy={bulkTagging}>
-            <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
+        <div class="w-full max-w-md mx-2 bg-surface rounded-2xl shadow-2xl border border-line overflow-hidden" aria-busy={bulkTagging}>
+            <div class="px-5 py-4 border-b border-line-soft flex items-center justify-between">
                 <div>
-                    <h2 class="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                    <h2 class="text-sm font-semibold text-strong">
                         {$_('actions.manual_tag')}
                     </h2>
-                    <p class="mt-1 text-xs text-slate-600 dark:text-slate-400">
+                    <p class="mt-1 text-xs text-muted">
                         {$_('events.selection_count', {
                             values: { count: selectedEventIds.length },
                             default: '{count, plural, =0 {No captures selected} one {# capture selected} other {# captures selected}}'
@@ -2769,18 +2756,18 @@
                     type="button"
                     onclick={() => showBulkTagModal = false}
                     disabled={bulkTagging}
-                    class="text-xs font-bold text-slate-600 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                    class="text-xs font-bold text-muted hover:text-ink"
                 >
                     {$_('common.cancel')}
                 </button>
             </div>
-            <div class="p-4 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
+            <div class="p-4 border-b border-line-soft bg-surface-raised">
                 <input
                     type="text"
                     bind:value={bulkTagSearchQuery}
                     disabled={bulkTagging}
                     placeholder={$_('detection.tagging.search_placeholder')}
-                    class="w-full px-4 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-focus focus:border-transparent outline-hidden"
+                    class="w-full px-4 py-2 text-sm rounded-xl input-base"
                 />
             </div>
             <div class="max-h-72 overflow-y-auto overscroll-contain p-1">
@@ -2791,24 +2778,24 @@
                         type="button"
                         onclick={() => applyBulkManualTag(result)}
                         disabled={bulkTagging}
-                        class="w-full px-4 py-2.5 text-left text-sm font-medium rounded-lg transition-all touch-manipulation hover:bg-brand-50 dark:hover:bg-brand-900/20 hover:text-brand-700 dark:hover:text-brand-400 disabled:opacity-60 disabled:cursor-wait text-slate-600 dark:text-slate-300"
+                        class="w-full px-4 py-2.5 text-left text-sm font-medium rounded-lg transition-all touch-manipulation hover:bg-accent-soft hover:text-accent-ink disabled:opacity-60 disabled:cursor-wait text-muted"
                     >
                         <span class="block text-sm leading-tight">
                             {names.primary}
                             {#if isPending}
-                                <span class="ml-2 inline-flex items-center gap-1 text-3xs font-semibold text-brand-500">
+                                <span class="ml-2 inline-flex items-center gap-1 text-3xs font-semibold text-accent-ink">
                                     <span class="inline-block h-2 w-2 rounded-full border border-current border-t-transparent animate-spin"></span>
                                     {$_('common.saving')}
                                 </span>
                             {/if}
                         </span>
                         {#if names.secondary}
-                            <span class="block text-2xs text-slate-600 dark:text-slate-400 italic">{names.secondary}</span>
+                            <span class="block text-2xs text-muted italic">{names.secondary}</span>
                         {/if}
                     </button>
                 {/each}
                 {#if bulkSearchResults.length === 0}
-                    <p class="px-4 py-6 text-sm text-slate-600 dark:text-slate-400 italic text-center">
+                    <p class="px-4 py-6 text-sm text-muted italic text-center">
                         {bulkSearching ? $_('common.loading') : $_('detection.tagging.no_results')}
                     </p>
                 {/if}

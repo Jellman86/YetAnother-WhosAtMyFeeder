@@ -256,7 +256,11 @@
     "snapshot_subtitle": "利用可能な最良のスナップショットを使用中",
     "finalizing": "結果を確定中",
     "finalizing_subtitle": "最適な一致を適用中",
-    "closing_soon": "まもなく閉じます"
+    "closing_soon": "まもなく閉じます",
+    "announce_started": "{species} を解析中",
+    "announce_finished": "{species} の解析が完了しました",
+    "announce_started_count": "{count, plural, other {# 件の訪問を解析中}}",
+    "announce_finished_count": "{count, plural, other {# 件の訪問の解析が完了しました}}"
   },
   "reclassification": {
     "unchanged_reason_non_bird": "モデルが鳥以外を識別したため、既存の識別結果を保持しました。",

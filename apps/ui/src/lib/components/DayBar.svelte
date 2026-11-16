@@ -60,7 +60,7 @@
 
 {#snippet unmeasured(pending: boolean)}
     {#if pending}
-        <span class="inline-block h-3.5 w-5 translate-y-0.5 rounded-sm bg-slate-200 animate-pulse motion-reduce:animate-none dark:bg-slate-700" aria-hidden="true" data-loading-placeholder></span>
+        <span class="inline-block h-3.5 w-5 translate-y-0.5 rounded-sm bg-line animate-pulse motion-reduce:animate-none" aria-hidden="true" data-loading-placeholder></span>
         <span class="sr-only">{$_('dashboard.day_bar.loading', { default: 'still loading' })}</span>
     {:else}
         <span aria-hidden="true">–</span>
@@ -76,7 +76,7 @@
     <div class="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
         <div class="min-w-0 space-y-1">
             <p class="eyebrow">{$_('nav.dashboard')}</p>
-            <h1 class="day-bar-window font-display text-3xl font-bold leading-tight text-slate-950 sm:text-4xl sm:leading-10 dark:text-white">
+            <h1 class="day-bar-window font-display text-3xl font-bold leading-tight text-strong sm:text-4xl sm:leading-10">
                 {$_('dashboard.day_bar.window', { default: 'Last 24 hours' })}
             </h1>
         </div>
@@ -87,17 +87,17 @@
         <p class="flex min-h-10 max-w-full basis-full items-center gap-2 text-sm font-semibold sm:min-h-0 sm:basis-auto" data-day-bar-feed={feed}>
             <span
                 class="h-2 w-2 shrink-0 rounded-full {feedTone === 'live'
-                    ? 'bg-success-500 ring-4 ring-success-500/20'
+                    ? 'bg-status-ok-line ring-4 ring-status-ok-line/20'
                     : feedTone === 'attention'
-                      ? 'bg-attention-500 ring-4 ring-attention-500/20'
-                      : 'bg-slate-400 dark:bg-slate-500'}"
+                      ? 'bg-status-attention-line ring-4 ring-status-attention-line/20'
+                      : 'bg-status-neutral-line'}"
                 aria-hidden="true"
             ></span>
             <span class={feedTone === 'live'
-                ? 'text-success-700 dark:text-success-300'
+                ? 'text-status-ok'
                 : feedTone === 'attention'
-                  ? 'text-attention-800 dark:text-attention-200'
-                  : 'text-slate-600 dark:text-slate-400'}>
+                  ? 'text-status-attention'
+                  : 'text-muted'}>
                 {feedLabel}
             </span>
         </p>
@@ -108,20 +108,20 @@
              does not make the band taller. -->
         {#snippet figure(hook: string, label: string, value: number | null, pending: boolean, tone: 'plain' | 'attention' | 'clear' = 'plain', note: string = '', title: string = '', noted: boolean = false)}
             <div class="flex min-w-0 flex-col gap-1.5 px-5 py-4" {title} data-day-bar-figure={hook}>
-                <dt class="wrap-break-word text-sm text-slate-600 dark:text-slate-400">{label}</dt>
+                <dt class="wrap-break-word text-sm text-muted">{label}</dt>
                 <dd class="flex min-w-0 flex-col gap-1">
                     <span
                         class="figure text-3xl {tone === 'attention'
-                            ? 'text-attention-700 dark:text-attention-300'
-                            : 'text-slate-950 dark:text-white'}"
+                            ? 'text-status-attention'
+                            : 'text-strong'}"
                     >
                         {#if value === null}{@render unmeasured(pending)}{:else}{value}{/if}
                     </span>
                     {#if note && value !== null}
-                        <span class="min-w-0 wrap-break-word text-xs {tone === 'clear' ? 'text-success-700 dark:text-success-300' : 'text-slate-600 dark:text-slate-400'}">{note}</span>
+                        <span class="min-w-0 wrap-break-word text-xs {tone === 'clear' ? 'text-status-ok' : 'text-muted'}">{note}</span>
                     {:else if noted && value === null && pending}
                         <span class="flex h-4 items-center" aria-hidden="true">
-                            <span class="h-2.5 w-20 max-w-full rounded-sm bg-slate-200 animate-pulse motion-reduce:animate-none dark:bg-slate-700" data-loading-placeholder></span>
+                            <span class="h-2.5 w-20 max-w-full rounded-sm bg-line animate-pulse motion-reduce:animate-none" data-loading-placeholder></span>
                         </span>
                     {/if}
                 </dd>

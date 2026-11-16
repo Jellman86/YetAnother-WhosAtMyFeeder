@@ -54,18 +54,18 @@
 </script>
 
 <li
-    class="{grid} relative items-center gap-y-1 rounded-xl border-b border-slate-200/60 px-2 py-2 last:border-b-0 log-wide:py-2.5 dark:border-slate-700/40 {view.review ? 'bg-attention-500/5' : ''}"
+    class="{grid} relative items-center gap-y-1 rounded-xl border-b border-line px-2 py-2 last:border-b-0 log-wide:py-2.5 {view.review ? 'bg-status-attention-soft' : ''}"
     data-field-log-row
     data-row-kind="garden"
     data-field-log-garden={visit.id}
     data-needs-review={view.review ? 'true' : 'false'}
 >
-    <span class="text-xs tabular-nums text-slate-600 dark:text-slate-400 {cell.time}">{span}</span>
+    <span class="text-xs tabular-nums text-muted {cell.time}">{span}</span>
 
     <span class="relative flex h-full justify-center {cell.node}" aria-hidden="true">
         <!-- The spine runs behind the nodes so the day reads as one thread. -->
-        <span class="absolute inset-y-[-0.7rem] w-px bg-slate-200 dark:bg-slate-700/70"></span>
-        <span class="relative my-auto h-2 w-2 shrink-0 rounded-full ring-2 ring-white dark:ring-slate-900 {view.review ? 'bg-attention-500' : 'bg-slate-400 dark:bg-slate-500'}"></span>
+        <span class="absolute inset-y-[-0.7rem] w-px bg-line"></span>
+        <span class="relative my-auto h-2 w-2 shrink-0 rounded-full ring-2 ring-surface {view.review ? 'bg-status-attention-line' : 'bg-status-neutral-line'}"></span>
     </span>
 
     <!-- The bird visit's photo cell and pop-out, so the photo column reads and behaves as one. -->
@@ -74,10 +74,10 @@
     </span>
 
     <div class="min-w-0 {cell.body}">
-        <p class="hyphens-auto wrap-break-word text-sm font-semibold leading-5 text-slate-900 dark:text-white" data-field-log-name>
+        <p class="hyphens-auto wrap-break-word text-sm font-semibold leading-5 text-strong" data-field-log-name>
             {text.title}
         </p>
-        <p class="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 text-2xs leading-4 text-slate-600 dark:text-slate-400">
+        <p class="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 text-2xs leading-4 text-muted">
             <GardenExplorerMarker compact />
             {#if score !== null}
                 <span class="font-bold tabular-nums log-wide:hidden {scoreTone}">{score}%</span>
@@ -86,7 +86,7 @@
                 <span class="wrap-break-word" data-field-log-camera>{capture.camera}</span>
             {/if}
             {#if view.review}
-                <span class="inline-flex items-center gap-1.5 font-medium text-attention-800 dark:text-attention-300" data-field-log-garden-state data-attention-reason><span class="attention-dot" aria-hidden="true"></span>{text.state}</span>
+                <span class="inline-flex items-center gap-1.5 font-medium text-status-attention" data-field-log-garden-state data-attention-reason><span class="attention-dot" aria-hidden="true"></span>{text.state}</span>
             {:else}
                 <span class="font-medium" data-field-log-garden-state>{text.state}</span>
             {/if}
@@ -98,7 +98,7 @@
         {#if score !== null}
             <span class="text-xs font-bold tabular-nums {scoreTone}">{score}%</span>
             <span class="sr-only">{$_('garden.explorer.score_hint', { values: { score }, default: 'Species model score {score}%' })}</span>
-            <span class="h-[3px] w-16 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700" aria-hidden="true">
+            <span class="h-[3px] w-16 overflow-hidden rounded-full bg-track" aria-hidden="true">
                 <span class="block h-full rounded-full {barTone}" style="width: {score}%"></span>
             </span>
         {/if}

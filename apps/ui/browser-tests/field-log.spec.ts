@@ -87,7 +87,7 @@ for (const width of [1280, 1920]) {
 
 test('expanded field log captures state their own species and confidence', async ({ page }) => {
     await open(page, '');
-    await row(page, 'blackbird').locator('[data-field-log-time-toggle]').click();
+    await capturesToggle(row(page, 'blackbird')).click();
     const capture = page.locator('[data-visit-capture="blackbird-1"]');
     await expect(capture.getByText('Great Tit', { exact: true })).toBeVisible();
     await expect(capture.getByText('Parus major', { exact: true })).toBeVisible();
@@ -96,11 +96,16 @@ test('expanded field log captures state their own species and confidence', async
 
 test('expanded capture species follow scientific name preferences', async ({ page }) => {
     await open(page, '?names=scientific');
-    await row(page, 'blackbird').locator('[data-field-log-time-toggle]').click();
+    await capturesToggle(row(page, 'blackbird')).click();
     const capture = page.locator('[data-visit-capture="blackbird-1"]');
     await expect(capture.getByRole('button', { name: /^Parus major/ }).locator('span').first()).toHaveText('Parus major');
     await expect(capture.getByText('Great Tit', { exact: true })).toBeVisible();
 });
+
+/** The one control that opens a visit's captures: the count under the name on a narrow log, the count button on a wide one. */
+function capturesToggle(visitRow: Locator): Locator {
+    return visitRow.locator('[data-field-log-captures-phone]:visible, [data-field-log-captures-toggle]:visible');
+}
 
 async function box(locator: Locator) {
     const found = await locator.boundingBox();
@@ -114,16 +119,17 @@ async function noHorizontalOverflow(page: Page) {
 
 for (const clock of ['24h', '12h']) {
     for (const width of [320, 390]) {
-        test(`a server-backed visit opens from its time inside a ${width}px field log (${clock} clock)`, async ({ page }, testInfo) => {
+        test(`a server-backed visit opens from its one captures control inside a ${width}px field log (${clock} clock)`, async ({ page }, testInfo) => {
             await page.setViewportSize({ width, height: 1200 });
             const { errors, captureReads } = await open(page, `?clock=${clock}`);
             await expect(page.locator('[data-field-log-row]')).toHaveCount(4);
             expect(captureReads).toEqual([]);
 
             const visitRow = row(page, 'blackbird');
-            const toggle = visitRow.locator('[data-field-log-time-toggle]');
+            const toggle = capturesToggle(visitRow);
+            await expect(toggle).toHaveCount(1);
             await expect(toggle).toHaveAttribute('aria-expanded', 'false');
-            await expect(toggle).toHaveAccessibleName(/13 captures$/);
+            await expect(toggle).toHaveAccessibleName(/^Show 13 captures/);
             await toggle.focus();
             await page.keyboard.press('Enter');
             await expect(toggle).toHaveAttribute('aria-expanded', 'true');
@@ -187,7 +193,7 @@ test('collapsed rows keep the species readable at 320px and state captures apart
     await expect(blackbird.locator('[data-field-log-birds]')).toHaveText('3 birds in one capture');
     // A single capture is already the row: no list, no count, and its record is one tap away.
     const single = row(page, 'dunnock');
-    await expect(single.locator('[data-field-log-time-toggle]')).toHaveCount(0);
+    await expect(capturesToggle(single)).toHaveCount(0);
     await expect(single.locator('[data-field-log-captures]')).toHaveCount(0);
     await single.getByRole('button', { name: 'Open Dunnock' }).click();
     await expect(page.getByRole('status', { name: 'Selected record' })).toHaveText('dunnock');
@@ -230,16 +236,18 @@ for (const theme of ['light', 'dark']) {
         if (shots) await page.screenshot({ path: `${shots}/field-log-after-desktop-${theme}.png`, fullPage: true });
 
         const blackbird = row(page, 'blackbird');
-        const toggle = blackbird.locator('[data-field-log-time-toggle]');
+        const toggle = capturesToggle(blackbird);
+        await expect(toggle).toHaveCount(1);
         await toggle.click();
         const first = blackbird.locator('[data-visit-capture]').first();
         await expect(blackbird.locator('[data-visit-capture]')).toHaveCount(13);
-        // A mouse click does not leave a focus ring drawn on the time.
+        // A mouse click does not leave a focus ring drawn on the control.
         expect(await toggle.evaluate(element => getComputedStyle(element).boxShadow)).toBe('none');
 
-        const parentTime = await box(toggle);
+        // A capture's time sits in its visit's time column.
+        const parentTime = await box(blackbird.locator('[data-field-log-time]').first());
         const childTime = await box(first.locator('time'));
-        expect(Math.abs(childTime.x - (parentTime.x + 4))).toBeLessThanOrEqual(2);
+        expect(Math.abs(childTime.x - parentTime.x)).toBeLessThanOrEqual(2);
         const parentPreview = await box(blackbird.locator('[data-detection-preview]').first());
         const childPreview = await box(first.locator('[data-detection-preview]'));
         expect(Math.abs(childPreview.x - parentPreview.x)).toBeLessThanOrEqual(1);

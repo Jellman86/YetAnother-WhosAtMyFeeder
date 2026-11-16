@@ -2636,7 +2636,7 @@
                                   ? $_('detection.confidence_mid', { default: 'likely' })
                                   : $_('detection.confidence_low', { default: 'uncertain' })}
                         </span>
-                        <span class="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+                        <span class="h-1.5 flex-1 overflow-hidden rounded-full bg-track">
                             <span
                                 class="block h-full rounded-full {SCORE_FILL[scoreBand(detection.score)]}"
                                 data-record-score-bar

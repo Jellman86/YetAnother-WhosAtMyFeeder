@@ -1,5 +1,6 @@
 <script lang="ts" generics="T extends string">
     import { _ } from 'svelte-i18n';
+    import Segmented from '../../ui/Segmented.svelte';
 
     interface Option {
         value: T;
@@ -55,39 +56,25 @@
             <label class="flex min-h-11 cursor-pointer items-start gap-3 rounded-lg px-2 py-2 hover:bg-surface-raised has-focus-visible:ring-2 has-focus-visible:ring-focus">
                 <input
                     type="radio"
-                    class="mt-1 h-4 w-4 shrink-0 accent-brand-600"
+                    class="mt-1 h-4 w-4 shrink-0 accent-accent"
                     name="{uid}-choice"
                     value={option.value}
                     checked={active}
                     onchange={() => onchange(option.value)}
                 />
                 <span class="min-w-0">
-                    <span class="flex items-center gap-2 text-sm {active ? 'font-semibold text-slate-900 dark:text-white' : 'font-medium text-slate-800 dark:text-slate-100'}">
+                    <span class="flex items-center gap-2 text-sm {active ? 'font-semibold text-strong' : 'font-medium text-strong'}">
                         {#if option.swatch}<span class="h-3 w-3 shrink-0 rounded-full {option.swatch}" aria-hidden="true"></span>{/if}
                         {option.label}
                     </span>
-                    {#if option.sub}<span class="mt-0.5 block text-sm leading-snug text-slate-600 dark:text-slate-400">{option.sub}</span>{/if}
-                    {#if option.meta}<span class="mt-0.5 block text-xs text-slate-600 dark:text-slate-400">{option.meta}</span>{/if}
+                    {#if option.sub}<span class="mt-0.5 block text-sm leading-snug text-muted">{option.sub}</span>{/if}
+                    {#if option.meta}<span class="mt-0.5 block text-xs text-muted">{option.meta}</span>{/if}
                 </span>
             </label>
         {/each}
     </div>
 {:else}
-    <!-- The chosen segment is raised on the track and set in heavier type; aria-pressed says it. -->
-    <div class="flex w-full gap-1 rounded-xl bg-slate-100 p-1 dark:bg-slate-800" role="group" aria-labelledby={labelledBy}>
-        {#each options as option (option.value)}
-            {@const active = option.value === value}
-            <button
-                type="button"
-                onclick={() => onchange(option.value)}
-                aria-pressed={active}
-                class="focus-ring flex min-h-11 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-lg px-3 text-sm transition-colors {active
-                    ? 'bg-surface font-semibold text-slate-900 shadow-sm dark:bg-slate-950 dark:text-white'
-                    : 'font-medium text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white'}"
-            >
-                {#if option.swatch}<span class="h-3 w-3 shrink-0 rounded-full {option.swatch}" aria-hidden="true"></span>{/if}
-                <span class="min-w-0 text-center wrap-break-word">{option.label}</span>
-            </button>
-        {/each}
-    </div>
+    <!-- The shared choose-one track (components/ui/Segmented.svelte), so Settings and the Explorer
+         mark a choice the same way. -->
+    <Segmented {value} options={options.map(({ value: optionValue, label, swatch }) => ({ value: optionValue, label, swatch }))} {onchange} {labelledBy} />
 {/if}

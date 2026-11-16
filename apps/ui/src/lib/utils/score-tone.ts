@@ -2,10 +2,9 @@
  * The one colour language for a classification score (layout-patterns.md §6).
  *
  * Under 60% is amber, because a score that low is work for a person; under 85% is
- * the brand colour, normal emphasis; from 85% it is green, confirmed. The scales are
- * `attention-*`, `brand-*` and `success-*`. Never the theme `accent-*`: that is a
- * brand colour, emerald in the classic theme and amber in bluetit, so it made the
- * same score a different colour in each view and theme.
+ * the brand colour, normal emphasis; from 85% it is green, confirmed. On a page they are
+ * the status tones attention, info and ok (app.css), resolved for every mode; a fill is the
+ * tone's 3:1 edge colour. Over a photograph the fixed light steps are used instead.
  */
 export type ScoreBand = 'low' | 'mid' | 'high';
 
@@ -22,9 +21,9 @@ export function scoreBand(score: number | null | undefined): ScoreBand {
 
 /** A score printed on a light or dark page surface. */
 export const SCORE_TEXT: Readonly<Record<ScoreBand, string>> = {
-    low: 'text-attention-800 dark:text-attention-300',
-    mid: 'text-brand-700 dark:text-brand-300',
-    high: 'text-success-700 dark:text-success-300'
+    low: 'text-status-attention',
+    mid: 'text-status-info',
+    high: 'text-status-ok'
 };
 
 /** A score printed over a photograph or another always-dark surface. */
@@ -36,7 +35,7 @@ export const SCORE_TEXT_ON_MEDIA: Readonly<Record<ScoreBand, string>> = {
 
 /** The dot beside a score and the fill of its bar. */
 export const SCORE_FILL: Readonly<Record<ScoreBand, string>> = {
-    low: 'bg-attention-500',
-    mid: 'bg-brand-500',
-    high: 'bg-success-500'
+    low: 'bg-status-attention-line',
+    mid: 'bg-status-info-line',
+    high: 'bg-status-ok-line'
 };

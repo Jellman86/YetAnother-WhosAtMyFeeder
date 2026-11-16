@@ -256,7 +256,11 @@
     "snapshot_subtitle": "Using the best available snapshot",
     "finalizing": "Finalizing result",
     "finalizing_subtitle": "Applying the best match",
-    "closing_soon": "Closing soon"
+    "closing_soon": "Closing soon",
+    "announce_started": "Analysing {species}",
+    "announce_finished": "Analysis finished for {species}",
+    "announce_started_count": "{count, plural, one {Analysing # visit} other {Analysing # visits}}",
+    "announce_finished_count": "{count, plural, one {Analysis finished for # visit} other {Analysis finished for # visits}}"
   },
   "reclassification": {
     "analysis": "Analysis",

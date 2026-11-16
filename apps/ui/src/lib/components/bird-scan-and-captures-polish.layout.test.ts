@@ -31,6 +31,7 @@ describe('the field log capture count on a phone', () => {
         const chip = fieldLog.slice(fieldLog.indexOf('data-field-log-captures-phone'), fieldLog.indexOf('data-field-log-captures-phone') + 1500);
         expect(chip).not.toContain('border border-slate-300');
         expect(chip.indexOf('{capturesText}')).toBeLessThan(chip.indexOf('<svg'));
-        expect(chip).toContain('bg-slate-100 text-slate-600');
+        expect(chip).toMatch(/bg-surface-raised|bg-accent-soft/);
+        expect(chip).not.toMatch(/(?:bg|text)-slate-\d/);
     });
 });
