@@ -883,7 +883,7 @@
                 <svg class="h-4 w-4 shrink-0 text-muted transition-transform duration-200 group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
             </summary>
             {#if !workspacePayload}
-                <StateBlock class="mt-2" compact state="not-measured" cause={$_('jobs.errors_subsystems_unread', { default: 'Nothing to show until a health reading has loaded.' })} />
+                <StateBlock class="mt-2" state="not-measured" cause={$_('jobs.errors_subsystems_unread', { default: 'Nothing to show until a health reading has loaded.' })} />
             {:else}
             <ul class="mt-2 divide-y divide-line-soft" data-health-subsystems>
                 <li class="py-4" data-health-subsystem="pipeline">
@@ -1064,7 +1064,7 @@
 
         {#if !workspacePayload}
             <!-- Shown only after the first reading failed: without it the start time is unknown. -->
-            <StateBlock class="mt-4" compact state="not-measured" cause={$_('jobs.errors_activity_unread', { default: 'Activity cannot be shown until a health reading has loaded.' })} />
+            <StateBlock class="mt-4" state="not-measured" cause={$_('jobs.errors_activity_unread', { default: 'Activity cannot be shown until a health reading has loaded.' })} />
         {:else if instanceWindow === null}
             <StateBlock
                 class="mt-4"
@@ -1119,7 +1119,7 @@
                 <p class="mt-4 text-sm font-semibold text-status-fail" role="alert">{$_('jobs.errors_clear_failed', { default: 'The error history could not be cleared. Try again.' })}</p>
             {/if}
             {#if recentIncidents.length === 0}
-                <StateBlock class="mt-4" compact state="empty" cause={$_('jobs.earlier_incidents_empty', { default: 'Nothing has cleared since the error history was last cleared.' })} />
+                <StateBlock class="mt-4" state="empty" cause={$_('jobs.earlier_incidents_empty', { default: 'Nothing has cleared since the error history was last cleared.' })} />
             {:else}
                 <ul class="mt-4 divide-y divide-line-soft">
                     {#each recentIncidents.slice(0, 6) as incident (incident.id)}
@@ -1138,7 +1138,7 @@
             data-health-backend-diagnostics
         >
             {#if backendEvents.length === 0}
-                <StateBlock class="mt-4" compact state="empty" cause={$_('jobs.errors_backend_empty', { default: 'The backend has recorded no warnings or errors since the error history was last cleared.' })} />
+                <StateBlock class="mt-4" state="empty" cause={$_('jobs.errors_backend_empty', { default: 'The backend has recorded no warnings or errors since the error history was last cleared.' })} />
             {:else}
                 <!-- One ruled row per diagnostic: the state in a worded chip, the cause in the reader's
                      language where it is known, and the backend's own words under Technical details. -->
@@ -1233,7 +1233,7 @@
         {/if}
 
         {#if bundles.length === 0}
-            <StateBlock class="mt-4" compact state="empty" cause={$_('jobs.errors_no_bundles', { default: 'No captured bundles available yet.' })} />
+            <StateBlock class="mt-4" variant="inline" state="empty" cause={$_('jobs.errors_no_bundles', { default: 'No captured bundles available yet.' })} />
         {:else}
             <ul class="mt-5 divide-y divide-line border-t border-line">
                 {#each bundles as bundle (bundle.id)}

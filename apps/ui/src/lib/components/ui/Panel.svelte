@@ -1,5 +1,6 @@
 <script lang="ts">
     import type { Snippet } from 'svelte';
+    import { markInsideCard } from './surface';
 
     /**
      * A standing section on the page: one hairline and a flat panel fill (`card-base`), a heading
@@ -33,6 +34,7 @@
     }: Props = $props();
 
     const headingId = $props.id();
+    markInsideCard();
 </script>
 
 <svelte:element

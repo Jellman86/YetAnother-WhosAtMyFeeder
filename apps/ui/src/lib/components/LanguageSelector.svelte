@@ -76,13 +76,19 @@
                     <button
                         onclick={() => setLanguage(code)}
                         disabled={languageChanging}
-                        role="menuitem"
-                        class="btn min-h-11 min-w-11 w-full justify-start px-4 py-2.5 text-left text-sm font-bold rounded-xl transition-all
-                               {currentLocaleValue === code 
-                                   ? 'bg-accent text-accent-fg' 
+                        role="menuitemradio"
+                        aria-checked={currentLocaleValue === code}
+                        class="btn min-h-11 min-w-11 w-full justify-between px-4 py-2.5 text-left text-sm font-bold rounded-xl transition-all
+                               {currentLocaleValue === code
+                                   ? 'bg-accent text-accent-fg'
                                    : 'text-muted hover:bg-surface-raised'}"
                     >
-                        {name}
+                        <span>{name}</span>
+                        {#if currentLocaleValue === code}
+                            <svg class="h-4 w-4 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" data-language-check>
+                                <path d="M3.5 8.5l3 3 6-7" />
+                            </svg>
+                        {/if}
                     </button>
                 {/each}
                 {#if languageError}

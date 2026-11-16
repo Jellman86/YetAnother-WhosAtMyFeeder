@@ -19,6 +19,7 @@
         pointAt,
         seriesArea,
         seriesSegments,
+        sampleTable,
         shareRows,
         timeTicks,
         unreadableAccelerators,
@@ -96,17 +97,10 @@
     const cpuArea = $derived(seriesArea(points, cpuLoad, windowSeconds));
     const ticks = $derived(timeTicks(points, windowSeconds));
 
-    /** The chart in words: each series at every time the axis names, from the sample nearest it. */
-    const chartTable = $derived.by(() => {
-        if (points.length === 0) return null;
-        const nearest = (at: number) => points.reduce((best, point) => (Math.abs(point.at - at) < Math.abs(best.at - at) ? point : best));
-        return {
-            columns: [$_('settings.system_health.col_time', { default: 'Time' }), ...series.map((line) => line.label)],
-            rows: ticks.map((tick) => {
-                const point = nearest(tick.at);
-                return [timeOf(tick.at), ...series.map((line) => formatPercent(line.load(point)) ?? '—')];
-            })
-        };
+    /** The chart in words: every sample at the time it was taken (utils/system-history.ts). */
+    const chartTable = $derived({
+        columns: [$_('settings.system_health.col_time', { default: 'Time' }), ...series.map((line) => line.label)],
+        rows: sampleTable(points, series, timeOf, $_('settings.system_health.not_measured', { default: 'Not measured' }))
     });
     const cpuSummary = $derived(windowSummary(points, cpuLoad));
     const rows = $derived(history ? shareRows(history) : []);
@@ -279,7 +273,7 @@
                             title={$_('settings.system_health.chart_title', { default: 'Load over the last 30 minutes' })}
                             hideTitle
                             legend={seriesLegend}
-                            table={chartTable ?? { columns: [], rows: [] }}
+                            table={chartTable}
                         >
                         <!-- A right gutter inside the column holds the scale, clear of the newest samples. -->
                         <div class="relative mr-9">

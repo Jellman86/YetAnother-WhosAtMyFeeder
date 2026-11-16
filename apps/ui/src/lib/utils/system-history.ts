@@ -284,6 +284,23 @@ export function chartSeries(history: HistoryLike, cpuLabel: string): ChartSeries
     return series;
 }
 
+/**
+ * The chart in words: one row per sample, at the time it was taken, oldest first, with every
+ * series' reading. Nothing is borrowed from a neighbouring sample, so a short history shows only
+ * what was read and a peak between two axis ticks is still there. A reading a series could not
+ * take is said in words.
+ */
+export function sampleTable(
+    points: readonly HistoryPoint[],
+    series: readonly Pick<ChartSeries, 'load'>[],
+    timeOf: (at: number) => string,
+    notMeasured: string
+): string[][] {
+    return [...points]
+        .sort((a, b) => a.at - b.at)
+        .map((point) => [timeOf(point.at), ...series.map((line) => formatPercent(line.load(point)) ?? notMeasured)]);
+}
+
 /** Accelerators this host has but cannot measure, so the panel can say so by name. */
 export function unreadableAccelerators(history: HistoryLike): Accelerator[] {
     return (history.accelerators ?? []).filter((accelerator) => Boolean(accelerator.unreadable));

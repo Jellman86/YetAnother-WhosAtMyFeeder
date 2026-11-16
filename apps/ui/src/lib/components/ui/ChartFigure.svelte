@@ -78,10 +78,12 @@
                 </svg>
                 {$_('ui.chart.show_data', { default: 'Show the data as a table' })}
             </summary>
-            <div class="mt-2 overflow-x-auto">
+            <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+            <!-- A long record scrolls in its own box, which a keyboard has to be able to reach. -->
+            <div class="mt-2 max-h-80 overflow-auto rounded-lg focus-ring" tabindex="0" role="region" aria-label={title}>
                 <table class="w-full text-left text-xs">
                     <caption class="sr-only">{title}</caption>
-                    <thead>
+                    <thead class="sticky top-0 bg-surface">
                         <tr class="border-b border-line-soft">
                             {#each table.columns as column (column)}
                                 <th scope="col" class="py-1.5 pr-4 font-semibold text-muted">{column}</th>

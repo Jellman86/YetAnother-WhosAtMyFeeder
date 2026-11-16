@@ -135,6 +135,17 @@ jobs:
         run: npm run lint:tokens
         working-directory: apps/ui
 
+      # The baseline may only fall. The local updater refuses a rise; this catches a hand-edited
+      # one by comparing the branch's committed baseline with the one on the branch it targets.
+      - name: Design-token baseline does not rise
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          git fetch --no-tags --depth=1 origin "$BASE_REF"
+          npm run tokens:check-base -- FETCH_HEAD
+        working-directory: apps/ui
+
       - name: Frontend unit tests
         run: npm test
         working-directory: apps/ui

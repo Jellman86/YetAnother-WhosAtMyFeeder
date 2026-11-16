@@ -337,7 +337,9 @@ html[data-theme='dark'] {
   --line-soft: 34 46 66;
   --focus: var(--brand-400);
 
-  /* Semantic tokens, dark. */
+  /* Semantic tokens, dark. The status grounds are quiet tints of the panel, not the deep 950
+     steps: a tone is carried by its ink and its edge, and a saturated fill under a whole callout
+     weighs more than its message. */
   --surface-sunken: 2 6 23;
   --ink-strong: 255 255 255;
   --ink: 226 232 240;
@@ -348,13 +350,13 @@ html[data-theme='dark'] {
   --accent-soft: var(--brand-950);
   --accent-line: var(--brand-500);
   --status-ok: var(--success-300);
-  --status-ok-soft: var(--success-950);
+  --status-ok-soft: 16 40 36;
   --status-ok-line: var(--success-600);
   --status-attention: var(--attention-200);
-  --status-attention-soft: var(--attention-950);
+  --status-attention-soft: 42 33 22;
   --status-attention-line: var(--attention-600);
   --status-fail: 253 164 175;
-  --status-fail-soft: 76 5 25;
+  --status-fail-soft: 50 22 32;
   --status-fail-line: 244 63 94;
   --status-info: var(--brand-300);
   --status-info-soft: var(--brand-950);
@@ -414,9 +416,22 @@ html[data-theme='dark'] {
 
 
 @layer base {
+  /* Figures are lining and tabular everywhere: the display faces default to old-style figures, which
+     set "08:00" as "o8:oo" and "100%" as "1oo%", and tabular digits keep times and counts in line.
+     Tailwind's numeric utilities (tabular-nums, oldstyle-nums) rebuild font-variant-numeric from
+     these per-element variables, which do not inherit, so each element starts from the default and
+     a utility still changes only the part it names. */
+  *,
+  ::before,
+  ::after {
+    --tw-numeric-figure: lining-nums;
+    --tw-numeric-spacing: tabular-nums;
+  }
+
   html,
   body {
     @apply text-ink;
+    font-variant-numeric: lining-nums tabular-nums;
     font-family: var(--font-body);
     /* Normal text is the base step, not the bare root: the root can sit on the small-print floor. */
     font-size: var(--text-base);
@@ -464,7 +479,7 @@ html[data-theme='dark'] {
 
 /* Custom selection */
 ::selection {
-  @apply bg-brand-500/30 text-inherit;
+  @apply bg-accent-line/30 text-inherit;
 }
 
 /* Custom scrollbar */
@@ -478,11 +493,11 @@ html[data-theme='dark'] {
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-slate-300 dark:bg-slate-600 rounded-full border-2 border-transparent bg-clip-padding;
+  @apply bg-line-strong/50 rounded-full border-2 border-transparent bg-clip-padding;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  @apply bg-slate-400 dark:bg-slate-500;
+  @apply bg-line-strong/75;
 }
 
 /* The keyboard focus ring: two opaque pixels of the focus colour, set off from the control by two
@@ -494,7 +509,7 @@ html[data-theme='dark'] {
 
 /* The same ring for a control over a photograph or a fixed dark media ground. */
 @utility focus-ring-on-dark {
-  @apply focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-on-dark focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950;
+  @apply focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-on-dark focus-visible:ring-offset-2 focus-visible:ring-offset-media;
 }
 
 /* A ruled panel on the page ground: a hairline and a flat fill, no shadow or blur.
@@ -625,7 +640,7 @@ html[data-theme='dark'] {
 /* A field on a fixed dark media ground: the same shape as `input-base`, in colours that do not
    follow the theme, with an edge that is 3:1 against the ground. */
 @utility input-on-dark {
-  @apply w-full rounded-xl border border-slate-400 bg-slate-900 px-3 py-2 text-sm text-white placeholder:text-slate-400;
+  @apply w-full rounded-xl border border-on-media/60 bg-media px-3 py-2 text-sm text-on-media placeholder:text-on-media/70;
   @apply outline-hidden transition-colors focus:border-focus-on-dark focus:ring-2 focus:ring-focus-on-dark;
 }
 
@@ -642,7 +657,7 @@ html[data-theme='dark'] {
 }
 
 @utility switch-thumb {
-  @apply pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-200;
+  @apply pointer-events-none inline-block h-5 w-5 rounded-full bg-accent-fg shadow-sm transition-transform duration-200;
 }
 
 /* A label set over a photograph (a time, a score, a camera): white on a fill dark enough to pass
@@ -1060,9 +1075,9 @@ html.high-contrast.high-contrast.high-contrast {
    the theme's fill. app.high-contrast.test.ts fails a fill the app puts white words on that is
    neither dark enough for them nor named here.
 
-   Chosen-state fills (brand-700 under white text in the themes) and the primary button: yellow
-   under black words. */
-.high-contrast :is(.bg-teal-500, .bg-brand-500, .dark\:bg-brand-500, .bg-brand-700, [class~='bg-brand-700/95'], .bg-indigo-500, .btn-primary) {
+   Chosen-state fills (the accent, or brand-700, under white text in the themes) and the primary
+   button: yellow under black words. */
+.high-contrast :is(.bg-accent, .bg-teal-500, .bg-brand-500, .dark\:bg-brand-500, .bg-brand-700, [class~='bg-brand-700/95'], .bg-indigo-500, .btn-primary) {
   background-color: var(--hc-fill) !important;
   color: var(--hc-on-fill) !important;
   border: 2px solid #ffffff !important;
@@ -1075,7 +1090,7 @@ html.high-contrast.high-contrast.high-contrast {
   color: var(--hc-on-fill) !important;
 }
 
-.high-contrast :is(.bg-teal-500, .bg-brand-500, .dark\:bg-brand-500, .bg-brand-700, [class~='bg-brand-700/95'], .bg-indigo-500, .btn-primary, [class~='bg-attention-300'], [class~='bg-attention-400'], [class~='bg-attention-500'], [class~='bg-success-300'], [class~='bg-success-400'], [class~='bg-success-500'], [class~='bg-rose-300'], [class~='bg-rose-400'], [class~='bg-red-300'], [class~='bg-red-400'], [class~='bg-slate-400']) * {
+.high-contrast :is(.bg-accent, .bg-teal-500, .bg-brand-500, .dark\:bg-brand-500, .bg-brand-700, [class~='bg-brand-700/95'], .bg-indigo-500, .btn-primary, [class~='bg-attention-300'], [class~='bg-attention-400'], [class~='bg-attention-500'], [class~='bg-success-300'], [class~='bg-success-400'], [class~='bg-success-500'], [class~='bg-rose-300'], [class~='bg-rose-400'], [class~='bg-red-300'], [class~='bg-red-400'], [class~='bg-slate-400']) * {
   color: var(--hc-on-fill) !important;
 }
 

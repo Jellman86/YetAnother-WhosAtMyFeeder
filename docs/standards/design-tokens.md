@@ -65,31 +65,43 @@ filled control. A token that is missing in one mode fails too.
 |---|---|
 | `Panel` | A standing section: `card-base`, a heading that names it, optional description and actions. Never tinted. |
 | `StatusChip` | A state in words, with the tone's icon and colours. The label always carries the meaning. |
-| `StateBlock` | What a section shows instead of its data: `loading`, `empty`, `failed`, `stale`, `off` or `not-measured`, each with a cause line and an optional next step. Only `failed` takes a colour. |
+| `StateBlock` | What a section shows instead of its data: `loading`, `empty`, `failed`, `stale`, `off` or `not-measured`, each with a cause line and an optional next step. Only `failed` takes a colour. Inside a `Panel` or a Settings card it is `inline`: the sentence alone, with no box and no heading unless one is given, so a card never holds a second card. On the page it is a `block` with the state's heading. |
 | `PageHeader` | A page's one h1, its subtitle and its actions. The shell's `AppPageHeader` adds the owner's controls. |
 | `Stat` | One figure and its label as a `<dt>`/`<dd>` pair (inside a `<dl>`). A value that was not measured says so; it is never a zero. |
-| `ChartFigure` | A chart with its words: a key, a caller-drawn legend, a data table, or several. The type will not accept a chart with none. |
+| `ChartFigure` | A chart with its words: a key, a caller-drawn legend, a data table, or several. The type will not accept a chart with none. A table lists the data the chart draws, every sample at its own time, never values borrowed for the axis ticks. |
 | `StatusIcon`, `tone.ts` | The tone shapes and class maps the others use. |
+
+## Figures
+
+Every figure is lining and tabular: the base styles set `font-variant-numeric: lining-nums
+tabular-nums`, and give each element the same defaults for Tailwind's numeric utilities, so a
+display face never sets "08:00" as "o8:oo" and a `tabular-nums` class keeps lining figures.
 
 ## The ratchet
 
 [`design-tokens.ratchet.test.ts`](../../apps/ui/src/design-tokens.ratchet.test.ts) counts, per
 file, raw palette classes (`text-amber-600`, `bg-brand-700`, `text-white`), `dark:` colour
-overrides and arbitrary values (`text-[10px]`). It compares them with
+overrides and arbitrary values (`text-[10px]`), in `.svelte`, `.ts` and authored `.css` files
+alike (an `@apply` is a class too). It compares them with
 [`design-tokens.baseline.json`](../../apps/ui/src/design-tokens.baseline.json):
 
 - a file whose count rises fails, and so does a new file that adds any;
 - a file whose count falls fails until the baseline is lowered in the same change, so the gate
-  never loosens again behind a migration.
+  never loosens again behind a migration;
+- `npm run tokens:baseline` only lowers counts: it refuses any rise and writes nothing;
+- in CI, a pull request's committed baseline is compared with the baseline on the branch it
+  targets (`npm run tokens:check-base -- <ref>`), so a hand-raised allowance fails too.
 
 ```bash
 cd apps/ui
 npm run lint:tokens        # the ratchet and the contrast proof (also part of npm test)
-npm run tokens:baseline    # rewrite the baseline after migrating a file; review the diff
+npm run tokens:baseline    # lower the baseline after migrating a file; refuses any rise
 ```
 
 The few places that genuinely need a literal colour sit in the test's `ALLOWLIST`, each with its
 reason: the colour-theme picker's swatches, and the categorical load series on the Health chart.
+In `app.css` only the high-contrast repaint selectors are skipped (`STYLESHEET_EXCEPTIONS`): they
+name the older classes in order to override them and paint nothing themselves.
 Add to it only with a reason a reviewer accepts.
 
 ### Migrating a file

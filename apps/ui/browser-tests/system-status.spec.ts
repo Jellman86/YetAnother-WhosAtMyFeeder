@@ -123,7 +123,7 @@ test('the card is a plain neutral surface with the readings as text, not a link'
             tabular: getComputedStyle(readout).fontVariantNumeric
         };
     });
-    expect(surface).toEqual({ image: 'none', layered: false, readoutIsLink: false, tabular: 'tabular-nums' });
+    expect(surface).toEqual({ image: 'none', layered: false, readoutIsLink: false, tabular: 'lining-nums tabular-nums' });
     // Nothing in the card is wider than the card, and every pointer target is at least 24px.
     // Inline text and drawings have no box of their own to overflow; every box that has one is measured.
     const fits = await card(page).evaluate(node => [node, ...node.querySelectorAll<HTMLElement>('*')]

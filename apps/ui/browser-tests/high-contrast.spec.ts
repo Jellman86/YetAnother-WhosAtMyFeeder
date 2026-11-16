@@ -265,11 +265,30 @@ test('an unknown bird is renamed on screen the moment the language changes', asy
     await expect(card.getByText('Unknown bird').first()).toBeVisible(READY);
 
     await page.getByRole('button', { name: 'English', exact: true }).first().click();
-    await page.getByRole('menuitem', { name: /Deutsch/ }).click();
+    await page.getByRole('menuitemradio', { name: /Deutsch/ }).click();
 
     // No reload and no new data: the names already on the page follow the language.
     await expect(card.getByText('Unbekannter Vogel').first()).toBeVisible(READY);
     await expect(card.getByText('Unknown bird')).toHaveCount(0);
+});
+
+test('the chosen language keeps its fill, its check and its checked state in high contrast', async ({ page }) => {
+    await replayFeeder(page, 'light', HIGH_CONTRAST);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/');
+    await expect(page.locator('html')).toHaveClass(/\bhigh-contrast\b/);
+    await page.getByRole('button', { name: 'English', exact: true }).first().click();
+
+    const chosen = page.getByRole('menuitemradio', { name: 'English' });
+    const other = page.getByRole('menuitemradio', { name: /Deutsch/ });
+    await expect(chosen).toHaveAttribute('aria-checked', 'true');
+    await expect(other).toHaveAttribute('aria-checked', 'false');
+    await expect(chosen.locator('[data-language-check]')).toBeVisible();
+    await expect(other.locator('[data-language-check]')).toHaveCount(0);
+    // The mode paints every button black; the chosen one keeps its yellow fill under black words.
+    await expect(chosen).toHaveCSS('background-color', 'rgb(255, 255, 0)');
+    await expect(chosen).toHaveCSS('color', 'rgb(0, 0, 0)');
+    await expect(other).toHaveCSS('background-color', 'rgb(0, 0, 0)');
 });
 
 test('the theme switch still shows the reader\'s own theme while high contrast is on', async ({ page }) => {

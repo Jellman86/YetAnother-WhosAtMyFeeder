@@ -23,13 +23,15 @@
 import { readdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { extname, join, relative } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { lowerBaseline, raisedCounts } from '../scripts/token-baseline.mjs';
 
 type Counts = { palette: number; dark: number; arbitrary: number };
 type Baseline = Record<string, Counts>;
 
 const SOURCE_ROOT = join(process.cwd(), 'src');
 const BASELINE_PATH = join(SOURCE_ROOT, 'design-tokens.baseline.json');
-const SOURCE_EXTENSIONS = new Set(['.ts', '.svelte']);
+// Authored stylesheets too: an `@apply` is as much a class as one written in markup.
+const SOURCE_EXTENSIONS = new Set(['.ts', '.svelte', '.css']);
 // The generated API types carry no classes; the tests quote retired classes on purpose.
 const EXCLUDED_PATH_PARTS = ['/generated/', '.test.ts', '/i18n/locales/'];
 
@@ -93,7 +95,33 @@ function bareClass(found: string): string {
     return found.replace(/^(?:[\w-]+:)*/, '').replace(/\/\d+$/, '');
 }
 
-function countBypasses(source: string, file = ''): Counts {
+/**
+ * Parts of a stylesheet that name classes without painting with them. High contrast repaints the
+ * older palette classes by name (`.high-contrast .bg-white`, `[class~='bg-attention-300']`) so that
+ * screens not yet on the tokens stay readable; those selectors shrink as the migration proceeds,
+ * and they are counted nowhere. Everything else in app.css, its `@apply` lists included, counts.
+ */
+const STYLESHEET_EXCEPTIONS: Record<string, { from: string; to: string; reason: string }> = {
+    'app.css': {
+        from: '/* High Contrast Mode',
+        to: '/* Respect user motion preferences',
+        reason: 'the high-contrast repaint selectors name legacy classes to override them; they paint nothing themselves'
+    }
+};
+
+function withoutExceptions(source: string, file: string): string {
+    const exception = STYLESHEET_EXCEPTIONS[file];
+    if (!exception) return source;
+    const from = source.indexOf(exception.from);
+    const to = source.indexOf(exception.to, from);
+    if (from < 0 || to < 0) throw new Error(`${file}: the ${exception.from} section the ratchet skips has moved`);
+    // Only the selectors are skipped: an @apply inside the section still counts.
+    const section = source.slice(from, to).replace(/[^{}]*\{/g, (selector) => (selector.includes('@apply') ? selector : '{'));
+    return source.slice(0, from) + section + source.slice(to);
+}
+
+function countBypasses(raw: string, file = ''): Counts {
+    const source = withoutExceptions(raw, file);
     const allowed = ALLOWLIST.filter((entry) => entry.file === file);
     const keep = (found: string) => !allowed.some((entry) => entry.classes.test(bareClass(found)));
     return {
@@ -149,13 +177,49 @@ describe('the bypass counter', () => {
     });
 });
 
+describe('a stylesheet', () => {
+    it('counts its @apply lists like any markup', () => {
+        expect(countBypasses('.x { @apply text-amber-600 dark:text-strong w-[3px]; }', 'lib/new.css')).toEqual({ palette: 1, dark: 1, arbitrary: 1 });
+    });
+
+    it('skips only the high-contrast repaint selectors in app.css, not what that section applies', () => {
+        const css = '.a { @apply text-amber-600; }\n/* High Contrast Mode */\n.high-contrast .bg-white, .high-contrast .dark\\:bg-slate-800 { color: #fff; }\n.high-contrast .b { @apply bg-slate-900; }\n/* Respect user motion preferences */';
+        expect(countBypasses(css, 'app.css').palette).toBe(2);
+        expect(countBypasses(css, 'lib/other.css').palette).toBe(4);
+    });
+});
+
+describe('the baseline updater', () => {
+    const baseline = { 'a.svelte': { palette: 3, dark: 2, arbitrary: 1 } };
+
+    it('lowers counts that fell', () => {
+        const measured = { 'a.svelte': { palette: 1, dark: 2, arbitrary: 0 } };
+        expect(lowerBaseline(baseline, measured)).toEqual({ next: measured, raised: [] });
+    });
+
+    it('refuses a rise rather than absorbing it, in a listed file or a new one', () => {
+        const risen = lowerBaseline(baseline, { 'a.svelte': { palette: 4, dark: 2, arbitrary: 1 }, 'b.css': { palette: 0, dark: 1, arbitrary: 0 } });
+        expect(risen.next).toBeNull();
+        expect(risen.raised).toEqual(['a.svelte: palette 3 -> 4', 'b.css: dark 0 -> 1']);
+    });
+
+    it('lets CI refuse a branch whose committed baseline allows more than its base', () => {
+        expect(raisedCounts(baseline, { 'a.svelte': { palette: 3, dark: 3, arbitrary: 1 } })).toEqual(['a.svelte: dark 2 -> 3']);
+        expect(raisedCounts(baseline, { 'a.svelte': { palette: 2, dark: 0, arbitrary: 0 } })).toEqual([]);
+    });
+});
+
 describe('the design-token ratchet', () => {
     const measured = measure();
+    const committed: Baseline = existsSync(BASELINE_PATH) ? JSON.parse(readFileSync(BASELINE_PATH, 'utf8')) : {};
 
     if ((globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env.UPDATE_TOKEN_BASELINE === '1') {
-        writeFileSync(BASELINE_PATH, JSON.stringify(measured, null, 2) + '\n');
-        const sum = totals(measured);
-        console.log(`[tokens] baseline written: ${sum.palette} palette, ${sum.dark} dark, ${sum.arbitrary} arbitrary in ${sum.files} files`);
+        // The updater only ever lowers: a rise is refused and nothing is written.
+        const { next, raised } = lowerBaseline(committed, measured);
+        if (!next) throw new Error(`[tokens] refusing to raise the baseline:\n  ${raised.join('\n  ')}\nUse the semantic tokens instead.`);
+        writeFileSync(BASELINE_PATH, JSON.stringify(next, null, 2) + '\n');
+        const sum = totals(next);
+        console.log(`[tokens] baseline lowered: ${sum.palette} palette, ${sum.dark} dark, ${sum.arbitrary} arbitrary in ${sum.files} files`);
     }
 
     const baseline: Baseline = existsSync(BASELINE_PATH) ? JSON.parse(readFileSync(BASELINE_PATH, 'utf8')) : {};
