@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import pipelineSource from './InstancePipeline.svelte?raw';
 import instanceSource from './InstanceSummary.svelte?raw';
 import privacySummarySource from './PrivacySummary.svelte?raw';
+import { outboundRequests } from '../utils/outbound-requests';
 import aboutSource from '../pages/About.svelte?raw';
 import enAbout from '../i18n/locales/en/about.json';
 import enSubtitle from '../i18n/locales/en/page_subtitle.json';
@@ -58,10 +59,26 @@ describe('About surface polish', () => {
         expect(en.about.outbound.from_server).toBe('Sent by this server');
         expect(en.about.outbound.from_browser).toBe('Sent by each viewer’s browser');
         const outbound = en.about.outbound as Record<string, string>;
-        for (const key of ['inat', 'wikipedia', 'gbif', 'weather', 'geolocate', 'places', 'ebird', 'birdweather', 'inat_submit', 'llm', 'notify', 'telemetry', 'updates', 'downloads', 'fonts', 'photos', 'osm', 'gbif_tiles']) {
+        // Every request the inventory can list has a name and says what it sends, fetches or opens.
+        const everything = outboundRequests({
+            owner: true, ebird: true, llm: true, llmKey: true, telemetryUsage: true, telemetryHealth: true, updateChecks: true,
+            birdweather: true, birdweatherToken: true, inaturalistSubmissions: true, inaturalistConnected: true,
+            birdChannels: 1, gardenChannels: 1, locationSet: true, locationAutomatic: true
+        });
+        expect(everything.length).toBeGreaterThanOrEqual(26);
+        for (const { key } of everything) {
             expect(outbound[key], key).toBeTruthy();
-            expect(outbound[`${key}_desc`], key).toMatch(/Sends|sees|see |Fetches|Anonymous|Asks/);
+            expect(outbound[`${key}_desc`], key).toMatch(/Sends|sees|see |etch|installation ID|Asks|opens|exchanges|contacts/);
         }
+        expect(en.about.outbound.on_demand).toBe('When you connect, test or run diagnostics');
+        // Payloads that were understated: coordinates, and what an AI request and a notification carry.
+        expect(outbound.birdweather_desc).toContain('coordinates');
+        expect(outbound.inat_local_desc).toContain('coordinates');
+        expect(outbound.llm_desc).toMatch(/weather.*chart content.*questions.*conversation/);
+        expect(outbound.notify_desc).toMatch(/confidence.*camera name.*links.*weather/);
+        // One state vocabulary: On, Off, Always, When used.
+        expect(privacySummarySource).toContain("$_('status.state_on'");
+        expect(privacySummarySource).not.toContain("'common.enabled'");
     });
     it('sweeps a pulse along the pipeline in the direction data travels', () => {
         // Svelte scopes @keyframes, so a name referenced from a class resolves to nothing

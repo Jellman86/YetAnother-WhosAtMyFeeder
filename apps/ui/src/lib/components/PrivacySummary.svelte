@@ -2,7 +2,7 @@
     import { settingsStore } from '../stores/settings.svelte';
     import { authStore } from '../stores/auth.svelte';
     import { _ } from 'svelte-i18n';
-    import { outboundRequests, type OutboundFacts, type OutboundState } from '../utils/outbound-requests';
+    import { gardenAlertChannels, outboundRequests, type OutboundFacts, type OutboundState } from '../utils/outbound-requests';
 
     const isOwner = $derived(authStore.showSettings);
 
@@ -19,33 +19,57 @@
     // A guest reads no settings, so only what the sign-in status reports is known to them; the
     // rest is said to be the owner's to see, never guessed as off.
     const settings = $derived(isOwner ? settingsStore.settings : null);
-    const facts = $derived<OutboundFacts>({
-        owner: isOwner,
-        ebird: Boolean(settingsStore.settings?.ebird_enabled ?? authStore.ebirdEnabled),
-        llm: Boolean(settingsStore.llmEnabled),
-        telemetry: settings ? Boolean(settings.telemetry_enabled) : null,
-        updateChecks: communityReadEnabled ?? (settings ? Boolean(settings.update_check_enabled) : null),
-        birdweather: settings ? Boolean(settings.birdweather_enabled) : null,
-        inaturalistSubmissions: settings ? Boolean(settings.inaturalist_enabled) : null,
-        notificationChannels: settings
+    const birdChannels = $derived(
+        settings
             ? [
                 settings.notifications_discord_enabled,
                 settings.notifications_telegram_enabled,
                 settings.notifications_pushover_enabled,
                 settings.notifications_email_enabled
             ].filter(Boolean).length
+            : null
+    );
+    // A saved secret reaches the page as a placeholder, so "is one saved" is all that is read.
+    const saved = (value: string | null | undefined): boolean => Boolean(value && value.trim());
+    const facts = $derived<OutboundFacts>({
+        owner: isOwner,
+        ebird: Boolean(settingsStore.settings?.ebird_enabled ?? authStore.ebirdEnabled),
+        llm: Boolean(settingsStore.llmEnabled),
+        llmKey: settings ? saved(settings.llm_api_key) : null,
+        telemetryUsage: settings ? Boolean(settings.telemetry_enabled) : null,
+        telemetryHealth: settings ? Boolean(settings.telemetry_health_enabled) : null,
+        updateChecks: communityReadEnabled ?? (settings ? Boolean(settings.update_check_enabled) : null),
+        birdweather: settings ? Boolean(settings.birdweather_enabled) : null,
+        birdweatherToken: settings ? saved(settings.birdweather_station_token) : null,
+        inaturalistSubmissions: settings ? Boolean(settings.inaturalist_enabled) : null,
+        inaturalistConnected: settings ? saved(settings.inaturalist_connected_user) : null,
+        birdChannels,
+        gardenChannels: settings && birdChannels !== null
+            ? gardenAlertChannels({
+                beta: Boolean(settings.beta_garden_animals),
+                enabled: Boolean(settings.garden_notifications_enabled),
+                useBirdChannels: settings.garden_notifications_use_bird_channels !== false,
+                selected: settings.garden_notification_channels ?? [],
+                birdChannels
+            })
             : null,
         locationSet: settings ? settings.location_latitude != null && settings.location_longitude != null : null,
         locationAutomatic: settings ? Boolean(settings.location_automatic) : null
     });
     const outbound = $derived(outboundRequests(facts));
     const groups = $derived(
-        (['server', 'browser'] as const).map((origin) => ({ origin, requests: outbound.filter((request) => request.origin === origin) }))
+        (['server', 'browser', 'on_demand'] as const).map((group) => ({ group, requests: outbound.filter((request) => request.group === group) }))
     );
+    const groupTitle = $derived<Record<(typeof groups)[number]['group'], string>>({
+        server: $_('about.outbound.from_server', { default: 'Sent by this server' }),
+        browser: $_('about.outbound.from_browser', { default: 'Sent by each viewer’s browser' }),
+        on_demand: $_('about.outbound.on_demand', { default: 'When you connect, test or run diagnostics' })
+    });
 
+    // One vocabulary for every row: On, Off, Always, When used.
     function stateLabel(state: OutboundState): string {
-        if (state === 'on') return $_('common.enabled', { default: 'Enabled' });
-        if (state === 'off') return $_('common.disabled', { default: 'Disabled' });
+        if (state === 'on') return $_('status.state_on', { default: 'On' });
+        if (state === 'off') return $_('status.state_off', { default: 'Off' });
         if (state === 'always') return $_('about.outbound.state_always', { default: 'Always' });
         if (state === 'on_use') return $_('about.outbound.state_on_use', { default: 'When used' });
         return $_('about.pipeline.owner_only', { default: 'Owner only' });
@@ -82,12 +106,8 @@
         <p class="mt-1 text-xs text-slate-600 dark:text-slate-400" data-outbound-intro>
             {$_('about.outbound.intro', { default: 'Each request, who makes it and what it sends. Features you add later may make others.' })}
         </p>
-        {#each groups as group (group.origin)}
-            <h4 class="eyebrow mt-3" data-outbound-origin={group.origin}>
-                {group.origin === 'server'
-                    ? $_('about.outbound.from_server', { default: 'Sent by this server' })
-                    : $_('about.outbound.from_browser', { default: 'Sent by each viewer’s browser' })}
-            </h4>
+        {#each groups as group (group.group)}
+            <h4 class="eyebrow mt-3" data-outbound-origin={group.group}>{groupTitle[group.group]}</h4>
             <dl class="mt-1 divide-y divide-slate-200/70 text-xs dark:divide-slate-700/50">
                 {#each group.requests as item (item.key)}
                     <!-- Each group is a term and two descriptions (what it is for and sends, and whether it
