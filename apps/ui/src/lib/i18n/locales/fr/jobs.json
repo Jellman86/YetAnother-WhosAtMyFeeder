@@ -354,6 +354,17 @@
     "stale_job": {
       "title": "Une tâche en arrière-plan ne progresse plus.",
       "next": "Elle apparaît dans Notifications. Relancez-la depuis là ou depuis l’onglet des Paramètres qui l’exécute."
+    },
+    "generic": {
+      "title": "Une étape de traitement a échoué. Les détails techniques donnent l’erreur exacte."
+    },
+    "stage_failure": {
+      "title": "Une détection n’a pas pu être traitée, car l’une de ses étapes a échoué.",
+      "next": "Si cela continue, copiez les détails techniques dans un ticket GitHub."
+    },
+    "stage_timeout": {
+      "title": "Une étape d’une détection a pris trop de temps et a été arrêtée.",
+      "next": "Le classificateur ou Frigate est peut-être surchargé. Consultez l’utilisation des ressources ci-dessus."
     }
   }
 }

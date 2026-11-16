@@ -35,6 +35,7 @@
     import { audioSpeciesMix } from './audio-species-mix';
     import { SCORE_TEXT, scoreBand } from '../utils/score-tone';
     import { audioReading } from './audio-history-state';
+    import { dailySeries, hourlySeries } from './audio-chart-series';
     import { whenNearViewport } from '../actions/near-viewport';
 
     const PAGE_SIZE = 25;
@@ -283,16 +284,20 @@
         return speciesSeriesColor(index, isDark);
     }
 
+    // One series per chart, drawn by the canvas and listed by its table, so the two always agree.
+    const dailyPoints = $derived(dailySeries(summary?.daily_counts ?? [], $locale ?? undefined));
+    const hourlyPoints = $derived(hourlySeries(summary?.hourly_counts ?? []));
+
     let dailyChartConfig = $derived((): CanvasChartConfig => {
         const points = summary?.daily_counts ?? [];
-        const labels = points.map((point) => new Date(`${point.date}T00:00:00Z`).toLocaleDateString(undefined, { day: 'numeric', month: 'short', timeZone: 'UTC' }));
+        const labels = dailyPoints.map((point) => point.label);
         return {
             type: 'line',
             data: {
                 labels,
                 datasets: [{
                     label: $_('audio.chart.heard', { default: 'Heard' }),
-                    data: points.map((point) => point.count),
+                    data: dailyPoints.map((point) => point.count),
                     borderColor: audioPrimary,
                     backgroundColor: audioPrimaryFill,
                     fill: true,
@@ -320,11 +325,8 @@
     });
 
     let hourlyChartConfig = $derived((): CanvasChartConfig => {
-        const counts = new Array<number>(24).fill(0);
-        for (const item of summary?.hourly_counts ?? []) {
-            if (item.hour >= 0 && item.hour < 24) counts[item.hour] = item.count;
-        }
-        const labels = counts.map((_, hour) => String(hour).padStart(2, '0'));
+        const counts = hourlyPoints.map((point) => point.count);
+        const labels = hourlyPoints.map((point) => String(point.hour).padStart(2, '0'));
         return {
             type: 'bar',
             data: {
@@ -705,7 +707,7 @@
                 {@render chartNumbers(
                     $_('audio.chart.daily_title', { default: 'Activity over time' }),
                     [$_('audio.chart.col_day', { default: 'Day' }), $_('audio.chart.col_calls', { default: 'Calls' })],
-                    (summary?.daily_counts ?? []).map((point) => [formatDate(`${point.date}T12:00:00Z`), point.count.toLocaleString()])
+                    dailyPoints.map((point) => [point.label, point.count.toLocaleString()])
                 )}
             {:else}
                 <div class="flex h-[240px] items-center justify-center text-sm font-semibold text-slate-600 dark:text-slate-400">{$_('audio.chart.empty', { default: 'No activity in this window.' })}</div>
@@ -724,7 +726,7 @@
                     {@render chartNumbers(
                         $_('audio.chart.hourly_title', { default: 'Time of day' }),
                         [$_('audio.chart.col_hour', { default: 'Hour' }), $_('audio.chart.col_calls', { default: 'Calls' })],
-                        [...(summary?.hourly_counts ?? [])].sort((a, b) => a.hour - b.hour).map((item) => [hourLabel(item.hour), item.count.toLocaleString()])
+                        hourlyPoints.map((point) => [point.label, point.count.toLocaleString()])
                     )}
                 {:else}
                     <div class="flex h-[240px] items-center justify-center text-sm font-semibold text-slate-600 dark:text-slate-400">{$_('audio.chart.empty', { default: 'No activity in this window.' })}</div>

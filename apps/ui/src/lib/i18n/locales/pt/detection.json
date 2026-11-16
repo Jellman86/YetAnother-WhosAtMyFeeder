@@ -519,5 +519,8 @@
   "archive_retry_spent": "O YA-WAMF deixou de tentar sozinho. A visita fica no seu histórico de qualquer forma.",
   "archive_retry_now": "Tentar novamente agora",
   "audio_match_evidence": "O canto correspondente",
-  "archive_retry_due": "O YA-WAMF tenta de novo sozinho em breve. A visita fica no seu histórico de qualquer forma."
+  "archive_retry_due": "O YA-WAMF tenta de novo sozinho em breve. A visita fica no seu histórico de qualquer forma.",
+  "archive_checking": "A verificar o que a cópia própria deste favorito guardou…",
+  "archive_unchecked": "A cópia própria deste favorito indicou um problema, mas não foi possível verificar o que guardou.",
+  "archive_check_again": "Verificar novamente"
 }

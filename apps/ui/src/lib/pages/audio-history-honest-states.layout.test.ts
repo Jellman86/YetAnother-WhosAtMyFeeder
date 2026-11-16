@@ -33,6 +33,14 @@ describe('Audio history keeps loading, measured-empty, failed and stale apart', 
         expect(source).toContain('speciesMix.map((item) => [item.species, item.count.toLocaleString()])');
     });
 
+    it('draws each chart and lists its numbers from one series, so day and hour always agree', () => {
+        expect(source).toContain('dailySeries(summary?.daily_counts ?? []');
+        expect(source).toContain('hourlySeries(summary?.hourly_counts ?? [])');
+        expect(source).toContain('dailyPoints.map((point) => [point.label, point.count.toLocaleString()])');
+        expect(source).toContain('hourlyPoints.map((point) => [point.label, point.count.toLocaleString()])');
+        expect(source).not.toContain('T12:00:00Z');
+    });
+
     it('fetches reference photos for the top species only once that list comes near the screen', () => {
         expect(source).toContain('use:whenNearViewport={() => (topSpeciesNear = true)}');
         expect(source).toContain('if (!topSpeciesNear) return;');

@@ -354,6 +354,17 @@
     "stale_job": {
       "title": "A background job stopped making progress.",
       "next": "It is shown on Notifications. Start it again from there, or from the Settings tab that runs it."
+    },
+    "generic": {
+      "title": "A processing step failed. Technical details have the exact error."
+    },
+    "stage_failure": {
+      "title": "A detection could not be processed because one of its steps failed.",
+      "next": "If it keeps happening, copy the Technical details into a GitHub issue."
+    },
+    "stage_timeout": {
+      "title": "A detection step took too long and was stopped.",
+      "next": "The classifier or Frigate may be overloaded. Check Resource use above."
     }
   }
 }

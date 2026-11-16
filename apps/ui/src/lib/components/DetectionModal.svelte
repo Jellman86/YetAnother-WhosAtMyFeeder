@@ -95,7 +95,7 @@
     import { findMatchingFullFrameCandidate, findScanFrameCandidate, sameFrameCropCandidates } from '../utils/detection-evidence';
     import { intersectVisibleViewport } from '../utils/visible-viewport';
     import { SCORE_FILL, scoreBand } from '../utils/score-tone';
-    import { explainArchiveFailure } from '../utils/archive-failure';
+    import { archiveFailureView } from '../utils/archive-failure';
     import { moveDetectionToGarden } from '../api/events';
     import { fetchGardenDomesticBirds } from '../api/garden';
     import GardenDomesticSuggestion from './GardenDomesticSuggestion.svelte';
@@ -469,6 +469,10 @@
     // The favourite's archive (#178). Pending is polled briefly so the star can say when the
     // photograph and clip are actually kept; the worker does not broadcast its progress.
     let archiveStatus = $state<ArchiveStatus | null>(null);
+    // Whether that status was read for this record: until it is, a failed copy claims no loss.
+    let archiveRead = $state<'reading' | 'read' | 'failed'>('reading');
+    // Bumped by "Check again" to read the status once more after a failed read.
+    let archiveCheckAttempt = $state(0);
     let archiveRetrying = $state(false);
     const ARCHIVE_POLL_MS = 4000;
     const ARCHIVE_POLL_LIMIT = 45;
@@ -477,10 +481,13 @@
         const wanted = !!detection?.is_favorite && authStore.hasOwnerAccess && !readOnly;
         // Read so that a retry (which sets the record back to pending) restarts the poll.
         void detection?.archive_state;
+        void archiveCheckAttempt;
         if (!eventId || !wanted) {
             archiveStatus = null;
             return;
         }
+        // Untracked: this effect writes the status, and must not re-run because it did.
+        if (untrack(() => archiveStatus?.event_id) !== eventId) archiveRead = 'reading';
         let cancelled = false;
         let polls = 0;
         let timer: ReturnType<typeof setTimeout> | null = null;
@@ -489,6 +496,7 @@
                 const status = await fetchArchiveStatus(eventId);
                 if (cancelled) return;
                 archiveStatus = status;
+                archiveRead = 'read';
                 const state = asArchiveState(status.state);
                 if (state && state !== detection.archive_state) {
                     detection.archive_state = state;
@@ -499,7 +507,9 @@
                     timer = setTimeout(load, ARCHIVE_POLL_MS);
                 }
             } catch {
-                // The star still works without the detail; the state on the record stands.
+                // The star still works without the detail; the state on the record stands, and a
+                // failed copy says that what it kept could not be checked.
+                if (!cancelled && archiveStatus?.event_id !== eventId) archiveRead = 'failed';
             }
         };
         void load();
@@ -517,14 +527,16 @@
         if (bytes >= 1024) return `${Math.round(bytes / 1024)} KB`;
         return `${bytes} B`;
     }
-    const archiveState = $derived(archiveStatus?.state ?? detection?.archive_state ?? null);
+    const archiveState = $derived(
+        (archiveStatus && archiveStatus.event_id === detection?.frigate_event ? archiveStatus.state : null) ?? detection?.archive_state ?? null
+    );
     const archiveLabel = $derived.by(() => {
         switch (archiveState) {
             case 'durable':
-                return archiveStatus?.clip_state === 'unavailable'
+                return archiveStatusHere?.clip_state === 'unavailable'
                     ? $_('detection.archive_photo_only', { default: 'Photo archived, no clip to keep' })
                     : $_('detection.archive_durable', {
-                          values: { size: formatArchiveSize(archiveStatus?.bytes ?? 0) },
+                          values: { size: formatArchiveSize(archiveStatusHere?.bytes ?? 0) },
                           default: 'Archived, {size}'
                       });
             case 'unavailable':
@@ -538,9 +550,18 @@
         }
     });
     // A failed copy says what was not kept, why and what to do, not just "Archive failed".
+    // The status is used only when it was read for this record, never one left from another.
+    const archiveStatusHere = $derived(archiveStatus && archiveStatus.event_id === detection?.frigate_event ? archiveStatus : null);
     const archiveFailure = $derived.by(() => {
         if (archiveState !== 'failed') return null;
-        const explained = explainArchiveFailure(archiveStatus ?? {});
+        const view = archiveFailureView(archiveStatusHere, archiveRead);
+        if (view.kind === 'checking') {
+            return { kind: view.kind, lost: $_('detection.archive_checking', { default: "Checking what this favourite's own copy kept…" }) };
+        }
+        if (view.kind === 'unchecked') {
+            return { kind: view.kind, lost: $_('detection.archive_unchecked', { default: "This favourite's own copy reported a problem, but what it kept could not be checked." }) };
+        }
+        const explained = view.explanation;
         const lost = {
             both: $_('detection.archive_failed_both', { default: "This favourite's own copy of its photo and clip could not be saved." }),
             photo: $_('detection.archive_failed_photo', { default: "This favourite's own copy of its photo could not be saved." }),
@@ -561,7 +582,7 @@
             : explained.retryAt !== null
             ? $_('detection.archive_retry_scheduled', { values: { at: formatDateTime(explained.retryAt) }, default: 'YA-WAMF tries again by itself at {at}. The visit stays in your history either way.' })
             : $_('detection.archive_retry_spent', { default: 'YA-WAMF has stopped trying by itself. The visit stays in your history either way.' });
-        return { lost, cause, retry };
+        return { kind: view.kind, lost, cause, retry };
     });
 
     async function handleArchiveRetry() {
@@ -1671,7 +1692,7 @@
         try {
             if (detection.is_favorite) {
                 // Unfavouriting removes the archive with it; say so before doing it (#178).
-                const archivedBytes = archiveStatus?.bytes ?? 0;
+                const archivedBytes = archiveStatusHere?.bytes ?? 0;
                 if (archivedBytes > 0) {
                     const confirmed = await confirmAction({
                         title: $_('detection.unfavorite_button', { default: 'Remove favourite' }),
@@ -3049,15 +3070,25 @@
             </dl>
 
             {#if detection.is_favorite && archiveFailure}
-                <!-- What was not kept, why, and what to do, in words: the heading carries the state, not its colour. -->
-                <div class="space-y-1 rounded-xl border border-line-soft px-3 py-2.5 text-sm" data-detection-archive-state="failed" aria-live="polite">
-                    <p class="font-semibold text-rose-700 dark:text-rose-300">{archiveFailure.lost}</p>
-                    <p class="text-slate-700 dark:text-slate-200" data-detection-archive-cause>{archiveFailure.cause}</p>
-                    <p class="text-xs text-slate-600 dark:text-slate-400">{archiveFailure.retry}</p>
-                    {#if hasOwnerDetectionActions}
-                        <button type="button" class="btn btn-secondary mt-1 min-h-11 px-3 text-xs" disabled={archiveRetrying} onclick={() => { void handleArchiveRetry(); }}>
-                            {$_('detection.archive_retry_now', { default: 'Try again now' })}
-                        </button>
+                <!-- What was not kept, why, and what to do, in words: the heading carries the state, not its colour.
+                     Until the archive status is read for this record, it claims nothing about what was kept. -->
+                <div class="space-y-1 rounded-xl border border-line-soft px-3 py-2.5 text-sm" data-detection-archive-state="failed" data-detection-archive-view={archiveFailure.kind} aria-live="polite">
+                    {#if archiveFailure.kind === 'explained'}
+                        <p class="font-semibold text-rose-700 dark:text-rose-300">{archiveFailure.lost}</p>
+                        <p class="text-slate-700 dark:text-slate-200" data-detection-archive-cause>{archiveFailure.cause}</p>
+                        <p class="text-xs text-slate-600 dark:text-slate-400">{archiveFailure.retry}</p>
+                        {#if hasOwnerDetectionActions}
+                            <button type="button" class="btn btn-secondary mt-1 min-h-11 px-3 text-xs" disabled={archiveRetrying} onclick={() => { void handleArchiveRetry(); }}>
+                                {$_('detection.archive_retry_now', { default: 'Try again now' })}
+                            </button>
+                        {/if}
+                    {:else}
+                        <p class="text-slate-700 dark:text-slate-200">{archiveFailure.lost}</p>
+                        {#if archiveFailure.kind === 'unchecked'}
+                            <button type="button" class="btn btn-secondary mt-1 min-h-11 px-3 text-xs" onclick={() => { archiveCheckAttempt += 1; }} data-detection-archive-check-again>
+                                {$_('detection.archive_check_again', { default: 'Check again' })}
+                            </button>
+                        {/if}
                     {/if}
                 </div>
             {:else if detection.is_favorite && archiveLabel}

@@ -10,9 +10,16 @@ describe('diagnosticWordsKey', () => {
         expect(diagnosticWordsKey(' DROP_CLASSIFIER_EMPTY_RESULTS ')).toBe('classifier_empty_results');
     });
 
-    it('leaves a code it does not know to the raw message, rather than guessing', () => {
-        expect(diagnosticWordsKey('drop_something_new')).toBeNull();
-        expect(diagnosticWordsKey('')).toBeNull();
-        expect(diagnosticWordsKey(null)).toBeNull();
+    it('words a failed or timed-out pipeline stage, whose message carries the raw exception', () => {
+        // "Stage classify failed: {exception}" can hold paths and URLs; the page never leads with it.
+        expect(diagnosticWordsKey('stage_failure')).toBe('stage_failure');
+        expect(diagnosticWordsKey('stage_timeout')).toBe('stage_timeout');
+    });
+
+    it('gives any other code a generic cause, never the raw message as its title', () => {
+        expect(diagnosticWordsKey('drop_something_new')).toBe('generic');
+        expect(diagnosticWordsKey('refresh_failed')).toBe('generic');
+        expect(diagnosticWordsKey('')).toBe('generic');
+        expect(diagnosticWordsKey(null)).toBe('generic');
     });
 });

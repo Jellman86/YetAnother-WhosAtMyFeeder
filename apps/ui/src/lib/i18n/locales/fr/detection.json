@@ -519,5 +519,8 @@
   "archive_retry_spent": "YA-WAMF a cessé de réessayer de lui-même. La visite reste dans votre historique dans tous les cas.",
   "archive_retry_now": "Réessayer maintenant",
   "audio_match_evidence": "Le chant correspondant",
-  "archive_retry_due": "YA-WAMF réessaiera de lui-même sous peu. La visite reste dans votre historique dans tous les cas."
+  "archive_retry_due": "YA-WAMF réessaiera de lui-même sous peu. La visite reste dans votre historique dans tous les cas.",
+  "archive_checking": "Vérification de ce que la copie propre de ce favori a conservé…",
+  "archive_unchecked": "La copie propre de ce favori a signalé un problème, mais ce qu’elle a conservé n’a pas pu être vérifié.",
+  "archive_check_again": "Vérifier à nouveau"
 }

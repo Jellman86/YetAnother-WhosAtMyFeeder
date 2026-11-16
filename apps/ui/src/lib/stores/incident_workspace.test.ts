@@ -491,3 +491,63 @@ describe('RF-DETR CPU fallback health', () => {
         expect(store.recentIncidents[0].status).toBe('resolved');
     });
 });
+
+describe('incident workspace refresh', () => {
+    it('never lets an older reading overwrite a newer one, and says which read was applied', async () => {
+        const releases: Array<(payload: never) => void> = [];
+        const store = createIncidentWorkspaceStore(() => new Promise((resolve) => { releases.push(resolve as (payload: never) => void); }));
+        const older = store.refresh();
+        const newer = store.refresh();
+        releases[1]({ workspace_schema_version: 'newer', backend_diagnostics: { events: [] } } as never);
+        expect(await newer).toBe(true);
+        releases[0]({ workspace_schema_version: 'older', backend_diagnostics: { events: [] } } as never);
+        expect(await older).toBe(false);
+        expect(store.workspacePayload?.workspace_schema_version).toBe('newer');
+    });
+
+    it('stays stale through a retry, and turns fresh only when a read succeeds, whoever started it', async () => {
+        let next: () => Promise<never> = () => Promise.resolve({ workspace_schema_version: 'one', backend_diagnostics: { events: [] } } as never);
+        const store = createIncidentWorkspaceStore(() => next());
+        await store.refresh();
+        expect(store.readFreshness).toBe('read');
+
+        next = () => Promise.reject(new Error('HTTP 500'));
+        await expect(store.refresh()).rejects.toThrow('HTTP 500');
+        expect(store.readFreshness).toBe('stale');
+        expect(store.readSettled.error).toBe('HTTP 500');
+
+        // A retry in flight does not make the kept reading current.
+        let release: (payload: never) => void = () => undefined;
+        next = () => new Promise((resolve) => { release = resolve as (payload: never) => void; });
+        const retry = store.refresh();
+        expect(store.readFreshness).toBe('stale');
+        release({ workspace_schema_version: 'two', backend_diagnostics: { events: [] } } as never);
+        await retry;
+        expect(store.readFreshness).toBe('read');
+    });
+
+    it('clears an earlier failure after clear-and-refresh, and is reading, not failed, in between', async () => {
+        let next: () => Promise<never> = () => Promise.reject(new Error('HTTP 500'));
+        const store = createIncidentWorkspaceStore(() => next());
+        await expect(store.refresh()).rejects.toThrow();
+        expect(store.readFreshness).toBe('failed');
+        store.clear();
+        expect(store.readFreshness).toBe('reading');
+        next = () => Promise.resolve({ workspace_schema_version: 'fresh', backend_diagnostics: { events: [] } } as never);
+        await store.refresh();
+        expect(store.readFreshness).toBe('read');
+        expect(store.readSettled.error).toBeNull();
+    });
+
+    it('ignores a failure that arrives after a newer read succeeded', async () => {
+        const pending: Array<{ resolve: (payload: never) => void; reject: (error: Error) => void }> = [];
+        const store = createIncidentWorkspaceStore(() => new Promise((resolve, reject) => { pending.push({ resolve: resolve as (payload: never) => void, reject }); }));
+        const older = store.refresh();
+        const newer = store.refresh();
+        pending[1].resolve({ workspace_schema_version: 'newer', backend_diagnostics: { events: [] } } as never);
+        await newer;
+        pending[0].reject(new Error('late'));
+        await expect(older).rejects.toThrow('late');
+        expect(store.readFreshness).toBe('read');
+    });
+});

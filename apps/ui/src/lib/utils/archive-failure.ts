@@ -61,3 +61,21 @@ export function explainArchiveFailure(status: ArchiveFailureInput, now: number =
         retryDue: retryAt !== null && retryAt <= now
     };
 }
+
+/** Whether the favourite's archive status has been read for the record on screen. */
+type ArchiveRead = 'reading' | 'read' | 'failed';
+
+type ArchiveFailureView =
+    | { kind: 'checking' }
+    | { kind: 'unchecked' }
+    | { kind: 'explained'; explanation: ArchiveFailureExplanation };
+
+/**
+ * What a failed copy can honestly say. The record only knows the copy failed; what was kept, why
+ * and whether it retries come from the archive status, so until that is read nothing is claimed,
+ * and a read that fails says the check failed rather than guessing a loss.
+ */
+export function archiveFailureView(status: ArchiveFailureInput | null, read: ArchiveRead, now: number = Date.now()): ArchiveFailureView {
+    if (status) return { kind: 'explained', explanation: explainArchiveFailure(status, now) };
+    return read === 'failed' ? { kind: 'unchecked' } : { kind: 'checking' };
+}

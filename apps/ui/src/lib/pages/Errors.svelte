@@ -151,16 +151,16 @@
     let exportError = $state('');
     let refreshing = $state(false);
     let clearing = $state(false);
-    // The raw reason a read failed: kept for the technical details, never the page's own sentence.
-    let refreshError = $state('');
     let clearError = $state('');
     /**
      * Whether the verdict is a measurement. Before the first reading nothing is claimed; a failed
-     * first read says so; a failed refresh keeps the last reading and says how old it is.
+     * first read says so; a failed refresh keeps the last reading and says how old it is. The store
+     * changes this only when a read settles, so a retry in flight never makes kept data look current
+     * and a later successful read (a clear-and-refresh, or the shell's own sync) makes it fresh.
      */
-    const readState = $derived<'reading' | 'read' | 'stale' | 'failed'>(
-        workspacePayload ? (refreshError ? 'stale' : 'read') : refreshError ? 'failed' : 'reading'
-    );
+    const readState = $derived(incidentWorkspaceStore.readFreshness);
+    // The raw reason the latest read failed: kept for the technical details, never the page's own sentence.
+    const refreshError = $derived(incidentWorkspaceStore.readSettled.error ?? '');
 
     let workspaceCapturedAt = $derived.by(() => {
         const raw = workspacePayload?.backend_diagnostics?.captured_at;
@@ -168,6 +168,7 @@
         const parsed = Date.parse(raw);
         return Number.isFinite(parsed) ? parsed : null;
     });
+    const lastReadAt = $derived(incidentWorkspaceStore.readSettled.readAt ?? workspaceCapturedAt);
 
     // The health counters are measured from startup, so the visits shown beside them
     // use the same window rather than a rolling day (layout-patterns 1.1).
@@ -200,7 +201,6 @@
 
     async function refreshWorkspace() {
         refreshing = true;
-        refreshError = '';
         try {
             await incidentWorkspaceStore.refresh();
             if (workspacePayload?.connections) serviceConnectionsStore.ingest(workspacePayload.connections);
@@ -212,7 +212,6 @@
             } else serverVisits = [];
         } catch (error) {
             const message = error instanceof Error ? error.message : 'Failed to refresh incident workspace';
-            refreshError = message;
             jobDiagnosticsStore.recordError({
                 source: 'runtime',
                 component: 'incident_workspace',
@@ -355,21 +354,26 @@
         return withOpenIncidents(healthVerdict(overallStatus(), connections));
     }
 
-    /** A backend reason code in the reader's words, with what to try, or null to keep its message. */
-    function diagnosticWords(reasonCode: string | null | undefined): { title: string; next: string } | null {
+    const GENERIC_DIAGNOSTIC_TITLE = 'A processing step failed. Technical details have the exact error.';
+
+    /**
+     * A reason code in the reader's words, with what to try. The backend's message can carry an
+     * exception's text, paths and URLs, so it is never the title: an unknown code gets the generic
+     * cause and its message stays under Technical details.
+     */
+    function diagnosticWords(reasonCode: string | null | undefined): { title: string; next: string | null } {
         const key = diagnosticWordsKey(reasonCode);
-        if (!key) return null;
-        const title = $_(`jobs.diagnostic_words.${key}.title`, { default: '' });
-        const next = $_(`jobs.diagnostic_words.${key}.next`, { default: '' });
-        return title ? { title, next } : null;
+        const title = $_(`jobs.diagnostic_words.${key}.title`, { default: '' })
+            || $_('jobs.diagnostic_words.generic.title', { default: GENERIC_DIAGNOSTIC_TITLE });
+        const next = key === 'generic' ? '' : $_(`jobs.diagnostic_words.${key}.next`, { default: '' });
+        return { title, next: next || null };
     }
 
-    /** An open incident as one title and one line under it, never the same sentence twice. */
-    function incidentItem(incident: { title: string; summary: string; primaryReasonCode: string }): { title: string; next: string | null } {
-        const worded = diagnosticWords(incident.primaryReasonCode);
-        if (worded) return { title: worded.title, next: worded.next || null };
+    /** The raw words of an open or earlier incident, for its Technical details only. */
+    function incidentDetails(incident: { title: string; summary: string; primaryReasonCode: string }): string[] {
+        const title = incident.title.trim();
         const summary = incident.summary.trim();
-        return { title: incident.title, next: summary && summary !== incident.title.trim() ? summary : null };
+        return [incident.primaryReasonCode, title, ...(summary && summary !== title ? [summary] : [])].filter(Boolean);
     }
 
     /** An open incident is never shown beside a healthy verdict. */
@@ -826,10 +830,11 @@
                                                 <p class="text-slate-700 dark:text-slate-200">{text.next}</p>
                                             </li>
                                         {:else if item.incident}
-                                            {@const text = incidentItem(item.incident)}
+                                            {@const text = diagnosticWords(item.incident.primaryReasonCode)}
                                             <li class="wrap-break-word text-sm" data-health-open-incident>
                                                 <p class="font-semibold text-slate-800 dark:text-slate-100">{text.title}</p>
                                                 {#if text.next}<p class="text-slate-700 dark:text-slate-200">{text.next}</p>{/if}
+                                                {@render technicalDetails(incidentDetails(item.incident))}
                                             </li>
                                         {/if}
                                     {/each}
@@ -837,9 +842,9 @@
                             {:else}
                                 <p class="text-sm text-slate-700 dark:text-slate-200">{overallSummary()}</p>
                             {/if}
-                            {#if readState === 'stale' && workspaceCapturedAt}
+                            {#if readState === 'stale' && lastReadAt}
                                 <p class="mt-2 text-sm font-semibold text-slate-800 dark:text-slate-100" data-health-stale>
-                                    {$_('jobs.errors_read_stale', { values: { at: formatDateTime(workspaceCapturedAt) }, default: 'The latest refresh failed, so this is the reading from {at}. Refresh to try again.' })}
+                                    {$_('jobs.errors_read_stale', { values: { at: formatDateTime(lastReadAt) }, default: 'The latest refresh failed, so this is the reading from {at}. Refresh to try again.' })}
                                 </p>
                                 {@render technicalDetails([refreshError])}
                             {/if}
@@ -1122,7 +1127,7 @@
                 <ul class="divide-y divide-line-soft">
                     {#each recentIncidents.slice(0, 6) as incident (incident.id)}
                         <li class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-2.5">
-                            <p class="min-w-0 flex-1 basis-48 text-sm font-semibold text-slate-900 dark:text-white">{incidentItem(incident).title}</p>
+                            <p class="min-w-0 flex-1 basis-48 text-sm font-semibold text-slate-900 dark:text-white">{diagnosticWords(incident.primaryReasonCode).title}</p>
                             <span class="text-xs tabular-nums text-slate-600 dark:text-slate-400">{formatDateTime(incident.lastSeenAt)}</span>
                         </li>
                     {/each}
@@ -1152,8 +1157,8 @@
                                 </span>
                                 <span class="text-xs tabular-nums text-slate-700 dark:text-slate-300">{formatDateTime(Date.parse(event.timestamp))}</span>
                             </div>
-                            <p class="mt-2 wrap-break-word text-sm font-semibold text-slate-900 dark:text-white">{worded?.title ?? event.message}</p>
-                            {#if worded?.next}
+                            <p class="mt-2 wrap-break-word text-sm font-semibold text-slate-900 dark:text-white" data-health-diagnostic-title>{worded.title}</p>
+                            {#if worded.next}
                                 <p class="mt-0.5 text-sm text-slate-700 dark:text-slate-200">{worded.next}</p>
                             {/if}
                             {#if (event.count ?? 1) > 1 && event.first_seen && event.last_seen}
@@ -1171,7 +1176,7 @@
                             {/if}
                             {@render technicalDetails([
                                 `${event.component} · ${event.reason_code}`,
-                                ...(worded ? [event.message] : []),
+                                event.message,
                                 ...(event.event_id ? [`event ${event.event_id}`] : []),
                                 ...(event.correlation_key ? [event.correlation_key] : [])
                             ])}

@@ -354,6 +354,17 @@
     "stale_job": {
       "title": "Ein Hintergrundjob kommt nicht mehr voran.",
       "next": "Er wird unter Benachrichtigungen angezeigt. Starten Sie ihn dort oder im zuständigen Einstellungs-Tab neu."
+    },
+    "generic": {
+      "title": "Ein Verarbeitungsschritt ist fehlgeschlagen. Die technischen Details enthalten den genauen Fehler."
+    },
+    "stage_failure": {
+      "title": "Eine Erkennung konnte nicht verarbeitet werden, weil einer ihrer Schritte fehlgeschlagen ist.",
+      "next": "Wenn es weiter passiert, kopieren Sie die technischen Details in ein GitHub-Issue."
+    },
+    "stage_timeout": {
+      "title": "Ein Erkennungsschritt hat zu lange gedauert und wurde abgebrochen.",
+      "next": "Klassifikator oder Frigate sind möglicherweise überlastet. Prüfen Sie oben die Ressourcennutzung."
     }
   }
 }

@@ -519,5 +519,8 @@
   "archive_retry_spent": "YA-WAMF は自動での再試行を終了しました。いずれにしても訪問は履歴に残ります。",
   "archive_retry_now": "今すぐ再試行",
   "audio_match_evidence": "一致した鳴き声",
-  "archive_retry_due": "YA-WAMF はまもなく自動で再試行します。いずれにしても訪問は履歴に残ります。"
+  "archive_retry_due": "YA-WAMF はまもなく自動で再試行します。いずれにしても訪問は履歴に残ります。",
+  "archive_checking": "このお気に入りの保存用コピーに何が残っているか確認中…",
+  "archive_unchecked": "このお気に入りの保存用コピーで問題が報告されましたが、何が残っているかは確認できませんでした。",
+  "archive_check_again": "もう一度確認"
 }

@@ -22,8 +22,14 @@ describe('a favourite is durable, and says so (#178)', () => {
     });
 
     it('says what a failed copy did not keep, why, and what to do next', () => {
-        // The cause comes from the code the archive worker stored, never a bare "Archive failed".
-        expect(modalSource).toContain('explainArchiveFailure(archiveStatus ?? {})');
+        // The cause comes from the code the archive worker stored, never a bare "Archive failed",
+        // and only from a status read for this record: none is not "both failed, retries stopped".
+        expect(modalSource).toContain('archiveFailureView(archiveStatusHere, archiveRead)');
+        expect(modalSource).not.toContain('archiveStatus ?? {}');
+        expect(modalSource).toContain("archiveStatus && archiveStatus.event_id === detection?.frigate_event ? archiveStatus : null");
+        // A failed read says so and offers to check again.
+        expect(modalSource).toContain('data-detection-archive-check-again');
+        expect(en.detection.archive_unchecked).toContain('could not be checked');
         expect(modalSource).toContain('data-detection-archive-cause');
         expect(en.detection.archive_failed_both).toContain('could not be saved');
         expect(en.detection.archive_cause.frigate_unreachable).toContain('Check');

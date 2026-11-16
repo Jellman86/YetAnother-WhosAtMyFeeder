@@ -89,3 +89,31 @@ test('Health is healthy only with both connections measured up', async ({ page }
     await expect(page.locator('[data-health-card="mqtt"]')).toContainText('Connected to mqtt:1883 since');
     await expect(page.locator('[data-health-card="frigate"]')).toContainText('Frigate announces itself online over MQTT.');
 });
+
+test('a backend error is said in words; its raw text, paths and addresses stay under Technical details', async ({ page }) => {
+    const event = (reason: string, message: string) => ({
+        id: `diag:test:${reason}`, timestamp: '2026-11-13T18:19:00Z', source: 'event_pipeline', component: 'event_processor',
+        stage: 'classify', reason_code: reason, message, severity: 'critical', event_id: 'evt-1', context: null,
+        correlation_key: null, count: 1, first_seen: '2026-11-13T18:19:00Z', last_seen: '2026-11-13T18:19:00Z'
+    });
+    const payload = workspace({
+        mqtt: { state: 'connected', server: 'mqtt', port: 1883, connected_since: '2026-11-13T17:00:00Z' },
+        frigate: { state: 'reachable', url: 'http://frigate:5000', checked_at: '2026-11-13T18:19:00Z', availability: 'online' },
+        generated_at: '2026-11-13T18:20:00Z'
+    });
+    payload.backend_diagnostics.events = [
+        event('stage_failure', "Stage classify failed: [Errno 2] No such file or directory: '/data/models/bird.onnx' via http://frigate:5000/api"),
+        event('something_new', 'Unrecognised failure at /config/secret-path')
+    ] as never[];
+    await openHealth(page, payload);
+
+    const rows = page.locator('[data-health-diagnostic]');
+    await expect(rows).toHaveCount(2);
+    await expect(rows.nth(0).locator('[data-health-diagnostic-title]')).toHaveText('A detection could not be processed because one of its steps failed.');
+    await expect(rows.nth(1).locator('[data-health-diagnostic-title]')).toHaveText('A processing step failed. Technical details have the exact error.');
+    // Nothing raw is on screen until Technical details is opened; the whole page is checked, verdict included.
+    const visible = await page.locator('main').innerText();
+    for (const raw of ['/data/models', 'http://frigate:5000/api', '/config/secret-path', 'Errno']) expect(visible).not.toContain(raw);
+    await rows.nth(0).locator('summary').click();
+    await expect(rows.nth(0)).toContainText("'/data/models/bird.onnx'");
+});

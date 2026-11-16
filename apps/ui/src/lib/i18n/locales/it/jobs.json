@@ -354,6 +354,17 @@
     "stale_job": {
       "title": "Un’attività in background ha smesso di avanzare.",
       "next": "È mostrata in Notifiche. Riavviala da lì o dalla scheda delle Impostazioni che la esegue."
+    },
+    "generic": {
+      "title": "Un passaggio di elaborazione non è riuscito. I dettagli tecnici riportano l’errore esatto."
+    },
+    "stage_failure": {
+      "title": "Non è stato possibile elaborare un rilevamento perché uno dei suoi passaggi non è riuscito.",
+      "next": "Se continua a succedere, copia i dettagli tecnici in una segnalazione su GitHub."
+    },
+    "stage_timeout": {
+      "title": "Un passaggio di un rilevamento ha richiesto troppo tempo ed è stato interrotto.",
+      "next": "Il classificatore o Frigate potrebbero essere sovraccarichi. Controlla l’uso delle risorse sopra."
     }
   }
 }

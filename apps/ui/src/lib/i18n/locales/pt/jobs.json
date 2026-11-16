@@ -354,6 +354,17 @@
     "stale_job": {
       "title": "Uma tarefa em segundo plano deixou de avançar.",
       "next": "Aparece em Notificações. Volte a iniciá-la a partir daí ou do separador de Definições que a executa."
+    },
+    "generic": {
+      "title": "Um passo de processamento falhou. Os detalhes técnicos têm o erro exato."
+    },
+    "stage_failure": {
+      "title": "Não foi possível processar uma deteção porque um dos seus passos falhou.",
+      "next": "Se continuar a acontecer, copie os detalhes técnicos para um issue no GitHub."
+    },
+    "stage_timeout": {
+      "title": "Um passo de uma deteção demorou demasiado e foi parado.",
+      "next": "O classificador ou o Frigate podem estar sobrecarregados. Consulte a utilização de recursos acima."
     }
   }
 }

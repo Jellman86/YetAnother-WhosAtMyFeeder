@@ -354,6 +354,17 @@
     "stale_job": {
       "title": "Una tarea en segundo plano dejó de avanzar.",
       "next": "Aparece en Notificaciones. Vuelve a iniciarla desde allí o desde la pestaña de Ajustes que la ejecuta."
+    },
+    "generic": {
+      "title": "Falló un paso de procesamiento. Los detalles técnicos tienen el error exacto."
+    },
+    "stage_failure": {
+      "title": "No se pudo procesar una detección porque falló uno de sus pasos.",
+      "next": "Si sigue ocurriendo, copia los detalles técnicos en una incidencia de GitHub."
+    },
+    "stage_timeout": {
+      "title": "Un paso de una detección tardó demasiado y se detuvo.",
+      "next": "Puede que el clasificador o Frigate estén sobrecargados. Revisa el uso de recursos arriba."
     }
   }
 }

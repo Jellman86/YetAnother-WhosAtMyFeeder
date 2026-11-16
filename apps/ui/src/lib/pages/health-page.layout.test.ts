@@ -122,10 +122,17 @@ describe('Health page', () => {
         expect(errorsSource).not.toContain('jobs.errors_mqtt_last_error');
         // Known backend reason codes are said in the reader's language; the raw message is a detail.
         expect(errorsSource).toContain('diagnosticWords(event.reason_code)');
+        // An unknown code gets the generic cause; the raw message is never a title, for rows or incidents.
+        expect(errorsSource).not.toContain('?? event.message');
+        expect(errorsSource).toContain('diagnosticWords(item.incident.primaryReasonCode)');
+        expect(errorsSource).toContain('{@render technicalDetails(incidentDetails(item.incident))}');
+        expect(errorsSource).not.toMatch(/\{item\.incident\.(title|summary)\}/);
     });
 
     it('keeps reading, read, stale and failed apart, and claims nothing it did not measure', () => {
-        expect(errorsSource).toContain("workspacePayload ? (refreshError ? 'stale' : 'read') : refreshError ? 'failed' : 'reading'");
+        // Freshness changes only when a read settles, in the store, so every reader of it agrees.
+        expect(errorsSource).toContain('const readState = $derived(incidentWorkspaceStore.readFreshness);');
+        expect(errorsSource).not.toMatch(/refreshError = ''/);
         expect(errorsSource).toContain('data-health-read-failed');
         expect(errorsSource).toContain('data-health-stale');
         // The verdict is not a fault count when nothing was read, and its space is held while reading.

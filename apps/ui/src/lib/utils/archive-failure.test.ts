@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { explainArchiveFailure } from './archive-failure';
+import { archiveFailureView, explainArchiveFailure } from './archive-failure';
 
 describe('explainArchiveFailure', () => {
     it('says what was not kept, from the per-asset states', () => {
@@ -43,5 +43,31 @@ describe('explainArchiveFailure', () => {
         const later = explainArchiveFailure({ error: 'disk_full', retry_at: '2026-11-15T14:20:00Z' }, now);
         expect(later.retryDue).toBe(false);
         expect(explainArchiveFailure({ error: 'disk_full', retry_at: null }, now).retryDue).toBe(false);
+    });
+});
+
+describe('archiveFailureView', () => {
+    const now = Date.parse('2026-11-15T14:10:00Z');
+
+    it('claims nothing about what was kept until the archive status has been read', () => {
+        // Without a reading there is no loss, cause or retry to state: not "both failed, retries stopped".
+        expect(archiveFailureView(null, 'reading', now)).toEqual({ kind: 'checking' });
+    });
+
+    it('says the check itself failed, rather than guessing, when the read fails', () => {
+        expect(archiveFailureView(null, 'failed', now)).toEqual({ kind: 'unchecked' });
+    });
+
+    it('explains only from a reading, which can say the photo was kept and a retry is due', () => {
+        const view = archiveFailureView(
+            { error: 'clip_timeout', snapshot_state: 'durable', clip_state: 'failed', retry_at: '2026-11-15T14:20:00Z' },
+            'read',
+            now
+        );
+        expect(view.kind).toBe('explained');
+        if (view.kind !== 'explained') return;
+        expect(view.explanation.lost).toBe('clip');
+        expect(view.explanation.retryAt).toBe(Date.parse('2026-11-15T14:20:00Z'));
+        expect(view.explanation.retryDue).toBe(false);
     });
 });
