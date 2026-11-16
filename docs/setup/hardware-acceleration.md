@@ -348,7 +348,7 @@ two), newest visits first. It reads only regular files, never symlinks or FIFOs,
 most 256 KB to find an image's size. With fewer than three full frames it waits as
 **no full frames**, says so under **Runs on**, and checks again every five minutes
 without spending an attempt; the snapshot folder is listed again only after it
-changes or after 30 minutes, and not at all while no check is due. **Check devices** uses the same
+changes or after 30 minutes, and not at all while no check is due. **Check devices for the bird finder** uses the same
 frames. A missing eligibility list does not
 prevent this recovery. The five-minute scheduler waits for photos without spending
 an attempt. A completed pass or box mismatch finishes that runtime, artifact,
