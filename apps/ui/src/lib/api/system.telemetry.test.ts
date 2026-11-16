@@ -8,7 +8,10 @@ const { apiFetchMock, handleResponseMock } = vi.hoisted(() => ({
 vi.mock('./core', () => ({
     API_BASE: '/api',
     apiFetch: apiFetchMock,
-    handleResponse: handleResponseMock
+    handleResponse: handleResponseMock,
+    // The guarded JSON read, as the client composes it: the request, then the body read under it.
+    apiFetchJson: (url: string, options?: unknown) => Promise.resolve(apiFetchMock(url, options)).then((response) => handleResponseMock(response)),
+    mapGuarded: (read: Promise<unknown>, next: (value: unknown) => unknown, onError?: (error: unknown) => unknown) => read.then(next, onError),
 }));
 
 import { fetchSystemTelemetry } from './system';

@@ -291,6 +291,8 @@ async def test_owner_sse_keeps_detailed_payload(private_history):
     message = {"type": "reclassification_progress", "data": {"event_id": "hidden", "diagnostics": {"secret": "owner"}}}
     try:
         await response.body_iterator.__anext__()
+        status = await asyncio.wait_for(response.body_iterator.__anext__(), 10)
+        assert json.loads(status.removeprefix("data: "))["type"] == "status"
         await broadcaster.broadcast(message)
         frame = await asyncio.wait_for(response.body_iterator.__anext__(), 1)
         assert json.loads(frame.removeprefix("data: ")) == message

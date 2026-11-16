@@ -248,7 +248,8 @@ test('the sidebar status is a list inside a live region, and its link is named b
     await expect(page.getByRole('status').filter({ has: rows })).toHaveCount(1);
     expect(await rows.getByRole('listitem').count()).toBeGreaterThanOrEqual(2);
     const link = page.locator('[data-sidebar-status-link]');
-    await expect(link).toHaveAccessibleName(/Health$/);
+    // Named by the words on show: "Health", then the open count when the recording has problems.
+    await expect(link).toHaveAccessibleName(/^Health(?:$|\b)/);
     await expect(link).not.toHaveAttribute('aria-label');
     // The link is its own words, at least 24px tall, and nothing is stretched over the card.
     const box = await link.boundingBox();
@@ -600,7 +601,8 @@ for (const width of [390, 1440]) {
                 document.documentElement.dataset.layoutShift = String(total);
             }).observe({ type: 'layout-shift', buffered: true });
         });
-        await page.route((url) => url.pathname === '/api/jobs', async (route) => {
+        // The jobs come with the pushed status; hold its first read back.
+        await page.route((url) => url.pathname === '/api/status', async (route) => {
             await new Promise((resolve) => setTimeout(resolve, 1200));
             await route.fallback();
         });

@@ -12,6 +12,7 @@
     import SystemTelemetryGraph from './SystemTelemetryGraph.svelte';
     import { trapFocus } from '../utils/focus-trap';
     import { incidentWorkspaceStore } from '../stores/incident_workspace.svelte';
+    import { systemStatusStore } from '../stores/system_status.svelte';
     import { healthAttention, openHealthItems } from '../utils/system-status';
 
     onMount(() => {
@@ -54,7 +55,10 @@
     let collapsed = $derived(layoutStore.sidebarCollapsed && !isMobile);
     const health = $derived(healthAttention(
         authStore.showSettings
-            ? openHealthItems(incidentWorkspaceStore.workspacePayload?.connections ?? null, incidentWorkspaceStore.currentIssues.length)
+            ? openHealthItems(
+                systemStatusStore.snapshot?.connections ?? incidentWorkspaceStore.workspacePayload?.connections ?? null,
+                incidentWorkspaceStore.currentIssues.length
+            )
             : null
     ));
     const issuesLabel = $derived(

@@ -3,13 +3,13 @@
     import { slide } from 'svelte/transition';
     import { _ } from 'svelte-i18n';
     import { jobProgressStore } from '../stores/job_progress.svelte';
-    import { authStore } from '../stores/auth.svelte';
     import { buildJobsPipelineModel } from '../jobs/pipeline';
     import { buildGlobalProgressSummary, presentWorkLane, type JobsTranslateFn } from '../jobs/presenter';
     import { analysisQueueStatusStore } from '../stores/analysis_queue_status.svelte';
     import { backfillStatusStore } from '../stores/backfill_status.svelte';
     import { toAppPath } from '../app/url-base';
     import { serverJobsStore } from '../stores/server_jobs.svelte';
+    import { systemStatusStore } from '../stores/system_status.svelte';
     let { onNavigate }: { onNavigate?: (path: string) => void } = $props();
 
     let nowTs = $state(Date.now());
@@ -20,7 +20,6 @@
         const tick = setInterval(() => {
             nowTs = Date.now();
         }, 1000);
-        const releaseServerJobs = serverJobsStore.retain();
         const closeOnEscape = (event: KeyboardEvent) => {
             if (event.key === 'Escape') showDetails = false;
         };
@@ -35,7 +34,6 @@
         return () => {
             window.removeEventListener('keydown', closeOnEscape);
             window.removeEventListener('pointerdown', closeOnOutsidePress);
-            releaseServerJobs();
             clearInterval(tick);
         };
     });
@@ -72,15 +70,20 @@
         return kind.replace(/_/g, ' ').replace(/\b\w/g, (ch) => ch.toUpperCase());
     }
 
-    let aggregate = $derived(buildGlobalProgressSummary(activeJobs, rowsByKind, analysisStatus, nowTs, t, kindLabel));
+    // The server's counts are its own lane totals, the same numbers the lane detail shows; the
+    // banner adds only the work this browser follows that the server does not report.
+    let serverCounts = $derived.by(() => {
+        const summary = systemStatusStore.snapshot?.jobs_summary;
+        if (!summary) return undefined;
+        const browserOnly = serverJobsStore.browserOnlyActive(jobProgressStore.activeJobs)
+            .filter((job) => job.status !== 'completed' && job.status !== 'failed');
+        return { running: summary.running, queued: summary.queued, progress: summary.progress ?? null, browserOnly };
+    });
+    let aggregate = $derived(buildGlobalProgressSummary(activeJobs, rowsByKind, analysisStatus, nowTs, t, kindLabel, serverCounts));
 
     $effect(() => {
         if (!hasRunningBackfill) return;
         return backfillStatusStore.retain();
-    });
-
-    $effect(() => {
-        if (authStore.showSettings) void serverJobsStore.refresh();
     });
 
     function openJobsPage() {

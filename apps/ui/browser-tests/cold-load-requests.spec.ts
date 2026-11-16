@@ -44,6 +44,22 @@ async function countColdLoadReads(page: Page, path: string, status: Record<strin
                 generated_at: '2026-11-16T00:00:00Z'
             },
             '/api/maintenance/analysis/status': { pending: 0, active: 0, circuit_open: false },
+            '/api/status': {
+                revision: 1, generated_at: '2026-11-16T00:00:00Z', startup_instance_id: 'fixture',
+                // 'unknown', as a backend that does not say: any other version than the page's reloads it.
+                version: 'unknown', overall: { state: 'ok', cause: 'ok', subsystem: null }, subsystems: [],
+                jobs_summary: { running: 0, queued: 0, progress: null },
+                jobs: { captured_at: '2026-11-16T00:00:00Z', items: [], lanes: [] },
+                analysis: { pending: 0, active: 0, circuit_open: false },
+                model: { state: 'ok', cause: 'ready', revision: 'fixture' },
+                connections: {
+                    mqtt: { state: 'connected', server: 'mqtt://broker', port: 1883, last_error: null },
+                    frigate: { state: 'reachable', url: 'http://frigate:5000', availability: 'online', last_failure: null },
+                    generated_at: '2026-11-16T00:00:00Z'
+                },
+                cameras: { cameras: [], checked_at: '2026-11-16T00:00:00Z' },
+                diagnostics_revision: 0, incident_revision: 'fixture', health_revision: 'fixture'
+            },
             '/api/classifier/status': { loaded: true },
             '/api/version': { version: '2.23.2-dev+r4bench', base_version: '2.23.2' }
         };
@@ -77,12 +93,15 @@ for (const [visitor, status] of [['owner', owner], ['guest', guest]] as const) {
     });
 }
 
-test('a cold Dashboard load as the owner asks the shell and its cards\' shared status questions once', async ({ page }) => {
+test('a cold Dashboard load as the owner asks for the status once and none of its parts separately', async ({ page }) => {
     const reads = await countColdLoadReads(page, '/', owner);
-    expect(reads.get('/api/frigate/cameras/status')).toBe(1);
-    expect(reads.get('/api/diagnostics/connections')).toBe(1);
+    expect(reads.get('/api/status')).toBe(1);
+    for (const part of ['/api/jobs', '/api/maintenance/analysis/status', '/api/diagnostics/connections', '/api/system-telemetry', '/api/classifier/provider-validation']) {
+        expect(reads.get(part) ?? 0, part).toBe(0);
+    }
+    // The shell's camera widget waits for the status; only the Dashboard's own camera card reads once.
+    expect(reads.get('/api/frigate/cameras/status') ?? 0).toBeLessThanOrEqual(1);
     expect(reads.get('/api/version')).toBe(1);
-    expect(reads.get('/api/maintenance/analysis/status')).toBe(1);
 });
 
 test('a cold About load reads the version, update, classifier and camera status once each', async ({ page }) => {
@@ -93,9 +112,11 @@ test('a cold About load reads the version, update, classifier and camera status 
     expect(reads.get('/api/frigate/cameras/status')).toBe(1);
 });
 
-test('a cold Notifications load reads the analysis queue once for the shell and its banner', async ({ page }) => {
+test('a cold Notifications load takes the analysis queue and the jobs from the one status read', async ({ page }) => {
     const reads = await countColdLoadReads(page, '/notifications', owner);
-    expect(reads.get('/api/maintenance/analysis/status')).toBe(1);
+    expect(reads.get('/api/status')).toBe(1);
+    expect(reads.get('/api/maintenance/analysis/status') ?? 0).toBe(0);
+    expect(reads.get('/api/jobs') ?? 0).toBe(0);
 });
 
 test('a cold Settings › Appearance load reads none of the other tabs\' operational data', async ({ page }) => {
