@@ -19,6 +19,7 @@ const notice = (page: Page) => page.getByRole('dialog').first().getByRole('statu
 const unanswered = [
     ['unreachable', 'YA-WAMF could not reach Frigate, so it is not known whether Frigate still has this event. Check that Frigate is running, then reopen this record.'],
     ['timed_out', 'Frigate did not answer in time, so it is not known whether it still has this event. Reopen this record in a moment. If it keeps happening, check how busy Frigate is.'],
+    ['unauthorized', 'Frigate refused YA-WAMF’s credentials, so it is not known whether it still has this event. Check FRIGATE_AUTH_TOKEN in the environment YA-WAMF starts with, restart it, then reopen this record.'],
     ['failed', "Frigate answered with an error, so it is not known whether it still has this event. Check Frigate's log, then reopen this record."],
     ['not_checked', 'Frigate has not been asked about this event yet. Reopen this record to check.']
 ] as const;
@@ -30,6 +31,8 @@ for (const [check, sentence] of unanswered) {
         await expect(page.getByRole('dialog').first()).not.toContainText('no longer has');
         // Nothing failed, so there are no error details to open.
         await expect(notice(page).locator('details')).toHaveCount(0);
+        // The cause is a sentence to read, so it is set in regular weight under its semibold title.
+        expect(Number(await notice(page).locator('[data-video-status-cause]').evaluate((element) => getComputedStyle(element).fontWeight))).toBeLessThan(500);
         await notice(page).scrollIntoViewIfNeeded();
         await page.screenshot({ path: testInfo.outputPath(`record-frigate-${check}.png`) });
     });

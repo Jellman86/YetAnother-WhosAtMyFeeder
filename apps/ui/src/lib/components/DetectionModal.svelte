@@ -3033,7 +3033,7 @@
                         <span class="text-3xs font-semibold">
                             {videoStatusNoticeTitle}
                         </span>
-                        <span class="text-2xs font-semibold leading-snug">
+                        <span class="text-2xs font-normal leading-snug" data-video-status-cause>
                             {videoStatusNoticeDescription}
                         </span>
                         {#if upstreamMissing && detection.frigate_last_checked_at}

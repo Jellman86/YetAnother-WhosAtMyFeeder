@@ -23,7 +23,7 @@ describe('what was learned about the Frigate event', () => {
         expect(frigateEventReading(detection({ video_classification_error: 'event_not_found' }))).toBe('gone');
     });
 
-    it.each(['unreachable', 'timed_out', 'failed'] as const)(
+    it.each(['unreachable', 'timed_out', 'unauthorized', 'failed'] as const)(
         'keeps a check that %s apart from an absence',
         (check) => {
             expect(frigateEventReading(detection({ has_frigate_event: false, frigate_event_check: check }))).toBe(check);
@@ -50,7 +50,7 @@ describe('what was learned about the Frigate event', () => {
 describe('the words for each reading', () => {
     it('claims "no longer has" for a gone event alone', () => {
         expect(frigateEventNotice('gone', t)).toBe('Frigate no longer has this event or media.');
-        for (const reading of ['unreachable', 'timed_out', 'failed', 'not_checked'] as const) {
+        for (const reading of ['unreachable', 'timed_out', 'unauthorized', 'failed', 'not_checked'] as const) {
             expect(frigateEventNotice(reading, t)).not.toContain('no longer has');
         }
     });
@@ -61,6 +61,9 @@ describe('the words for each reading', () => {
         );
         expect(frigateEventNotice('timed_out', t)).toBe(
             'Frigate did not answer in time, so it is not known whether it still has this event. Reopen this record in a moment. If it keeps happening, check how busy Frigate is.'
+        );
+        expect(frigateEventNotice('unauthorized', t)).toBe(
+            'Frigate refused YA-WAMF’s credentials, so it is not known whether it still has this event. Check FRIGATE_AUTH_TOKEN in the environment YA-WAMF starts with, restart it, then reopen this record.'
         );
         expect(frigateEventNotice('failed', t)).toBe(
             "Frigate answered with an error, so it is not known whether it still has this event. Check Frigate's log, then reopen this record."

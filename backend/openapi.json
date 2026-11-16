@@ -6464,6 +6464,7 @@
               "not_found",
               "unreachable",
               "timed_out",
+              "unauthorized",
               "failed",
               "not_checked"
             ],
@@ -6722,6 +6723,7 @@
               "not_found",
               "unreachable",
               "timed_out",
+              "unauthorized",
               "failed",
               "not_checked"
             ],

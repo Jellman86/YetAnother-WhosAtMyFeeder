@@ -145,7 +145,8 @@ async def test_a_restored_event_is_reported_present_immediately(monkeypatch):
     ("answer", "expected"),
     [
         ((None, "event_not_found"), "not_found"),
-        ((None, "frigate_not_ready"), "unreachable"),
+        # The mocked client records no cause, so nothing more is claimed than "not checked".
+        ((None, "frigate_not_ready"), "not_checked"),
         ((None, "event_timeout"), "timed_out"),
         ((None, "event_http_500"), "failed"),
         (({"has_clip": False, "has_snapshot": True}, None), "found"),

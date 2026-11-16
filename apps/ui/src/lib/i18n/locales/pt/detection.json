@@ -84,6 +84,7 @@
     "gone": "O Frigate não tem mais este evento nem a mídia dele.",
     "unreachable": "O YA-WAMF não conseguiu acessar o Frigate, então não se sabe se o Frigate ainda tem este evento. Verifique se o Frigate está em execução e abra este registro de novo.",
     "timed_out": "O Frigate não respondeu a tempo, então não se sabe se ele ainda tem este evento. Abra este registro de novo em instantes. Se continuar acontecendo, verifique a carga do Frigate.",
+    "unauthorized": "O Frigate recusou as credenciais do YA-WAMF, então não se sabe se ele ainda tem este evento. Verifique FRIGATE_AUTH_TOKEN no ambiente em que o YA-WAMF inicia, reinicie-o e abra este registro de novo.",
     "failed": "O Frigate respondeu com um erro, então não se sabe se ele ainda tem este evento. Verifique o log do Frigate e abra este registro de novo.",
     "not_checked": "O Frigate ainda não foi consultado sobre este evento. Abra este registro de novo para verificar."
   },

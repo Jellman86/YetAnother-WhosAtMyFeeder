@@ -17,7 +17,13 @@ from datetime import datetime, timezone
 from typing import Optional
 from app.config import settings
 from app.models.garden_motion import MOTION_RECORDING_BYTE_LIMIT
-from app.services.frigate_readiness import FRIGATE_NOT_READY, FrigateReadinessGate
+from app.services.frigate_readiness import (
+    FRIGATE_NOT_READY,
+    NOT_READY_CONNECTION,
+    NOT_READY_SERVER_ERROR,
+    NOT_READY_TIMEOUT,
+    FrigateReadinessGate,
+)
 from app.services.service_connections import frigate_reachability
 from app.utils.diagnostic_redaction import safe_connection_error
 
@@ -431,19 +437,19 @@ class FrigateClient:
                 # sighting is worth reporting; see `frigate_event_absence`.
                 log.debug("Event not found", event_id=event_id)
                 return None, "event_not_found"
-            if resp.status_code >= 500 and await self.readiness.failure_is_not_ready():
+            if resp.status_code >= 500 and await self.readiness.failure_is_not_ready(NOT_READY_SERVER_ERROR):
                 self.readiness.note_deferred()
                 return None, FRIGATE_NOT_READY
             log.warning("Failed to fetch event", event_id=event_id, status=resp.status_code)
             return None, f"event_http_{resp.status_code}"
         except httpx.TimeoutException:
-            if await self.readiness.failure_is_not_ready():
+            if await self.readiness.failure_is_not_ready(NOT_READY_TIMEOUT):
                 self.readiness.note_deferred()
                 return None, FRIGATE_NOT_READY
             log.warning("Event fetch timed out", event_id=event_id)
             return None, "event_timeout"
         except httpx.RequestError as e:
-            if await self.readiness.failure_is_not_ready():
+            if await self.readiness.failure_is_not_ready(NOT_READY_CONNECTION):
                 self.readiness.note_deferred()
                 return None, FRIGATE_NOT_READY
             log.error("Error fetching event", event_id=event_id, error=safe_connection_error(e))

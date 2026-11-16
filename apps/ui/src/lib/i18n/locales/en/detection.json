@@ -84,6 +84,7 @@
     "gone": "Frigate no longer has this event or media.",
     "unreachable": "YA-WAMF could not reach Frigate, so it is not known whether Frigate still has this event. Check that Frigate is running, then reopen this record.",
     "timed_out": "Frigate did not answer in time, so it is not known whether it still has this event. Reopen this record in a moment. If it keeps happening, check how busy Frigate is.",
+    "unauthorized": "Frigate refused YA-WAMF’s credentials, so it is not known whether it still has this event. Check FRIGATE_AUTH_TOKEN in the environment YA-WAMF starts with, restart it, then reopen this record.",
     "failed": "Frigate answered with an error, so it is not known whether it still has this event. Check Frigate's log, then reopen this record.",
     "not_checked": "Frigate has not been asked about this event yet. Reopen this record to check."
   },

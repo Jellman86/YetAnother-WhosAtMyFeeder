@@ -9,7 +9,15 @@ type Translate = (key: string, options?: Record<string, unknown>) => string;
  * that was down, slow or erroring left the question open, and `unknown` means nobody reported on
  * the event at all, so the record says nothing about it.
  */
-export type FrigateEventReading = 'found' | 'gone' | 'unreachable' | 'timed_out' | 'failed' | 'not_checked' | 'unknown';
+export type FrigateEventReading =
+    | 'found'
+    | 'gone'
+    | 'unreachable'
+    | 'timed_out'
+    | 'unauthorized'
+    | 'failed'
+    | 'not_checked'
+    | 'unknown';
 
 export function frigateEventReading(detection: Detection): FrigateEventReading {
     const check = detection.frigate_event_check;
@@ -20,7 +28,9 @@ export function frigateEventReading(detection: Detection): FrigateEventReading {
     ) {
         return 'gone';
     }
-    if (check === 'found' || check === 'unreachable' || check === 'timed_out' || check === 'failed') return check;
+    if (check === 'found' || check === 'unreachable' || check === 'timed_out' || check === 'unauthorized' || check === 'failed') {
+        return check;
+    }
     // The server said there is no event to link to without saying what Frigate answered.
     return detection.has_frigate_event === false ? 'not_checked' : 'unknown';
 }
@@ -37,6 +47,10 @@ export function frigateEventNotice(reading: FrigateEventReading, t: Translate): 
         case 'timed_out':
             return t('detection.upstream_check.timed_out', {
                 default: 'Frigate did not answer in time, so it is not known whether it still has this event. Reopen this record in a moment. If it keeps happening, check how busy Frigate is.'
+            });
+        case 'unauthorized':
+            return t('detection.upstream_check.unauthorized', {
+                default: 'Frigate refused YA-WAMF’s credentials, so it is not known whether it still has this event. Check FRIGATE_AUTH_TOKEN in the environment YA-WAMF starts with, restart it, then reopen this record.'
             });
         case 'failed':
             return t('detection.upstream_check.failed', {

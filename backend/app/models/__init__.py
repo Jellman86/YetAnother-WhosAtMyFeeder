@@ -8,7 +8,7 @@ from app.utils.reference_text import reference_plain_text
 
 # What Frigate answered when YA-WAMF asked about one event. Only `not_found` is evidence
 # that the event is gone; the rest are a question that went unanswered.
-FrigateEventCheck = Literal["found", "not_found", "unreachable", "timed_out", "failed", "not_checked"]
+FrigateEventCheck = Literal["found", "not_found", "unreachable", "timed_out", "unauthorized", "failed", "not_checked"]
 
 
 class OAuthAuthorizeResponse(BaseModel):

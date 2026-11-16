@@ -921,7 +921,7 @@ export interface components {
     detection_time: string | null;
     display_name: string;
     frigate_event: string;
-    frigate_event_check?: "found" | "not_found" | "unreachable" | "timed_out" | "failed" | "not_checked";
+    frigate_event_check?: "found" | "not_found" | "unreachable" | "timed_out" | "unauthorized" | "failed" | "not_checked";
     has_clip?: boolean;
     has_frigate_event?: boolean;
     has_snapshot?: boolean;
@@ -953,7 +953,7 @@ export interface components {
     detection_time: string | null;
     display_name: string;
     frigate_event: string;
-    frigate_event_check?: "found" | "not_found" | "unreachable" | "timed_out" | "failed" | "not_checked";
+    frigate_event_check?: "found" | "not_found" | "unreachable" | "timed_out" | "unauthorized" | "failed" | "not_checked";
     frigate_last_checked_at?: string | null;
     frigate_last_error?: string | null;
     frigate_missing_since?: string | null;

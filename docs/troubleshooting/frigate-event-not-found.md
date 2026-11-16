@@ -145,7 +145,12 @@ could not be asked. `frigate_event_check` says which, and the record words each 
 | --- | --- | --- |
 | `found` | Frigate returned the event. | Nothing. |
 | `not_found` | Frigate answered 404. | "Frigate no longer has this event or media." |
-| `unreachable` | Frigate was starting or could not be reached. | That it could not reach Frigate; check that Frigate is running. |
+| `unreachable` | A connection to Frigate could not be made. | That it could not reach Frigate; check that Frigate is running. |
 | `timed_out` | Frigate did not answer in time. | That Frigate did not answer in time; reopen the record. |
-| `failed` | Frigate answered with another error. | That Frigate answered with an error; check Frigate's log. |
+| `unauthorized` | Frigate answered 401 or 403. | That Frigate refused YA-WAMF's credentials; check `FRIGATE_AUTH_TOKEN`. |
+| `failed` | Frigate answered with another error, such as a 5xx. | That Frigate answered with an error; check Frigate's log. |
 | `not_checked` | Frigate was not asked for this response. | That Frigate has not been asked yet; reopen the record. |
+
+While Frigate as a whole is not answering, event reads are put off rather than sent one by one.
+Those reads report the failure that closed the gate (a timeout, a server error or a failed
+connection), not a blanket "unreachable".

@@ -8,8 +8,8 @@
   **Purge old records** reads its count at the moment of asking too.
 - A detection record says "Frigate no longer has this event or media" only when Frigate answered
   that the event is not found, or the media integrity scan recorded it missing. When Frigate was
-  unreachable, slow, erroring or simply not asked, the record now says that instead, with what to
-  try, and no longer offers "technical details" when no error was recorded. `/api/events` reports
+  unreachable, slow, erroring, refusing YA-WAMF's credentials or simply not asked, the record now
+  says which, with what to try, and no longer offers "technical details" when no error was recorded. `/api/events` reports
   what Frigate answered in a new `frigate_event_check` field
   (see [the Frigate event guide](docs/troubleshooting/frigate-event-not-found.md)).
 - The first-run wizard's Cameras step no longer shows "Loading your saved settings…" with Continue

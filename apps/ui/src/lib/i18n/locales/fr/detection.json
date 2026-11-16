@@ -84,6 +84,7 @@
     "gone": "Frigate n’a plus cet événement ni ses médias.",
     "unreachable": "YA-WAMF n’a pas pu joindre Frigate, on ne sait donc pas si Frigate a encore cet événement. Vérifiez que Frigate fonctionne, puis rouvrez cette fiche.",
     "timed_out": "Frigate n’a pas répondu à temps, on ne sait donc pas s’il a encore cet événement. Rouvrez cette fiche dans un instant. Si cela se reproduit, vérifiez la charge de Frigate.",
+    "unauthorized": "Frigate a refusé les identifiants de YA-WAMF, on ne sait donc pas s’il a encore cet événement. Vérifiez FRIGATE_AUTH_TOKEN dans l’environnement de démarrage de YA-WAMF, redémarrez-le, puis rouvrez cette fiche.",
     "failed": "Frigate a répondu par une erreur, on ne sait donc pas s’il a encore cet événement. Consultez le journal de Frigate, puis rouvrez cette fiche.",
     "not_checked": "Frigate n’a pas encore été interrogé sur cet événement. Rouvrez cette fiche pour vérifier."
   },

@@ -289,7 +289,9 @@ async def batch_check_clips(event_ids: list[str]) -> dict[str, EventAvailability
                         )
                     return event_id, {
                         "has_frigate_event": False,
-                        "frigate_event_check": classify_event_check(None, error),
+                        "frigate_event_check": classify_event_check(
+                            None, error, frigate_client.readiness.not_ready_cause
+                        ),
                         "has_clip": cached_flags["has_clip"],
                         "has_snapshot": cached_flags["has_snapshot"],
                     }
