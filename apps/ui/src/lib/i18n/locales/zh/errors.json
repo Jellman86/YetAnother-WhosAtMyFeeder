@@ -1,6 +1,6 @@
 {
   "stack_trace": "堆栈跟踪：",
-  "server_failure": "服务器上的问题中断了这次请求。请重试；如果持续出现，请打开“系统状态”查看问题所在。",
+  "server_failure": "服务器上的问题中断了这次请求。请重试；如果持续出现，请打开“运行状况”查看问题所在。",
   "connection": {
     "service_mqtt": "MQTT 代理服务器",
     "host_not_found": "{service}：找不到 {address} 中的主机名。请检查地址。",

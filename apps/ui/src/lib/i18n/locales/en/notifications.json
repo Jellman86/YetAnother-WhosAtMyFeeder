@@ -43,7 +43,7 @@
   "settings_updated_message": "Configuration changed successfully.",
   "live_updates_disconnected_title": "Reconnecting…",
   "live_updates_disconnected_message": "Live updates are reconnecting in the background.",
-  "system_health_title": "System status warning",
+  "system_health_title": "Health needs attention",
   "system_health_message": "Health status: {status}",
   "open_action": "Open",
   "filter_all": "Everything",
@@ -69,5 +69,12 @@
   "filter_group": "Filter notifications",
   "count_unread_unit": "{count, plural, one {unread} other {unread}}",
   "cleared": "{count, plural, one {Cleared # notification.} other {Cleared # notifications.}}",
-  "owner_only_note": "Background jobs, health and system events are shown only to you, not to visitors."
+  "owner_only_note": "Background jobs, health and system events are shown only to you, not to visitors.",
+  "system_health_cause": {
+    "mqtt_down": "The MQTT broker is not connected, so no new detections can arrive.",
+    "mqtt_not_configured": "No MQTT broker is set, so no detections can arrive.",
+    "frigate_down": "Frigate is not answering, so new detections cannot be saved.",
+    "pipeline_critical": "The detection pipeline has a critical failure.",
+    "other": "Something is not working as it should. Open Health to see what."
+  }
 }

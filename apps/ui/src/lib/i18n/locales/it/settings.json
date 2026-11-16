@@ -68,7 +68,7 @@
     "config_backup_import_error": "Impossibile importare il backup della configurazione",
     "diagnostics_title": "Diagnostica",
     "diagnostics_desc": "Apre la pagina Stato: stato del backend, incidenti raggruppati e pacchetti di supporto.",
-    "open_diagnostics": "Apri salute",
+    "open_diagnostics": "Apri Stato",
     "taxonomy_title": "Riparazione tassonomica",
     "taxonomy_desc": "Collega nomi scientifici e comuni",
     "taxonomy_syncing": "Sincronizzazione…",

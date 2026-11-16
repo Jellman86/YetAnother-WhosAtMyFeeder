@@ -26,7 +26,7 @@ The sidebar's **System status** list follows the same readings, in words:
 | **Alerts** | **On**, **Off** | Whether notifications are switched on. |
 
 Under the rows is the current CPU and accelerator load, and one line that opens the Health page. It
-reads **System health** while nothing is open, and **2 issues need attention** (with the number) while
+reads **Health** while nothing is open, and **2 issues need attention** (with the number) while
 the Health page lists open items in its verdict (a failed connection or an unresolved incident); the
 two always count the same thing.
 

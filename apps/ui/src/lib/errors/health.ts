@@ -1,10 +1,12 @@
 export interface VideoClassifierCardState {
     status: string;
-    summary: string;
     pending: number;
     active: number;
     failureCount: number;
-    openUntil: string;
+    /** Paused by repeated failures (the backend's circuit breaker is open). */
+    paused: boolean;
+    /** When a pause ends, as the backend sent it; null when not paused or not stated. */
+    pausedUntil: string | null;
 }
 
 function asNumber(value: unknown): number {
@@ -88,17 +90,14 @@ export function getVideoClassifierCardState(
         }
     }
 
-    const openUntil = asText(video.open_until, 'Closed') || 'Closed';
-    const summary = circuitOpen
-        ? `Video circuit breaker is open with ${failureCount.toLocaleString()} recent failures.`
-        : `${pending.toLocaleString()} queued, ${active.toLocaleString()} active video jobs.`;
+    const until = typeof video.open_until === 'string' ? video.open_until.trim() : '';
 
     return {
         status,
-        summary,
         pending,
         active,
         failureCount,
-        openUntil,
+        paused: circuitOpen,
+        pausedUntil: circuitOpen && until ? until : null,
     };
 }

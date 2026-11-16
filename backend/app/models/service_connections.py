@@ -12,6 +12,9 @@ MqttConnectionState = Literal["connecting", "connected", "disconnected", "not_co
 FrigateApiState = Literal["reachable", "unreachable", "unchecked"]
 FrigateFailureKind = Literal["timeout", "connection", "unauthorized", "server_error"]
 FrigateAvailability = Literal["online", "offline", "unknown"]
+# Why a connection failed, as the connection tests and the broker session report it
+# (app/services/connection_failure.py reads it from the error).
+ConnectionFailureCause = Literal["host_not_found", "refused", "timeout", "not_authorised", "unreachable"]
 
 
 class MqttConnectionStatus(BaseModel):
@@ -30,6 +33,13 @@ class MqttConnectionStatus(BaseModel):
     last_attempt_at: str | None = Field(default=None, description="UTC time of the latest connection attempt.")
     last_failure_at: str | None = Field(default=None, description="UTC time the latest attempt or session failed.")
     last_error: str | None = Field(default=None, description="The broker client's own words for that failure.")
+    last_error_cause: ConnectionFailureCause | None = Field(
+        default=None,
+        description=(
+            "The cause read from that failure, as a code the page words in its own language: host_not_found, "
+            "refused, timeout, not_authorised or unreachable. Null while connected or before any failure."
+        ),
+    )
 
 
 class FrigateApiStatus(BaseModel):

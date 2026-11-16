@@ -62,7 +62,7 @@ describe('system status rows say each measured state in words', () => {
     });
 });
 
-describe('the System health link counts open issues only', () => {
+describe('the Health link counts open issues only', () => {
     it('asks for attention with the number of open issues', () => {
         expect(healthAttention(2)).toEqual({ needsAttention: true, count: 2 });
         expect(healthAttention(1)).toEqual({ needsAttention: true, count: 1 });

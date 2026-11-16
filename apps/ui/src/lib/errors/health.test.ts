@@ -52,7 +52,19 @@ describe('video classifier health card state', () => {
         });
 
         expect(state.status).toBe('processing');
-        expect(state.summary).toContain('1 active');
+        expect(state.active).toBe(1);
+        // Not paused: there is no "Closed" breaker time to show.
+        expect(state.pausedUntil).toBeNull();
+    });
+
+    it('reports when video analysis is paused after repeated failures, and until when', () => {
+        const state = getVideoClassifierCardState({
+            video_classifier: { circuit_open: true, failure_count: 5, open_until: '2026-11-15T14:05:00Z' }
+        });
+        expect(state.status).toBe('open');
+        expect(state.paused).toBe(true);
+        expect(state.pausedUntil).toBe('2026-11-15T14:05:00Z');
+        expect(state.failureCount).toBe(5);
     });
 
     it('prefers the explicit backend status when it is available', () => {

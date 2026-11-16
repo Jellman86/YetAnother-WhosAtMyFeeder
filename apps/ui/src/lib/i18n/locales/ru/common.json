@@ -72,5 +72,6 @@
   "diagnostic_state_passed": "Пройдено",
   "diagnostic_state_failed": "Не пройдено",
   "diagnostic_state_warning": "Пройдено с предупреждением",
-  "diagnostic_state_skipped": "Не выполнялось"
+  "diagnostic_state_skipped": "Не выполнялось",
+  "technical_details": "Технические подробности"
 }

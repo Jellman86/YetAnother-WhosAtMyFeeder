@@ -36,7 +36,7 @@
   "settings_updated_message": "Konfiguration erfolgreich geändert.",
   "live_updates_disconnected_title": "Verbindung wird wiederhergestellt…",
   "live_updates_disconnected_message": "Live-Updates verbinden sich im Hintergrund erneut.",
-  "system_health_title": "Warnung zum Systemstatus",
+  "system_health_title": "Zustand braucht Aufmerksamkeit",
   "system_health_message": "Systemstatus: {status}",
   "open_action": "Öffnen",
   "global_progress_last": "Vor {age} aktualisiert",
@@ -69,5 +69,12 @@
   "filter_group": "Benachrichtigungen filtern",
   "count_unread_unit": "{count, plural, one {ungelesen} other {ungelesen}}",
   "cleared": "{count, plural, one {# Benachrichtigung gelöscht.} other {# Benachrichtigungen gelöscht.}}",
-  "owner_only_note": "Hintergrundaufgaben sowie Zustands- und Systemereignisse werden nur dir angezeigt, nicht Besuchern."
+  "owner_only_note": "Hintergrundaufgaben sowie Zustands- und Systemereignisse werden nur dir angezeigt, nicht Besuchern.",
+  "system_health_cause": {
+    "mqtt_down": "Der MQTT-Broker ist nicht verbunden, daher können keine neuen Erkennungen ankommen.",
+    "mqtt_not_configured": "Es ist kein MQTT-Broker eingestellt, daher können keine Erkennungen ankommen.",
+    "frigate_down": "Frigate antwortet nicht, daher können neue Erkennungen nicht gespeichert werden.",
+    "pipeline_critical": "Die Erkennungs-Pipeline hat einen kritischen Fehler.",
+    "other": "Etwas funktioniert nicht wie vorgesehen. Öffnen Sie die Seite Zustand, um zu sehen, was."
+  }
 }

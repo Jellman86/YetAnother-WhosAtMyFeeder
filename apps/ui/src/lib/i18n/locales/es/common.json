@@ -72,5 +72,6 @@
   "diagnostic_state_passed": "Superada",
   "diagnostic_state_failed": "Fallida",
   "diagnostic_state_warning": "Superada con un aviso",
-  "diagnostic_state_skipped": "No ejecutada"
+  "diagnostic_state_skipped": "No ejecutada",
+  "technical_details": "Detalles técnicos"
 }

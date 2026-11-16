@@ -28,7 +28,8 @@ export interface PresentedWorkLane {
 export interface PresentedGlobalProgressSummary {
     headline: string;
     subline: string;
-    progressLabel: string;
+    /** Measured progress in words, or null when there is no common total to measure against. */
+    progressLabel: string | null;
     determinate: boolean;
     percent: number | null;
 }
@@ -43,17 +44,31 @@ function formatRunningHeadline(count: number, t: JobsTranslateFn): string {
     return t('jobs.global_running_multi', { count }, '{count, plural, one {# job running} other {# jobs running}}');
 }
 
-/** A job that has stopped reporting is not running; the headline must not say it is. */
+/**
+ * Every active job counted once, by the state it reports: running, queued, or stopped reporting.
+ * A queued or silent job is never called running, and the counts add up to the total shown.
+ */
 function formatActiveHeadline(activeJobs: JobProgressItem[], t: JobsTranslateFn): string {
-    const running = activeJobs.filter((job) => job.status !== 'stale').length;
-    if (running === 0 && activeJobs.length > 0) {
-        return t(
-            'jobs.global_not_responding',
-            { count: activeJobs.length.toLocaleString() },
-            '{count} not responding'
-        );
+    const queued = activeJobs.filter((job) => job.status === 'queued').length;
+    const stale = activeJobs.filter((job) => job.status === 'stale').length;
+    const running = activeJobs.length - queued - stale;
+    if (queued === 0 && stale === 0) return formatRunningHeadline(running, t);
+    if (running === 0 && stale === 0) {
+        return t('jobs.global_queued_only', { count: queued }, '{count, plural, one {# job queued} other {# jobs queued}}');
     }
-    return formatRunningHeadline(running, t);
+    if (running === 0 && queued === 0) {
+        return t('jobs.global_not_responding', { count: stale.toLocaleString() }, '{count} not responding');
+    }
+    const parts = [
+        running > 0 ? t('jobs.lane_running_count', { count: running.toLocaleString() }, '{count} running') : null,
+        queued > 0 ? t('jobs.lane_queued_count', { count: queued.toLocaleString() }, '{count} queued') : null,
+        stale > 0 ? t('jobs.global_not_responding', { count: stale.toLocaleString() }, '{count} not responding') : null
+    ].filter((part): part is string => part !== null);
+    return t(
+        'jobs.global_breakdown',
+        { count: activeJobs.length, parts: parts.join(', ') },
+        '{count, plural, one {# job} other {# jobs}}: {parts}'
+    );
 }
 
 function supportsReclassifyQueueStatus(kind: string): boolean {
@@ -119,9 +134,9 @@ function resolveSummarySubline(
     }
     const activityLabel = resolveActivityLabel(job, row, analysisStatus, t);
     return t(
-        'jobs.global_summary_basic',
+        'jobs.global_summary_activity',
         { kind: label, activity: lowercaseLeadingChar(activityLabel) },
-        '{kind} {activity}'
+        '{kind}: {activity}'
     );
 }
 
@@ -131,6 +146,9 @@ function resolveActivityLabel(
     analysisStatus: AnalysisStatus | null | undefined,
     t: JobsTranslateFn
 ): string {
+    if (job.phase === 'waiting_for_frigate') {
+        return t('jobs.activity_waiting_for_frigate', undefined, 'Waiting for Frigate to answer');
+    }
     if (job.phase === 'waiting') {
         return t('jobs.activity_waiting', undefined, 'Waiting for a worker');
     }
@@ -254,18 +272,7 @@ function formatLaneCounts(row: JobPipelineKindRow, t: JobsTranslateFn): { runnin
 
 function formatLaneSummarySubline(row: JobPipelineKindRow, t: JobsTranslateFn): string {
     const counts = formatLaneCounts(row, t);
-    const capacity = normalizeCount(row.maxConcurrentEffective) || normalizeCount(row.maxConcurrentConfigured);
-    const capacityLabel = capacity > 0
-        ? t('jobs.global_capacity_ratio', {
-            running: normalizeCount(row.running).toLocaleString(),
-            capacity: capacity.toLocaleString()
-        }, 'capacity {running} / {capacity}')
-        : null;
-    return [
-        counts.runningLabel,
-        counts.queuedLabel,
-        capacityLabel
-    ].filter((value): value is string => Boolean(value)).join(' • ');
+    return [counts.runningLabel, counts.queuedLabel].join(' · ');
 }
 
 function resolveBlockerLabel(
@@ -361,7 +368,7 @@ export function buildGlobalProgressSummary(
                     state: lowercaseLeadingChar(lane.stateLabel)
                 }, '{title} {state}'),
                 subline: formatLaneSummarySubline(dominantRow, t),
-                progressLabel: lane.blockerLabel ?? lane.batchLabel ?? lane.freshnessLabel ?? t('jobs.progress_working', undefined, 'Working...'),
+                progressLabel: lane.blockerLabel ?? lane.batchLabel ?? lane.freshnessLabel,
                 determinate: false,
                 percent: null
             };
@@ -369,7 +376,7 @@ export function buildGlobalProgressSummary(
         return {
             headline: formatRunningHeadline(0, t),
             subline: t('jobs.activity_processing', undefined, 'Processing work'),
-            progressLabel: t('jobs.progress_working', undefined, 'Working...'),
+            progressLabel: null,
             determinate: false,
             percent: null
         };
@@ -386,7 +393,8 @@ export function buildGlobalProgressSummary(
     const units = new Set(activeJobs.map((job) => resolveProgressUnit(job)));
     const kinds = new Set(activeJobs.map((job) => job.kind));
     const compatible = units.size === 1 && kinds.size === 1 && activeJobs.every((job) => job.total > 0 && job.current >= 0);
-    let progressLabel = t('jobs.progress_working', undefined, 'Working...');
+    // Jobs with different units or kinds have no common total, so no bar or figure is drawn for them.
+    let progressLabel: string | null = null;
     let percent: number | null = null;
 
     if (compatible) {
@@ -395,17 +403,11 @@ export function buildGlobalProgressSummary(
         const unit = resolveProgressUnit(activeJobs[0]);
         progressLabel = formatProgress(current, total, unit, t);
         percent = total > 0 ? Math.min(100, Math.max(0, Math.round((current / total) * 100))) : null;
-    } else if (units.size > 1) {
-        progressLabel = t(
-            'jobs.global_summary_mixed_units',
-            undefined,
-            'Multiple jobs in progress'
-        );
     }
 
     return {
         headline: formatActiveHeadline(activeJobs, t),
-        subline: dominantRow ? formatLaneSummarySubline(dominantRow, t) : resolveSummarySubline(dominantJob, dominantRow, analysisStatus, t, kindLabel),
+        subline: resolveSummarySubline(dominantJob, dominantRow, analysisStatus, t, kindLabel),
         progressLabel,
         determinate: compatible,
         percent

@@ -6,6 +6,7 @@ import { isTransientGatewayError } from '../api/error-message';
 import { formatBackfillProgressSummary, resolveRunningBackfillMessage } from '../backfill/progress';
 import { formatTerminalBackfillMessage } from '../backfill/terminal-message';
 import { notificationPolicy } from '../notifications/policy';
+import { healthNotificationCause } from '../utils/health-notification';
 
 const STALE_PROCESS_MAX_AGE_MS = 45 * 60 * 1000;
 const ORPHAN_PROCESS_GRACE_MS = 2 * 60 * 1000;
@@ -312,14 +313,16 @@ export class LiveUpdateCoordinator {
             this.reconcileSyntheticBatchFromHealth(health);
             const status = String(health?.status ?? '').trim().toLowerCase();
             if (status && !this.isSystemHealthyStatus(status)) {
-                const id = `system:health:${startupInstanceId}`;
-                this.removeNotificationsByPrefix('system:health');
+                // The message is the cause, not the backend's word for the state; a new cause replaces it.
+                const cause = healthNotificationCause(health);
+                const id = `system:health:${startupInstanceId}:${cause}`;
                 if (!this.deps.notificationCenter.items.some((item) => item.id === id)) {
+                    this.removeNotificationsByPrefix('system:health');
                     this.deps.notificationCenter.add({
                         id,
                         type: 'system',
                         title: this.deps.t('notifications.system_health_title'),
-                        message: this.deps.t('notifications.system_health_message', { status: String(health?.status ?? 'unknown') }),
+                        message: this.deps.t(`notifications.system_health_cause.${cause}`),
                         meta: { source: 'health', route: '/system-health' }
                     });
                 }

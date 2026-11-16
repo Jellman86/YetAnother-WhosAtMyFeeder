@@ -184,6 +184,8 @@ async def test_mqtt_service_reports_a_failed_connection_attempt(monkeypatch):
     status = service.connection.snapshot(server="mqtt.invalid", port=1883)
     assert status.state == "disconnected"
     assert status.last_error == "[Errno -2] Name or service not known"
+    # Health words the cause from this code instead of showing the resolver's errno text.
+    assert status.last_error_cause == "host_not_found"
     assert service.get_status()["connection_state"] == "disconnected"
 
 

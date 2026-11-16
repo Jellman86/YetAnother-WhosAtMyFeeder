@@ -1,6 +1,6 @@
 {
   "stack_trace": "Traccia dello stack:",
-  "server_failure": "Qualcosa sul server ha interrotto questa richiesta. Riprova; se continua a succedere, apri Stato del sistema per vedere cosa non va.",
+  "server_failure": "Qualcosa sul server ha interrotto questa richiesta. Riprova; se continua a succedere, apri Stato per vedere cosa non va.",
   "connection": {
     "service_mqtt": "Broker MQTT",
     "host_not_found": "{service}: il nome host in {address} non è stato trovato. Controlla l’indirizzo.",
