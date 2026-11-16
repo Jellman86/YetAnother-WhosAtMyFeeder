@@ -51,8 +51,13 @@ function classStrings(): string[] {
 
 /** Whether the mode names this fill class in a rule of its own, as `.bg-x` or `[class~='bg-x']`. */
 function repaintedByName(fill: string): boolean {
-    const escaped = fill.replace(/[:/]/g, '\\$&');
-    return highContrast.includes(`[class~='${fill}']`) || new RegExp(`\\.${escaped.replace(/\\/g, '\\\\')}(?![\\w/\\\\-])`).test(highContrast);
+    if (highContrast.includes(`[class~='${fill}']`)) return true;
+    // As a class selector the variant colon is written `\\:`; the name must end where the class does.
+    const selector = `.${fill.split(':').join('\\:')}`;
+    for (let at = highContrast.indexOf(selector); at >= 0; at = highContrast.indexOf(selector, at + 1)) {
+        if (!/[\w/\\-]/.test(highContrast[at + selector.length] ?? '')) return true;
+    }
+    return false;
 }
 
 function declaredIn(selector: string): Map<string, string> {
