@@ -86,6 +86,7 @@ async def test_cached_reference_photo_is_bounded_without_writing_or_refreshing(m
         "LC",
         now.isoformat(),
         42,
+        1,
     )
     repository = AsyncMock()
     repository.get_cached_info.return_value = row

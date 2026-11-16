@@ -3,8 +3,12 @@
 A summary that mentions a scientific name is not about that taxon: a mite's
 article names its host, a hawk's its prey, a genus its species, and all of them
 can do so in the opening sentence. An article is about a taxon when the taxon
-is its subject, which shows in two places only:
+is its subject, which is established in one of three ways. The last two read the text and are
+the fallback for a taxon whose record links no article:
 
+- the article is the one the taxon's own record links to (iNaturalist's `wikipedia_url`). That
+  link is a structured identity and needs no reading of the text, which matters because
+  Wikipedia's REST summary leaves the scientific-name parenthetical out of its extract; or
 - the title is the scientific name; or
 - the opening sentence presents the name as what the article defines. It opens
   with the name, or carries it in the parenthetical that comes straight after the
@@ -24,6 +28,7 @@ from __future__ import annotations
 import re
 import unicodedata
 from collections.abc import Iterable
+from urllib.parse import unquote, urlparse
 
 _SENTENCE_END = re.compile(r"[.!?](?=\s|$)|[。！？]")
 # The longest word before a full stop that is read as an initial or abbreviation ("L.", "St.").
@@ -180,6 +185,19 @@ def linked_article_names_taxon(article: dict, scientific_name: str | None) -> bo
     return _contains(text, name) is not None
 
 
+def linked_article(wikipedia_url: str | None) -> tuple[str, str] | None:
+    """The language and title of the article a taxon's record links to, or None for anything else."""
+    parsed = urlparse(str(wikipedia_url or "").strip())
+    host = (parsed.hostname or "").casefold()
+    if parsed.scheme not in ("http", "https") or not host.endswith(".wikipedia.org") or "/wiki/" not in parsed.path:
+        return None
+    language = host.split(".")[0]
+    title = unquote(parsed.path.split("/wiki/", 1)[1]).replace("_", " ").strip()
+    if not title or not re.fullmatch(r"[a-z][a-z\-]{1,11}", language):
+        return None
+    return language, title
+
+
 def cached_reference_describes_taxon(
     *,
     title: str | None,
@@ -188,21 +206,25 @@ def cached_reference_describes_taxon(
     cached_scientific_name: str | None,
     scientific_name: str | None,
     aliases: Iterable[str] = (),
+    identity_checked: bool = False,
 ) -> bool:
     """Whether a cached reference may be shown for the taxon now being asked about.
 
-    Entries cached before identity was checked can hold another subject's text, so a cached
-    entry is held to the rule a fresh one is. A Wikipedia summary must have the taxon as its
-    subject; a summary from a taxon record (iNaturalist, eBird) must be that taxon's, by its
-    name or a trusted synonym. With no summary, or no known taxon to check against, there is
-    nothing to refuse.
+    A Wikipedia summary's text rarely names its taxon, so its identity is established when it is
+    fetched (the article the taxon's record links to) and kept with the row as
+    `identity_checked`: such a row is the taxon's when it was saved for this name or a trusted
+    synonym. A row from before that was recorded can hold another subject's text, so it is held
+    to the subject rule, and looked up again when it fails. A summary from a taxon record
+    (iNaturalist, eBird) must be that taxon's by name. With no summary, or no known taxon to
+    check against, there is nothing to refuse.
     """
     name = _words(scientific_name)
     if not name or not extract:
         return True
-    if (summary_source or "").casefold() == "wikipedia":
-        return article_describes_taxon({"title": title, "extract": extract}, scientific_name, aliases)
     cached = _words(cached_scientific_name)
-    if not cached:
-        return True
-    return cached == name or cached in {_words(alias) for alias in aliases}
+    same_taxon = bool(cached) and (cached == name or cached in {_words(alias) for alias in aliases})
+    if (summary_source or "").casefold() == "wikipedia":
+        if identity_checked and same_taxon:
+            return True
+        return article_describes_taxon({"title": title, "extract": extract}, scientific_name, aliases)
+    return same_taxon or not cached

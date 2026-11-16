@@ -6,6 +6,8 @@ such as a parasite's article listing its hosts, is not a description of it.
 """
 
 from datetime import datetime
+import json
+from pathlib import Path
 from unittest.mock import AsyncMock
 from urllib.parse import unquote
 
@@ -22,13 +24,17 @@ from app.routers import species as router
 
 REAL_ASYNC_CLIENT = httpx.AsyncClient
 
-STARLING = {
-    "title": "Common starling",
-    "description": "Species of bird",
-    "extract": "The common starling (Sturnus vulgaris), also known as the European starling, is a medium-sized passerine bird.",
-    "thumbnail": {"source": "https://example.com/starling.jpg"},
-    "content_urls": {"desktop": {"page": "https://en.wikipedia.org/wiki/Common_starling"}},
-}
+# The captured REST summary of the starling's article and the iNaturalist record that links to it.
+# A real summary does not carry the scientific name, so it is reached through the record's link.
+_STARLING = next(
+    entry
+    for entry in json.loads((Path(__file__).parent / "fixtures" / "wikipedia_rest_summaries.json").read_text("utf-8"))[
+        "others"
+    ]
+    if entry["scientific_name"] == "Sturnus vulgaris"
+)
+STARLING = _STARLING["summary"]
+STARLING_TAXON = _STARLING["taxon"]
 LOUSE = {
     "title": "Brueelia nebulosa",
     "description": "Species of louse",
@@ -41,7 +47,22 @@ LOUSE = {
 
 
 @pytest.fixture
-def info_api(monkeypatch):
+def inaturalist_taxa() -> list[dict]:
+    """The taxon records iNaturalist answers with; none unless a test adds one."""
+    return []
+
+
+def _inaturalist(request, taxa: list[dict]) -> httpx.Response:
+    asked = request.url.params.get("q", "").casefold()
+    last = request.url.path.rsplit("/", 1)[-1]
+    found = [
+        taxon for taxon in taxa if (str(taxon["id"]) == last if last.isdigit() else taxon["name"].casefold() == asked)
+    ]
+    return httpx.Response(200, json={"results": found})
+
+
+@pytest.fixture
+def info_api(monkeypatch, inaturalist_taxa):
     app = FastAPI()
     app.include_router(router.router, prefix="/api")
     app.dependency_overrides[router.get_auth_context_with_legacy] = lambda: AuthContext("owner")
@@ -56,7 +77,7 @@ def info_api(monkeypatch):
 
     def response(request):
         if request.url.host == "api.inaturalist.org":
-            return httpx.Response(200, json={"results": []})
+            return _inaturalist(request, inaturalist_taxa)
         if request.url.path.endswith("/w/api.php"):
             return httpx.Response(200, json={"query": {"search": [{"title": title} for title in search]}})
         # Wikipedia resolves a title whatever its capitalisation.
@@ -88,9 +109,10 @@ def test_a_searched_article_that_only_mentions_the_bird_is_not_its_description(i
     assert saved.extract is None, "a mismatched description must not be cached"
 
 
-def test_the_birds_own_article_is_still_found_by_search(info_api, monkeypatch):
+def test_the_birds_own_article_is_reached_through_its_taxons_link(info_api, inaturalist_taxa, monkeypatch):
     api, articles, search = info_api
     monkeypatch.setattr(router, "_lookup_scientific_name", AsyncMock(return_value="Sturnus vulgaris"))
+    inaturalist_taxa.append(STARLING_TAXON)
     articles[LOUSE["title"]] = LOUSE
     articles[STARLING["title"]] = STARLING
     search.extend([LOUSE["title"], STARLING["title"]])
@@ -98,7 +120,17 @@ def test_the_birds_own_article_is_still_found_by_search(info_api, monkeypatch):
     body = api.get("/api/species/European%20Starling/info").json()
 
     assert body["title"] == "Common starling"
+    assert "Sturnus vulgaris" not in body["extract"], "the real summary does not name its taxon"
     assert "passerine" in body["extract"]
+
+
+def test_without_a_link_the_birds_real_summary_cannot_be_checked_and_is_not_shown(info_api, monkeypatch):
+    api, articles, search = info_api
+    monkeypatch.setattr(router, "_lookup_scientific_name", AsyncMock(return_value="Sturnus vulgaris"))
+    articles[STARLING["title"]] = STARLING
+    search.append(STARLING["title"])
+
+    assert api.get("/api/species/European%20Starling/info").json()["extract"] is None
 
 
 def test_a_bird_the_taxonomy_does_not_know_keeps_the_name_based_search(info_api, monkeypatch):
@@ -129,7 +161,7 @@ def seeded_cache_api(monkeypatch):
     def response(request):
         requests.append(str(request.url))
         if request.url.host == "api.inaturalist.org":
-            return httpx.Response(200, json={"results": []})
+            return _inaturalist(request, [STARLING_TAXON])
         if request.url.path.endswith("/w/api.php"):
             return httpx.Response(200, json={"query": {"search": [{"title": STARLING["title"]}]}})
         title = unquote(request.url.path.split("/")[-1]).replace("_", " ").casefold()
@@ -145,7 +177,7 @@ def seeded_cache_api(monkeypatch):
         yield api, requests
 
 
-async def _seed_cached_description(info: SpeciesInfo) -> None:
+async def _seed_cached_description(info: SpeciesInfo, *, identity_checked: bool = False) -> None:
     async with get_db() as db:
         await db.execute("DELETE FROM species_info_cache WHERE species_name = ?", ("European Starling",))
         await db.commit()
@@ -155,6 +187,7 @@ async def _seed_cached_description(info: SpeciesInfo) -> None:
             language="en",
             values=info.model_dump(),
             cached_at=datetime.now(),
+            identity_checked=identity_checked,
         )
 
 
@@ -205,7 +238,8 @@ async def test_a_cached_description_of_the_right_bird_is_still_served_without_a_
             summary_source="Wikipedia",
             scientific_name="Sturnus vulgaris",
             cached_at=datetime.now(),
-        )
+        ),
+        identity_checked=True,
     )
 
     body = api.get("/api/species/European%20Starling/info").json()

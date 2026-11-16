@@ -32,6 +32,7 @@ from app.services.ebird_service import ebird_service
 from app.services.reference_identity import (
     article_describes_taxon,
     cached_reference_describes_taxon,
+    linked_article,
     linked_article_names_taxon,
 )
 from app.services.species_catalog_resolver import species_catalog_resolver
@@ -457,6 +458,7 @@ async def _get_cached_species_info(
         cached_at=cached_at,
         taxa_id=row[12],
     )
+    info.mark_identity_checked(bool(row[13]))
 
     if _is_cache_valid(info, cached_at, cache_key):
         _wiki_cache[cache_key] = (info, cached_at or datetime.now())
@@ -476,6 +478,7 @@ async def _save_species_info(species_name: str, taxa_id: int | None, language: s
             language=language,
             values=info.model_dump(),
             cached_at=cached_at,
+            identity_checked=info.identity_checked,
         )
 
 
@@ -1522,6 +1525,7 @@ async def get_species_info(
         cached_scientific_name=cached_info.scientific_name,
         scientific_name=known_scientific_name,
         aliases=_trusted_synonyms(known_scientific_name),
+        identity_checked=cached_info.identity_checked,
     ):
         return cached_info
     if cached_info:
@@ -1533,12 +1537,14 @@ async def get_species_info(
     primary = summary_sources[0]
 
     if primary == "wikipedia":
-        info = await _fetch_wikipedia_info(species_name, lang, expected_scientific_name=known_scientific_name)
+        record = await _taxon_record(species_name, lang, known_scientific_name)
+        info = await _wikipedia_info_for_taxon(species_name, lang, known_scientific_name, record)
         if info.extract:
             info.summary_source = info.source
             info.summary_source_url = info.source_url
         if not info.extract or not info.thumbnail_url:
-            inat_info = await _fetch_inaturalist_info(
+            # The taxon's own record when iNaturalist has one of that exact name, else its best match.
+            inat_info = record or await _fetch_inaturalist_info(
                 species_name,
                 lang,
                 expected_scientific_name=info.scientific_name or known_scientific_name,
@@ -1562,23 +1568,17 @@ async def get_species_info(
 
         # Fallback to Wikipedia for text/images
         if not info.extract or not info.thumbnail_url:
-            wiki_info = await _fetch_wikipedia_info(
-                search_name,
-                lang,
-                expected_scientific_name=info.scientific_name,
-            )
+            record = await _taxon_record(search_name, lang, info.scientific_name)
+            wiki_info = await _wikipedia_info_for_taxon(search_name, lang, info.scientific_name, record)
             # If search by eBird name failed, try original name
             if not wiki_info.extract and search_name != species_name:
-                wiki_info = await _fetch_wikipedia_info(
-                    species_name,
-                    lang,
-                    expected_scientific_name=info.scientific_name,
-                )
+                wiki_info = await _wikipedia_info_for_taxon(species_name, lang, info.scientific_name, None)
 
             if wiki_info.extract:
                 info.extract = wiki_info.extract
                 info.summary_source = wiki_info.source
                 info.summary_source_url = wiki_info.source_url
+                info.mark_identity_checked(wiki_info.identity_checked)
             if wiki_info.thumbnail_url:
                 info.thumbnail_url = wiki_info.thumbnail_url
             if wiki_info.wikipedia_url:
@@ -1610,19 +1610,12 @@ async def get_species_info(
             expected_scientific_name=None,
         )
         if not info.extract or not info.thumbnail_url:
-            wiki_info = None
-            if info.wikipedia_url:
-                wiki_info = await _fetch_wikipedia_info_from_url(info.wikipedia_url, species_name, lang)
-            if not wiki_info:
-                wiki_info = await _fetch_wikipedia_info(
-                    species_name,
-                    lang,
-                    expected_scientific_name=info.scientific_name,
-                )
+            wiki_info = await _wikipedia_info_for_taxon(species_name, lang, info.scientific_name, info)
             if not info.extract and wiki_info.extract:
                 info.extract = wiki_info.extract
                 info.summary_source = wiki_info.source
                 info.summary_source_url = wiki_info.source_url
+                info.mark_identity_checked(wiki_info.identity_checked)
             if not info.thumbnail_url and wiki_info.thumbnail_url:
                 info.thumbnail_url = wiki_info.thumbnail_url
             if not info.wikipedia_url and wiki_info.wikipedia_url:
@@ -1771,16 +1764,19 @@ async def _get_taxon_reference_info(
         _wiki_cache[cache_key] = (info, datetime.now())
         return info
 
-    providers = (
-        (_fetch_wikipedia_info, _fetch_inaturalist_info)
-        if _resolve_summary_sources()[0] == "wikipedia"
-        else (_fetch_inaturalist_info, _fetch_wikipedia_info)
-    )
-    info = await providers[0](species_name, lang, scientific_name, require_scientific_name=True)
-    # Only iNaturalist records the IUCN category, so it is asked even when Wikipedia answered.
-    needs_status = info.conservation_status is None and providers[1] is _fetch_inaturalist_info
-    if not info.extract or not info.thumbnail_url or needs_status:
-        fallback = await providers[1](species_name, lang, scientific_name, require_scientific_name=True)
+    # The taxon's own record is read first whichever source leads: it carries the IUCN category,
+    # and the link to the one Wikipedia article that is about this taxon.
+    record = await _fetch_inaturalist_info(species_name, lang, scientific_name, require_scientific_name=True)
+
+    async def wikipedia() -> SpeciesInfo:
+        return await _wikipedia_info_for_taxon(
+            species_name, lang, scientific_name, record, require_scientific_name=True
+        )
+
+    wikipedia_first = _resolve_summary_sources()[0] == "wikipedia"
+    info = await wikipedia() if wikipedia_first else record
+    if wikipedia_first or not info.extract or not info.thumbnail_url:
+        fallback = record if wikipedia_first else await wikipedia()
         if not info.conservation_status:
             info.conservation_status = fallback.conservation_status
         if not info.extract and fallback.extract:
@@ -1798,6 +1794,100 @@ async def _get_taxon_reference_info(
         if not info.scientific_name:
             info.scientific_name = fallback.scientific_name
     _wiki_cache[cache_key] = (info, datetime.now())
+    return info
+
+
+async def _taxon_record(species_name: str, lang: str, scientific_name: str | None) -> SpeciesInfo | None:
+    """iNaturalist's record of the taxon of exactly this name, or None when it has none or none is known."""
+    if not scientific_name:
+        return None
+    record = await _fetch_inaturalist_info(species_name, lang, scientific_name, require_scientific_name=True)
+    return record if record.source else None
+
+
+async def _wikipedia_info_for_taxon(
+    species_name: str,
+    lang: str,
+    scientific_name: str | None,
+    record: SpeciesInfo | None,
+    *,
+    require_scientific_name: bool = False,
+) -> SpeciesInfo:
+    """Wikipedia's description of a taxon.
+
+    The article the taxon's own record links to is its description, whatever its text says:
+    a REST summary leaves the scientific name out, so the text cannot be asked. Only a taxon
+    with no linked article is looked for by title and search, and what is found then has to
+    have the taxon as its subject. With no scientific name at all, the search is by name.
+    """
+    if scientific_name and record and record.wikipedia_url:
+        linked = await _fetch_linked_article(record.wikipedia_url, species_name, lang, scientific_name)
+        if linked:
+            return linked
+    if require_scientific_name:
+        found = await _fetch_wikipedia_info(species_name, lang, scientific_name, require_scientific_name=True)
+    else:
+        found = await _fetch_wikipedia_info(species_name, lang, expected_scientific_name=scientific_name)
+    # A search held to a scientific name only returns an article with that taxon as its subject.
+    found.mark_identity_checked(bool(scientific_name and found.extract))
+    return found
+
+
+async def _article_in_language(client: httpx.AsyncClient, language: str, title: str, wanted: str) -> str | None:
+    """The title of the same article in another language, from Wikipedia's own language links."""
+    response = await client.get(
+        f"https://{language}.wikipedia.org/w/api.php",
+        params={
+            "action": "query",
+            "prop": "langlinks",
+            "titles": title,
+            "lllang": wanted,
+            "lllimit": 1,
+            "redirects": 1,
+            "format": "json",
+        },
+    )
+    if response.status_code != 200:
+        return None
+    pages = (response.json().get("query") or {}).get("pages") or {}
+    for page in pages.values():
+        for link in page.get("langlinks") or []:
+            local = str(link.get("*") or "").strip()
+            if local and link.get("lang") == wanted:
+                return local
+    return None
+
+
+async def _fetch_linked_article(
+    wikipedia_url: str, species_name: str, lang: str, scientific_name: str
+) -> SpeciesInfo | None:
+    """The summary of exactly the article a taxon's record links to, in the reader's language.
+
+    Asked for by its title, so Wikipedia's own redirect is the only thing that can change which
+    article answers. The record links one language's article; another language is reached through
+    that article's language link, never by searching. None when there is no such article, so the
+    caller can fall back.
+    """
+    link = linked_article(wikipedia_url)
+    if link is None:
+        return None
+    language, title = link
+    headers = {"User-Agent": WIKIPEDIA_USER_AGENT, "Accept": "application/json"}
+    try:
+        async with httpx.AsyncClient(timeout=15.0, follow_redirects=True, headers=headers) as client:
+            if language != lang:
+                local = await _article_in_language(client, language, title, lang)
+                if not local:
+                    return None
+                language, title = lang, local
+            info = await _get_wikipedia_summary(client, title, species_name, language)
+    except httpx.HTTPError as error:
+        log.warning("Linked Wikipedia article could not be read", species=species_name, error=type(error).__name__)
+        return None
+    if not info.extract:
+        return None
+    info.scientific_name = scientific_name
+    info.mark_identity_checked()
     return info
 
 
@@ -1880,23 +1970,10 @@ async def _fetch_wikipedia_info_from_url(
     `identity_linked` is for the page a taxon's own iNaturalist record links to: the link is
     the identity, so the page only has to name the taxon rather than open with it.
     """
-    from urllib.parse import urlparse, unquote
-
-    parsed = urlparse(wikipedia_url)
-    path = parsed.path or ""
-    if "/wiki/" not in path:
+    link = linked_article(wikipedia_url)
+    if link is None:
         return None
-
-    host = parsed.hostname or ""
-    url_lang = lang
-    if host.endswith(".wikipedia.org"):
-        subdomain = host.split(".")[0]
-        if subdomain:
-            url_lang = subdomain
-
-    title = unquote(path.split("/wiki/")[-1].replace("_", " ")).strip()
-    if not title:
-        return None
+    url_lang, title = link
 
     headers = {
         "User-Agent": WIKIPEDIA_USER_AGENT,
@@ -2421,6 +2498,8 @@ async def _get_wikipedia_summary(
         response = await client.get(url)
         if response.status_code == 200:
             data = response.json()
+            if data.get("type") == "disambiguation":
+                return SpeciesInfo(title=original_name, cached_at=datetime.now())
             if expected_scientific_name:
                 about_the_taxon = (
                     linked_article_names_taxon(data, expected_scientific_name)
