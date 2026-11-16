@@ -10,10 +10,15 @@ import type { IdentificationStatus } from './identification-models';
  * - `queued`: its download has been started and has not finished.
  * - `validating`: installed, and being checked on this hardware.
  * - `failed`: installed, and it could not be loaded.
+ * - `loading`: installed, and being loaded; nothing does its work until that ends.
  * - `ready`: installed and waiting for work.
- * - `running`: doing its work now.
+ * - `running`: doing its work now, on evidence that it is.
+ * - `unknown`: a report arrived and gave no evidence either way, so no state is claimed.
+ *
+ * The server's `identification_readiness` uses the same words for the states it can measure, and
+ * both are held to `backend/tests/fixtures/model_readiness_cases.json`.
  */
-export type ModelReadiness = 'checking' | 'missing' | 'queued' | 'validating' | 'failed' | 'ready' | 'running';
+export type ModelReadiness = 'checking' | 'missing' | 'queued' | 'validating' | 'failed' | 'loading' | 'ready' | 'running' | 'unknown';
 
 /** Work the page itself started on the model, which the model's own report does not show. */
 export interface ModelActivity {
@@ -27,6 +32,7 @@ export function identificationReadiness(status: IdentificationStatus, activity: 
     if (status.kind === 'missing') return activity.downloading ? 'queued' : 'missing';
     if (activity.validating) return 'validating';
     if (status.kind === 'failed' || status.kind === 'unavailable') return 'failed';
+    if (status.kind === 'loading' || status.kind === 'unknown') return status.kind;
     return status.kind === 'planned' ? 'ready' : 'running';
 }
 
@@ -74,9 +80,13 @@ export function readinessLabel(readiness: ModelReadiness, t: Translate): string 
             return t('settings.models.readiness_validating', { default: 'Being checked on this hardware' });
         case 'failed':
             return t('settings.models.readiness_failed', { default: 'Could not load' });
+        case 'loading':
+            return t('settings.models.readiness_loading', { default: 'Loading' });
         case 'ready':
             return t('settings.models.readiness_ready', { default: 'Ready' });
         case 'running':
             return t('settings.models.readiness_running', { default: 'Running' });
+        case 'unknown':
+            return t('settings.models.readiness_unknown', { default: 'Not reported' });
     }
 }

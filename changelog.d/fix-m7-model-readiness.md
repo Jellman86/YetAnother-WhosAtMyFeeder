@@ -1,7 +1,9 @@
 - A model's state is said in the same words everywhere: **Needs a download**, **Downloading**,
-  **Being checked on this hardware**, **Ready**, **Running** or **Could not load**. Settings →
-  Models, the setup wizard's review, About and Garden records all take it from one rule, so they
-  can no longer contradict each other.
+  **Being checked on this hardware**, **Loading**, **Ready**, **Running** or **Could not load**.
+  Settings → Models, the setup wizard's review, About and Garden records all take it from one
+  rule, so they can no longer contradict each other. A model that is still loading is not called
+  running, and when the classifier's report gives no evidence either way the state reads
+  **Not reported** rather than a guess.
 - While the chosen identification model needs a download or a recovery, that is the only primary
   button on Settings → Models. The recommended model's button is secondary and says what it does
   ("Download and switch to this model").

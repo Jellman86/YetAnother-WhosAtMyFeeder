@@ -1,6 +1,9 @@
+// @ts-expect-error -- node:fs resolves at runtime, not in the app tsconfig
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import type { ClassifierStatus } from '../api/classifier';
 import type { GardenIdentificationStatus } from '../api/garden';
-import type { IdentificationStatus } from './identification-models';
+import { identificationStatus, type IdentificationStatus } from './identification-models';
 import { gardenCheckReadiness, identificationReadiness, readinessAction, readinessLabel, setupEmphasis } from './model-readiness';
 
 const t = (key: string, options?: { default?: string }): string => options?.default ?? key;
@@ -13,6 +16,16 @@ const failed: IdentificationStatus = { kind: 'failed', ...named, cause: 'runtime
 const unavailable: IdentificationStatus = { kind: 'unavailable', ...named };
 
 describe('one readiness state for the identification model', () => {
+    it('is loading while an in-app model is being loaded, and unknown when the report gives no evidence: neither is running', () => {
+        expect(identificationReadiness({ kind: 'loading', ...named })).toBe('loading');
+        expect(identificationReadiness({ kind: 'unknown', ...named })).toBe('unknown');
+        expect(readinessLabel('loading', t)).toBe('Loading');
+        expect(readinessLabel('unknown', t)).toBe('Not reported');
+        // Neither is something the owner has to act on, and neither is a primary action's reason.
+        expect(readinessAction('loading')).toBeNull();
+        expect(readinessAction('unknown')).toBeNull();
+    });
+
     it('is still checking until the classifier has answered', () => {
         expect(identificationReadiness({ kind: 'checking' })).toBe('checking');
     });
@@ -108,5 +121,16 @@ describe('the word for each state, the same on every surface', () => {
         expect(readinessLabel('failed', t)).toBe('Could not load');
         expect(readinessLabel('ready', t)).toBe('Ready');
         expect(readinessLabel('running', t)).toBe('Running');
+    });
+});
+
+describe('the readiness word and the server read a classifier report the same way', () => {
+    // The cases the server's `identification_readiness` is tested against (backend/tests/pure).
+    const shared = JSON.parse(
+        readFileSync(new URL('../../../../../backend/tests/fixtures/model_readiness_cases.json', import.meta.url), 'utf8')
+    ) as { cases: Array<{ name: string; status: ClassifierStatus | null; readiness: string }> };
+
+    it.each(shared.cases)('$name', ({ status, readiness }) => {
+        expect(identificationReadiness(identificationStatus(status))).toBe(readiness);
     });
 });

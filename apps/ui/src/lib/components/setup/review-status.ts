@@ -49,10 +49,10 @@ export function reviewStatusTone(section: SetupSectionState, model: ModelReadine
 }
 
 /**
- * The model row reads the classifier's own report once it has arrived, in the words the model step
- * uses. A retired model or a detector saved as the classifier is the server's finding and stays.
+ * The model row reads the classifier's own report once it has arrived and says something, in the
+ * words the model step uses. A retired model or a detector saved as the classifier is the server's finding and stays.
  */
 function modelFollowsReadiness(section: SetupSectionState, model: ModelReadiness | null): model is ModelReadiness {
-    if (section.id !== 'model' || model === null || model === 'checking') return false;
+    if (section.id !== 'model' || model === null || model === 'checking' || model === 'unknown') return false;
     return section.detail_code !== 'model_retired' && section.detail_code !== 'model_wrong_kind';
 }

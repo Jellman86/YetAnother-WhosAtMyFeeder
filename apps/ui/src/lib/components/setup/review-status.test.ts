@@ -66,4 +66,16 @@ describe("the review's word for each section", () => {
         expect(reviewStatusLabel(section({ status: 'attention', detail_code: 'model_retired' }), t, 'running')).toBe('Needs attention');
         expect(reviewStatusLabel(section({ id: 'cameras', detail_code: 'cameras_all' }), t, 'missing')).toBe('Configured');
     });
+
+    it('reads a loading model from the runtime report as loading, never as running or ready', () => {
+        const saved = section({ detail_code: 'model_selected' });
+        expect(reviewStatusLabel(saved, t, 'loading')).toBe('Loading');
+        expect(reviewStatusTone(saved, 'loading')).toBe('optional');
+    });
+
+    it("keeps the server's word when the runtime report gives no evidence", () => {
+        const saved = section({ status: 'optional', detail_code: 'model_selected' });
+        expect(reviewStatusLabel(saved, t, 'unknown')).toBe('Chosen');
+        expect(reviewStatusTone(saved, 'unknown')).toBe('optional');
+    });
 });
