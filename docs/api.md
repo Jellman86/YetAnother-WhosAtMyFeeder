@@ -1210,7 +1210,9 @@ worker-reported runtime.
 `reason_code` is a stable nullable enum: `mismatch`, `unfinished`, `no_photos`,
 `driver_changed`, `no_positive_baseline`, `superseded`, `interrupted`, `passed`,
 `gpu_recovery`, `no_accelerator` (no NPU or GPU could be opened; final for that
-runtime) or `ledger_unreadable` (the record of earlier checks is damaged, so automatic
+runtime), `no_full_frames` (the saved photos are crops or too small to judge a
+wide-frame finder; the check waits for at least three full camera frames without
+spending an attempt) or `ledger_unreadable` (the record of earlier checks is damaged, so automatic
 checks pause until an owner-run **Check devices** starts a new record). Consumers should prefer it over parsing the human-readable
 `reason`; the existing mismatch and unfinished sentences remain compatible.
 Legacy saved reports acquire a code when their state or known sentence identifies

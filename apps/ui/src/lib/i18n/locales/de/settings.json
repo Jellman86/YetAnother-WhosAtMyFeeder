@@ -1353,6 +1353,7 @@
     "bird_finder_runs_cause_unfinished": "{fact} (die Prüfung konnte nicht abgeschlossen werden)",
     "bird_finder_runs_interrupted": "CPU · die letzte Prüfung von {devices} wurde unterbrochen",
     "bird_finder_runs_waiting": "CPU · wartet auf gespeicherte Vogelfotos, um {devices} zu prüfen",
+    "bird_finder_runs_waiting_full_frames": "CPU · wartet auf vollständige Kamerabilder, um {devices} zu prüfen. Die gespeicherten Vogelfotos sind enge Ausschnitte, an denen sich ein Vogelsucher nicht prüfen lässt.",
     "bird_finder_runs_never": "CPU · auf diesem Host hat noch kein Beschleuniger eine Prüfung bestanden",
     "bird_finder_runs_cpu_only": "CPU · dieser Host bietet der Vogelsuche keinen Beschleuniger",
     "bird_finder_device_not_passed": "{provider} · auf diesem Host nicht bestanden",

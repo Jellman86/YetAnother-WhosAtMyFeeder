@@ -184,6 +184,12 @@ describe('finderRunsOn', () => {
         expect(finderRunsOn({ ...base, evidence: ['intel_npu', 'cpu'], execution, planned, check: check('succeeded', { checked_at: '2026-11-15T20:00:00Z' }) }))
             .toEqual({ kind: 'active', provider: 'cpu', checkedAt: '2026-11-15T21:00:00Z' });
     });
+    it('says when a waiting check needs full camera frames rather than any saved photo', () => {
+        expect(finderRunsOn({ ...base, check: check('waiting', { reason_code: 'no_full_frames' }) }))
+            .toEqual({ kind: 'waiting_full_frames', devices: ['intel_npu'] });
+        expect(finderRunsOn({ ...base, check: check('waiting', { reason_code: 'no_photos' }) }))
+            .toEqual({ kind: 'waiting', devices: ['intel_npu'] });
+    });
     it('does not date current evidence using a passing check from an older runtime', () => {
         expect(finderRunsOn({ ...base, savedProvider: 'intel_npu', evidence: ['intel_npu'], check: check('succeeded', { runtime_current: false }) }))
             .toMatchObject({ kind: 'passed', checkedAt: null });

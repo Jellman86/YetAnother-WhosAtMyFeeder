@@ -1353,6 +1353,7 @@
     "bird_finder_runs_cause_unfinished": "{fact} (la comprobación no pudo terminar)",
     "bird_finder_runs_interrupted": "CPU · la última comprobación de {devices} se interrumpió",
     "bird_finder_runs_waiting": "CPU · esperando fotos de aves guardadas para comprobar {devices}",
+    "bird_finder_runs_waiting_full_frames": "CPU · esperando fotogramas completos de la cámara para comprobar {devices}. Las fotos de aves guardadas son recortes cercanos y en ellos no se puede comprobar un buscador.",
     "bird_finder_runs_never": "CPU · ningún acelerador ha superado todavía una comprobación en este servidor",
     "bird_finder_runs_cpu_only": "CPU · este servidor no ofrece ningún acelerador al buscador",
     "bird_finder_device_not_passed": "{provider} · no superada en este servidor",

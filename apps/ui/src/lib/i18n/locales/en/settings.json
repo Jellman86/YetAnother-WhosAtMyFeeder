@@ -1353,6 +1353,7 @@
     "bird_finder_runs_cause_unfinished": "{fact} (the check could not finish)",
     "bird_finder_runs_interrupted": "CPU · the last check of {devices} was interrupted",
     "bird_finder_runs_waiting": "CPU · waiting for saved bird photos to check {devices}",
+    "bird_finder_runs_waiting_full_frames": "CPU · waiting for full camera frames to check {devices}. The saved bird photos are close crops, and a finder cannot be checked on those.",
     "bird_finder_runs_never": "CPU · no accelerator has passed a check on this host yet",
     "bird_finder_runs_cpu_only": "CPU · this host offers the finder no accelerator",
     "bird_finder_device_not_passed": "{provider} · not passed on this host",
