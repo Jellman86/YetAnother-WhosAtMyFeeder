@@ -22,7 +22,9 @@
     } from '../utils/pipeline-health';
     import { getFrigateMediaAdvisory, getVideoClassifierCardState } from '../errors/health';
     import { STATUS_PILL, STATUS_SURFACE, statusLabelKey, statusTone } from '../utils/status-tone';
-    import { connectionProblems, frigateCardStatus, healthVerdict, mqttCardStatus, type ConnectionProblem } from '../utils/connection-health';
+    import { connectionProblems, frigateCardStatus, healthVerdict, mqttCardStatus, pipelineCardStatus, type ConnectionProblem } from '../utils/connection-health';
+    import { diagnosticWordsKey } from '../utils/diagnostic-words';
+    import { connectionCauseMessage } from '../api/error-message';
     import { serviceConnectionsStore } from '../stores/service_connections.svelte';
     import { pageRefreshAction } from '../stores/page_refresh_action.svelte';
     import { detectionsStore } from '../stores/detections.svelte';
@@ -149,7 +151,16 @@
     let exportError = $state('');
     let refreshing = $state(false);
     let clearing = $state(false);
+    // The raw reason a read failed: kept for the technical details, never the page's own sentence.
     let refreshError = $state('');
+    let clearError = $state('');
+    /**
+     * Whether the verdict is a measurement. Before the first reading nothing is claimed; a failed
+     * first read says so; a failed refresh keeps the last reading and says how old it is.
+     */
+    const readState = $derived<'reading' | 'read' | 'stale' | 'failed'>(
+        workspacePayload ? (refreshError ? 'stale' : 'read') : refreshError ? 'failed' : 'reading'
+    );
 
     let workspaceCapturedAt = $derived.by(() => {
         const raw = workspacePayload?.backend_diagnostics?.captured_at;
@@ -217,14 +228,14 @@
 
     async function clearWorkspace() {
         clearing = true;
-        refreshError = '';
+        clearError = '';
         try {
             await incidentWorkspaceStore.clearRemote();
             jobDiagnosticsStore.clear();
             await incidentWorkspaceStore.refresh();
         } catch (error) {
             const message = error instanceof Error ? error.message : 'Failed to clear incident workspace';
-            refreshError = message;
+            clearError = message;
             jobDiagnosticsStore.recordError({
                 source: 'runtime',
                 component: 'incident_workspace',
@@ -340,7 +351,25 @@
 
     /** The hero's verdict: never healthy while the broker or Frigate is down or unread. */
     function verdict(): string {
+        if (!workspacePayload) return 'unknown';
         return withOpenIncidents(healthVerdict(overallStatus(), connections));
+    }
+
+    /** A backend reason code in the reader's words, with what to try, or null to keep its message. */
+    function diagnosticWords(reasonCode: string | null | undefined): { title: string; next: string } | null {
+        const key = diagnosticWordsKey(reasonCode);
+        if (!key) return null;
+        const title = $_(`jobs.diagnostic_words.${key}.title`, { default: '' });
+        const next = $_(`jobs.diagnostic_words.${key}.next`, { default: '' });
+        return title ? { title, next } : null;
+    }
+
+    /** An open incident as one title and one line under it, never the same sentence twice. */
+    function incidentItem(incident: { title: string; summary: string; primaryReasonCode: string }): { title: string; next: string | null } {
+        const worded = diagnosticWords(incident.primaryReasonCode);
+        if (worded) return { title: worded.title, next: worded.next || null };
+        const summary = incident.summary.trim();
+        return { title: incident.title, next: summary && summary !== incident.title.trim() ? summary : null };
     }
 
     /** An open incident is never shown beside a healthy verdict. */
@@ -386,25 +415,23 @@
         if (status === 'ok' || status === 'healthy') {
             return $_('jobs.errors_summary_healthy', { default: 'All monitored services look healthy right now.' });
         }
+        if (statusTone(status) === 'unknown') {
+            return $_('jobs.errors_summary_unknown', { default: 'This reading did not say whether YA-WAMF is working, so no state is claimed.' });
+        }
         if (status === 'degraded') {
             return $_('jobs.errors_summary_degraded', { default: 'Some subsystems are under pressure or recovering, but the app is still serving traffic.' });
         }
         return $_('jobs.errors_summary_faults', { default: 'The app is reporting active faults that need attention.' });
     }
 
+    /** When the verdict was measured; the pill beside it already says what it is. */
     function latestHealthLine(): string {
         if (!workspaceCapturedAt) return $_('jobs.errors_no_snapshot', { default: 'No health reading yet.' });
-        return $_('jobs.errors_latest_health', {
-            values: {
-                status: statusLabel(verdict()),
-                at: formatDateTime(workspaceCapturedAt)
-            },
-            default: 'Latest health: {status} at {at}'
-        });
+        return $_('jobs.errors_read_at', { values: { at: formatDateTime(workspaceCapturedAt) }, default: 'Read at {at}' });
     }
 
     function eventPipelineStatus(): string {
-        return eventPipelineVerdict(health?.event_pipeline, overallStatus());
+        return pipelineCardStatus(eventPipelineVerdict(health?.event_pipeline, overallStatus()), connections);
     }
 
     function eventPipelineSummary(): string {
@@ -412,6 +439,9 @@
         const criticalFailureActive = pipeline.critical_failure_active === true;
         const criticalFailures = asNumber(pipeline.critical_failures);
         const faults = faultDropCount(pipeline);
+        if (eventPipelineStatus() === 'unknown') {
+            return $_('jobs.errors_pipeline_unmeasured', { default: 'Nothing can arrive while the MQTT broker is not connected, so these counts do not show whether the pipeline works.' });
+        }
         if (criticalFailureActive) return $_('jobs.errors_pipeline_critical', { values: { count: criticalFailures }, default: '{count, plural, one {# critical failure recorded.} other {# critical failures recorded.}}' });
         if (criticalFailures > 0) return $_('jobs.errors_pipeline_historical', { values: { count: criticalFailures }, default: '{count, plural, one {# historical failure recorded; pipeline has since recovered.} other {# historical failures recorded; pipeline has since recovered.}}' });
         if (faults > 0) return $_('jobs.errors_pipeline_dropped', { values: { count: faults }, default: '{count, plural, one {# event was dropped by a fault.} other {# events were dropped by a fault.}}' });
@@ -514,6 +544,25 @@
         return null;
     }
 
+    /** The broker's last failure in words, from its cause code; its own text stays for the details. */
+    function mqttFailureCause(): string | null {
+        const link = connections?.mqtt;
+        if (!link || link.state !== 'disconnected' || !link.last_error) return null;
+        const worded = link.last_error_cause
+            ? connectionCauseMessage(link.last_error_cause, 'mqtt', `${link.server}:${link.port}`)
+            : null;
+        return worded ?? $_('jobs.errors_mqtt_cause_unknown', { default: 'The broker client gave a reason YA-WAMF does not recognise. It is shown under Technical details.' });
+    }
+
+    function videoSummary(): string {
+        if (videoClassifierCard.paused) {
+            return videoClassifierCard.pausedUntil
+                ? $_('jobs.errors_video_paused_until', { values: { at: at(videoClassifierCard.pausedUntil), count: videoClassifierCard.failureCount }, default: 'Video analysis is paused until {at}, after {count, plural, one {# failure} other {# failures}} in a row.' })
+                : $_('jobs.errors_video_paused', { values: { count: videoClassifierCard.failureCount }, default: 'Video analysis is paused after {count, plural, one {# failure} other {# failures}} in a row.' });
+        }
+        return $_('jobs.errors_video_not_paused', { values: { queued: videoClassifierCard.pending.toLocaleString(), running: videoClassifierCard.active.toLocaleString() }, default: 'Video analysis is not paused: {queued} waiting, {running} running.' });
+    }
+
     function mqttLoadSummary(): string {
         const mqtt = health?.mqtt ?? {};
         const pressure = asText(mqtt.pressure_level, 'unknown').toLowerCase();
@@ -558,7 +607,7 @@
         if (background.background_throttled) {
             return $_('jobs.errors_background_throttled', { values: { queued: asNumber(background.queued).toLocaleString() }, default: `Background work is throttled with ${asNumber(background.queued).toLocaleString()} items waiting.` });
         }
-        return $_('jobs.errors_background_summary', { values: { queued: asNumber(background.queued).toLocaleString(), inFlight: asNumber(background.in_flight).toLocaleString() }, default: `${asNumber(background.queued).toLocaleString()} queued background items, ${asNumber(background.in_flight).toLocaleString()} in flight.` });
+        return $_('jobs.errors_background_plain', { values: { queued: asNumber(background.queued).toLocaleString(), running: asNumber(background.in_flight).toLocaleString() }, default: 'Background work: {queued} waiting, {running} running.' });
     }
 
     function dispatcherStatus(): string {
@@ -711,73 +760,107 @@
     }
 </script>
 
+{#snippet subsystemHead(title: string, chip: string, tone: string, rawStatus: string)}
+    <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+        <h4 class="text-sm font-bold text-slate-900 dark:text-white">{title}</h4>
+        <!-- The state in words; the tone only repeats it. -->
+        <span class="shrink-0 rounded-full border px-2 py-0.5 text-xs font-bold {STATUS_PILL[statusTone(tone)]}" title={rawStatus}>{chip}</span>
+    </div>
+{/snippet}
+
+{#snippet metricList(metrics: Array<{ label: string; value: string }>)}
+    <dl class="mt-2 grid grid-cols-2 gap-x-4 gap-y-2 text-xs sm:grid-cols-4">
+        {#each metrics as metric (metric.label)}
+            <div class="min-w-0">
+                <dt class="wrap-break-word text-slate-600 dark:text-slate-400">{metric.label}</dt>
+                <dd class="wrap-break-word font-semibold tabular-nums text-slate-900 dark:text-slate-100">{metric.value}</dd>
+            </div>
+        {/each}
+    </dl>
+{/snippet}
+
+{#snippet technicalDetails(lines: string[])}
+    <details class="group mt-1">
+        <summary class="flex min-h-11 cursor-pointer items-center gap-1.5 text-xs font-semibold text-slate-700 focus-ring dark:text-slate-300">
+            <svg class="h-3.5 w-3.5 shrink-0 transition-transform duration-200 group-open:rotate-90" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m8 5 5 5-5 5" /></svg>
+            {$_('jobs.errors_technical_details', { default: 'Technical details' })}
+        </summary>
+        <div class="space-y-1 pb-1 font-mono text-xs wrap-anywhere text-slate-700 dark:text-slate-300">
+            {#each lines as line, index (index)}
+                <p>{line}</p>
+            {/each}
+        </div>
+    </details>
+{/snippet}
+
 <div class="space-y-6">
     <!-- One card for the system: whether it is working, then what the host is doing, then the
          detail behind the verdict. What happened follows as its own card. -->
     <SystemHealthPanel>
-        {#snippet headerActions()}
-            <button
-                type="button"
-                class="btn btn-secondary min-h-11 px-3 py-2 text-xs"
-                onclick={clearWorkspace}
-                disabled={clearing || refreshing}
-                aria-describedby="health-clear-effect"
-            >
-                {clearing ? $_('jobs.errors_clearing', { default: 'Clearing…' }) : $_('jobs.errors_clear', { default: 'Clear error history' })}
-            </button>
-            <span id="health-clear-effect" class="sr-only">{$_('jobs.errors_clear_effect', { default: 'Removes recorded errors and incidents now. Live checks carry on.' })}</span>
-        {/snippet}
-
         {#snippet status()}
-            <div class="space-y-4" data-health-status>
-                <div class="flex flex-wrap items-start gap-x-4 gap-y-2 rounded-2xl border px-4 py-4 sm:px-5 {heroToneClass(verdict())}">
-                    <span class={`inline-flex shrink-0 rounded-full border px-3 py-1 text-xs font-bold ${toneClass(verdict())}`} title={verdict()} data-health-status-pill>
-                        {statusLabel(verdict())}
-                    </span>
+            <div class="space-y-4" data-health-status data-health-read-state={readState}>
+                <!-- Held at its usual height while the first reading is on its way, so its arrival moves nothing. -->
+                <div class="flex min-h-28 flex-wrap items-start gap-x-4 gap-y-2 rounded-2xl border px-4 py-4 sm:px-5 {heroToneClass(verdict())}">
+                    {#if readState !== 'reading' && readState !== 'failed'}
+                        <span class={`inline-flex shrink-0 rounded-full border px-3 py-1 text-xs font-bold ${toneClass(verdict())}`} title={verdict()} data-health-status-pill>
+                            {statusLabel(verdict())}
+                        </span>
+                    {/if}
                     <div class="min-w-0 flex-1 wrap-break-word">
-                        <h3 class="font-display text-lg font-bold text-slate-900 dark:text-white">{$_('jobs.errors_system_status', { default: 'System Status' })}</h3>
-                        {#if openItems.length > 0}
-                            <ul class="mt-1 space-y-2" data-health-problems>
-                                {#each openItems as item (item.key)}
-                                    {#if item.problem}
-                                        {@const text = problemItem(item.problem)}
-                                        <li class="wrap-break-word text-sm" data-health-problem={item.problem}>
-                                            <p class="font-semibold text-slate-800 dark:text-slate-100">{text.title}</p>
-                                            <p class="text-slate-600 dark:text-slate-300">{text.next}</p>
-                                        </li>
-                                    {:else if item.incident}
-                                        <li class="wrap-break-word text-sm" data-health-open-incident>
-                                            <p class="font-semibold text-slate-800 dark:text-slate-100">{item.incident.title}</p>
-                                            <p class="text-slate-600 dark:text-slate-300">{item.incident.summary}</p>
-                                        </li>
-                                    {/if}
-                                {/each}
-                            </ul>
+                        <h3 class="font-display text-lg font-bold text-slate-900 dark:text-white">{$_('jobs.errors_system_status', { default: 'System status' })}</h3>
+                        {#if readState === 'reading'}
+                            <p class="text-sm text-slate-700 dark:text-slate-200" data-health-reading>{$_('jobs.errors_reading', { default: 'Reading the latest health…' })}</p>
+                        {:else if readState === 'failed'}
+                            <!-- Nothing was measured, so nothing is claimed: no pill and no fault count. -->
+                            <p class="text-sm font-semibold text-slate-800 dark:text-slate-100" data-health-read-failed>{$_('jobs.errors_read_failed', { default: 'The health reading could not be loaded, so this page claims no state.' })}</p>
+                            <p class="text-sm text-slate-700 dark:text-slate-200">{$_('jobs.errors_read_failed_next', { default: 'Refresh to try again. If it keeps failing, check that the YA-WAMF backend is running.' })}</p>
+                            {@render technicalDetails([refreshError])}
                         {:else}
-                            <p class="text-sm text-slate-700 dark:text-slate-200">{overallSummary()}</p>
+                            {#if openItems.length > 0}
+                                <ul class="mt-1 space-y-2" data-health-problems>
+                                    {#each openItems as item (item.key)}
+                                        {#if item.problem}
+                                            {@const text = problemItem(item.problem)}
+                                            <li class="wrap-break-word text-sm" data-health-problem={item.problem}>
+                                                <p class="font-semibold text-slate-800 dark:text-slate-100">{text.title}</p>
+                                                <p class="text-slate-700 dark:text-slate-200">{text.next}</p>
+                                            </li>
+                                        {:else if item.incident}
+                                            {@const text = incidentItem(item.incident)}
+                                            <li class="wrap-break-word text-sm" data-health-open-incident>
+                                                <p class="font-semibold text-slate-800 dark:text-slate-100">{text.title}</p>
+                                                {#if text.next}<p class="text-slate-700 dark:text-slate-200">{text.next}</p>{/if}
+                                            </li>
+                                        {/if}
+                                    {/each}
+                                </ul>
+                            {:else}
+                                <p class="text-sm text-slate-700 dark:text-slate-200">{overallSummary()}</p>
+                            {/if}
+                            {#if readState === 'stale' && workspaceCapturedAt}
+                                <p class="mt-2 text-sm font-semibold text-slate-800 dark:text-slate-100" data-health-stale>
+                                    {$_('jobs.errors_read_stale', { values: { at: formatDateTime(workspaceCapturedAt) }, default: 'The latest refresh failed, so this is the reading from {at}. Refresh to try again.' })}
+                                </p>
+                                {@render technicalDetails([refreshError])}
+                            {/if}
+                            <!-- Two lines on a phone, where the dated reading wraps; held so its arrival moves nothing. -->
+                            <p class="mt-1 min-h-8 text-xs text-slate-700 sm:min-h-4 dark:text-slate-300">{latestHealthLine()}</p>
                         {/if}
-                        <!-- Two lines on a phone, where the dated reading wraps; held so its arrival moves nothing. -->
-                        <p class="mt-1 min-h-8 text-xs text-slate-600 sm:min-h-4 dark:text-slate-400">{latestHealthLine()}</p>
                     </div>
                 </div>
-                {#if refreshError}
-                    <p class="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 dark:border-rose-800/50 dark:bg-rose-950/30 dark:text-rose-300">
-                        {refreshError}
-                    </p>
-                {/if}
                 {#if frigateMediaAdvisory.elevated}
                     <!-- ── Frigate media-unavailability advisory (Event Not Found guidance) ── -->
                     <div class="rounded-2xl border border-attention-300/70 bg-attention-50/80 p-4 text-attention-900 dark:border-attention-500/40 dark:bg-attention-950/30 dark:text-attention-200">
                         <div class="flex items-start gap-3">
                             <div class="mt-0.5 shrink-0">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
                                 </svg>
                             </div>
                             <div class="min-w-0 flex-1">
                                 <h4 class="eyebrow text-inherit dark:text-inherit">{$_('jobs.frigate_media_advisory_title', { default: 'Frigate often has no snapshot for a detection' })}</h4>
                                 <p class="mt-1 text-sm font-semibold">{$_('jobs.frigate_media_advisory_body', { values: { percent: frigateMediaDropPercent, dropped: frigateMediaAdvisory.dropped.toLocaleString(), started: frigateMediaAdvisory.started.toLocaleString() }, default: `${frigateMediaDropPercent}% of recent detections (${frigateMediaAdvisory.dropped.toLocaleString()} of ${frigateMediaAdvisory.started.toLocaleString()}) were dropped because Frigate had no snapshot, thumbnail, or recording for them. This usually means briefly-tracked birds that never persist as Frigate events, or short recording retention.` })}</p>
-                                <a href={FRIGATE_MISSING_DOCS_URL} target="_blank" rel="noopener noreferrer" class="mt-2 inline-block text-xs font-bold underline underline-offset-2 hover:opacity-80">
+                                <a href={FRIGATE_MISSING_DOCS_URL} target="_blank" rel="noopener noreferrer" class="mt-2 inline-block text-xs font-bold underline underline-offset-2 hover:no-underline">
                                     {$_('jobs.frigate_media_advisory_link', { default: 'How to reduce this →' })}
                                 </a>
                             </div>
@@ -788,300 +871,169 @@
         {/snippet}
 
         {#snippet details()}
-        <!-- ── Subsystem detail ────────────────────────────────── -->
+        <!-- ── Subsystem detail: one ruled list on the card's own surface. Each row is told apart by
+             its heading and says its state in a worded chip; nothing is tinted and no text is dimmed. ── -->
         <details class="border-t border-line-soft pt-4" data-subsystem-detail>
             <summary class="group flex min-h-11 cursor-pointer items-center justify-between gap-3 py-2 eyebrow focus-ring">
                 <span>{$_('jobs.errors_subsystems_title', { default: 'Subsystem detail' })}</span>
                 <svg class="h-4 w-4 shrink-0 text-slate-600 dark:text-slate-400 transition-transform duration-200 group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
             </summary>
-            <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {#if !workspacePayload}
+                <p class="mt-2 text-sm text-slate-700 dark:text-slate-200">{$_('jobs.errors_subsystems_unread', { default: 'Nothing to show until a health reading has loaded.' })}</p>
+            {:else}
+            <ul class="mt-2 divide-y divide-line-soft" data-health-subsystems>
+                <li class="py-4" data-health-subsystem="pipeline">
+                    {@render subsystemHead($_('jobs.pipeline_title', { default: 'Pipeline' }), statusLabel(eventPipelineStatus()), eventPipelineStatus(), eventPipelineStatus())}
+                    <p class="mt-1 text-sm text-slate-700 dark:text-slate-200">{eventPipelineSummary()}</p>
+                    {@render metricList([
+                        { label: $_('jobs.errors_metric_started', { default: 'Started' }), value: asNumber(health?.event_pipeline?.started_events).toLocaleString() },
+                        { label: $_('jobs.errors_metric_completed', { default: 'Completed' }), value: asNumber(health?.event_pipeline?.completed_events).toLocaleString() },
+                        { label: $_('jobs.errors_metric_dropped', { default: 'Dropped' }), value: asNumber(health?.event_pipeline?.dropped_events).toLocaleString() },
+                        { label: $_('jobs.errors_metric_critical', { default: 'Critical' }), value: asNumber(health?.event_pipeline?.critical_failures).toLocaleString() }
+                    ])}
+                </li>
 
-            <!-- Event Pipeline -->
-            <article class="rounded-2xl border p-5 shadow-xs {toneClass(eventPipelineStatus())}">
-                <div class="flex items-start gap-3">
-                    <div class="mt-0.5 shrink-0 opacity-70">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                        </svg>
-                    </div>
-                    <div class="min-w-0 flex-1">
-                        <div class="flex items-center justify-between gap-2">
-                            <h4 class="eyebrow text-inherit dark:text-inherit">{$_('jobs.pipeline_title', { default: 'Event Pipeline' })}</h4>
-                            <span class="shrink-0 rounded-full border px-2 py-0.5 text-xs font-bold" title={eventPipelineStatus()}>{statusLabel(eventPipelineStatus())}</span>
-                        </div>
-                        <p class="mt-2 text-sm font-semibold">{eventPipelineSummary()}</p>
-                        <div class="mt-4 grid grid-cols-2 gap-3 text-xs font-semibold">
-                            <div><span class="block text-xs opacity-80">{$_('jobs.errors_metric_started', { default: 'Started' })}</span><span>{asNumber(health?.event_pipeline?.started_events).toLocaleString()}</span></div>
-                            <div><span class="block text-xs opacity-80">{$_('jobs.errors_metric_completed', { default: 'Completed' })}</span><span>{asNumber(health?.event_pipeline?.completed_events).toLocaleString()}</span></div>
-                            <div><span class="block text-xs opacity-80">{$_('jobs.errors_metric_dropped', { default: 'Dropped' })}</span><span>{asNumber(health?.event_pipeline?.dropped_events).toLocaleString()}</span></div>
-                            <div><span class="block text-xs opacity-80">{$_('jobs.errors_metric_critical', { default: 'Critical' })}</span><span>{asNumber(health?.event_pipeline?.critical_failures).toLocaleString()}</span></div>
-                        </div>
-                    </div>
-                </div>
-            </article>
-
-            <!-- Filtered detections (expected, configuration-driven drops) -->
-            <article class="rounded-2xl border p-5 shadow-xs {toneClass(filteredStatus())}">
-                <div class="flex items-start gap-3">
-                    <div class="mt-0.5 shrink-0 opacity-70">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L15 12.414V19a1 1 0 01-.553.894l-4 2A1 1 0 019 21v-8.586L3.293 6.707A1 1 0 013 6V4z" />
-                        </svg>
-                    </div>
-                    <div class="min-w-0 flex-1">
-                        <div class="flex items-center justify-between gap-2">
-                            <h4 class="eyebrow text-inherit dark:text-inherit">{$_('jobs.errors_filtered_title', { default: 'Filtered Detections' })}</h4>
-                            <span class="shrink-0 rounded-full border px-2 py-0.5 text-xs font-bold">{expectedDropCount(health?.event_pipeline).toLocaleString()}</span>
-                        </div>
-                        <p class="mt-2 text-sm font-semibold">{filteredSummary()}</p>
-                        {#if expectedDropReasons(health?.event_pipeline).length > 0}
-                            <dl class="mt-4 grid grid-cols-1 gap-2 text-xs font-semibold">
-                                {#each expectedDropReasons(health?.event_pipeline) as entry (entry.reason)}
-                                    <div class="flex items-baseline justify-between gap-3">
-                                        <dt class="min-w-0 truncate opacity-80">{filteredReasonLabel(entry.reason)}</dt>
-                                        <dd class="shrink-0">{entry.count.toLocaleString()}</dd>
-                                    </div>
-                                {/each}
-                            </dl>
-                            {#if recentFilteredDetections(health?.event_pipeline).length > 0}
-                                <div class="mt-4 border-t pt-3">
-                                    <p class="text-xs font-bold opacity-70">{$_('jobs.errors_filtered_recent', { default: 'Most recent' })}</p>
-                                    <ul class="mt-2 space-y-1.5 text-xs font-semibold">
-                                        {#each keyedPipelineDetections(recentFilteredDetections(health?.event_pipeline)) as { key, entry } (key)}
-                                            <li
-                                                class="flex items-baseline justify-between gap-3"
-                                                title={`${filteredReasonLabel(entry.reason)}${entry.timestamp ? ` · ${formatDateTime(Date.parse(entry.timestamp))}` : ''} · ${entry.eventId}`}
-                                            >
-                                                <span class="min-w-0 truncate italic">{entry.label ?? $_('common.unknown_species', { default: 'Unknown species' })}</span>
-                                                <span class="shrink-0 tabular-nums opacity-80">{filteredScoreLabel(entry.score)}</span>
-                                            </li>
-                                        {/each}
-                                    </ul>
+                <!-- Filtering is the detection settings working, not a state: its chip is a count in neutral ink. -->
+                <li class="py-4" data-health-subsystem="filtered">
+                    {@render subsystemHead($_('jobs.errors_filtered_title', { default: 'Filtered detections' }), expectedDropCount(health?.event_pipeline).toLocaleString(), 'unknown', filteredStatus())}
+                    <p class="mt-1 text-sm text-slate-700 dark:text-slate-200">{filteredSummary()}</p>
+                    {#if expectedDropReasons(health?.event_pipeline).length > 0}
+                        <dl class="mt-2 grid grid-cols-1 gap-1 text-xs sm:max-w-md">
+                            {#each expectedDropReasons(health?.event_pipeline) as entry (entry.reason)}
+                                <div class="flex items-baseline justify-between gap-3">
+                                    <dt class="min-w-0 wrap-break-word text-slate-700 dark:text-slate-300">{filteredReasonLabel(entry.reason)}</dt>
+                                    <dd class="shrink-0 font-semibold tabular-nums text-slate-900 dark:text-slate-100">{entry.count.toLocaleString()}</dd>
                                 </div>
-                            {/if}
-                            <p class="mt-3 text-xs font-semibold opacity-70">{$_('jobs.errors_filtered_hint', { default: 'Adjust the confidence threshold in Settings → Detection to keep more of these.' })}</p>
-                        {/if}
-                    </div>
-                </div>
-            </article>
-
-            <!-- MQTT: the connection first, then how hard its handlers are working. -->
-            <article class="rounded-2xl border p-5 shadow-xs {toneClass(mqttStatus())}" data-health-card="mqtt" data-health-card-status={mqttStatus()}>
-                <div class="flex items-start gap-3">
-                    <div class="mt-0.5 shrink-0 opacity-70">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" />
-                        </svg>
-                    </div>
-                    <div class="min-w-0 flex-1">
-                        <div class="flex items-center justify-between gap-2">
-                            <h4 class="eyebrow text-inherit dark:text-inherit">MQTT</h4>
-                            <span class="shrink-0 rounded-full border px-2 py-0.5 text-xs font-bold" title={mqttStatus()}>{statusLabel(mqttStatus())}</span>
-                        </div>
-                        <p class="mt-2 wrap-break-word text-sm font-semibold">{mqttSummary()}</p>
-                        {#if connections?.mqtt.state === 'disconnected' && connections.mqtt.last_error}
-                            <p class="mt-2 wrap-break-word text-xs font-semibold opacity-80">{$_('jobs.errors_mqtt_last_error', { values: { error: connections.mqtt.last_error }, default: 'The broker client said: {error}' })}</p>
-                        {/if}
-                        <div class="mt-4 grid grid-cols-2 gap-3 text-xs font-semibold">
-                            <div><span class="block text-xs opacity-80">{$_('jobs.errors_metric_in_flight', { default: 'In Flight' })}</span><span>{asNumber(health?.mqtt?.in_flight).toLocaleString()} / {asNumber(health?.mqtt?.in_flight_capacity).toLocaleString()}</span></div>
-                            <div><span class="block text-xs opacity-80">{$_('jobs.errors_metric_reconnects', { default: 'Reconnects' })}</span><span>{asNumber(health?.mqtt?.topic_liveness_reconnects).toLocaleString()}</span></div>
-                            <div class="col-span-2"><span class="block text-xs opacity-80">{$_('jobs.errors_metric_last_reconnect', { default: 'Last Reconnect Reason' })}</span><span>{asText(health?.mqtt?.last_reconnect_reason, $_('jobs.errors_no_reconnect_reason', { default: 'None recorded' }))}</span></div>
-                        </div>
-                    </div>
-                </div>
-            </article>
-
-            <!-- Frigate: whether its API answered the latest request. -->
-            <article class="rounded-2xl border p-5 shadow-xs {toneClass(frigateStatus())}" data-health-card="frigate" data-health-card-status={frigateStatus()}>
-                <div class="flex items-start gap-3">
-                    <div class="mt-0.5 shrink-0 opacity-70">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                        </svg>
-                    </div>
-                    <div class="min-w-0 flex-1">
-                        <div class="flex items-center justify-between gap-2">
-                            <h4 class="eyebrow text-inherit dark:text-inherit">{$_('jobs.errors_card_frigate', { default: 'Frigate' })}</h4>
-                            <span class="shrink-0 rounded-full border px-2 py-0.5 text-xs font-bold" title={frigateStatus()}>{statusLabel(frigateStatus())}</span>
-                        </div>
-                        <p class="mt-2 wrap-break-word text-sm font-semibold">{frigateSummary()}</p>
-                        {#if frigateAvailability()}
-                            <p class="mt-2 text-xs font-semibold opacity-80">{frigateAvailability()}</p>
-                        {/if}
-                    </div>
-                </div>
-            </article>
-
-            <!-- Live Classification -->
-            <article class="rounded-2xl border p-5 shadow-xs {toneClass(liveClassificationStatus())}">
-                <div class="flex items-start gap-3">
-                    <div class="mt-0.5 shrink-0 opacity-70">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                        </svg>
-                    </div>
-                    <div class="min-w-0 flex-1">
-                        <div class="flex items-center justify-between gap-2">
-                            <h4 class="eyebrow text-inherit dark:text-inherit">{$_('jobs.errors_card_live_classification', { default: 'Live Classification' })}</h4>
-                            <span class="shrink-0 rounded-full border px-2 py-0.5 text-xs font-bold" title={liveClassificationStatus()}>{statusLabel(liveClassificationStatus())}</span>
-                        </div>
-                        <p class="mt-2 text-sm font-semibold">{liveClassificationSummary()}</p>
-                        <div class="mt-4 grid grid-cols-2 gap-3 text-xs font-semibold">
-                            <div><span class="block text-xs opacity-80">{$_('jobs.errors_metric_queued', { default: 'Queued' })}</span><span>{asNumber(health?.ml?.live_image?.queued).toLocaleString()}</span></div>
-                            <div><span class="block text-xs opacity-80">{$_('jobs.errors_metric_in_flight', { default: 'In Flight' })}</span><span>{asNumber(health?.ml?.live_image?.in_flight).toLocaleString()}</span></div>
-                            <div><span class="block text-xs opacity-80">{$_('jobs.errors_metric_capacity', { default: 'Capacity' })}</span><span>{asNumber(health?.ml?.live_image?.max_concurrent).toLocaleString()}</span></div>
-                            <div><span class="block text-xs opacity-80">{$_('jobs.errors_metric_abandoned', { default: 'Abandoned' })}</span><span>{asNumber(health?.ml?.live_image?.abandoned).toLocaleString()}</span></div>
-                        </div>
-                    </div>
-                </div>
-            </article>
-
-            <!-- Video Classification -->
-            <article class="rounded-2xl border p-5 shadow-xs {toneClass(videoClassifierCard.status)}">
-                <div class="flex items-start gap-3">
-                    <div class="mt-0.5 shrink-0 opacity-70">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.069A1 1 0 0121 8.82v6.36a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                        </svg>
-                    </div>
-                    <div class="min-w-0 flex-1">
-                        <div class="flex items-center justify-between gap-2">
-                            <h4 class="eyebrow text-inherit dark:text-inherit">{$_('jobs.errors_card_video_classification', { default: 'Video Classification' })}</h4>
-                            <span class="shrink-0 rounded-full border px-2 py-0.5 text-xs font-bold" title={videoClassifierCard.status}>{statusLabel(videoClassifierCard.status)}</span>
-                        </div>
-                        <p class="mt-2 text-sm font-semibold">{videoClassifierCard.summary}</p>
-                        <div class="mt-4 grid grid-cols-2 gap-3 text-xs font-semibold">
-                            <div><span class="block text-xs opacity-80">{$_('jobs.errors_metric_pending', { default: 'Pending' })}</span><span>{videoClassifierCard.pending.toLocaleString()}</span></div>
-                            <div><span class="block text-xs opacity-80">{$_('jobs.errors_metric_active', { default: 'Active' })}</span><span>{videoClassifierCard.active.toLocaleString()}</span></div>
-                            <div><span class="block text-xs opacity-80">{$_('jobs.errors_metric_failures', { default: 'Failures' })}</span><span>{videoClassifierCard.failureCount.toLocaleString()}</span></div>
-                            <div><span class="block text-xs opacity-80">{$_('jobs.errors_metric_open_until', { default: 'Open Until' })}</span><span>{videoClassifierCard.openUntil}</span></div>
-                        </div>
-                    </div>
-                </div>
-            </article>
-
-            <!-- Background Maintenance -->
-            <article class="rounded-2xl border p-5 shadow-xs {toneClass(backgroundStatus())}">
-                <div class="flex items-start gap-3">
-                    <div class="mt-0.5 shrink-0 opacity-70">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                    </div>
-                    <div class="min-w-0 flex-1">
-                        <div class="flex items-center justify-between gap-2">
-                            <h4 class="eyebrow text-inherit dark:text-inherit">{$_('jobs.errors_card_background_maintenance', { default: 'Background Maintenance' })}</h4>
-                            <span class="shrink-0 rounded-full border px-2 py-0.5 text-xs font-bold" title={backgroundStatus()}>{statusLabel(backgroundStatus())}</span>
-                        </div>
-                        <p class="mt-2 text-sm font-semibold">{backgroundSummary()}</p>
-                        <div class="mt-4 grid grid-cols-2 gap-3 text-xs font-semibold">
-                            <div><span class="block text-xs opacity-80">{$_('jobs.errors_metric_queued', { default: 'Queued' })}</span><span>{asNumber(health?.ml?.background_image?.queued).toLocaleString()}</span></div>
-                            <div><span class="block text-xs opacity-80">{$_('jobs.errors_metric_in_flight', { default: 'In Flight' })}</span><span>{asNumber(health?.ml?.background_image?.in_flight).toLocaleString()}</span></div>
-                            <div><span class="block text-xs opacity-80">{$_('jobs.errors_metric_abandoned', { default: 'Abandoned' })}</span><span>{asNumber(health?.ml?.background_image?.abandoned).toLocaleString()}</span></div>
-                            <div><span class="block text-xs opacity-80">{$_('jobs.errors_metric_throttled', { default: 'Throttled' })}</span><span>{health?.ml?.background_image?.background_throttled ? $_('common.yes', { default: 'Yes' }) : $_('common.no', { default: 'No' })}</span></div>
-                        </div>
-                    </div>
-                </div>
-            </article>
-
-            <!-- Notifications & DB -->
-            <article class="rounded-2xl border p-5 shadow-xs {toneClass(dispatcherStatus())}">
-                <div class="flex items-start gap-3">
-                    <div class="mt-0.5 shrink-0 opacity-70">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                        </svg>
-                    </div>
-                    <div class="min-w-0 flex-1">
-                        <div class="flex items-center justify-between gap-2">
-                            <h4 class="eyebrow text-inherit dark:text-inherit">{$_('jobs.errors_card_notifications_db', { default: 'Notifications & DB' })}</h4>
-                            <span class="shrink-0 rounded-full border px-2 py-0.5 text-xs font-bold" title={dispatcherStatus()}>{statusLabel(dispatcherStatus())}</span>
-                        </div>
-                        <p class="mt-2 text-sm font-semibold">{dispatcherSummary()}</p>
-                        <div class="mt-4 grid grid-cols-2 gap-3 text-xs font-semibold">
-                            <div><span class="block text-xs opacity-80">{$_('jobs.errors_metric_dropped_jobs', { default: 'Dropped Jobs' })}</span><span>{asNumber(health?.notification_dispatcher?.dropped_jobs).toLocaleString()}</span></div>
-                            <div><span class="block text-xs opacity-80">{$_('jobs.errors_metric_queue_size', { default: 'Queue Size' })}</span><span>{asNumber(health?.notification_dispatcher?.queue_size).toLocaleString()} / {asNumber(health?.notification_dispatcher?.queue_max).toLocaleString()}</span></div>
-                            <div><span class="block text-xs opacity-80">{$_('jobs.errors_metric_db_wait_max', { default: 'DB Wait Max' })}</span><span>{asNumber(health?.db_pool?.acquire_wait_max_ms).toLocaleString()}ms</span></div>
-                            <div><span class="block text-xs opacity-80">{$_('jobs.errors_metric_db_timeouts', { default: 'DB Timeouts' })}</span><span>{asNumber(health?.db_pool?.acquire_timeouts).toLocaleString()}</span></div>
-                        </div>
-                    </div>
-                </div>
-            </article>
-
-            <!-- Naming sources -->
-            <article class="rounded-2xl border p-5 shadow-xs {toneClass(namingStatus())}">
-                <div class="flex items-start gap-3">
-                    <div class="mt-0.5 shrink-0 opacity-70">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M7 7h.01M7 3h5a1.99 1.99 0 011.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.99 1.99 0 013 12V7a4 4 0 014-4z" />
-                        </svg>
-                    </div>
-                    <div class="min-w-0 flex-1">
-                        <div class="flex items-center justify-between gap-2">
-                            <h4 class="eyebrow text-inherit dark:text-inherit">{$_('jobs.errors_card_naming', { default: 'Naming Sources' })}</h4>
-                            <span class="shrink-0 rounded-full border px-2 py-0.5 text-xs font-bold" title={namingStatus()}>{statusLabel(namingStatus())}</span>
-                        </div>
-                        <p class="mt-2 text-sm font-semibold">{namingSummary()}</p>
-                        <div class="mt-4 grid grid-cols-2 gap-3 text-xs font-semibold">
-                            <div><span class="block text-xs opacity-80">{$_('jobs.errors_metric_offline_species', { default: 'Offline Species' })}</span><span>{asNumber(health?.naming?.species_reference?.taxon_count).toLocaleString()}</span></div>
-                            <div><span class="block text-xs opacity-80">{$_('jobs.errors_metric_languages', { default: 'Languages' })}</span><span>{namingLocales()}</span></div>
-                            <div><span class="block text-xs opacity-80">{$_('jobs.errors_metric_catalog', { default: 'Catalogue species' })}</span><span>{catalogSpecies()}</span></div>
-                        </div>
-                        {#if catalogSummary()}
-                            <p class="mt-3 text-xs font-semibold opacity-80">{catalogSummary()}</p>
-                        {/if}
-                        {#if catalogSources().length > 0}
-                            <div class="mt-4 border-t pt-3">
-                                <span class="block text-xs opacity-80">{$_('jobs.errors_catalog_sources', { default: 'Catalogue sources' })}</span>
-                                <ul class="mt-2 space-y-2 text-xs">
-                                    {#each catalogSources() as source}
-                                        <li>
-                                            <span class="font-semibold">{source.heading}</span>
-                                            {#if source.citation}
-                                                <span class="mt-0.5 block opacity-70">{source.citation}</span>
-                                            {/if}
-                                        </li>
-                                    {/each}
-                                </ul>
-                                <p class="mt-3 text-xs opacity-70">{$_('jobs.errors_catalog_rollback', { default: 'The catalogue is a separate file from your detection history. Rolling one back changes names, never your recorded sightings, and a backup of the data directory covers both.' })}</p>
-                            </div>
-                        {/if}
-                    </div>
-                </div>
-            </article>
-
-            <!-- Startup Warnings -->
-            <article class="rounded-2xl border p-5 shadow-xs {toneClass(startupStatus())}">
-                <div class="flex items-start gap-3">
-                    <div class="mt-0.5 shrink-0 opacity-70">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                        </svg>
-                    </div>
-                    <div class="min-w-0 flex-1">
-                        <div class="flex items-center justify-between gap-2">
-                            <h4 class="eyebrow text-inherit dark:text-inherit">{$_('jobs.errors_card_startup_warnings', { default: 'Startup Warnings' })}</h4>
-                            <span class="shrink-0 rounded-full border px-2 py-0.5 text-xs font-bold" title={startupStatus()}>{statusLabel(startupStatus())}</span>
-                        </div>
-                        <p class="mt-2 text-sm font-semibold">{startupSummary()}</p>
-                        <div class="mt-4 space-y-2 text-xs font-semibold">
-                            {#if startupWarnings.length === 0}
-                                <p class="opacity-80">{$_('jobs.errors_no_startup_warnings', { default: 'No startup warnings captured in the current workspace snapshot.' })}</p>
-                            {:else}
-                                {#each startupWarnings.slice(0, 2) as warning}
-                                    <div class="rounded-2xl bg-white/70 px-3 py-2 dark:bg-slate-950/40">
-                                        <p class="text-xs opacity-80">{asText((warning as Record<string, unknown>).phase, $_('jobs.errors_unknown_phase', { default: 'Unknown phase' }))}</p>
-                                        <p class="mt-1">{asText((warning as Record<string, unknown>).error, $_('jobs.errors_unknown_warning', { default: 'Unknown warning' }))}</p>
-                                    </div>
+                            {/each}
+                        </dl>
+                        {#if recentFilteredDetections(health?.event_pipeline).length > 0}
+                            <p class="mt-3 text-xs font-bold text-slate-700 dark:text-slate-300">{$_('jobs.errors_filtered_recent', { default: 'Most recent' })}</p>
+                            <ul class="mt-1 space-y-1 text-xs sm:max-w-md">
+                                {#each keyedPipelineDetections(recentFilteredDetections(health?.event_pipeline)) as { key, entry } (key)}
+                                    <li
+                                        class="flex items-baseline justify-between gap-3"
+                                        title={`${filteredReasonLabel(entry.reason)}${entry.timestamp ? ` · ${formatDateTime(Date.parse(entry.timestamp))}` : ''} · ${entry.eventId}`}
+                                    >
+                                        <span class="min-w-0 wrap-break-word italic text-slate-800 dark:text-slate-200">{entry.label ?? $_('common.unknown_species', { default: 'Unknown species' })}</span>
+                                        <span class="shrink-0 tabular-nums text-slate-700 dark:text-slate-300">{filteredScoreLabel(entry.score)}</span>
+                                    </li>
                                 {/each}
-                            {/if}
-                        </div>
-                    </div>
-                </div>
-            </article>
+                            </ul>
+                        {/if}
+                        <p class="mt-2 text-xs text-slate-700 dark:text-slate-300">{$_('jobs.errors_filtered_hint', { default: 'Adjust the confidence threshold in Settings → Detection to keep more of these.' })}</p>
+                    {/if}
+                </li>
 
-            </div>
+                <!-- MQTT: the connection first, then how hard its handlers are working. -->
+                <li class="py-4" data-health-card="mqtt" data-health-card-status={mqttStatus()}>
+                    {@render subsystemHead('MQTT', statusLabel(mqttStatus()), mqttStatus(), mqttStatus())}
+                    <p class="mt-1 wrap-break-word text-sm text-slate-700 dark:text-slate-200">{mqttSummary()}</p>
+                    {#if mqttFailureCause()}
+                        <p class="mt-1 wrap-break-word text-sm text-slate-700 dark:text-slate-200" data-health-mqtt-cause>{mqttFailureCause()}</p>
+                        {@render technicalDetails([connections?.mqtt.last_error ?? ''])}
+                    {/if}
+                    {@render metricList([
+                        { label: $_('jobs.errors_metric_handling', { default: 'Messages being handled' }), value: $_('jobs.errors_metric_of', { values: { count: asNumber(health?.mqtt?.in_flight).toLocaleString(), total: asNumber(health?.mqtt?.in_flight_capacity).toLocaleString() }, default: '{count} of {total}' }) },
+                        { label: $_('jobs.errors_metric_reconnects', { default: 'Reconnects' }), value: asNumber(health?.mqtt?.topic_liveness_reconnects).toLocaleString() },
+                        { label: $_('jobs.errors_metric_last_reconnect', { default: 'Last reconnect reason' }), value: asText(health?.mqtt?.last_reconnect_reason, $_('jobs.errors_no_reconnect_reason', { default: 'None recorded' })) }
+                    ])}
+                </li>
+
+                <!-- Frigate: whether its API answered the latest request. -->
+                <li class="py-4" data-health-card="frigate" data-health-card-status={frigateStatus()}>
+                    {@render subsystemHead($_('jobs.errors_card_frigate', { default: 'Frigate' }), statusLabel(frigateStatus()), frigateStatus(), frigateStatus())}
+                    <p class="mt-1 wrap-break-word text-sm text-slate-700 dark:text-slate-200">{frigateSummary()}</p>
+                    {#if frigateAvailability()}
+                        <p class="mt-1 text-sm text-slate-700 dark:text-slate-200">{frigateAvailability()}</p>
+                    {/if}
+                </li>
+
+                <li class="py-4" data-health-subsystem="live">
+                    {@render subsystemHead($_('jobs.errors_card_live_classification', { default: 'Live classification' }), statusLabel(liveClassificationStatus()), liveClassificationStatus(), liveClassificationStatus())}
+                    <p class="mt-1 text-sm text-slate-700 dark:text-slate-200">{liveClassificationSummary()}</p>
+                    {@render metricList([
+                        { label: $_('jobs.errors_metric_waiting', { default: 'Waiting' }), value: asNumber(health?.ml?.live_image?.queued).toLocaleString() },
+                        { label: $_('jobs.errors_metric_being_named', { default: 'Being named now' }), value: asNumber(health?.ml?.live_image?.in_flight).toLocaleString() },
+                        { label: $_('jobs.errors_metric_at_once', { default: 'At most at once' }), value: asNumber(health?.ml?.live_image?.max_concurrent).toLocaleString() },
+                        { label: $_('jobs.errors_metric_given_up', { default: 'Given up' }), value: asNumber(health?.ml?.live_image?.abandoned).toLocaleString() }
+                    ])}
+                </li>
+
+                <li class="py-4" data-health-subsystem="video">
+                    {@render subsystemHead($_('jobs.errors_card_video_classification', { default: 'Video classification' }), statusLabel(videoClassifierCard.status), videoClassifierCard.status, videoClassifierCard.status)}
+                    <p class="mt-1 text-sm text-slate-700 dark:text-slate-200">{videoSummary()}</p>
+                    {@render metricList([
+                        { label: $_('jobs.errors_metric_waiting', { default: 'Waiting' }), value: videoClassifierCard.pending.toLocaleString() },
+                        { label: $_('jobs.errors_metric_running', { default: 'Running' }), value: videoClassifierCard.active.toLocaleString() },
+                        { label: $_('jobs.errors_metric_failures_in_a_row', { default: 'Failures in a row' }), value: videoClassifierCard.failureCount.toLocaleString() }
+                    ])}
+                </li>
+
+                <li class="py-4" data-health-subsystem="background">
+                    {@render subsystemHead($_('jobs.errors_card_background_maintenance', { default: 'Background maintenance' }), statusLabel(backgroundStatus()), backgroundStatus(), backgroundStatus())}
+                    <p class="mt-1 text-sm text-slate-700 dark:text-slate-200">{backgroundSummary()}</p>
+                    {@render metricList([
+                        { label: $_('jobs.errors_metric_waiting', { default: 'Waiting' }), value: asNumber(health?.ml?.background_image?.queued).toLocaleString() },
+                        { label: $_('jobs.errors_metric_running', { default: 'Running' }), value: asNumber(health?.ml?.background_image?.in_flight).toLocaleString() },
+                        { label: $_('jobs.errors_metric_given_up', { default: 'Given up' }), value: asNumber(health?.ml?.background_image?.abandoned).toLocaleString() },
+                        { label: $_('jobs.errors_metric_held_back', { default: 'Held back for live work' }), value: health?.ml?.background_image?.background_throttled ? $_('common.yes', { default: 'Yes' }) : $_('common.no', { default: 'No' }) }
+                    ])}
+                </li>
+
+                <li class="py-4" data-health-subsystem="dispatch">
+                    {@render subsystemHead($_('jobs.errors_card_notifications_db', { default: 'Notifications & DB' }), statusLabel(dispatcherStatus()), dispatcherStatus(), dispatcherStatus())}
+                    <p class="mt-1 text-sm text-slate-700 dark:text-slate-200">{dispatcherSummary()}</p>
+                    {@render metricList([
+                        { label: $_('jobs.errors_metric_notifications_dropped', { default: 'Notifications dropped' }), value: asNumber(health?.notification_dispatcher?.dropped_jobs).toLocaleString() },
+                        { label: $_('jobs.errors_metric_waiting_to_send', { default: 'Waiting to send' }), value: $_('jobs.errors_metric_of', { values: { count: asNumber(health?.notification_dispatcher?.queue_size).toLocaleString(), total: asNumber(health?.notification_dispatcher?.queue_max).toLocaleString() }, default: '{count} of {total}' }) },
+                        { label: $_('jobs.errors_metric_db_longest_wait', { default: 'Longest wait for the database' }), value: `${asNumber(health?.db_pool?.acquire_wait_max_ms).toLocaleString()} ms` },
+                        { label: $_('jobs.errors_metric_db_waits_timed_out', { default: 'Database waits that timed out' }), value: asNumber(health?.db_pool?.acquire_timeouts).toLocaleString() }
+                    ])}
+                </li>
+
+                <li class="py-4" data-health-subsystem="naming">
+                    {@render subsystemHead($_('jobs.errors_card_naming', { default: 'Naming sources' }), statusLabel(namingStatus()), namingStatus(), namingStatus())}
+                    <p class="mt-1 text-sm text-slate-700 dark:text-slate-200">{namingSummary()}</p>
+                    {@render metricList([
+                        { label: $_('jobs.errors_metric_offline_species', { default: 'Offline species' }), value: asNumber(health?.naming?.species_reference?.taxon_count).toLocaleString() },
+                        { label: $_('jobs.errors_metric_languages', { default: 'Languages' }), value: namingLocales() },
+                        { label: $_('jobs.errors_metric_catalog', { default: 'Catalogue species' }), value: catalogSpecies() }
+                    ])}
+                    {#if catalogSummary()}
+                        <p class="mt-2 text-xs text-slate-700 dark:text-slate-300">{catalogSummary()}</p>
+                    {/if}
+                    {#if catalogSources().length > 0}
+                        <p class="mt-3 text-xs font-bold text-slate-700 dark:text-slate-300">{$_('jobs.errors_catalog_sources', { default: 'Catalogue sources' })}</p>
+                        <ul class="mt-1 space-y-2 text-xs">
+                            {#each catalogSources() as source}
+                                <li>
+                                    <span class="font-semibold text-slate-900 dark:text-slate-100">{source.heading}</span>
+                                    {#if source.citation}
+                                        <span class="mt-0.5 block text-slate-700 dark:text-slate-300">{source.citation}</span>
+                                    {/if}
+                                </li>
+                            {/each}
+                        </ul>
+                        <p class="mt-2 text-xs text-slate-700 dark:text-slate-300">{$_('jobs.errors_catalog_rollback', { default: 'The catalogue is a separate file from your detection history. Rolling one back changes names, never your recorded sightings, and a backup of the data directory covers both.' })}</p>
+                    {/if}
+                </li>
+
+                <li class="py-4" data-health-subsystem="startup">
+                    {@render subsystemHead($_('jobs.errors_card_startup_warnings', { default: 'Startup warnings' }), statusLabel(startupStatus()), startupStatus(), startupStatus())}
+                    <p class="mt-1 text-sm text-slate-700 dark:text-slate-200">{startupSummary()}</p>
+                    {#if startupWarnings.length > 0}
+                        <ul class="mt-2 space-y-2 text-xs">
+                            {#each startupWarnings.slice(0, 2) as warning}
+                                <li>
+                                    <p class="text-slate-700 dark:text-slate-300">{asText((warning as Record<string, unknown>).phase, $_('jobs.errors_unknown_phase', { default: 'Unknown phase' }))}</p>
+                                    <p class="font-semibold wrap-break-word text-slate-900 dark:text-slate-100">{asText((warning as Record<string, unknown>).error, $_('jobs.errors_unknown_warning', { default: 'Unknown warning' }))}</p>
+                                </li>
+                            {/each}
+                        </ul>
+                    {/if}
+                </li>
+            </ul>
+            {/if}
         </details>
         {/snippet}
     </SystemHealthPanel>
@@ -1107,7 +1059,14 @@
             </span>
         </header>
 
-        {#if instanceWindow === null}
+        {#if !workspacePayload}
+            <!-- Until the reading lands its start time is unknown; this holds the timeline's place. -->
+            <p class="mt-4 min-h-40 text-sm text-slate-600 dark:text-slate-400" data-health-timeline-pending>
+                {readState === 'failed'
+                    ? $_('jobs.errors_activity_unread', { default: 'Activity cannot be shown until a health reading has loaded.' })
+                    : $_('jobs.errors_reading', { default: 'Reading the latest health…' })}
+            </p>
+        {:else if instanceWindow === null}
             <p class="mt-4 text-sm text-slate-600 dark:text-slate-400">
                 {$_('jobs.errors_activity_no_window', {
                     default: 'This instance has not reported when it started, so activity cannot be placed in a window yet.'
@@ -1136,17 +1095,34 @@
     <!-- ── Earlier incidents + backend warnings ────────────────────── -->
     <div class="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_1fr]">
         <section class="panel" data-health-earlier-incidents>
-            <div class="mb-4 min-w-0">
-                <h2 class="font-display text-xl font-bold text-slate-950 dark:text-white">{$_('jobs.earlier_incidents_title', { default: 'Earlier incidents' })}</h2>
-                <p class="text-sm text-slate-600 dark:text-slate-400">{$_('jobs.earlier_incidents_desc', { default: 'Problems that have since cleared. What is open now is listed with the system status above.' })}</p>
+            <!-- The clearing action sits with the history it clears, not above the live status. -->
+            <div class="mb-4 flex flex-wrap items-start justify-between gap-3">
+                <div class="min-w-0 flex-1 basis-56">
+                    <h2 class="font-display text-xl font-bold text-slate-950 dark:text-white">{$_('jobs.earlier_incidents_title', { default: 'Earlier incidents' })}</h2>
+                    <p class="text-sm text-slate-600 dark:text-slate-400">{$_('jobs.earlier_incidents_desc', { default: 'Problems that have since cleared. What is open now is listed with the system status above.' })}</p>
+                </div>
+                <button
+                    type="button"
+                    class="btn btn-secondary min-h-11 px-3 py-2 text-xs"
+                    onclick={clearWorkspace}
+                    disabled={clearing || refreshing}
+                    aria-describedby="health-clear-effect"
+                    data-health-clear
+                >
+                    {clearing ? $_('jobs.errors_clearing', { default: 'Clearing…' }) : $_('jobs.errors_clear', { default: 'Clear error history' })}
+                </button>
+                <span id="health-clear-effect" class="sr-only">{$_('jobs.errors_clear_effect', { default: 'Removes recorded errors and incidents now. Live checks carry on.' })}</span>
             </div>
+            {#if clearError}
+                <p class="mb-3 text-sm font-semibold text-rose-700 dark:text-rose-300" role="alert">{$_('jobs.errors_clear_failed', { default: 'The error history could not be cleared. Try again.' })}</p>
+            {/if}
             {#if recentIncidents.length === 0}
                 <p class="text-sm text-slate-600 dark:text-slate-400">{$_('jobs.earlier_incidents_empty', { default: 'Nothing has cleared since the error history was last cleared.' })}</p>
             {:else}
                 <ul class="divide-y divide-line-soft">
                     {#each recentIncidents.slice(0, 6) as incident (incident.id)}
                         <li class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-2.5">
-                            <p class="min-w-0 flex-1 basis-48 text-sm font-semibold text-slate-900 dark:text-white">{incident.title}</p>
+                            <p class="min-w-0 flex-1 basis-48 text-sm font-semibold text-slate-900 dark:text-white">{incidentItem(incident).title}</p>
                             <span class="text-xs tabular-nums text-slate-600 dark:text-slate-400">{formatDateTime(incident.lastSeenAt)}</span>
                         </li>
                     {/each}
@@ -1164,24 +1140,25 @@
             {#if backendEvents.length === 0}
                 <p class="text-sm text-slate-600 dark:text-slate-400">{$_('jobs.errors_empty', { default: 'None recorded.' })}</p>
             {:else}
-                <div class="space-y-3">
+                <!-- One ruled row per diagnostic: the state in a worded chip, the cause in the reader's
+                     language where it is known, and the backend's own words under Technical details. -->
+                <ul class="divide-y divide-line-soft">
                     {#each backendEvents.slice(0, 8) as event (event.id)}
-                        <article class={`rounded-2xl border px-4 py-3 ${toneClass(event.severity ?? 'warning')}`}>
+                        {@const worded = diagnosticWords(event.reason_code)}
+                        <li class="py-3" data-health-diagnostic>
                             <div class="flex flex-wrap items-center justify-between gap-2">
-                                <div class="flex flex-wrap items-center gap-2">
-                                    <span class="inline-flex rounded-full border px-2 py-0.5 text-xs font-bold" title={event.severity}>
-                                        {statusLabel(event.severity ?? 'warning')}
-                                    </span>
-                                    <span class="font-mono text-xs opacity-80">
-                                        {event.component} · {event.reason_code}
-                                    </span>
-                                </div>
-                                <span class="text-xs font-semibold opacity-70">{formatDateTime(Date.parse(event.timestamp))}</span>
+                                <span class="inline-flex rounded-full border px-2 py-0.5 text-xs font-bold {toneClass(event.severity ?? 'warning')}" title={event.severity}>
+                                    {statusLabel(event.severity ?? 'warning')}
+                                </span>
+                                <span class="text-xs tabular-nums text-slate-700 dark:text-slate-300">{formatDateTime(Date.parse(event.timestamp))}</span>
                             </div>
-                            <p class="mt-2 text-sm font-semibold">{event.message}</p>
+                            <p class="mt-2 wrap-break-word text-sm font-semibold text-slate-900 dark:text-white">{worded?.title ?? event.message}</p>
+                            {#if worded?.next}
+                                <p class="mt-0.5 text-sm text-slate-700 dark:text-slate-200">{worded.next}</p>
+                            {/if}
                             {#if (event.count ?? 1) > 1 && event.first_seen && event.last_seen}
                                 <!-- The backend keeps repeats of one fault as one entry; this says how often and over what span. -->
-                                <p class="mt-1 text-xs tabular-nums opacity-80" data-diagnostic-repeats>
+                                <p class="mt-1 text-xs tabular-nums text-slate-700 dark:text-slate-300" data-diagnostic-repeats>
                                     {$_('jobs.errors_repeated', {
                                         values: {
                                             count: (event.count ?? 1).toLocaleString(),
@@ -1192,16 +1169,15 @@
                                     })}
                                 </p>
                             {/if}
-                            {#if event.event_id || event.correlation_key}
-                                <p class="mt-2 text-xs opacity-80">
-                                    {#if event.event_id}<span>Event {event.event_id}</span>{/if}
-                                    {#if event.event_id && event.correlation_key}<span> • </span>{/if}
-                                    {#if event.correlation_key}<span>{event.correlation_key}</span>{/if}
-                                </p>
-                            {/if}
-                        </article>
+                            {@render technicalDetails([
+                                `${event.component} · ${event.reason_code}`,
+                                ...(worded ? [event.message] : []),
+                                ...(event.event_id ? [`event ${event.event_id}`] : []),
+                                ...(event.correlation_key ? [event.correlation_key] : [])
+                            ])}
+                        </li>
                     {/each}
-                </div>
+                </ul>
             {/if}
         </section>
     </div>

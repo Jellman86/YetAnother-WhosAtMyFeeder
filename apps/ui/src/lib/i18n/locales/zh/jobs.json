@@ -301,5 +301,60 @@
   "activity_waiting_for_frigate": "正在等待 Frigate 响应",
   "phase_waiting_for_frigate": "正在等待 Frigate 响应",
   "lane_running_count": "{count} 个运行中",
-  "lane_queued_count": "{count} 个排队中"
+  "lane_queued_count": "{count} 个排队中",
+  "errors_reading": "正在读取最新运行状况…",
+  "errors_read_failed": "无法加载运行状况读数，因此本页不声明任何状态。",
+  "errors_read_failed_next": "刷新以重试。如果仍然失败，请检查 YA-WAMF 后端是否正在运行。",
+  "errors_read_stale": "最近一次刷新失败，因此显示的是 {at} 的读数。请刷新重试。",
+  "errors_read_at": "读取于 {at}",
+  "errors_technical_details": "技术详情",
+  "errors_pipeline_unmeasured": "MQTT 代理未连接时什么都无法到达，因此这些计数无法说明处理管道是否正常。",
+  "errors_mqtt_cause_unknown": "代理客户端给出了 YA-WAMF 无法识别的原因，显示在“技术详情”中。",
+  "errors_video_paused_until": "连续 {count, plural, other {# 次}}失败后，视频分析暂停至 {at}。",
+  "errors_video_paused": "连续 {count, plural, other {# 次}}失败后，视频分析已暂停。",
+  "errors_video_not_paused": "视频分析未暂停：{queued} 个等待中，{running} 个运行中。",
+  "errors_background_plain": "后台工作：{queued} 个等待中，{running} 个运行中。",
+  "errors_summary_unknown": "此读数未说明 YA-WAMF 是否正常工作，因此不声明任何状态。",
+  "errors_subsystems_unread": "加载运行状况读数之前无内容可显示。",
+  "errors_activity_unread": "加载运行状况读数之前无法显示活动。",
+  "errors_clear_failed": "无法清除错误历史。请重试。",
+  "errors_metric_handling": "正在处理的消息",
+  "errors_metric_of": "{count} / {total}",
+  "errors_metric_waiting": "等待中",
+  "errors_metric_being_named": "正在识别",
+  "errors_metric_at_once": "最多同时",
+  "errors_metric_given_up": "已放弃",
+  "errors_metric_running": "运行中",
+  "errors_metric_failures_in_a_row": "连续失败",
+  "errors_metric_held_back": "为实时工作让路",
+  "errors_metric_notifications_dropped": "已丢弃的通知",
+  "errors_metric_waiting_to_send": "等待发送",
+  "errors_metric_db_longest_wait": "等待数据库的最长时间",
+  "errors_metric_db_waits_timed_out": "等待数据库超时的次数",
+  "diagnostic_words": {
+    "classify_snapshot_timeout": {
+      "title": "由于识别快照耗时过长，一次检测被丢弃。",
+      "next": "分类器可能过载。请查看上方的资源使用情况，或在 设置 → 模型 中选择更轻量的模型。"
+    },
+    "classify_snapshot_overloaded": {
+      "title": "由于分类器过于繁忙，一次检测被丢弃。",
+      "next": "请查看上方的资源使用情况。如果经常发生，请在 设置 → 模型 中选择更轻量的模型。"
+    },
+    "classify_snapshot_unavailable": {
+      "title": "由于 Frigate 没有对应快照，一次检测被丢弃。",
+      "next": "请检查 Frigate 中此摄像头是否已开启快照。"
+    },
+    "classifier_empty_results": {
+      "title": "由于分类器没有给出结果，一次检测被丢弃。",
+      "next": "请在 设置 → 模型 中检查是否已加载模型。"
+    },
+    "save_and_notify_failed": {
+      "title": "一次检测已识别，但无法保存。",
+      "next": "请检查数据文件夹是否有可用空间并且可以写入。"
+    },
+    "stale_job": {
+      "title": "一个后台任务已停止推进。",
+      "next": "它显示在“通知”中。请从那里或运行它的设置选项卡重新启动。"
+    }
+  }
 }

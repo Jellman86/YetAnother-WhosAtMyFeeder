@@ -1,6 +1,6 @@
 {
   "stack_trace": "Rastreamento de pilha:",
-  "server_failure": "Algo no servidor interrompeu este pedido. Tente novamente; se continuar a acontecer, abra o Estado do sistema para ver o que está errado.",
+  "server_failure": "Algo no servidor interrompeu este pedido. Tente novamente; se continuar a acontecer, abra a página Saúde para ver o que está errado.",
   "connection": {
     "service_mqtt": "Broker MQTT",
     "host_not_found": "{service}: o nome do anfitrião em {address} não foi encontrado. Verifique o endereço.",

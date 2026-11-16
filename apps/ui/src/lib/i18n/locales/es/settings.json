@@ -68,7 +68,7 @@
     "config_backup_import_error": "No se pudo importar la copia de seguridad de la configuración",
     "diagnostics_title": "Diagnóstico",
     "diagnostics_desc": "Abre la página Estado: estado del backend, incidentes agrupados y paquetes de soporte.",
-    "open_diagnostics": "Abrir salud",
+    "open_diagnostics": "Abrir Estado",
     "taxonomy_title": "Reparación taxonómica",
     "taxonomy_desc": "Conectar nombres científicos y comunes",
     "taxonomy_syncing": "Sincronizando…",

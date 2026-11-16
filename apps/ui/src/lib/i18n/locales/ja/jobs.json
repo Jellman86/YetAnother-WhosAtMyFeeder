@@ -301,5 +301,60 @@
   "activity_waiting_for_frigate": "Frigate の応答を待機中",
   "phase_waiting_for_frigate": "Frigate の応答を待機中",
   "lane_running_count": "{count} 件実行中",
-  "lane_queued_count": "{count} 件待機中"
+  "lane_queued_count": "{count} 件待機中",
+  "errors_reading": "最新の稼働状況を読み込み中…",
+  "errors_read_failed": "稼働状況を読み込めなかったため、このページは状態を表示しません。",
+  "errors_read_failed_next": "更新して再試行してください。失敗が続く場合は、YA-WAMF のバックエンドが動作していることを確認してください。",
+  "errors_read_stale": "最新の更新に失敗したため、{at} 時点の読み取りを表示しています。更新して再試行してください。",
+  "errors_read_at": "{at} に読み取り",
+  "errors_technical_details": "技術的な詳細",
+  "errors_pipeline_unmeasured": "MQTT ブローカーに接続されていない間は何も届かないため、これらの数ではパイプラインが動作しているかどうかは分かりません。",
+  "errors_mqtt_cause_unknown": "ブローカーのクライアントが YA-WAMF の認識できない理由を返しました。技術的な詳細に表示しています。",
+  "errors_video_paused_until": "{count, plural, other {# 回}}連続で失敗したため、ビデオ解析は {at} まで一時停止しています。",
+  "errors_video_paused": "{count, plural, other {# 回}}連続で失敗したため、ビデオ解析は一時停止しています。",
+  "errors_video_not_paused": "ビデオ解析は停止していません。待機中 {queued} 件、実行中 {running} 件。",
+  "errors_background_plain": "バックグラウンド処理: 待機中 {queued} 件、実行中 {running} 件。",
+  "errors_summary_unknown": "この読み取りでは YA-WAMF が動作しているかどうか分からないため、状態は表示しません。",
+  "errors_subsystems_unread": "稼働状況を読み込むまで表示する内容はありません。",
+  "errors_activity_unread": "稼働状況を読み込むまでアクティビティは表示できません。",
+  "errors_clear_failed": "エラー履歴を消去できませんでした。もう一度お試しください。",
+  "errors_metric_handling": "処理中のメッセージ",
+  "errors_metric_of": "{total} 件中 {count} 件",
+  "errors_metric_waiting": "待機中",
+  "errors_metric_being_named": "現在判定中",
+  "errors_metric_at_once": "同時実行の上限",
+  "errors_metric_given_up": "断念",
+  "errors_metric_running": "実行中",
+  "errors_metric_failures_in_a_row": "連続失敗",
+  "errors_metric_held_back": "ライブ処理を優先して保留",
+  "errors_metric_notifications_dropped": "破棄された通知",
+  "errors_metric_waiting_to_send": "送信待ち",
+  "errors_metric_db_longest_wait": "データベースの最長待ち時間",
+  "errors_metric_db_waits_timed_out": "時間切れになったデータベース待ち",
+  "diagnostic_words": {
+    "classify_snapshot_timeout": {
+      "title": "スナップショットの判定に時間がかかりすぎたため、検出が破棄されました。",
+      "next": "分類器が過負荷の可能性があります。上のリソース使用状況を確認するか、設定 → モデル でより軽いモデルを選んでください。"
+    },
+    "classify_snapshot_overloaded": {
+      "title": "分類器が混雑していたため、検出が破棄されました。",
+      "next": "上のリソース使用状況を確認してください。頻繁に起こる場合は、設定 → モデル でより軽いモデルを選んでください。"
+    },
+    "classify_snapshot_unavailable": {
+      "title": "Frigate にスナップショットがなかったため、検出が破棄されました。",
+      "next": "Frigate でこのカメラのスナップショットが有効になっていることを確認してください。"
+    },
+    "classifier_empty_results": {
+      "title": "分類器が結果を返さなかったため、検出が破棄されました。",
+      "next": "設定 → モデル でモデルが読み込まれていることを確認してください。"
+    },
+    "save_and_notify_failed": {
+      "title": "検出の種は判定されましたが、保存できませんでした。",
+      "next": "データフォルダに空き容量があり、書き込めることを確認してください。"
+    },
+    "stale_job": {
+      "title": "バックグラウンドのジョブが進まなくなりました。",
+      "next": "通知に表示されています。そこから、または実行元の設定タブから再開してください。"
+    }
+  }
 }

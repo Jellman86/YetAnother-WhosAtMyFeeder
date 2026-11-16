@@ -1,6 +1,6 @@
 {
   "title": "系统状态",
-  "open_health": "系统状态",
+  "open_health": "运行状况",
   "row_feed": "Frigate 事件",
   "row_audio": "音频",
   "row_alerts": "通知",

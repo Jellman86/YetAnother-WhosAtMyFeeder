@@ -1,6 +1,6 @@
 {
   "title": "Состояние системы",
-  "open_health": "Состояние системы",
+  "open_health": "Состояние",
   "row_feed": "События Frigate",
   "row_audio": "Аудио",
   "row_alerts": "Оповещения",

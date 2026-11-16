@@ -301,5 +301,60 @@
   "activity_waiting_for_frigate": "In attesa che Frigate risponda",
   "phase_waiting_for_frigate": "In attesa che Frigate risponda",
   "lane_running_count": "{count} in corso",
-  "lane_queued_count": "{count} in coda"
+  "lane_queued_count": "{count} in coda",
+  "errors_reading": "Lettura dello stato più recente…",
+  "errors_read_failed": "Non è stato possibile caricare la lettura dello stato, quindi questa pagina non indica alcuno stato.",
+  "errors_read_failed_next": "Aggiorna per riprovare. Se continua a non riuscire, verifica che il backend di YA-WAMF sia in esecuzione.",
+  "errors_read_stale": "L’ultimo aggiornamento non è riuscito, quindi questa è la lettura delle {at}. Aggiorna per riprovare.",
+  "errors_read_at": "Letto alle {at}",
+  "errors_technical_details": "Dettagli tecnici",
+  "errors_pipeline_unmeasured": "Non può arrivare nulla finché il broker MQTT non è connesso, quindi questi conteggi non mostrano se la pipeline funziona.",
+  "errors_mqtt_cause_unknown": "Il client del broker ha indicato un motivo che YA-WAMF non riconosce. È riportato in Dettagli tecnici.",
+  "errors_video_paused_until": "L’analisi video è in pausa fino alle {at}, dopo {count, plural, one {# errore} other {# errori}} di fila.",
+  "errors_video_paused": "L’analisi video è in pausa dopo {count, plural, one {# errore} other {# errori}} di fila.",
+  "errors_video_not_paused": "L’analisi video non è in pausa: {queued} in attesa, {running} in corso.",
+  "errors_background_plain": "Lavoro in background: {queued} in attesa, {running} in corso.",
+  "errors_summary_unknown": "Questa lettura non dice se YA-WAMF funziona, quindi non si indica alcuno stato.",
+  "errors_subsystems_unread": "Niente da mostrare finché non viene caricata una lettura dello stato.",
+  "errors_activity_unread": "L’attività non può essere mostrata finché non viene caricata una lettura dello stato.",
+  "errors_clear_failed": "Impossibile cancellare la cronologia degli errori. Riprova.",
+  "errors_metric_handling": "Messaggi in elaborazione",
+  "errors_metric_of": "{count} su {total}",
+  "errors_metric_waiting": "In attesa",
+  "errors_metric_being_named": "In identificazione ora",
+  "errors_metric_at_once": "Al massimo insieme",
+  "errors_metric_given_up": "Abbandonati",
+  "errors_metric_running": "In corso",
+  "errors_metric_failures_in_a_row": "Errori di fila",
+  "errors_metric_held_back": "Trattenuto per il lavoro dal vivo",
+  "errors_metric_notifications_dropped": "Notifiche scartate",
+  "errors_metric_waiting_to_send": "In attesa di invio",
+  "errors_metric_db_longest_wait": "Attesa più lunga del database",
+  "errors_metric_db_waits_timed_out": "Attese del database scadute",
+  "diagnostic_words": {
+    "classify_snapshot_timeout": {
+      "title": "Un rilevamento è stato scartato perché l’identificazione della sua istantanea ha richiesto troppo tempo.",
+      "next": "Il classificatore potrebbe essere sovraccarico. Controlla l’uso delle risorse sopra o scegli un modello più leggero in Impostazioni → Modelli."
+    },
+    "classify_snapshot_overloaded": {
+      "title": "Un rilevamento è stato scartato perché il classificatore era troppo occupato.",
+      "next": "Controlla l’uso delle risorse sopra. Se succede spesso, scegli un modello più leggero in Impostazioni → Modelli."
+    },
+    "classify_snapshot_unavailable": {
+      "title": "Un rilevamento è stato scartato perché Frigate non aveva un’istantanea.",
+      "next": "Verifica che le istantanee siano attive per questa telecamera in Frigate."
+    },
+    "classifier_empty_results": {
+      "title": "Un rilevamento è stato scartato perché il classificatore non ha dato risposta.",
+      "next": "Verifica che un modello sia caricato in Impostazioni → Modelli."
+    },
+    "save_and_notify_failed": {
+      "title": "Un rilevamento è stato identificato ma non è stato possibile salvarlo.",
+      "next": "Verifica che la cartella dati abbia spazio libero e sia scrivibile."
+    },
+    "stale_job": {
+      "title": "Un’attività in background ha smesso di avanzare.",
+      "next": "È mostrata in Notifiche. Riavviala da lì o dalla scheda delle Impostazioni che la esegue."
+    }
+  }
 }

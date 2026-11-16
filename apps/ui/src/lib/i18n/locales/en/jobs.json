@@ -301,5 +301,60 @@
   "activity_waiting_for_frigate": "Waiting for Frigate to answer",
   "phase_waiting_for_frigate": "Waiting for Frigate to answer",
   "lane_running_count": "{count} running",
-  "lane_queued_count": "{count} queued"
+  "lane_queued_count": "{count} queued",
+  "errors_reading": "Reading the latest health…",
+  "errors_read_failed": "The health reading could not be loaded, so this page claims no state.",
+  "errors_read_failed_next": "Refresh to try again. If it keeps failing, check that the YA-WAMF backend is running.",
+  "errors_read_stale": "The latest refresh failed, so this is the reading from {at}. Refresh to try again.",
+  "errors_read_at": "Read at {at}",
+  "errors_technical_details": "Technical details",
+  "errors_pipeline_unmeasured": "Nothing can arrive while the MQTT broker is not connected, so these counts do not show whether the pipeline works.",
+  "errors_mqtt_cause_unknown": "The broker client gave a reason YA-WAMF does not recognise. It is shown under Technical details.",
+  "errors_video_paused_until": "Video analysis is paused until {at}, after {count, plural, one {# failure} other {# failures}} in a row.",
+  "errors_video_paused": "Video analysis is paused after {count, plural, one {# failure} other {# failures}} in a row.",
+  "errors_video_not_paused": "Video analysis is not paused: {queued} waiting, {running} running.",
+  "errors_background_plain": "Background work: {queued} waiting, {running} running.",
+  "errors_summary_unknown": "This reading did not say whether YA-WAMF is working, so no state is claimed.",
+  "errors_subsystems_unread": "Nothing to show until a health reading has loaded.",
+  "errors_activity_unread": "Activity cannot be shown until a health reading has loaded.",
+  "errors_clear_failed": "The error history could not be cleared. Try again.",
+  "errors_metric_handling": "Messages being handled",
+  "errors_metric_of": "{count} of {total}",
+  "errors_metric_waiting": "Waiting",
+  "errors_metric_being_named": "Being named now",
+  "errors_metric_at_once": "At most at once",
+  "errors_metric_given_up": "Given up",
+  "errors_metric_running": "Running",
+  "errors_metric_failures_in_a_row": "Failures in a row",
+  "errors_metric_held_back": "Held back for live work",
+  "errors_metric_notifications_dropped": "Notifications dropped",
+  "errors_metric_waiting_to_send": "Waiting to send",
+  "errors_metric_db_longest_wait": "Longest wait for the database",
+  "errors_metric_db_waits_timed_out": "Database waits that timed out",
+  "diagnostic_words": {
+    "classify_snapshot_timeout": {
+      "title": "A detection was dropped because naming its snapshot took too long.",
+      "next": "The classifier may be overloaded. Check Resource use above, or choose a lighter model in Settings → Models."
+    },
+    "classify_snapshot_overloaded": {
+      "title": "A detection was dropped because the classifier was too busy.",
+      "next": "Check Resource use above. If it happens often, choose a lighter model in Settings → Models."
+    },
+    "classify_snapshot_unavailable": {
+      "title": "A detection was dropped because Frigate had no snapshot for it.",
+      "next": "Check that snapshots are turned on for this camera in Frigate."
+    },
+    "classifier_empty_results": {
+      "title": "A detection was dropped because the classifier gave no answer.",
+      "next": "Check that a model is loaded in Settings → Models."
+    },
+    "save_and_notify_failed": {
+      "title": "A detection was named but could not be saved.",
+      "next": "Check that the data folder has free space and can be written to."
+    },
+    "stale_job": {
+      "title": "A background job stopped making progress.",
+      "next": "It is shown on Notifications. Start it again from there, or from the Settings tab that runs it."
+    }
+  }
 }

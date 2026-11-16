@@ -1,6 +1,6 @@
 {
   "title": "System status",
-  "open_health": "System health",
+  "open_health": "Health",
   "row_feed": "Frigate events",
   "row_audio": "Audio",
   "row_alerts": "Alerts",

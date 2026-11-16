@@ -36,7 +36,7 @@
   "settings_updated_message": "A configuração foi alterada com sucesso.",
   "live_updates_disconnected_title": "A reconectar…",
   "live_updates_disconnected_message": "As atualizações ao vivo estão se reconectando em segundo plano.",
-  "system_health_title": "Aviso de estado do sistema",
+  "system_health_title": "A saúde precisa de atenção",
   "system_health_message": "Estado do sistema: {status}",
   "open_action": "Abrir",
   "global_progress_last": "Atualizado há {age}",
@@ -69,5 +69,12 @@
   "filter_group": "Filtrar notificações",
   "count_unread_unit": "{count, plural, one {por ler} other {por ler}}",
   "cleared": "{count, plural, one {# notificação limpa.} other {# notificações limpas.}}",
-  "owner_only_note": "As tarefas em segundo plano e os eventos de estado e do sistema são mostrados apenas a si, não aos visitantes."
+  "owner_only_note": "As tarefas em segundo plano e os eventos de estado e do sistema são mostrados apenas a si, não aos visitantes.",
+  "system_health_cause": {
+    "mqtt_down": "O broker MQTT não está ligado, por isso não podem chegar novas deteções.",
+    "mqtt_not_configured": "Não há nenhum broker MQTT definido, por isso não podem chegar deteções.",
+    "frigate_down": "O Frigate não responde, por isso não é possível guardar novas deteções.",
+    "pipeline_critical": "O pipeline de deteções tem uma falha crítica.",
+    "other": "Algo não está a funcionar como devia. Abra a página Saúde para ver o quê."
+  }
 }

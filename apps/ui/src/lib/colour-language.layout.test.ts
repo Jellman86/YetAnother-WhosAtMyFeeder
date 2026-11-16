@@ -174,7 +174,7 @@ const ATTENTION_COMPONENTS: Record<string, string> = {
     'components/BackendStatusScreen.svelte': 'start-up that needs the owner',
     'components/CameraStatus.svelte': 'some cameras offline',
     'components/ConnectionStatus.svelte': 'the camera feed is down or degraded',
-    'components/Sidebar.svelte': 'open issues on System health that need the owner',
+    'components/Sidebar.svelte': 'open issues on Health that need the owner',
     'components/DiagnosticDialog.svelte': 'a diagnostic step that warned',
     'components/JobCircuitBanner.svelte': 'background work paused after repeated failures',
     'components/GlobalProgress.svelte': 'a job that is blocked',

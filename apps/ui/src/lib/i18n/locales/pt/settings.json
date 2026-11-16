@@ -68,7 +68,7 @@
     "config_backup_import_error": "Não foi possível importar a cópia de segurança da configuração",
     "diagnostics_title": "Diagnóstico",
     "diagnostics_desc": "Abre a página Saúde com estado do backend, incidentes agrupados e pacotes de suporte.",
-    "open_diagnostics": "Abrir saúde",
+    "open_diagnostics": "Abrir Saúde",
     "taxonomy_title": "Reparação taxonómica",
     "taxonomy_desc": "Ligar nomes científicos e comuns",
     "taxonomy_syncing": "A sincronizar…",
