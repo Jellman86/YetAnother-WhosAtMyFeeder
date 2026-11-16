@@ -13,7 +13,7 @@
   "seasonality_global": "Estacionalidad global",
   "range_map": "Mapa de distribución",
   "range_unavailable": "Mapa de distribución no disponible.",
-  "range_map_hint": "Arrastra para mover • Desplaza para acercar",
+  "range_map_hint": "Arrastra para desplazar el mapa. Usa + y − para acercar o alejar.",
   "video_unavailable": "Clip de video no disponible",
   "no_recent_sightings": "No hay avistamientos recientes.",
   "count_label": "Cantidad",

@@ -13,6 +13,7 @@ from app.services.media_cache import media_cache
 from app.services.weather_service import weather_service
 from app.repositories.detection_repository import DetectionRepository
 from app.repositories.maintenance_job_repository import MaintenanceJobRepository
+from app.services.maintenance_run_history import BACKFILL_JOB_KINDS
 from app.database import get_db
 from app.utils.language import get_user_language
 from app.auth import require_owner, AuthContext
@@ -188,7 +189,7 @@ async def recover_job_history() -> None:
     async with get_db() as db:
         repo = MaintenanceJobRepository(db)
         await repo.recover_interrupted()
-        history = await repo.recent()
+        history = await repo.recent(kinds=BACKFILL_JOB_KINDS)
     for payload in history:
         job = BackfillJobStatus.model_validate(payload)
         _JOB_STORE[job.id] = job
@@ -1144,7 +1145,7 @@ async def get_backfill_status(
         return BackfillJobStatus.model_validate(payload) if payload else None
     if not _LATEST_JOB_BY_KIND:
         async with get_db() as db:
-            payload = await MaintenanceJobRepository(db).latest()
+            payload = await MaintenanceJobRepository(db).latest(kinds=BACKFILL_JOB_KINDS)
         return BackfillJobStatus.model_validate(payload) if payload else None
     latest = max(_JOB_STORE.values(), key=lambda j: j.started_at or "")
     return latest

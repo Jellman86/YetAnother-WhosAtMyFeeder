@@ -224,6 +224,14 @@
   --focus-on-dark: var(--brand-400);
   --switch-off: 100 116 139;
   --switch-on: var(--brand-600);
+  /* The inks of the record's AI panel and the Markdown inside it. They are tokens, not colours
+     written in the component, so each theme and high contrast set them in one place. */
+  --ai-ink: 30 41 59;
+  --ai-heading: var(--brand-600);
+  --ai-strong: var(--brand-700);
+  --ai-code: var(--brand-700);
+  --ai-muted: 100 116 139;
+  --ai-marker: var(--brand-600);
 }
 
 html.dark,
@@ -233,6 +241,12 @@ html[data-theme='dark'] {
   --line: 51 65 85;
   --line-soft: 34 46 66;
   --focus: var(--brand-400);
+  --ai-ink: 241 245 249;
+  --ai-heading: 94 234 212;
+  --ai-strong: var(--brand-200);
+  --ai-code: var(--brand-200);
+  --ai-muted: 148 163 184;
+  --ai-marker: var(--brand-300);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
@@ -685,6 +699,8 @@ img[data-media-failed] {
    only tints those; components need no per-theme overrides. */
 
 html.theme-bluetit:not(.dark) {
+  --ai-heading: 29 78 216;
+  --ai-strong: 30 64 175;
   --app-bg: #f4f7fc;
   --app-fg: #1e293b;
   --surface: 255 255 255;
@@ -694,6 +710,8 @@ html.theme-bluetit:not(.dark) {
 }
 
 html.theme-bluetit.dark {
+  --ai-heading: 96 165 250;
+  --ai-marker: var(--brand-400);
   --app-bg: #050a14;
   --app-fg: #e8edf5;
   --surface: 11 19 34;
@@ -716,36 +734,12 @@ html.theme-bluetit.dark {
  * so we target them directly here.
  */
 
-/* Markdown headings */
-html.theme-bluetit:not(.dark) .ai-markdown-surface h1,
-html.theme-bluetit:not(.dark) .ai-markdown-surface h2,
-html.theme-bluetit:not(.dark) .ai-markdown-surface h3,
-html.theme-bluetit:not(.dark) .ai-markdown-surface h4,
-html.theme-bluetit:not(.dark) .ai-markdown-surface h5,
-html.theme-bluetit:not(.dark) .ai-markdown-surface h6 { color: rgb(29 78 216); }
-html.theme-bluetit.dark .ai-markdown-surface h1,
-html.theme-bluetit.dark .ai-markdown-surface h2,
-html.theme-bluetit.dark .ai-markdown-surface h3,
-html.theme-bluetit.dark .ai-markdown-surface h4,
-html.theme-bluetit.dark .ai-markdown-surface h5,
-html.theme-bluetit.dark .ai-markdown-surface h6 { color: rgb(96 165 250); }
-
-/* Markdown strong */
-html.theme-bluetit:not(.dark) .ai-markdown-surface strong { color: rgb(30 64 175); }
-html.theme-bluetit.dark .ai-markdown-surface strong { color: rgb(191 219 254); }
-
-/* Markdown links */
-html.theme-bluetit:not(.dark) .ai-markdown-surface a { color: rgb(29 78 216); }
-html.theme-bluetit.dark .ai-markdown-surface a { color: rgb(96 165 250); }
-
 /* Markdown code */
 html.theme-bluetit:not(.dark) .ai-markdown-surface code {
   background: rgba(37, 99, 235, 0.08);
-  color: rgb(29 78 216);
 }
 html.theme-bluetit.dark .ai-markdown-surface code {
   background: rgba(96, 165, 250, 0.20);
-  color: rgb(191 219 254);
 }
 
 /* Markdown pre */
@@ -766,14 +760,6 @@ html.theme-bluetit.dark .ai-markdown-surface blockquote {
   background: rgba(37, 99, 235, 0.15);
   border-left-color: rgba(96, 165, 250, 0.6);
 }
-
-/* Markdown list markers */
-html.theme-bluetit:not(.dark) .ai-markdown-surface li::marker { color: rgba(37, 99, 235, 0.5); }
-html.theme-bluetit.dark .ai-markdown-surface li::marker { color: rgba(96, 165, 250, 0.5); }
-
-/* Markdown table headers */
-html.theme-bluetit:not(.dark) .ai-markdown-surface th { color: rgb(29 78 216); }
-html.theme-bluetit.dark .ai-markdown-surface th { color: rgb(191 219 254); }
 
 
 /* Accessibility Modes */
@@ -796,7 +782,8 @@ html.theme-bluetit.dark .ai-markdown-surface th { color: rgb(191 219 254); }
   font-display: swap;
 }
 
-/* Dyslexia Friendly Font */
+/* Reading font: OpenDyslexic for every word. It changes the face and the leading and nothing
+   else, so it combines with any theme and with high contrast. */
 .font-dyslexic,
 .font-dyslexic * {
   font-family: 'OpenDyslexic', sans-serif !important;
@@ -805,7 +792,12 @@ html.theme-bluetit.dark .ai-markdown-surface th { color: rgb(191 219 254); }
   font-weight: inherit !important;
 }
 
-/* High Contrast Mode */
+/* High Contrast Mode
+   One black scheme. The theme store adds `dark` whenever this class is on, so every `dark:`
+   variant applies whatever theme the reader chose, and the rules below lift what dark mode
+   leaves short of 7:1. Inks are repainted by colour family ([class*='text-slate-']), never by a
+   list of classes: a list is how headings were once left near-black on this black page.
+   app.high-contrast.test.ts fails a text colour family that is written in the app and missing here. */
 .high-contrast {
   --bg-color: #000000;
   --text-color: #ffffff;
@@ -820,12 +812,43 @@ html.theme-bluetit.dark .ai-markdown-surface th { color: rgb(191 219 254); }
    The class sits on <html> beside the theme classes, so this selector must outrank
    html.theme-bluetit.dark. */
 html.high-contrast.high-contrast.high-contrast {
+  --app-bg: #000000;
+  --app-fg: #ffffff;
   --surface: 0 0 0;
   --surface-raised: 0 0 0;
   --line: 255 255 0;
   --line-soft: 255 255 0;
   --focus: 0 255 255;
   --focus-on-dark: 0 255 255;
+  /* The brand steps drawn as marks on the page (a chart's bars, a progress fill) are yellow:
+     the dark theme's blue or teal is under 3:1 on black. Brand inks are set by family below. */
+  --brand-400: 255 255 0;
+  --brand-500: 255 255 0;
+  /* A switch is told apart by its fill as well as its thumb: grey off, yellow on. */
+  --switch-off: 118 118 118;
+  --switch-on: 255 255 0;
+
+  /* The AI panel's own ink tokens, so its headings, role labels and Markdown follow the mode. */
+  --ai-ink: 255 255 255;
+  --ai-heading: 255 255 0;
+  --ai-strong: 255 255 0;
+  --ai-code: 255 255 0;
+  --ai-muted: 255 255 255;
+  --ai-marker: 255 255 0;
+
+  /* The inks. Each is 7:1 or better on black; meaning still never rests on the hue alone. */
+  --hc-ink: #ffffff;
+  --hc-ink-brand: #ffff00;
+  --hc-ink-success: #7dff9b;
+  --hc-ink-attention: #ffc266;
+  --hc-ink-danger: #ff9c9c;
+  --hc-ink-disabled: #c8c8c8;
+  /* A chosen or primary control: a yellow fill under black words. */
+  --hc-fill: #ffff00;
+  --hc-on-fill: #000000;
+  /* A destructive or failed state that carries words: a deep red under white. */
+  --hc-dark-fill: #7a0000;
+  --hc-on-dark-fill: #ffffff;
 }
 
 .high-contrast body,
@@ -845,39 +868,117 @@ html.high-contrast.high-contrast.high-contrast {
   color: #ffffff !important;
 }
 
-.high-contrast .text-slate-400,
-.high-contrast .text-slate-500,
-.high-contrast .dark\:text-slate-400,
-.high-contrast .text-slate-600,
-.high-contrast .dark\:text-slate-300 {
-  color: #ffffff !important;
-}
-
 .high-contrast button,
 .high-contrast a,
 .high-contrast input,
-.high-contrast select {
+.high-contrast select,
+.high-contrast textarea {
   border: 2px solid #00ffff !important;
   color: #ffffff !important;
   background-color: #000000 !important;
 }
 
-.high-contrast .text-teal-600,
-.high-contrast .dark\:text-teal-400,
-.high-contrast .text-brand-500 {
-  color: #ffff00 !important;
-  /* Yellow text for emphasis */
+/* Ink, by family. Neutral text is white at every step, muted or not: hierarchy is carried by
+   size and weight here. The semantic families follow, so a hover or state class of another
+   family on the same element resolves to the semantic ink. */
+.high-contrast :is([class*='text-slate-'], [class*='text-gray-']) {
+  color: var(--hc-ink) !important;
 }
 
-/* Chosen-state fills moved from brand-500 to brand-700 for contrast under white text; they keep
-   the same high-contrast treatment. */
-.high-contrast .bg-teal-500,
-.high-contrast .bg-brand-500,
-.high-contrast .bg-brand-700,
-.high-contrast .bg-indigo-500 {
-  background-color: #ffff00 !important;
-  color: #000000 !important;
+.high-contrast :is([class*='text-brand-'], [class*='text-accent-'], [class*='text-blue-'], [class*='text-teal-'], [class*='text-violet-']) {
+  color: var(--hc-ink-brand) !important;
+}
+
+.high-contrast :is([class*='text-success-'], [class*='text-emerald-'], [class*='text-green-']) {
+  color: var(--hc-ink-success) !important;
+}
+
+.high-contrast :is([class*='text-attention-'], [class*='text-amber-'], [class*='text-orange-']) {
+  color: var(--hc-ink-attention) !important;
+}
+
+.high-contrast :is([class*='text-rose-'], [class*='text-red-']) {
+  color: var(--hc-ink-danger) !important;
+}
+
+.high-contrast ::placeholder {
+  color: var(--hc-ink-disabled) !important;
+  opacity: 1 !important;
+}
+
+/* Fills. A filled element sets its ground and its ink together, and everything inside it takes
+   that ink: a `text-white` or tinted word in a badge would otherwise keep a colour chosen for
+   the theme's fill. app.high-contrast.test.ts fails a fill the app puts white words on that is
+   neither dark enough for them nor named here.
+
+   Chosen-state fills (brand-700 under white text in the themes) and the primary button: yellow
+   under black words. */
+.high-contrast :is(.bg-teal-500, .bg-brand-500, .dark\:bg-brand-500, .bg-brand-700, [class~='bg-brand-700/95'], .bg-indigo-500, .btn-primary) {
+  background-color: var(--hc-fill) !important;
+  color: var(--hc-on-fill) !important;
   border: 2px solid #ffffff !important;
+}
+
+/* A bright semantic fill that carries words (a count badge, a "?" disc) keeps its own colour
+   under black words. Whole class names only, so a translucent tint such as bg-attention-500/10
+   is left to the inks above. */
+.high-contrast :is([class~='bg-attention-300'], [class~='bg-attention-400'], [class~='bg-attention-500'], [class~='bg-success-300'], [class~='bg-success-400'], [class~='bg-success-500'], [class~='bg-rose-300'], [class~='bg-rose-400'], [class~='bg-red-300'], [class~='bg-red-400'], [class~='bg-slate-400']) {
+  color: var(--hc-on-fill) !important;
+}
+
+.high-contrast :is(.bg-teal-500, .bg-brand-500, .dark\:bg-brand-500, .bg-brand-700, [class~='bg-brand-700/95'], .bg-indigo-500, .btn-primary, [class~='bg-attention-300'], [class~='bg-attention-400'], [class~='bg-attention-500'], [class~='bg-success-300'], [class~='bg-success-400'], [class~='bg-success-500'], [class~='bg-rose-300'], [class~='bg-rose-400'], [class~='bg-red-300'], [class~='bg-red-400'], [class~='bg-slate-400']) * {
+  color: var(--hc-on-fill) !important;
+}
+
+/* A mid-tone semantic fill under white words (a danger button, a status disc on a photograph)
+   is too light for them at 7:1, so it becomes one deep fill of its own hue family under white. */
+.high-contrast :is([class~='bg-success-600'], [class~='bg-success-700'], [class~='bg-success-700/95']) {
+  background-color: #004d2a !important;
+  color: var(--hc-on-dark-fill) !important;
+  border: 2px solid #ffffff !important;
+}
+
+.high-contrast :is([class~='bg-red-600'], [class~='bg-red-700'], [class~='bg-rose-700'], [class~='bg-orange-500/95'], .btn-danger-solid) {
+  background-color: var(--hc-dark-fill) !important;
+  color: var(--hc-on-dark-fill) !important;
+  border: 2px solid #ffffff !important;
+}
+
+.high-contrast :is([class~='bg-success-600'], [class~='bg-success-700'], [class~='bg-success-700/95'], [class~='bg-red-600'], [class~='bg-red-700'], [class~='bg-rose-700'], [class~='bg-orange-500/95'], .btn-danger-solid) * {
+  color: var(--hc-on-dark-fill) !important;
+}
+
+/* A disabled control keeps readable words and says it is off with a dashed grey edge, not by
+   fading: half-opacity white on black is the low contrast this mode exists to remove. It comes
+   after the fills and sets its ground with its ink, so a disabled primary or chosen control is
+   grey on black, never grey on the yellow it wears when it can be used. */
+.high-contrast :is(button, input, select, textarea):disabled,
+.high-contrast [aria-disabled='true'] {
+  opacity: 1 !important;
+  color: var(--hc-ink-disabled) !important;
+  background-color: #000000 !important;
+  border: 2px dashed var(--hc-ink-disabled) !important;
+}
+
+.high-contrast :is(button, input, select, textarea):disabled *,
+.high-contrast [aria-disabled='true'] * {
+  color: var(--hc-ink-disabled) !important;
+}
+
+/* The switch keeps its kit shape: the track is the state (grey off, yellow on) inside a white
+   edge, and the thumb is black on yellow so its side still reads. */
+.high-contrast .switch-track {
+  background-color: rgb(var(--switch-off)) !important;
+  border: 2px solid #ffffff !important;
+}
+
+.high-contrast .switch-track[aria-checked='true'] {
+  background-color: rgb(var(--switch-on)) !important;
+}
+
+.high-contrast .switch-thumb {
+  background-color: #000000 !important;
+  border: 0 !important;
 }
 
 .high-contrast svg {

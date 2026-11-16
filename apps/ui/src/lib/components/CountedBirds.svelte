@@ -5,7 +5,7 @@
     import { getErrorMessage } from '../utils/error-handling';
     import { toastStore } from '../stores/toast.svelte';
     import CountedBirdSpeciesPicker from './CountedBirdSpeciesPicker.svelte';
-    import { getBirdNames } from '../naming';
+    import { birdNames } from '../naming';
     import { settingsStore } from '../stores/settings.svelte';
     import { authStore } from '../stores/auth.svelte';
     import {
@@ -125,7 +125,7 @@
     function speciesName(bird: BirdObservation): string {
         return isUnknownBird(bird)
             ? $_('detection.counted_birds.unknown_bird', { default: 'Unknown bird' })
-            : getBirdNames(bird,
+            : $birdNames(bird,
                 settingsStore.settings?.display_common_names ?? authStore.displayCommonNames ?? true,
                 settingsStore.settings?.scientific_name_primary ?? authStore.scientificNamePrimary ?? false).primary;
     }

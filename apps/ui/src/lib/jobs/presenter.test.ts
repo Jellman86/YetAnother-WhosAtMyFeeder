@@ -178,9 +178,11 @@ describe('jobs presenter', () => {
         );
 
         expect(summary.headline).toBe('2 jobs running');
-        expect(summary.subline).toBe('1 running • 12 queued • capacity 1 / 2');
+        // The subline says what the leading job is doing; the headline already holds the counts.
+        expect(summary.subline).toBe('Reclassification: analyzing clips');
+        // No common total, so no bar and no placeholder words standing in for progress.
         expect(summary.determinate).toBe(false);
-        expect(summary.progressLabel).toBe('Multiple jobs in progress');
+        expect(summary.progressLabel).toBeNull();
     });
 
     it('shows queue-only analyze unknowns work in the global banner', () => {
@@ -202,7 +204,7 @@ describe('jobs presenter', () => {
         );
 
         expect(summary.headline).toBe('Analyze Unknowns queued');
-        expect(summary.subline).toBe('0 running • 18 queued • capacity 0 / 2');
+        expect(summary.subline).toBe('0 running · 18 queued');
         expect(summary.progressLabel).toBe('Batching up to 50 at a time; newest 200 scanned');
         expect(summary.determinate).toBe(false);
     });
@@ -227,7 +229,7 @@ describe('jobs presenter', () => {
             (kind) => kind === 'reclassify' ? 'Reclassification' : 'Backfill'
         );
 
-        expect(summary.subline).toBe('1 running • 12 queued • capacity 1 / 2');
+        expect(summary.subline).toBe('Reclassification: analyzing clips');
     });
 
 
@@ -307,6 +309,40 @@ describe('jobs presenter', () => {
             t,
             () => 'Reclassification'
         );
-        expect(mixed.headline).toBe('2 jobs running');
+        expect(mixed.headline).toBe('3 jobs: 2 running, 1 not responding');
+    });
+
+    it('counts restored work waiting for Frigate as one running and the rest queued, and names the wait', () => {
+        const restored = [
+            makeJob({ id: 'video:a', kind: 'video_analysis', status: 'running', phase: 'waiting_for_frigate', current: 0, total: 15, unit: 'frames' }),
+            makeJob({ id: 'video:b', kind: 'video_analysis', status: 'queued', phase: 'waiting', current: 0, total: 15, unit: 'frames' }),
+            makeJob({ id: 'video:c', kind: 'video_analysis', status: 'queued', phase: 'waiting', current: 0, total: 15, unit: 'frames' }),
+            makeJob({ id: 'video:d', kind: 'video_analysis', status: 'queued', phase: 'waiting', current: 0, total: 15, unit: 'frames' })
+        ];
+        const summary = buildGlobalProgressSummary(
+            restored,
+            new Map([['video_analysis', makeRow({ kind: 'video_analysis', queued: 3, running: 1, maxConcurrentConfigured: 1, maxConcurrentEffective: 1 })]]),
+            null,
+            125_000,
+            t,
+            () => 'Video analysis'
+        );
+
+        expect(summary.headline).toBe('4 jobs: 1 running, 3 queued');
+        expect(summary.subline).toBe('Video analysis: waiting for Frigate to answer');
+        expect(summary.headline).not.toMatch(/capacity/i);
+        expect(summary.subline).not.toMatch(/capacity/i);
+    });
+
+    it('says queued work is queued, not running', () => {
+        const summary = buildGlobalProgressSummary(
+            [makeJob({ id: 'a', status: 'queued' }), makeJob({ id: 'b', status: 'queued' })],
+            new Map([['reclassify', makeRow({ queued: 2, running: 0 })]]),
+            null,
+            125_000,
+            t,
+            () => 'Reclassification'
+        );
+        expect(summary.headline).toBe('2 jobs queued');
     });
 });

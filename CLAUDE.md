@@ -217,6 +217,7 @@ python3.13 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000   # dev server + OpenAPI at /docs
 pytest                                                     # full suite
+python scripts/run_regression_gate.py                       # CI lanes + coverage floor
 pytest tests/test_audio_api.py -v                          # one file
 alembic upgrade head                                       # apply migrations
 ```
@@ -247,6 +248,10 @@ npm run build      # production build
 
 The dev proxy target in `vite.config.ts` points at the container service host; set
 it to your local backend when running the two directly.
+
+`backend/pytest.ini` applies to local pytest runs and both CI regression lanes:
+each test has a 120-second thread timeout, with all thread stacks dumped after
+110 seconds. The gate also bounds each lane, including interpreter shutdown.
 
 ## 8. Project layout & dependency direction
 

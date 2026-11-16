@@ -7,7 +7,7 @@
     import type { DetectionVisit, VisitOptions } from '../api/visits';
     import { settingsStore } from '../stores/settings.svelte';
     import { VisitCaptureList } from '../utils/visit-capture-list.svelte';
-    import { getBirdNames } from '../naming';
+    import { birdNames } from '../naming';
     import { formatTime } from '../utils/datetime';
     import { SCORE_TEXT, scoreBand } from '../utils/score-tone';
     import { captureFacts, hasCaptureTimeline, type CaptureFacts } from '../utils/visit-captures';
@@ -100,7 +100,7 @@
     }
 
     function names(capture: Detection): { primary: string; secondary: string | null } {
-        return getBirdNames(capture, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary);
+        return $birdNames(capture, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary);
     }
 
     // Captures in one visit are seconds apart, so minutes alone would print the same time twice.

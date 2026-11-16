@@ -64,7 +64,13 @@ const NOTIFICATIONS = (now: number) => [
 export type Theme = 'light' | 'dark';
 
 /** Answer the app's requests from the recording, and open it in `theme` with motion settled. */
-export async function replayFeeder(page: Page, theme: Theme, overrides: Record<string, unknown> = {}): Promise<void> {
+export async function replayFeeder(
+    page: Page,
+    theme: Theme,
+    overrides: Record<string, unknown> = {},
+    /** Changes a recorded answer before it is replayed, for a state the recording does not hold. */
+    rewrite: (json: unknown, url: URL) => unknown = (json) => json
+): Promise<void> {
     const shiftMs = Date.now() - RECORDED_AT;
     await page.emulateMedia({ reducedMotion: 'reduce', colorScheme: theme });
     await page.addInitScript(([chosen, notifications]) => {
@@ -90,7 +96,7 @@ export async function replayFeeder(page: Page, theme: Theme, overrides: Record<s
         if (route.request().method() !== 'GET') return route.fulfill({ status: 503, json: { detail: 'The fixture is read-only' } });
         const recorded = recordedFor(url);
         if (!recorded || recorded.json === undefined) return route.fulfill({ status: 404, json: { detail: 'Not part of this fixture' } });
-        return route.fulfill({ status: recorded.status, json: replayAt(recorded.json, shiftMs) });
+        return route.fulfill({ status: recorded.status, json: replayAt(rewrite(recorded.json, url), shiftMs) });
     });
 }
 

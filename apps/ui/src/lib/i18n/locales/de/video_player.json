@@ -1,6 +1,6 @@
 {
   "clip_fetching_disabled": "Clip-Abruf deaktiviert",
-  "clip_fetching_disabled_hint": "Aktiviere \"Videoclips abrufen\" in den Einstellungen, um diese Aufnahme anzusehen.",
+  "clip_fetching_disabled_hint": "Aktivieren Sie \"Videoclips abrufen\" in den Einstellungen, um diese Aufnahme anzusehen.",
   "video_unavailable": "Video nicht verfügbar",
   "video_unavailable_hint": "Die Aufnahme konnte nicht von Frigate geladen werden. Sie wurde möglicherweise gelöscht oder ist noch nicht verfügbar.",
   "preparing": "Player wird vorbereitet…",
@@ -19,7 +19,7 @@
   "shortcut_play_pause": "Wiedergabe/Pause",
   "shortcut_seek": "Suche +/-5s",
   "buffering_hint": "Videostream wird gepuffert…",
-  "previews_touch_hint": "Timeline-Vorschauen sind verfügbar. Ziehe oder tippe auf die Suchleiste, um Frames anzusehen.",
+  "previews_touch_hint": "Timeline-Vorschauen sind verfügbar. Ziehen Sie die Suchleiste oder tippen Sie darauf, um Frames anzusehen.",
   "download": "Clip herunterladen",
   "share": "Clip-Link teilen",
   "share_link": "Freigabelink",

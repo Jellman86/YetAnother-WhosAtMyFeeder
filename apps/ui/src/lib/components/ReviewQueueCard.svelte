@@ -4,12 +4,16 @@
     import { detectionsStore } from '../stores/detections.svelte';
     import { reviewReasonMessage, type ReviewQueue } from '../utils/review-queue';
     import MediaImage from './MediaImage.svelte';
+    import Separator from './Separator.svelte';
     import { formatDate, formatTime } from '../utils/datetime';
     import { needsYourCall, type ReadingStatus, type SpeciesChecksView } from '../utils/needs-your-call';
     import type { DomesticBirdKey } from '../utils/domestic-birds';
     import KeptBirdOffers from './KeptBirdOffers.svelte';
     import { _, locale } from 'svelte-i18n';
     import { displayDistance } from '../utils/display-distance.svelte';
+    import { birdNames } from '../naming';
+    import { settingsStore } from '../stores/settings.svelte';
+    import { SCORE_TEXT, scoreBand } from '../utils/score-tone';
 
     interface Props {
         queue: ReviewQueue;
@@ -47,6 +51,11 @@
         return isToday
             ? formatTime(detection.detection_time)
             : `${formatDate(detection.detection_time)} ${formatTime(detection.detection_time)}`;
+    }
+
+    // The same name the field log prints for this visit: the reader's naming preference and language.
+    function name(detection: Detection): string {
+        return $birdNames(detection, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary).primary;
     }
 
     // A detection the queue holds always has a reason; one without is waiting on its score.
@@ -157,15 +166,16 @@
                         />
                         <span class="min-w-0 flex-1">
                             <span class="block wrap-break-word text-xs font-semibold text-slate-800 dark:text-slate-100">
-                                {detection.display_name}
+                                {name(detection)}
                             </span>
-                            <!-- Why it waits comes first; a phone drops the camera to keep it whole. -->
+                            <!-- Why it waits comes first, on its own line; when and where follow, and a phone
+                                 drops the camera. The separator stays with the camera, so it never ends a line. -->
+                            <span class="block wrap-break-word text-2xs font-semibold text-attention-800 dark:text-attention-300" data-review-queue-reason>{reason(detection)}</span>
                             <span class="block wrap-break-word text-2xs text-slate-600 dark:text-slate-400">
-                                <span class="font-semibold text-attention-800 dark:text-attention-300" data-review-queue-reason>{reason(detection)}</span>
-                                · {when(detection)}<span class="hidden sm:inline" data-review-queue-camera> · {detection.camera_name}</span>
+                                {when(detection)}<span class="hidden sm:inline" data-review-queue-camera><span class="whitespace-nowrap"><Separator spaced />{detection.camera_name}</span></span>
                             </span>
                         </span>
-                        <span class="shrink-0 text-2xs font-bold tabular-nums text-attention-800 dark:text-attention-300">
+                        <span class="shrink-0 text-2xs font-bold tabular-nums {SCORE_TEXT[scoreBand(detection.score)]}" data-review-queue-score>
                             {Math.round((detection.score ?? 0) * 100)}%
                         </span>
                     </button>

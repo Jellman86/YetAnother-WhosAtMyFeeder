@@ -1,5 +1,5 @@
 {
-  "action_failed": "Die Änderung konnte nicht gespeichert werden. Prüfe die Angaben und versuche es erneut.",
+  "action_failed": "Die Änderung konnte nicht gespeichert werden. Prüfen Sie die Angaben und versuchen Sie es erneut.",
   "load": {
     "loading": "Gespeicherte Einstellungen werden geladen…",
     "failed": "Die gespeicherten Einstellungen konnten nicht geladen werden. Es wurde nichts geändert.",
@@ -20,7 +20,7 @@
   },
   "connection": {
     "title": "Frigate- & MQTT-Verbindung",
-    "save_failed": "Die Verbindungseinstellungen konnten nicht gespeichert werden. Prüfe die Werte und versuche es erneut.",
+    "save_failed": "Die Verbindungseinstellungen konnten nicht gespeichert werden. Prüfen Sie die Werte und versuchen Sie es erneut.",
     "mqtt_auth": "MQTT-Authentifizierung",
     "mqtt_auth_hint": "Nur aktivieren, wenn der Broker Benutzername und Passwort verlangt.",
     "mqtt_username": "Benutzername",
@@ -36,15 +36,15 @@
     "mqtt_server": "MQTT-Broker",
     "save_test": "Speichern & Verbindung testen",
     "frigate_ok": "Mit Frigate {version} verbunden",
-    "blocked": "Speichere und teste die Verbindung, um fortzufahren, oder wähle „Später einrichten“.",
+    "blocked": "Speichern und testen Sie die Verbindung, um fortzufahren, oder wählen Sie „Später einrichten“.",
     "later": "Später einrichten",
-    "later_note": "Kein Frigate oder Broker zur Hand? Wähle „Später einrichten“. Bis beide unter Einstellungen → Verbindung verbunden sind, kommen keine Besuche an, es können keine Fotos oder Clips abgerufen werden, und der Kameraschritt kann deine Kameras nicht auflisten.",
+    "later_note": "Kein Frigate oder Broker zur Hand? Wählen Sie „Später einrichten“. Bis beide unter Einstellungen → Verbindung verbunden sind, kommen keine Besuche an, es können keine Fotos oder Clips abgerufen werden, und der Kameraschritt kann Ihre Kameras nicht auflisten.",
     "check_frigate": "Frigate-API",
     "check_mqtt": "MQTT-Broker"
   },
   "cameras": {
     "title": "Kameras & Erkennung",
-    "description": "Wähle die Frigate-Kameras aus, die YA-WAMF überwacht. Erweiterte Erkennungs- und Klassifizierungsgrenzen bleiben in den Erkennungseinstellungen.",
+    "description": "Wählen Sie die Frigate-Kameras aus, die YA-WAMF überwacht. Erweiterte Erkennungs- und Klassifizierungsgrenzen bleiben in den Erkennungseinstellungen.",
     "gates_hint": "Fehlen Erkennungen? Die Frigate-eigenen Grenzen min_score / threshold / min_initialized entscheiden, ob ein Schnappschuss überhaupt bei YA-WAMF ankommt.",
     "gates_link": "Leitfaden zur Feineinstellung →",
     "list": "Kameras (kommagetrennt)",
@@ -57,10 +57,10 @@
     "watching_some": "{count, plural, one {# Kamera wird beobachtet.} other {# Kameras werden beobachtet.}} Andere Kameras werden ignoriert."
   },
   "model": {
-    "title": "Klassifizierungsmodell & Hardware",
-    "description": "YA-WAMF bringt ein kleines Modell mit, das auf jeder CPU läuft. Wähle dieses oder ein größeres, lade es bei Bedarf hier herunter und prüfe dann, ob es auf diesem Gerät läuft, bevor du fortfährst.",
+    "title": "Modell und Hardware",
+    "description": "Wählen Sie das Modell, das die Vögel bestimmt. Laden Sie es hier herunter, falls diese Installation es nicht hat, und prüfen Sie vor dem Fortfahren, dass es auf diesem Rechner läuft.",
     "download_required": "Laden Sie dieses Modell hier herunter und verifizieren Sie es, bevor Sie es auf dieser Hardware prüfen.",
-    "download_timeout": "Der Download dauert länger als erwartet. Prüfe die Verbindung und versuche es erneut.",
+    "download_timeout": "Der Download dauert länger als erwartet. Prüfen Sie die Verbindung und versuchen Sie es erneut.",
     "validation_timeout": "Die Hardwareprüfung hat 30 Minuten überschritten. Sie läuft möglicherweise noch unter Diagnose; prüfen Sie dort den Status, bevor Sie einen neuen Lauf starten.",
     "choose_model": "Modell",
     "detected": "Erkannte Beschleuniger",
@@ -97,11 +97,12 @@
     "best_provider_without_timing": "Bester geprüfter Anbieter: {provider}",
     "failed_providers": "Fehlgeschlagen: {providers}",
     "blocked_downloading": "Weiter ist verfügbar, sobald der Download abgeschlossen ist.",
-    "blocked_no_model": "Wähle ein Modell, um fortzufahren, oder überspringe diesen Schritt, um das aktuell verwendete Modell zu behalten.",
-    "blocked_download": "Lade dieses Modell herunter, um fortzufahren, oder überspringe diesen Schritt, um das aktuell verwendete Modell zu behalten.",
-    "blocked_check": "Prüfe dieses Modell auf dieser Hardware, um fortzufahren, oder überspringe diesen Schritt, um das aktuell verwendete Modell zu behalten.",
-    "blocked_location": "Gib Breiten- und Längengrad der Futterstelle ein, um fortzufahren, oder lass beide Felder leer.",
-    "blocked_provider": "Dieser Host hat das gewählte Gerät nicht. Wähle ein anderes oder Automatisch, um fortzufahren."
+    "blocked_no_model": "Wählen Sie ein Modell, um fortzufahren, oder überspringen Sie diesen Schritt, um das aktuell verwendete Modell zu behalten.",
+    "blocked_download": "Laden Sie dieses Modell herunter, um fortzufahren, oder überspringen Sie diesen Schritt, um das aktuell verwendete Modell zu behalten.",
+    "blocked_check": "Prüfen Sie dieses Modell auf dieser Hardware, um fortzufahren, oder überspringen Sie diesen Schritt, um das aktuell verwendete Modell zu behalten.",
+    "blocked_location": "Geben Sie Breiten- und Längengrad der Futterstelle ein, um fortzufahren, oder lassen Sie beide Felder leer.",
+    "blocked_provider": "Dieser Host hat das gewählte Gerät nicht. Wählen Sie ein anderes oder Automatisch, um fortzufahren.",
+    "download_needed": "Download nötig"
   },
   "quality": {
     "title": "Bestmögliche Schnappschüsse",
@@ -206,10 +207,10 @@
   },
   "blocked": {
     "loading": "Weiter ist verfügbar, sobald die aktuellen Einstellungen geladen sind.",
-    "load_failed": "Die aktuellen Einstellungen konnten nicht geladen werden, daher lässt sich hier nichts speichern. Nutze oben „Einstellungen erneut laden“."
+    "load_failed": "Die aktuellen Einstellungen konnten nicht geladen werden, daher lässt sich hier nichts speichern. Nutzen Sie oben „Einstellungen erneut laden“."
   },
   "extras": {
     "title": "Optionale Extras",
-    "description": "Zwei Entscheidungen vor dem Abschluss. Beide sind aus, solange du sie nicht einschaltest, und beide lassen sich später in den Einstellungen ändern."
+    "description": "Zwei Entscheidungen vor dem Abschluss. Beide sind aus, solange Sie sie nicht einschalten, und beide lassen sich später in den Einstellungen ändern."
   }
 }

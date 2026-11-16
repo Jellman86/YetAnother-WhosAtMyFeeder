@@ -3,7 +3,6 @@
   "credits": "Créditos y agradecimientos",
   "view_changelog": "Ver registro de cambios",
   "flaticon_credit": "Iconos de aves creados por Freepik - Flaticon",
-  "license_notice": "© {year} Jellman86 • Con licencia {license}",
   "project_desc_1": "Empecé esto para descubrir hasta dónde podía llegar programando con ayuda de la IA. El {link} original había dejado de mantenerse, así que había algo real que reconstruir en lugar de un proyecto de juguete. Desde entonces funciona en mi propio comedero.",
   "project_desc_2": "Frigate vigila el comedero y marca todo lo que parece un ave. YA-WAMF lo clasifica, lo contrasta con el audio de BirdNET-Go y guarda el resultado. Todas las fotos de esta página salieron de esa cámara.",
   "links": {
@@ -98,7 +97,7 @@
     "history_unavailable": "No se pudo consultar la disponibilidad.",
     "availability_partial": "{percent}% activo en las {hours} h registradas",
     "no_gaps_since": "Sin interrupciones desde que empezó el registro a las {when}.",
-    "runtime": "Identifica aves con",
+    "runtime": "Identificación de aves",
     "runtime_on": "{runtime} en {device}",
     "runtime_unread": "Aún no se ha leído. El modelo lo indica cuando termina de cargarse.",
     "uptime_unmeasured": "El backend no indicó cuándo se inició.",
@@ -122,10 +121,10 @@
     "newest_arrival": "Llegada más reciente",
     "first_seen": "vista por primera vez el {date}",
     "latest": "Última visita",
-    "open_visit": "Abrir la visita de {name} del {time}",
     "gone": "Esa visita ya no está en el historial.",
     "community": "{count, plural, one {# comedero usó YA-WAMF esta semana.} other {# comederos usaron YA-WAMF esta semana.}}",
     "loading": "Cargando los datos de este comedero…",
-    "unavailable": "No se pudieron cargar los datos de este comedero."
+    "unavailable": "No se pudieron cargar los datos de este comedero.",
+    "open_this_visit": "Abrir esta visita"
   }
 }

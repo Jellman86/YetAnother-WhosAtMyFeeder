@@ -115,7 +115,7 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
           // One line about the open tab, not a list of every tab.
           case 'settings': return $_(`page_subtitle.settings_tab.${settingsTabFromRoute(currentRoute)}`);
           case 'model_evaluation': return $_('page_subtitle.model_evaluation', { default: 'How often each installed model names a bird correctly, and how fast.' });
-          case 'about': return $_('page_subtitle.about', { default: 'Version, changelog, contributors, and support links.' });
+          case 'about': return $_('page_subtitle.about', { default: 'What this feeder has recorded, how YA-WAMF works, and what it stores and sends.' });
           default: return '';
       }
   });
@@ -190,6 +190,7 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
 
   $effect(() => {
       document.documentElement.classList.toggle('high-contrast', highContrast);
+      themeStore.setHighContrast(highContrast);
   });
   $effect(() => {
       document.documentElement.classList.toggle('font-dyslexic', dyslexiaFont);
@@ -371,7 +372,7 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
       fetchCacheStats: readAtMostEvery(fetchCacheStats, REFRESH_CADENCE_MS.mediaStorageCheck),
       fetchAnalysisStatus: readAnalysisStatus,
       diagnostics: jobDiagnosticsStore,
-      syncDiagnosticsWorkspace: () => incidentWorkspaceStore.refresh(),
+      syncDiagnosticsWorkspace: async () => { await incidentWorkspaceStore.refresh(); },
       onConnected: () => {
           reconnectAttempts = 0;
           // The first connect follows the pages' own first reads; only a reconnect can have

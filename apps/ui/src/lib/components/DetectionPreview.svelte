@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { weatherConditionMessage } from '../utils/weather-condition';
     import { getThumbnailUrl } from '../api';
     import type { Detection } from '../api';
     import { detectionsStore } from '../stores/detections.svelte';
@@ -10,6 +11,7 @@
     import { _ } from 'svelte-i18n';
     import { HoverPopout } from '../utils/hover-popout.svelte';
     import HoverPopoutPanel from './HoverPopoutPanel.svelte';
+    import { SCORE_TEXT, scoreBand } from '../utils/score-tone';
 
     interface Props {
         /** The clearest frame, used when a visit has only one. */
@@ -86,6 +88,13 @@
 
     function score(frame: Detection): number {
         return Math.round((frame.score ?? 0) * 100);
+    }
+
+    // The stored condition is the backend's English word; the reader gets it in their language.
+    function conditionText(stored: string | null | undefined): string {
+        const message = weatherConditionMessage(stored);
+        if (!message) return '';
+        return message.key ? $_(message.key, { default: message.default }) : message.default;
     }
 </script>
 
@@ -196,21 +205,21 @@
                     {/if}
                     <div class="space-y-1 p-3">
                         <div class="flex items-baseline justify-between gap-2">
-                            <p class="truncate font-display text-sm font-bold text-slate-950 dark:text-white">
+                            <p class="min-w-0 wrap-break-word font-display text-sm font-bold text-slate-950 dark:text-white">
                                 {primaryName}
                             </p>
-                            <span class="shrink-0 text-xs font-bold tabular-nums text-brand-700 dark:text-brand-300">
+                            <span class="shrink-0 text-xs font-bold tabular-nums {SCORE_TEXT[scoreBand(frame.score)]}" data-preview-score>
                                 {score(frame)}%
                             </span>
                         </div>
                         {#if secondaryName}
-                            <p class="truncate text-2xs italic text-slate-600 dark:text-slate-400">
+                            <p class="wrap-break-word text-2xs italic text-slate-600 dark:text-slate-400">
                                 {secondaryName}
                             </p>
                         {/if}
                         <p class="text-2xs text-slate-600 dark:text-slate-400">
-                            {formatTime(frame.detection_time)} &middot; {frame.camera_name}{frame.weather_condition
-                                ? ` · ${frame.weather_condition}`
+                            {formatTime(frame.detection_time)} &middot; {frame.camera_name}{conditionText(frame.weather_condition)
+                                ? ` · ${conditionText(frame.weather_condition)}`
                                 : ''}{formatTemperature(frame.temperature, temperatureUnit)
                                 ? ` ${formatTemperature(frame.temperature, temperatureUnit)}`
                                 : ''}

@@ -1,6 +1,6 @@
 {
   "title": "État du système",
-  "open_health": "État du système",
+  "open_health": "État",
   "row_feed": "Événements Frigate",
   "row_audio": "Audio",
   "row_alerts": "Alertes",

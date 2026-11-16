@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import detectionSource from './DetectionSettings.svelte?raw';
 import modelsSource from './ModelSettings.svelte?raw';
 import settingsSource from '../../pages/Settings.svelte?raw';
-import bandSource from './DetectionStatusBand.svelte?raw';
+import statusSource from '../../settings/identification-models.ts?raw';
+import statusLineSource from '../IdentificationStatusLine.svelte?raw';
 import modelManagerSource from '../../pages/models/ModelManager.svelte?raw';
 
 // Detection holds the rules for accepting an identification; Models holds which models run, on
@@ -12,7 +13,7 @@ describe('Detection and Models', () => {
         expect(settingsSource).toContain("activeTab === 'models'");
         expect(settingsSource).toContain("import('../components/settings/ModelSettings.svelte')");
         expect(modelsSource).toContain('<ModelManager');
-        expect(modelsSource).toContain('<DetectionStatusBand');
+        expect(modelsSource).toContain('<IdentificationStatusLine');
         expect(modelsSource).toContain('id="inference-provider"');
         expect(modelsSource).toContain('id="image-execution-mode"');
         expect(modelsSource).toContain('id="bird-model-region-override"');
@@ -26,7 +27,7 @@ describe('Detection and Models', () => {
         expect(detectionSource).toContain('<RangeFilterSettings');
         expect(detectionSource).toContain('id="blocked-species-search"');
         expect(detectionSource).toContain('setting-auto-video');
-        for (const moved of ['<ModelManager', '<DetectionStatusBand', 'inference-provider', 'image-execution-mode', 'bird-model-region-override', 'DiagnosticDialog', 'startModelEvalRun']) {
+        for (const moved of ['<ModelManager', '<IdentificationStatusLine', 'inference-provider', 'image-execution-mode', 'bird-model-region-override', 'DiagnosticDialog', 'startModelEvalRun']) {
             expect(detectionSource, moved).not.toContain(moved);
         }
     });
@@ -45,15 +46,15 @@ describe('Detection and Models', () => {
     });
 
     it('names the running model as its card does, and never calls a missing model in use', () => {
-        // The configured id can be a bare file name such as model.tflite; the card's name comes
-        // from the model list, so the band uses the same name.
-        expect(bandSource).toContain('classifierStatus?.effective_model_name');
-        expect(bandSource).toContain('classifierStatus?.effective_model_id');
-        expect(bandSource).toContain('classifierStatus?.active_model_installed === false');
-        expect(bandSource).toContain('band_model_missing');
-        // A missing model is a problem the owner can act on, so it is counted.
-        expect(modelsSource).toContain("classifierStatus?.active_model_installed === false ? 1 : 0");
+        // The configured id can be a bare file name such as model.tflite; the status names the
+        // model the runtime reports, by the same purpose-first name the card uses.
+        expect(statusSource).toContain('status.effective_model_name');
+        expect(statusSource).toContain('status.effective_model_id');
+        expect(statusSource).toContain('status.active_model_installed === false');
+        expect(statusLineSource).toContain("settings.models.status_missing'");
+        expect(statusLineSource).toContain('identificationModelName(');
         // The model in use says so; it is never offered for download as if it were not here.
         expect(modelManagerSource).toContain('model_manager_in_use');
+        expect(modelManagerSource).toContain('{:else if !active}');
     });
 });

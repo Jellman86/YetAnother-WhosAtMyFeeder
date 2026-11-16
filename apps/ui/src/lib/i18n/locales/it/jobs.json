@@ -174,7 +174,7 @@
   "errors_filtered_title": "Rilevamenti filtrati",
   "errors_filtered_none": "Non è ancora stato filtrato nulla.",
   "errors_filtered_summary": "{count, plural, one {# rilevamento non ha soddisfatto le tue impostazioni di rilevamento.} other {# rilevamenti non hanno soddisfatto le tue impostazioni di rilevamento.}} È il filtro che funziona, non un guasto.",
-  "errors_filtered_hint": "Regola la soglia di confidenza in Impostazioni → Rilevamento per conservarne di più.",
+  "errors_filtered_hint": "Regola la soglia di identificazione in Impostazioni → Rilevamento per conservarne di più.",
   "errors_filtered_recent": "Più recenti",
   "errors_activity_title": "Cosa è successo",
   "errors_activity_subtitle": "Visite registrate, rilevamenti filtrati ed errori della pipeline, nell’ordine in cui sono avvenuti",
@@ -196,7 +196,7 @@
   "errors_filtered_preview": "Anteprima del fotogramma filtrato come {species}",
   "errors_filtered_frame_gone": "Frigate non ha più questo fotogramma",
   "errors_drop_reason_row": {
-    "filter_low_confidence": "Non registrato, sotto la tua soglia di confidenza",
+    "filter_low_confidence": "Non registrato, sotto la tua soglia di identificazione",
     "filter_below_threshold": "Non registrato, sotto la soglia di specie",
     "filter_blocked_label": "Non registrato, questa etichetta è bloccata",
     "filter_abstention_label": "Non registrato, il modello si è astenuto",
@@ -204,7 +204,7 @@
     "filter_out_of_range": "Non registrato, mai visto nella tua regione eBird"
   },
   "errors_drop_reason": {
-    "filter_low_confidence": "Sotto la soglia di confidenza",
+    "filter_low_confidence": "Sotto la soglia di identificazione",
     "filter_below_threshold": "Sotto la soglia di specie",
     "filter_blocked_label": "Etichetta bloccata",
     "filter_abstention_label": "Il modello si è astenuto",
@@ -294,5 +294,77 @@
   "errors_clear_effect": "Rimuove subito errori e incidenti registrati. I controlli in tempo reale continuano.",
   "earlier_incidents_title": "Incidenti precedenti",
   "earlier_incidents_desc": "Problemi che nel frattempo si sono risolti. Ciò che è aperto ora è elencato sopra, con lo stato del sistema.",
-  "earlier_incidents_empty": "Nulla si è risolto dall’ultima cancellazione della cronologia errori."
+  "earlier_incidents_empty": "Nulla si è risolto dall’ultima cancellazione della cronologia errori.",
+  "global_queued_only": "{count, plural, one {# attività in coda} other {# attività in coda}}",
+  "global_breakdown": "{count, plural, one {# attività} other {# attività}}: {parts}",
+  "global_summary_activity": "{kind}: {activity}",
+  "activity_waiting_for_frigate": "In attesa che Frigate risponda",
+  "phase_waiting_for_frigate": "In attesa che Frigate risponda",
+  "lane_running_count": "{count} in corso",
+  "lane_queued_count": "{count} in coda",
+  "errors_reading": "Lettura dello stato più recente…",
+  "errors_read_failed": "Non è stato possibile caricare la lettura dello stato, quindi questa pagina non indica alcuno stato.",
+  "errors_read_failed_next": "Aggiorna per riprovare. Se continua a non riuscire, verifica che il backend di YA-WAMF sia in esecuzione.",
+  "errors_read_stale": "L’ultimo aggiornamento non è riuscito, quindi questa è la lettura delle {at}. Aggiorna per riprovare.",
+  "errors_read_at": "Letto alle {at}",
+  "errors_pipeline_unmeasured": "Non può arrivare nulla finché il broker MQTT non è connesso, quindi questi conteggi non mostrano se la pipeline funziona.",
+  "errors_mqtt_cause_unknown": "Il client del broker ha indicato un motivo che YA-WAMF non riconosce. È riportato in Dettagli tecnici.",
+  "errors_video_paused_until": "L’analisi video è in pausa fino alle {at}, dopo {count, plural, one {# errore} other {# errori}} di fila.",
+  "errors_video_paused": "L’analisi video è in pausa dopo {count, plural, one {# errore} other {# errori}} di fila.",
+  "errors_video_not_paused": "L’analisi video non è in pausa: {queued} in attesa, {running} in corso.",
+  "errors_background_plain": "Lavoro in background: {queued} in attesa, {running} in corso.",
+  "errors_summary_unknown": "Questa lettura non dice se YA-WAMF funziona, quindi non si indica alcuno stato.",
+  "errors_subsystems_unread": "Niente da mostrare finché non viene caricata una lettura dello stato.",
+  "errors_activity_unread": "L’attività non può essere mostrata finché non viene caricata una lettura dello stato.",
+  "errors_clear_failed": "Impossibile cancellare la cronologia degli errori. Riprova.",
+  "errors_metric_handling": "Messaggi in elaborazione",
+  "errors_metric_of": "{count} su {total}",
+  "errors_metric_waiting": "In attesa",
+  "errors_metric_being_named": "In identificazione ora",
+  "errors_metric_at_once": "Al massimo insieme",
+  "errors_metric_given_up": "Abbandonati",
+  "errors_metric_running": "In corso",
+  "errors_metric_failures_in_a_row": "Errori di fila",
+  "errors_metric_held_back": "Trattenuto per il lavoro dal vivo",
+  "errors_metric_notifications_dropped": "Notifiche scartate",
+  "errors_metric_waiting_to_send": "In attesa di invio",
+  "errors_metric_db_longest_wait": "Attesa più lunga del database",
+  "errors_metric_db_waits_timed_out": "Attese del database scadute",
+  "diagnostic_words": {
+    "classify_snapshot_timeout": {
+      "title": "Un rilevamento è stato scartato perché l’identificazione della sua istantanea ha richiesto troppo tempo.",
+      "next": "Il classificatore potrebbe essere sovraccarico. Controlla l’uso delle risorse sopra o scegli un modello più leggero in Impostazioni → Modelli."
+    },
+    "classify_snapshot_overloaded": {
+      "title": "Un rilevamento è stato scartato perché il classificatore era troppo occupato.",
+      "next": "Controlla l’uso delle risorse sopra. Se succede spesso, scegli un modello più leggero in Impostazioni → Modelli."
+    },
+    "classify_snapshot_unavailable": {
+      "title": "Un rilevamento è stato scartato perché Frigate non aveva un’istantanea.",
+      "next": "Verifica che le istantanee siano attive per questa telecamera in Frigate."
+    },
+    "classifier_empty_results": {
+      "title": "Un rilevamento è stato scartato perché il classificatore non ha dato risposta.",
+      "next": "Verifica che un modello sia caricato in Impostazioni → Modelli."
+    },
+    "save_and_notify_failed": {
+      "title": "Un rilevamento è stato identificato ma non è stato possibile salvarlo.",
+      "next": "Verifica che la cartella dati abbia spazio libero e sia scrivibile."
+    },
+    "stale_job": {
+      "title": "Un’attività in background ha smesso di avanzare.",
+      "next": "È mostrata in Notifiche. Riavviala da lì o dalla scheda delle Impostazioni che la esegue."
+    },
+    "generic": {
+      "title": "Un passaggio di elaborazione non è riuscito. I dettagli tecnici riportano l’errore esatto."
+    },
+    "stage_failure": {
+      "title": "Non è stato possibile elaborare un rilevamento perché uno dei suoi passaggi non è riuscito.",
+      "next": "Se continua a succedere, copia i dettagli tecnici in una segnalazione su GitHub."
+    },
+    "stage_timeout": {
+      "title": "Un passaggio di un rilevamento ha richiesto troppo tempo ed è stato interrotto.",
+      "next": "Il classificatore o Frigate potrebbero essere sovraccarichi. Controlla l’uso delle risorse sopra."
+    }
+  }
 }

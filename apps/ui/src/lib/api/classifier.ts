@@ -18,7 +18,7 @@ export function readClassifierStatus(): Promise<ClassifierStatus> {
     return sharedClassifierStatus.read();
 }
 
-/** The bundled CPU model: it needs no download, so it is the recommended place to start. */
+/** The small CPU model: it runs on any machine, so it is where setup starts on a Raspberry Pi. */
 const RECOMMENDED_SETUP_MODEL_ID = 'mobilenet_v2_birds';
 
 /** Every model the setup step can offer: the catalogue, then installed models it does not list. */
@@ -137,13 +137,6 @@ export async function bulkUpdateDetectionSpecies(eventIds: string[], displayName
 
 export type ModelMetadata = components['schemas']['ModelMetadata'];
 
-export interface ModelMetadataSummary {
-    tierLabel: string;
-    taxonomyScopeLabel: string;
-    advancedStateLabel: string;
-    statusLabel: string;
-    labels: string[];
-}
 
 const MODEL_TIER_PRIORITY: Record<string, number> = {
     cpu_only: 0,
@@ -176,58 +169,34 @@ export function getVisibleTieredModelLineup(
 // Model categorization for the Model Manager UI.
 //
 // Splits the tiered lineup into groups that match how a user actually picks
-// a model: "what's fastest on my hardware?" / "what's most accurate if I
-// don't mind waiting?" / "what's a one-click fallback?". The harness
-// validation status (registry intel_gpu support) is the primary signal.
+// a model: "what is small and quick?" / "what is fastest on my hardware?" /
+// "what is most accurate if I don't mind waiting?". Whether a model ships
+// with the app is a fact about this install (InstalledModel.bundled), never
+// a group name, so no group claims a model is built in.
 // ---------------------------------------------------------------------------
 
 export type ModelCategory =
+    | 'compact'
     | 'igpu_recommended'
     | 'cpu_high_accuracy'
     | 'cpu_standard'
-    | 'cpu_alternative'
-    | 'bundled';
+    | 'cpu_alternative';
 
-export interface ModelCategoryInfo {
-    label: string;
-    hint: string;
-    icon: string;
-}
-
-export const MODEL_CATEGORY_INFO: Record<ModelCategory, ModelCategoryInfo> = {
-    igpu_recommended: {
-        label: 'Fast on Intel GPU',
-        hint: 'Validated on Intel iGPU: sub-second inference with confirmed-good predictions.',
-        icon: '🚀',
-    },
-    cpu_high_accuracy: {
-        label: 'Highest accuracy',
-        hint: 'The broadest, most accurate option. Runtime speed depends on the provider validated on this hardware.',
-        icon: '🎯',
-    },
-    cpu_standard: {
-        label: 'Balanced',
-        hint: 'A practical balance of accuracy, latency, and memory use.',
-        icon: '⚖️',
-    },
-    cpu_alternative: {
-        label: 'Architectural alternatives',
-        hint: 'Experimental options for accuracy comparison via the model-evaluation harness.',
-        icon: '🧪',
-    },
-    bundled: {
-        label: 'Built-in fallback',
-        hint: 'TFLite model bundled with the app. Always available without download.',
-        icon: '📦',
-    },
+/** Each group's heading, as an i18n key with its English text. */
+export const MODEL_CATEGORY_LABEL: Record<ModelCategory, { key: string; fallback: string }> = {
+    compact: { key: 'settings.models.group.compact', fallback: 'Small and quick' },
+    cpu_standard: { key: 'settings.models.group.cpu_standard', fallback: 'Balanced' },
+    igpu_recommended: { key: 'settings.models.group.igpu_recommended', fallback: 'Fast on Intel graphics' },
+    cpu_high_accuracy: { key: 'settings.models.group.cpu_high_accuracy', fallback: 'Most accurate' },
+    cpu_alternative: { key: 'settings.models.group.cpu_alternative', fallback: 'Experimental' },
 };
 
 const CATEGORY_DISPLAY_ORDER: ModelCategory[] = [
-    'igpu_recommended',
+    'compact',
     'cpu_standard',
+    'igpu_recommended',
     'cpu_high_accuracy',
     'cpu_alternative',
-    'bundled',
 ];
 
 export function categorizeModel(model: ModelMetadata): ModelCategory {
@@ -236,9 +205,8 @@ export function categorizeModel(model: ModelMetadata): ModelCategory {
     const accuracy = (model.accuracy_tier || '').toLowerCase();
     const runtime = (model.runtime || '').toLowerCase();
 
-    // The bundled-fallback path: TFLite-only legacy model that ships in the
-    // image as a guaranteed-installable fallback.
-    if (tier === 'cpu_only' || runtime === 'tflite') return 'bundled';
+    // The small TFLite model that runs on any CPU.
+    if (tier === 'cpu_only' || runtime === 'tflite') return 'compact';
 
     // Registry declares intel_gpu support → harness-validated for iGPU.
     if (providers.includes('intel_gpu')) return 'igpu_recommended';
@@ -257,7 +225,6 @@ export function categorizeModel(model: ModelMetadata): ModelCategory {
 
 export interface ModelCategoryGroup {
     category: ModelCategory;
-    info: ModelCategoryInfo;
     models: ModelMetadata[];
 }
 
@@ -276,48 +243,14 @@ export function groupTieredModelLineup(
     for (const cat of CATEGORY_DISPLAY_ORDER) buckets.set(cat, []);
     for (const m of visible) {
         const cat = categorizeModel(m);
-        buckets.get(cat)!.push(m);
+        buckets.get(cat)?.push(m);
     }
     return CATEGORY_DISPLAY_ORDER
         .map((category) => ({
             category,
-            info: MODEL_CATEGORY_INFO[category],
             models: buckets.get(category) || [],
         }))
         .filter((group) => group.models.length > 0);
-}
-
-function formatModelMetadataLabel(value: string): string {
-    return value
-        .split(/[_-]+/g)
-        .filter(Boolean)
-        .map((segment) => {
-            const lower = segment.toLowerCase();
-            if (lower === 'cpu') return 'CPU';
-            if (lower === 'cuda') return 'CUDA';
-            if (lower === 'onnx') return 'ONNX';
-            if (lower === 'tflite') return 'TFLite';
-            if (lower === 'intel') return 'Intel';
-            return segment.slice(0, 1).toUpperCase() + segment.slice(1).toLowerCase();
-        })
-        .join(' ');
-}
-
-export function summarizeModelMetadata(metadata?: ModelMetadata | null): ModelMetadataSummary | null {
-    if (!metadata) return null;
-
-    const tierLabel = formatModelMetadataLabel(metadata.tier);
-    const taxonomyScopeLabel = formatModelMetadataLabel(metadata.taxonomy_scope);
-    const advancedStateLabel = metadata.advanced_only ? 'Advanced only' : 'Standard';
-    const statusLabel = formatModelMetadataLabel(metadata.status ?? 'stable');
-
-    return {
-        tierLabel,
-        taxonomyScopeLabel,
-        advancedStateLabel,
-        statusLabel,
-        labels: [tierLabel, taxonomyScopeLabel, advancedStateLabel, statusLabel],
-    };
 }
 
 export type InstalledModel = components['schemas']['InstalledModel'];

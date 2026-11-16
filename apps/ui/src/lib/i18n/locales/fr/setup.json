@@ -57,8 +57,8 @@
     "watching_some": "{count, plural, one {# caméra surveillée.} other {# caméras surveillées.}} Les autres caméras sont ignorées."
   },
   "model": {
-    "title": "Modèle de classification et matériel",
-    "description": "YA-WAMF est fourni avec un petit modèle qui fonctionne sur n’importe quel processeur. Choisissez celui-ci ou un plus grand, téléchargez-le ici si nécessaire, puis vérifiez qu’il fonctionne sur cette machine avant de continuer.",
+    "title": "Modèle et matériel",
+    "description": "Choisissez le modèle qui nomme les oiseaux. Téléchargez-le ici si cette installation ne l’a pas, puis vérifiez qu’il fonctionne sur cette machine avant de continuer.",
     "download_required": "Téléchargez et vérifiez ce modèle ici avant de le valider sur ce matériel.",
     "download_timeout": "Le téléchargement prend plus de temps que prévu. Vérifiez la connexion et réessayez.",
     "validation_timeout": "La validation du matériel a dépassé 30 minutes. Elle se termine peut-être encore dans Diagnostic ; vérifiez son état avant de lancer un autre test.",
@@ -101,7 +101,8 @@
     "blocked_download": "Téléchargez ce modèle pour continuer, ou ignorez cette étape pour garder le modèle utilisé actuellement.",
     "blocked_check": "Vérifiez ce modèle sur ce matériel pour continuer, ou ignorez cette étape pour garder le modèle utilisé actuellement.",
     "blocked_location": "Saisissez la latitude et la longitude de la mangeoire pour continuer, ou laissez les deux vides.",
-    "blocked_provider": "Cet hôte ne dispose pas de l’appareil choisi. Choisissez-en un autre, ou Auto, pour continuer."
+    "blocked_provider": "Cet hôte ne dispose pas de l’appareil choisi. Choisissez-en un autre, ou Auto, pour continuer.",
+    "download_needed": "téléchargement nécessaire"
   },
   "quality": {
     "title": "Meilleurs instantanés disponibles",

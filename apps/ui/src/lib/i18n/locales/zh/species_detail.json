@@ -13,7 +13,7 @@
   "seasonality_global": "全球季节性",
   "range_map": "分布地图",
   "range_unavailable": "分布地图不可用。",
-  "range_map_hint": "拖动平移 • 滚动缩放",
+  "range_map_hint": "拖动可平移地图，用 + 和 − 缩放。",
   "video_unavailable": "视频片段不可用",
   "no_recent_sightings": "没有最近的目击记录。",
   "count_label": "数量",

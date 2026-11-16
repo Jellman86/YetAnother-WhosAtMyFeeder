@@ -123,7 +123,7 @@ describe('where a refused field is shown', () => {
         expect(problems).toEqual([]);
     });
 
-    it('opens Maintenance\'s closed Jobs at once card for a refused concurrency', () => {
-        expect(settingsFieldPlace('maintenance_max_concurrent')?.disclosures).toEqual(['maintenance-concurrency']);
+    it('shows a refused concurrency on Maintenance with nothing to open, since Jobs at once is a plain section', () => {
+        expect(settingsFieldPlace('maintenance_max_concurrent')?.disclosures ?? []).toEqual([]);
     });
 });

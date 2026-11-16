@@ -28,7 +28,8 @@
         /** Which secrets must be typed again, since they are never kept. */
         retypeSecrets?: string | null;
         /** Restored edits whose saved value changed elsewhere meanwhile. Save waits on each. */
-        conflicts?: Array<{ field: string; label: string }>;
+        /** `saved` and `mine` are the two values, worded for the bar, so the choice shows what it keeps. */
+        conflicts?: Array<{ field: string; label: string; saved?: string; mine?: string }>;
         onUseSaved?: (field: string) => void;
         onUseMine?: (field: string) => void;
         // Tab strip lives between the header and the body so it stays in
@@ -70,6 +71,10 @@
     // The space is added here: a translation may not start with one, and markup would trim it.
     const conflictChoiceFor = (label: string): string =>
         ` ${$_('settings.save_bar.conflict_choice_for', { values: { field: label }, default: 'for {field}' })}`;
+
+    // The rule (fields wait for Save; buttons act at once) is one tap away instead of repeated on
+    // every change, so the bar stays one line and two buttons even with large text on a phone.
+    let saveRuleOpen = $state(false);
 
     const showSaveBar = $derived((unsaved.count > 0 || Boolean(restoredNotice) || conflicts.length > 0) && !loading && !loadFailure);
 
@@ -178,23 +183,43 @@
                                     {/if}
                                 {/if}
                                 {#if unsaved.count > 0}
-                                <p class="flex flex-wrap items-baseline gap-x-1 gap-y-1 text-sm text-slate-700 dark:text-slate-200" aria-live="polite" data-save-summary>
-                                    <span class="font-semibold text-slate-900 dark:text-white">{$_('settings.save_bar.summary', {
-                                        values: { count: unsaved.count },
-                                        default: '{count, plural, one {# unsaved change in} other {# unsaved changes in}}'
-                                    })}</span>
-                                    {#each unsaved.tabs as tab (tab.id)}
-                                        <button
-                                            type="button"
-                                            class="focus-ring min-h-6 rounded-sm px-1 font-semibold text-brand-700 underline decoration-1 underline-offset-2 hover:text-brand-900 dark:text-brand-300 dark:hover:text-brand-100"
-                                            onclick={() => onOpenTab?.(tab.id)}
-                                        >{tab.label}</button>
-                                    {/each}
+                                <!-- The text flows inline, so the save rule's toggle ends the same line instead of taking its own. -->
+                                <p class="text-sm leading-relaxed text-slate-700 dark:text-slate-200">
+                                    <span aria-live="polite" data-save-summary>
+                                        <span class="font-semibold text-slate-900 dark:text-white">{$_('settings.save_bar.summary', {
+                                            values: { count: unsaved.count },
+                                            default: '{count, plural, one {# unsaved change in} other {# unsaved changes in}}'
+                                        })}</span>
+                                        {#each unsaved.tabs as tab (tab.id)}
+                                            <button
+                                                type="button"
+                                                class="focus-ring min-h-6 rounded-sm px-1 font-semibold text-brand-700 underline decoration-1 underline-offset-2 hover:text-brand-900 dark:text-brand-300 dark:hover:text-brand-100"
+                                                onclick={() => onOpenTab?.(tab.id)}
+                                            >{tab.label}</button>
+                                        {/each}
+                                    </span>
+                                    <!-- Said where it matters, once something is waiting: what waits and what does not. -->
+                                    <button
+                                        type="button"
+                                        class="focus-ring inline-flex h-6 w-6 items-center justify-center rounded-full align-middle text-brand-700 hover:text-brand-900 dark:text-brand-300 dark:hover:text-brand-100"
+                                        aria-label={$_('settings.save_bar.how_saving_works', { default: 'How saving works' })}
+                                        title={$_('settings.save_bar.how_saving_works', { default: 'How saving works' })}
+                                        aria-expanded={saveRuleOpen}
+                                        aria-controls="settings-save-rule"
+                                        onclick={() => (saveRuleOpen = !saveRuleOpen)}
+                                        data-settings-save-rule-toggle
+                                    >
+                                        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                            <circle cx="12" cy="12" r="9" />
+                                            <path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.6M12 17h.01" />
+                                        </svg>
+                                    </button>
                                 </p>
-                                <!-- Said where it matters, once something is waiting: what waits and what does not. -->
-                                <p class="text-xs text-slate-600 dark:text-slate-400" data-settings-save-rule>
-                                    {$_('settings.save_rule', { default: 'Changes to settings wait until you choose Save changes. Buttons such as Test, Run and Download act straight away.' })}
-                                </p>
+                                {#if saveRuleOpen}
+                                    <p id="settings-save-rule" class="text-sm text-slate-600 dark:text-slate-300" data-settings-save-rule>
+                                        {$_('settings.save_rule', { default: 'Changes to settings wait until you choose Save changes. Buttons such as Test, Run and Download act straight away.' })}
+                                    </p>
+                                {/if}
                                 {/if}
                                 {#if conflicts.length > 0}
                                     <div class="space-y-1.5 text-sm text-slate-700 dark:text-slate-200" data-draft-conflicts>
@@ -205,7 +230,12 @@
                                         <ul class="space-y-1.5">
                                             {#each conflicts as conflict (conflict.field)}
                                                 <li class="flex flex-wrap items-center gap-x-3 gap-y-1.5" data-draft-conflict={conflict.field}>
-                                                    <span class="min-w-0 font-semibold text-slate-900 dark:text-white">{conflict.label}</span>
+                                                    <span class="min-w-0">
+                                                        <span class="block font-semibold text-slate-900 dark:text-white">{conflict.label}</span>
+                                                        {#if conflict.saved !== undefined && conflict.mine !== undefined}
+                                                            <span class="block wrap-break-word text-slate-700 dark:text-slate-200" data-conflict-values>{$_('settings.save_bar.conflict_values', { values: { saved: conflict.saved, mine: conflict.mine }, default: 'Saved elsewhere: {saved} · Yours: {mine}' })}</span>
+                                                        {/if}
+                                                    </span>
                                                     <span class="flex flex-wrap gap-2">
                                                         <button type="button" class="btn btn-secondary min-h-9 px-3 text-sm" onclick={() => onUseSaved?.(conflict.field)}>
                                                             {$_('settings.save_bar.use_saved', { default: 'Use the saved value' })}<span class="sr-only">{conflictChoiceFor(conflict.label)}</span>
@@ -249,8 +279,11 @@
                                     onclick={() => onDiscard?.()}
                                     disabled={saving}
                                     class="btn btn-secondary min-h-11 px-4"
+                                    aria-label={$_('settings.save_bar.discard', { default: 'Discard changes' })}
                                 >
-                                    {$_('settings.save_bar.discard', { default: 'Discard changes' })}
+                                    <!-- In a narrow bar the visible word is the short one, so both buttons share a row. -->
+                                    <span class="save-bar-long" aria-hidden="true">{$_('settings.save_bar.discard', { default: 'Discard changes' })}</span>
+                                    <span class="save-bar-short" aria-hidden="true">{$_('settings.save_bar.discard_short', { default: 'Discard' })}</span>
                                 </button>
                                 <!-- While a conflict waits, Save shows disabled with the reason beside it. -->
                                 {#if unsaved.count > 0 || conflicts.length > 0}
@@ -260,8 +293,14 @@
                                     disabled={saving || conflicts.length > 0}
                                     aria-describedby={conflicts.length > 0 ? 'settings-conflicts-note' : undefined}
                                     class="btn btn-primary min-h-11 px-6"
+                                    aria-label={saving ? $_('common.saving') : $_('settings.save_bar.save', { default: 'Save changes' })}
                                 >
-                                    {saving ? $_('common.saving') : $_('settings.save_bar.save', { default: 'Save changes' })}
+                                    {#if saving}
+                                        <span aria-hidden="true">{$_('common.saving')}</span>
+                                    {:else}
+                                        <span class="save-bar-long" aria-hidden="true">{$_('settings.save_bar.save', { default: 'Save changes' })}</span>
+                                        <span class="save-bar-short" aria-hidden="true">{$_('settings.save_bar.save_short', { default: 'Save' })}</span>
+                                    {/if}
                                 </button>
                                 {/if}
                             </div>
@@ -281,7 +320,19 @@
         container-type: inline-size;
     }
 
+    .save-bar-short {
+        display: none;
+    }
+
     @container (max-width: 34rem) {
+        .save-bar-long {
+            display: none;
+        }
+
+        .save-bar-short {
+            display: inline;
+        }
+
         .save-bar-row {
             flex-direction: column;
             align-items: stretch;
@@ -296,6 +347,8 @@
         .save-bar-actions > :global(button) {
             flex: 1 1 auto;
             white-space: normal;
+            /* Narrower padding lets the two short labels share one row on a phone, even at 200 % text. */
+            padding-inline: 0.625rem;
         }
     }
 </style>

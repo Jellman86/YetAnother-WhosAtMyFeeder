@@ -116,6 +116,25 @@
         }
     }
 
+    /* An open dialog keeps its close button at the top right and its actions at the bottom right,
+       so while one is open the toasts move to the bottom left, clear of both (WCAG 2.4.11). */
+    :global(body:has([aria-modal='true'])) .toast-container {
+        top: auto;
+        bottom: calc(env(safe-area-inset-bottom, 0px) + 1rem);
+    }
+
+    @media (min-width: 640px) {
+        :global(body:has([aria-modal='true'])) .toast-container {
+            right: auto;
+            left: 1rem;
+            align-items: flex-start;
+        }
+
+        :global(body:has([aria-modal='true'])) .toast-container > div {
+            align-items: flex-start;
+        }
+    }
+
     /* With enlarged text a phone has no room for icon, words and the close
        button on one line, so the words take their own line under the other two.
        Only below 640px, where the stack spans the screen: wider screens size it to

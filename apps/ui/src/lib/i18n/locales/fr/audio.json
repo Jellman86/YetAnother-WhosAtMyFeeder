@@ -6,7 +6,13 @@
     "hourly_title": "Heure de la journée",
     "species_title": "Répartition des espèces",
     "empty": "Aucune activité sur cette période.",
-    "other_species": "Autres espèces"
+    "other_species": "Autres espèces",
+    "unavailable": "Indisponible tant que l’historique ne peut pas être lu.",
+    "show_numbers": "Afficher les chiffres",
+    "col_day": "Jour",
+    "col_hour": "Heure",
+    "col_calls": "Chants",
+    "col_species": "Espèce"
   },
   "stat": {
     "heard": "Entendues",
@@ -17,7 +23,9 @@
     "peak_hour_sub": "{count, plural, one {# détection} other {# détections}}",
     "no_activity": "Aucune activité pour le moment",
     "sources": "Sources",
-    "sources_sub": "Microphones ou flux"
+    "sources_sub": "Microphones ou flux",
+    "not_available": "Indisponible",
+    "no_calls": "Aucun chant sur cette période"
   },
   "filter": {
     "window": "Période",
@@ -47,7 +55,10 @@
     "hide": "Masquer dans YA-WAMF",
     "undo": "Annuler",
     "hidden_message": "Détection audio masquée.",
-    "local_only": "Masquer retire une entrée de l’historique YA-WAMF et des futures correspondances audio. BirdNET-Go reste inchangé ; ses suppressions ne sont pas synchronisées automatiquement."
+    "local_only": "Masquer retire une entrée de l’historique YA-WAMF et des futures correspondances audio. BirdNET-Go reste inchangé ; ses suppressions ne sont pas synchronisées automatiquement.",
+    "read_failed": "L’historique audio n’a pas pu être lu depuis YA-WAMF : rien sur cette page n’est une mesure.",
+    "read_failed_next": "Réessayez. Si l’échec persiste, ouvrez la page État pour voir si le backend signale une panne.",
+    "stale": "La dernière actualisation a échoué : voici la lecture de {at}."
   },
   "table": {
     "sound": "Son",

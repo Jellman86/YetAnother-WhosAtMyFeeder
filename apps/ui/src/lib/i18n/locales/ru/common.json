@@ -72,5 +72,33 @@
   "diagnostic_state_passed": "Пройдено",
   "diagnostic_state_failed": "Не пройдено",
   "diagnostic_state_warning": "Пройдено с предупреждением",
-  "diagnostic_state_skipped": "Не выполнялось"
+  "diagnostic_state_skipped": "Не выполнялось",
+  "technical_details": "Технические подробности",
+  "map_credit": "© участники OpenStreetMap",
+  "chart_total": "Всего: {count}",
+  "unknown_bird": "Неизвестная птица",
+  "weather_condition": {
+    "clear_sky": "Ясно",
+    "partly_cloudy": "Переменная облачность",
+    "foggy": "Туман",
+    "drizzle": "Морось",
+    "rain": "Дождь",
+    "snow": "Снег",
+    "rain_showers": "Ливни",
+    "thunderstorm": "Гроза",
+    "cloudy": "Облачно",
+    "hail": "Град",
+    "windy": "Ветрено",
+    "exceptional": "Исключительная погода"
+  },
+  "compass": {
+    "n": "С",
+    "ne": "СВ",
+    "e": "В",
+    "se": "ЮВ",
+    "s": "Ю",
+    "sw": "ЮЗ",
+    "w": "З",
+    "nw": "СЗ"
+  }
 }

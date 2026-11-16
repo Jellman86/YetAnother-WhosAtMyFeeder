@@ -3,7 +3,7 @@ import { addMessages, init, locale } from 'svelte-i18n';
 
 import deErrors from '../i18n/locales/de/errors.json';
 import enErrors from '../i18n/locales/en/errors.json';
-import { extractApiErrorMessage, isTransientGatewayError, readApiErrorMessage } from './error-message';
+import { connectionCauseMessage, extractApiErrorMessage, isTransientGatewayError, readApiErrorMessage } from './error-message';
 
 function response(status: number, body: string, contentType: string): Response {
     return new Response(body, { status, headers: { 'content-type': contentType } });
@@ -23,7 +23,7 @@ describe('errors a person reads are worded here, in their language', () => {
         expect(message).toBe(enErrors.server_failure);
         // The cause is stated with a next step and where to look.
         expect(message).toMatch(/Try again/);
-        expect(message).toMatch(/System health/);
+        expect(message).toMatch(/open Health/);
     });
 
     it('explains a server failure that carries no reason, whatever its body type', async () => {
@@ -73,5 +73,15 @@ describe('errors a person reads are worded here, in their language', () => {
         await locale.set('de');
         expect(extractApiErrorMessage({ cause: 'something_new', service: 'mqtt', address: 'x', message: 'A new failure.' }, 'HTTP 502')).toBe('A new failure.');
         await locale.set('en');
+    });
+
+    it('words a broker failure from its cause code, for Health as for the connection test', async () => {
+        await locale.set('en');
+        expect(connectionCauseMessage('host_not_found', 'mqtt', 'mqtt.invalid:1883')).toBe(
+            'MQTT broker: the host name in mqtt.invalid:1883 was not found. Check the address.'
+        );
+        expect(connectionCauseMessage('something_else', 'mqtt', 'mqtt.invalid:1883')).toBeNull();
+        await locale.set('de');
+        expect(connectionCauseMessage('host_not_found', 'mqtt', 'mqtt.invalid:1883')).not.toContain('was not found');
     });
 });

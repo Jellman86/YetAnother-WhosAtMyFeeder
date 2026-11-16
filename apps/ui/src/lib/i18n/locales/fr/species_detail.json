@@ -13,7 +13,7 @@
   "seasonality_global": "Saisonnalité globale",
   "range_map": "Carte de répartition",
   "range_unavailable": "Carte de répartition indisponible.",
-  "range_map_hint": "Glisser pour déplacer • Faire défiler pour zoomer",
+  "range_map_hint": "Faites glisser pour déplacer la carte. Utilisez + et − pour zoomer.",
   "video_unavailable": "Clip vidéo indisponible",
   "no_recent_sightings": "Aucune observation récente.",
   "count_label": "Nombre",

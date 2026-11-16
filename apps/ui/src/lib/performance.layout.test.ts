@@ -100,7 +100,9 @@ describe('content that arrives late has its space held', () => {
 
     it('holds the system chart and the status line on the Health page', () => {
         expect(systemHealthPanelSource).toMatch(/class="min-h-96 [^"]*md:min-h-80[^"]*" data-system-health-loading/);
-        expect(errorsSource).toContain('min-h-8 text-xs text-slate-600 sm:min-h-4');
+        expect(errorsSource).toContain('min-h-8 text-xs text-slate-700 sm:min-h-4');
+        // The verdict holds its height while the first reading is on its way.
+        expect(errorsSource).toContain('flex min-h-28 flex-wrap');
     });
 
     it('takes the Explorer\'s first-read placeholders away whole, so a day strip arriving above the results moves nothing', () => {

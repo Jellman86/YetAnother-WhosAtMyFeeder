@@ -1,4 +1,4 @@
-import { getBirdNames, type BirdNamingInput } from '../naming';
+import type { BirdNamer, BirdNamingInput } from '../naming';
 
 /** The player's title: the bird the clip shows and when it was recorded. */
 export interface VideoHeading {
@@ -9,7 +9,8 @@ export interface VideoHeading {
 export function videoHeadingFor(
     detection: BirdNamingInput & { detection_time?: string | null },
     showCommon: boolean,
-    preferScientific: boolean
+    preferScientific: boolean,
+    names: BirdNamer
 ): VideoHeading {
-    return { name: getBirdNames(detection, showCommon, preferScientific).primary, at: detection.detection_time ?? null };
+    return { name: names(detection, showCommon, preferScientific).primary, at: detection.detection_time ?? null };
 }

@@ -5,7 +5,7 @@
         type DailySpeciesSummary,
         type SpeciesInfo
     } from '../api';
-    import { getBirdNames } from '../naming';
+    import { birdNames } from '../naming';
     import { authStore } from '../stores/auth.svelte';
     import { settingsStore } from '../stores/settings.svelte';
 
@@ -73,7 +73,7 @@
             .sort((left, right) => (right.visit_count ?? 0) - (left.visit_count ?? 0) || right.count - left.count)
             .slice(0, 5)
             .map((item) => {
-                const naming = getBirdNames(item, showCommon, preferSci);
+                const naming = $birdNames(item, showCommon, preferSci);
                 return {
                     ...item,
                     displayName: naming.primary,

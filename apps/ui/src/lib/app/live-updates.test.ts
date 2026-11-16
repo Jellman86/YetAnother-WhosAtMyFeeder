@@ -326,6 +326,25 @@ describe('LiveUpdateCoordinator reclassify fallback', () => {
         expect(silent.notificationItems.some((item) => String(item.id).startsWith('system:media-storage-unavailable'))).toBe(false);
     });
 
+    it('says why health is not ok instead of the backend word, and follows a change of cause', async () => {
+        const checkHealth = vi
+            .fn()
+            .mockResolvedValueOnce({ startup_instance_id: 'instance-a', status: 'degraded', mqtt: { connection_state: 'disconnected' } })
+            .mockResolvedValueOnce({ startup_instance_id: 'instance-a', status: 'degraded', mqtt: { connection_state: 'connected' }, frigate_api: { state: 'unreachable' } });
+        const { coordinator, notificationItems } = buildCoordinator({ checkHealth });
+
+        await coordinator.runOwnerSystemChecks();
+        let health = notificationItems.filter((item) => String(item.id).startsWith('system:health'));
+        expect(health).toHaveLength(1);
+        expect(health[0].message).toBe('notifications.system_health_cause.mqtt_down');
+        expect(health[0].message).not.toContain('degraded');
+
+        await coordinator.runOwnerSystemChecks();
+        health = notificationItems.filter((item) => String(item.id).startsWith('system:health'));
+        expect(health).toHaveLength(1);
+        expect(health[0].message).toBe('notifications.system_health_cause.frigate_down');
+    });
+
     it('forwards health payloads to diagnostics ingest', async () => {
         const { coordinator, calls } = buildCoordinator();
         await coordinator.runOwnerSystemChecks();

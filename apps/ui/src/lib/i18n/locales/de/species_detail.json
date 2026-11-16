@@ -13,7 +13,7 @@
   "seasonality_global": "Globale Saisonalität",
   "range_map": "Verbreitungskarte",
   "range_unavailable": "Verbreitungskarte nicht verfügbar.",
-  "range_map_hint": "Ziehen zum Verschieben • Scrollen zum Zoomen",
+  "range_map_hint": "Zum Verschieben ziehen. Mit + und − zoomen.",
   "video_unavailable": "Videoclip nicht verfügbar",
   "no_recent_sightings": "Keine aktuellen Beobachtungen.",
   "count_label": "Anzahl",

@@ -63,10 +63,10 @@
             default: '{count, plural, one {# issue needs attention} other {# issues need attention}}'
         })
     );
-    // Said before the count, so the link is named "System health: 2 issues need attention".
-    const healthLinkPrefix = $derived(`${$_('status.open_health', { default: 'System health' })}: `);
+    // Said before the count, so the link is named "Health: 2 issues need attention".
+    const healthLinkPrefix = $derived(`${$_('status.open_health', { default: 'Health' })}: `);
     const healthLinkName = $derived(
-        health.needsAttention ? `${healthLinkPrefix}${issuesLabel}` : $_('status.open_health', { default: 'System health' })
+        health.needsAttention ? `${healthLinkPrefix}${issuesLabel}` : $_('status.open_health', { default: 'Health' })
     );
 
     function openHealth(event: MouseEvent): void {
@@ -222,7 +222,7 @@
     </nav>
 
     <!-- System status is a plain list on a neutral surface: measured states in words, one muted
-         line of resource readings, and the way to System health. Only the owner can reach Health,
+         line of resource readings, and the way to Health. Only the owner can reach Health,
          so a guest gets no link. The link asks for attention only for issues Health lists as open,
          read from the same store, so the two always agree. -->
     <div data-sidebar-status class="shrink-0 border-t border-line-soft p-3 [@media(max-height:42rem)]:hidden">
@@ -261,8 +261,8 @@
                 <SystemTelemetryGraph />
                 {#if authStore.showSettings}
                     <!-- One line, one control: with issues open the count is the link's wording and
-                         "System health" is said before it for a screen reader; with none open the
-                         link is just "System health". -->
+                         "Health" is said before it for a screen reader; with none open the
+                         link is just "Health". -->
                     <a
                         href="/system-health"
                         class="focus-ring -mx-1 mt-2 flex min-h-7 items-center justify-between gap-x-2 rounded-md border-t border-line-soft px-1 pt-2 text-xs font-semibold leading-4 text-slate-700 transition-colors hover:text-brand-700 dark:text-slate-300 dark:hover:text-brand-300"
@@ -278,7 +278,7 @@
                                 </span>
                             </span>
                         {:else}
-                            <span class="ml-auto">{$_('status.open_health', { default: 'System health' })}</span>
+                            <span class="ml-auto">{$_('status.open_health', { default: 'Health' })}</span>
                         {/if}
                         <svg class="h-3 w-3 shrink-0" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" data-health-chevron><path stroke-linecap="round" stroke-linejoin="round" d="m8 5 5 5-5 5" /></svg>
                     </a>
@@ -369,10 +369,10 @@
             <button
                 class="btn btn-ghost min-h-11 min-w-11 focus-ring rounded-xl p-2.5 text-slate-600 transition-all duration-200 hover:bg-surface-raised dark:text-slate-400"
                 onclick={() => themeStore.toggle()}
-                title={themeStore.isDark ? $_('theme.switch_light') : $_('theme.switch_dark')}
-                aria-label={themeStore.isDark ? $_('theme.switch_light') : $_('theme.switch_dark')}
+                title={themeStore.prefersDark ? $_('theme.switch_light') : $_('theme.switch_dark')}
+                aria-label={themeStore.prefersDark ? $_('theme.switch_light') : $_('theme.switch_dark')}
             >
-                {#if themeStore.isDark}
+                {#if themeStore.prefersDark}
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
                     </svg>

@@ -9,6 +9,7 @@
     import { logger } from '../utils/logger';
     import { formatDate, formatTime } from '../utils/datetime';
     import { describeRuntime, startedAtFrom } from '../utils/instance-facts';
+    import IdentificationStatusLine from './IdentificationStatusLine.svelte';
     import { uptimeCoverage } from '../utils/uptime-coverage';
     import { _ } from 'svelte-i18n';
 
@@ -65,18 +66,6 @@
         })();
     });
 
-    const runtime = $derived(describeRuntime(classifier));
-    const runtimeLabel = $derived(
-        !runtime
-            ? null
-            : runtime.device
-              ? $_('about.instance.runtime_on', {
-                    values: { runtime: runtime.runtime, device: runtime.device },
-                    default: '{runtime} on {device}'
-                })
-              : runtime.runtime
-    );
-
     // Two separate measurements share this card and are never merged: how long this process
     // has run (from its own start time), and the share of the last 24 hours it was recorded up.
     const availability = $derived.by(() => {
@@ -109,6 +98,16 @@
             default: '{count, plural, one {# day} other {# days}}'
         });
     });
+
+    // The technical runtime ("TFLite on CPU") belongs in a pasted support summary, not on the card.
+    const runtime = $derived(describeRuntime(classifier));
+    const runtimeLabel = $derived(
+        !runtime
+            ? null
+            : runtime.device
+              ? $_('about.instance.runtime_on', { values: { runtime: runtime.runtime, device: runtime.device }, default: '{runtime} on {device}' })
+              : runtime.runtime
+    );
 
     // Deliberately no keys, URLs or camera names: this is meant to be pasted in public.
     // Kept as parts so the page can break the line between them and never inside a model name.
@@ -180,20 +179,12 @@
         <div class="grid min-w-0 gap-6 sm:grid-cols-[minmax(0,0.7fr)_minmax(0,0.7fr)_minmax(0,1.6fr)]">
             <div class="min-w-0" data-instance-runtime>
                 <p class="text-2xs font-semibold text-slate-600 wrap-anywhere dark:text-slate-400">
-                    {$_('about.instance.runtime', { default: 'Identifying birds with' })}
+                    {$_('about.instance.runtime', { default: 'Bird identification' })}
                 </p>
-                {#if runtimeLabel}
-                    <p class="wrap-break-word font-display text-2xl font-bold text-slate-900 dark:text-white">{runtimeLabel}</p>
-                {:else}
-                    <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                        {$_('about.instance.runtime_unread', { default: 'Not read yet. The model reports this once it has loaded.' })}
-                    </p>
-                {/if}
-                {#if classifier?.fallback_reason}
-                    <p class="mt-1 text-2xs leading-snug text-slate-600 dark:text-slate-400">
-                        {classifier.fallback_reason}
-                    </p>
-                {/if}
+                <!-- The same sentence Settings › Models and the setup wizard show, from the same report. -->
+                <div class="mt-1">
+                    <IdentificationStatusLine classifierStatus={classifier} context="about" />
+                </div>
             </div>
 
             <div data-instance-uptime class="min-w-0">

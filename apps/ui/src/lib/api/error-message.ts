@@ -47,6 +47,15 @@ function connectionServiceName(service: string): string | null {
 function connectionFailureMessage(payload: object): string | null {
     const { cause, service, address } = payload as { cause?: unknown; service?: unknown; address?: unknown };
     if (typeof cause !== 'string' || typeof service !== 'string' || typeof address !== 'string') return null;
+    return connectionCauseMessage(cause, service, address);
+}
+
+/**
+ * The sentence for a connection that failed with a known cause code, or null for a code or service
+ * this page has no words for. Health uses it for the broker session's last failure, so the reader
+ * sees the cause and what to check, not the resolver's errno text.
+ */
+export function connectionCauseMessage(cause: string, service: string, address: string): string | null {
     const serviceName = connectionServiceName(service);
     if (!Object.hasOwn(CONNECTION_CAUSES, cause) || serviceName === null) return null;
     // An address given as a URL has a scheme, and a wrong http or https is a common cause.

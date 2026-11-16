@@ -4,7 +4,7 @@ import { replayFeeder, settled, type Theme } from './accessibility-mock';
 
 /**
  * The sidebar's System status card in the real app shell: a neutral list of measured states,
- * one muted line of resource readings, and the way to System health. The link asks for
+ * one muted line of resource readings, and the way to Health. The link asks for
  * attention only for issues the Health page lists as open, and the two numbers always agree.
  */
 const event = (component: string, reason: string, count = 1) => ({
@@ -67,10 +67,10 @@ async function openItemsOnHealth(page: Page): Promise<number> {
 const card = (page: Page) => page.locator('[data-sidebar-status-card]');
 const link = (page: Page) => page.locator('[data-sidebar-status-link]');
 
-test('with nothing open the link is just "System health"', async ({ page }) => {
+test('with nothing open the link is just "Health"', async ({ page }) => {
     await openShell(page, 'light', workspace([]));
     await expect(link(page)).toHaveAttribute('data-health-attention', 'false');
-    await expect(link(page)).toHaveText('System health');
+    await expect(link(page)).toHaveText('Health');
     await expect(card(page).locator('[data-health-issues]')).toHaveCount(0);
     expect(await openItemsOnHealth(page)).toBe(0);
 });
@@ -79,7 +79,7 @@ test('open issues are counted on the link, and the Health page counts the same',
     await openShell(page, 'light', TWO_ISSUES);
     await expect(link(page)).toHaveAttribute('data-health-attention', 'true');
     await expect(card(page).locator('[data-health-issues]')).toHaveText('2 issues need attention');
-    await expect(link(page)).toHaveAccessibleName('System health: 2 issues need attention');
+    await expect(link(page)).toHaveAccessibleName('Health: 2 issues need attention');
     expect(await openItemsOnHealth(page)).toBe(2);
     // A fault that repeated is one entry there, with how often and over what span.
     await expect(page.locator('[data-diagnostic-repeats]').first()).toContainText('×14, first');
@@ -89,9 +89,9 @@ test('the count is the link: one line, with the way in at its end', async ({ pag
     await openShell(page, 'light', workspace([event('weather', 'request_failed')]));
     const issues = link(page).locator('[data-health-issues]');
     await expect(issues).toHaveText('1 issue needs attention');
-    await expect(link(page)).toHaveAccessibleName('System health: 1 issue needs attention');
+    await expect(link(page)).toHaveAccessibleName('Health: 1 issue needs attention');
     // The count is the only visible wording, so nothing is left to drop onto a second line.
-    await expect(link(page).getByText('System health', { exact: true })).toHaveCount(0);
+    await expect(link(page).getByText('Health', { exact: true })).toHaveCount(0);
     const line = await link(page).evaluate(node => {
         const words = node.querySelector('[data-health-issues]') as HTMLElement;
         const chevron = node.querySelector('[data-health-chevron]') as SVGElement;
@@ -137,8 +137,8 @@ test('the icon rail names each status and the Health link with the same words', 
     await openShell(page, 'light', TWO_ISSUES, true);
     await expect(card(page).getByRole('listitem')).toHaveCount(3);
     await expect(card(page).locator('[data-status-row="feed"]')).toHaveAttribute('title', /^Frigate events: /);
-    await expect(link(page)).toHaveAccessibleName('System health: 2 issues need attention');
-    await expect(link(page)).toHaveAttribute('title', 'System health: 2 issues need attention');
+    await expect(link(page)).toHaveAccessibleName('Health: 2 issues need attention');
+    await expect(link(page)).toHaveAttribute('title', 'Health: 2 issues need attention');
     const box = await link(page).boundingBox();
     expect(box?.width).toBeGreaterThanOrEqual(24);
     expect(box?.height).toBeGreaterThanOrEqual(24);
@@ -149,7 +149,7 @@ test('the icon rail names each status and the Health link with the same words', 
     await expect(page).toHaveURL(/\/system-health$/);
 });
 
-test('a guest sees the status rows and no way into System health', async ({ page }) => {
+test('a guest sees the status rows and no way into Health', async ({ page }) => {
     await openShell(page, 'light', {
         '/api/auth/status': { auth_required: true, public_access_enabled: true, is_authenticated: false, needs_initial_setup: false }
     });

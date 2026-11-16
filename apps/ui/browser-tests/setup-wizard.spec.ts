@@ -367,7 +367,7 @@ async function openRerun(page: Page, fake: FakeBackend): Promise<string[]> {
 
 const continueButton = (page: Page) => wizard(page).getByRole('button', { name: 'Continue', exact: true });
 const modelSelect = (page: Page) => wizard(page).getByLabel('Model', { exact: true });
-const providerSelect = (page: Page) => wizard(page).getByLabel('Device', { exact: true });
+const providerSelect = (page: Page) => wizard(page).getByLabel('Identification model runs on', { exact: true });
 const latitude = (page: Page) => wizard(page).getByLabel('Latitude', { exact: true });
 const longitude = (page: Page) => wizard(page).getByLabel('Longitude', { exact: true });
 const validateButton = (page: Page) => wizard(page).getByRole('button', { name: 'Validate on my hardware' });
@@ -400,7 +400,7 @@ test(`first run walks every step to Finish with history import ${importHistory} 
     await wizard(page).getByRole('checkbox', { name: 'nestbox', exact: true }).check();
     await continueButton(page).click();
 
-    await expectStep(page, 'Classifier model & hardware');
+    await expectStep(page, 'Model and hardware');
     await modelSelect(page).selectOption(DINO);
     await expect(wizard(page).getByText('Download and verify this model here before validating it on this hardware.')).toBeVisible();
     await expect(continueButton(page)).toBeDisabled();
@@ -461,7 +461,7 @@ test(`first run walks every step to Finish with history import ${importHistory} 
     }
 
     await expectStep(page, 'Review setup');
-    await expect(wizard(page).getByRole('listitem').filter({ hasText: 'Classifier model & hardware' })).toContainText('DINOv2 B/14 with location');
+    await expect(wizard(page).getByRole('listitem').filter({ hasText: 'Model and hardware' })).toContainText('DINOv2 B/14 with location');
     await wizard(page).getByRole('button', { name: 'Finish' }).click();
     await expect(page.getByRole('heading', { name: 'App opened' })).toBeVisible();
     await expect(wizard(page)).toHaveCount(0);
@@ -487,8 +487,8 @@ test(`first run walks every step to Finish with history import ${importHistory} 
 test('a re-run edits one section and leaves every other setting alone', async ({ page }) => {
     const fake = new FakeBackend({ settings: { location_latitude: 10, location_longitude: 20, frigate_url: 'http://frigate:5000', mqtt_server: 'mqtt', cameras: ['feeder'] } });
     const errors = await openRerun(page, fake);
-    await openSectionFromReview(page, 'Classifier model & hardware');
-    await expectStep(page, 'Classifier model & hardware');
+    await openSectionFromReview(page, 'Model and hardware');
+    await expectStep(page, 'Model and hardware');
     await expect(modelSelect(page)).toHaveValue(MOBILENET);
     // Location input is offered only for a model that reads it.
     await expect(wizard(page).getByRole('group', { name: 'Feeder location' })).toHaveCount(0);
@@ -520,7 +520,7 @@ test('feeder coordinates must be a whole valid pair; zero is valid and empty mea
         settings: { location_latitude: 10, location_longitude: 20, inference_provider: 'intel_npu' }
     });
     const errors = await openRerun(page, fake);
-    await openSectionFromReview(page, 'Classifier model & hardware');
+    await openSectionFromReview(page, 'Model and hardware');
     await expect(modelSelect(page)).toHaveValue(DINO);
     await expect(latitude(page)).toHaveValue('10');
     await expect(longitude(page)).toHaveValue('20');
@@ -546,7 +546,7 @@ test('feeder coordinates must be a whole valid pair; zero is valid and empty mea
     expect(fake.settingsWrites()).toEqual([{ location_latitude: 0, location_longitude: 0 }]);
     expect(fake.posts(`/api/models/${DINO}/activate`)).toEqual([]);
 
-    await openSectionFromReview(page, 'Classifier model & hardware');
+    await openSectionFromReview(page, 'Model and hardware');
     await expect(latitude(page)).toHaveValue('0');
     await latitude(page).fill('');
     await longitude(page).fill('');
@@ -564,7 +564,7 @@ test('feeder coordinates must be a whole valid pair; zero is valid and empty mea
 test('a failed check is said in words and keeps Continue disabled', async ({ page }) => {
     const fake = new FakeBackend({ installed: [{ id: MOBILENET }, { id: DINO, validated: false, validated_inference_providers: [], provider_preference_order: [], preferred_inference_provider: null }] });
     const errors = await openRerun(page, fake);
-    await openSectionFromReview(page, 'Classifier model & hardware');
+    await openSectionFromReview(page, 'Model and hardware');
     await modelSelect(page).selectOption(DINO);
     await expect(wizard(page).getByText('No location will be used: this model identifies birds without it.')).toBeVisible();
     await expect(continueButton(page)).toBeDisabled();
@@ -586,7 +586,7 @@ test('a failed check is said in words and keeps Continue disabled', async ({ pag
 test('an explicit provider choice survives the check when it passes', async ({ page }) => {
     const fake = new FakeBackend({ installed: [{ id: MOBILENET }, { id: DINO, validated_inference_providers: ['cpu', 'intel_cpu', 'intel_gpu', 'intel_npu'], provider_preference_order: PROVIDER_ORDER, preferred_inference_provider: 'intel_npu' }] });
     const errors = await openRerun(page, fake);
-    await openSectionFromReview(page, 'Classifier model & hardware');
+    await openSectionFromReview(page, 'Model and hardware');
     await modelSelect(page).selectOption(DINO);
     // Activation saves the model's recommendation, so the form shows it rather than an Auto it would not keep.
     await expect(providerSelect(page)).toHaveValue('intel_npu');
@@ -606,7 +606,7 @@ test('an explicit provider choice survives the check when it passes', async ({ p
 test('an explicit provider that fails the check is replaced and the change is explained', async ({ page }) => {
     const fake = new FakeBackend({ installed: [{ id: MOBILENET }, { id: DINO, validated_inference_providers: ['cpu', 'intel_cpu', 'intel_gpu', 'intel_npu'], provider_preference_order: PROVIDER_ORDER, preferred_inference_provider: 'intel_npu' }] });
     const errors = await openRerun(page, fake);
-    await openSectionFromReview(page, 'Classifier model & hardware');
+    await openSectionFromReview(page, 'Model and hardware');
     await modelSelect(page).selectOption(DINO);
     await providerSelect(page).selectOption('intel_npu');
     await validateButton(page).click();
@@ -624,13 +624,13 @@ test('a failed activation stays on the model step and can be retried', async ({ 
     const fake = new FakeBackend({ installed: [{ id: MOBILENET }, { id: DINO, validated_inference_providers: ['cpu', 'intel_npu'], provider_preference_order: ['intel_npu', 'cpu'], preferred_inference_provider: 'intel_npu' }] });
     fake.activationError = 'The model files are locked by another process.';
     const errors = await openRerun(page, fake);
-    await openSectionFromReview(page, 'Classifier model & hardware');
+    await openSectionFromReview(page, 'Model and hardware');
     await modelSelect(page).selectOption(DINO);
     await latitude(page).fill(LAT);
     await longitude(page).fill(LON);
     await continueButton(page).click();
     await expect(wizard(page).getByRole('alert').filter({ hasText: 'The model files are locked by another process.' })).toBeVisible();
-    await expectStep(page, 'Classifier model & hardware');
+    await expectStep(page, 'Model and hardware');
     expect(fake.activeModelId).toBe(MOBILENET);
     // The location was saved first; the provider is not written for a model that did not activate.
     expect(fake.settingsWrites()).toEqual([{ location_latitude: 12.5, location_longitude: -45.25 }]);
@@ -650,7 +650,7 @@ for (const leave of ['Back', 'Skip'] as const) {
     test(`a check still running after ${leave} cannot change the wizard or the saved settings`, async ({ page }) => {
         const fake = new FakeBackend({ installed: [{ id: MOBILENET }, { id: DINO, validated: false, validated_inference_providers: [], provider_preference_order: [], preferred_inference_provider: null }] });
         const errors = await openRerun(page, fake);
-        await openSectionFromReview(page, 'Classifier model & hardware');
+        await openSectionFromReview(page, 'Model and hardware');
         await modelSelect(page).selectOption(DINO);
         await validateButton(page).click();
         await expect(wizard(page).getByRole('progressbar', { name: 'Validate on my hardware' })).toBeVisible();
@@ -667,7 +667,7 @@ for (const leave of ['Back', 'Skip'] as const) {
         await expectStep(page, 'Review setup');
 
         // Coming back reads the finished check from the server.
-        await openSectionFromReview(page, 'Classifier model & hardware');
+        await openSectionFromReview(page, 'Model and hardware');
         await modelSelect(page).selectOption(DINO);
         await expect(continueButton(page)).toBeEnabled();
         expect(errors).toEqual([]);
@@ -677,7 +677,7 @@ for (const leave of ['Back', 'Skip'] as const) {
 test('an incomplete install cannot be continued with and offers a fresh download', async ({ page }) => {
     const fake = new FakeBackend({ installed: [{ id: MOBILENET }, { id: BROKEN, ready: false, reason: 'missing_labels', validated: true }] });
     const errors = await openRerun(page, fake);
-    await openSectionFromReview(page, 'Classifier model & hardware');
+    await openSectionFromReview(page, 'Model and hardware');
     await modelSelect(page).selectOption(BROKEN);
     await expect(wizard(page).getByText('This model install is incomplete.', { exact: false })).toBeVisible();
     await expect(continueButton(page)).toBeDisabled();
@@ -688,7 +688,7 @@ test('an incomplete install cannot be continued with and offers a fresh download
 test('an explicit Auto choice is saved instead of the activation recommendation', async ({ page }) => {
     const fake = new FakeBackend({ installed: [{ id: MOBILENET }, { id: DINO, validated_inference_providers: ['cpu', 'intel_npu'], provider_preference_order: ['intel_npu', 'cpu'], preferred_inference_provider: 'intel_npu' }] });
     const errors = await openRerun(page, fake);
-    await openSectionFromReview(page, 'Classifier model & hardware');
+    await openSectionFromReview(page, 'Model and hardware');
     await modelSelect(page).selectOption(DINO);
     await providerSelect(page).selectOption('auto');
     await validateButton(page).click();
@@ -706,7 +706,7 @@ test('a failed location save prevents validation and keeps the entered coordinat
     const fake = new FakeBackend({ installed: [{ id: MOBILENET }, { id: DINO, validated: false }] });
     fake.settingsError = 'The configuration volume is read-only.';
     const errors = await openRerun(page, fake);
-    await openSectionFromReview(page, 'Classifier model & hardware');
+    await openSectionFromReview(page, 'Model and hardware');
     await modelSelect(page).selectOption(DINO);
     await latitude(page).fill(LAT);
     await longitude(page).fill(LON);
@@ -728,7 +728,7 @@ test('a failed download stays on the model step and can be retried', async ({ pa
     const fake = new FakeBackend();
     fake.downloadError = 'Model checksum verification failed.';
     const errors = await openRerun(page, fake);
-    await openSectionFromReview(page, 'Classifier model & hardware');
+    await openSectionFromReview(page, 'Model and hardware');
     await modelSelect(page).selectOption(DINO);
     await wizard(page).getByRole('button', { name: 'Download model' }).click();
     await expect(wizard(page).getByRole('alert').filter({ hasText: fake.downloadError })).toBeVisible({ timeout: 10_000 });
@@ -746,7 +746,7 @@ test('a failed download stays on the model step and can be retried', async ({ pa
 test('a validation response already in flight cannot refresh a step after Back', async ({ page }) => {
     const fake = new FakeBackend({ installed: [{ id: MOBILENET }, { id: DINO, validated: false }] });
     const errors = await openRerun(page, fake);
-    await openSectionFromReview(page, 'Classifier model & hardware');
+    await openSectionFromReview(page, 'Model and hardware');
     await modelSelect(page).selectOption(DINO);
     const held: { route?: Route } = {};
     await page.route(`**/api/diagnostics/model-eval/runs/${RUN_ID}`, route => { held.route = route; });
@@ -796,7 +796,7 @@ for (const change of ['location', 'cameras', 'quality', 'integrations'] as const
         await slider.fill('0.75');
         await page.locator('[data-setup-wizard-action]:visible').click();
         if (change === 'location') {
-            await openSectionFromReview(page, 'Classifier model & hardware');
+            await openSectionFromReview(page, 'Model and hardware');
             await latitude(page).fill(LAT);
             await longitude(page).fill(LON);
         } else if (change === 'cameras') {
@@ -841,7 +841,7 @@ test('in first run, a section opened from Review goes straight back to Review', 
     await continueButton(page).click();
     await expectStep(page, 'Cameras & detection');
     await continueButton(page).click();
-    await expectStep(page, 'Classifier model & hardware');
+    await expectStep(page, 'Model and hardware');
     await wizard(page).getByRole('button', { name: 'Skip step' }).click();
     await wizard(page).getByRole('button', { name: 'Skip step' }).click();
     await wizard(page).getByRole('button', { name: 'Skip step' }).click();
@@ -890,7 +890,7 @@ test('a failed Frigate test says how to give it a token', async ({ page }) => {
 test('a failed check is not also reported as a green completion', async ({ page }) => {
     const fake = new FakeBackend({ installed: [{ id: DINO, ready: true, validated: false }] });
     await openRerun(page, fake);
-    await openSectionFromReview(page, 'Classifier model & hardware');
+    await openSectionFromReview(page, 'Model and hardware');
     await modelSelect(page).selectOption(DINO);
     await validateButton(page).click();
     await expect(wizard(page).getByText('Checking this model on each device…').or(wizard(page).getByText('Starting the check…')).first()).toBeVisible();
@@ -937,7 +937,7 @@ test('typing cameras is only offered when Frigate cannot be read, and says the n
 test('a regional model says which species list it will use, and validating runs the region chosen', async ({ page }) => {
     const fake = new FakeBackend({ installed: [{ id: 'small_birds', ready: true, validated: false }] });
     await openRerun(page, fake);
-    await openSectionFromReview(page, 'Classifier model & hardware');
+    await openSectionFromReview(page, 'Model and hardware');
     await modelSelect(page).selectOption('small_birds');
     const region = wizard(page).locator('[data-setup-model-region]');
     await expect(region.getByRole('status')).toContainText('No country is saved, so Auto uses the North American species list');
@@ -959,7 +959,7 @@ test('a saved country names the species list, and a model that is not regional a
         settings: { location_country: 'France', bird_model_region_override: 'eu' }
     });
     await openRerun(page, fake);
-    await openSectionFromReview(page, 'Classifier model & hardware');
+    await openSectionFromReview(page, 'Model and hardware');
     // Only once the step has loaded does an absent control mean anything.
     await expect(modelSelect(page)).toHaveValue(MOBILENET);
     await expect(wizard(page).locator('[data-setup-model-region]')).toHaveCount(0);
@@ -1037,7 +1037,7 @@ test('the model step opens with a model selected even when the running model is 
     // The bundled fallback runs under an id no catalogue entry has, and nothing else is installed.
     const fake = new FakeBackend({ installed: [], activeModelId: 'model.tflite' });
     await openRerun(page, fake);
-    await openSectionFromReview(page, 'Classifier model & hardware');
+    await openSectionFromReview(page, 'Model and hardware');
     await expect(modelSelect(page)).toHaveValue(MOBILENET);
     await expect(continueButton(page)).toBeDisabled();
     await expect(wizard(page).locator('[data-setup-continue-blocked]')).toContainText('Download this model to continue, or skip this step');
@@ -1056,7 +1056,7 @@ test('a failed broker test is worded from its cause code in the page language', 
     await dialog.locator('#setup-mqtt-server').press('Tab');
     await dialog.getByRole('button', { name: /test/i }).click();
     const failed = dialog.locator('[data-setup-connection-result="failed"]');
-    await expect(failed).toContainText('Der Hostname in mqtt.invalid:1883 wurde nicht gefunden. Prüfe die Adresse.');
+    await expect(failed).toContainText('Der Hostname in mqtt.invalid:1883 wurde nicht gefunden. Prüfen Sie die Adresse.');
     await expect(failed).toContainText('MQTT-Broker');
     await expect(dialog).not.toContainText('English fallback sentence.');
 });

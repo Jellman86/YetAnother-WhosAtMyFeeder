@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { formatCalendarDay } from '../utils/datetime';
     import Separator from '../components/Separator.svelte';
     import VisitCaptures from '../components/VisitCaptures.svelte';
     import HeardBandRow from '../components/HeardBandRow.svelte';
@@ -72,7 +73,7 @@
     import { explorerCameraOptions, seenGardenCameras } from '../utils/explorer-cameras';
     import ExplorerPlaceholders from '../components/ExplorerPlaceholders.svelte';
 
-    import { getBirdNames } from '../naming';
+    import { birdNames } from '../naming';
     import { videoHeadingFor, type VideoHeading } from '../components/video-heading';
     import { createEventMetadataRefresh } from './event-metadata-refresh';
     import { EVENTS_PAGE_REQUEST_KEYS } from './events-request-keys';
@@ -195,7 +196,7 @@
         if (!selectedEvent) return { primary: '', secondary: null };
         const showCommon = settingsStore.displayCommonNames;
         const preferSci = settingsStore.scientificNamePrimary;
-        return getBirdNames(selectedEvent, showCommon, preferSci);
+        return $birdNames(selectedEvent, showCommon, preferSci);
     });
 
     let modalReclassifyProgress = $derived(selectedEvent ? detectionsStore.getReclassificationProgress(selectedEvent.frigate_event) : undefined);
@@ -228,7 +229,7 @@
     }
 
     function speciesOptionNames(item: EventFilterSpecies): { primary: string; secondary: string | null } {
-        const naming = getBirdNames({
+        const naming = $birdNames({
             display_name: item.display_name,
             scientific_name: item.scientific_name ?? undefined,
             common_name: item.common_name ?? undefined
@@ -1067,8 +1068,7 @@
     }
 
     function formatTimelineBucketLabel(bucket: string): string {
-        const date = new Date(`${bucket}T00:00:00`);
-        return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+        return formatCalendarDay(bucket);
     }
 
     let timelineBuckets = $derived.by(() => {
@@ -1293,7 +1293,7 @@
 
     function playClip(detection: Detection) {
         videoEventId = detection.frigate_event;
-        videoHeading = videoHeadingFor(detection, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary);
+        videoHeading = videoHeadingFor(detection, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary, $birdNames);
         videoShareToken = null;
         videoPlayIntent = 'user';
         showVideo = true;
@@ -1847,7 +1847,7 @@
         const known = taxonChoice?.id === taxonFilter ? taxonChoice : null;
         if (!known) return $_('events.search.taxon_token_unnamed', { default: 'Chosen group of species' });
         const name = known.rank === 'species'
-            ? getBirdNames({ display_name: known.name ?? known.scientificName, common_name: known.name ?? undefined, scientific_name: known.scientificName }, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary).primary
+            ? $birdNames({ display_name: known.name ?? known.scientificName, common_name: known.name ?? undefined, scientific_name: known.scientificName }, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary).primary
             : known.name ?? known.scientificName;
         return $_('events.search.taxon_token', { values: { rank: $_(`taxonomy.rank.${known.rank}`, { default: known.rank }), name }, default: '{rank}: {name}' });
     });
@@ -2693,7 +2693,7 @@
                     }}
                     onPlayVideo={(frigateEvent: string, playIntent: 'auto' | 'user' = 'auto') => {
                         videoEventId = frigateEvent;
-                        videoHeading = selectedEvent ? videoHeadingFor(selectedEvent, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary) : null;
+                        videoHeading = selectedEvent ? videoHeadingFor(selectedEvent, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary, $birdNames) : null;
                         videoShareToken = null;
                         videoPlayIntent = playIntent;
                         showVideo = true;

@@ -3,7 +3,6 @@
   "credits": "Crédits et remerciements",
   "view_changelog": "Voir le journal des modifications",
   "flaticon_credit": "Icônes d'oiseaux créées par Freepik - Flaticon",
-  "license_notice": "© {year} Jellman86 • Sous licence {license}",
   "project_desc_1": "J'ai commencé ce projet pour voir jusqu'où je pouvais aller en programmant avec l'aide de l'IA. Le {link} d'origine n'était plus maintenu, il y avait donc quelque chose de réel à reconstruire plutôt qu'un projet jouet. Depuis, il tourne à ma propre mangeoire.",
   "project_desc_2": "Frigate surveille la mangeoire et signale tout ce qui ressemble à un oiseau. YA-WAMF l'identifie, le recoupe avec l'audio de BirdNET-Go et enregistre le résultat. Toutes les photos de cette page viennent de cette caméra.",
   "links": {
@@ -98,7 +97,7 @@
     "history_unavailable": "La disponibilité n’a pas pu être lue.",
     "availability_partial": "{percent} % disponible sur les {hours} h enregistrées",
     "no_gaps_since": "Aucune interruption depuis le début de l’enregistrement à {when}.",
-    "runtime": "Identification des oiseaux avec",
+    "runtime": "Identification des oiseaux",
     "runtime_on": "{runtime} sur {device}",
     "runtime_unread": "Pas encore lu. Le modèle l’indique une fois chargé.",
     "uptime_unmeasured": "Le backend n’a pas indiqué quand il a démarré.",
@@ -122,10 +121,10 @@
     "newest_arrival": "Dernière arrivée",
     "first_seen": "vue pour la première fois le {date}",
     "latest": "Dernière visite",
-    "open_visit": "Ouvrir la visite de {name} du {time}",
     "gone": "Cette visite ne figure plus dans l’historique.",
     "community": "{count, plural, one {# mangeoire a utilisé YA-WAMF cette semaine.} other {# mangeoires ont utilisé YA-WAMF cette semaine.}}",
     "loading": "Chargement des faits de cette mangeoire…",
-    "unavailable": "Les faits de cette mangeoire n’ont pas pu être chargés."
+    "unavailable": "Les faits de cette mangeoire n’ont pas pu être chargés.",
+    "open_this_visit": "Ouvrir cette visite"
   }
 }

@@ -46,9 +46,9 @@
     import { authStore } from '../stores/auth.svelte';
     import { detectionsStore } from '../stores/detections.svelte';
     import { themeStore } from '../stores/theme.svelte';
-    import { getBirdNames } from '../naming';
+    import { birdNames } from '../naming';
     import { formatTemperature } from '../utils/temperature';
-    import { formatDateTime } from '../utils/datetime';
+    import { formatDateTime, formatHour, formatShortDay } from '../utils/datetime';
     import { getErrorMessage, isTransientRequestError } from '../utils/error-handling';
     import {
         convertWindSpeed,
@@ -226,7 +226,7 @@
         const preferSci = settingsStore.scientificNamePrimary;
 
         return leaderboardSpecies().map(item => {
-            const naming = getBirdNames(item, showCommon, preferSci);
+            const naming = $birdNames(item, showCommon, preferSci);
             return {
                 ...item,
                 displayName: naming.primary,
@@ -493,7 +493,7 @@
         const usedAudioKeys = new Set<string>();
 
         const rows: LeaderboardTableRow[] = leaderboardSpecies().map((item) => {
-            const naming = getBirdNames(item, showCommon, preferSci);
+            const naming = $birdNames(item, showCommon, preferSci);
             const heard = heardFor(item, map);
             if (heard) {
                 if (heard.scientific_name) usedAudioKeys.add(`sci:${heard.scientific_name.toLowerCase()}`);
@@ -895,9 +895,7 @@
 
     function formatShortDate(value?: string | null): string {
         if (!value) return '—';
-        const dt = new Date(value);
-        if (Number.isNaN(dt.getTime())) return '—';
-        return dt.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+        return formatShortDay(value) || '—';
     }
 
     function formatRangeCompact(start?: string | null, end?: string | null): string {
@@ -1351,9 +1349,6 @@
         return $_('leaderboard.weekday_sun', { default: 'Sun' });
     }
 
-    function hourLabel(hour: number): string {
-        return `${String(Math.max(0, Math.min(23, hour))).padStart(2, '0')}:00`;
-    }
 
 
     const DONUT_MAX_SLICES = SPECIES_SERIES_SLOTS;
@@ -1719,7 +1714,7 @@
         </div>
     {:else if sourceMode !== 'seen' && audioLoadState === 'error'}
         <div class="border-y border-rose-200 bg-rose-50/60 px-4 py-6 text-rose-800 dark:border-rose-900/70 dark:bg-rose-950/20 dark:text-rose-200" role="status">
-            <h3 class="font-semibold">{$_('leaderboard.audio_unavailable_title', { default: 'BirdNET results unavailable' })}</h3>
+            <h2 class="font-semibold">{$_('leaderboard.audio_unavailable_title', { default: 'BirdNET results unavailable' })}</h2>
             <p class="mt-1 text-sm">{$_('leaderboard.audio_unavailable_desc', { default: 'The listening leaderboard could not be loaded. Seen results are still available.' })}</p>
             <button class="btn btn-secondary mt-3 min-h-11 px-3 py-2 text-xs" onclick={loadLeaderboard}>
                 {$_('common.retry')}
@@ -1733,7 +1728,7 @@
                     <path stroke-linecap="round" stroke-linejoin="round" d="M16 8 2 22M17.5 15H9" />
                 </svg>
             </span>
-            <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-2">{$_('leaderboard.no_species')}</h3>
+            <h2 class="text-lg font-semibold text-slate-900 dark:text-white mb-2">{$_('leaderboard.no_species')}</h2>
             <p class="text-slate-600 dark:text-slate-400">
                 {sourceMode === 'heard'
                     ? $_('leaderboard.no_audio_species', { default: 'No BirdNET detections were recorded in this period.' })
@@ -1793,7 +1788,7 @@
             </div>
             <div class="min-w-0">
                 <dt class="text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('leaderboard.standing_busiest_hour', { default: 'Busiest hour' })}</dt>
-                <dd class="mt-1 font-display text-2xl font-bold tabular-nums text-slate-900 dark:text-white">{busiestHour ? hourLabel(busiestHour.hour) : '—'}</dd>
+                <dd class="mt-1 font-display text-2xl font-bold tabular-nums text-slate-900 dark:text-white">{busiestHour ? formatHour(busiestHour.hour) : '—'}</dd>
                 {#if busiestHour}<dd class="text-xs text-slate-600 dark:text-slate-400">{$_('leaderboard.standing_busiest_hour_count', { values: { count: busiestHour.count }, default: '{count, plural, one {# detection} other {# detections}} on camera' })}</dd>{/if}
             </div>
             <div class="min-w-0" data-leaderboard-corroboration>
@@ -1840,7 +1835,7 @@
                         <path stroke-linecap="round" d="M6 4v16M18 4v16" /><path stroke-linecap="round" stroke-linejoin="round" d="m9 8 3-3 3 3m-6 8 3 3 3-3" />
                     </svg>
                     <div>
-                        <h3 class="text-xl font-bold text-slate-950 dark:text-white">{$_('leaderboard.full_rankings', { default: 'Full rankings' })}</h3>
+                        <h2 class="text-xl font-bold text-slate-950 dark:text-white">{$_('leaderboard.full_rankings', { default: 'Full rankings' })}</h2>
                         <p class="text-sm text-slate-600 dark:text-slate-400">{spanLabel()} · {span === 'all' ? $_('leaderboard.all_species') : formatRangeCompact(leaderboardWindow?.start, leaderboardWindow?.end)}</p>
                     </div>
                 </div>
@@ -1960,7 +1955,7 @@
         <section class="space-y-6 border-t border-slate-200 pt-8 dark:border-slate-700" data-leaderboard-analytics>
             <div class="flex items-center gap-3">
                 <svg data-leaderboard-section-icon aria-hidden="true" class="h-8 w-8 rounded-xl border border-brand-200 bg-brand-50 p-1.5 text-brand-700 dark:border-brand-800 dark:bg-brand-950/40 dark:text-brand-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path stroke-linecap="round" d="M4 19V9m5 10V5m5 14v-7m5 7V3" /></svg>
-                <div><h3 class="text-xl font-bold text-slate-950 dark:text-white">{$_('leaderboard.analytics_section', { default: 'Analytics' })}</h3><p class="text-sm text-slate-600 dark:text-slate-400">{spanLabel()} · {formatRangeCompact(timeline?.window_start, timeline?.window_end)}</p></div>
+                <div><h2 class="text-xl font-bold text-slate-950 dark:text-white">{$_('leaderboard.analytics_section', { default: 'Analytics' })}</h2><p class="text-sm text-slate-600 dark:text-slate-400">{spanLabel()} · {formatRangeCompact(timeline?.window_start, timeline?.window_end)}</p></div>
             </div>
 
         <div class="border-y border-slate-200 py-6 dark:border-slate-700 md:py-8">
@@ -1968,7 +1963,7 @@
                 <div class="flex flex-col gap-4">
                     <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                         <div>
-                            <h4 class="text-lg font-bold text-slate-900 dark:text-white md:text-xl">{$_('leaderboard.detections_over_time')}</h4>
+                            <h3 class="text-lg font-bold text-slate-900 dark:text-white md:text-xl">{$_('leaderboard.detections_over_time')}</h3>
                             <p class="mt-1 text-xs text-slate-600 dark:text-slate-400">
                                 {spanLabel()} · {formatRangeCompact(timeline?.window_start, timeline?.window_end)} · {bucketLabel(timeline?.bucket)} · {(timeline?.total_count ?? 0).toLocaleString()} {metricLabel().toLowerCase()}{#if unidentifiedCount > 0 && !includeUnknownBird}, {$_('leaderboard.includes_unidentified', { values: { count: unidentifiedCount.toLocaleString() }, default: 'including {count} not identified to species' })}{/if}
                             </p>
@@ -2157,9 +2152,9 @@
                                 <p class="text-xs font-semibold text-brand-700 dark:text-brand-300">
                                     {$_('leaderboard.activity_heatmap_title', { default: 'Activity heatmap' })}
                                 </p>
-                                <h4 class="mt-1 text-lg font-bold text-slate-900 dark:text-white md:text-xl">
+                                <h3 class="mt-1 text-lg font-bold text-slate-900 dark:text-white md:text-xl">
                                     {$_('leaderboard.activity_heatmap_subtitle', { default: 'Activity by hour and weekday' })}
-                                </h4>
+                                </h3>
                             </div>
                         </div>
                     </div>
@@ -2238,9 +2233,9 @@
                                 <p class="text-xs font-semibold text-brand-700 dark:text-brand-300">
                                     {$_('leaderboard.detection_breakdown_title', { default: 'Detection breakdown' })}
                                 </p>
-                                <h4 class="mt-1 text-lg font-bold text-slate-900 dark:text-white md:text-xl">
+                                <h3 class="mt-1 text-lg font-bold text-slate-900 dark:text-white md:text-xl">
                                     {$_('leaderboard.detection_breakdown_subtitle', { default: 'Species composition' })}
-                                </h4>
+                                </h3>
                             </div>
                         </div>
                     </div>

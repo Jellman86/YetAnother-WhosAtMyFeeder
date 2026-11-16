@@ -163,7 +163,7 @@ test('a value refused here opens its tab and puts focus on it, wherever Save was
     });
     await tabLink(page, 'Beta features').click();
     await page.getByRole('switch', { name: 'Garden animals' }).click();
-    const naming = page.getByRole('slider', { name: 'How sure before an animal is named' });
+    const naming = page.getByRole('slider', { name: 'Name an animal when this sure which one it is' });
     await naming.fill('0.97');
     await tabLink(page, 'Connection').click();
     await expect(page.locator('#mqtt-server')).toBeVisible();
@@ -227,7 +227,7 @@ test('a refused value inside a collapsed section opens that section and focuses 
     });
     await tabLink(page, 'Beta features').click();
     await page.getByRole('switch', { name: 'Garden animals' }).click();
-    const naming = page.getByRole('slider', { name: 'How sure before an animal is named' });
+    const naming = page.getByRole('slider', { name: 'Name an animal when this sure which one it is' });
     await naming.fill('0.97');
     const section = page.getByRole('button', { name: 'Automatic checks and naming' });
     await expect(section).toHaveAttribute('aria-expanded', 'true');

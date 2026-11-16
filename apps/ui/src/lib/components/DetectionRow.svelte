@@ -14,7 +14,7 @@
     import { _ } from 'svelte-i18n';
     import { SCORE_TEXT, scoreBand } from '../utils/score-tone';
     import type { Detection } from '../api';
-    import { getBirdNames } from '../naming';
+    import { birdNames } from '../naming';
     import { formatDate as formatDateValue, formatTime } from '../utils/datetime';
     import { needsReview } from '../utils/visit-grouping';
     import BadgeHint from './BadgeHint.svelte';
@@ -70,7 +70,7 @@
 
     const showCommon = $derived(settingsStore.settings?.display_common_names ?? authStore.displayCommonNames ?? true);
     const preferSci = $derived(settingsStore.settings?.scientific_name_primary ?? authStore.scientificNamePrimary ?? false);
-    const naming = $derived(getBirdNames(detection, showCommon, preferSci));
+    const naming = $derived($birdNames(detection, showCommon, preferSci));
 
     const primaryName = $derived(mixed ? $_('events.multiple_species', { default: 'Multiple species' }) : naming.primary);
     const subName = $derived(mixed ? null : naming.secondary);
@@ -232,7 +232,7 @@
             <ul class="mt-1.5 flex flex-wrap gap-1.5" aria-label={$_('events.species_in_capture', { default: 'Species in this capture' })}>
                 {#each speciesMix as entry (entry.species)}
                     <li class="inline-flex min-h-6 items-center gap-1.5 rounded-full border border-line-soft bg-surface px-2 text-2xs font-semibold text-slate-700 dark:text-slate-200">
-                        {getBirdNames(entry, showCommon, preferSci).primary}<span class="font-bold tabular-nums text-brand-700 dark:text-brand-300">{entry.count}</span>
+                        {$birdNames(entry, showCommon, preferSci).primary}<span class="font-bold tabular-nums text-brand-700 dark:text-brand-300">{entry.count}</span>
                     </li>
                 {/each}
             </ul>
@@ -327,7 +327,7 @@
             <ul class="divide-y divide-slate-200/70 dark:divide-slate-800/80">
                 {#each speciesMix as entry (entry.species)}
                     <li class="flex min-h-10 items-center justify-between gap-3 text-sm">
-                        <span class="font-semibold text-slate-800 dark:text-slate-100">{getBirdNames(entry, showCommon, preferSci).primary}</span>
+                        <span class="font-semibold text-slate-800 dark:text-slate-100">{$birdNames(entry, showCommon, preferSci).primary}</span>
                         <span class="text-xs font-semibold tabular-nums text-slate-600 dark:text-slate-400">{$_('events.birds_count', { values: { count: entry.count }, default: '{count} birds' })}</span>
                     </li>
                 {/each}

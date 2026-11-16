@@ -13,7 +13,7 @@
   "seasonality_global": "Stagionalità globale",
   "range_map": "Mappa di distribuzione",
   "range_unavailable": "Mappa di distribuzione non disponibile.",
-  "range_map_hint": "Trascina per spostare • Scorri per zoomare",
+  "range_map_hint": "Trascina per spostare la mappa. Usa + e − per lo zoom.",
   "video_unavailable": "Clip video non disponibile",
   "no_recent_sightings": "Nessun avvistamento recente.",
   "count_label": "Conteggio",

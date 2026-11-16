@@ -28,7 +28,8 @@ function detailForJob(job: ServerJob): string | undefined {
     const phaseLabels: Record<string, { key: string; fallback: string }> = {
         updating_photo: { key: 'jobs.phase_updating_photo', fallback: 'Updating photograph' },
         waiting_for_clip: { key: 'jobs.phase_waiting_for_clip', fallback: 'Waiting for recording clip' },
-        waiting_for_worker: { key: 'jobs.phase_waiting_for_worker', fallback: 'Waiting for worker recovery' }
+        waiting_for_worker: { key: 'jobs.phase_waiting_for_worker', fallback: 'Waiting for worker recovery' },
+        waiting_for_frigate: { key: 'jobs.phase_waiting_for_frigate', fallback: 'Waiting for Frigate to answer' }
     };
     const label = phaseLabels[job.phase ?? ''];
     const phase = label

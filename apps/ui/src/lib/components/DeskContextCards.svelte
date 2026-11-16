@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { weatherConditionMessage } from '../utils/weather-condition';
     import Separator from './Separator.svelte';
     import { readCameraStatuses } from '../api';
     import type { CameraStatusResponse, Detection } from '../api';
@@ -88,6 +89,13 @@
             high: Math.max(...temperatures)
         };
     });
+
+    // The stored condition is the backend's English word; the reader gets it in their language.
+    function conditionText(stored: string | null | undefined): string {
+        const message = weatherConditionMessage(stored);
+        if (!message) return '';
+        return message.key ? $_(message.key, { default: message.default }) : message.default;
+    }
 </script>
 
 <!--
@@ -184,8 +192,8 @@
             <span class="font-display text-base font-bold text-slate-900 dark:text-white">
                 {formatTemperature(conditions.latest.temperature, temperatureUnit)}
             </span>
-            {#if conditions.latest.weather_condition}
-                <span>{conditions.latest.weather_condition}</span>
+            {#if conditionText(conditions.latest.weather_condition)}
+                <span>{conditionText(conditions.latest.weather_condition)}</span>
             {/if}
             <Separator />
             <span>

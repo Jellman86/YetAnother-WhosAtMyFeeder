@@ -148,9 +148,11 @@
                                 onclick={(event) => handleLinkClick(event, tab.id)}
                                 aria-current={current ? 'page' : undefined}
                                 aria-describedby={refusedTabs.includes(tab.id) ? 'settings-tab-refused-note' : unsavedTabs.includes(tab.id) ? 'settings-tab-unsaved-note' : undefined}
-                                class="sidebar-nav {current ? 'sidebar-nav-active' : 'sidebar-nav-inactive'}"
+                                class="sidebar-nav flex-wrap {current ? 'sidebar-nav-active' : 'sidebar-nav-inactive'}"
                             >
-                                <span class="min-w-0 flex-1">{tab.label}</span>
+                                <!-- The name keeps its own width, so at a larger text size or in the reading font
+                                     the status drops to a second line rather than being written over it. -->
+                                <span class="flex-auto wrap-break-word">{tab.label}</span>
                                 {#if refusedTabs.includes(tab.id)}
                                     <span class="text-xs font-semibold text-red-700 dark:text-red-300" aria-hidden="true" data-tab-refused>{refusedLabel}</span>
                                 {:else if unsavedTabs.includes(tab.id)}

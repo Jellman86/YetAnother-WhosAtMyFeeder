@@ -5,7 +5,7 @@
     import SettingsRow from '../../components/settings/_primitives/SettingsRow.svelte';
     import SettingsSelect from '../../components/settings/_primitives/SettingsSelect.svelte';
     import { finderDeviceOptions, finderNeedsAttention, finderRunsOn, type BirdFinderProvider, type FinderDeviceCheck } from '../../settings/bird-finder';
-    import { formatDay } from '../../utils/datetime';
+    import { formatDate } from '../../utils/datetime';
 
     interface Props {
         modelId: string;
@@ -90,17 +90,17 @@
                     ? $_('settings.detection.bird_finder_runs_checking', { default: 'Checking {devices}…', values: { devices: deviceNames(runsOn.devices) } })
                     : $_('settings.detection.bird_finder_checking_devices', { default: 'Checking…' });
             case 'active':
-                return $_('settings.detection.bird_finder_runs_active', { default: '{provider} · last confirmed use on {date}', values: { provider: deviceName(runsOn.provider), date: formatDay(runsOn.checkedAt) } });
+                return $_('settings.detection.bird_finder_runs_active', { default: '{provider} · last confirmed use on {date}', values: { provider: deviceName(runsOn.provider), date: formatDate(runsOn.checkedAt) } });
             case 'passed':
                 return runsOn.checkedAt
-                    ? $_('settings.detection.bird_finder_runs_passed_dated', { default: '{provider} · passed its device check on {date}', values: { provider: deviceName(runsOn.provider), date: formatDay(runsOn.checkedAt) } })
+                    ? $_('settings.detection.bird_finder_runs_passed_dated', { default: '{provider} · passed its device check on {date}', values: { provider: deviceName(runsOn.provider), date: formatDate(runsOn.checkedAt) } })
                     : $_('settings.detection.bird_finder_runs_passed', { default: '{provider} · passed its device check on this host', values: { provider: deviceName(runsOn.provider) } });
             case 'cpu_chosen':
                 return $_('settings.detection.bird_finder_runs_cpu_chosen', { default: 'CPU · the saved device' });
             case 'failed': {
                 const devices = deviceNames(runsOn.devices);
                 const fact = runsOn.checkedAt
-                    ? $_('settings.detection.bird_finder_runs_failed_dated', { default: 'CPU · {devices} failed the device check on {date}', values: { devices, date: formatDay(runsOn.checkedAt) } })
+                    ? $_('settings.detection.bird_finder_runs_failed_dated', { default: 'CPU · {devices} failed the device check on {date}', values: { devices, date: formatDate(runsOn.checkedAt) } })
                     : $_('settings.detection.bird_finder_runs_failed', { default: 'CPU · {devices} failed the device check', values: { devices } });
                 if (runsOn.cause === 'mismatch') {
                     return $_('settings.detection.bird_finder_runs_cause_mismatch', { default: "{fact} (the boxes did not match the CPU's)", values: { fact } });
@@ -190,7 +190,7 @@
             <button type="button" onclick={oncheck} disabled={runsOn.kind === 'checking'} aria-describedby="bird-finder-check-hint" class="btn btn-secondary min-h-11 px-4">
                 {runsOn.kind === 'checking'
                     ? $_('settings.detection.bird_finder_checking_devices', { default: 'Checking…' })
-                    : $_('settings.detection.bird_finder_check_devices', { default: 'Check devices' })}
+                    : $_('settings.detection.bird_finder_check_devices', { default: 'Check devices for the bird finder' })}
             </button>
             <p id="bird-finder-check-hint" class="max-w-prose text-sm leading-snug text-slate-600 dark:text-slate-400">
                 {modelId === 'bird_crop_detector_accurate_rfdetr_nano'

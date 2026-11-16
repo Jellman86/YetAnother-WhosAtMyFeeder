@@ -1,5 +1,6 @@
 <script lang="ts">
     import { _ } from 'svelte-i18n';
+    import { formatHour } from '../utils/datetime';
     import {
         dayTotals,
         heatmapFill,
@@ -45,9 +46,6 @@
         return counts.get(`${DAY_ORDER[position.row]}-${position.hour}`) ?? 0;
     }
 
-    function hourLabel(hour: number): string {
-        return `${String(hour).padStart(2, '0')}:00`;
-    }
 
     function isPeak(position: GridPosition): boolean {
         return Boolean(peak && peak.day_of_week === DAY_ORDER[position.row] && peak.hour === position.hour);
@@ -57,8 +55,8 @@
         return $_('leaderboard.heatmap_slot', {
             values: {
                 day: dayLabel(DAY_ORDER[position.row]),
-                start: hourLabel(position.hour),
-                end: hourLabel((position.hour + 1) % 24)
+                start: formatHour(position.hour),
+                end: formatHour((position.hour + 1) % 24)
             },
             default: '{day} {start} to {end}'
         });
@@ -250,7 +248,7 @@
         {#if peak}
             <span class="inline-flex items-center gap-1.5">
                 <span class="inline-block h-2.5 w-2.5 rounded-xs ring-2 ring-slate-900 dark:ring-white" aria-hidden="true"></span>
-                {$_('leaderboard.heatmap_peak', { values: { day: dayLabel(peak.day_of_week), time: hourLabel(peak.hour), count: peak.count.toLocaleString() }, default: 'Busiest: {day} {time}, {count}' })}
+                {$_('leaderboard.heatmap_peak', { values: { day: dayLabel(peak.day_of_week), time: formatHour(peak.hour), count: peak.count.toLocaleString() }, default: 'Busiest: {day} {time}, {count}' })}
             </span>
         {/if}
     </div>

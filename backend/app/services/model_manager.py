@@ -1715,6 +1715,7 @@ class ModelManager:
                                 is_active=(item == self.active_model_id),
                                 ready=ready,
                                 reason=reason,
+                                bundled=is_bundled,
                                 metadata=metadata,
                             )
                         )
@@ -1735,6 +1736,7 @@ class ModelManager:
                             path=flat_model,
                             labels_path=flat_labels,
                             is_active=(default_id == self.active_model_id),
+                            bundled=is_bundled,
                             metadata=metadata,
                         )
                     )

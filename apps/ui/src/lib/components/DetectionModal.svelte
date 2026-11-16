@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { compassPointKey, weatherConditionMessage } from '../utils/weather-condition';
     import DialogCloseButton from './DialogCloseButton.svelte';
     import ClassificationSource from './ClassificationSource.svelte';
     import RecordTechnicalDetails from './RecordTechnicalDetails.svelte';
@@ -66,7 +67,7 @@
     import { classifierLabelsStore } from '../stores/classifier_labels.svelte';
     import { toastStore } from '../stores/toast.svelte';
     import { confirmAction } from '../stores/confirm_dialog.svelte';
-    import { getBirdNames } from '../naming';
+    import { birdNames } from '../naming';
     import { _ } from 'svelte-i18n';
     import { get } from 'svelte/store';
     import { onDestroy, onMount, untrack } from 'svelte';
@@ -95,6 +96,7 @@
     import { findMatchingFullFrameCandidate, findScanFrameCandidate, sameFrameCropCandidates } from '../utils/detection-evidence';
     import { intersectVisibleViewport } from '../utils/visible-viewport';
     import { SCORE_FILL, scoreBand } from '../utils/score-tone';
+    import { archiveFailureView } from '../utils/archive-failure';
     import { moveDetectionToGarden } from '../api/events';
     import { fetchGardenDomesticBirds } from '../api/garden';
     import GardenDomesticSuggestion from './GardenDomesticSuggestion.svelte';
@@ -468,6 +470,10 @@
     // The favourite's archive (#178). Pending is polled briefly so the star can say when the
     // photograph and clip are actually kept; the worker does not broadcast its progress.
     let archiveStatus = $state<ArchiveStatus | null>(null);
+    // Whether that status was read for this record: until it is, a failed copy claims no loss.
+    let archiveRead = $state<'reading' | 'read' | 'failed'>('reading');
+    // Bumped by "Check again" to read the status once more after a failed read.
+    let archiveCheckAttempt = $state(0);
     let archiveRetrying = $state(false);
     const ARCHIVE_POLL_MS = 4000;
     const ARCHIVE_POLL_LIMIT = 45;
@@ -476,10 +482,13 @@
         const wanted = !!detection?.is_favorite && authStore.hasOwnerAccess && !readOnly;
         // Read so that a retry (which sets the record back to pending) restarts the poll.
         void detection?.archive_state;
+        void archiveCheckAttempt;
         if (!eventId || !wanted) {
             archiveStatus = null;
             return;
         }
+        // Untracked: this effect writes the status, and must not re-run because it did.
+        if (untrack(() => archiveStatus?.event_id) !== eventId) archiveRead = 'reading';
         let cancelled = false;
         let polls = 0;
         let timer: ReturnType<typeof setTimeout> | null = null;
@@ -488,6 +497,7 @@
                 const status = await fetchArchiveStatus(eventId);
                 if (cancelled) return;
                 archiveStatus = status;
+                archiveRead = 'read';
                 const state = asArchiveState(status.state);
                 if (state && state !== detection.archive_state) {
                     detection.archive_state = state;
@@ -498,7 +508,9 @@
                     timer = setTimeout(load, ARCHIVE_POLL_MS);
                 }
             } catch {
-                // The star still works without the detail; the state on the record stands.
+                // The star still works without the detail; the state on the record stands, and a
+                // failed copy says that what it kept could not be checked.
+                if (!cancelled && archiveStatus?.event_id !== eventId) archiveRead = 'failed';
             }
         };
         void load();
@@ -516,14 +528,16 @@
         if (bytes >= 1024) return `${Math.round(bytes / 1024)} KB`;
         return `${bytes} B`;
     }
-    const archiveState = $derived(archiveStatus?.state ?? detection?.archive_state ?? null);
+    const archiveState = $derived(
+        (archiveStatus && archiveStatus.event_id === detection?.frigate_event ? archiveStatus.state : null) ?? detection?.archive_state ?? null
+    );
     const archiveLabel = $derived.by(() => {
         switch (archiveState) {
             case 'durable':
-                return archiveStatus?.clip_state === 'unavailable'
+                return archiveStatusHere?.clip_state === 'unavailable'
                     ? $_('detection.archive_photo_only', { default: 'Photo archived, no clip to keep' })
                     : $_('detection.archive_durable', {
-                          values: { size: formatArchiveSize(archiveStatus?.bytes ?? 0) },
+                          values: { size: formatArchiveSize(archiveStatusHere?.bytes ?? 0) },
                           default: 'Archived, {size}'
                       });
             case 'unavailable':
@@ -536,6 +550,42 @@
                 return '';
         }
     });
+    // A failed copy says what was not kept, why and what to do, not just "Archive failed".
+    // The status is used only when it was read for this record, never one left from another.
+    const archiveStatusHere = $derived(archiveStatus && archiveStatus.event_id === detection?.frigate_event ? archiveStatus : null);
+    const archiveFailure = $derived.by(() => {
+        if (archiveState !== 'failed') return null;
+        const view = archiveFailureView(archiveStatusHere, archiveRead);
+        if (view.kind === 'checking') {
+            return { kind: view.kind, lost: $_('detection.archive_checking', { default: "Checking what this favourite's own copy kept…" }) };
+        }
+        if (view.kind === 'unchecked') {
+            return { kind: view.kind, lost: $_('detection.archive_unchecked', { default: "This favourite's own copy reported a problem, but what it kept could not be checked." }) };
+        }
+        const explained = view.explanation;
+        const lost = {
+            both: $_('detection.archive_failed_both', { default: "This favourite's own copy of its photo and clip could not be saved." }),
+            photo: $_('detection.archive_failed_photo', { default: "This favourite's own copy of its photo could not be saved." }),
+            clip: $_('detection.archive_failed_clip', { default: "This favourite's own copy of its clip could not be saved." })
+        }[explained.lost];
+        const cause = {
+            frigate_unreachable: $_('detection.archive_cause.frigate_unreachable', { default: 'Frigate could not be reached. Check that Frigate is running and its address in Settings → Connection.' }),
+            frigate_timeout: $_('detection.archive_cause.frigate_timeout', { default: 'Frigate did not answer in time. Check that Frigate is running and not overloaded.' }),
+            frigate_refused: $_('detection.archive_cause.frigate_refused', { default: "Frigate refused YA-WAMF's request. Check the Frigate access settings in Settings → Connection." }),
+            frigate_error: $_('detection.archive_cause.frigate_error', { default: 'Frigate answered with an error of its own. Check its logs.' }),
+            clip_cut_short: $_('detection.archive_cause.clip_cut_short', { default: 'The clip download was cut short.' }),
+            disk_full: $_('detection.archive_cause.disk_full', { default: 'The disk that holds the data folder is full. Free some space.' }),
+            disk_error: $_('detection.archive_cause.disk_error', { default: 'The data folder could not be written to. Check that it exists and YA-WAMF may write to it.' }),
+            unknown: $_('detection.archive_cause.unknown', { default: 'The cause was not recorded.' })
+        }[explained.cause];
+        const retry = explained.retryDue
+            ? $_('detection.archive_retry_due', { default: 'YA-WAMF tries again by itself shortly. The visit stays in your history either way.' })
+            : explained.retryAt !== null
+            ? $_('detection.archive_retry_scheduled', { values: { at: formatDateTime(explained.retryAt) }, default: 'YA-WAMF tries again by itself at {at}. The visit stays in your history either way.' })
+            : $_('detection.archive_retry_spent', { default: 'YA-WAMF has stopped trying by itself. The visit stays in your history either way.' });
+        return { kind: view.kind, lost, cause, retry };
+    });
+
     async function handleArchiveRetry() {
         if (!detection || archiveRetrying) return;
         archiveRetrying = true;
@@ -644,7 +694,7 @@
         ...detection,
         common_name: commonNameOverride ?? detection.common_name
     });
-    const naming = $derived(getBirdNames(namingDetection, showCommon, preferSci));
+    const naming = $derived($birdNames(namingDetection, showCommon, preferSci));
     const primaryName = $derived(naming.primary);
     const subName = $derived(naming.secondary);
     const lateAudioMatch = $derived.by(() => {
@@ -686,7 +736,9 @@
     const audioNearbySummary = $derived(audioContextSpecies.join(', '));
     const audioFactValue = $derived.by(() => {
         if (effectiveAudioConfirmed) {
-            return effectiveAudioSpecies ?? $_('detection.fact_heard_yes', { default: 'matching call' });
+            // The one place the matching call is stated; the audio section below shows its evidence.
+            const species = effectiveAudioSpecies ?? $_('detection.fact_heard_yes', { default: 'matching call' });
+            return effectiveAudioScore ? `${species} · ${Math.round(effectiveAudioScore * 100)}%` : species;
         }
         if (audioContextLoading) return $_('common.loading');
         if (audioContextError || !audioContextLoaded) return $_('common.unavailable');
@@ -1429,10 +1481,15 @@
     });
 
     function formatWindDirection(deg?: number | null): string {
-        if (deg === null || deg === undefined || Number.isNaN(deg)) return '';
-        const directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
-        const index = Math.round(((deg % 360) / 45)) % 8;
-        return directions[index];
+        const point = compassPointKey(deg);
+        return point ? $_(`common.compass.${point}`, { default: point.toUpperCase() }) : '';
+    }
+
+    // The stored condition is the backend's English word; the reader gets it in their language.
+    function conditionText(stored: string | null | undefined): string {
+        const message = weatherConditionMessage(stored);
+        if (!message) return '';
+        return message.key ? $_(message.key, { default: message.default }) : message.default;
     }
 
     function formatPrecip(value?: number | null): string {
@@ -1454,7 +1511,7 @@
     // facts appear; an unknown is omitted rather than shown as a dash.
     const weatherSummary = $derived.by(() => {
         const parts: string[] = [];
-        const condition = detection.weather_condition ?? '';
+        const condition = conditionText(detection.weather_condition);
         const hasTemperature = detection.temperature !== undefined && detection.temperature !== null;
         if (condition || hasTemperature) {
             const temperature = hasTemperature ? formatTemperature(detection.temperature as number, temperatureUnit) : '';
@@ -1559,7 +1616,7 @@
             showTagDropdown = false;
             tagSearchQuery = '';
             aiAnalysis = nextDetection.ai_analysis ?? null;
-            const successLabel = getBirdNames(nextDetection, showCommon, preferSci).primary;
+            const successLabel = $birdNames(nextDetection, showCommon, preferSci).primary;
             if (result.status === 'unchanged') {
                 toastStore.success(
                     $_('notifications.species_confirmed', {
@@ -1641,7 +1698,7 @@
         try {
             if (detection.is_favorite) {
                 // Unfavouriting removes the archive with it; say so before doing it (#178).
-                const archivedBytes = archiveStatus?.bytes ?? 0;
+                const archivedBytes = archiveStatusHere?.bytes ?? 0;
                 if (archivedBytes > 0) {
                     const confirmed = await confirmAction({
                         title: $_('detection.unfavorite_button', { default: 'Remove favourite' }),
@@ -1843,7 +1900,7 @@
         border-radius: 1.25rem;
         background: rgb(var(--brand-500) / 0.08);
         border: 1px solid rgb(var(--brand-500) / 0.22);
-        color: rgb(30 41 59);
+        color: rgb(var(--ai-ink));
         box-shadow: none;
     }
 
@@ -1866,10 +1923,8 @@
         /* Softer dark surface: keep the teal identity, reduce the "hard slab" look. */
         background: rgb(var(--brand-700) / 0.20);
         border-color: rgb(var(--brand-400) / 0.35);
-        color: rgb(241 245 249);
         box-shadow: none;
     }
-
 
     .ai-panel {
         position: relative;
@@ -1878,34 +1933,16 @@
     .ai-panel__label {
         font-size: 0.75rem;
         font-weight: 700;
-        color: rgb(var(--brand-600));
+        color: rgb(var(--ai-heading));
         margin-bottom: 0.75rem;
     }
 
-    :global(.dark) .ai-panel__label,
-    :global([data-theme='dark']) .ai-panel__label {
-        color: rgb(94 234 212);
-    }
-
-    :global(.theme-bluetit:not(.dark)) .ai-panel__label { color: rgb(29 78 216); }
-    :global(.theme-bluetit.dark) .ai-panel__label { color: rgb(96 165 250); }
-
-    :global(.dark) .ai-panel__content,
-    :global([data-theme='dark']) .ai-panel__content {
-        color: inherit;
-    }
-
     :global(.ai-markdown-surface) {
         color: inherit;
     }
 
     :global(.ai-markdown-surface) {
-        color: rgb(30 41 59);
-    }
-
-    :global(.dark .ai-markdown-surface),
-    :global([data-theme='dark'] .ai-markdown-surface) {
-        color: rgb(241 245 249);
+        color: rgb(var(--ai-ink));
     }
 
     :global(.ai-markdown-surface h1) {
@@ -1914,12 +1951,7 @@
         letter-spacing: 0.02em;
         text-transform: none;
         font-weight: 900;
-        color: rgb(var(--brand-600));
-    }
-
-    :global(.dark .ai-markdown-surface h1),
-    :global([data-theme='dark'] .ai-markdown-surface h1) {
-        color: rgb(94 234 212);
+        color: rgb(var(--ai-heading));
     }
 
     :global(.ai-markdown-surface h2) {
@@ -1928,12 +1960,7 @@
         letter-spacing: 0.015em;
         text-transform: none;
         font-weight: 850;
-        color: rgb(var(--brand-600));
-    }
-
-    :global(.dark .ai-markdown-surface h2),
-    :global([data-theme='dark'] .ai-markdown-surface h2) {
-        color: rgb(94 234 212);
+        color: rgb(var(--ai-heading));
     }
 
     :global(.ai-markdown-surface h3) {
@@ -1942,12 +1969,7 @@
         letter-spacing: 0.01em;
         text-transform: none;
         font-weight: 800;
-        color: rgb(var(--brand-600));
-    }
-
-    :global(.dark .ai-markdown-surface h3),
-    :global([data-theme='dark'] .ai-markdown-surface h3) {
-        color: rgb(94 234 212);
+        color: rgb(var(--ai-heading));
     }
 
     :global(.ai-markdown-surface h4) {
@@ -1956,12 +1978,7 @@
         letter-spacing: 0.01em;
         text-transform: none;
         font-weight: 800;
-        color: rgb(var(--brand-600));
-    }
-
-    :global(.dark .ai-markdown-surface h4),
-    :global([data-theme='dark'] .ai-markdown-surface h4) {
-        color: rgb(94 234 212);
+        color: rgb(var(--ai-heading));
     }
 
     :global(.ai-markdown-surface h5),
@@ -1971,25 +1988,13 @@
         letter-spacing: 0.01em;
         text-transform: none;
         font-weight: 750;
-        color: rgb(var(--brand-600));
-    }
-
-    :global(.dark .ai-markdown-surface h5),
-    :global(.dark .ai-markdown-surface h6),
-    :global([data-theme='dark'] .ai-markdown-surface h5),
-    :global([data-theme='dark'] .ai-markdown-surface h6) {
-        color: rgb(94 234 212);
+        color: rgb(var(--ai-heading));
     }
 
     :global(.ai-markdown-surface p) {
         margin: 0.3rem 0;
         font-size: 0.88rem;
         line-height: 1.55;
-        color: inherit;
-    }
-
-    :global(.dark .ai-markdown-surface p),
-    :global([data-theme='dark'] .ai-markdown-surface p) {
         color: inherit;
     }
 
@@ -2021,36 +2026,16 @@
     }
 
     :global(.ai-markdown-surface li::marker) {
-        color: rgb(var(--brand-600) / 0.55);
-    }
-
-    :global(.dark .ai-markdown-surface li::marker),
-    :global([data-theme='dark'] .ai-markdown-surface li::marker) {
-        color: rgb(var(--brand-300) / 0.55);
-    }
-
-    :global(.dark .ai-markdown-surface li),
-    :global([data-theme='dark'] .ai-markdown-surface li) {
-        color: inherit;
+        color: rgb(var(--ai-marker) / 0.55);
     }
 
     :global(.ai-markdown-surface strong) {
         font-weight: 700;
-        color: rgb(var(--brand-700));
-    }
-
-    :global(.dark .ai-markdown-surface strong),
-    :global([data-theme='dark'] .ai-markdown-surface strong) {
-        color: rgb(var(--brand-200));
+        color: rgb(var(--ai-strong));
     }
 
     :global(.ai-markdown-surface em) {
-        color: color-mix(in srgb, var(--color-slate-800) 80%, transparent);
-    }
-
-    :global(.dark .ai-markdown-surface em),
-    :global([data-theme='dark'] .ai-markdown-surface em) {
-        color: color-mix(in srgb, var(--color-slate-200) 82%, transparent);
+        color: rgb(var(--ai-ink) / 0.82);
     }
 
     :global(.ai-markdown-surface code) {
@@ -2059,13 +2044,12 @@
         padding: 0.1rem 0.3rem;
         border-radius: 0.4rem;
         background: rgb(var(--brand-700) / 0.1);
-        color: rgb(var(--brand-700));
+        color: rgb(var(--ai-code));
     }
 
     :global(.dark .ai-markdown-surface code),
     :global([data-theme='dark'] .ai-markdown-surface code) {
         background: rgb(var(--brand-400) / 0.25);
-        color: rgb(var(--brand-200));
     }
 
     :global(.ai-markdown-surface pre) {
@@ -2104,20 +2088,14 @@
     :global(.dark .ai-markdown-surface blockquote),
     :global([data-theme='dark'] .ai-markdown-surface blockquote) {
         background: rgb(var(--brand-500) / 0.18);
-        color: inherit;
         border-color: rgb(var(--brand-300) / 0.35);
     }
 
     :global(.ai-markdown-surface a) {
-        color: rgb(var(--brand-600));
+        color: rgb(var(--ai-heading));
         text-decoration: underline;
         text-decoration-thickness: 1px;
         text-underline-offset: 2px;
-    }
-
-    :global(.dark .ai-markdown-surface a),
-    :global([data-theme='dark'] .ai-markdown-surface a) {
-        color: rgb(94 234 212);
     }
 
     :global(.ai-markdown-surface hr) {
@@ -2155,13 +2133,8 @@
 
     :global(.ai-markdown-surface th) {
         font-weight: 700;
-        color: rgb(var(--brand-700));
+        color: rgb(var(--ai-code));
         font-size: 0.75rem;
-    }
-
-    :global(.dark .ai-markdown-surface th),
-    :global([data-theme='dark'] .ai-markdown-surface th) {
-        color: rgb(var(--brand-200));
     }
 
     :global(.ai-markdown-surface > :first-child) {
@@ -2178,14 +2151,13 @@
         border-radius: 1rem;
         border: 1px solid transparent;
         background: color-mix(in srgb, var(--color-slate-100) 90%, transparent);
-        color: rgb(30 41 59);
+        color: rgb(var(--ai-ink));
         box-shadow: 0 8px 16px color-mix(in srgb, var(--color-slate-900) 8%, transparent);
     }
 
     :global(.dark) .ai-bubble,
     :global([data-theme='dark']) .ai-bubble {
         background: color-mix(in srgb, var(--color-slate-900) 72%, transparent);
-        color: rgb(241 245 249);
     }
 
     .ai-bubble.ai-surface {
@@ -2199,8 +2171,6 @@
     :global([data-theme='dark']) .ai-bubble.ai-surface {
         background: rgb(var(--brand-700) / 0.18);
         border-color: rgb(var(--brand-400) / 0.35);
-        /* Match the main .ai-surface dark-mode foreground for consistent contrast. */
-        color: rgb(241 245 249);
         box-shadow: none;
     }
 
@@ -2228,7 +2198,7 @@
     .ai-bubble__role {
         font-size: 0.75rem;
         font-weight: 700;
-        color: rgb(100 116 139);
+        color: rgb(var(--ai-muted));
         margin-bottom: 0.4rem;
     }
 
@@ -2264,11 +2234,6 @@
     .ai-bubble--assistant :global(.ai-markdown-surface p),
     .ai-bubble--assistant :global(.ai-markdown-surface li) {
         color: inherit;
-    }
-
-    :global(.dark) .ai-bubble__role,
-    :global([data-theme='dark']) .ai-bubble__role {
-        color: rgb(148 163 184);
     }
 
     .ai-thread {
@@ -2922,7 +2887,7 @@
                     </div>
                     <p class="text-sm font-bold text-slate-800 dark:text-slate-200">
                         {detection.video_classification_label === detection.scientific_name
-                            ? getBirdNames(detection, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary).primary
+                            ? $birdNames(detection, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary).primary
                             : detection.video_classification_label}
                     </p>
                     {#if detection.video_result_blocked}
@@ -3018,18 +2983,35 @@
                 {/if}
             </dl>
 
-            {#if detection.is_favorite && archiveLabel}
+            {#if detection.is_favorite && archiveFailure}
+                <!-- What was not kept, why, and what to do, in words: the heading carries the state, not its colour.
+                     Until the archive status is read for this record, it claims nothing about what was kept. -->
+                <div class="space-y-1 rounded-xl border border-line-soft px-3 py-2.5 text-sm" data-detection-archive-state="failed" data-detection-archive-view={archiveFailure.kind} aria-live="polite">
+                    {#if archiveFailure.kind === 'explained'}
+                        <p class="font-semibold text-rose-700 dark:text-rose-300">{archiveFailure.lost}</p>
+                        <p class="text-slate-700 dark:text-slate-200" data-detection-archive-cause>{archiveFailure.cause}</p>
+                        <p class="text-xs text-slate-600 dark:text-slate-400">{archiveFailure.retry}</p>
+                        {#if hasOwnerDetectionActions}
+                            <button type="button" class="btn btn-secondary mt-1 min-h-11 px-3 text-xs" disabled={archiveRetrying} onclick={() => { void handleArchiveRetry(); }}>
+                                {$_('detection.archive_retry_now', { default: 'Try again now' })}
+                            </button>
+                        {/if}
+                    {:else}
+                        <p class="text-slate-700 dark:text-slate-200">{archiveFailure.lost}</p>
+                        {#if archiveFailure.kind === 'unchecked'}
+                            <button type="button" class="btn btn-secondary mt-1 min-h-11 px-3 text-xs" onclick={() => { archiveCheckAttempt += 1; }} data-detection-archive-check-again>
+                                {$_('detection.archive_check_again', { default: 'Check again' })}
+                            </button>
+                        {/if}
+                    {/if}
+                </div>
+            {:else if detection.is_favorite && archiveLabel}
                 <!-- A status of the record, so it is said here in words and never drawn over the photograph. -->
                 <p class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-700 dark:text-slate-200" data-detection-archive-state={archiveState} aria-live="polite">
                     {#if archiveState === 'pending'}
                         <span class="inline-block h-3 w-3 rounded-full border-2 border-current border-t-transparent motion-safe:animate-spin" aria-hidden="true"></span>
                     {/if}
                     <span>{archiveLabel}</span>
-                    {#if archiveState === 'failed' && hasOwnerDetectionActions}
-                        <button type="button" class="btn btn-ghost min-h-11 px-2 text-xs" disabled={archiveRetrying} onclick={() => { void handleArchiveRetry(); }}>
-                            {$_('detection.archive_retry', { default: 'Try again' })}
-                        </button>
-                    {/if}
                 </p>
             {/if}
 
@@ -3173,19 +3155,17 @@
                         <div class="min-w-0">
                             <p class="text-3xs font-semibold text-slate-600 dark:text-slate-400">
                                 {effectiveAudioConfirmed
-                                    ? $_('detection.audio_match')
+                                    ? $_('detection.audio_match_evidence', { default: 'The matching call' })
                                     : $_('detection.audio_context')}
                             </p>
-                            <p class="text-sm font-bold text-slate-700 dark:text-slate-200 wrap-break-word">
-                                {effectiveAudioConfirmed
-                                    ? (effectiveAudioSpecies || $_('detection.birdnet_confirmed'))
-                                    : (audioNearbySummary
+                            <!-- A match is stated once, in the facts above with its score; here it is only the evidence. -->
+                            {#if !effectiveAudioConfirmed}
+                                <p class="text-sm font-bold text-slate-700 dark:text-slate-200 wrap-break-word">
+                                    {audioNearbySummary
                                         ? $_('detection.audio_nearby', { values: { species: audioNearbySummary }, default: 'Nearby audio: {species}' })
-                                        : $_('detection.audio_no_match_desc', { default: 'No nearby BirdNET species in the matching window' }))}
-                                {#if effectiveAudioScore && effectiveAudioConfirmed}
-                                    <span class="ml-1 opacity-60">({(effectiveAudioScore * 100).toFixed(0)}%)</span>
-                                {/if}
-                            </p>
+                                        : $_('detection.audio_no_match_desc', { default: 'No nearby BirdNET species in the matching window' })}
+                                </p>
+                            {/if}
                         </div>
                     </div>
                     {#if matchedSpectrogramUrl}
@@ -3285,8 +3265,8 @@
                                 <figcaption class="px-3 py-1.5 flex items-center justify-between gap-3 text-3xs font-bold text-slate-200 bg-slate-900/60 backdrop-blur-xs">
                                     <span class="wrap-break-word">{matchedAudioEntry.species}</span>
                                     <span class="flex items-center gap-2 shrink-0">
-                                        <span class="opacity-70">{(matchedAudioEntry.confidence * 100).toFixed(0)}%</span>
-                                        <span class="opacity-60">{formatAudioOffset(matchedAudioEntry.offset_seconds)}</span>
+                                        <span class="text-slate-200">{(matchedAudioEntry.confidence * 100).toFixed(0)}%</span>
+                                        <span class="text-slate-300">{formatAudioOffset(matchedAudioEntry.offset_seconds)}</span>
                                     </span>
                                 </figcaption>
                             {/if}

@@ -57,8 +57,8 @@
     "watching_some": "{count, plural, one {Watching # camera.} other {Watching # cameras.}} Other cameras are ignored."
   },
   "model": {
-    "title": "Classifier model & hardware",
-    "description": "YA-WAMF comes with a small model that runs on any CPU. Choose that or a larger one, download it here if needed, then check that it runs on this machine before continuing.",
+    "title": "Model and hardware",
+    "description": "Choose the model that names the birds. Download it here if this install does not have it, then check that it runs on this machine before continuing.",
     "download_required": "Download and verify this model here before validating it on this hardware.",
     "download_timeout": "The download is taking longer than expected. Check the connection and try again.",
     "validation_timeout": "Hardware validation exceeded 30 minutes. It may still be finishing in Diagnostics; check its status before starting another run.",
@@ -101,7 +101,8 @@
     "blocked_download": "Download this model to continue, or skip this step to keep the model in use now.",
     "blocked_check": "Check this model on this hardware to continue, or skip this step to keep the model in use now.",
     "blocked_location": "Enter the feeder’s latitude and longitude to continue, or leave both empty.",
-    "blocked_provider": "This host does not have the chosen device. Choose another, or Auto, to continue."
+    "blocked_provider": "This host does not have the chosen device. Choose another, or Auto, to continue.",
+    "download_needed": "download needed"
   },
   "quality": {
     "title": "Best available snapshots",
