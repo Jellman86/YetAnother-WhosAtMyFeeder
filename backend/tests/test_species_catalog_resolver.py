@@ -187,6 +187,15 @@ def test_a_recorded_synonym_counts_as_agreement(resolver):
     assert result.species_id is not None
 
 
+def test_the_names_accepted_for_a_species_include_its_recorded_synonyms(resolver):
+    accepted = resolver.accepted_scientific_names("Bufotes viridis")
+
+    assert {"bufotes viridis", "bufotes balearicus"} <= accepted
+    assert resolver.accepted_scientific_names("Bufotes balearicus") == accepted
+    assert resolver.accepted_scientific_names("Not in the catalogue") == frozenset()
+    assert resolver.accepted_scientific_names(None) == frozenset()
+
+
 def test_a_disagreement_withholds_the_identity_and_is_counted(resolver):
     result = resolver.shadow_resolve(MODEL_SHA, 0, "Erithacus rubecula", event_id="evt-1")
 

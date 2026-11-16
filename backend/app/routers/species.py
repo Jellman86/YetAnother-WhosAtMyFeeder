@@ -29,7 +29,12 @@ from app.services.taxonomy.taxonomy_service import taxonomy_service
 from app.services.i18n_service import i18n_service
 from app.services.classifier_service import get_classifier
 from app.services.ebird_service import ebird_service
-from app.services.reference_identity import article_describes_taxon
+from app.services.reference_identity import (
+    article_describes_taxon,
+    cached_reference_describes_taxon,
+    linked_article_names_taxon,
+)
+from app.services.species_catalog_resolver import species_catalog_resolver
 from app.services.leaderboard_window import previous_window_is_complete
 from app.services.nearby_species_service import nearby_species_service, reported_nearby
 from app.utils.classifier_labels import collapse_classifier_label
@@ -1506,12 +1511,23 @@ async def get_species_info(
         )
 
     taxa_id = await _lookup_taxa_id(species_name, language=lang)
-    cached_info = await _get_cached_species_info(species_name, taxa_id, lang, refresh)
-    if cached_info:
-        return cached_info
-
-    # The taxon this name stands for, where the taxonomy knows it: a fetched article must be about it.
+    # The taxon this name stands for, where the taxonomy knows it. A description must be about it,
+    # whether it is fetched now or was cached before identity was checked.
     known_scientific_name = await _lookup_scientific_name(species_name, language=lang)
+    cached_info = await _get_cached_species_info(species_name, taxa_id, lang, refresh)
+    if cached_info and cached_reference_describes_taxon(
+        title=cached_info.title,
+        extract=cached_info.extract,
+        summary_source=cached_info.summary_source or cached_info.source,
+        cached_scientific_name=cached_info.scientific_name,
+        scientific_name=known_scientific_name,
+        aliases=_trusted_synonyms(known_scientific_name),
+    ):
+        return cached_info
+    if cached_info:
+        # Looked up again and saved over: the stale entry is never served, in memory or from the database.
+        _wiki_cache.pop(f"{species_name}:{lang}", None)
+        log.info("Cached species description is about another subject; looking it up again", species=species_name)
 
     summary_sources = _resolve_summary_sources()
     primary = summary_sources[0]
@@ -1729,8 +1745,9 @@ async def _group_reference_info(species_name: str, scientific_name: str, lang: s
     info = await _fetch_inaturalist_info(species_name, lang, scientific_name, require_scientific_name=True, rank=rank)
     info.conservation_status = None
     if not info.extract and info.wikipedia_url:
+        # The link comes from the one taxon of this exact name and rank, so it is an identity link.
         page = await _fetch_wikipedia_info_from_url(
-            info.wikipedia_url, species_name, lang, expected_scientific_name=scientific_name
+            info.wikipedia_url, species_name, lang, expected_scientific_name=scientific_name, identity_linked=True
         )
         if page and page.extract:
             info.description = page.description
@@ -1851,9 +1868,18 @@ async def _fetch_wikipedia_info(
 
 
 async def _fetch_wikipedia_info_from_url(
-    wikipedia_url: str, species_name: str, lang: str, *, expected_scientific_name: str | None = None
+    wikipedia_url: str,
+    species_name: str,
+    lang: str,
+    *,
+    expected_scientific_name: str | None = None,
+    identity_linked: bool = False,
 ) -> SpeciesInfo | None:
-    """Fetch Wikipedia summary directly from a known article URL."""
+    """Fetch Wikipedia summary directly from a known article URL.
+
+    `identity_linked` is for the page a taxon's own iNaturalist record links to: the link is
+    the identity, so the page only has to name the taxon rather than open with it.
+    """
     from urllib.parse import urlparse, unquote
 
     parsed = urlparse(wikipedia_url)
@@ -1880,7 +1906,12 @@ async def _fetch_wikipedia_info_from_url(
     try:
         async with httpx.AsyncClient(timeout=15.0, follow_redirects=True, headers=headers) as client:
             return await _get_wikipedia_summary(
-                client, title, species_name, url_lang, expected_scientific_name=expected_scientific_name
+                client,
+                title,
+                species_name,
+                url_lang,
+                expected_scientific_name=expected_scientific_name,
+                identity_linked=identity_linked,
             )
     except httpx.TimeoutException:
         log.error("Wikipedia API timeout (direct)", species=species_name)
@@ -2217,11 +2248,7 @@ async def _find_wikipedia_article(
         asked_by_scientific_name = bool(expected_scientific_name) and _normalize_lookup_text(
             title
         ) == _normalize_lookup_text(expected_scientific_name)
-        if (
-            expected_scientific_name
-            and not asked_by_scientific_name
-            and not article_describes_taxon(data, expected_scientific_name)
-        ):
+        if expected_scientific_name and not _has_scientific_identity(data, expected_scientific_name):
             # The taxon is known, so a name overlap is not enough: an article that only mentions
             # the bird (a parasite listing its hosts, a predator its prey) describes something else.
             log.debug(
@@ -2363,8 +2390,17 @@ async def _find_wikipedia_article(
     return None, not errored[0]
 
 
+def _trusted_synonyms(scientific_name: str | None) -> frozenset[str]:
+    """Other names the species catalogue records for the same taxon; none when it does not know it."""
+    try:
+        return species_catalog_resolver.accepted_scientific_names(scientific_name)
+    except Exception as error:  # the catalogue is an aid here, never a reason to fail a lookup
+        log.debug("Catalogue synonyms unavailable", error=type(error).__name__)
+        return frozenset()
+
+
 def _has_scientific_identity(data: dict, scientific_name: str | None) -> bool:
-    return article_describes_taxon(data, scientific_name)
+    return article_describes_taxon(data, scientific_name, _trusted_synonyms(scientific_name))
 
 
 async def _get_wikipedia_summary(
@@ -2374,6 +2410,7 @@ async def _get_wikipedia_summary(
     lang: str,
     *,
     expected_scientific_name: str | None = None,
+    identity_linked: bool = False,
 ) -> SpeciesInfo:
     """Fetch the summary for a Wikipedia article."""
     base_url = f"https://{lang}.wikipedia.org/api/rest_v1/page/summary"
@@ -2384,8 +2421,14 @@ async def _get_wikipedia_summary(
         response = await client.get(url)
         if response.status_code == 200:
             data = response.json()
-            if expected_scientific_name and not _has_scientific_identity(data, expected_scientific_name):
-                return SpeciesInfo(title=original_name, cached_at=datetime.now())
+            if expected_scientific_name:
+                about_the_taxon = (
+                    linked_article_names_taxon(data, expected_scientific_name)
+                    if identity_linked
+                    else _has_scientific_identity(data, expected_scientific_name)
+                )
+                if not about_the_taxon:
+                    return SpeciesInfo(title=original_name, cached_at=datetime.now())
 
             description = data.get("description", "")
             extract = data.get("extract", "")

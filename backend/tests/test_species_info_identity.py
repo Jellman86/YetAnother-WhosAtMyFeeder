@@ -5,6 +5,7 @@ found by search must be about that taxon: one that merely mentions the name,
 such as a parasite's article listing its hosts, is not a description of it.
 """
 
+from datetime import datetime
 from unittest.mock import AsyncMock
 from urllib.parse import unquote
 
@@ -14,6 +15,9 @@ import httpx
 import pytest
 
 from app.auth import AuthContext
+from app.database import get_db
+from app.models import SpeciesInfo
+from app.repositories.species_repository import SpeciesRepository
 from app.routers import species as router
 
 REAL_ASYNC_CLIENT = httpx.AsyncClient
@@ -104,5 +108,126 @@ def test_a_bird_the_taxonomy_does_not_know_keeps_the_name_based_search(info_api,
     search.append(STARLING["title"])
 
     body = api.get("/api/species/Common%20Starling/info").json()
+
+    assert body["title"] == "Common starling"
+
+
+@pytest.fixture
+def seeded_cache_api(monkeypatch):
+    """The real reference cache, in memory and in the database, with Wikipedia mocked."""
+    app = FastAPI()
+    app.include_router(router.router, prefix="/api")
+    app.dependency_overrides[router.get_auth_context_with_legacy] = lambda: AuthContext("owner")
+    monkeypatch.setattr(router, "_wiki_cache", {})
+    monkeypatch.setattr(router, "_definitive_misses", {})
+    monkeypatch.setattr(router, "_resolve_summary_sources", lambda: ["wikipedia", "inaturalist"])
+    monkeypatch.setattr(router, "_lookup_taxa_id", AsyncMock(return_value=None))
+    monkeypatch.setattr(router, "_lookup_scientific_name", AsyncMock(return_value="Sturnus vulgaris"))
+    articles = {STARLING["title"]: STARLING}
+    requests: list[str] = []
+
+    def response(request):
+        requests.append(str(request.url))
+        if request.url.host == "api.inaturalist.org":
+            return httpx.Response(200, json={"results": []})
+        if request.url.path.endswith("/w/api.php"):
+            return httpx.Response(200, json={"query": {"search": [{"title": STARLING["title"]}]}})
+        title = unquote(request.url.path.split("/")[-1]).replace("_", " ").casefold()
+        found = next((article for name, article in articles.items() if name.casefold() == title), None)
+        return httpx.Response(200, json=found) if found else httpx.Response(404)
+
+    monkeypatch.setattr(
+        router.httpx,
+        "AsyncClient",
+        lambda **kwargs: REAL_ASYNC_CLIENT(transport=httpx.MockTransport(response), **kwargs),
+    )
+    with TestClient(app) as api:
+        yield api, requests
+
+
+async def _seed_cached_description(info: SpeciesInfo) -> None:
+    async with get_db() as db:
+        await db.execute("DELETE FROM species_info_cache WHERE species_name = ?", ("European Starling",))
+        await db.commit()
+        await SpeciesRepository(db).save_cached_info(
+            species_name="European Starling",
+            taxa_id=None,
+            language="en",
+            values=info.model_dump(),
+            cached_at=datetime.now(),
+        )
+
+
+LOUSE_CACHED = dict(
+    title=LOUSE["title"],
+    extract=LOUSE["extract"],
+    thumbnail_url=LOUSE["thumbnail"]["source"],
+    source="Wikipedia",
+    summary_source="Wikipedia",
+    scientific_name="Sturnus vulgaris",
+)
+
+
+@pytest.mark.asyncio
+async def test_a_wrong_description_cached_under_the_old_rule_is_not_returned(seeded_cache_api):
+    api, requests = seeded_cache_api
+    await _seed_cached_description(SpeciesInfo(**LOUSE_CACHED, cached_at=datetime.now()))
+
+    body = api.get("/api/species/European%20Starling/info").json()
+
+    assert "louse" not in (body["extract"] or "")
+    assert body["title"] == "Common starling"
+    assert requests, "the stale entry is looked up again, not served"
+    # The replacement is what the cache now holds.
+    again = api.get("/api/species/European%20Starling/info").json()
+    assert again["title"] == "Common starling"
+
+
+@pytest.mark.asyncio
+async def test_a_wrong_description_held_in_memory_is_not_returned_either(seeded_cache_api):
+    api, _requests = seeded_cache_api
+    stale = SpeciesInfo(**LOUSE_CACHED, cached_at=datetime.now())
+    router._wiki_cache["European Starling:en"] = (stale, datetime.now())
+
+    body = api.get("/api/species/European%20Starling/info").json()
+
+    assert "louse" not in (body["extract"] or "")
+
+
+@pytest.mark.asyncio
+async def test_a_cached_description_of_the_right_bird_is_still_served_without_a_lookup(seeded_cache_api):
+    api, requests = seeded_cache_api
+    await _seed_cached_description(
+        SpeciesInfo(
+            title=STARLING["title"],
+            extract=STARLING["extract"],
+            source="Wikipedia",
+            summary_source="Wikipedia",
+            scientific_name="Sturnus vulgaris",
+            cached_at=datetime.now(),
+        )
+    )
+
+    body = api.get("/api/species/European%20Starling/info").json()
+
+    assert body["title"] == "Common starling"
+    assert requests == []
+
+
+@pytest.mark.asyncio
+async def test_a_cached_summary_of_another_taxon_from_inaturalist_is_not_returned(seeded_cache_api):
+    api, _requests = seeded_cache_api
+    await _seed_cached_description(
+        SpeciesInfo(
+            title="Spotless Starling",
+            extract="A starling of Iberia and north-west Africa.",
+            source="iNaturalist",
+            summary_source="iNaturalist",
+            scientific_name="Sturnus unicolor",
+            cached_at=datetime.now(),
+        )
+    )
+
+    body = api.get("/api/species/European%20Starling/info").json()
 
     assert body["title"] == "Common starling"
