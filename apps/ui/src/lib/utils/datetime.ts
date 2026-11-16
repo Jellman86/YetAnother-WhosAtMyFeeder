@@ -85,6 +85,16 @@ export function formatCalendarDay(day: string, now: Date = new Date()): string {
     if (!match) return day;
     const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
     if (Number.isNaN(date.getTime())) return day;
+    return formatShortDay(date, now);
+}
+
+/**
+ * A day where space is short (a chart label, a strip of days): "1 Oct" under the locale format,
+ * with the year only when it is not this year. A pinned format is used as it stands.
+ */
+export function formatShortDay(value: DateInput, now: Date = new Date()): string {
+    const date = toDate(value);
+    if (!date) return '';
     const format = getDateFormat();
     if (format !== 'locale') return formatDateParts(date, format);
     return date.toLocaleDateString(undefined, {
@@ -130,4 +140,17 @@ export function formatTime(value: DateInput, options?: Intl.DateTimeFormatOption
         ...(options ?? { hour: '2-digit', minute: '2-digit' }),
         ...hourCycleOptions(),
     });
+}
+
+/**
+ * A whole hour of the day on the app's clock, so a chart axis never shows "5 PM" beside a log
+ * that says 17:26. `axis` is the short form for a crowded axis: "17" on the 24 hour clock, and
+ * "5 PM" with a non-breaking space on the 12 hour one, so a label never wraps.
+ */
+export function formatHour(hour: number, style: 'full' | 'axis' = 'full'): string {
+    const clamped = Math.max(0, Math.min(23, Math.trunc(hour)));
+    const date = new Date(2000, 0, 1, clamped, 0, 0);
+    if (style === 'full') return formatTime(date);
+    if (getTimeFormat() === '24h') return pad2(clamped);
+    return date.toLocaleTimeString([], { hour: 'numeric', ...hourCycleOptions() }).replace(/\s/g, '\u00a0');
 }

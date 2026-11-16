@@ -196,7 +196,7 @@
   "errors_filtered_preview": "Aperçu de l’image filtrée comme {species}",
   "errors_filtered_frame_gone": "Frigate n’a plus cette image",
   "errors_drop_reason_row": {
-    "filter_low_confidence": "Non enregistré, sous votre seuil de confiance",
+    "filter_low_confidence": "Non enregistré, sous votre seuil d’identification",
     "filter_below_threshold": "Non enregistré, sous le seuil d’espèce",
     "filter_blocked_label": "Non enregistré, cette étiquette est bloquée",
     "filter_abstention_label": "Non enregistré, le modèle s’est abstenu",

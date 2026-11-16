@@ -196,7 +196,7 @@
   "errors_filtered_preview": "Pré-visualizar o quadro filtrado como {species}",
   "errors_filtered_frame_gone": "O Frigate não tem mais este quadro",
   "errors_drop_reason_row": {
-    "filter_low_confidence": "Não registado, abaixo do seu limite de confiança",
+    "filter_low_confidence": "Não registado, abaixo do seu limiar de identificação",
     "filter_below_threshold": "Não registado, abaixo do limite da espécie",
     "filter_blocked_label": "Não registado, este rótulo está bloqueado",
     "filter_abstention_label": "Não registado, o modelo absteve-se",

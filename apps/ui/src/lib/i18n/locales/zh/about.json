@@ -3,7 +3,6 @@
   "credits": "致谢",
   "view_changelog": "查看更新日志",
   "flaticon_credit": "鸟类图标由 Freepik 制作 - Flaticon",
-  "license_notice": "© {year} Jellman86 • 采用 {license} 许可",
   "project_desc_1": "我做这个项目是想看看借助 AI 辅助编程能走多远。原来的 {link} 已经无人维护，所以有了一个真正值得重写的东西，而不是一个玩具项目。从那以后，它一直在我自己的喂食器上运行。",
   "project_desc_2": "Frigate 监视喂食器，标记任何看起来像鸟的目标。YA-WAMF 进行识别，与 BirdNET-Go 的声音比对，然后保存结果。本页所有照片都来自那台摄像头。",
   "links": {
@@ -122,10 +121,10 @@
     "newest_arrival": "最新来客",
     "first_seen": "首次见到于 {date}",
     "latest": "最近一次到访",
-    "open_visit": "打开 {time} 的 {name} 到访",
     "gone": "该到访已不在历史记录中。",
     "community": "{count, plural, other {本周有 # 个喂食器在运行 YA-WAMF。}}",
     "loading": "正在加载这个喂食器的数据…",
-    "unavailable": "无法加载这个喂食器的数据。"
+    "unavailable": "无法加载这个喂食器的数据。",
+    "open_this_visit": "打开这次到访"
   }
 }

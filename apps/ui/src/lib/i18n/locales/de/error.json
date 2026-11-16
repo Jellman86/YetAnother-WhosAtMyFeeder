@@ -1,6 +1,6 @@
 {
   "boundary_title": "Diese Seite funktioniert nicht mehr",
-  "boundary_subtitle": "Ein Teil der Seite ist auf einen Fehler gestoßen, von dem er sich nicht erholen konnte. Verlauf und Einstellungen sind unverändert. Lade die Seite neu; tritt der Fehler erneut auf, kopiere die Fehlerdetails in ein GitHub-Issue.",
+  "boundary_subtitle": "Ein Teil der Seite ist auf einen Fehler gestoßen, von dem er sich nicht erholen konnte. Verlauf und Einstellungen sind unverändert. Laden Sie die Seite neu; tritt der Fehler erneut auf, kopieren Sie die Fehlerdetails in ein GitHub-Issue.",
   "show_details": "Fehlerdetails anzeigen",
   "try_again": "Erneut versuchen",
   "copy_details": "Fehlerdetails kopieren",

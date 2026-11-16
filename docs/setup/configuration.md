@@ -121,7 +121,7 @@ model in use as its card does (model, runtime, workers, health), then:
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| **Confidence Threshold** | `0.7` | Minimum local score for a named identification, also subject to the confidence floor, unknown-label policy and blocked-species rules. |
+| **Naming threshold** | `0.7` | Minimum local score for a named identification, also subject to the confidence floor, unknown-label policy and blocked-species rules. |
 | **Minimum Confidence Floor** | `0.4` | Reject local image results below this score. A usable trusted Frigate sublabel can still provide the configured fallback. |
 | **Trust Frigate Sublabels** | Enabled | Accept a species Frigate has already identified when local inference has nothing usable. |
 | **Write Labels Back to Frigate** | Enabled | Push YA-WAMF's own identification back to the Frigate event as a sublabel. |
@@ -489,7 +489,8 @@ How the interface reads.
 
 ## Accessibility
 
-- **High contrast**, **Dyslexia Friendly Font**, and **Reduced motion** for readability and
+- **High contrast** (one black scheme with white and yellow text, used in place of the light or
+  dark theme), **Reading font: OpenDyslexic**, and **Reduced motion** for readability and
   motion sensitivity.
 - **Live announcements** — screen reader announcements when new detections arrive.
 

@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { formatCalendarDay } from '../utils/datetime';
     import Separator from '../components/Separator.svelte';
     import VisitCaptures from '../components/VisitCaptures.svelte';
     import HeardBandRow from '../components/HeardBandRow.svelte';
@@ -1067,8 +1068,7 @@
     }
 
     function formatTimelineBucketLabel(bucket: string): string {
-        const date = new Date(`${bucket}T00:00:00`);
-        return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+        return formatCalendarDay(bucket);
     }
 
     let timelineBuckets = $derived.by(() => {

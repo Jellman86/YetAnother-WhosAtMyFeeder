@@ -4,10 +4,29 @@ import instanceSource from './InstanceSummary.svelte?raw';
 import privacySummarySource from './PrivacySummary.svelte?raw';
 import aboutSource from '../pages/About.svelte?raw';
 import enAbout from '../i18n/locales/en/about.json';
+import enSubtitle from '../i18n/locales/en/page_subtitle.json';
+import portraitSource from './FeederPortrait.svelte?raw';
 
 const en = { about: enAbout };
 
 describe('About surface polish', () => {
+    it('describes the page it titles and carries no trivia', () => {
+        // The subtitle listed a changelog and contributors the page does not show, and a card of
+        // general bird facts closed a page that is otherwise only about this install.
+        expect(enSubtitle.about).toBe('What this feeder has recorded, how YA-WAMF works, and what it stores and sends.');
+        expect(aboutSource).not.toMatch(/ProjectNotes|did_you_know|bird_facts/);
+        // The footer under every page already carries the licence and the copyright line.
+        expect(aboutSource).not.toContain('license_notice');
+    });
+
+    it('names the latest visit by its caption, so the spoken name starts with the words shown', () => {
+        // An aria-label that reworded the caption failed label-in-name (WCAG 2.5.3).
+        const button = portraitSource.slice(portraitSource.indexOf('<button'), portraitSource.indexOf('</button>'));
+        expect(button).not.toContain('aria-label=');
+        expect(button).not.toMatch(/bg-linear-to-t[^>]*aria-hidden/);
+        expect(button).toContain("about.portrait.open_this_visit");
+    });
+
     it('gives the quick links and credit links a full touch target', () => {
         expect(aboutSource).toContain('class="group inline-flex min-h-11 items-center gap-1.5 text-brand-700 focus-ring');
         expect(aboutSource).toMatch(/<a href=\{credit\.href\}[^>]*class="inline-flex min-h-11 items-center/);

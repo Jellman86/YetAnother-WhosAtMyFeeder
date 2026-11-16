@@ -796,7 +796,8 @@ html.theme-bluetit.dark .ai-markdown-surface th { color: rgb(191 219 254); }
   font-display: swap;
 }
 
-/* Dyslexia Friendly Font */
+/* Reading font: OpenDyslexic for every word. It changes the face and the leading and nothing
+   else, so it combines with any theme and with high contrast. */
 .font-dyslexic,
 .font-dyslexic * {
   font-family: 'OpenDyslexic', sans-serif !important;
@@ -805,7 +806,12 @@ html.theme-bluetit.dark .ai-markdown-surface th { color: rgb(191 219 254); }
   font-weight: inherit !important;
 }
 
-/* High Contrast Mode */
+/* High Contrast Mode
+   One black scheme. The theme store adds `dark` whenever this class is on, so every `dark:`
+   variant applies whatever theme the reader chose, and the rules below lift what dark mode
+   leaves short of 7:1. Inks are repainted by colour family ([class*='text-slate-']), never by a
+   list of classes: a list is how headings were once left near-black on this black page.
+   app.high-contrast.test.ts fails a text colour family that is written in the app and missing here. */
 .high-contrast {
   --bg-color: #000000;
   --text-color: #ffffff;
@@ -820,12 +826,32 @@ html.theme-bluetit.dark .ai-markdown-surface th { color: rgb(191 219 254); }
    The class sits on <html> beside the theme classes, so this selector must outrank
    html.theme-bluetit.dark. */
 html.high-contrast.high-contrast.high-contrast {
+  --app-bg: #000000;
+  --app-fg: #ffffff;
   --surface: 0 0 0;
   --surface-raised: 0 0 0;
   --line: 255 255 0;
   --line-soft: 255 255 0;
   --focus: 0 255 255;
   --focus-on-dark: 0 255 255;
+  /* The brand steps drawn as marks on the page (a chart's bars, a progress fill) are yellow:
+     the dark theme's blue or teal is under 3:1 on black. Brand inks are set by family below. */
+  --brand-400: 255 255 0;
+  --brand-500: 255 255 0;
+  /* A switch is told apart by its fill as well as its thumb: grey off, yellow on. */
+  --switch-off: 118 118 118;
+  --switch-on: 255 255 0;
+
+  /* The inks. Each is 7:1 or better on black; meaning still never rests on the hue alone. */
+  --hc-ink: #ffffff;
+  --hc-ink-brand: #ffff00;
+  --hc-ink-success: #7dff9b;
+  --hc-ink-attention: #ffc266;
+  --hc-ink-danger: #ff9c9c;
+  --hc-ink-disabled: #c8c8c8;
+  /* A chosen or primary control: a yellow fill under black words. */
+  --hc-fill: #ffff00;
+  --hc-on-fill: #000000;
 }
 
 .high-contrast body,
@@ -845,39 +871,91 @@ html.high-contrast.high-contrast.high-contrast {
   color: #ffffff !important;
 }
 
-.high-contrast .text-slate-400,
-.high-contrast .text-slate-500,
-.high-contrast .dark\:text-slate-400,
-.high-contrast .text-slate-600,
-.high-contrast .dark\:text-slate-300 {
-  color: #ffffff !important;
-}
-
 .high-contrast button,
 .high-contrast a,
 .high-contrast input,
-.high-contrast select {
+.high-contrast select,
+.high-contrast textarea {
   border: 2px solid #00ffff !important;
   color: #ffffff !important;
   background-color: #000000 !important;
 }
 
-.high-contrast .text-teal-600,
-.high-contrast .dark\:text-teal-400,
-.high-contrast .text-brand-500 {
-  color: #ffff00 !important;
-  /* Yellow text for emphasis */
+/* Ink, by family. Neutral text is white at every step, muted or not: hierarchy is carried by
+   size and weight here. The semantic families follow, so a hover or state class of another
+   family on the same element resolves to the semantic ink. */
+.high-contrast :is([class*='text-slate-'], [class*='text-gray-']) {
+  color: var(--hc-ink) !important;
 }
 
-/* Chosen-state fills moved from brand-500 to brand-700 for contrast under white text; they keep
-   the same high-contrast treatment. */
+.high-contrast :is([class*='text-brand-'], [class*='text-accent-'], [class*='text-blue-'], [class*='text-teal-'], [class*='text-violet-']) {
+  color: var(--hc-ink-brand) !important;
+}
+
+.high-contrast :is([class*='text-success-'], [class*='text-emerald-'], [class*='text-green-']) {
+  color: var(--hc-ink-success) !important;
+}
+
+.high-contrast :is([class*='text-attention-'], [class*='text-amber-'], [class*='text-orange-']) {
+  color: var(--hc-ink-attention) !important;
+}
+
+.high-contrast :is([class*='text-rose-'], [class*='text-red-']) {
+  color: var(--hc-ink-danger) !important;
+}
+
+.high-contrast ::placeholder {
+  color: var(--hc-ink-disabled) !important;
+  opacity: 1 !important;
+}
+
+/* A disabled control keeps readable words and says it is off with a dashed grey edge, not by
+   fading: half-opacity white on black is the low contrast this mode exists to remove. */
+.high-contrast :is(button, input, select, textarea):disabled,
+.high-contrast [aria-disabled='true'] {
+  opacity: 1 !important;
+  color: var(--hc-ink-disabled) !important;
+  border: 2px dashed var(--hc-ink-disabled) !important;
+}
+
+/* Chosen-state fills (brand-700 under white text in the themes) and the primary button become a
+   yellow fill under black words, and everything inside takes the black ink with it. */
 .high-contrast .bg-teal-500,
 .high-contrast .bg-brand-500,
 .high-contrast .bg-brand-700,
-.high-contrast .bg-indigo-500 {
-  background-color: #ffff00 !important;
-  color: #000000 !important;
+.high-contrast .bg-indigo-500,
+.high-contrast .btn-primary:not(:disabled) {
+  background-color: var(--hc-fill) !important;
+  color: var(--hc-on-fill) !important;
   border: 2px solid #ffffff !important;
+}
+
+.high-contrast .bg-brand-700 *,
+.high-contrast .btn-primary:not(:disabled) * {
+  color: var(--hc-on-fill) !important;
+}
+
+/* A bright semantic fill that carries words (a count badge) keeps them black: the family rules
+   above would otherwise lift its dark ink to the fill's own hue. Whole class names only, so a
+   translucent tint such as bg-attention-500/10 is left to the inks above. */
+.high-contrast :is([class~='bg-attention-300'], [class~='bg-attention-400'], [class~='bg-attention-500'], [class~='bg-success-300'], [class~='bg-success-400'], [class~='bg-success-500'], [class~='bg-rose-300'], [class~='bg-rose-400'], [class~='bg-red-300'], [class~='bg-red-400']) {
+  color: var(--hc-on-fill) !important;
+}
+
+/* The switch keeps its kit shape: the track is the state (grey off, yellow on) inside a white
+   edge, and the thumb is black on yellow so its side still reads. */
+.high-contrast .switch-track {
+  background-color: rgb(var(--switch-off)) !important;
+  border: 2px solid #ffffff !important;
+}
+
+.high-contrast .switch-track[aria-checked='true'] {
+  background-color: rgb(var(--switch-on)) !important;
+}
+
+.high-contrast .switch-thumb {
+  background-color: #000000 !important;
+  border: 0 !important;
 }
 
 .high-contrast svg {

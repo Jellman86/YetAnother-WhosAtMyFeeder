@@ -195,7 +195,7 @@
             await settingsStore.load();
             toastStore.show(
                 $_('dashboard.review_session.species_blocked', {
-                    values: { species: detection.display_name },
+                    values: { species: getBirdNames(detection, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary).primary },
                     default: '{species} blocked. Future detections will be dropped.'
                 }),
                 'success'

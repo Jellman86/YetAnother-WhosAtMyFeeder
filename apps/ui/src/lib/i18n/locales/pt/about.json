@@ -3,7 +3,6 @@
   "credits": "Créditos e agradecimentos",
   "view_changelog": "Ver changelog",
   "flaticon_credit": "Ícones de pássaros criados por Freepik - Flaticon",
-  "license_notice": "© {year} Jellman86 • Licenciado sob {license}",
   "project_desc_1": "Comecei isto para descobrir até onde conseguia chegar programando com ajuda de IA. O {link} original tinha deixado de ser mantido, por isso havia algo real para reconstruir em vez de um projeto de brincadeira. Desde então funciona no meu próprio comedouro.",
   "project_desc_2": "O Frigate vigia o comedouro e sinaliza tudo o que pareça uma ave. O YA-WAMF a classifica, compara com o áudio do BirdNET-Go e armazena o resultado. Todas as fotos desta página vieram dessa câmera.",
   "links": {
@@ -122,10 +121,10 @@
     "newest_arrival": "Chegada mais recente",
     "first_seen": "vista pela primeira vez em {date}",
     "latest": "Última visita",
-    "open_visit": "Abrir a visita de {name} de {time}",
     "gone": "Essa visita não está mais no histórico.",
     "community": "{count, plural, one {# comedouro usou o YA-WAMF esta semana.} other {# comedouros usaram o YA-WAMF esta semana.}}",
     "loading": "Carregando os dados deste comedouro…",
-    "unavailable": "Não foi possível carregar os dados deste comedouro."
+    "unavailable": "Não foi possível carregar os dados deste comedouro.",
+    "open_this_visit": "Abrir esta visita"
   }
 }

@@ -72,5 +72,32 @@
   "diagnostic_state_passed": "合格",
   "diagnostic_state_failed": "失敗",
   "diagnostic_state_warning": "警告付きで合格",
-  "diagnostic_state_skipped": "未実行"
+  "diagnostic_state_skipped": "未実行",
+  "unknown_bird": "不明な鳥",
+  "map_credit": "© OpenStreetMap 協力者",
+  "weather_condition": {
+    "clear_sky": "快晴",
+    "partly_cloudy": "晴れ時々曇り",
+    "foggy": "霧",
+    "drizzle": "霧雨",
+    "rain": "雨",
+    "snow": "雪",
+    "rain_showers": "にわか雨",
+    "thunderstorm": "雷雨",
+    "cloudy": "曇り",
+    "hail": "ひょう",
+    "windy": "強風",
+    "exceptional": "異常気象"
+  },
+  "compass": {
+    "n": "北",
+    "ne": "北東",
+    "e": "東",
+    "se": "南東",
+    "s": "南",
+    "sw": "南西",
+    "w": "西",
+    "nw": "北西"
+  },
+  "chart_total": "合計 {count}"
 }

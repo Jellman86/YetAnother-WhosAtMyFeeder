@@ -1,3 +1,6 @@
+import { get } from 'svelte/store';
+import { _, locale } from 'svelte-i18n';
+
 
 export interface NamingResult {
     primary: string;
@@ -11,6 +14,23 @@ export interface BirdNamingInput {
     species?: string | null;
 }
 
+/** The backend's placeholder label for a visit the classifier could not name. */
+const UNRESOLVED_LABEL = 'unknown bird';
+
+/**
+ * The one name the app prints for a visit without a species: sentence case and translated,
+ * whatever casing the stored placeholder has.
+ */
+function unknownBirdName(): string {
+    const fallback = 'Unknown bird';
+    return get(locale) ? get(_)('common.unknown_bird', { default: fallback }) : fallback;
+}
+
+function named(value: string | null | undefined): string | null {
+    if (!value) return null;
+    return value.trim().toLowerCase() === UNRESOLVED_LABEL ? unknownBirdName() : value;
+}
+
 export function getBirdNames(
     item: BirdNamingInput,
     showCommon: boolean,
@@ -18,10 +38,10 @@ export function getBirdNames(
 ): NamingResult {
     // Determine source values
     const scientificName = item.scientific_name || null;
-    const commonName = item.common_name || null;
-    
+    const commonName = named(item.common_name);
+
     // For Detection, we have display_name. For summary, we have species.
-    const fallback = item.display_name || item.species || 'Unknown';
+    const fallback = named(item.display_name) || named(item.species) || 'Unknown';
 
     let primary: string;
     let secondary: string | null = null;

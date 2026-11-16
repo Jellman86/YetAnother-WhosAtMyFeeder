@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { weatherConditionMessage } from '../utils/weather-condition';
     import Separator from './Separator.svelte';
     import DialogCloseButton from './DialogCloseButton.svelte';
     import ClassificationSource from './ClassificationSource.svelte';
@@ -432,7 +433,7 @@
         // and names hiding as the alternative sitting next to it.
         if (!(await confirmAction({
             title: $_('actions.delete_detection', { default: 'Delete this visit permanently' }),
-            message: $_('actions.confirm_delete', { values: { species: current.display_name } }),
+            message: $_('actions.confirm_delete', { values: { species: getBirdNames(current, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary).primary } }),
             confirmLabel: $_('dashboard.review_session.delete', { default: 'Delete permanently' })
         }))) return;
         busy = true;
@@ -466,6 +467,13 @@
             event.preventDefault();
             skip();
         }
+    }
+
+    // The stored condition is the backend's English word; the reader gets it in their language.
+    function conditionText(stored: string | null | undefined): string {
+        const message = weatherConditionMessage(stored);
+        if (!message) return '';
+        return message.key ? $_(message.key, { default: message.default }) : message.default;
     }
 </script>
 
@@ -645,9 +653,9 @@
                                     <span class="sr-only">{$_('detection.confidence', { default: 'Confidence' })}</span>
                                     {Math.round((current.score ?? 0) * 100)}%
                                 </span>
-                                {#if current.weather_condition}
+                                {#if conditionText(current.weather_condition)}
                                     <Separator />
-                                    <span>{current.weather_condition}</span>
+                                    <span>{conditionText(current.weather_condition)}</span>
                                 {/if}
                             </p>
                         </div>
@@ -669,7 +677,7 @@
                             <FrameStrip
                                 {moments}
                                 current={activeMoment}
-                                primaryName={current.display_name}
+                                primaryName={naming.primary}
                                 loading={cropLoading}
                                 {applyingKey}
                                 busy={applyPending || busy}
@@ -695,7 +703,7 @@
                         <span>
                             {#if isNewSpecies}
                                 {$_('dashboard.review_session.new_species_note', {
-                                    values: { species: current.display_name },
+                                    values: { species: naming.primary },
                                     default: 'First {species} recorded here. Confirm it, correct it, or block the species.'
                                 })}
                             {:else}

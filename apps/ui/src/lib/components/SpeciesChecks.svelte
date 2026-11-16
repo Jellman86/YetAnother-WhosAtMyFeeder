@@ -48,9 +48,9 @@
                 <p class="flex items-center gap-2 text-sm font-bold text-attention-700 dark:text-attention-300">
                     <span class="h-2 w-2 rounded-full bg-attention-500" aria-hidden="true"></span>{$_('leaderboard.spotlight_needs_check', { default: 'Needs a check' })}
                 </p>
-                <h3 id="spotlight-checks-title" class="mt-1 font-display text-2xl font-bold text-slate-900 dark:text-white">
+                <h2 id="spotlight-checks-title" class="mt-1 font-display text-2xl font-bold text-slate-900 dark:text-white">
                     {$_('leaderboard.check.entry_title', { values: { count: checks.length }, default: '{count} species may be misnamed' })}
-                </h3>
+                </h2>
                 <p class="mt-1 text-base text-slate-600 dark:text-slate-300">
                     {nearbyRadiusKm
                         ? $_('leaderboard.check.entry_body', { values: { distance: displayDistance(nearbyRadiusKm, $_) }, default: 'Each rests on the camera alone, and no birder has reported it within {distance}.' })

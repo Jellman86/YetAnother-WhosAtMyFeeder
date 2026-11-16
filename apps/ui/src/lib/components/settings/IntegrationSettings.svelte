@@ -1,5 +1,6 @@
 <script lang="ts">
-    import { _ } from 'svelte-i18n';
+    import { _, locale } from 'svelte-i18n';
+    import { formatDate } from '../../utils/datetime';
     import { locationTogglePresentation } from '../../settings/location-toggle';
     import SecretInput from './_primitives/SecretInput.svelte';
     import SettingsCard from './_primitives/SettingsCard.svelte';
@@ -454,12 +455,13 @@
         const ts = Date.parse(normalized);
         if (Number.isNaN(ts)) return raw;
         const diffSec = Math.max(0, (Date.now() - ts) / 1000);
-        if (diffSec < 5) return 'just now';
-        if (diffSec < 60) return `${Math.floor(diffSec)}s ago`;
-        if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m ago`;
-        if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h ago`;
-        if (diffSec < 86400 * 7) return `${Math.floor(diffSec / 86400)}d ago`;
-        return new Date(ts).toLocaleDateString();
+        // The reader's language words the age: "5 min. ago", "vor 5 Min.".
+        const relative = new Intl.RelativeTimeFormat($locale ?? 'en', { numeric: 'auto', style: 'short' });
+        if (diffSec < 60) return relative.format(-Math.floor(diffSec), 'second');
+        if (diffSec < 3600) return relative.format(-Math.floor(diffSec / 60), 'minute');
+        if (diffSec < 86400) return relative.format(-Math.floor(diffSec / 3600), 'hour');
+        if (diffSec < 86400 * 7) return relative.format(-Math.floor(diffSec / 86400), 'day');
+        return formatDate(ts);
     }
 
     function mappingTokensFor(camera: string): string[] {

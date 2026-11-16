@@ -13,7 +13,7 @@
   "seasonality_global": "Global seasonality",
   "range_map": "Range map",
   "range_unavailable": "Range map unavailable.",
-  "range_map_hint": "Drag to pan · scroll to zoom",
+  "range_map_hint": "Drag to pan. Use + and − to zoom.",
   "copy_diagnostics_bundle": "Copy diagnostics bundle",
   "video_unavailable": "Video clip not available",
   "no_recent_sightings": "No recent sightings.",

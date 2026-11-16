@@ -1,7 +1,7 @@
 {
   "reclassify_fallback": "⚠️ Video nicht verfügbar - stattdessen Schnappschuss verwendet",
   "reclassify_no_result": "Es wurde kein ausreichend zuverlässiges Ergebnis gefunden. Die bestehende Bestimmung wurde beibehalten.",
-  "reclassify_failed": "Die Neuklassifizierung lief nicht: {message}. Versuche es im Datensatz erneut.",
+  "reclassify_failed": "Die Neuklassifizierung lief nicht: {message}. Versuchen Sie es im Datensatz erneut.",
   "hide_failed": "Dieser Besuch konnte nicht ausgeblendet werden: {message}",
   "delete_failed": "Dieser Besuch konnte nicht gelöscht werden: {message}",
   "settings_saved": "Einstellungen erfolgreich gespeichert!",
@@ -69,5 +69,5 @@
   "filter_group": "Benachrichtigungen filtern",
   "count_unread_unit": "{count, plural, one {ungelesen} other {ungelesen}}",
   "cleared": "{count, plural, one {# Benachrichtigung gelöscht.} other {# Benachrichtigungen gelöscht.}}",
-  "owner_only_note": "Hintergrundaufgaben sowie Zustands- und Systemereignisse werden nur dir angezeigt, nicht Besuchern."
+  "owner_only_note": "Hintergrundaufgaben sowie Zustands- und Systemereignisse werden nur Ihnen angezeigt, nicht Besuchern."
 }

@@ -196,7 +196,7 @@
   "errors_filtered_preview": "Предпросмотр кадра, отфильтрованного как {species}",
   "errors_filtered_frame_gone": "В Frigate этого кадра уже нет",
   "errors_drop_reason_row": {
-    "filter_low_confidence": "Не записано, ниже вашего порога уверенности",
+    "filter_low_confidence": "Не записано, ниже вашего порога определения",
     "filter_below_threshold": "Не записано, ниже порога вида",
     "filter_blocked_label": "Не записано, эта метка заблокирована",
     "filter_abstention_label": "Не записано, модель воздержалась",

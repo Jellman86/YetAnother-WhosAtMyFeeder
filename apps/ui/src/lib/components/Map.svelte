@@ -3,6 +3,7 @@
   import { _ } from 'svelte-i18n';
   import { markerName, markerPopup, type MapMarker } from '../utils/map-popup';
   import type { Layer, Map as LeafletMap } from 'leaflet';
+  import MapCredit from './MapCredit.svelte';
 
   type LeafletApi = typeof import('leaflet');
 
@@ -71,14 +72,10 @@
         }
     }
 
-    map = L.map(mapElement, {
-        attributionControl: false // Cleaner look, add manually if needed or stick to bottom-right
-    }).setView(initialCenter, initialZoom);
+    // Leaflet's own attribution box is off because MapCredit draws the credit in the app's ink.
+    map = L.map(mapElement, { attributionControl: false }).setView(initialCenter, initialZoom);
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-      maxZoom: 19
-    }).addTo(map);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
 
     updateMarkers();
     
@@ -144,6 +141,7 @@
 
 <div class="relative w-full h-full min-h-[200px] bg-slate-100 rounded-md overflow-hidden border border-slate-200 dark:border-slate-700 dark:bg-slate-800">
     <div bind:this={mapElement} class="w-full h-full z-0"></div>
+    <MapCredit />
 </div>
 
 <style>

@@ -29,7 +29,7 @@
     import { get } from 'svelte/store';
     import { trapFocus } from '../utils/focus-trap';
     import { toAppPath } from '../app/url-base';
-    import { formatDate as formatDateValue, formatDateTime, formatTime } from '../utils/datetime';
+    import { formatDate as formatDateValue, formatDateTime, formatHour, formatTime } from '../utils/datetime';
     import { getErrorMessage } from '../utils/error-handling';
     import { formatDistance, resolveWeatherUnitSystem } from '../utils/weather-units';
 
@@ -46,11 +46,8 @@
         return base || 'en';
     }
 
-    const HOUR_LABELS = $derived.by(() => {
-        const localeTag = getLocaleTag($locale);
-        const formatter = new Intl.DateTimeFormat(localeTag, { hour: 'numeric' });
-        return Array.from({ length: 24 }, (_, i) => formatter.format(new Date(2000, 0, 1, i, 0, 0)));
-    });
+    // The app's own clock, not the language's: an axis reading "5 PM" contradicted every 17:26 beside it.
+    const HOUR_LABELS = $derived(Array.from({ length: 24 }, (_, hour) => formatHour(hour, 'axis')));
 
     const DAY_LABELS = $derived.by(() => {
         const localeTag = getLocaleTag($locale);

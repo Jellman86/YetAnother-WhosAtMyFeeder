@@ -72,5 +72,32 @@
   "diagnostic_state_passed": "Bestanden",
   "diagnostic_state_failed": "Fehlgeschlagen",
   "diagnostic_state_warning": "Bestanden mit Warnung",
-  "diagnostic_state_skipped": "Nicht ausgeführt"
+  "diagnostic_state_skipped": "Nicht ausgeführt",
+  "unknown_bird": "Unbekannter Vogel",
+  "map_credit": "© OpenStreetMap-Mitwirkende",
+  "weather_condition": {
+    "clear_sky": "Klarer Himmel",
+    "partly_cloudy": "Teilweise bewölkt",
+    "foggy": "Neblig",
+    "drizzle": "Nieselregen",
+    "rain": "Regen",
+    "snow": "Schnee",
+    "rain_showers": "Regenschauer",
+    "thunderstorm": "Gewitter",
+    "cloudy": "Bewölkt",
+    "hail": "Hagel",
+    "windy": "Windig",
+    "exceptional": "Außergewöhnlich"
+  },
+  "compass": {
+    "n": "N",
+    "ne": "NO",
+    "e": "O",
+    "se": "SO",
+    "s": "S",
+    "sw": "SW",
+    "w": "W",
+    "nw": "NW"
+  },
+  "chart_total": "{count} insgesamt"
 }

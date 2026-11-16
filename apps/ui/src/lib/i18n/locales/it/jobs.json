@@ -196,7 +196,7 @@
   "errors_filtered_preview": "Anteprima del fotogramma filtrato come {species}",
   "errors_filtered_frame_gone": "Frigate non ha più questo fotogramma",
   "errors_drop_reason_row": {
-    "filter_low_confidence": "Non registrato, sotto la tua soglia di confidenza",
+    "filter_low_confidence": "Non registrato, sotto la tua soglia di identificazione",
     "filter_below_threshold": "Non registrato, sotto la soglia di specie",
     "filter_blocked_label": "Non registrato, questa etichetta è bloccata",
     "filter_abstention_label": "Non registrato, il modello si è astenuto",

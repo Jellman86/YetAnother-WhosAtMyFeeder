@@ -196,7 +196,7 @@
   "errors_filtered_preview": "Vorschau des als {species} gefilterten Bildes",
   "errors_filtered_frame_gone": "Frigate hat dieses Bild nicht mehr",
   "errors_drop_reason_row": {
-    "filter_low_confidence": "Nicht erfasst, unter Ihrem Konfidenzschwellenwert",
+    "filter_low_confidence": "Nicht erfasst, unter Ihrer Benennungsschwelle",
     "filter_below_threshold": "Nicht erfasst, unter dem Artenschwellenwert",
     "filter_blocked_label": "Nicht erfasst, diese Bezeichnung ist blockiert",
     "filter_abstention_label": "Nicht erfasst, das Modell enthielt sich",

@@ -5,7 +5,6 @@
     import InstancePipeline from '../components/InstancePipeline.svelte';
     import InstanceSummary from '../components/InstanceSummary.svelte';
     import PrivacySummary from '../components/PrivacySummary.svelte';
-    import ProjectNotes from '../components/ProjectNotes.svelte';
     import { onMount } from 'svelte';
     import { fetchCommunityStats, fetchEvents, fetchFeederPortrait } from '../api';
     import type { Detection, FeederPortrait as FeederPortraitData } from '../api';
@@ -323,14 +322,9 @@
                     <li class="flex min-h-11 items-center">{$_('about.credits_list.ai_assistants')}</li>
                     <li class="flex min-h-11 items-center">{$_('about.flaticon_credit')}</li>
                 </ul>
-                <p class="mt-3 text-2xs text-slate-600 dark:text-slate-400">
-                    {$_('about.license_notice', { values: { year: new Date().getFullYear(), license: $_('common.mit_license') } })}
-                </p>
             </section>
         </div>
     </section>
-
-    <ProjectNotes />
 </div>
 
 {#if selectedEvent}

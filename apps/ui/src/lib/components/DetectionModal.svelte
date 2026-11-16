@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { compassPointKey, weatherConditionMessage } from '../utils/weather-condition';
     import DialogCloseButton from './DialogCloseButton.svelte';
     import ClassificationSource from './ClassificationSource.svelte';
     import RecordTechnicalDetails from './RecordTechnicalDetails.svelte';
@@ -1429,10 +1430,15 @@
     });
 
     function formatWindDirection(deg?: number | null): string {
-        if (deg === null || deg === undefined || Number.isNaN(deg)) return '';
-        const directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
-        const index = Math.round(((deg % 360) / 45)) % 8;
-        return directions[index];
+        const point = compassPointKey(deg);
+        return point ? $_(`common.compass.${point}`, { default: point.toUpperCase() }) : '';
+    }
+
+    // The stored condition is the backend's English word; the reader gets it in their language.
+    function conditionText(stored: string | null | undefined): string {
+        const message = weatherConditionMessage(stored);
+        if (!message) return '';
+        return message.key ? $_(message.key, { default: message.default }) : message.default;
     }
 
     function formatPrecip(value?: number | null): string {
@@ -1454,7 +1460,7 @@
     // facts appear; an unknown is omitted rather than shown as a dash.
     const weatherSummary = $derived.by(() => {
         const parts: string[] = [];
-        const condition = detection.weather_condition ?? '';
+        const condition = conditionText(detection.weather_condition);
         const hasTemperature = detection.temperature !== undefined && detection.temperature !== null;
         if (condition || hasTemperature) {
             const temperature = hasTemperature ? formatTemperature(detection.temperature as number, temperatureUnit) : '';
