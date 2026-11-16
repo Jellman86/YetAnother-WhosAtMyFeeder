@@ -58,8 +58,8 @@ async def test_an_owner_stream_opens_with_the_status_snapshot_and_no_secret(conf
 
 
 @pytest.mark.asyncio
-async def test_a_guest_stream_never_carries_the_status_snapshot():
-    settings.public_access.enabled = True
+async def test_a_guest_stream_never_carries_the_status_snapshot(monkeypatch):
+    monkeypatch.setattr(settings.public_access, "enabled", True)
     response = await sse_endpoint(_stream_request(), StreamAuth(AuthContext(AuthLevel.GUEST), None))
     try:
         await response.body_iterator.__anext__()
@@ -72,9 +72,9 @@ async def test_a_guest_stream_never_carries_the_status_snapshot():
 
 
 @pytest.mark.asyncio
-async def test_the_status_endpoint_is_for_the_owner(configured_secrets):
-    settings.auth.enabled = False
-    settings.public_access.enabled = False
+async def test_the_status_endpoint_is_for_the_owner(configured_secrets, monkeypatch):
+    monkeypatch.setattr(settings.auth, "enabled", False)
+    monkeypatch.setattr(settings.public_access, "enabled", False)
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
         response = await client.get("/api/status")
     assert response.status_code == 200, response.text
@@ -87,9 +87,9 @@ async def test_the_status_endpoint_is_for_the_owner(configured_secrets):
 
 
 @pytest.mark.asyncio
-async def test_a_guest_is_refused_the_status_endpoint():
-    settings.auth.enabled = True
-    settings.public_access.enabled = True
+async def test_a_guest_is_refused_the_status_endpoint(monkeypatch):
+    monkeypatch.setattr(settings.auth, "enabled", True)
+    monkeypatch.setattr(settings.public_access, "enabled", True)
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
         response = await client.get("/api/status")
     assert response.status_code == 403
