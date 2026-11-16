@@ -133,6 +133,7 @@
     "skipped_note": "{count, plural, one {# para más tarde. Sigue en la cola.} other {# para más tarde. Siguen en la cola.}}",
     "back": "Volver al panel",
     "threshold_note": "El modelo quedó por debajo del umbral de identificación.",
+    "unknown_note": "El modelo no pudo identificar esta ave, así que no hay especie que confirmar. Elija una abajo.",
     "search": "Buscar especie…",
     "no_matches": "Ninguna especie coincide. Prueba con menos letras.",
     "search_failed": "No se pudo buscar especies. Edita la búsqueda para intentarlo de nuevo.",

@@ -133,6 +133,7 @@
     "skipped_note": "{count, plural, other {# 项留待稍后，它们仍在队列中。}}",
     "back": "返回仪表板",
     "threshold_note": "模型的判定低于命名阈值。",
+    "unknown_note": "模型未能识别这只鸟，因此没有可确认的物种。请在下方选择一个。",
     "search": "搜索物种…",
     "no_matches": "没有匹配的物种，试试更少的字母。",
     "search_failed": "无法搜索物种。请修改搜索内容后重试。",

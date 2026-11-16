@@ -13,6 +13,10 @@ export type IdentificationStatus =
     | { kind: 'failed'; modelId: string | null; modelName: string | null; cause: 'missing_files' | 'runtime'; detail: string | null }
     /** Inside the app, installed but not loaded, with no error reported. */
     | { kind: 'unavailable'; modelId: string | null; modelName: string | null }
+    /** Inside the app and being loaded: during a reload the old model is gone before the new one is in. */
+    | { kind: 'loading'; modelId: string | null; modelName: string | null }
+    /** The report names a model and gives no evidence that it runs or is planned. */
+    | { kind: 'unknown'; modelId: string | null; modelName: string | null }
     /** Workers start on the first detection; until then the device is the plan, not a fact. */
     | { kind: 'planned'; modelId: string | null; modelName: string | null; device: string | null }
     | {
@@ -42,8 +46,12 @@ export function identificationStatus(status: ClassifierStatus | null | undefined
         }
         return { kind: 'unavailable', modelId, modelName };
     }
+    // Running and planned each need positive evidence. An in-app report that says nothing about
+    // `loaded` is a model being loaded, and no evidence at all is unknown: neither reads as running.
+    if (inApp && status.loaded !== true) return { kind: 'loading', modelId, modelName };
     const device = deviceName(status.active_provider);
     if (status.runtime_source === 'planned') return { kind: 'planned', modelId, modelName, device };
+    if (!inApp && status.runtime_source !== 'worker') return { kind: 'unknown', modelId, modelName };
     const fallback = status.worker_in_process_fallback?.active ? 'workers' : status.fallback_reason ? 'device' : null;
     const species = status.labels_count && status.labels_count > 0 ? status.labels_count : null;
     return { kind: 'running', modelId, modelName, device, species, fallback };

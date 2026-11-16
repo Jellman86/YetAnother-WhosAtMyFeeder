@@ -33,6 +33,7 @@
     import { roomFor } from '../actions/box-width';
     import LazyModal from '../components/LazyModal.svelte';
     import { loadSpeciesDetailModal } from '../components/lazy-dialogs';
+    import { rowFigureFor } from '../leaderboard/row-figure';
     import { defaultLeaderboardChartPreferences } from '../leaderboard/chart-defaults';
     import { buildLeaderboardAnalysisPromptConfig } from '../leaderboard/analysis-config';
     import {
@@ -2287,7 +2288,7 @@
 {#if selectedSpecies}
     <LazyModal loader={loadSpeciesDetailModal} onclose={() => (selectedSpecies = null)}>
         {#snippet children(SpeciesDetailModal)}
-            {#if selectedSpecies}<SpeciesDetailModal speciesName={selectedSpecies} onclose={() => (selectedSpecies = null)} />{/if}
+            {#if selectedSpecies}<SpeciesDetailModal speciesName={selectedSpecies} openedFrom={rowFigureFor(leaderboardRows, selectedSpecies, { countsAreVisits, span })} onclose={() => (selectedSpecies = null)} />{/if}
         {/snippet}
     </LazyModal>
 {/if}

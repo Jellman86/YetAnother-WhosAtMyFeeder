@@ -133,6 +133,7 @@
     "skipped_note": "{count, plural, one {# pour plus tard. Elle reste dans la file.} other {# pour plus tard. Elles restent dans la file.}}",
     "back": "Retour au tableau de bord",
     "threshold_note": "Le modèle est resté sous le seuil d'identification.",
+    "unknown_note": "Le modèle n’a pas pu nommer cet oiseau, il n’y a donc aucune espèce à confirmer. Choisissez-en une ci-dessous.",
     "search": "Rechercher une espèce…",
     "no_matches": "Aucune espèce ne correspond. Essayez moins de lettres.",
     "search_failed": "Impossible de rechercher les espèces. Modifiez la recherche pour réessayer.",

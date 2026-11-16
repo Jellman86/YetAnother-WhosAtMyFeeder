@@ -133,6 +133,7 @@
     "skipped_note": "{count, plural, one {# left for later. It stays in the queue.} other {# left for later. They stay in the queue.}}",
     "back": "Back to the dashboard",
     "threshold_note": "The model scored this below the naming threshold.",
+    "unknown_note": "The model could not name this bird, so there is no species to confirm. Pick one below.",
     "search": "Search species…",
     "no_matches": "No species matches that. Try fewer letters.",
     "search_failed": "Couldn't search species. Edit the search to try again.",

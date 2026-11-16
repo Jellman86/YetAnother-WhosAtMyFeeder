@@ -147,6 +147,24 @@ describe('counted strings', () => {
         expect(russian).toEqual(['1 визит', '3 визита', '5 визитов', '11 визитов', '21 визит', '24 визита', '25 визитов']);
     });
 
+    it('counts the groups, events and snapshots of a diagnostics bundle each with its own word', () => {
+        const one = { groups: 1, events: 1, snapshots: 1 };
+        const several = { groups: 2, events: 14, snapshots: 3 };
+        expect(format(en as LocaleRoot, 'jobs.error_bundles_stats', one)).toBe('1 group · 1 event · 1 snapshot');
+        expect(format(en as LocaleRoot, 'jobs.error_bundles_stats', several)).toBe('2 groups · 14 events · 3 snapshots');
+        expect(format(en as LocaleRoot, 'jobs.errors_summary', one)).toBe('1 group · 1 event · 1 health snapshot');
+        for (const [localeName, messages] of LOCALES) {
+            for (const key of ['jobs.error_bundles_stats', 'jobs.errors_summary']) {
+                const message = new Map(leaves(messages)).get(key) ?? '';
+                expect(plurals(message).map((use) => use.name), `${localeName} ${key}`).toEqual(['groups', 'events', 'snapshots']);
+                expect(message, `${localeName} ${key}`).not.toContain('•');
+            }
+        }
+        const errorsPage = Object.entries(sources).find(([path]) => path.endsWith('/pages/Errors.svelte'))?.[1] ?? '';
+        expect(errorsPage).toContain("$_('jobs.error_bundles_stats'");
+        expect(errorsPage).not.toMatch(/\} groups/);
+    });
+
     it('let the count choose the English word that follows it', () => {
         const fixed = leaves(en as LocaleRoot)
             .filter(([key, value]) => COUNT_BEFORE_WORD.test(value) && !COUNT_BEFORE_INVARIANT_WORD.has(key))

@@ -133,6 +133,7 @@
     "skipped_note": "{count, plural, one {# für später übrig. Sie bleibt in der Warteschlange.} other {# für später übrig. Sie bleiben in der Warteschlange.}}",
     "back": "Zurück zum Dashboard",
     "threshold_note": "Das Modell lag unter der Benennungsschwelle.",
+    "unknown_note": "Das Modell konnte diesen Vogel nicht bestimmen, daher gibt es keine Art zu bestätigen. Wählen Sie unten eine aus.",
     "search": "Art suchen…",
     "no_matches": "Keine Art passt dazu. Versuchen Sie weniger Buchstaben.",
     "search_failed": "Die Artensuche ist fehlgeschlagen. Ändern Sie die Suche, um es erneut zu versuchen.",

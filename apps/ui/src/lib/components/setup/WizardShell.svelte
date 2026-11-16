@@ -17,7 +17,6 @@
     import IntegrationsStep from './IntegrationsStep.svelte';
     import HistoryStep from './HistoryStep.svelte';
     import ReviewStep from './ReviewStep.svelte';
-    import SetupStepIcon from './SetupStepIcon.svelte';
 
     let step = $derived(setupWizardStore.current);
     let index = $derived(setupWizardStore.index);
@@ -79,14 +78,14 @@
 
 <svelte:window onkeydown={handleKeydown} />
 
-<div use:portal role="presentation" class="fixed inset-0 z-70 flex items-center justify-center overflow-y-auto bg-slate-950/60 p-4 backdrop-blur-xs">
+<div use:portal role="presentation" class="fixed inset-0 z-70 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-xs">
     <div
         bind:this={modalElement}
         role="dialog"
         aria-modal="true"
         aria-label={$_('nav.setup_wizard', { default: 'Setup wizard' })}
         tabindex="-1"
-        class="my-8 w-full max-w-2xl overflow-hidden rounded-2xl border border-white/10 bg-surface shadow-2xl ring-1 ring-black/5"
+        class="flex max-h-full w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-surface shadow-2xl ring-1 ring-black/5"
     >
         <!-- Header -->
         <div class="space-y-3 bg-surface-raised px-6 py-4">
@@ -156,17 +155,11 @@
 
         <!-- Body -->
         <!-- Not a live region: each step focuses its own heading, which is what is announced. -->
-        <div class="max-h-[70vh] overflow-y-auto p-6">
+        <!-- The card is as tall as the window allows and the step lays itself out inside it: its
+             content scrolls and its Back / Continue row stays in view (WizardStepLayout). -->
+        <div class="flex min-h-0 flex-1 flex-col">
             {#key step.id}
-                <div in:fade={{ duration: 180 }}>
-                    <!-- Setup opens under the app's own mark; each later step has an icon for what it sets up. -->
-                    <div class="mb-4">
-                        {#if step.id === 'welcome'}
-                            <BrandMark alt="" class="h-10 w-10 rounded-xl" width={40} height={40} sizes="40px" />
-                        {:else}
-                            <SetupStepIcon step={step.id} />
-                        {/if}
-                    </div>
+                <div class="flex min-h-0 flex-1 flex-col" in:fade={{ duration: 180 }}>
                     {#if step.id === 'welcome'}
                         <WelcomeStep />
                     {:else if step.id === 'account'}

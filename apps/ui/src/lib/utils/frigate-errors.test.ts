@@ -44,4 +44,19 @@ describe('frigate media error insights', () => {
         expect(insight.summary).toBe('Event not found in Frigate.');
         expect(insight.isFrigateRelated).toBe(true);
     });
+
+    it('does not report an event as missing when Frigate could not be asked', () => {
+        const detection = buildDetection({
+            has_clip: true,
+            has_snapshot: true,
+            has_frigate_event: false,
+            frigate_event_check: 'unreachable',
+            video_classification_error: null
+        });
+
+        expect(hasFrigateMediaIssue(detection)).toBe(false);
+        const insight = getVideoFailureInsight(detection, t);
+        expect(insight.summary).not.toContain('gone');
+        expect(insight.summary).not.toBe('Event not found in Frigate.');
+    });
 });
