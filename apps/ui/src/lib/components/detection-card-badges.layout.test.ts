@@ -10,39 +10,40 @@ import eventsPageSource from '../pages/Events.svelte?raw';
  * score sat alone in the opposite corner from the time, one notch larger, so a
  * card showed its two facts diagonally apart at two different weights.
  */
-describe('detection card overlay badges', () => {
-    it('keeps the time and the score together on one row', () => {
-        const bottomRow = detectionCardSource.match(/absolute bottom-3 left-3[\s\S]*?\n {12}<\/div>/);
-        expect(bottomRow, 'expected the bottom-left overlay row').not.toBeNull();
-        expect(bottomRow?.[0]).toContain('formatTime(detection.detection_time)');
-        expect(bottomRow?.[0]).toContain('detection.score * 100');
+describe('detection card readings', () => {
+    const readings = detectionCardSource.slice(detectionCardSource.indexOf('data-detection-card-readings'));
+
+    it('keeps the time and the score together on one line in the card body, off the photograph', () => {
+        // Round 4: chips over every photograph made the grid busy and covered the bird
+        // (layout-patterns §5: only the favourite star sits on the image).
+        expect(readings).toContain('formatTime(detection.detection_time)');
+        expect(readings).toContain('detection.score * 100');
+        expect(detectionCardSource).not.toMatch(/absolute bottom-3 left-3/);
+        expect(detectionCardSource).not.toContain('photo-chip');
+    });
+
+    it('leaves only the favourite star on the photograph', () => {
+        const photo = detectionCardSource.slice(detectionCardSource.indexOf('<!-- Image Section -->'), detectionCardSource.indexOf('<!-- Body -->'));
+        expect(photo).toContain('detection.is_favorite');
+        for (const mark of ['ownerConfirmation', 'isVerified', 'hasAudioConfirmed', 'manual_upload', 'upstreamMissing', 'canPlayVideo']) {
+            expect(photo, mark).not.toContain(`{#if ${mark}`);
+        }
+        expect(readings).toContain('{#if canPlayVideo}');
+        expect(readings).toContain('{#if upstreamMissing}');
     });
 
     it('no longer strands the score in the opposite corner', () => {
         expect(detectionCardSource).not.toMatch(/absolute top-3 right-3/);
     });
 
-    it('gives both chips the same type scale, from the constrained scale', () => {
-        // `text-[10px]` was an arbitrary value, which the visual standard rules
-        // out, and it made the two chips visibly different weights.
+    it('sets the readings on the constrained scale, each a 44px target with its explanation', () => {
         expect(detectionCardSource).not.toContain('text-[10px]');
-        // Both wear the kit's photo chip: an opaque enough fill that white text passes on a pale frame.
-        const chips = detectionCardSource.match(/class="[^"]*\bphoto-chip\b[^"]*"/g) ?? [];
-        expect(chips.length, 'expected the time and score chips').toBeGreaterThanOrEqual(2);
+        const chips = readings.match(/<BadgeHint text=[^>]*class="[^"]*"/g) ?? [];
+        expect(chips.length, 'expected the time and score readings').toBeGreaterThanOrEqual(2);
         for (const chip of chips) {
             expect(chip).toContain('text-xs');
             expect(chip).toContain('min-h-11');
         }
-    });
-
-    it('never wraps, because a second line lifts the readings off the bottom', () => {
-        // The row is anchored to the bottom of the photograph, so wrapping grows
-        // it upward. Measured in the real grid: at a 1024px viewport the row
-        // wrapped to three lines covering 76% of the picture, and at 1280px to
-        // two lines starting halfway down. The narrowest card is not a phone,
-        // where a card is full width, but the densest desktop grid.
-        expect(detectionCardSource).toMatch(/absolute bottom-3 left-3[^"]*flex-nowrap/);
-        expect(detectionCardSource).not.toMatch(/absolute bottom-3 left-3[^"]*flex-wrap/);
     });
 
     it('keeps a card wide enough for that one line, at every width', () => {

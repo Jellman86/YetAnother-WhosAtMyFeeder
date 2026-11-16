@@ -256,7 +256,11 @@
     "snapshot_subtitle": "Usando o melhor snapshot disponível",
     "finalizing": "Finalizando resultado",
     "finalizing_subtitle": "Aplicando a melhor correspondência",
-    "closing_soon": "Fechando em breve"
+    "closing_soon": "Fechando em breve",
+    "announce_started": "Analisando {species}",
+    "announce_finished": "Análise concluída para {species}",
+    "announce_started_count": "{count, plural, one {Analisando # visita} other {Analisando # visitas}}",
+    "announce_finished_count": "{count, plural, one {Análise concluída para # visita} other {Análise concluída para # visitas}}"
   },
   "reclassification": {
     "unchanged_reason_non_bird": "O modelo identificou algo que não é uma ave, por isso a identificação anterior foi mantida.",

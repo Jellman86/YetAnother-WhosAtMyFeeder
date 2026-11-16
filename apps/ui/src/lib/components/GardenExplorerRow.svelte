@@ -43,7 +43,7 @@
 </script>
 
 <div
-    class="group relative grid grid-cols-[4rem_2.75rem_minmax(0,1fr)_auto] items-center gap-3 px-3 {view.review ? 'bg-attention-500/5' : ''}"
+    class="group relative grid grid-cols-[4rem_2.75rem_minmax(0,1fr)_auto] items-center gap-3 px-3 {view.review ? 'bg-status-attention-soft' : ''}"
     data-garden-row={capture.status}
 >
     <!-- The whole row opens the record, where the photograph is shown at the size the decision needs. -->
@@ -55,8 +55,8 @@
     ></button>
 
     <div class="pointer-events-none relative z-10 py-2">
-        <time class="block font-display text-sm font-bold tabular-nums leading-tight text-slate-900 dark:text-white" datetime={capture.observed_at}>{formatTime(capture.observed_at)}</time>
-        {#if day}<span class="block text-3xs font-semibold text-slate-600 dark:text-slate-400">{day}</span>{/if}
+        <time class="block font-display text-sm font-bold tabular-nums leading-tight text-strong" datetime={capture.observed_at}>{formatTime(capture.observed_at)}</time>
+        {#if day}<span class="block text-3xs font-semibold text-muted">{day}</span>{/if}
     </div>
 
     <!-- A bird row's pop-out, above the row's open control as a bird row's is. -->
@@ -67,13 +67,13 @@
     <div class="pointer-events-none relative z-10 min-w-0 py-2">
         <!-- The name starts where a bird's does, so the column scans as one; the marker leads the line beneath. -->
         <div class="flex min-w-0 items-center gap-1.5">
-            <span class="truncate text-sm font-bold text-slate-900 dark:text-white">{text.title}</span>
+            <span class="truncate text-sm font-bold text-strong">{text.title}</span>
         </div>
-        <div class="flex min-w-0 items-center gap-2 overflow-hidden whitespace-nowrap text-2xs font-semibold text-slate-600 dark:text-slate-400">
+        <div class="flex min-w-0 items-center gap-2 overflow-hidden whitespace-nowrap text-2xs font-semibold text-muted">
             <GardenExplorerMarker compact />
             {#if detail.showState}
                 {#if view.review}
-                    <span class="inline-flex shrink-0 items-center gap-1.5 text-attention-800 dark:text-attention-300" data-attention-reason><span class="attention-dot" aria-hidden="true"></span>{text.state}</span>
+                    <span class="inline-flex shrink-0 items-center gap-1.5 text-status-attention" data-attention-reason><span class="attention-dot" aria-hidden="true"></span>{text.state}</span>
                 {:else}
                     <span class="shrink-0">{text.state}</span>
                 {/if}
@@ -91,7 +91,7 @@
                 type="button"
                 onclick={(event) => { event.stopPropagation(); onplay?.(capture, text.title); }}
                 aria-label={$_('detection.play_video', { values: { species: text.title } })}
-                class="inline-flex h-11 w-11 items-center justify-center rounded-full text-slate-500 dark:text-slate-400 transition-colors hover:bg-slate-100 hover:text-brand-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus dark:hover:bg-slate-800 dark:hover:text-brand-400"
+                class="inline-flex h-11 w-11 items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-raised hover:text-accent-ink focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus"
                 data-garden-row-play
             >
                 <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg>

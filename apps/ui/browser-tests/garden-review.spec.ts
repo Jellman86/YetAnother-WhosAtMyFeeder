@@ -866,3 +866,15 @@ test('a declared chicken from a bird event is named Chicken with the bird model 
     await expect(record(page).locator('[data-garden-domestic-route]')).toContainText('Gallus gallus');
     await expect(record(page).locator('[data-garden-domestic-route]')).toContainText('93%');
 });
+
+test('a Garden card opens its record from its time and score line too, while play stays its own control', async ({ page }) => {
+    await mockGarden(page, { items: requested => requested === 'pending' ? [{ ...row, status: 'pending' }] : [] });
+    await openReview(page, 'pending');
+    const card = page.locator('[data-garden-card]').first();
+    // The readings sit over the card's open control and let clicks through; only play takes its own.
+    // A click where a person sees the time, not on the element, which takes no pointer events.
+    const time = await card.locator('[data-garden-card-readings] time').boundingBox();
+    if (!time) throw new Error('the card shows no time');
+    await page.mouse.click(time.x + time.width / 2, time.y + time.height / 2);
+    await expect(record(page)).toBeVisible();
+});

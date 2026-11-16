@@ -3,6 +3,7 @@
     import { onDestroy } from 'svelte';
     import { fetchEbirdNotable, type EbirdNotableResult } from '../api';
     import { formatDateTime } from '../utils/datetime';
+    import StateBlock from './ui/StateBlock.svelte';
     import { groupNotableObservations } from '../utils/notable-grouping';
     import { getErrorMessage } from '../utils/error-handling';
     import { authStore } from '../stores/auth.svelte';
@@ -110,31 +111,29 @@
 >
     <header class="flex flex-wrap items-start justify-between gap-2">
         <div>
-            <h2 id="dashboard-notable-nearby-title" class="font-display text-xl font-bold text-slate-950 dark:text-white">
+            <h2 id="dashboard-notable-nearby-title" class="font-display text-xl font-bold text-strong">
                 {$_('dashboard.notable_nearby.title')}
             </h2>
-            <p class="text-sm text-slate-600 dark:text-slate-400">
+            <p class="text-sm text-muted">
                 {$_('dashboard.notable_nearby.subtitle')}
             </p>
         </div>
         {#if sourceEnabled}
-            <span class="shrink-0 rounded-full border border-line px-2.5 py-1 text-xs font-semibold tabular-nums text-slate-600 dark:text-slate-300">
+            <span class="shrink-0 rounded-full border border-line px-2.5 py-1 text-xs font-semibold tabular-nums text-muted">
                 {$_('dashboard.notable_nearby.scope', { values: { distance: radiusLabel, days: daysBack } })}
             </span>
         {/if}
     </header>
 
     {#if !sourceEnabled}
-        <div class="flex flex-col gap-3 rounded-xl border border-dashed border-slate-200 bg-slate-50/60 px-4 py-4 sm:flex-row sm:items-center sm:justify-between dark:border-slate-700 dark:bg-slate-900/25">
-            <p class="max-w-2xl text-sm text-slate-600 dark:text-slate-300">
-                {$_('dashboard.notable_nearby.unavailable')}
-            </p>
-            {#if canConfigure}
-                <button type="button" class="btn btn-secondary min-h-11 shrink-0 text-xs" onclick={() => onconfigure?.()}>
-                    {$_('dashboard.notable_nearby.configure')}
-                </button>
-            {/if}
-        </div>
+        <!-- One quiet line with its reason and the way to switch it on, not a second box in the panel. -->
+        <StateBlock
+            variant="inline"
+            state="off"
+            cause={$_('dashboard.notable_nearby.unavailable')}
+            action={canConfigure ? { label: $_('dashboard.notable_nearby.configure'), onclick: () => onconfigure?.() } : undefined}
+            data-notable-unavailable
+        />
     {:else if loading || !loaded}
         <div class="grid gap-2 sm:grid-cols-2" aria-label={$_('common.loading')}>
             {#each [1, 2] as item (item)}
@@ -142,21 +141,20 @@
             {/each}
         </div>
     {:else if error}
-        <div role="alert" class="flex flex-col gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-4 sm:flex-row sm:items-center sm:justify-between dark:border-rose-900/60 dark:bg-rose-950/20">
-            <p class="text-sm font-medium text-rose-800 dark:text-rose-300">{error}</p>
-            <button type="button" class="btn btn-secondary min-h-11 shrink-0 text-xs" onclick={() => void loadNotableNearby(radius, daysBack)}>
-                {$_('dashboard.notable_nearby.retry')}
-            </button>
-        </div>
+        <StateBlock
+            variant="inline"
+            state="failed"
+            cause={error}
+            action={{ label: $_('dashboard.notable_nearby.retry'), onclick: () => void loadNotableNearby(radius, daysBack) }}
+        />
     {:else if result && result.results.length === 0}
-        <div class="rounded-xl border border-dashed border-line px-4 py-5">
-            <p class="text-sm font-medium text-slate-700 dark:text-slate-300">
-                {$_('dashboard.notable_nearby.empty', { values: { distance: radiusLabel, days: daysBack } })}
-            </p>
-            <p class="mt-1 text-xs text-slate-600 dark:text-slate-400">
-                {$_('dashboard.notable_nearby.empty_hint')}
-            </p>
-        </div>
+        <StateBlock
+            variant="inline"
+            state="empty"
+            cause={$_('dashboard.notable_nearby.empty', { values: { distance: radiusLabel, days: daysBack } })}
+        >
+            <p class="text-xs text-muted">{$_('dashboard.notable_nearby.empty_hint')}</p>
+        </StateBlock>
     {:else if result}
         <!-- One sighting in a two-column grid leaves half a row empty, which
              reads as something that failed to load rather than as the answer.
@@ -185,26 +183,26 @@
                             class="h-12 w-12 shrink-0 rounded-lg object-cover"
                         />
                     {:else}
-                        <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-surface-raised text-slate-600 dark:text-slate-400" aria-hidden="true">
+                        <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-surface-raised text-muted" aria-hidden="true">
                             <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M5 19c5.5 0 10-4.5 10-10V5l4 4-4 4M5 5v14" />
                             </svg>
                         </span>
                     {/if}
                     <div class="min-w-0">
-                        <p class="flex min-w-0 items-center gap-2 text-base font-semibold text-slate-900 dark:text-white">
+                        <p class="flex min-w-0 items-center gap-2 text-base font-semibold text-strong">
                             <span class="truncate">{observation.common_name || observation.scientific_name || $_('common.unknown_species')}</span>
                             {#if group.reports > 1}
                                 <!-- Four people saw it is the news; one card says so instead of four saying nothing. -->
-                                <span class="shrink-0 rounded-full border border-line px-2 py-px text-xs font-semibold tabular-nums text-slate-600 dark:text-slate-300">
+                                <span class="shrink-0 rounded-full border border-line px-2 py-px text-xs font-semibold tabular-nums text-muted">
                                     {$_('dashboard.notable_nearby.reports', { values: { count: group.reports }, default: '{count, plural, one {# report} other {# reports}}' })}
                                 </span>
                             {/if}
                         </p>
                         {#if observation.common_name && observation.scientific_name}
-                            <p class="truncate text-xs italic text-slate-600 dark:text-slate-400">{observation.scientific_name}</p>
+                            <p class="truncate text-xs italic text-muted">{observation.scientific_name}</p>
                         {/if}
-                        <p class="truncate text-xs text-slate-600 dark:text-slate-400">
+                        <p class="truncate text-xs text-muted">
                             {group.locations.length > 1
                                 ? $_('dashboard.notable_nearby.places', { values: { count: group.locations.length }, default: '{count, plural, one {# place} other {# places}}' })
                                 : observation.location_name || '—'} · {observation.observed_at ? formatDateTime(observation.observed_at) : '—'}

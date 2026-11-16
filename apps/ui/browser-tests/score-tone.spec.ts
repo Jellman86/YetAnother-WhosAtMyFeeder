@@ -8,14 +8,16 @@ import { test, expect, type Locator, type Page } from '@playwright/test';
 type Theme = 'classic' | 'bluetit';
 type Mode = 'light' | 'dark';
 
-const AMBER_500 = 'rgb(245, 158, 11)';
-const SUCCESS_500 = 'rgb(16, 185, 129)';
-const BRAND_500: Record<Theme, string> = { classic: 'rgb(20, 184, 166)', bluetit: 'rgb(59, 130, 246)' };
+// A score's dot and bar are its status tone's edge colour (app.css, `--status-*-line`): 3:1 on
+// every ground, the same colour in the card, the list and the record.
+const ATTENTION_LINE = 'rgb(180, 83, 9)';
+const OK_LINE = 'rgb(5, 150, 105)';
+const INFO_LINE: Record<Theme, string> = { classic: 'rgb(13, 148, 136)', bluetit: 'rgb(37, 99, 235)' };
 
 // layout-patterns §6: under 60 amber, under 85 brand, else green.
 const FILL: Record<Theme, Record<string, string>> = {
-    classic: { '0.55': AMBER_500, '0.62': BRAND_500.classic, '0.81': BRAND_500.classic, '0.94': SUCCESS_500 },
-    bluetit: { '0.55': AMBER_500, '0.62': BRAND_500.bluetit, '0.81': BRAND_500.bluetit, '0.94': SUCCESS_500 }
+    classic: { '0.55': ATTENTION_LINE, '0.62': INFO_LINE.classic, '0.81': INFO_LINE.classic, '0.94': OK_LINE },
+    bluetit: { '0.55': ATTENTION_LINE, '0.62': INFO_LINE.bluetit, '0.81': INFO_LINE.bluetit, '0.94': OK_LINE }
 };
 const TEXT: Record<Mode, Record<Theme, Record<string, string>>> = {
     light: {
@@ -23,8 +25,8 @@ const TEXT: Record<Mode, Record<Theme, Record<string, string>>> = {
         bluetit: { '0.55': 'rgb(146, 64, 14)', '0.62': 'rgb(29, 78, 216)', '0.81': 'rgb(29, 78, 216)', '0.94': 'rgb(4, 120, 87)' }
     },
     dark: {
-        classic: { '0.55': 'rgb(252, 211, 77)', '0.62': 'rgb(94, 234, 212)', '0.81': 'rgb(94, 234, 212)', '0.94': 'rgb(110, 231, 183)' },
-        bluetit: { '0.55': 'rgb(252, 211, 77)', '0.62': 'rgb(147, 197, 253)', '0.81': 'rgb(147, 197, 253)', '0.94': 'rgb(110, 231, 183)' }
+        classic: { '0.55': 'rgb(253, 230, 138)', '0.62': 'rgb(94, 234, 212)', '0.81': 'rgb(94, 234, 212)', '0.94': 'rgb(110, 231, 183)' },
+        bluetit: { '0.55': 'rgb(253, 230, 138)', '0.62': 'rgb(147, 197, 253)', '0.81': 'rgb(147, 197, 253)', '0.94': 'rgb(110, 231, 183)' }
     }
 };
 const SCORES = ['0.55', '0.62', '0.81', '0.94'];
@@ -126,8 +128,8 @@ for (const theme of ['classic', 'bluetit'] as const) {
         await useTheme(page, theme, 'light');
         const bar = page.locator('[data-record-score-bar]');
         await expect(bar).toBeVisible();
-        expect(await css(bar, 'background-color')).toBe(SUCCESS_500);
-        expect(await css(page.locator('[data-surface="card"][data-score="0.94"] [data-detection-score]'), 'background-color')).toBe(SUCCESS_500);
+        expect(await css(bar, 'background-color')).toBe(OK_LINE);
+        expect(await css(page.locator('[data-surface="card"][data-score="0.94"] [data-detection-score]'), 'background-color')).toBe(OK_LINE);
         expect(errors).toEqual([]);
     });
 

@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { measureMeters } from './meter-contrast';
 
 // Set UI_SHOTS to a directory to keep review screenshots of the scan progress.
 const environment = (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env ?? {};
@@ -233,4 +234,46 @@ test('a complete confirmed count and an earlier unconfirmed count read different
     await expect(page.locator('[data-bird-scan-regions]')).toHaveCount(0);
     await page.getByRole('button', { name: 'Next photograph' }).click();
     await expect(page.getByText('Scan complete. Birds found in this frame: 3.')).toBeVisible();
+});
+
+test('the scan progress reads at 3:1 against its track in every theme and mode, live step included', async ({ page }) => {
+    const steps = [
+        response('scene-1', 'queued', { queue_ahead: 0 }),
+        response('scene-1', 'running', { started_at: new Date(Date.now() - 4000).toISOString(), stage: 'detecting' }),
+        response('scene-1', 'running', { started_at: new Date(Date.now() - 6000).toISOString(), stage: 'naming', stage_done: 2, stage_total: 5 })
+    ];
+    let started = false;
+    let position = 0;
+    await page.route('**/api/frigate/fixture-event/birds/scan**', async route => {
+        if (route.request().method() === 'POST') {
+            started = true;
+            return route.fulfill({ status: 202, json: steps[0] });
+        }
+        if (!started) return route.fulfill({ json: response('scene-1', 'not_scanned') });
+        return route.fulfill({ json: steps[position] });
+    });
+    await page.goto('/browser-tests/bird-scan.html');
+    await page.getByRole('button', { name: 'Find more birds' }).click();
+
+    // The app sets these classes on <html> for each theme and mode; the fixture page is set by hand.
+    const combinations: Record<string, string[]> = {
+        'classic light': [], 'classic dark': ['dark'], 'bluetit light': ['theme-bluetit'], 'bluetit dark': ['theme-bluetit', 'dark'],
+        'high contrast over classic': ['high-contrast', 'dark'], 'high contrast over bluetit': ['theme-bluetit', 'high-contrast', 'dark']
+    };
+    for (const [stage, text, kind] of [
+        [1, 'Looking for birds across the whole frame.', 'indicator'],
+        [2, 'Naming each bird found: 2 of 5.', 'fill']
+    ] as const) {
+        position = stage;
+        await expect(page.getByText(text)).toBeVisible();
+        for (const [name, classes] of Object.entries(combinations)) {
+            await page.evaluate((list) => {
+                document.documentElement.classList.remove('dark', 'theme-bluetit', 'high-contrast');
+                document.documentElement.classList.add(...list);
+            }, classes);
+            const measured = await measureMeters(page);
+            expect(measured.meters, `${kind} measured in ${name}`).toBeGreaterThan(0);
+            expect(measured.failures, `${kind} in ${name}`).toEqual([]);
+        }
+    }
 });

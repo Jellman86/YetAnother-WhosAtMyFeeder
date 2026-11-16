@@ -123,7 +123,7 @@
 
 {#if hasCaptureTimeline(visit)}
     <div
-        class="min-w-0 {inline ? '' : 'border-t border-slate-200/80 dark:border-slate-700/60'}"
+        class="min-w-0 {inline ? '' : 'border-t border-line'}"
         data-visit-captures={visit.visit_id}
         data-visit-captures-open={open ? '' : undefined}
     >
@@ -133,23 +133,23 @@
                 bind:this={trigger}
                 popovertarget={floating ? panelId : undefined}
                 class={inline
-                    ? '-ml-2 inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus dark:text-slate-300 dark:hover:bg-slate-800/60 dark:hover:text-white'
-                    : 'flex min-h-11 w-full items-center gap-2 px-4 py-2 text-left text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus dark:text-slate-300 dark:hover:bg-slate-800/50'}
+                    ? '-ml-2 inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-xs font-semibold text-muted transition-colors hover:bg-surface-raised hover:text-strong focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus'
+                    : 'flex min-h-11 w-full items-center gap-2 px-4 py-2 text-left text-xs font-semibold text-muted transition-colors hover:bg-surface-raised focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus'}
                 aria-expanded={open}
                 aria-controls={panelId}
                 onclick={() => { if (!floating) open = !open; }}
                 data-visit-captures-toggle
             >
-                <svg class="h-3.5 w-3.5 shrink-0 text-slate-500 dark:text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                <svg class="h-3.5 w-3.5 shrink-0 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
                     <rect x="3" y="7" width="13" height="13" rx="2" />
                     <path stroke-linecap="round" stroke-linejoin="round" d="M8 4h11a2 2 0 0 1 2 2v11" />
                 </svg>
                 <span class="min-w-0 {inline ? '' : 'flex-1'}">
                     <span>{$_('visits.captures', { values: { count: visit.capture_count }, default: '{count} captures' })}</span>
                     {#if !inline}
-                        <span class="font-normal tabular-nums text-slate-600 dark:text-slate-400">&middot; {span}</span>
+                        <span class="font-normal tabular-nums text-muted">&middot; {span}</span>
                         {#if peak !== null && peak >= 2}
-                            <span class="block font-medium text-slate-600 dark:text-slate-400">
+                            <span class="block font-medium text-muted">
                                 {$_('visits.peak_birds', { values: { count: peak }, default: '{count, plural, one {# bird in one capture} other {# birds in one capture}}' })}
                             </span>
                         {/if}
@@ -173,21 +173,21 @@
             aria-label={floating ? $_('visits.captures', { values: { count: visit.capture_count }, default: '{count} captures' }) : undefined}
             aria-busy={loading}
             style={floating ? position : undefined}
-            class={floating ? 'fixed inset-auto m-0 overflow-y-auto overscroll-contain rounded-2xl border border-slate-200 bg-white pb-2 text-slate-900 shadow-xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100' : inline ? 'pb-1' : 'pb-2'}
+            class={floating ? 'fixed inset-auto m-0 overflow-y-auto overscroll-contain rounded-2xl border border-line bg-surface pb-2 text-strong shadow-xl' : inline ? 'pb-1' : 'pb-2'}
             data-visit-captures-floating={floating ? '' : undefined}
         >
             {#if floating}
-                <div class="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-1 dark:border-slate-700 dark:bg-slate-900">
-                    <p class="text-sm font-semibold">{$_('visits.captures', { values: { count: visit.capture_count }, default: '{count} captures' })}<span class="ml-2 text-xs font-normal tabular-nums text-slate-600 dark:text-slate-400">{span}</span></p>
+                <div class="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-line bg-surface px-4 py-1">
+                    <p class="text-sm font-semibold">{$_('visits.captures', { values: { count: visit.capture_count }, default: '{count} captures' })}<span class="ml-2 text-xs font-normal tabular-nums text-muted">{span}</span></p>
                     <button type="button" class="btn btn-ghost min-h-11 min-w-11 px-2" popovertarget={panelId} popovertargetaction="hide">{$_('common.close', { default: 'Close' })}</button>
                 </div>
             {/if}
-            <p class="py-1 text-2xs text-slate-600 dark:text-slate-400 {inline ? '' : 'px-4'}">
+            <p class="py-1 text-2xs text-muted {inline ? '' : 'px-4'}">
                 {$_('visits.capture_actions', { default: 'Open a capture to review its identification or play its clip.' })}
             </p>
 
             {#if captures.length > 0}
-                <ol class={inline ? '' : 'border-y border-slate-200/70 dark:border-slate-700/50'}>
+                <ol class={inline ? '' : 'border-y border-line'}>
                     {#each captures as capture (capture.frigate_event)}
                         {@const naming = names(capture)}
                         {@const time = captureTime(capture)}
@@ -197,13 +197,13 @@
                         <li
                             class="relative grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2 {inline
                                 ? 'sm:grid-cols-[0.75rem_auto_minmax(0,1fr)_auto] sm:gap-x-2.5'
-                                : 'border-b border-slate-200/70 px-3 last:border-b-0 dark:border-slate-700/50'}"
+                                : 'border-b border-line px-3 last:border-b-0'}"
                             data-visit-capture={capture.frigate_event}
                         >
                             <!-- The whole line opens the exact capture, so a thumb lands anywhere along it. -->
                             <button
                                 type="button"
-                                class="absolute inset-0 z-0 rounded-lg transition-colors hover:bg-slate-100/70 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus dark:hover:bg-slate-800/50"
+                                class="absolute inset-0 z-0 rounded-lg transition-colors hover:bg-surface-raised focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus"
                                 aria-label={$_('visits.open_capture_at', {
                                     values: { species: naming.primary, time },
                                     default: 'Open {species} capture at {time}'
@@ -215,10 +215,10 @@
                                 <!-- A branch of the log's thread: one tick per capture, the visit photo in brand.
                                      Phones drop it, because the time needs that width more. -->
                                 <span class="pointer-events-none relative hidden h-full justify-center sm:flex" aria-hidden="true">
-                                    <span class="absolute inset-y-0 w-px bg-slate-200 dark:bg-slate-700/70"></span>
+                                    <span class="absolute inset-y-0 w-px bg-line"></span>
                                     <span class="relative my-auto h-1.5 w-1.5 rounded-full {facts.shown
-                                        ? 'bg-brand-500'
-                                        : 'bg-slate-300 dark:bg-slate-600'}"></span>
+                                        ? 'bg-status-info-line'
+                                        : 'bg-line'}"></span>
                                 </span>
                             {/if}
 
@@ -232,16 +232,16 @@
                             </div>
 
                             <div class="pointer-events-none relative z-10 min-w-0 py-1">
-                                <p class="wrap-break-word text-sm font-semibold leading-5 text-slate-800 dark:text-slate-100">{naming.primary}</p>
-                                {#if naming.secondary}<p class="wrap-break-word text-xs italic text-slate-600 dark:text-slate-400">{naming.secondary}</p>{/if}
-                                <time class="block text-xs font-semibold tabular-nums wrap-anywhere text-slate-800 dark:text-slate-100" datetime={capture.detection_time}>
+                                <p class="wrap-break-word text-sm font-semibold leading-5 text-strong">{naming.primary}</p>
+                                {#if naming.secondary}<p class="wrap-break-word text-xs italic text-muted">{naming.secondary}</p>{/if}
+                                <time class="block text-xs font-semibold tabular-nums wrap-anywhere text-strong" datetime={capture.detection_time}>
                                     {time}
                                 </time>
                                 {#if captureNotes.length > 0}
-                                    <p class="flex flex-wrap items-baseline gap-x-1.5 text-2xs leading-4 text-slate-600 dark:text-slate-400">
+                                    <p class="flex flex-wrap items-baseline gap-x-1.5 text-2xs leading-4 text-muted">
                                         {#each captureNotes as note, index (note.text)}
                                             {#if index > 0}<Separator />{/if}
-                                            <span class={note.emphasis ? 'font-medium text-brand-700 dark:text-brand-300' : ''}>{note.text}</span>
+                                            <span class={note.emphasis ? 'font-medium text-accent-ink' : ''}>{note.text}</span>
                                         {/each}
                                     </p>
                                 {/if}
@@ -251,7 +251,7 @@
                                 {#if onplay && capture.has_clip}
                                     <button
                                         type="button"
-                                        class="inline-flex h-11 w-11 items-center justify-center rounded-full text-slate-500 dark:text-slate-400 transition-colors hover:bg-slate-100 hover:text-brand-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus dark:hover:bg-slate-800 dark:hover:text-brand-400"
+                                        class="inline-flex h-11 w-11 items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-raised hover:text-accent-ink focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus"
                                         aria-label={$_('detection.play_video', { values: { species: `${naming.primary}, ${time}` } })}
                                         onclick={() => selectCapture(capture, true)}
                                     >
@@ -270,23 +270,23 @@
             {:else if loading}
                 <div class="space-y-1 {inline ? '' : 'px-3'}" aria-hidden="true">
                     {#each [0, 1] as placeholder (placeholder)}
-                        <div class="h-11 animate-pulse rounded-lg bg-slate-100 motion-reduce:animate-none dark:bg-slate-800/60"></div>
+                        <div class="h-11 animate-pulse rounded-lg bg-surface-raised motion-reduce:animate-none"></div>
                     {/each}
                 </div>
             {:else if loaded && !error}
-                <p class="py-2 text-xs text-slate-600 dark:text-slate-400 {inline ? '' : 'px-4'}">
+                <p class="py-2 text-xs text-muted {inline ? '' : 'px-4'}">
                     {$_('visits.captures_empty', { default: 'No captures from this visit are visible in this view.' })}
                 </p>
             {/if}
 
             {#if loading}
-                <p role="status" class="py-2 text-xs text-slate-600 dark:text-slate-400 {inline ? '' : 'px-4'} {captures.length === 0 ? 'sr-only' : ''}">
+                <p role="status" class="py-2 text-xs text-muted {inline ? '' : 'px-4'} {captures.length === 0 ? 'sr-only' : ''}">
                     {$_('common.loading')}
                 </p>
             {/if}
             {#if error}
                 <div class="flex flex-wrap items-center gap-x-3 gap-y-1 py-2 {inline ? '' : 'px-4'}" role="alert">
-                    <p class="text-xs text-slate-600 dark:text-slate-300">{$_('visits.load_failed', { default: 'Could not load the captures. Try again.' })}</p>
+                    <p class="text-xs text-muted">{$_('visits.load_failed', { default: 'Could not load the captures. Try again.' })}</p>
                     <button type="button" class="btn btn-secondary min-h-11 px-3 text-xs" onclick={() => void list.load()}>{$_('common.retry', { default: 'Retry' })}</button>
                 </div>
             {:else if captures.length > 0 && captures.length < total && !loading}
@@ -294,7 +294,7 @@
                     <button type="button" class="btn btn-secondary min-h-11 px-3 text-xs" onclick={() => void list.load()}>
                         {$_('visits.load_more', { default: 'Load more captures' })}
                     </button>
-                    <p class="text-2xs tabular-nums text-slate-600 dark:text-slate-400">
+                    <p class="text-2xs tabular-nums text-muted">
                         {$_('visits.loaded_of_total', { values: { shown: captures.length, total }, default: '{shown} of {total} captures shown' })}
                     </p>
                 </div>
@@ -304,7 +304,7 @@
 {:else if aside}
     {@render aside()}
 {:else if !inline && peak !== null && peak >= 2}
-    <p class="border-t border-slate-200/80 px-4 py-3 text-xs font-medium text-slate-600 dark:border-slate-700/60 dark:text-slate-400" data-visit-captures-peak>
+    <p class="border-t border-line px-4 py-3 text-xs font-medium text-muted" data-visit-captures-peak>
         {$_('visits.peak_birds', { values: { count: peak }, default: '{count, plural, one {# bird in one capture} other {# birds in one capture}}' })}
     </p>
 {/if}

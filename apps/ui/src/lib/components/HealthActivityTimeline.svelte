@@ -143,7 +143,7 @@
                         </div>
                         <span class="hidden flex-col items-end gap-1 sm:flex">
                             <span class="text-xs font-bold tabular-nums {SCORE_TEXT[scoreBand(score)]}">{Math.round(score * 100)}%</span>
-                            <span class="h-[3px] w-16 overflow-hidden rounded-full bg-line">
+                            <span class="h-[3px] w-16 overflow-hidden rounded-full bg-track">
                                 <span class="block h-full rounded-full {SCORE_FILL[scoreBand(score)]}" style="width: {Math.round(score * 100)}%"></span>
                             </span>
                         </span>
@@ -213,7 +213,7 @@
                         <span class="hidden flex-col items-end gap-1 sm:flex">
                             {#if drop.score !== null}
                                 <span class="text-xs font-bold tabular-nums text-muted">{Math.round(drop.score * 100)}%</span>
-                                <span class="h-[3px] w-16 overflow-hidden rounded-full bg-line">
+                                <span class="h-[3px] w-16 overflow-hidden rounded-full bg-track">
                                     <span class="block h-full rounded-full bg-status-neutral-line" style="width: {Math.round(drop.score * 100)}%"></span>
                                 </span>
                             {/if}

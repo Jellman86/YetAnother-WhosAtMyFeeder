@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import detectionRowSource from './DetectionRow.svelte?raw';
 import previewSource from './DetectionPreview.svelte?raw';
 import eventsPageSource from '../pages/Events.svelte?raw';
+import segmentedSource from './ui/Segmented.svelte?raw';
 import appearanceSource from './settings/AppearanceSettings.svelte?raw';
 import storeSource from '../stores/explorer_view.svelte.ts?raw';
 import authStoreSource from '../stores/auth.svelte.ts?raw';
@@ -25,7 +26,7 @@ describe('the Explorer list row', () => {
         // Never colour alone: a faint wash, a dot beside the reason and the reason in words. The
         // amber is attention-*, because "amber is reserved for 'this needs a person'"
         // (layout-patterns §1.3) and the theme accent is emerald in the classic theme.
-        expect(detectionRowSource).toContain('bg-attention-500/5');
+        expect(detectionRowSource).toContain('bg-status-attention-soft');
         expect(detectionRowSource).toContain('attention-dot');
         expect(detectionRowSource).toContain('events.row_below_threshold');
     });
@@ -54,8 +55,8 @@ describe('the Explorer list row', () => {
     it('lets the camera name give way before a status word does', () => {
         // On a narrow row something has to go. The status words are why a row
         // is worth reading; the camera is the least of it.
-        expect(detectionRowSource).toMatch(/shrink-0 text-attention-800/);
-        expect(detectionRowSource).toMatch(/shrink-0 text-brand-700/);
+        expect(detectionRowSource).toMatch(/shrink-0 text-status-attention/);
+        expect(detectionRowSource).toMatch(/shrink-0 text-accent-ink/);
         expect(detectionRowSource).toContain('min-w-0 truncate">{detection.camera_name}');
     });
 
@@ -114,12 +115,12 @@ describe('choosing the Explorer layout', () => {
         // when you decide the cards are too big to scroll. It lives in the
         // header toolbar beside Multi-select, in the same control style.
         expect(eventsPageSource).toContain('data-explorer-view-toggle');
-        expect(eventsPageSource).toContain('aria-pressed={explorerView === option.value}');
+        // The shared choose-one control, which says the chosen view with aria-pressed and a check.
+        expect(eventsPageSource).toContain('optionAttribute="data-explorer-view-toggle"');
+        expect(eventsPageSource).toMatch(/<Segmented\s+value=\{explorerView\}/);
         expect(eventsPageSource).toContain('explorerViewStore.set(');
-        // The segments stretch to the control's full height: `items-center`
-        // on the container left the active pill collapsed to text height,
-        // since a child's h-full has nothing to measure against a min-h parent.
-        expect(eventsPageSource).toContain('min-h-11 items-stretch');
+        // Each segment is a 44px target of its own, so the chosen one is never collapsed to text height.
+        expect(segmentedSource).toContain('focus-ring flex min-h-11');
     });
 
     it('is offered in appearance settings beside the other display choices', () => {

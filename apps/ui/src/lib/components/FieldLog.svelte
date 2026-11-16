@@ -88,10 +88,10 @@
     {#if showHeader}
     <header class="flex flex-wrap items-end justify-between gap-x-3">
         <div class="min-w-0">
-            <h2 class="font-display text-2xl font-bold text-slate-950 dark:text-white">
+            <h2 class="font-display text-2xl font-bold text-strong">
                 {$_('dashboard.field_log.title', { default: 'Field log' })}
             </h2>
-            <p class="hidden text-sm text-slate-600 log-wide:block dark:text-slate-400">
+            <p class="hidden text-sm text-muted log-wide:block">
                 {$_('dashboard.field_log.subtitle', {
                     default: 'Repeat frames of the same bird are folded into one visit'
                 })}
@@ -99,7 +99,7 @@
         </div>
         <button
             onclick={() => onseeall?.()}
-            class="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl px-2 py-2 text-sm font-semibold text-brand-700 transition-colors hover:bg-brand-50 focus-ring log-wide:px-3 dark:text-brand-300 dark:hover:bg-brand-950/40"
+            class="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl px-2 py-2 text-sm font-semibold text-accent-ink transition-colors hover:bg-accent-soft focus-ring log-wide:px-3"
         >
             {$_('dashboard.see_full_history')}
             <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
@@ -115,25 +115,25 @@
         <ol class="space-y-0.5" aria-busy="true" data-field-log-loading>
             {#each placeholders as { index, nameWidth } (index)}
                 <li
-                    class="{grid} items-center gap-y-1 rounded-xl border-b border-slate-200/60 px-2 py-2 last:border-b-0 log-wide:py-2.5 dark:border-slate-700/40"
+                    class="{grid} items-center gap-y-1 rounded-xl border-b border-line px-2 py-2 last:border-b-0 log-wide:py-2.5"
                     aria-hidden="true"
                     data-field-log-placeholder
                 >
-                    <span class="h-3 w-10 rounded-sm bg-slate-200/80 animate-pulse motion-reduce:animate-none dark:bg-slate-700/60 {cell.time}" data-loading-placeholder></span>
+                    <span class="h-3 w-10 rounded-sm bg-line animate-pulse motion-reduce:animate-none {cell.time}" data-loading-placeholder></span>
                     <span class="relative flex h-full justify-center {cell.node}">
-                        <span class="absolute inset-y-[-0.7rem] w-px bg-slate-200 dark:bg-slate-700/70"></span>
-                        <span class="relative my-auto h-2 w-2 rounded-full bg-slate-300 ring-2 ring-white dark:bg-slate-600 dark:ring-slate-900"></span>
+                        <span class="absolute inset-y-[-0.7rem] w-px bg-line"></span>
+                        <span class="relative my-auto h-2 w-2 rounded-full bg-line ring-2 ring-surface"></span>
                     </span>
                     <span class="grid min-h-11 min-w-11 place-items-center {cell.photo}">
-                        <span class="h-9 w-9 rounded-lg bg-slate-200/80 animate-pulse motion-reduce:animate-none dark:bg-slate-700/60" data-loading-placeholder></span>
+                        <span class="h-9 w-9 rounded-lg bg-line animate-pulse motion-reduce:animate-none" data-loading-placeholder></span>
                     </span>
                     <span class="min-w-0 space-y-1.5 {cell.body}">
-                        <span class="block h-3.5 max-w-full rounded-sm bg-slate-200/80 animate-pulse motion-reduce:animate-none dark:bg-slate-700/60 {nameWidth}" data-loading-placeholder></span>
-                        <span class="block h-2.5 w-20 max-w-full rounded-sm bg-slate-200/60 animate-pulse motion-reduce:animate-none dark:bg-slate-700/40" data-loading-placeholder></span>
+                        <span class="block h-3.5 max-w-full rounded-sm bg-line animate-pulse motion-reduce:animate-none {nameWidth}" data-loading-placeholder></span>
+                        <span class="block h-2.5 w-20 max-w-full rounded-sm bg-line animate-pulse motion-reduce:animate-none" data-loading-placeholder></span>
                     </span>
                     <span class="hidden flex-col items-end gap-1 log-wide:flex {cell.score}">
-                        <span class="h-3 w-8 rounded-sm bg-slate-200/80 animate-pulse motion-reduce:animate-none dark:bg-slate-700/60" data-loading-placeholder></span>
-                        <span class="h-[3px] w-16 rounded-full bg-slate-200 dark:bg-slate-700"></span>
+                        <span class="h-3 w-8 rounded-sm bg-line animate-pulse motion-reduce:animate-none" data-loading-placeholder></span>
+                        <span class="h-[3px] w-16 rounded-full bg-line"></span>
                     </span>
                     <span class="flex justify-end {cell.action}">
                         <span class="h-11 w-11 rounded-xl log-wide:w-14"></span>
@@ -142,8 +142,8 @@
             {/each}
         </ol>
     {:else if unavailable && renderRows.length === 0}
-        <div class="flex flex-col items-center justify-center gap-3 border-y border-dashed border-slate-200 py-10 text-center dark:border-slate-700/50" data-field-log-unavailable>
-            <p class="max-w-sm text-sm font-medium text-slate-600 dark:text-slate-300">
+        <div class="flex flex-col items-center justify-center gap-3 border-y border-dashed border-line py-10 text-center" data-field-log-unavailable>
+            <p class="max-w-sm text-sm font-medium text-muted">
                 {$_('dashboard.field_log.unavailable', {
                     default: 'Visits could not be loaded. The dashboard tries again every minute.'
                 })}
@@ -155,13 +155,13 @@
             {/if}
         </div>
     {:else if renderRows.length === 0}
-        <div class="flex flex-col items-center justify-center border-y border-dashed border-slate-200 py-12 text-center dark:border-slate-700/50">
-            <div class="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 text-slate-500 dark:bg-slate-800/50 dark:text-slate-400">
+        <div class="flex flex-col items-center justify-center border-y border-dashed border-line py-12 text-center">
+            <div class="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-surface-raised text-muted">
                 <svg class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M20.24 4.24a6 6 0 0 0-8.49 0L5 11v9h9l6.24-6.24a6 6 0 0 0 0-8.49ZM16 8 2 22M17.5 15H9" />
                 </svg>
             </div>
-            <p class="font-medium text-slate-600 dark:text-slate-400">
+            <p class="font-medium text-muted">
                 {emptyMessage ?? $_('dashboard.waiting_first_visitor', { default: 'No visits in the last 24 hours. New visits appear here as they arrive.' })}
             </p>
         </div>
@@ -171,28 +171,28 @@
                 {#if row.kind === 'filtered'}
                     {@const drop = row.drop}
                     <li
-                        class="{grid} items-center gap-y-1 rounded-xl border-b border-slate-200/60 px-2 py-2 last:border-b-0 log-wide:py-2.5 dark:border-slate-700/40"
+                        class="{grid} items-center gap-y-1 rounded-xl border-b border-line px-2 py-2 last:border-b-0 log-wide:py-2.5"
                         data-field-log-row
                         data-row-kind="filtered"
                         data-needs-review="false"
                     >
-                        <span class="text-xs tabular-nums text-slate-600 dark:text-slate-400 {cell.time}">
+                        <span class="text-xs tabular-nums text-muted {cell.time}">
                             {drop.timestamp ? formatTime(drop.timestamp) : ''}
                         </span>
 
                         <span class="relative flex h-full justify-center {cell.node}" aria-hidden="true">
                             <!-- The spine runs behind the nodes so the day reads as one thread. -->
-                            <span class="absolute inset-y-[-0.7rem] w-px bg-slate-200 dark:bg-slate-700/70"></span>
-                            <span class="relative my-auto h-1.5 w-1.5 shrink-0 rounded-full bg-slate-400 ring-2 ring-white dark:bg-slate-500 dark:ring-slate-900"></span>
+                            <span class="absolute inset-y-[-0.7rem] w-px bg-line"></span>
+                            <span class="relative my-auto h-1.5 w-1.5 shrink-0 rounded-full bg-status-neutral-line ring-2 ring-surface"></span>
                         </span>
 
                         <span class="flex {cell.photo}"><FilteredFramePreview eventId={drop.eventId} label={drop.label} /></span>
 
                         <div class="min-w-0 {cell.body}">
-                            <p class="truncate text-sm font-semibold italic text-slate-700 dark:text-slate-200">
+                            <p class="truncate text-sm font-semibold italic text-ink">
                                 {drop.label ?? $_('common.unknown_species', { default: 'Unknown species' })}
                             </p>
-                            <p class="truncate text-2xs font-medium text-slate-600 dark:text-slate-400">
+                            <p class="truncate text-2xs font-medium text-muted">
                                 {$_(`jobs.errors_drop_reason_row.${drop.reason}`, {
                                     default: $_('jobs.errors_drop_reason_row.filter_low_confidence', {
                                         default: 'Not recorded, below your naming threshold'
@@ -202,12 +202,12 @@
                         </div>
 
                         <span class="hidden flex-col items-end gap-1 log-wide:flex">
-                            <span class="text-xs font-bold tabular-nums text-slate-600 dark:text-slate-400">
+                            <span class="text-xs font-bold tabular-nums text-muted">
                                 {quietScore(drop.score)}
                             </span>
-                            <span class="h-[3px] w-16 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+                            <span class="h-[3px] w-16 overflow-hidden rounded-full bg-track">
                                 <span
-                                    class="block h-full rounded-full bg-slate-400 dark:bg-slate-500"
+                                    class="block h-full rounded-full bg-status-neutral-line"
                                     style="width: {Math.round((drop.score ?? 0) * 100)}%"
                                 ></span>
                             </span>
@@ -225,7 +225,7 @@
 
         {#if hiddenCount > 0}
             <button
-                class="flex min-h-11 w-full items-center justify-center gap-1.5 rounded-xl px-2 py-2 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-100 focus-ring dark:text-slate-400 dark:hover:bg-slate-800/60"
+                class="flex min-h-11 w-full items-center justify-center gap-1.5 rounded-xl px-2 py-2 text-xs font-semibold text-muted transition-colors hover:bg-surface-raised focus-ring"
                 onclick={() => onseeall?.()}
                 data-field-log-more
             >
@@ -245,7 +245,7 @@
     {/if}
 
     {#if gardenUnavailable && !loading}
-        <p class="px-2 text-xs text-slate-600 dark:text-slate-400" data-field-log-garden-unavailable>
+        <p class="px-2 text-xs text-muted" data-field-log-garden-unavailable>
             {$_('dashboard.field_log.garden_unavailable', {
                 default: 'Garden visits could not be loaded, so only birds are shown. The dashboard tries again every minute.'
             })}

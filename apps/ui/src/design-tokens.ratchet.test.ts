@@ -70,6 +70,21 @@ const ALLOWLIST: { file: string; classes: RegExp; reason: string }[] = [
         reason: "the colour-theme picker shows each theme's own two colours, whatever theme is on"
     },
     {
+        file: 'lib/utils/score-tone.ts',
+        classes: /^text-(?:attention|brand|success)-300$/,
+        reason: 'a score over a photograph or the video player: the ground is always dark, so the light steps are fixed in every mode'
+    },
+    {
+        file: 'lib/components/DetectionCard.svelte',
+        classes: /^(?:bg|text|border)-orange-\d{2,3}$/,
+        reason: 'orange is the documented missing-upstream mark (layout-patterns §1): Frigate no longer has the media; no status tone means that'
+    },
+    {
+        file: 'lib/components/DetectionRow.svelte',
+        classes: /^(?:bg|text|border)-orange-\d{2,3}$/,
+        reason: 'the same missing-upstream mark, in the Explorer list row'
+    },
+    {
         file: 'lib/components/settings/SystemHealthPanel.svelte',
         classes: /^(?:bg|text|fill|stroke)-(?:amber|blue|teal|violet|rose)-\d{2,3}$/,
         reason: 'categorical CPU-share and load series, chosen for colour-vision separation and always named in words; a series is not a state'
