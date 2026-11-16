@@ -26,6 +26,12 @@ BACKGROUND_WAIT_SECONDS = 120.0
 
 FRIGATE_NOT_READY = "frigate_not_ready"
 
+# Why Frigate stopped answering, as the read that closed the gate saw it. `frigate_not_ready`
+# says only that a read was put off; the record needs to say which of these it was.
+NOT_READY_TIMEOUT = "timeout"
+NOT_READY_SERVER_ERROR = "server_error"
+NOT_READY_CONNECTION = "connection"
+
 
 class FrigateReadinessGate:
     """Tracks one measured fact: did Frigate's API answer the last readiness check.
@@ -51,6 +57,7 @@ class FrigateReadinessGate:
 
     def reset(self) -> None:
         self._ready: bool | None = None
+        self._not_ready_cause: str | None = None
         self._last_probe_at: float | None = None
         self._failed_probes = 0
         self._deferred_reads = 0
@@ -61,6 +68,11 @@ class FrigateReadinessGate:
     @property
     def ready(self) -> bool | None:
         return self._ready
+
+    @property
+    def not_ready_cause(self) -> str | None:
+        """The failure that closed the gate, kept while it stays closed; None once Frigate answers."""
+        return self._not_ready_cause if self._ready is False else None
 
     def _retry_interval(self) -> float:
         index = min(max(self._failed_probes - 1, 0), len(PROBE_BACKOFF_SECONDS) - 1)
@@ -94,6 +106,7 @@ class FrigateReadinessGate:
     def _mark_ready(self) -> None:
         was_waiting = self._ready is False
         self._ready = True
+        self._not_ready_cause = None
         self._failed_probes = 0
         if was_waiting and self._deferred_reads:
             log.info("Frigate is ready; event reads resumed", deferred_reads=self._deferred_reads)
@@ -112,13 +125,17 @@ class FrigateReadinessGate:
         await self._check()
         return self._ready is not False
 
-    async def failure_is_not_ready(self) -> bool:
+    async def failure_is_not_ready(self, cause: str | None = None) -> bool:
         """After a read failed on Frigate's side: is Frigate as a whole not answering?
 
         True means the failure is the transient "starting or unreachable" condition. False
         means Frigate answers and this one read failed, which is a real fault to report.
+        `cause` is how the read failed; it is kept while the gate stays closed, so reads put
+        off meanwhile can still say why Frigate is not answering.
         """
         await self._check()
+        if self._ready is False and cause is not None:
+            self._not_ready_cause = cause
         return self._ready is False
 
     def note_deferred(self) -> None:

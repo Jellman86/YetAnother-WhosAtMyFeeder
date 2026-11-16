@@ -80,6 +80,14 @@
   "id": "检测ID",
   "open_in_frigate": "在 Frigate 中打开",
   "open_in_frigate_gone": "已不在 Frigate 中",
+  "upstream_check": {
+    "gone": "Frigate 已不再保留此事件或其媒体。",
+    "unreachable": "YA-WAMF 无法连接 Frigate，因此不清楚 Frigate 是否仍保留此事件。请确认 Frigate 正在运行，然后重新打开此记录。",
+    "timed_out": "Frigate 未及时响应，因此不清楚它是否仍保留此事件。请稍后重新打开此记录。如果反复出现，请检查 Frigate 的负载。",
+    "unauthorized": "Frigate 拒绝了 YA-WAMF 的凭据，因此不清楚它是否仍保留此事件。请检查 YA-WAMF 启动环境中的 FRIGATE_AUTH_TOKEN，重启后重新打开此记录。",
+    "failed": "Frigate 返回了错误，因此不清楚它是否仍保留此事件。请查看 Frigate 的日志，然后重新打开此记录。",
+    "not_checked": "尚未向 Frigate 查询此事件。请重新打开此记录以检查。"
+  },
   "upstream_missing": {
     "title": "Frigate 中缺失",
     "card_label": "上游缺失",

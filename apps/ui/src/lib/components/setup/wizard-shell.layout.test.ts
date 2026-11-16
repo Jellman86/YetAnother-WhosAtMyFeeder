@@ -197,4 +197,25 @@ describe('setup wizard wiring', () => {
         expect(welcomeStepSource).toContain('data-setup-welcome-covers');
         expect(welcomeStepSource).not.toContain('SetupStepIcon');
     });
+
+    it('keeps Back and Continue in the card: the step scrolls above them, never with them', () => {
+        expect(wizardShellSource).not.toContain('max-h-[70vh]');
+        expect(wizardShellSource).not.toContain('overflow-y-auto');
+        expect(wizardShellSource).toContain('flex max-h-full w-full max-w-2xl flex-col');
+        const scroller = wizardStepLayoutSource.indexOf('data-setup-scroll');
+        const footer = wizardStepLayoutSource.indexOf('data-setup-footer');
+        expect(scroller).toBeGreaterThan(-1);
+        expect(footer).toBeGreaterThan(scroller);
+        expect(wizardStepLayoutSource).toMatch(/class="shrink-0[^"]*" data-setup-footer/);
+        // The footer is a sibling of the scroller, so it cannot scroll out of the card.
+        const scrollerEnd = wizardStepLayoutSource.lastIndexOf('</div>', footer);
+        expect(wizardStepLayoutSource.slice(scroller, scrollerEnd)).not.toContain('setup.continue');
+    });
+
+    it('waits for Frigate apart from the settings, and never calls that wait loading settings', () => {
+        expect(camerasStepSource).not.toContain('Promise.allSettled');
+        expect(camerasStepSource).toContain('readCameraList(fetchFrigateConfig)');
+        expect(camerasStepSource).toContain('data-setup-camera-reading');
+        expect(camerasStepSource).toContain("$_('setup.cameras.list_timed_out'");
+    });
 });

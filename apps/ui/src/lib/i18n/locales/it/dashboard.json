@@ -133,6 +133,7 @@
     "skipped_note": "{count, plural, one {# rimandata. Resta in coda.} other {# rimandate. Restano in coda.}}",
     "back": "Torna alla dashboard",
     "threshold_note": "Il modello è rimasto sotto la soglia di identificazione.",
+    "unknown_note": "Il modello non è riuscito a identificare questo uccello, quindi non c’è una specie da confermare. Scegline una qui sotto.",
     "search": "Cerca specie…",
     "no_matches": "Nessuna specie corrisponde. Prova con meno lettere.",
     "search_failed": "Impossibile cercare le specie. Modifica la ricerca per riprovare.",

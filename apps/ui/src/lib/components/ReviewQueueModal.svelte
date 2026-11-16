@@ -33,7 +33,7 @@
     import { SCORE_TEXT_ON_MEDIA, scoreBand } from '../utils/score-tone';
     import { findMatchingFullFrameCandidate, sameFrameCropCandidates } from '../utils/detection-evidence';
     import { WholeScenePeek } from '../utils/whole-scene-peek.svelte';
-    import { reviewSuggestion, type ReviewReason } from '../utils/review-queue';
+    import { reviewReasonFor, reviewReasonNote, reviewSuggestion, type ReviewReason } from '../utils/review-queue';
     import { _ } from 'svelte-i18n';
 
     interface Props {
@@ -556,7 +556,8 @@
         {:else if session.current}
             {@const current = session.current}
             {@const naming = $birdNames(current, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary)}
-            {@const reason = reasons?.get(current.frigate_event) ?? 'low_score'}
+            {@const reason = reviewReasonFor(current, reasons)}
+            {@const reasonNote = reviewReasonNote(reason, naming.primary)}
             {@const isNewSpecies = reason === 'new_species'}
             {@const suggestion = reviewSuggestion(current, reason)}
             <!-- A column on phones: the media block keeps its own height and never overlaps the
@@ -701,16 +702,7 @@
                     <p class="-mx-4 -mt-4 flex items-start gap-2 bg-attention-50 px-4 py-3 text-sm text-slate-700 dark:bg-attention-500/10 dark:text-slate-200" data-review-reason>
                         <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-attention-500" aria-hidden="true"></span>
                         <span>
-                            {#if isNewSpecies}
-                                {$_('dashboard.review_session.new_species_note', {
-                                    values: { species: naming.primary },
-                                    default: 'First {species} recorded here. Confirm it, correct it, or block the species.'
-                                })}
-                            {:else}
-                                {$_('dashboard.review_session.threshold_note', {
-                                    default: 'The model scored this below the naming threshold.'
-                                })}
-                            {/if}
+                            {$_(reasonNote.key, { values: reasonNote.values, default: reasonNote.default })}
                         </span>
                     </p>
 

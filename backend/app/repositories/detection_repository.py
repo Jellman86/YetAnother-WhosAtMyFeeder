@@ -3672,12 +3672,43 @@ class DetectionRepository:
 
         return total_deleted
 
-    async def delete_all(self) -> int:
-        """Delete ALL detections. Use with caution."""
-        async with self.db.execute("DELETE FROM detections") as cursor:
-            count = cursor.rowcount
+    async def count_all(self) -> int:
+        """Every detection row `delete_all` would remove: hidden rows included, no filter at all."""
+        async with self.db.execute("SELECT COUNT(*) FROM detections") as cursor:
+            row = await cursor.fetchone()
+        return int(row[0]) if row and row[0] is not None else 0
+
+    async def _count_all_in_transaction(self) -> int:
+        """The reset's count, read while the caller holds the write lock."""
+        async with self.db.execute("SELECT COUNT(*) FROM detections") as cursor:
+            row = await cursor.fetchone()
+        return int(row[0]) if row and row[0] is not None else 0
+
+    async def delete_all_if_count_is(self, expected_count: int | None) -> tuple[int | None, int]:
+        """Delete ALL detections, but only if there are exactly `expected_count` of them.
+
+        Returns `(deleted, counted)`; `deleted` is None when the count did not match and nothing
+        was removed. `expected_count=None` deletes whatever is there.
+
+        The count and the delete are one transaction that takes SQLite's write lock before
+        counting. Pausing ingest does not stop a handler that is already running, so without
+        the lock a detection written between the two statements was deleted on a number nobody
+        had confirmed. Under it, that write either lands first and is counted, or waits.
+        """
+        await self.db.execute("BEGIN IMMEDIATE")
+        try:
+            counted = await self._count_all_in_transaction()
+            if expected_count is not None and counted != expected_count:
+                await self.db.rollback()
+                return None, counted
+            cursor = await self.db.execute("DELETE FROM detections")
+            deleted = cursor.rowcount
+            await cursor.close()
             await self.db.commit()
-            return count
+            return deleted, counted
+        except BaseException:
+            await self.db.rollback()
+            raise
 
     async def get_unknown_detections(self, *, limit: int | None = None) -> list[Detection]:
         """Get unresolved detections labeled as 'Unknown Bird', newest first."""

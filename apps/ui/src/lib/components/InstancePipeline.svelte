@@ -139,6 +139,7 @@
         const states: Record<PipelineClassifierState, { state: string; tone: Tone }> = {
             loaded: { state: $_('about.pipeline.loaded', { default: 'Loaded' }), tone: 'ok' },
             standby: { state: $_('about.pipeline.standby', { default: 'Not loaded yet' }), tone: 'off' },
+            missing: { state: $_('about.pipeline.missing', { default: 'Not installed' }), tone: 'off' },
             check: { state: $_('about.pipeline.degraded', { default: 'Check' }), tone: 'off' },
             unknown: { state: unknown, tone: 'unknown' }
         };
@@ -219,8 +220,9 @@
         {
             key: 'browser',
             detail: $_('about.pipeline.browser_detail', { default: 'live updates over SSE' }),
+            // "Live" is a claim about camera events; this step measures only the page's own stream.
             state: detectionsStore.connected
-                ? $_('status.state_live', { default: 'Live' })
+                ? $_('status.state_connected', { default: 'Connected' })
                 : $_('status.state_not_connected', { default: 'Not connected' }),
             tone: (detectionsStore.connected ? 'ok' : 'off') as Tone
         }

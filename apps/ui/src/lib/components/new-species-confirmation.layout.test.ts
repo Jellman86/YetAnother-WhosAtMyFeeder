@@ -17,7 +17,7 @@ describe('a new species asks for one human call in the review queue (#310)', () 
     it('the card names every reason in words, not just a score', () => {
         // Each row says why it waits, whatever the reason, through the shared wording.
         expect(cardSource).toContain('reviewReasonMessage(');
-        expect(cardSource).toContain('queue.reasons.get(detection.frigate_event)');
+        expect(cardSource).toContain('reviewReasonFor(detection, queue.reasons)');
         expect(cardSource).toContain('data-review-queue-reason');
         expect(cardSource).not.toContain("=== 'new_species'");
     });

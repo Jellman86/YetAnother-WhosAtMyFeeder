@@ -8,19 +8,24 @@
     import { loadBlockedReason } from './continue-blocked';
     import WizardLoadState, { type WizardLoadStatus } from './WizardLoadState.svelte';
     import CameraThumbnail from './CameraThumbnail.svelte';
-    import { cameraChoices, frigateCameraNames, parseCameraNames } from './camera-choices';
+    import { cameraChoices, parseCameraNames } from './camera-choices';
+    import { FRIGATE_CAMERA_READ_LIMIT_MS, readCameraList, type CameraListRead } from './camera-list-read';
 
     const DOCS_URL = 'https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/blob/main/docs/troubleshooting/frigate-event-not-found.md';
 
+    const READ_LIMIT_SECONDS = FRIGATE_CAMERA_READ_LIMIT_MS / 1000;
+
     let selected = $state<string[]>([]);
     let savedCameras = $state<string[]>([]);
-    /** Null when Frigate's list could not be read: names can then only be typed, unchecked. */
-    let frigateCameras = $state<string[] | null>(null);
+    /** Frigate's list is read apart from the settings, so a Frigate that is down never holds the step. */
+    let cameraRead = $state<CameraListRead>({ state: 'reading' });
     let camerasText = $state('');
     let loadState = $state<WizardLoadStatus>('loading');
-    let retrying = $state(false);
     let busy = $state(false);
+    let latestRead = 0;
 
+    /** Null until Frigate's list is read: names can then only be typed, unchecked. */
+    let frigateCameras = $derived(cameraRead.state === 'read' ? cameraRead.cameras : null);
     let choices = $derived(frigateCameras ? cameraChoices(frigateCameras, savedCameras) : []);
     let chosen = $derived(frigateCameras ? selected : parseCameraNames(camerasText));
 
@@ -29,29 +34,29 @@
     }
 
     async function readFrigateCameras(): Promise<void> {
-        try {
-            frigateCameras = frigateCameraNames(await fetchFrigateConfig());
-        } catch {
-            frigateCameras = null;
-        }
+        const read = ++latestRead;
+        cameraRead = { state: 'reading' };
+        const outcome = await readCameraList(fetchFrigateConfig);
+        if (read === latestRead) cameraRead = outcome;
     }
 
     async function retryFrigate(): Promise<void> {
-        retrying = true;
+        // Names typed while Frigate could not be read become the ticked cameras once it can.
+        const typed = parseCameraNames(camerasText);
         await readFrigateCameras();
-        selected = parseCameraNames(camerasText);
-        savedCameras = selected;
-        retrying = false;
+        selected = typed;
+        savedCameras = typed;
     }
 
     async function load(): Promise<void> {
         loadState = 'loading';
-        const [settingsResult] = await Promise.allSettled([fetchSettings(), readFrigateCameras()]);
-        if (settingsResult.status === 'rejected') {
+        void readFrigateCameras();
+        try {
+            savedCameras = (await fetchSettings()).cameras ?? [];
+        } catch {
             loadState = 'error';
             return;
         }
-        savedCameras = settingsResult.value.cameras ?? [];
         selected = savedCameras;
         camerasText = savedCameras.join(', ');
         loadState = 'ready';
@@ -110,12 +115,23 @@
                     {/if}
                 </p>
             </fieldset>
+        {:else if cameraRead.state === 'reading'}
+            <p role="status" class="flex items-start gap-3 text-sm leading-relaxed text-ink" data-setup-camera-reading>
+                <span class="mt-0.5 h-5 w-5 shrink-0 animate-spin rounded-full border-2 border-accent-line border-t-accent-ink motion-reduce:animate-none" aria-hidden="true"></span>
+                <span>{$_('setup.cameras.reading', { values: { seconds: READ_LIMIT_SECONDS }, default: 'Asking Frigate for its cameras, for up to {seconds} seconds. You can continue without waiting: the cameras already saved stay as they are.' })}</span>
+            </p>
         {:else}
             <div>
                 <label for="setup-cameras" class="text-sm font-medium text-slate-700 dark:text-slate-300">{$_('setup.cameras.list', { default: 'Cameras (comma-separated)' })}</label>
                 <input id="setup-cameras" type="text" placeholder="feeder, nestbox" bind:value={camerasText} class="input-base mt-1" />
-                <p class="mt-1 text-xs font-semibold text-attention-700 dark:text-attention-300" role="status" data-setup-camera-unread>{$_('setup.cameras.list_unread', { default: "Frigate's camera list could not be read, so these names cannot be checked. A name that does not match exactly never sees a bird. Leave this empty to watch every camera." })}</p>
-                <button type="button" class="btn btn-secondary mt-2 min-h-11 px-4" disabled={retrying} onclick={retryFrigate}>{$_('setup.cameras.retry', { default: "Read Frigate's cameras again" })}</button>
+                <p class="mt-1 text-xs font-semibold text-attention-700 dark:text-attention-300" role="status" data-setup-camera-unread>
+                    {#if cameraRead.state === 'unavailable' && cameraRead.cause === 'timed_out'}
+                        {$_('setup.cameras.list_timed_out', { values: { seconds: READ_LIMIT_SECONDS }, default: 'Frigate did not answer within {seconds} seconds, so these names cannot be checked. A name that does not match exactly never sees a bird. Leave this empty to watch every camera.' })}
+                    {:else}
+                        {$_('setup.cameras.list_unread', { default: "Frigate's camera list could not be read, so these names cannot be checked. A name that does not match exactly never sees a bird. Leave this empty to watch every camera." })}
+                    {/if}
+                </p>
+                <button type="button" class="btn btn-secondary mt-2 min-h-11 px-4" onclick={retryFrigate}>{$_('setup.cameras.retry', { default: "Read Frigate's cameras again" })}</button>
             </div>
         {/if}
 

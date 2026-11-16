@@ -78,6 +78,10 @@ class FakeBackend {
     mqttFailure: string | null = null;
     evalWarnings: Json[] = [];
     frigateConfigFails = false;
+    /** Weights on disk, labels unreadable: the server reports the classifier could not load. */
+    modelFailedToLoad = false;
+    /** While set, Frigate's camera list does not answer: a Frigate that is down hangs like this. */
+    frigateConfigHeld: Promise<void> | null = null;
     downloadDone = false;
     evalState: 'idle' | 'running' | 'done' | 'error' = 'idle';
     evalError = '';
@@ -143,11 +147,17 @@ class FakeBackend {
         this.evalError = message;
     }
 
+    /** The server's one reading of whether the running model's files are here. */
+    private activeModelInstalled(): boolean {
+        return this.installed.some((m) => m.id === this.activeModelId && m.ready);
+    }
+
     private status(): Json {
         const active = this.installed.find((m) => m.id === this.activeModelId);
         return {
             loaded: true, error: null, labels_count: 100, enabled: true,
             active_model_id: this.activeModelId, effective_model_id: this.activeModelId,
+            active_model_installed: this.activeModelInstalled(),
             image_flavor: 'intel', runtime_source: 'worker',
             available_providers: ['cpu', 'intel_cpu', 'intel_gpu', 'intel_npu'],
             host_available_providers: ['cpu', 'intel_cpu', 'intel_gpu', 'intel_npu'],
@@ -192,7 +202,11 @@ class FakeBackend {
                 cameras.length
                     ? { id: 'cameras', status: 'ok', detail_code: 'cameras_count', detail_values: { count: cameras.length } }
                     : { id: 'cameras', status: 'ok', detail_code: 'cameras_all' },
-                { id: 'model', status: 'ok', detail_code: 'model_selected', detail_values: { model: String(MODELS[this.activeModelId]?.name ?? this.activeModelId) }, detail: this.activeModelId },
+                this.modelFailedToLoad
+                    ? { id: 'model', status: 'attention', detail_code: 'model_failed', detail_values: { model: String(MODELS[this.activeModelId]?.name ?? this.activeModelId) }, detail: this.activeModelId }
+                    : this.activeModelInstalled()
+                    ? { id: 'model', status: 'ok', detail_code: 'model_running', detail_values: { model: String(MODELS[this.activeModelId]?.name ?? this.activeModelId) }, detail: this.activeModelId }
+                    : { id: 'model', status: 'attention', detail_code: 'model_missing', detail_values: { model: String(MODELS[this.activeModelId]?.name ?? this.activeModelId) }, detail: this.activeModelId },
                 { id: 'quality', status: 'optional', detail_code: s.media_cache_high_quality_event_snapshots ? 'quality_best' : 'quality_standard' },
                 { id: 'integrations', status: 'optional', detail_code: 'integrations_none' }
             ]
@@ -256,6 +270,10 @@ class FakeBackend {
                 : json({ status: 'ok', message: 'Test message published' });
         }
         if (path === '/api/audio/sources') return json([]);
+        if (path === '/api/frigate/config' && this.frigateConfigHeld) {
+            await this.frigateConfigHeld;
+            return route.abort().catch(() => undefined);
+        }
         if (path === '/api/frigate/config') return this.frigateConfigFails ? json({ detail: 'unreachable' }, 502) : json({ cameras: { feeder: {}, nestbox: {} } });
         if (path === '/api/backfill/status') return json(null);
         if (path === '/api/backfill/async' && method === 'POST') return json({ id: 'history-job', status: 'running', processed: 0, total: 20, message: 'Scanning Frigate event history' });
@@ -1059,4 +1077,119 @@ test('a failed broker test is worded from its cause code in the page language', 
     await expect(failed).toContainText('Der Hostname in mqtt.invalid:1883 wurde nicht gefunden. Prüfen Sie die Adresse.');
     await expect(failed).toContainText('MQTT-Broker');
     await expect(dialog).not.toContainText('English fallback sentence.');
+});
+
+test('the cameras step says it is waiting for Frigate, lets setup continue, and stops waiting after 8 seconds', async ({ page }, testInfo) => {
+    // Real time: a held clock also holds the step's fade and the step bar's colours, which made
+    // the captures look half drawn. The wait is 8 seconds, so the test allows for it.
+    test.setTimeout(45_000);
+    const fake = new FakeBackend({ settings: { cameras: ['feeder'] } });
+    let release = (): void => {};
+    fake.frigateConfigHeld = new Promise<void>((resolve) => { release = resolve; });
+    await openRerun(page, fake);
+    await openSectionFromReview(page, 'Cameras & detection');
+    await expectStep(page, 'Cameras & detection');
+
+    // The settings have loaded; what is still outstanding is Frigate, and the step says so.
+    const waiting = wizard(page).locator('[data-setup-camera-reading]');
+    await expect(waiting).toHaveText("Asking Frigate for its cameras, for up to 8 seconds. You can continue without waiting: the cameras already saved stay as they are.");
+    await expect(wizard(page).getByText('Loading your saved settings…')).toHaveCount(0);
+    await expect(continueButton(page)).toBeEnabled();
+    await expect(wizard(page).locator('[data-setup-continue-blocked]')).toHaveCount(0);
+    // The fade and the bar's colour change have ended once the step stops animating.
+    await expect.poll(() => page.evaluate(() => document.getAnimations().filter((animation) => animation.playState === 'running' && !(animation.effect?.getComputedTiming().iterations === Infinity)).length)).toBe(0);
+    await page.screenshot({ path: testInfo.outputPath('cameras-waiting-for-frigate.png') });
+
+    await expect(wizard(page).locator('[data-setup-camera-unread]')).toContainText('Frigate did not answer within 8 seconds, so these names cannot be checked.', { timeout: 12_000 });
+    await expect(waiting).toHaveCount(0);
+    await expect(wizard(page).getByLabel('Cameras (comma-separated)')).toHaveValue('feeder');
+    await page.screenshot({ path: testInfo.outputPath('cameras-frigate-timed-out.png') });
+    release();
+});
+
+test('continuing while Frigate is still being asked keeps the saved cameras', async ({ page }) => {
+    const fake = new FakeBackend({ settings: { cameras: ['feeder'] } });
+    fake.frigateConfigHeld = new Promise<void>(() => {});
+    await openRerun(page, fake);
+    await openSectionFromReview(page, 'Cameras & detection');
+    await expect(wizard(page).locator('[data-setup-camera-reading]')).toBeVisible();
+    await continueButton(page).click();
+    await expectStep(page, 'Review setup');
+    expect(fake.settingsWrites()).toContainEqual({ cameras: ['feeder'] });
+});
+
+for (const section of ['Model and hardware', 'Cameras & detection']) {
+    test(`${section}: Back and Continue stay inside the card at 1440x900 while the step scrolls`, async ({ page }, testInfo) => {
+        await page.setViewportSize({ width: 1440, height: 900 });
+        const fake = new FakeBackend({});
+        await openRerun(page, fake);
+        await openSectionFromReview(page, section);
+        await expectStep(page, section);
+        const action = section === 'Model and hardware' ? validateButton(page) : continueButton(page);
+        const footer = wizard(page).locator('[data-setup-footer]');
+        await expect(footer).toBeVisible();
+        const inside = async (): Promise<boolean> => {
+            const card = await wizard(page).boundingBox();
+            const bar = await footer.boundingBox();
+            if (!card || !bar) return false;
+            return bar.y >= card.y && bar.y + bar.height <= card.y + card.height + 1 && card.y >= 0 && card.y + card.height <= 900;
+        };
+        await expect.poll(inside).toBe(true);
+        // The footer is not part of what scrolls.
+        const scroller = wizard(page).locator('[data-setup-scroll]');
+        await scroller.evaluate((element) => { element.scrollTop = element.scrollHeight; });
+        await expect.poll(inside).toBe(true);
+        expect(await footer.evaluate((element) => element.closest('[data-setup-scroll]') === null)).toBe(true);
+        await expect(action).toBeAttached();
+        await expect.poll(() => page.evaluate(() => document.getAnimations().filter((animation) => animation.playState === 'running' && !(animation.effect?.getComputedTiming().iterations === Infinity)).length)).toBe(0);
+        await page.screenshot({ path: testInfo.outputPath(`footer-pinned-${section.split(' ')[0].toLowerCase()}.png`) });
+    });
+}
+
+test('the review and the model step read the same state for a model that is not on this install', async ({ page }, testInfo) => {
+    const fake = new FakeBackend({ installed: [] });
+    const errors = await openRerun(page, fake);
+    const model = wizard(page).getByRole('listitem').filter({ hasText: 'Model and hardware' });
+    await expect(model.locator('[data-setup-status]')).toHaveText('Needs a download');
+    await expect(model).toContainText('MobileNet V2 birds is not on this install, so nothing is naming birds yet.');
+    await expect(model).not.toContainText('Configured');
+    await page.screenshot({ path: testInfo.outputPath('review-model-needs-download.png') });
+
+    await model.getByRole('button', { name: 'Review', exact: true }).click();
+    await expect(wizard(page).locator('[data-identification-status="missing"]')).toContainText('Nothing is naming birds yet');
+    expect(errors).toEqual([]);
+});
+
+test('the review words a working model from its runtime report', async ({ page }) => {
+    await openRerun(page, new FakeBackend({}));
+    const model = wizard(page).getByRole('listitem').filter({ hasText: 'Model and hardware' });
+    await expect(model.locator('[data-setup-status]')).toHaveText('Running');
+});
+
+test('the review does not call a model ready when its files are here but it could not be loaded', async ({ page }, testInfo) => {
+    const fake = new FakeBackend({});
+    fake.modelFailedToLoad = true;
+    await openRerun(page, fake);
+    const model = wizard(page).getByRole('listitem').filter({ hasText: 'Model and hardware' });
+    await expect(model.locator('[data-setup-status]')).toHaveText('Could not load');
+    await expect(model).toContainText('MobileNet V2 birds is installed but could not be loaded, so nothing is naming birds.');
+    await page.screenshot({ path: testInfo.outputPath('review-model-could-not-load.png') });
+});
+
+test('the step bar marks the steps done, the current one and those ahead differently', async ({ page }) => {
+    await openRerun(page, new FakeBackend({ settings: { cameras: ['feeder'] } }));
+    await openSectionFromReview(page, 'Cameras & detection');
+    await expectStep(page, 'Cameras & detection');
+    const segments = wizard(page).getByRole('list', { name: 'Setup steps' }).getByRole('listitem');
+    await expect(segments).toHaveCount(9);
+    await expect(segments.nth(3)).toHaveAttribute('aria-current', 'step');
+    // Colours settle after a 300ms transition; read them once they stop changing.
+    const colours = async (): Promise<string[]> => segments.evaluateAll((items) => items.map((item) => getComputedStyle(item).backgroundColor));
+    await expect.poll(async () => new Set((await colours()).slice(4)).size).toBe(1);
+    const drawn = await colours();
+    // Step 4 of 9: three done, one current, five ahead. The ones ahead are not filled like the rest.
+    expect(new Set(drawn.slice(0, 3)).size).toBe(1);
+    expect(drawn[4]).not.toBe(drawn[3]);
+    expect(drawn[4]).not.toBe(drawn[0]);
+    expect(drawn[3]).not.toBe(drawn[0]);
 });

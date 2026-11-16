@@ -155,8 +155,105 @@ def test_cameras_ok_and_counts():
     assert cameras.detail_values == {"count": 2}
 
 
-def test_model_is_always_ok():
-    assert _by_id(compute_setup_state(_settings()))["model"].status == "ok"
+def test_a_model_that_is_naming_birds_is_ok_and_says_running():
+    state = compute_setup_state(_settings(), active_model_id="small_birds", model_readiness="running")
+
+    model = _by_id(state)["model"]
+    assert model.status == "ok"
+    assert model.detail_code == "model_running"
+    assert model.detail_values == {"model": "Small Birds"}
+
+
+def test_an_installed_model_waiting_for_its_first_detection_is_ready():
+    model = _by_id(compute_setup_state(_settings(), active_model_id="small_birds", model_readiness="ready"))["model"]
+
+    assert model.status == "ok"
+    assert model.detail_code == "model_ready"
+
+
+def test_a_chosen_model_that_is_not_on_this_install_needs_attention():
+    state = compute_setup_state(_settings(), active_model_id="small_birds", model_readiness="missing")
+
+    model = _by_id(state)["model"]
+    assert model.status == "attention"
+    assert model.detail_code == "model_missing"
+    assert model.detail_values == {"model": "Small Birds"}
+
+
+def test_an_installed_model_that_could_not_load_is_not_ok():
+    # Weights on disk, labels unreadable: the file exists and nothing can name a bird.
+    state = compute_setup_state(_settings(), active_model_id="small_birds", model_readiness="failed")
+
+    model = _by_id(state)["model"]
+    assert model.status == "attention"
+    assert model.detail_code == "model_failed"
+    assert model.detail_values == {"model": "Small Birds"}
+
+
+def test_the_bundled_fallback_is_not_called_configured_when_its_file_is_absent():
+    settings = _settings()
+    settings.classification.model = "model.tflite"
+
+    model = _by_id(compute_setup_state(settings, active_model_id="model.tflite", model_readiness="missing"))["model"]
+
+    assert model.status == "attention"
+    assert model.detail_code == "model_missing"
+    assert model.detail_values == {"model": ""}
+
+
+def test_a_model_that_is_still_loading_is_not_called_running():
+    model = _by_id(compute_setup_state(_settings(), active_model_id="small_birds", model_readiness="loading"))["model"]
+
+    assert model.status == "optional"
+    assert model.detail_code == "model_loading"
+    assert model.detail_values == {"model": "Small Birds"}
+
+
+@pytest.mark.asyncio
+async def test_the_endpoint_does_not_report_a_reloading_classifier_as_running(client, monkeypatch):
+    from app.routers import setup as setup_router
+
+    class Reloading:
+        def get_status(self) -> dict:
+            # The old model has been dropped and its replacement is not loaded yet.
+            return {"active_model_installed": True, "runtime_source": "in_process"}
+
+    monkeypatch.setattr(setup_router, "get_classifier", lambda: Reloading())
+
+    payload = (await client.get("/api/setup/state")).json()
+    model = next(section for section in payload["sections"] if section["id"] == "model")
+
+    assert model["detail_code"] == "model_loading"
+    assert model["status"] != "ok"
+
+
+@pytest.mark.parametrize("readiness", [None, "checking", "unknown"])
+def test_a_model_nobody_checked_is_reported_as_chosen_only(readiness):
+    model = _by_id(compute_setup_state(_settings(), active_model_id="small_birds", model_readiness=readiness))["model"]
+
+    assert model.detail_code == "model_selected"
+
+
+@pytest.mark.asyncio
+async def test_the_endpoint_reports_a_classifier_that_failed_to_load_as_needing_attention(client, monkeypatch):
+    from app.routers import setup as setup_router
+
+    class BrokenInstall:
+        def get_status(self) -> dict:
+            return {
+                "active_model_installed": True,
+                "runtime_source": "in_process",
+                "loaded": False,
+                "error": "labels.txt missing",
+            }
+
+    monkeypatch.setattr(setup_router, "get_classifier", lambda: BrokenInstall())
+
+    payload = (await client.get("/api/setup/state")).json()
+    model = next(section for section in payload["sections"] if section["id"] == "model")
+
+    assert model["status"] == "attention"
+    assert model["detail_code"] == "model_failed"
 
 
 def test_model_needs_attention_when_crop_detector_was_saved_as_classifier():

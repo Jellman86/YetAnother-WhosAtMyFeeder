@@ -44,7 +44,8 @@
     "no_reading": "von hier aus keine Messung",
     "owner_only": "Nur Besitzer",
     "owner_only_detail": "Messwert nur für den Besitzer sichtbar",
-    "standby": "Noch nicht geladen"
+    "standby": "Noch nicht geladen",
+    "missing": "Nicht installiert"
   },
   "storage": {
     "title": "Was gespeichert wird",

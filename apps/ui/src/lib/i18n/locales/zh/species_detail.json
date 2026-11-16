@@ -28,5 +28,8 @@
   "reclassify_clip": "根据片段重新分类",
   "detections_all_time": "检测次数（全部历史）",
   "detections_shared": "检测次数（已共享的历史）",
+  "visits_day": "访问次数，最近 24 小时",
+  "visits_week": "访问次数，最近 7 天",
+  "visits_month": "访问次数，最近 30 天",
   "detections_note": "每个已识别的画面计一次。一次到访可能包含多个画面，因此排行榜中的到访次数会更少。"
 }

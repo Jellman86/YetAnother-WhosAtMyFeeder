@@ -44,7 +44,8 @@
     "no_reading": "no reading from here",
     "owner_only": "Owner only",
     "owner_only_detail": "reading visible to the owner",
-    "standby": "Not loaded yet"
+    "standby": "Not loaded yet",
+    "missing": "Not installed"
   },
   "storage": {
     "title": "What it stores",

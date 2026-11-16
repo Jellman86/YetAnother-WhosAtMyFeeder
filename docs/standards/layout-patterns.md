@@ -190,6 +190,19 @@ or Frigate is down, and its MQTT and Frigate rows lead with the connection state
 Its subsystems are one ruled list in full-contrast ink, each state a worded chip; a reason code it
 knows is said in words with what to try, and the backend's own text sits under Technical details.
 
+A destructive question states only a count it read. A confirmation whose message names a figure
+takes a `reading` (`stores/confirm_dialog.svelte.ts`): it opens saying what it is counting, cannot
+be confirmed until the read lands, and asks without the number when the read fails. Never fall
+back to zero. The record says "Frigate no longer has this event" only on a not-found answer
+(`utils/frigate-event-reading.ts`); a Frigate that could not be asked gets its own cause and next
+step. A wait is named for what it waits on and is bounded: the wizard's Cameras step is ready once
+the settings load, and asks Frigate for at most 8 seconds beside it. The model's state is one
+reading everywhere: `identificationStatus()` words the sentence, About's pipeline and the wizard's
+review follow it (`setup/review-status.ts`; the server reads the same runtime report through
+`services/model_readiness.py`, and both are held to `tests/fixtures/model_readiness_cases.json`), and a model that
+is only chosen is never called configured or installed. Reassurance needs a reading too: the
+backend-down screens say nothing about the data they could not ask about.
+
 An amount needs a price as well as a count. Settings → AI shows a cost only for usage that has a
 rate (`settings/ai-cost.ts`): a model without one is "Not priced", usage with no prices is "Cost not
 estimated: add prices", and a total over part of the usage states the requests it covers. About's

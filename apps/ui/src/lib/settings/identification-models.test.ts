@@ -1,3 +1,5 @@
+// @ts-expect-error -- node:fs resolves at runtime, not in the app tsconfig
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import type { ClassifierStatus, ModelMetadata } from '../api/classifier';
 import {
@@ -188,5 +190,30 @@ describe('recommendIdentificationModel', () => {
 
     it('recommends the starter model on a Raspberry Pi image, where larger models are too heavy', () => {
         expect(recommendIdentificationModel(lineup, { currentId: null, currentInUse: false, imageFlavor: 'rpi' })?.id).toBe('mobilenet_v2_birds');
+    });
+});
+
+describe('the SPA and the server read a classifier report as the same readiness', () => {
+    // The cases the server's `identification_readiness` is tested against (backend/tests/pure).
+    const shared = JSON.parse(
+        readFileSync(new URL('../../../../../backend/tests/fixtures/model_readiness_cases.json', import.meta.url), 'utf8')
+    ) as { cases: Array<{ name: string; status: ClassifierStatus | null; readiness: string }> };
+    const READINESS: Record<ReturnType<typeof identificationStatus>['kind'], string> = {
+        checking: 'checking',
+        missing: 'missing',
+        failed: 'failed',
+        unavailable: 'failed',
+        loading: 'loading',
+        unknown: 'unknown',
+        planned: 'ready',
+        running: 'running'
+    };
+
+    it.each(shared.cases)('$name', ({ status, readiness }) => {
+        expect(READINESS[identificationStatus(status).kind]).toBe(readiness);
+    });
+
+    it('covers an incomplete install: weights present, labels unreadable', () => {
+        expect(shared.cases.some((entry) => entry.readiness === 'failed' && entry.status?.active_model_installed === true)).toBe(true);
     });
 });

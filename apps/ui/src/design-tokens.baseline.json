@@ -410,8 +410,8 @@
     "arbitrary": 0
   },
   "lib/components/SpeciesDetailModal.svelte": {
-    "palette": 231,
-    "dark": 104,
+    "palette": 229,
+    "dark": 103,
     "arbitrary": 11
   },
   "lib/components/TaxonCard.svelte": {
@@ -697,7 +697,7 @@
   "lib/components/setup/WizardShell.svelte": {
     "palette": 29,
     "dark": 12,
-    "arbitrary": 1
+    "arbitrary": 0
   },
   "lib/components/setup/WizardStepLayout.svelte": {
     "palette": 13,

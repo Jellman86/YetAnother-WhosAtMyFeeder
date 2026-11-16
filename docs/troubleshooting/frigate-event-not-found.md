@@ -133,6 +133,24 @@ curl -fsS http://localhost:9852/api/events/{id}
 ```
 
 A detection affected by this scenario will have:
+- `frigate_event_check: "not_found"` (Frigate answered that it has no such event)
 - `has_frigate_event: false`
 - `has_clip: true` (if YA-WAMF cached the clip in time)
 - `video_classification_status: "failed"` or `"completed"` (depending on whether the cache bypass succeeded)
+
+`has_frigate_event: false` alone does not mean the event is gone: it is also false when Frigate
+could not be asked. `frigate_event_check` says which, and the record words each one separately:
+
+| `frigate_event_check` | Meaning | What the record says |
+| --- | --- | --- |
+| `found` | Frigate returned the event. | Nothing. |
+| `not_found` | Frigate answered 404. | "Frigate no longer has this event or media." |
+| `unreachable` | A connection to Frigate could not be made. | That it could not reach Frigate; check that Frigate is running. |
+| `timed_out` | Frigate did not answer in time. | That Frigate did not answer in time; reopen the record. |
+| `unauthorized` | Frigate answered 401 or 403. | That Frigate refused YA-WAMF's credentials; check `FRIGATE_AUTH_TOKEN`. |
+| `failed` | Frigate answered with another error, such as a 5xx. | That Frigate answered with an error; check Frigate's log. |
+| `not_checked` | Frigate was not asked for this response. | That Frigate has not been asked yet; reopen the record. |
+
+While Frigate as a whole is not answering, event reads are put off rather than sent one by one.
+Those reads report the failure that closed the gate (a timeout, a server error or a failed
+connection), not a blanket "unreachable".

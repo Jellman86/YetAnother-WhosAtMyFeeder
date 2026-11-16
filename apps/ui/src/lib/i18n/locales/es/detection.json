@@ -80,6 +80,14 @@
   "id": "ID de detección",
   "open_in_frigate": "Abrir en Frigate",
   "open_in_frigate_gone": "Ya no está en Frigate",
+  "upstream_check": {
+    "gone": "Frigate ya no tiene este evento ni sus archivos.",
+    "unreachable": "YA-WAMF no pudo conectar con Frigate, así que no se sabe si Frigate aún tiene este evento. Compruebe que Frigate está en marcha y vuelva a abrir este registro.",
+    "timed_out": "Frigate no respondió a tiempo, así que no se sabe si aún tiene este evento. Vuelva a abrir este registro en un momento. Si se repite, compruebe la carga de Frigate.",
+    "unauthorized": "Frigate rechazó las credenciales de YA-WAMF, así que no se sabe si aún tiene este evento. Compruebe FRIGATE_AUTH_TOKEN en el entorno con el que arranca YA-WAMF, reinícielo y vuelva a abrir este registro.",
+    "failed": "Frigate respondió con un error, así que no se sabe si aún tiene este evento. Revise el registro de Frigate y vuelva a abrir este registro.",
+    "not_checked": "Aún no se ha consultado a Frigate sobre este evento. Vuelva a abrir este registro para comprobarlo."
+  },
   "upstream_missing": {
     "title": "Falta en Frigate",
     "card_label": "Falta en origen",
