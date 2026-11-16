@@ -317,3 +317,22 @@ describe('findRefreshedGardenVisit', () => {
         expect(findRefreshedGardenVisit([], null)).toBeNull();
     });
 });
+
+describe('why a pending capture is waiting', () => {
+    const t = (_key: string, fallback: string): string => fallback;
+    const pending = capture();
+    const state = (checkModel: Parameters<typeof gardenEntryText>[4]): string =>
+        gardenEntryText(pending, gardenEntryView(pending), t, 'owner', checkModel).state;
+
+    it('names the blocker when the automatic check model cannot run', () => {
+        expect(state('missing')).toBe('Waiting: the automatic check model is not downloaded, so nothing can identify this yet.');
+        expect(state('queued')).toBe('Waiting: the automatic check model is downloading. Identification starts when it finishes.');
+        expect(state('failed')).toBe('Waiting: the automatic check model could not load, so nothing can identify this yet.');
+    });
+
+    it('says only that it waits when the model is able to run, or its state is not known', () => {
+        for (const readiness of ['ready', 'running', 'checking', 'validating', null, undefined] as const) {
+            expect(state(readiness)).toBe('Waiting for automatic identification');
+        }
+    });
+});

@@ -31,7 +31,6 @@
     "browser": "Your browser",
     "unknown": "Unknown",
     "degraded": "Check",
-    "loaded": "Loaded",
     "cameras_count": "{online} of {total} cameras online",
     "mqtt_detail": "frigate/events",
     "audio_detail": "BirdNET-Go correlation",
@@ -43,9 +42,7 @@
     "not_checked": "Not checked",
     "no_reading": "no reading from here",
     "owner_only": "Owner only",
-    "owner_only_detail": "reading visible to the owner",
-    "standby": "Not loaded yet",
-    "missing": "Not installed"
+    "owner_only_detail": "reading visible to the owner"
   },
   "storage": {
     "title": "What it stores",

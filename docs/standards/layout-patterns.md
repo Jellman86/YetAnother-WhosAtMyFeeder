@@ -197,10 +197,15 @@ back to zero. The record says "Frigate no longer has this event" only on a not-f
 (`utils/frigate-event-reading.ts`); a Frigate that could not be asked gets its own cause and next
 step. A wait is named for what it waits on and is bounded: the wizard's Cameras step is ready once
 the settings load, and asks Frigate for at most 8 seconds beside it. The model's state is one
-reading everywhere: `identificationStatus()` words the sentence, About's pipeline and the wizard's
-review follow it (`setup/review-status.ts`; the server reads the same runtime report through
-`services/model_readiness.py`, and both are held to `tests/fixtures/model_readiness_cases.json`), and a model that
-is only chosen is never called configured or installed. Reassurance needs a reading too: the
+reading everywhere: `identificationStatus()` words the sentence, and `settings/model-readiness.ts`
+names the state in one vocabulary (missing, queued, validating, ready, running, failed, or still
+checking) with one word each (`readinessLabel`). The server reads the same runtime report through
+`services/model_readiness.py`, and both are held to `tests/fixtures/model_readiness_cases.json`. Settings › Models, the wizard's review, About's
+pipeline and a Garden capture's wait all take their word from it, and a model that is only chosen
+is never called configured or installed. A state has one action: a download for a missing model, a
+recovery for a failed one (`readinessAction`). While the chosen model needs it, that is the page's
+only primary button (`setupEmphasis`), and a wait a model is blocking names the blocker and links to
+its setup. Reassurance needs a reading too: the
 backend-down screens say nothing about the data they could not ask about.
 
 A page that reads data keeps four states apart: loading, read and empty, failed, and stale. Only a

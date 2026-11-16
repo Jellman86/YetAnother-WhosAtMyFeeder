@@ -31,7 +31,6 @@
     "browser": "Il tuo browser",
     "unknown": "Sconosciuto",
     "degraded": "Da controllare",
-    "loaded": "Caricato",
     "cameras_count": "{online} di {total} telecamere online",
     "mqtt_detail": "frigate/events",
     "audio_detail": "Correlazione BirdNET-Go",
@@ -43,9 +42,7 @@
     "not_checked": "Non verificato",
     "no_reading": "nessuna lettura da qui",
     "owner_only": "Solo proprietario",
-    "owner_only_detail": "lettura visibile al proprietario",
-    "standby": "Non ancora caricato",
-    "missing": "Non installato"
+    "owner_only_detail": "lettura visibile al proprietario"
   },
   "storage": {
     "title": "Cosa memorizza",

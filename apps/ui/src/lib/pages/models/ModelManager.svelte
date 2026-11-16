@@ -3,7 +3,8 @@
     import { _ } from 'svelte-i18n';
     import { onMount, onDestroy } from 'svelte';
     import { fetchAvailableModels, fetchInstalledModels, downloadModel, fetchDownloadStatus, activateModel, deleteModel, validateModel, checkHealth, groupTieredModelLineup, categorizeModel, MODEL_CATEGORY_LABEL, type ModelCategory, type ModelMetadata, type InstalledModel, type DownloadProgress, type ClassifierStatus, type HealthStatus } from '../../api';
-    import { identificationModelName, modelFactsLine, recommendIdentificationModel } from '../../settings/identification-models';
+    import { identificationModelName, identificationStatus, modelFactsLine, recommendIdentificationModel } from '../../settings/identification-models';
+    import { identificationReadiness, readinessLabel, setupEmphasis } from '../../settings/model-readiness';
     import { jobProgressStore } from '../../stores/job_progress.svelte';
     import { confirmAction } from '../../stores/confirm_dialog.svelte';
     import { toastStore } from '../../stores/toast.svelte';
@@ -81,6 +82,15 @@
             ?? installedModels.find((model) => model.is_active)?.id
             ?? null
     );
+    // The chosen model's state, in the one vocabulary the wizard, About and Garden records use.
+    const chosenReadiness = $derived.by(() => {
+        const download = currentModelId ? downloadStatuses[currentModelId]?.status : undefined;
+        const settingUp = wizardBusy && wizardModel?.id === currentModelId;
+        return identificationReadiness(identificationStatus(classifierStatus), {
+            downloading: download === 'downloading' || download === 'pending' || (settingUp && wizardDownload),
+            validating: settingUp && !wizardDownload
+        });
+    });
     const cropDetectorStatus = $derived(classifierStatus?.crop_detector ?? null);
     // What the running service has saved, as opposed to the form's staged choice.
     const savedBirdFinder = $derived<BirdFinder | null>(
@@ -608,7 +618,9 @@
     {/if}
 {/snippet}
 
-{#snippet modelActions(model: ModelMetadata)}
+{#snippet modelActions(model: ModelMetadata, subject: 'chosen' | 'other' = 'other')}
+    <!-- While the chosen model needs a download or a recovery, that is the page's one primary action. -->
+    {@const setupClass = setupEmphasis(chosenReadiness, subject) === 'primary' ? 'btn btn-primary min-h-11 px-4' : 'btn btn-secondary min-h-11 px-4'}
     {@const installed = Boolean(getInstalledModel(model.id))}
     {@const ready = isReady(model.id)}
     {@const active = isActive(model.id)}
@@ -659,7 +671,7 @@
                         type="button"
                         onclick={() => handleActivate(model.id)}
                         disabled={activating !== null}
-                        class="btn btn-primary min-h-11 px-4"
+                        class={setupClass}
                     >
                         {activating === model.id
                             ? $_('settings.detection.model_manager_activating', { default: 'Activating…' })
@@ -670,14 +682,16 @@
                         type="button"
                         onclick={() => handleValidate(model)}
                         disabled={wizardBusy}
-                        class="btn btn-primary min-h-11 px-4"
+                        class={setupClass}
                     >
                         {$_('settings.detection.model_manager_validate_to_enable', { default: 'Validate to enable' })}
                     </button>
                 {/if}
             {:else if !active}
-                <button type="button" onclick={() => handleInstall(model)} disabled={wizardBusy} class="btn btn-primary min-h-11 px-4">
-                    {$_('settings.detection.model_manager_download_setup', { default: 'Download and set up' })}
+                <button type="button" onclick={() => handleInstall(model)} disabled={wizardBusy} class={setupClass} data-model-setup={setupEmphasis(chosenReadiness, subject)}>
+                    {setupEmphasis(chosenReadiness, subject) === 'secondary'
+                        ? $_('settings.models.download_switch', { default: 'Download and switch to this model' })
+                        : $_('settings.detection.model_manager_download_setup', { default: 'Download and set up' })}
                 </button>
             {/if}
         </div>
@@ -865,16 +879,16 @@
 
                 {#if currentModel}
                     {@const currentActive = isActive(currentModel.id)}
-                    <div class="rounded-xl border border-line-soft p-4 sm:p-5" data-current-model>
+                    <div class="rounded-xl border border-line-soft p-4 sm:p-5" data-current-model data-model-readiness={chosenReadiness}>
                         <p class="mb-2 text-xs font-medium text-slate-600 dark:text-slate-400">
                             {currentActive
                                 ? $_('settings.models.current_label', { default: 'In use now' })
-                                : $_('settings.models.chosen_label', { default: 'Chosen, not on this install' })}
+                                : $_('settings.models.chosen_state', { values: { state: readinessLabel(chosenReadiness, $_) }, default: 'Chosen · {state}' })}
                         </p>
                         {@render modelHeading(currentModel, currentActive ? { label: $_('settings.detection.model_manager_in_use', { default: 'In use' }), className: modelCardStateClass('active') } : null, 'current-model-name')}
                         <div class="mt-3 space-y-4">
                             {@render modelDetail(currentModel)}
-                            {@render modelActions(currentModel)}
+                            {@render modelActions(currentModel, 'chosen')}
                         </div>
                     </div>
                 {/if}

@@ -155,10 +155,10 @@ class FakeBackend {
     private status(): Json {
         const active = this.installed.find((m) => m.id === this.activeModelId);
         return {
-            loaded: true, error: null, labels_count: 100, enabled: true,
+            loaded: !this.modelFailedToLoad, error: this.modelFailedToLoad ? 'labels.txt: No such file or directory' : null, labels_count: 100, enabled: true,
             active_model_id: this.activeModelId, effective_model_id: this.activeModelId,
             active_model_installed: this.activeModelInstalled(),
-            image_flavor: 'intel', runtime_source: 'worker',
+            image_flavor: 'intel', runtime_source: this.modelFailedToLoad ? 'in_process' : 'worker',
             available_providers: ['cpu', 'intel_cpu', 'intel_gpu', 'intel_npu'],
             host_available_providers: ['cpu', 'intel_cpu', 'intel_gpu', 'intel_npu'],
             packaged_inference_providers: ['cpu', 'intel_cpu', 'intel_gpu', 'intel_npu'],
@@ -774,6 +774,8 @@ test('a validation response already in flight cannot refresh a step after Back',
     await expect.poll(() => Boolean(held.route)).toBe(true);
     await wizard(page).getByRole('button', { name: 'Back', exact: true }).click();
     await expectStep(page, 'Review setup');
+    // The review reads the classifier once for its own model row; what follows is the late response.
+    await expect(wizard(page).locator('[data-setup-readiness]')).toHaveAttribute('data-setup-readiness', 'running');
     const atLeave = fake.requests.length;
     if (!held.route) throw new Error('Validation response was not held');
     await held.route.fulfill({ json: { run_id: RUN_ID, finished_at: '2026-10-10T12:05:00Z', models: [] } });
@@ -1164,6 +1166,8 @@ test('the review words a working model from its runtime report', async ({ page }
     await openRerun(page, new FakeBackend({}));
     const model = wizard(page).getByRole('listitem').filter({ hasText: 'Model and hardware' });
     await expect(model.locator('[data-setup-status]')).toHaveText('Running');
+    // The word comes from the classifier's own report, the one the model step reads.
+    await expect(model.locator('[data-setup-status]')).toHaveAttribute('data-setup-readiness', 'running');
 });
 
 test('the review does not call a model ready when its files are here but it could not be loaded', async ({ page }, testInfo) => {

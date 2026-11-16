@@ -37,6 +37,8 @@
         type GardenPhotoCheck
     } from '../api/garden';
     import { withAuthParams } from '../api/core';
+    import { toAppPath } from '../app/url-base';
+    import { gardenCheckReadiness, readinessAction } from '../settings/model-readiness';
     import { fetchSpeciesInfo, type SpeciesInfo } from '../api/species';
     import { getErrorMessage } from '../utils/error-handling';
     import { gardenPhotoOutline, gardenPreviewStyle } from '../utils/garden-photo';
@@ -205,8 +207,14 @@
             ? $_('garden.named_from.motion_crop', { default: 'Named from the animal crop in motion footage' })
             : $_('garden.named_from.tracked_crop', { default: "Named from Frigate's tracked animal in the snapshot" });
     });
+    // The automatic check model's state, in the words Settings and the wizard use. Only an owner
+    // reads it, so a visitor's capture says only that it waits.
+    const checkReadiness = $derived(canReview ? gardenCheckReadiness(identification) : null);
+    const checkSetupNeeded = $derived(
+        capture.status === 'pending' && view.review === null && checkReadiness !== null && readinessAction(checkReadiness) !== null
+    );
     const status = $derived.by((): { text: string; tone: 'review' | 'confirmed' | 'neutral' } => {
-        const entry = gardenEntryText(capture, view, (key, fallback, values) => get(_)(key, { values, default: fallback }), viewer);
+        const entry = gardenEntryText(capture, view, (key, fallback, values) => get(_)(key, { values, default: fallback }), viewer, checkReadiness);
         if (view.review === 'species') {
             return { text: $_('garden.explorer.review_species', { default: 'Needs review: the species was suggested, not confirmed.' }), tone: 'review' };
         }
@@ -626,6 +634,12 @@
                     {/if}
                     {status.text}
                 </p>
+                {#if checkSetupNeeded}
+                    <!-- The one thing that unblocks the wait, where the wait is stated. -->
+                    <a href={toAppPath('/settings/beta')} class="btn btn-secondary inline-flex min-h-11 items-center self-start px-4" data-garden-model-setup>
+                        {$_('garden.explorer.set_up_check_model', { default: 'Set up the automatic check model' })}
+                    </a>
+                {/if}
                 {#if !capture.owner_identification && capture.identification?.outcome === 'unknown' && capture.identification.review !== 'dismissed'}
                     <p class="text-sm text-slate-600 dark:text-slate-300" data-garden-identification-unknown>
                         {$_('garden.identification_unknown', { default: 'No reliable identification. Leave this animal unidentified or request a new suggestion.' })}

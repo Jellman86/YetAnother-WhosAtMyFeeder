@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ClassifierStatus } from '../api/classifier';
-import { pipelineClassifierState } from './pipeline-classifier-state';
+import { pipelineClassifierState, pipelineReadiness } from './pipeline-classifier-state';
 import { identificationStatus } from '../settings/identification-models';
 
 // What /api/classifier/status sends on a default install: image work runs in
@@ -65,5 +65,13 @@ describe('pipelineClassifierState', () => {
         const reloading = { labels_count: 10, enabled: true, image_execution_mode: 'in_process', runtime_source: 'in_process', effective_model_id: 'small_birds', inference_health: { status: 'ok' } } as ClassifierStatus;
         expect(pipelineClassifierState(reloading)).toBe('unknown');
         expect(identificationStatus(reloading).kind).toBe('loading');
+    });
+
+    it('names its states in the shared readiness vocabulary, and has none for a check or an unknown', () => {
+        expect(pipelineReadiness('loaded')).toBe('running');
+        expect(pipelineReadiness('standby')).toBe('ready');
+        expect(pipelineReadiness('missing')).toBe('missing');
+        expect(pipelineReadiness('check')).toBeNull();
+        expect(pipelineReadiness('unknown')).toBeNull();
     });
 });

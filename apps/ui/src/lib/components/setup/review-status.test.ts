@@ -46,4 +46,24 @@ describe("the review's word for each section", () => {
         expect(reviewStatusTone(section({ detail_code: 'model_fallback' }))).toBe('optional');
         expect(reviewStatusTone(section({ status: 'attention', detail_code: 'model_missing' }))).toBe('attention');
     });
+
+    it('words the model row from the classifier\'s report once it has arrived, as the model step does', () => {
+        const model = section({ detail_code: 'model_ready' });
+        expect(reviewStatusLabel(model, t, 'running')).toBe('Running');
+        expect(reviewStatusTone(model, 'running')).toBe('ok');
+        expect(reviewStatusLabel(model, t, 'ready')).toBe('Ready');
+        expect(reviewStatusLabel(model, t, 'missing')).toBe('Needs a download');
+        expect(reviewStatusTone(model, 'missing')).toBe('attention');
+        expect(reviewStatusLabel(model, t, 'failed')).toBe('Could not load');
+        expect(reviewStatusTone(model, 'failed')).toBe('attention');
+        expect(reviewStatusTone(model, 'validating')).toBe('optional');
+    });
+
+    it('keeps the server\'s word until the classifier has answered, and for its own findings', () => {
+        const model = section({ detail_code: 'model_ready' });
+        expect(reviewStatusLabel(model, t, null)).toBe('Ready');
+        expect(reviewStatusLabel(model, t, 'checking')).toBe('Ready');
+        expect(reviewStatusLabel(section({ status: 'attention', detail_code: 'model_retired' }), t, 'running')).toBe('Needs attention');
+        expect(reviewStatusLabel(section({ id: 'cameras', detail_code: 'cameras_all' }), t, 'missing')).toBe('Configured');
+    });
 });

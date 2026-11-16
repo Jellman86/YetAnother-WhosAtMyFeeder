@@ -1,4 +1,5 @@
 import type { ClassifierStatus } from '../api/classifier';
+import type { ModelReadiness } from '../settings/model-readiness';
 
 /**
  * The classifier step of the About pipeline, read from `/api/classifier/status`.
@@ -34,4 +35,16 @@ export function pipelineClassifierState(status: ClassifierStatus | null): Pipeli
         || (status.image_execution_mode === 'in_process' && status.runtime_source !== 'worker' && status.runtime_source !== 'planned');
     if (inApp) return 'unknown';
     return status.runtime_source === 'planned' ? 'standby' : 'loaded';
+}
+
+/**
+ * The step's state in the readiness vocabulary Settings, the wizard and Garden use, so About says
+ * "Running", "Ready" or "Needs a download" in the same words. A health check and an unknown are
+ * the pipeline's own states and have no readiness word.
+ */
+export function pipelineReadiness(state: PipelineClassifierState): ModelReadiness | null {
+    if (state === 'loaded') return 'running';
+    if (state === 'standby') return 'ready';
+    if (state === 'missing') return 'missing';
+    return null;
 }

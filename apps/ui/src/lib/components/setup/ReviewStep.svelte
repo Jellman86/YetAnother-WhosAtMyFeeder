@@ -5,6 +5,9 @@
     import type { SetupSectionId, SetupSectionState, SetupSectionStatus } from '../../api/setup';
     import WizardStepLayout from './WizardStepLayout.svelte';
     import { reviewStatusLabel, reviewStatusTone } from './review-status';
+    import { fetchClassifierStatus, type ClassifierStatus } from '../../api/classifier';
+    import { identificationStatus } from '../../settings/identification-models';
+    import { identificationReadiness } from '../../settings/model-readiness';
 
     const STATUS_BADGE: Record<SetupSectionStatus, string> = {
         ok: 'bg-success-100 text-success-800 dark:bg-success-900/30 dark:text-success-200',
@@ -14,8 +17,14 @@
 
     let sections = $derived(setupWizardStore.setupState?.sections ?? []);
 
+    // The classifier's own report, the one the model step reads, so both steps say the same state.
+    let classifierStatus = $state.raw<ClassifierStatus | null>(null);
+    const modelReadiness = $derived(classifierStatus ? identificationReadiness(identificationStatus(classifierStatus)) : null);
+
     onMount(() => {
         void setupWizardStore.refresh();
+        // Without it the row keeps the server's own finding, so a failed read claims nothing more.
+        fetchClassifierStatus().then((status) => (classifierStatus = status)).catch(() => (classifierStatus = null));
     });
 
     function openSection(section: SetupSectionId): void {
@@ -155,7 +164,7 @@
                     {/if}
                 </div>
                 <div class="flex shrink-0 items-center gap-2">
-                    <span class="rounded-full px-2 py-0.5 text-xs font-semibold {STATUS_BADGE[reviewStatusTone(section)]}" data-setup-status={section.detail_code ?? section.status}>{reviewStatusLabel(section, $_)}</span>
+                    <span class="rounded-full px-2 py-0.5 text-xs font-semibold {STATUS_BADGE[reviewStatusTone(section, modelReadiness)]}" data-setup-status={section.detail_code ?? section.status} data-setup-readiness={section.id === 'model' ? modelReadiness ?? undefined : undefined}>{reviewStatusLabel(section, $_, modelReadiness)}</span>
                     <button type="button" class="btn btn-ghost px-3 py-1.5 text-xs" onclick={() => openSection(section.id)}>
                         {$_('setup.review.edit', { default: 'Review' })}
                     </button>

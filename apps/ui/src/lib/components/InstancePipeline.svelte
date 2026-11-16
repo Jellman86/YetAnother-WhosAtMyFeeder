@@ -9,7 +9,8 @@
     import { getErrorMessage, isTransientRequestError } from '../utils/error-handling';
     import { logger } from '../utils/logger';
     import { describeRuntime } from '../utils/instance-facts';
-    import { pipelineClassifierState, type PipelineClassifierState } from '../utils/pipeline-classifier-state';
+    import { pipelineClassifierState, pipelineReadiness } from '../utils/pipeline-classifier-state';
+    import { readinessLabel } from '../settings/model-readiness';
     import { _ } from 'svelte-i18n';
 
     /**
@@ -136,17 +137,20 @@
         const modelName = classifier.effective_model_name?.trim() || null;
         const runtime = describeRuntime(classifier)?.runtime ?? null;
         const reading = pipelineClassifierState(classifier);
-        const states: Record<PipelineClassifierState, { state: string; tone: Tone }> = {
-            loaded: { state: $_('about.pipeline.loaded', { default: 'Loaded' }), tone: 'ok' },
-            standby: { state: $_('about.pipeline.standby', { default: 'Not loaded yet' }), tone: 'off' },
-            missing: { state: $_('about.pipeline.missing', { default: 'Not installed' }), tone: 'off' },
-            check: { state: $_('about.pipeline.degraded', { default: 'Check' }), tone: 'off' },
-            unknown: { state: unknown, tone: 'unknown' }
-        };
+        // One vocabulary for a model's state on every surface; a health check and an unknown are the
+        // pipeline's own.
+        const readiness = pipelineReadiness(reading);
+        const state = readiness
+            ? readinessLabel(readiness, $_)
+            : reading === 'check'
+              ? $_('about.pipeline.degraded', { default: 'Check' })
+              : unknown;
+        const tone: Tone = reading === 'loaded' ? 'ok' : reading === 'unknown' ? 'unknown' : 'off';
         return {
             detail: modelName ?? runtime ?? noReading,
             note: modelName ? runtime : null,
-            ...states[reading]
+            state,
+            tone
         };
     });
 

@@ -1,4 +1,5 @@
 import type { SetupSectionState, SetupSectionStatus } from '../../api/setup';
+import { readinessAction, readinessLabel, type ModelReadiness } from '../../settings/model-readiness';
 
 type Translate = (key: string, options?: { default?: string }) => string;
 
@@ -9,7 +10,8 @@ type Translate = (key: string, options?: { default?: string }) => string;
  * that is only chosen says so, one that is absent needs a download, and one whose files are here
  * but could not be loaded is never called ready.
  */
-export function reviewStatusLabel(section: SetupSectionState, t: Translate): string {
+export function reviewStatusLabel(section: SetupSectionState, t: Translate, model: ModelReadiness | null = null): string {
+    if (modelFollowsReadiness(section, model)) return readinessLabel(model, t);
     switch (section.detail_code) {
         case 'account_auth_disabled':
             return t('setup.status.no_password', { default: 'No password' });
@@ -37,7 +39,20 @@ export function reviewStatusLabel(section: SetupSectionState, t: Translate): str
 }
 
 /** The badge's tone. Green is for a measured state, so a model that was only chosen stays neutral. */
-export function reviewStatusTone(section: SetupSectionState): SetupSectionStatus {
+export function reviewStatusTone(section: SetupSectionState, model: ModelReadiness | null = null): SetupSectionStatus {
+    if (modelFollowsReadiness(section, model)) {
+        if (readinessAction(model) !== null) return 'attention';
+        return model === 'ready' || model === 'running' ? 'ok' : 'optional';
+    }
     if (section.detail_code === 'model_selected' || section.detail_code === 'model_fallback') return 'optional';
     return section.status;
+}
+
+/**
+ * The model row reads the classifier's own report once it has arrived, in the words the model step
+ * uses. A retired model or a detector saved as the classifier is the server's finding and stays.
+ */
+function modelFollowsReadiness(section: SetupSectionState, model: ModelReadiness | null): model is ModelReadiness {
+    if (section.id !== 'model' || model === null || model === 'checking') return false;
+    return section.detail_code !== 'model_retired' && section.detail_code !== 'model_wrong_kind';
 }

@@ -204,7 +204,8 @@ test('Garden on its own lists only captures, and its record confirms an animal w
 
     await page.getByRole('button', { name: /Open Garden capture: Possible animal/ }).click();
     const dialog = page.getByRole('dialog');
-    await expect(dialog).toContainText('Waiting for automatic identification');
+    // This install has only the species suggestion model, so the wait names what blocks it.
+    await expect(dialog).toContainText('Waiting: the automatic check model is not downloaded');
     await expect(dialog.locator('[data-garden-capture-status]')).not.toHaveAttribute('data-garden-capture-status', 'confirmed');
     await expect(dialog.getByRole('button', { name: /Reclassify|Play/i })).toHaveCount(0);
     if (shots) await page.screenshot({ path: `${shots}/garden-explorer-record.png` });
@@ -998,3 +999,30 @@ test('a visitor sees a Garden row pop-out only for a photo the owner shares', as
     await expect(gardenPanel(page).locator('[data-garden-capture-preview-state]')).toHaveText('Owner confirmed');
     expect(errors).toEqual([]);
 });
+
+for (const [checkModel, installed] of [['missing', false], ['ready', true]] as const) {
+    test(`a pending capture says why it waits when the automatic check model is ${checkModel}`, async ({ page }, testInfo) => {
+        await openExplorer(page, '&garden=1');
+        await page.route('**/api/garden/identification', route => route.fulfill({ json: {
+            country: 'GBR', catalogue_ready: true, busy: false,
+            models: [{ variant: '4.0.3a', installed, size_bytes: 1 }, { variant: '4.0.3b', installed: true, size_bytes: 1 }]
+        } }));
+        const option = page.locator('[data-explorer-subjects-option="garden"]');
+        if (!(await option.isVisible())) await page.locator('[data-explorer-filter-toggle]').click();
+        await option.click();
+        await page.getByRole('button', { name: /Open Garden capture: Possible animal/ }).click();
+        const dialog = page.getByRole('dialog');
+        const status = dialog.locator('[data-garden-capture-status]');
+        const setup = dialog.locator('[data-garden-model-setup]');
+        if (installed) {
+            await expect(status).toHaveText('Waiting for automatic identification');
+            await expect(setup).toHaveCount(0);
+        } else {
+            // The wait has a cause the owner can act on, and the one action that clears it.
+            await expect(status).toHaveText('Waiting: the automatic check model is not downloaded, so nothing can identify this yet.');
+            await expect(setup).toHaveText('Set up the automatic check model');
+            await expect(setup).toHaveAttribute('href', '/settings/beta');
+            await page.screenshot({ path: testInfo.outputPath('garden-pending-model-missing.png') });
+        }
+    });
+}

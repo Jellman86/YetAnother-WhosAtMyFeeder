@@ -31,7 +31,6 @@
     "browser": "Ihr Browser",
     "unknown": "Unbekannt",
     "degraded": "Prüfen",
-    "loaded": "Geladen",
     "cameras_count": "{online} von {total} Kameras online",
     "mqtt_detail": "frigate/events",
     "audio_detail": "BirdNET-Go-Abgleich",
@@ -43,9 +42,7 @@
     "not_checked": "Nicht geprüft",
     "no_reading": "von hier aus keine Messung",
     "owner_only": "Nur Besitzer",
-    "owner_only_detail": "Messwert nur für den Besitzer sichtbar",
-    "standby": "Noch nicht geladen",
-    "missing": "Nicht installiert"
+    "owner_only_detail": "Messwert nur für den Besitzer sichtbar"
   },
   "storage": {
     "title": "Was gespeichert wird",

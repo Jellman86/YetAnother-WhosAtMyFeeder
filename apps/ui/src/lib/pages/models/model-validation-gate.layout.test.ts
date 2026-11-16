@@ -52,4 +52,14 @@ describe('Model Manager guided install + selection gate', () => {
         expect(modelManagerSource).toContain('model_manager_runtime_order');
         expect(modelManagerSource).toContain("case 'intel_npu':");
     });
+
+    it('keeps one primary setup action while the chosen model needs a download or a recovery', () => {
+        expect(modelManagerSource).toContain("setupEmphasis(chosenReadiness, subject) === 'primary'");
+        expect(modelManagerSource).toContain("{@render modelActions(currentModel, 'chosen')}");
+        // Any other model's download is secondary then, and says what it does instead.
+        expect(modelManagerSource).toContain("$_('settings.models.download_switch'");
+        // The chosen model's state is worded by the shared readiness vocabulary.
+        expect(modelManagerSource).toContain('readinessLabel(chosenReadiness, $_)');
+        expect(modelManagerSource).not.toContain('settings.models.chosen_label');
+    });
 });
