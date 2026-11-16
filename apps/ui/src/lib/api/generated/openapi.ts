@@ -2893,6 +2893,7 @@ export interface components {
     scientific_name?: string | null;
     source?: string | null;
     source_url?: string | null;
+    summary_language: string | null;
     summary_source?: string | null;
     summary_source_url?: string | null;
     taxa_id?: number | null;

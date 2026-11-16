@@ -1,6 +1,7 @@
 {
   "no_wiki": "No hay información de Wikipedia disponible para esta especie.",
   "no_info": "No hay información de referencia disponible para esta especie.",
+  "summary_language_note": "Descripción de Wikipedia. Idioma: {language}",
   "avg_confidence": "Confianza promedio",
   "first_seen": "Visto por primera vez",
   "last_seen": "Visto por última vez",

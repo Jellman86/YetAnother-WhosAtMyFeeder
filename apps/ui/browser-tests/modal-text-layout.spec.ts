@@ -248,3 +248,41 @@ test('the record is walked by keyboard in the order it is read', async ({ page }
     // The identifiers are the last thing read and the last thing reached.
     expect(column.at(-1)!.name).toContain('Detection ID');
 });
+
+for (const [language, noted] of [['de', true], ['en', false]] as const) {
+    test(`a description in ${language} ${noted ? 'is labelled and marked with its language' : 'needs no label in an English page'}`, async ({ page }, testInfo) => {
+        await page.setViewportSize({ width: 1440, height: 900 });
+        await page.emulateMedia({ reducedMotion: 'reduce' });
+        await withoutWebFonts(page);
+        await page.route(url => url.pathname.startsWith('/api/'), async route => {
+            const path = new URL(route.request().url()).pathname;
+            if (path.endsWith('/snapshot/candidates')) return route.fulfill({ json: { candidates: [], birds: [], current_source: 'frigate_snapshot' } });
+            if (path.endsWith('/snapshot/status')) return route.fulfill({ json: { available: true, high_quality_bird_crop_enabled: true, source: 'frigate_snapshot' } });
+            if (path.endsWith('.jpg')) return route.fulfill({ contentType: 'image/svg+xml', body:
+                '<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="600"><rect width="1000" height="600" fill="#64748b"/></svg>' });
+            if (path.startsWith('/api/species/') && path.endsWith('/info')) return route.fulfill({ json: {
+                title: 'Heckenbraunelle', extract: 'Die Heckenbraunelle ist eine Vogelart.', summary_source: 'Wikipedia',
+                summary_source_url: `https://${language}.wikipedia.org/wiki/Heckenbraunelle`, summary_language: language
+            } });
+            if (path.startsWith('/api/audio/context/') || path === '/api/species/search' || path.includes('/conversation')) return route.fulfill({ json: [] });
+            if (path.endsWith('/classifier/status')) return route.fulfill({ json: { ready: true } });
+            return route.fulfill({ json: {} });
+        });
+        await page.goto('/browser-tests/modal-text-layout.html?controls=true');
+        const modal = page.locator('[data-detection-detail-modal]');
+        const text = modal.locator('[data-detection-reference-text]');
+        await expect(text).toBeVisible();
+        const note = modal.locator('[data-reference-summary-language]');
+        if (noted) {
+            // The page is read in English and the description is German: said in words, and marked
+            // so a screen reader reads it in a German voice.
+            await expect(text).toHaveAttribute('lang', 'de');
+            await expect(note).toHaveText('Description from German Wikipedia');
+            await note.scrollIntoViewIfNeeded();
+            await page.screenshot({ path: testInfo.outputPath('description-in-another-language.png') });
+        } else {
+            await expect(note).toHaveCount(0);
+            expect(await text.getAttribute('lang')).toBeNull();
+        }
+    });
+}

@@ -1,6 +1,7 @@
 {
   "no_wiki": "Keine Wikipedia-Informationen für diese Art verfügbar.",
   "no_info": "Keine Referenzinformationen für diese Art verfügbar.",
+  "summary_language_note": "Beschreibung aus der Wikipedia auf {language}",
   "avg_confidence": "Durchschn. Konfidenz",
   "first_seen": "Zuerst gesehen",
   "last_seen": "Zuletzt gesehen",

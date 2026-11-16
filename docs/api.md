@@ -918,7 +918,11 @@ Notes:
   Whenever the taxon is known (a `scientific_name` was given, or the taxonomy knows the bird's),
   the Wikipedia description is the article that the exact active iNaturalist taxon links to
   (`wikipedia_url`), asked for by its title; in another language it is the article Wikipedia's own
-  language link leads to, and when that language has no article, the linked one. The summary's
+  language link leads to, and when that language has no article, the linked one. The linked
+  article is read and verified first, and only a verified article's language link is followed.
+  `summary_language` is the language the description is actually in (a Wikipedia edition code such
+  as `en`, read from the summary's own address; null for other sources), which can differ from
+  the language asked for. The summary's
   text is not consulted for these, because Wikipedia's REST summary leaves the scientific name
   out. If Wikipedia answers the linked title with another title (a redirect), the article is
   accepted only when that title is a name the species catalogue records for the taxon, or when the

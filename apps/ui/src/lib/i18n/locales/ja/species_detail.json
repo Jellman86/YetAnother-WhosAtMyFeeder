@@ -1,6 +1,7 @@
 {
   "no_wiki": "この種に関するウィキペディア情報はありません。",
   "no_info": "この種に関する参考情報はありません。",
+  "summary_language_note": "ウィキペディア（{language}）の説明",
   "avg_confidence": "平均信頼度",
   "first_seen": "初観測",
   "last_seen": "最終観測",

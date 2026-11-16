@@ -1843,7 +1843,6 @@ async def _article_in_language(client: httpx.AsyncClient, language: str, title: 
             "titles": title,
             "lllang": wanted,
             "lllimit": 1,
-            "redirects": 1,
             "format": "json",
         },
     )
@@ -1876,42 +1875,53 @@ async def _fetch_linked_article(
 ) -> SpeciesInfo | None:
     """The summary of exactly the article a taxon's record links to, in the reader's language.
 
-    The record links one language's article. Another language is reached through that article's
-    language link, never by searching, and when the reader's language has no such article the
-    linked one is the description: a description in another language is better than none.
+    The linked article is read and verified first, whatever language is wanted. It is asked for
+    by its title, and if Wikipedia answers with another title (a redirect) the link is the
+    identity only if that title is still this taxon: a name the catalogue records for it, or an
+    article with the exact scientific name as its subject. Anything else is unverified and is not
+    the taxon's description; None then, and when there is no article, so the caller can fall back.
 
-    The article is asked for by its title. If Wikipedia answers with another title (a redirect),
-    the link is the identity only if that title is still this taxon: a name the catalogue records
-    for it, or an article with the exact scientific name as its subject. Anything else is
-    unverified and is not the taxon's description. None then, and when there is no article, so
-    the caller can fall back.
+    Only a verified article's language link is followed, never a search, and the translated
+    article is held to the same rule. When the reader's language has no such article, the
+    verified linked one is the description: one in another language is better than none.
     """
     link = linked_article(wikipedia_url)
     if link is None:
         return None
     language, title = link
+    known_names = await asyncio.to_thread(_catalogue_names, scientific_name)
+    aliases = _trusted_synonyms(scientific_name)
+
+    def still_the_taxon(asked_for: str, answer: SpeciesInfo) -> bool:
+        return bool(answer.extract) and linked_article_is_still_the_taxon(
+            asked_for,
+            {"title": answer.title, "extract": answer.extract},
+            scientific_name,
+            known_names=known_names,
+            aliases=aliases,
+        )
+
     headers = {"User-Agent": WIKIPEDIA_USER_AGENT, "Accept": "application/json"}
     try:
         async with httpx.AsyncClient(timeout=15.0, follow_redirects=True, headers=headers) as client:
-            if language != lang:
-                local = await _article_in_language(client, language, title, lang)
-                if local:
-                    language, title = lang, local
             info = await _get_wikipedia_summary(client, title, species_name, language)
+            if not info.extract:
+                return None
+            if not still_the_taxon(title, info):
+                log.info(
+                    "Linked Wikipedia article redirects to an unverified subject",
+                    species=species_name,
+                    title=info.title,
+                )
+                return None
+            if language != lang:
+                # Asked of the article that answered, now that it is known to be the taxon's.
+                local = await _article_in_language(client, language, info.title, lang)
+                translated = await _get_wikipedia_summary(client, local, species_name, lang) if local else None
+                if translated is not None and still_the_taxon(local, translated):
+                    info = translated
     except httpx.HTTPError as error:
         log.warning("Linked Wikipedia article could not be read", species=species_name, error=type(error).__name__)
-        return None
-    if not info.extract:
-        return None
-    still_the_taxon = linked_article_is_still_the_taxon(
-        title,
-        {"title": info.title, "extract": info.extract},
-        scientific_name,
-        known_names=await asyncio.to_thread(_catalogue_names, scientific_name),
-        aliases=_trusted_synonyms(scientific_name),
-    )
-    if not still_the_taxon:
-        log.info("Linked Wikipedia article redirects to an unverified subject", species=species_name, title=info.title)
         return None
     info.scientific_name = scientific_name
     info.mark_identity_checked()

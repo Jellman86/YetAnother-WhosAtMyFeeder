@@ -409,3 +409,140 @@ async def test_an_unchecked_row_is_looked_up_again_even_when_its_text_names_the_
     assert api.get("/api/species/House Sparrow/info").json()["extract"] == body["extract"]
     assert services.requests == [], "the refreshed row carries its checked identity"
     await _forget("House Sparrow")
+
+
+def _german(services: Services, source_title: str, local_title: str, extract: str, *, answers_as: str | None = None):
+    """A German article reached from an English one by Wikipedia's language link."""
+    services.other_languages[("de", source_title.casefold())] = local_title
+    services.articles[f"de:{local_title.casefold()}"] = {
+        "type": "standard",
+        "title": answers_as or local_title,
+        "lang": "de",
+        "extract": extract,
+        "content_urls": {
+            "desktop": {"page": f"https://de.wikipedia.org/wiki/{(answers_as or local_title).replace(' ', '_')}"}
+        },
+    }
+
+
+@pytest.mark.parametrize("by_scientific_name", [False, True], ids=["by bird name", "by scientific name"])
+def test_a_language_link_is_not_trusted_from_a_source_article_that_redirected_to_another_taxon(
+    info_api, monkeypatch, by_scientific_name
+):
+    api, services = info_api
+    monkeypatch.setattr(router, "_lookup_scientific_name", AsyncMock(return_value="Passer domesticus"))
+    monkeypatch.setattr(router, "get_user_language", lambda _request: "de")
+    # The sparrow's linked title has come to redirect to another sparrow, which has a German article.
+    services.articles["house sparrow"] = {
+        "type": "standard",
+        "title": "Spanish sparrow",
+        "extract": "The Spanish sparrow or willow sparrow is a passerine bird of the sparrow family Passeridae.",
+    }
+    _german(
+        services,
+        "House sparrow",
+        "Weidensperling",
+        "Der Weidensperling ist eine Vogelart aus der Familie der Sperlinge.",
+    )
+    _german(
+        services,
+        "Spanish sparrow",
+        "Weidensperling",
+        "Der Weidensperling ist eine Vogelart aus der Familie der Sperlinge.",
+    )
+    params = {"scientific_name": "Passer domesticus"} if by_scientific_name else {}
+
+    body = api.get("/api/species/Haussperling/info", params=params).json()
+
+    assert body["extract"] is None
+    assert "Weidensperling" not in body["title"]
+    if not by_scientific_name:
+        assert not router._save_species_info.await_args.args[3].identity_checked
+    # The language link was never asked for: the source article failed its identity first.
+    assert not any("prop=langlinks" in url for url in services.requests)
+
+
+def test_the_source_article_is_read_and_verified_before_its_language_link_is_followed(info_api, monkeypatch):
+    api, services = info_api
+    monkeypatch.setattr(router, "_lookup_scientific_name", AsyncMock(return_value="Anas platyrhynchos"))
+    monkeypatch.setattr(router, "get_user_language", lambda _request: "de")
+    _german(services, "Mallard", "Stockente", "Die Stockente ist eine Vogelart aus der Familie der Entenvögel.")
+
+    body = api.get("/api/species/Stockente/info").json()
+
+    assert body["extract"].startswith("Die Stockente")
+    wikipedia = [url for url in services.requests if (httpx.URL(url).host or "").endswith(".wikipedia.org")]
+    assert wikipedia[0] == "https://en.wikipedia.org/api/rest_v1/page/summary/Mallard"
+    assert "prop=langlinks" in wikipedia[1] and "titles=Mallard" in wikipedia[1]
+    assert wikipedia[2] == "https://de.wikipedia.org/api/rest_v1/page/summary/Stockente"
+
+
+def test_a_translated_title_that_redirects_to_another_taxon_falls_back_to_the_verified_source(info_api, monkeypatch):
+    api, services = info_api
+    monkeypatch.setattr(router, "_lookup_scientific_name", AsyncMock(return_value="Passer domesticus"))
+    monkeypatch.setattr(router, "get_user_language", lambda _request: "de")
+    sparrow = next(bird for bird in BIRDS if bird["species"] == "House Sparrow")
+    # The German title answers as the genus article.
+    _german(
+        services,
+        "House sparrow",
+        "Haussperling",
+        "Passer ist eine Gattung der Sperlinge.",
+        answers_as="Passer (Gattung)",
+    )
+
+    body = api.get("/api/species/Haussperling/info").json()
+
+    assert body["extract"] == _shown(sparrow)
+    assert body["summary_source_url"] == "https://en.wikipedia.org/wiki/House_sparrow"
+    assert body["summary_language"] == "en"
+
+
+def test_a_translated_title_that_redirects_to_a_recorded_name_of_the_taxon_is_followed(info_api, monkeypatch):
+    api, services = info_api
+    monkeypatch.setattr(router, "_lookup_scientific_name", AsyncMock(return_value="Fringilla coelebs"))
+    monkeypatch.setattr(router, "get_user_language", lambda _request: "de")
+    _german(
+        services,
+        "Eurasian chaffinch",
+        "Fink",
+        "Der Buchfink ist eine Vogelart aus der Familie der Finken.",
+        answers_as="Buchfink",
+    )
+
+    body = api.get("/api/species/Buchfink/info").json()
+
+    assert body["title"] == "Buchfink"
+    assert body["summary_language"] == "de"
+
+
+@pytest.mark.parametrize("bird", BIRDS, ids=BIRD_IDS)
+def test_the_response_says_which_language_the_description_is_in(info_api, monkeypatch, bird):
+    api, _services = info_api
+    monkeypatch.setattr(router, "_lookup_scientific_name", AsyncMock(return_value=bird["scientific_name"]))
+    monkeypatch.setattr(router, "get_user_language", lambda _request: "fr")
+
+    body = api.get(f"/api/species/{bird['species']}/info").json()
+
+    # French was asked for and has no article in this fixture: the description is the English one, and says so.
+    assert body["extract"] == _shown(bird)
+    assert body["summary_language"] == "en"
+
+
+def test_a_description_with_no_wikipedia_address_claims_no_language():
+    assert SpeciesInfo(title="Robin", extract="A bird.", summary_source="iNaturalist").summary_language is None
+    assert SpeciesInfo(title="Robin").summary_language is None
+    german = SpeciesInfo(
+        title="Rotkehlchen",
+        extract="Ein Vogel.",
+        summary_source="Wikipedia",
+        summary_source_url="https://de.wikipedia.org/wiki/Rotkehlchen",
+    )
+    assert german.summary_language == "de"
+    # The address is the evidence; a summary credited to Wikipedia with another address claims nothing.
+    assert (
+        SpeciesInfo(
+            title="x", extract="y", summary_source="Wikipedia", summary_source_url="https://example.org/wiki/X"
+        ).summary_language
+        is None
+    )

@@ -1,6 +1,7 @@
 from app.models.classification_evidence import ClassificationEvidence
-from pydantic import BaseModel, Field, PrivateAttr, field_serializer, field_validator
+from pydantic import BaseModel, Field, PrivateAttr, computed_field, field_serializer, field_validator
 from datetime import datetime
+from urllib.parse import urlparse
 from app.utils.api_datetime import serialize_api_datetime
 from app.utils.reference_images import bounded_reference_thumbnail
 from app.utils.reference_text import reference_plain_text
@@ -237,6 +238,18 @@ class SpeciesInfo(APIModel):
     # The description was accepted as this taxon's when it was fetched. Kept with the cached row,
     # never sent: a client is shown a description or none.
     _identity_checked: bool = PrivateAttr(default=False)
+
+    @computed_field(
+        description="The language the description is written in, when its source says: a Wikipedia edition's code such as `en`. It can differ from the language asked for."
+    )
+    @property
+    def summary_language(self) -> str | None:
+        """Read from the summary's own address, so a cached row says it too, with nothing more stored."""
+        if not self.extract or (self.summary_source or "").casefold() != "wikipedia":
+            return None
+        host = (urlparse(self.summary_source_url or "").hostname or "").casefold()
+        edition, _, site = host.partition(".")
+        return edition if site == "wikipedia.org" and edition.replace("-", "").isalpha() else None
 
     @property
     def identity_checked(self) -> bool:
