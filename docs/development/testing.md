@@ -75,9 +75,11 @@ They now run before merge, not just during deployment.
 
 ## Browser regressions
 
-Pull requests run the complete Chromium fixture suite in CI. Failed runs retain
-screenshots and traces for seven days. The same command works locally:
-`npm run test:browser -- --project=chromium` from `apps/ui`.
+Pull requests run the complete Chromium fixture suite in CI, split into two halves
+that run side by side with Playwright's `--shard`. Failed runs retain screenshots
+and traces for seven days, one artifact per half. The same command works locally,
+whole or in halves: `npm run test:browser -- --project=chromium` from `apps/ui`, or
+add `--shard=1/2` and `--shard=2/2`.
 
 For the wider local matrix:
 
