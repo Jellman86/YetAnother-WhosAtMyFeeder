@@ -4,6 +4,7 @@ import importlib.util
 import configparser
 from pathlib import Path
 import subprocess
+import sys
 from unittest.mock import MagicMock
 
 import pytest
@@ -66,6 +67,7 @@ def test_pure_tests_run_alone_and_every_test_is_covered_once(monkeypatch):
     assert "--append" not in pure
     assert "--append" in application
     assert {"tests/", "--ignore=tests/pure"} <= set(application)
+    assert "-v" in pure and "-v" in application
 
 
 def test_hung_test_process_is_reaped_and_fails(monkeypatch):
@@ -87,3 +89,35 @@ def test_the_application_lane_deadline_stays_inside_the_ci_job_limit():
     job_seconds = workflow["jobs"]["backend"]["timeout-minutes"] * 60
     # Installation, migration checks and the pure lane run before the application lane.
     assert gate.PURE_TEST_TIMEOUT_SECONDS + gate.TEST_TIMEOUT_SECONDS <= job_seconds - 5 * 60
+
+
+def test_a_stalled_test_names_its_stack_and_exits_before_the_gate_deadline(tmp_path):
+    test = tmp_path / "test_stalled.py"
+    test.write_text(
+        "import asyncio, pytest\n"
+        "@pytest.mark.asyncio\n"
+        "async def test_stalled_worker():\n"
+        "    await asyncio.Event().wait()\n"
+    )
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "-c",
+            str(ROOT / "backend/pytest.ini"),
+            str(test),
+            "-v",
+            "-o",
+            "timeout=0.2",
+            "-o",
+            "faulthandler_timeout=0",
+        ],
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "Timeout" in result.stdout
+    assert "test_stalled_worker" in result.stdout
+    assert "Stack of MainThread" in result.stdout
