@@ -105,7 +105,7 @@
     "backfill_total": "Total",
     "backfill_new": "Nouvelles",
     "backfill_skip": "Ignorées",
-    "backfill_err": "Erreur",
+    "backfill_err": "Échouées",
     "backfill_updated": "Mises à jour",
     "backfill_error_breakdown": "Erreurs nécessitant une attention",
     "backfill_skipped_breakdown": "Répartition des ignorées",
@@ -1084,7 +1084,7 @@
     "provider_cpu": "CPU (ONNX Runtime)",
     "inference_provider_desc": "N’affiche que les appareils inclus dans cette image, présents sur cette machine et pris en charge par le modèle utilisé.",
     "gpu_setup_docs": "Guide de configuration et de diagnostic GPU",
-    "inference_provider": "Appareil",
+    "inference_provider": "Le modèle d’identification tourne sur",
     "auto_detected": "Détecté automatiquement",
     "active_provider_label": "Actif",
     "intel_gpu_status": "GPU Intel",
@@ -1300,7 +1300,7 @@
     "runtime_refresh_failed": "La vérification est terminée, mais YA-WAMF n’a pas pu lire le moteur d’inférence utilisé désormais. Rechargez la page pour voir le fournisseur actuel.",
     "planned_provider_label": "Prévu",
     "model_manager_planned_runtime": "Moteur d’inférence prévu",
-    "compat_run": "Lancer le contrôle de compatibilité",
+    "compat_run": "Vérifier les appareils pour tous les modèles installés",
     "compat_running": "En cours…",
     "compat_stage_run": "Validation des appareils de cet hôte",
     "compat_stage_run_hint": "Compilation et comparaison de chaque appareil avec la référence CPU…",
@@ -1334,7 +1334,7 @@
     "bird_finder_device_check_running": "Fonctionne sur le CPU pendant que YA-WAMF revérifie {devices} sur des photos d'oiseaux récentes.",
     "bird_finder_device_check_failed": "Fonctionne sur le CPU. {devices} ne concordaient pas avec le CPU sur des photos d'oiseaux récentes.",
     "bird_finder_device_check_waiting": "Fonctionne sur le CPU. {devices} seront revérifiés après un redémarrage, dès que YA-WAMF aura enregistré des photos d'oiseaux.",
-    "bird_finder_check_devices": "Vérifier les appareils",
+    "bird_finder_check_devices": "Vérifier les appareils pour le détecteur d’oiseaux",
     "bird_finder_check_devices_hint": "Compare le détecteur sur chaque appareil avec le CPU à partir de vos photos d’oiseaux enregistrées, puis utilise le plus rapide qui concorde. Le modèle d’identification n’est pas modifié.",
     "bird_finder_device_auto_rfdetr": "Automatique (NPU, puis GPU, puis CPU)",
     "bird_finder_device_unpassed_saved_recovery": "Enregistré : {provider}. Consultez l’appareil utilisé dans « Fonctionne sur » ci-dessus, ou vérifiez les appareils.",
@@ -1863,6 +1863,7 @@
     "candidate_repair": "À réparer",
     "candidate_ok": "Correct",
     "candidate_unsupported": "Décalage impossible à réparer sans risque",
-    "candidate_lookup_error": "N’a pas pu être vérifié"
+    "candidate_lookup_error": "N’a pas pu être vérifié",
+    "timezone_nothing_last_scan": "Rien à réparer : la dernière analyse n’a trouvé aucune détection qui en ait besoin."
   }
 }

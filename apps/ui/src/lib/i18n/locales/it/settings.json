@@ -105,7 +105,7 @@
     "backfill_total": "Totale",
     "backfill_new": "Nuove",
     "backfill_skip": "Saltate",
-    "backfill_err": "Errore",
+    "backfill_err": "Non riuscite",
     "backfill_updated": "Aggiornate",
     "backfill_error_breakdown": "Errori che richiedono attenzione",
     "backfill_skipped_breakdown": "Dettaglio saltate",
@@ -1084,7 +1084,7 @@
     "provider_cpu": "CPU (ONNX Runtime)",
     "inference_provider_desc": "Mostra solo i dispositivi inclusi in questa immagine, presenti su questo computer e supportati dal modello in uso.",
     "gpu_setup_docs": "Guida alla configurazione e diagnostica GPU",
-    "inference_provider": "Dispositivo",
+    "inference_provider": "Il modello di identificazione gira su",
     "auto_detected": "Rilevato automaticamente",
     "active_provider_label": "Attivo",
     "intel_gpu_status": "GPU Intel",
@@ -1300,7 +1300,7 @@
     "runtime_refresh_failed": "Il controllo è terminato, ma YA-WAMF non è riuscito a leggere il runtime ora in uso. Ricarica la pagina per vedere il provider attuale.",
     "planned_provider_label": "Previsto",
     "model_manager_planned_runtime": "Runtime previsto",
-    "compat_run": "Avvia controllo compatibilità",
+    "compat_run": "Verifica dispositivi per tutti i modelli installati",
     "compat_running": "In esecuzione…",
     "compat_stage_run": "Convalida dei dispositivi di questo host",
     "compat_stage_run_hint": "Compilazione e confronto di ogni dispositivo con il riferimento CPU…",
@@ -1334,7 +1334,7 @@
     "bird_finder_device_check_running": "Funziona sulla CPU mentre YA-WAMF ricontrolla {devices} su foto di uccelli recenti.",
     "bird_finder_device_check_failed": "Funziona sulla CPU. {devices} non corrispondevano alla CPU su foto di uccelli recenti.",
     "bird_finder_device_check_waiting": "Funziona sulla CPU. {devices} verranno ricontrollati dopo un riavvio, quando YA-WAMF avrà salvato foto di uccelli.",
-    "bird_finder_check_devices": "Verifica dispositivi",
+    "bird_finder_check_devices": "Verifica dispositivi per il rilevatore di uccelli",
     "bird_finder_check_devices_hint": "Confronta il rilevatore su ogni dispositivo con la CPU usando le tue foto di uccelli salvate, poi usa il più veloce che corrisponde. Il modello di identificazione non cambia.",
     "bird_finder_device_auto_rfdetr": "Automatico (NPU, poi GPU, poi CPU)",
     "bird_finder_device_unpassed_saved_recovery": "Salvato: {provider}. Consulta il dispositivo usato in «Eseguito su» sopra o verifica i dispositivi.",
@@ -1863,6 +1863,7 @@
     "candidate_repair": "Da riparare",
     "candidate_ok": "Corretto",
     "candidate_unsupported": "Scostamento non riparabile in sicurezza",
-    "candidate_lookup_error": "Non è stato possibile verificare"
+    "candidate_lookup_error": "Non è stato possibile verificare",
+    "timezone_nothing_last_scan": "Niente da riparare: l’ultima scansione non ha trovato rilevamenti che ne abbiano bisogno."
   }
 }

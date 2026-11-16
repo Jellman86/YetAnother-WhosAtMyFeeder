@@ -50,6 +50,15 @@ describe('timezoneRepairBlockedReason', () => {
         expect(timezoneRepairBlockedReason({ summary: { repair_candidate_count: 0 } })).toBe('nothing_to_repair');
     });
 
+    it('says the last recorded scan found nothing, instead of asking for a scan', () => {
+        expect(timezoneRepairBlockedReason(null, run({ kind: 'timezone_scan', checked: 500, changed: 0 }))).toBe('nothing_last_scan');
+    });
+
+    it('still asks for a scan when the last recorded one found work or did not finish', () => {
+        expect(timezoneRepairBlockedReason(null, run({ kind: 'timezone_scan', changed: 3 }))).toBe('scan_first');
+        expect(timezoneRepairBlockedReason(null, run({ kind: 'timezone_scan', status: 'failed', changed: null }))).toBe('scan_first');
+    });
+
     it('allows the repair once a scan found something', () => {
         expect(timezoneRepairBlockedReason({ summary: { repair_candidate_count: 2 } })).toBeNull();
     });

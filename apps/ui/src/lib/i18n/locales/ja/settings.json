@@ -104,8 +104,8 @@
     "backfill_end": "終了",
     "backfill_total": "合計",
     "backfill_new": "新規",
-    "backfill_skip": "スキップ",
-    "backfill_err": "エラー",
+    "backfill_skip": "スキップ済み",
+    "backfill_err": "失敗",
     "backfill_updated": "更新済み",
     "backfill_error_breakdown": "確認が必要なエラー",
     "backfill_skipped_breakdown": "スキップ内訳",
@@ -1084,7 +1084,7 @@
     "provider_cpu": "CPU (ONNX Runtime)",
     "inference_provider_desc": "このイメージに含まれ、このホストにあり、使用中のモデルが対応するデバイスだけを表示します。",
     "gpu_setup_docs": "GPU 設定と診断ガイド",
-    "inference_provider": "デバイス",
+    "inference_provider": "識別モデルの実行デバイス",
     "auto_detected": "自動検出",
     "active_provider_label": "使用中",
     "intel_gpu_status": "Intel GPU",
@@ -1300,7 +1300,7 @@
     "runtime_refresh_failed": "チェックは完了しましたが、YA-WAMF は現在使用中の実行環境を読み取れませんでした。ページを再読み込みして現在のプロバイダーを確認してください。",
     "planned_provider_label": "予定",
     "model_manager_planned_runtime": "予定の実行環境",
-    "compat_run": "互換性チェックを実行",
+    "compat_run": "インストール済みの全モデルでデバイスをチェック",
     "compat_running": "実行中…",
     "compat_stage_run": "このホストのデバイスを検証中",
     "compat_stage_run_hint": "各デバイスでコンパイルし、CPU ベースラインと比較しています…",
@@ -1334,7 +1334,7 @@
     "bird_finder_device_check_running": "YA-WAMFが最近の鳥の写真で{devices}を再チェックしている間はCPUで動作します。",
     "bird_finder_device_check_failed": "CPUで動作します。最近の鳥の写真で{devices}の結果がCPUと一致しませんでした。",
     "bird_finder_device_check_waiting": "CPUで動作します。YA-WAMFに鳥の写真が保存されると、再起動後に{devices}を再チェックします。",
-    "bird_finder_check_devices": "デバイスをチェック",
+    "bird_finder_check_devices": "鳥の検出用にデバイスをチェック",
     "bird_finder_check_devices_hint": "保存済みの鳥の写真で、鳥検出を各デバイスとCPUで比較し、一致した中で最も速いデバイスを使います。識別モデルは変更されません。",
     "bird_finder_device_auto_rfdetr": "自動（NPU、GPU、CPUの順）",
     "bird_finder_device_unpassed_saved_recovery": "保存済み: {provider}。現在使用しているデバイスは上の実行デバイスを確認するか、デバイスをチェックしてください。",
@@ -1863,6 +1863,7 @@
     "candidate_repair": "修復が必要",
     "candidate_ok": "正しい",
     "candidate_unsupported": "安全に修復できないずれ",
-    "candidate_lookup_error": "確認できませんでした"
+    "candidate_lookup_error": "確認できませんでした",
+    "timezone_nothing_last_scan": "修復するものはありません: 前回のスキャンで修復が必要な検出は見つかりませんでした。"
   }
 }

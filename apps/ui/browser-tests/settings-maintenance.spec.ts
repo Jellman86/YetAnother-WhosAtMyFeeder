@@ -12,10 +12,14 @@ const lastRuns = {
     ]
 };
 
-async function openMaintenance(page: Page, preview: { summary: Record<string, number>; candidates: unknown[] } | null = null): Promise<void> {
+async function openMaintenance(
+    page: Page,
+    preview: { summary: Record<string, number>; candidates: unknown[] } | null = null,
+    runs: { runs: unknown[] } = lastRuns
+): Promise<void> {
     await openSettings(page, {}, {
         respond: (path) => {
-            if (path === '/api/maintenance/last-runs') return { json: lastRuns };
+            if (path === '/api/maintenance/last-runs') return { json: runs };
             if (path === '/api/maintenance/timezone-repair/preview' && preview) return { json: preview };
             return undefined;
         }
@@ -42,6 +46,14 @@ test('Apply timezone repair says why it cannot run before a scan, and after a sc
     await page.getByRole('button', { name: 'Scan for timezone issues', exact: true }).click();
     await expect(apply).toHaveAccessibleDescription('The scan found nothing to repair.');
     await expect(apply).toBeDisabled();
+});
+
+test('after a recorded scan that found nothing, the reason says so instead of asking for another scan', async ({ page }) => {
+    await openMaintenance(page, null, { runs: [{ kind: 'timezone_scan', status: 'completed', finished_at: '2026-11-13T20:21:00Z', checked: 500, changed: 0 }] });
+    const apply = page.getByRole('button', { name: 'Apply timezone repair', exact: true });
+    await expect(apply).toBeDisabled();
+    await expect(apply).toHaveAccessibleDescription('Nothing to repair: the last scan found no detections that need it.');
+    await expect(page.locator('[data-maintenance-last-run="timezone_scan"]')).toContainText('none of 500 detections need a repair');
 });
 
 test('the job sections are plain headings, with no collapsed sections to open', async ({ page }) => {

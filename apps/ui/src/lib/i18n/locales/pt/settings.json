@@ -105,7 +105,7 @@
     "backfill_total": "Total",
     "backfill_new": "Novas",
     "backfill_skip": "Ignoradas",
-    "backfill_err": "Erro",
+    "backfill_err": "Falhadas",
     "backfill_updated": "Atualizadas",
     "backfill_error_breakdown": "Erros que requerem atenção",
     "backfill_skipped_breakdown": "Detalhe das ignoradas",
@@ -1084,7 +1084,7 @@
     "provider_cpu": "CPU (ONNX Runtime)",
     "inference_provider_desc": "Mostra só os dispositivos que esta imagem inclui, que este computador tem e que o modelo em uso suporta.",
     "gpu_setup_docs": "Guia de configuração e diagnóstico de GPU",
-    "inference_provider": "Dispositivo",
+    "inference_provider": "O modelo de identificação corre em",
     "auto_detected": "Detectado automaticamente",
     "active_provider_label": "Ativo",
     "intel_gpu_status": "GPU Intel",
@@ -1300,7 +1300,7 @@
     "runtime_refresh_failed": "A verificação terminou, mas o YA-WAMF não conseguiu ler o runtime em uso agora. Recarregue a página para ver o provedor atual.",
     "planned_provider_label": "Previsto",
     "model_manager_planned_runtime": "Runtime previsto",
-    "compat_run": "Executar verificação de compatibilidade",
+    "compat_run": "Verificar dispositivos para todos os modelos instalados",
     "compat_running": "Executando…",
     "compat_stage_run": "Validando os dispositivos deste host",
     "compat_stage_run_hint": "Compilando e comparando cada dispositivo com a referência da CPU…",
@@ -1334,7 +1334,7 @@
     "bird_finder_device_check_running": "Executa na CPU enquanto o YA-WAMF volta a verificar {devices} com fotos de aves recentes.",
     "bird_finder_device_check_failed": "Executa na CPU. {devices} não coincidiram com a CPU em fotos de aves recentes.",
     "bird_finder_device_check_waiting": "Executa na CPU. {devices} serão verificados de novo após um reinício, quando o YA-WAMF tiver fotos de aves guardadas.",
-    "bird_finder_check_devices": "Verificar dispositivos",
+    "bird_finder_check_devices": "Verificar dispositivos para o localizador de aves",
     "bird_finder_check_devices_hint": "Compara o localizador em cada dispositivo com a CPU usando suas fotos de aves salvas e depois usa o mais rápido que coincidir. O modelo de identificação não é alterado.",
     "bird_finder_device_auto_rfdetr": "Automático (NPU, depois GPU e CPU)",
     "bird_finder_device_unpassed_saved_recovery": "Guardado: {provider}. Veja o dispositivo usado em «Executado em» acima ou verifique os dispositivos.",
@@ -1863,6 +1863,7 @@
     "candidate_repair": "Precisa de reparação",
     "candidate_ok": "Correto",
     "candidate_unsupported": "Desvio que não é seguro reparar",
-    "candidate_lookup_error": "Não foi possível verificar"
+    "candidate_lookup_error": "Não foi possível verificar",
+    "timezone_nothing_last_scan": "Nada para reparar: a última análise não encontrou deteções que precisem."
   }
 }

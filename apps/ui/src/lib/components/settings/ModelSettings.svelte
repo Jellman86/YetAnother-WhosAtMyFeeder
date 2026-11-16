@@ -473,7 +473,7 @@
         <div class="space-y-4">
             <SettingsRow
                 labelId="setting-inference-provider"
-                label={$_('settings.detection.inference_provider', { default: 'Inference Provider' })}
+                label={$_('settings.detection.inference_provider', { default: 'Identification model runs on' })}
                 description={$_('settings.detection.inference_provider_desc', { default: 'Only providers included in this image, detected on this host, and supported by the active model are shown.' })}
                 layout="stacked"
             >
@@ -481,7 +481,7 @@
                     <SettingsSelect
                         id="inference-provider"
                         value={inferenceProvider}
-                        ariaLabel={$_('settings.detection.inference_provider', { default: 'Inference Provider' })}
+                        ariaLabel={$_('settings.detection.inference_provider', { default: 'Identification model runs on' })}
                         options={inferenceProviderOptions}
                         onchange={(v) => (inferenceProvider = v as InferenceProvider)}
                     />
@@ -530,7 +530,7 @@
                             </span>
                         </span>
                         <button type="button" onclick={() => runCompatCheck()} disabled={compatRunning} class="btn btn-primary min-h-11 max-w-full px-4 py-2 whitespace-normal">
-                            {compatRunning ? $_('settings.detection.compat_running', { default: 'Running…' }) : $_('settings.detection.compat_run', { default: 'Run compatibility check' })}
+                            {compatRunning ? $_('settings.detection.compat_running', { default: 'Running…' }) : $_('settings.detection.compat_run', { default: 'Check devices for every installed model' })}
                         </button>
                     </div>
                     {#if compatError}<p role="alert" class="text-xs font-bold text-red-700 dark:text-red-400">{compatError}</p>{/if}
@@ -852,7 +852,7 @@
         busy={compatRunning}
         result={compatDialogResult}
         runId={cdRunId}
-        retryLabel={$_('settings.detection.compat_run', { default: 'Run compatibility check' })}
+        retryLabel={$_('settings.detection.compat_run', { default: 'Check devices for every installed model' })}
         onClose={() => (cdOpen = false)}
         onRetry={() => runCompatCheck(compatModelIds)}
     />

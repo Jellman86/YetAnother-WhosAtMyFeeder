@@ -154,7 +154,7 @@ test('Check devices is one short button with its hint under it, scoped to the ch
         runs.push(route.request().postDataJSON());
         return route.fulfill({ json: { run_id: 'finder-check' } });
     });
-    const check = finder(page).getByRole('button', { name: 'Check devices', exact: true });
+    const check = finder(page).getByRole('button', { name: 'Check devices for the bird finder', exact: true });
     await expect(check).toBeVisible();
     await expect(check).toHaveAccessibleDescription(/uses the fastest that matches\. The identification model is not changed\./);
     const order = await finder(page).evaluate(node => {

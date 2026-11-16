@@ -78,9 +78,11 @@ describe('bird finder choice', () => {
         expect(en.settings.detection.bird_finder_device_unpassed_chosen).toMatch(/cannot be saved yet/);
     });
 
-    it('offers one short check button with its hint directly under it, scoped to the chosen finder', () => {
+    it('offers one check button with its hint directly under it, scoped to the chosen finder', () => {
         expect(modelManagerSource).toContain('oncheckfinderdevices');
-        expect(en.settings.detection.bird_finder_check_devices).toBe('Check devices');
+        // Named for what it checks, so it is never taken for the Hardware check of every model.
+        expect(en.settings.detection.bird_finder_check_devices).toBe('Check devices for the bird finder');
+        expect(en.settings.detection.compat_run).toBe('Check devices for every installed model');
         expect(en.settings.detection.bird_finder_check_devices_hint).toMatch(/identification model is not changed/);
         const button = panelSource.indexOf("bird_finder_check_devices'");
         const hint = panelSource.indexOf('id="bird-finder-check-hint"');

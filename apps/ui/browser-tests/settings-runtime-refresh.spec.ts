@@ -124,7 +124,7 @@ test('the live runtime is re-read after a compatibility check without losing uns
     await expect(runtimeCell(page)).toContainText(' on CPU');
     const settingsReadsBeforeRun = counters.settingsReads;
 
-    await page.getByRole('button', { name: 'Run compatibility check', exact: true }).first().click();
+    await page.getByRole('button', { name: 'Check devices for every installed model', exact: true }).first().click();
     const dialog = page.getByRole('dialog');
     await expect(dialog).toContainText('All devices match the CPU baseline.', { timeout: 15_000 });
     await expect.poll(() => counters.statusReadsAfterRun).toBeGreaterThan(0);
@@ -142,7 +142,7 @@ test('a failed runtime refresh is said in words rather than leaving the old prov
     // An unsaved edit on the same tab, which a runtime refresh must not undo.
     const slider = page.locator('#bird-model-region-override');
     await slider.selectOption('eu');
-    await page.getByRole('button', { name: 'Run compatibility check', exact: true }).first().click();
+    await page.getByRole('button', { name: 'Check devices for every installed model', exact: true }).first().click();
     const dialog = page.getByRole('dialog');
     await expect(dialog).toContainText('All devices match the CPU baseline.', { timeout: 15_000 });
     await expect.poll(() => counters.statusReadsAfterRun).toBeGreaterThan(0);
@@ -154,7 +154,7 @@ test('a failed runtime refresh is said in words rather than leaving the old prov
 
 test('a recommendation does not replace the provider reported by the worker', async ({ page }) => {
     await openDetectionWithCompatibilityRun(page, () => ({ status: 200, json: cpuStatus }));
-    await page.getByRole('button', { name: 'Run compatibility check', exact: true }).click();
+    await page.getByRole('button', { name: 'Check devices for every installed model', exact: true }).click();
     const dialog = page.getByRole('dialog');
     await expect(dialog).toContainText('All devices match the CPU baseline.', { timeout: 15_000 });
     await dialog.getByRole('button', { name: 'Close', exact: true }).last().click();

@@ -571,7 +571,7 @@
         {/if}
 
         <div>
-            <label for="setup-provider" class="text-sm font-medium text-slate-700 dark:text-slate-300">{$_('settings.detection.inference_provider', { default: 'Inference Provider' })}</label>
+            <label for="setup-provider" class="text-sm font-medium text-slate-700 dark:text-slate-300">{$_('settings.detection.inference_provider', { default: 'Identification model runs on' })}</label>
             <select id="setup-provider" bind:value={selectedProvider} onchange={() => { providerTouched = true; providerMessage = ''; }} disabled={validating || downloading || saving} class="select-base mt-1">
                 {#each providerChoices as choice (choice.value)}
                     <option value={choice.value} disabled={choice.unavailable}>

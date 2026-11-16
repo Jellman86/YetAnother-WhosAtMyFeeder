@@ -172,7 +172,7 @@
         if (!parseDateOnly(backfillEndDate)) backfillEndDate = todayDateOnly();
     });
 
-    const timezoneRepairBlocked = $derived(timezoneRepairBlockedReason(timezoneRepairPreview));
+    const timezoneRepairBlocked = $derived(timezoneRepairBlockedReason(timezoneRepairPreview, lastRuns?.find((run) => run.kind === 'timezone_scan')));
     function candidateStatusLabel(status: string): string {
         switch (status) {
             case 'repair_candidate': return $_('settings.maintenance.candidate_repair', { default: 'Needs repair' });
@@ -307,9 +307,13 @@
         </div>
         {#if timezoneRepairBlocked}
             <p id="timezone-repair-blocked" class="text-sm text-slate-600 dark:text-slate-300" data-timezone-repair-blocked={timezoneRepairBlocked}>
-                {timezoneRepairBlocked === 'scan_first'
-                    ? $_('settings.maintenance.timezone_scan_first', { default: 'Scan first. The repair is offered once a scan finds detections that need it.' })
-                    : $_('settings.maintenance.timezone_nothing_to_repair', { default: 'The scan found nothing to repair.' })}
+                {#if timezoneRepairBlocked === 'scan_first'}
+                    {$_('settings.maintenance.timezone_scan_first', { default: 'Scan first. The repair is offered once a scan finds detections that need it.' })}
+                {:else if timezoneRepairBlocked === 'nothing_last_scan'}
+                    {$_('settings.maintenance.timezone_nothing_last_scan', { default: 'Nothing to repair: the last scan found no detections that need it.' })}
+                {:else}
+                    {$_('settings.maintenance.timezone_nothing_to_repair', { default: 'The scan found nothing to repair.' })}
+                {/if}
             </p>
         {/if}
     </SettingsCard>

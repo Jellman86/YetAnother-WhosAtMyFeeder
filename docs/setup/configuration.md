@@ -120,7 +120,8 @@ things to check and opens the **Runtime report**. Then:
   its coverage, its download size (or that it is on this install, or comes with the app) and its
   memory in one line. Then the **Bird finder**, which locates birds in the frame so YA-WAMF can
   crop and count them, and a **Compare the installed models** row that opens **Model evaluation**.
-- **Hardware**: **Device** (the inference provider) and **Check devices on this host**, then the
+- **Hardware**: **Identification model runs on** (the inference provider) and **Check devices on this host**,
+  whose button is **Check devices for every installed model**, then the
   folded **Memory and isolation** (which also holds **Discard results the model could not
   compute** with the debug interface on) and **Runtime report** sections. The report opens on its
   own when the runtime has something to report, or when a save refuses a value inside it.
@@ -135,7 +136,7 @@ things to check and opens the **Runtime report**. Then:
 | **Write Labels Back to Frigate** | Enabled | Push YA-WAMF's own identification back to the Frigate event as a sublabel. |
 | **Bird Model Region** | `Auto` | Override regional model selection (`Auto`, `Europe`, `North America`) for birds-only model families. |
 | **Device** | `Auto` | `Auto`, `CPU`, `NVIDIA CUDA`, `Intel GPU (OpenVINO)`, `Intel CPU (OpenVINO)`, or `Intel NPU (OpenVINO)`. Only providers your image packages, your host exposes, and the active model supports are listed. |
-| **Device** (bird finder) | `Automatic` | Device preference for the accurate finder, separate from identification. **Automatic** uses the fastest device that passed its check. A device without a passing check is listed as **not passed on this host**. A saved one stays saved, and the finder runs on CPU until it passes **Check devices**; one that is not saved cannot be chosen until it passes. The **Runs on** row above it states the device in use and why. **Save changes** saves the preference. |
+| **Device** (bird finder) | `Automatic` | Device preference for the accurate finder, separate from identification. **Automatic** uses the fastest device that passed its check. A device without a passing check is listed as **not passed on this host**. A saved one stays saved, and the finder runs on CPU until it passes **Check devices for the bird finder**; one that is not saved cannot be chosen until it passes. The **Runs on** row above it states the device in use and why. **Save changes** saves the preference. |
 | **Bird finder** | `Standard (YOLOX-Tiny)` | Which detector locates birds before they are identified and counted. **Wide frame (RF-DETR Nano)** is optional. Like every other field on the page, a change is saved by **Save changes**. |
 | **Isolation** | `Separate worker processes` | Separate worker processes run inference in isolated workers the app can restart, so a stalled or crashed classification cannot take the interface with it. `In-process` shares one model copy with the app: less memory, but heavy inference competes with the UI. |
 | **Models** | — | Download, validate, and activate identification models, and download the bird finders. Activating a model takes effect at once; it is not part of **Save changes**. |

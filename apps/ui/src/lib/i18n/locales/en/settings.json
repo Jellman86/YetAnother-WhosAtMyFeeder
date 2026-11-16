@@ -113,8 +113,8 @@
     "backfill_to": "To",
     "backfill_total": "Total",
     "backfill_new": "New",
-    "backfill_skip": "Skip",
-    "backfill_err": "Err",
+    "backfill_skip": "Skipped",
+    "backfill_err": "Failed",
     "backfill_updated": "Updated",
     "backfill_error_breakdown": "Errors that need attention",
     "backfill_skipped_breakdown": "Skipped breakdown",
@@ -1081,7 +1081,7 @@
     "blocked_labels_placeholder": "e.g. background",
     "blocked_label_remove": "Remove {label} from blocked list",
     "naming_select_label": "Select {mode} naming style",
-    "inference_provider": "Device",
+    "inference_provider": "Identification model runs on",
     "inference_provider_desc": "Lists only the devices this image includes, this host has and the model in use supports.",
     "gpu_setup_docs": "GPU setup & diagnostics guide",
     "provider_auto": "Auto (recommended)",
@@ -1300,7 +1300,7 @@
     "runtime_refresh_failed": "The check finished, but YA-WAMF could not read the runtime it is now using. Reload the page to see the current provider.",
     "planned_provider_label": "Planned",
     "model_manager_planned_runtime": "Planned runtime",
-    "compat_run": "Run compatibility check",
+    "compat_run": "Check devices for every installed model",
     "compat_running": "Running…",
     "compat_stage_run": "Validating this host's devices",
     "compat_stage_run_hint": "Compiling and comparing each device against the CPU baseline…",
@@ -1334,7 +1334,7 @@
     "bird_finder_device_check_running": "Runs on the CPU while YA-WAMF re-checks {devices} on recent bird photos.",
     "bird_finder_device_check_failed": "Runs on the CPU. {devices} did not match the CPU on recent bird photos.",
     "bird_finder_device_check_waiting": "Runs on the CPU. {devices} will be re-checked after a restart once YA-WAMF has saved bird photos.",
-    "bird_finder_check_devices": "Check devices",
+    "bird_finder_check_devices": "Check devices for the bird finder",
     "bird_finder_check_devices_hint": "Compares the finder on each device with the CPU on your saved bird photos, then uses the fastest that matches. The identification model is not changed.",
     "bird_finder_device_auto_rfdetr": "Automatic (NPU, then GPU, then CPU)",
     "bird_finder_device_unpassed_saved_recovery": "Saved: {provider}. See Runs on above for the device currently used, or Check devices.",
@@ -1863,6 +1863,7 @@
     "candidate_repair": "Needs repair",
     "candidate_ok": "Correct",
     "candidate_unsupported": "Offset not safe to repair",
-    "candidate_lookup_error": "Could not be checked"
+    "candidate_lookup_error": "Could not be checked",
+    "timezone_nothing_last_scan": "Nothing to repair: the last scan found no detections that need it."
   }
 }

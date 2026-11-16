@@ -105,7 +105,7 @@
     "backfill_total": "Gesamt",
     "backfill_new": "Neu",
     "backfill_skip": "Übersprungen",
-    "backfill_err": "Fehler",
+    "backfill_err": "Fehlgeschlagen",
     "backfill_updated": "Aktualisiert",
     "backfill_error_breakdown": "Fehler mit Handlungsbedarf",
     "backfill_skipped_breakdown": "Aufschlüsselung der übersprungenen Einträge",
@@ -1084,7 +1084,7 @@
     "provider_cpu": "CPU (ONNX Runtime)",
     "inference_provider_desc": "Zeigt nur Geräte, die dieses Image enthält, dieser Rechner hat und das verwendete Modell unterstützt.",
     "gpu_setup_docs": "Leitfaden für GPU-Einrichtung & Diagnose",
-    "inference_provider": "Gerät",
+    "inference_provider": "Bestimmungsmodell läuft auf",
     "auto_detected": "Automatisch erkannt",
     "active_provider_label": "Aktiv",
     "intel_gpu_status": "Intel-GPU",
@@ -1300,7 +1300,7 @@
     "runtime_refresh_failed": "Die Prüfung ist abgeschlossen, aber YA-WAMF konnte die jetzt verwendete Laufzeit nicht abrufen. Laden Sie die Seite neu, um den aktuellen Anbieter zu sehen.",
     "planned_provider_label": "Geplant",
     "model_manager_planned_runtime": "Geplante Laufzeit",
-    "compat_run": "Kompatibilitätsprüfung starten",
+    "compat_run": "Geräte für alle installierten Modelle prüfen",
     "compat_running": "Läuft…",
     "compat_stage_run": "Validierung der Geräte dieses Hosts",
     "compat_stage_run_hint": "Jedes Gerät wird kompiliert und mit der CPU-Referenz verglichen…",
@@ -1334,7 +1334,7 @@
     "bird_finder_device_check_running": "Läuft auf der CPU, während YA-WAMF {devices} anhand aktueller Vogelfotos erneut prüft.",
     "bird_finder_device_check_failed": "Läuft auf der CPU. {devices} stimmten bei aktuellen Vogelfotos nicht mit der CPU überein.",
     "bird_finder_device_check_waiting": "Läuft auf der CPU. {devices} werden nach einem Neustart erneut geprüft, sobald YA-WAMF Vogelfotos gespeichert hat.",
-    "bird_finder_check_devices": "Geräte prüfen",
+    "bird_finder_check_devices": "Geräte für die Vogelsuche prüfen",
     "bird_finder_check_devices_hint": "Vergleicht die Vogelsuche auf jedem Gerät anhand Ihrer gespeicherten Vogelfotos mit der CPU und nutzt dann das schnellste übereinstimmende Gerät. Das Bestimmungsmodell bleibt unverändert.",
     "bird_finder_device_auto_rfdetr": "Automatisch (NPU, dann GPU, dann CPU)",
     "bird_finder_device_unpassed_saved_recovery": "Gespeichert: {provider}. Das aktuell verwendete Gerät steht oben unter „Läuft auf“. Sie können auch die Geräte prüfen.",
@@ -1863,6 +1863,7 @@
     "candidate_repair": "Braucht Reparatur",
     "candidate_ok": "Korrekt",
     "candidate_unsupported": "Versatz nicht sicher reparierbar",
-    "candidate_lookup_error": "Konnte nicht geprüft werden"
+    "candidate_lookup_error": "Konnte nicht geprüft werden",
+    "timezone_nothing_last_scan": "Nichts zu reparieren: Die letzte Suche hat keine Erkennungen gefunden, die es brauchen."
   }
 }

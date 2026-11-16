@@ -36,10 +36,14 @@ export function lastRunSentence(
     return translate(wording.key, { default: wording.fallback, values });
 }
 
-/** Why "Apply timezone repair" cannot run yet, said beside it; null when it can. */
+/**
+ * Why "Apply timezone repair" cannot run yet, said beside it; null when it can. Without a scan on
+ * this visit, a recorded scan that found nothing is reason enough; otherwise a scan comes first.
+ */
 export function timezoneRepairBlockedReason(
-    preview: { summary: { repair_candidate_count?: number | null } } | null | undefined
-): 'scan_first' | 'nothing_to_repair' | null {
-    if (!preview) return 'scan_first';
+    preview: { summary: { repair_candidate_count?: number | null } } | null | undefined,
+    lastScan?: MaintenanceLastRun | null
+): 'scan_first' | 'nothing_to_repair' | 'nothing_last_scan' | null {
+    if (!preview) return lastScan?.status === 'completed' && lastScan.changed === 0 ? 'nothing_last_scan' : 'scan_first';
     return (preview.summary.repair_candidate_count ?? 0) > 0 ? null : 'nothing_to_repair';
 }

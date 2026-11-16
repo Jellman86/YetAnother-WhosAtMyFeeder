@@ -104,8 +104,8 @@
     "backfill_end": "结束",
     "backfill_total": "总计",
     "backfill_new": "新增",
-    "backfill_skip": "跳过",
-    "backfill_err": "错误",
+    "backfill_skip": "已跳过",
+    "backfill_err": "失败",
     "backfill_updated": "已更新",
     "backfill_error_breakdown": "需要处理的错误",
     "backfill_skipped_breakdown": "跳过明细",
@@ -1084,7 +1084,7 @@
     "provider_cpu": "CPU (ONNX Runtime)",
     "inference_provider_desc": "仅列出此镜像包含、此主机具备且当前模型支持的设备。",
     "gpu_setup_docs": "GPU 设置与诊断指南",
-    "inference_provider": "设备",
+    "inference_provider": "识别模型运行在",
     "auto_detected": "已自动检测",
     "active_provider_label": "当前生效",
     "intel_gpu_status": "Intel GPU",
@@ -1300,7 +1300,7 @@
     "runtime_refresh_failed": "检查已完成，但 YA-WAMF 无法读取当前使用的运行环境。请重新加载页面查看当前提供程序。",
     "planned_provider_label": "计划使用",
     "model_manager_planned_runtime": "计划运行环境",
-    "compat_run": "运行兼容性检查",
+    "compat_run": "为所有已安装模型检查设备",
     "compat_running": "运行中…",
     "compat_stage_run": "正在验证此主机的设备",
     "compat_stage_run_hint": "正在编译每个设备并与 CPU 基准进行比较…",
@@ -1334,7 +1334,7 @@
     "bird_finder_device_check_running": "YA-WAMF 正在用最近的鸟类照片重新检查 {devices}，在此期间于 CPU 上运行。",
     "bird_finder_device_check_failed": "在 CPU 上运行。{devices} 在最近的鸟类照片上与 CPU 结果不一致。",
     "bird_finder_device_check_waiting": "在 CPU 上运行。YA-WAMF 保存鸟类照片后，将在重启后重新检查 {devices}。",
-    "bird_finder_check_devices": "检查设备",
+    "bird_finder_check_devices": "为鸟类查找检查设备",
     "bird_finder_check_devices_hint": "用你保存的鸟类照片，将鸟类检测在每个设备上的结果与 CPU 比较，然后使用一致且最快的设备。识别模型不会改变。",
     "bird_finder_device_auto_rfdetr": "自动（依次使用 NPU、GPU、CPU）",
     "bird_finder_device_unpassed_saved_recovery": "已保存：{provider}。请查看上方当前使用的运行设备，或检查设备。",
@@ -1863,6 +1863,7 @@
     "candidate_repair": "需要修复",
     "candidate_ok": "正确",
     "candidate_unsupported": "偏移无法安全修复",
-    "candidate_lookup_error": "无法检查"
+    "candidate_lookup_error": "无法检查",
+    "timezone_nothing_last_scan": "没有需要修复的内容：上次扫描未发现需要修复的检测。"
   }
 }

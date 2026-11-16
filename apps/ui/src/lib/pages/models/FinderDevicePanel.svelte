@@ -188,7 +188,7 @@
             <button type="button" onclick={oncheck} disabled={runsOn.kind === 'checking'} aria-describedby="bird-finder-check-hint" class="btn btn-secondary min-h-11 px-4">
                 {runsOn.kind === 'checking'
                     ? $_('settings.detection.bird_finder_checking_devices', { default: 'Checking…' })
-                    : $_('settings.detection.bird_finder_check_devices', { default: 'Check devices' })}
+                    : $_('settings.detection.bird_finder_check_devices', { default: 'Check devices for the bird finder' })}
             </button>
             <p id="bird-finder-check-hint" class="max-w-prose text-sm leading-snug text-slate-600 dark:text-slate-400">
                 {modelId === 'bird_crop_detector_accurate_rfdetr_nano'

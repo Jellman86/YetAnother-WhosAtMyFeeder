@@ -183,7 +183,7 @@ becomes visible again. This catches a check finishing elsewhere or a worker star
 it does not reload your settings. **Models → Refresh** reads the runtime too.
 
 Activating a model saves that model's recommended provider. When the status shows the saved
-provider has changed, the **Inference Provider** field follows it, so saving an unrelated edit
+provider has changed, the **Identification model runs on** field follows it, so saving an unrelated edit
 later keeps the new provider. If you have already picked a different provider on the page and
 not saved it, your choice is kept. The field shows your saved preference, not the provider the
 workers run on: with **Auto** saved it stays **Auto** while the runtime reports, say, Intel NPU.
@@ -237,7 +237,7 @@ fallback cannot be mistaken for successful validation of the selected ONNX model
 
 5. Open **Settings → Models**, download the classifier if needed, and run its
    device compatibility check. After it passes, select the supported device under
-   **Inference Provider** (or keep **Auto**) and select **Save changes**.
+   **Identification model runs on** (or keep **Auto**) and select **Save changes**.
    Downloading alone does not authorize a host-gated GPU/NPU.
 
 ## Expected result
@@ -294,7 +294,7 @@ check the host kernel/driver boundary and container permissions. The `cpu` and
 
 ## NVIDIA CUDA
 
-Set **Inference Provider** to **NVIDIA CUDA**, install the NVIDIA Container
+Set **Identification model runs on** to **NVIDIA CUDA**, install the NVIDIA Container
 Toolkit on the host, and pass the GPU per the CUDA example in
 `docker-compose.monolith.yml`. Use the `full` or `cuda` image; both include the
 CUDA/cuDNN userspace runtime for ONNX Runtime. The `cpu` and `intel` images do
@@ -324,12 +324,12 @@ its own current host validation; the species classifier's selected device does
 not choose the crop detector's device. The compatibility API can check only the
 installed RF-DETR artifact using `compat_only`, `sweep_devices` and its `model_ids`
 entry, as shown in the [API reference](../api.md#model-evaluation-owner).
-The bird finder card's **Check devices** button runs that scoped check.
+The bird finder card's **Check devices for the bird finder** button runs that scoped check.
 **Automatic** prefers a verified NPU, then a verified GPU for RF-DETR; other
 finders use their fastest passing provider. **Device** can keep a specific device.
 RF-DETR may recover from its saved NPU to a verified GPU before using CPU. The
 **Runs on** row reports that recovery. Other finders keep the saved explicit
-provider or use CPU. Manual **Check devices** checks all supported devices.
+provider or use CPU. Manual **Check devices for the bird finder** checks all supported devices.
 Existing worker crop sessions
 adopt a changed recommendation on their next use without restarting the worker.
 After a kernel, driver or image update, startup re-checks the chosen finder on
@@ -347,7 +347,7 @@ image on a host without them never runs a CPU-only sweep; a sweep that still ope
 no accelerator ends as **no accelerator** and is not retried on that runtime. In
 an automatic RF-DETR check, the NPU and GPU are probed only after the CPU baseline
 proves usable, and OpenVINO CPU is never probed because it cannot move the finder
-off the CPU. **Check devices** allows an owner-run check at any time, and its
+off the CPU. **Check devices for the bird finder** allows an owner-run check at any time, and its
 result is recorded so the automatic check does not repeat it.
 CPU remains eligible when it runs successfully, even if the photos contain no
 admitted bird boxes; accelerator approval still requires a positive CPU baseline.
