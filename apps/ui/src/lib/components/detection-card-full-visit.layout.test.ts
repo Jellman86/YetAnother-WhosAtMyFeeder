@@ -22,7 +22,8 @@ describe('detection card full-visit fetch wiring', () => {
         expect(detectionCardSource).not.toContain("video_player.full_visit_badge', { default: 'Full visit' })}</span>");
         // The readings line sits above the record's own button, so play keeps its action.
         expect(detectionCardSource).toMatch(/relative z-20 mt-auto flex[^"]*items-center/);
-        expect(detectionCardSource).toContain('{#if !analysisActive}');
+        // Under an analysis the readings keep their place but are inert and hidden.
+        expect(detectionCardSource).toContain('inert={analysisActive}');
         expect(detectionCardSource).toContain('{#if canPlayVideo}');
         expect(detectionCardSource).toContain('class="btn btn-secondary btn-icon rounded-full"');
         expect(detectionCardSource).not.toContain('absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100');
@@ -45,7 +46,9 @@ describe('detection card full-visit fetch wiring', () => {
 
     it('shows selection as a brand ring and a check badge, never a blur over the bird', () => {
         expect(detectionCardSource).toMatch(/relative[^"\n]*rounded-4xl[^"\n]*transition-all/);
-        expect(detectionCardSource).toContain("{selectionMode && selected && !analysisActive ? 'border-2 border-accent-line ring-2 ring-accent-line");
+        // A one-pixel edge in every state, so choosing or analysing a card never changes its height.
+        expect(detectionCardSource).toContain("{selectionMode && selected && !analysisActive ? 'border-accent-line ring-2 ring-accent-line");
+        expect(detectionCardSource).not.toMatch(/'border-2 border-accent-line/);
         // Every card shows its check while selecting: filled when chosen, an empty circle when not.
         expect(detectionCardSource).toContain('{#if selectionMode && !analysisActive}');
         expect(detectionCardSource).toContain("data-detection-card-check={selected ? 'selected' : 'unselected'}");
@@ -60,14 +63,15 @@ describe('detection card full-visit fetch wiring', () => {
 
     it('lets active video analysis take over the card chrome and border', () => {
         expect(detectionCardSource).toContain("let analysisActive = $derived(!!reclassifyProgress);");
-        expect(detectionCardSource).toContain("{analysisActive ? 'border-2 border-accent-line ring-2 ring-accent-line");
+        expect(detectionCardSource).toContain("{analysisActive ? 'border-accent-line ring-2 ring-accent-line");
         expect(detectionCardSource).toContain('{#if analysisActive && reclassifyProgress}');
         expect(detectionCardSource).toContain('absolute inset-0 z-50 pointer-events-none rounded-2xl overflow-hidden');
         expect(detectionCardSource).toContain("import DetectionCardAnalysisOverlay from './DetectionCardAnalysisOverlay.svelte'");
         expect(detectionCardSource).toContain('<DetectionCardAnalysisOverlay progress={reclassifyProgress} />');
         expect(detectionCardSource).not.toContain("import ReclassificationOverlay from './ReclassificationOverlay.svelte'");
         expect(detectionCardSource).not.toContain('<ReclassificationOverlay');
-        expect(detectionCardSource).toContain('{#if !analysisActive}');
+        // Under an analysis the readings keep their place but are inert and hidden.
+        expect(detectionCardSource).toContain('inert={analysisActive}');
         expect(detectionCardSource).toContain('{#if (onReclassify || onRetag) && !analysisActive}');
         expect(detectionCardSource).toContain('{#if selectionMode && !analysisActive}');
     });

@@ -150,3 +150,40 @@ test('while a card is analysed, its readings and play leave the keyboard and the
     expect(reached.some((stop) => stop.startsWith('card-idle'))).toBe(true);
     await expect(page.locator('[data-fixture-played]')).toHaveAttribute('data-fixture-played', 'none');
 });
+
+test('an analysed card keeps its height, wrapping marks and all, and lands at the same height when the analysis ends', async ({ page }) => {
+    await open(page);
+    const card = page.locator('[data-fixture="card-marked"] [data-detection-card]');
+    const readings = page.locator('[data-fixture="card-marked"] [data-detection-card-readings]');
+    // At 240px the time, score, play and three marks wrap onto two lines.
+    await expect(readings).toHaveAttribute('inert', '');
+    const marks = readings.locator('[data-explorer-owner-confirmed], [aria-label], button');
+    expect(await marks.count()).toBeGreaterThan(3);
+    const during = await card.boundingBox();
+
+    await page.getByRole('button', { name: 'End the analysis' }).click();
+    await expect(readings).not.toHaveAttribute('inert', '');
+    await expect(readings).toBeVisible();
+    const after = await card.boundingBox();
+    const lines = await readings.evaluate((node) => Math.round(node.getBoundingClientRect().height));
+    expect(lines, 'the readings wrap, which is the case that used to shift').toBeGreaterThan(48);
+    expect(after?.height).toBe(during?.height);
+});
+
+test('an analysed card says once that its analysis started and once that it finished, never each frame', async ({ page }) => {
+    await open(page);
+    const status = page.locator('[data-fixture="card-analysing"] [data-card-analysis-status]');
+    await expect(status).toHaveAttribute('role', 'status');
+    await expect(status).toHaveAttribute('aria-live', 'polite');
+    await expect(status).toHaveText('Analysing Great Tit');
+    // Frames arriving change nothing that is announced.
+    await page.getByRole('button', { name: 'Read next frame' }).click();
+    await page.getByRole('button', { name: 'Read four frames' }).click();
+    await expect(status).toHaveText('Analysing Great Tit');
+    for (let step = 0; step < 3; step += 1) await page.getByRole('button', { name: 'Read four frames' }).click();
+    await expect(status).toHaveText('Analysis finished for Great Tit');
+    // The region stays in the card when the analysis is gone, so the next one is heard too.
+    await page.getByRole('button', { name: 'End the analysis' }).click();
+    await expect(status).toHaveCount(1);
+    await expect(status).toHaveText('');
+});

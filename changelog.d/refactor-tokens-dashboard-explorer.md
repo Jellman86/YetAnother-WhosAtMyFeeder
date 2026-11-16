@@ -19,3 +19,8 @@
 - While a card is being re-analysed, its time, score and play button are out of reach until the
   analysis ends, so the keyboard no longer stops on controls hidden under the progress overlay.
   Clicking a Garden card's time or score now opens it, as clicking anywhere else on the card does.
+- The Leaderboard's "seen" and "heard" bars are solid colours that stand out from their track in
+  every theme and in high contrast; they had been faint enough to read as almost empty.
+- A card being re-analysed keeps its size, marks included, and so does a card you select, so
+  nothing in the grid moves when an analysis ends or a choice is made. A screen reader hears once
+  that the analysis started and once that it finished.

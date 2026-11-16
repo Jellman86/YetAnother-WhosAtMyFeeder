@@ -76,6 +76,15 @@
     let naming = $derived($birdNames(detection, showCommon, preferSci));
 
     let primaryName = $derived(mixed ? $_('events.multiple_species', { default: 'Multiple species' }) : naming.primary);
+    // Said once when an analysis starts and once when it finishes, never per frame: the words
+    // depend only on whether it is running or done.
+    const analysisAnnouncement = $derived(
+        !reclassifyProgress
+            ? ''
+            : reclassifyProgress.status === 'completed'
+              ? $_('detection.card_analysis.announce_finished', { values: { species: primaryName }, default: 'Analysis finished for {species}' })
+              : $_('detection.card_analysis.announce_started', { values: { species: primaryName }, default: 'Analysing {species}' })
+    );
     let subName = $derived(mixed ? null : naming.secondary);
     // While selecting, the card is a toggle named by what it picks, as a list row is.
     const selectSubject = $derived(`${primaryName}, ${formatTime(detection.detection_time)}`);
@@ -167,8 +176,8 @@
                flex flex-col h-full
                text-left w-full
                {detection.is_hidden ? 'opacity-60 grayscale-[0.5]' : ''}
-               {analysisActive ? 'border-2 border-accent-line ring-2 ring-accent-line' : ''}
-               {selectionMode && selected && !analysisActive ? 'border-2 border-accent-line ring-2 ring-accent-line' : ''}"
+               {analysisActive ? 'border-accent-line ring-2 ring-accent-line' : ''}
+               {selectionMode && selected && !analysisActive ? 'border-accent-line ring-2 ring-accent-line' : ''}"
         style="animation-delay: {index * 40}ms"
     >
     <!-- The record: everything above the footer opens it, and nothing in the footer does. -->
@@ -180,6 +189,10 @@
         onclick={onclick}
         class="absolute inset-0 z-10 {footer ? 'rounded-t-2xl' : 'rounded-2xl'} focus:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus"
     ></button>
+
+    <!-- One polite region per card, present whether or not an analysis runs, so its start and its
+         end are each announced once. -->
+    <p class="sr-only" role="status" aria-live="polite" data-card-analysis-status>{analysisAnnouncement}</p>
 
     <!-- Reclassification Overlay -->
     {#if analysisActive && reclassifyProgress}
@@ -310,8 +323,10 @@
              While selecting, the card owns every click, as a list row does: pointer events are turned
              off on every descendant (not `inert`, which would take the readings from a screen reader). -->
         <!-- The gaps in the line let clicks through to the record; each reading and play takes its
-             own. While an analysis covers the card, the readings keep their place (nothing moves when
-             it ends) but are inert and hidden: no control under the overlay takes focus or a click. -->
+             own. While an analysis covers the card, everything in the line, marks included, keeps its
+             place but is inert and hidden: no control under the overlay takes focus or a click, and
+             the card is the same height when the analysis ends. The card's edge stays one pixel wide
+             for the same reason; the analysis is shown by its ring. -->
         <div
             class="pointer-events-none relative z-20 mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 {selectionMode ? '[&_*]:pointer-events-none!' : '*:pointer-events-auto'} {analysisActive ? 'invisible' : ''}"
             inert={analysisActive}
@@ -364,7 +379,6 @@
                 {/if}
                 </span>
             {/if}
-            {#if !analysisActive}
 
             {#if ownerConfirmation}
                 <BadgeHint
@@ -417,7 +431,6 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v4m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
                     </svg>
                 </BadgeHint>
-            {/if}
             {/if}
         </div>
 

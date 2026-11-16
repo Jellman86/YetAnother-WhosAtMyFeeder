@@ -142,9 +142,13 @@ test('selection switches to individual captures and keeps one card outline', asy
     const item = page.locator('[data-detection-card]').filter({ has: page.getByRole('button', { name: /^Select Dunnock, / }) }).first().locator('..').locator('..');
     const frame = item.locator('[data-detection-card]');
     const toggle = frame.getByRole('button', { name: /^Select Dunnock, / });
+    const before = await frame.boundingBox();
     await toggle.click();
     await expect(toggle).toHaveAttribute('aria-pressed', 'true');
-    await expect.poll(() => frame.evaluate(node => getComputedStyle(node).borderTopWidth)).toBe('2px');
+    // Chosen is the accent ring around a one-pixel edge, so choosing a card never changes its size.
+    await expect.poll(() => frame.evaluate(node => getComputedStyle(node).boxShadow)).not.toBe('none');
+    expect(await frame.evaluate(node => getComputedStyle(node).borderTopWidth)).toBe('1px');
+    expect((await frame.boundingBox())?.height).toBe(before?.height);
     await expectOneOutline(item);
     await expect(frame.locator('[data-visit-captures-toggle]')).toHaveCount(0);
     if (shots) await item.screenshot({ path: `${shots}/explorer-card-selected.png` });

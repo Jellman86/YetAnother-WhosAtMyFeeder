@@ -256,7 +256,9 @@
     "snapshot_subtitle": "Используется лучший доступный снимок",
     "finalizing": "Завершение результата",
     "finalizing_subtitle": "Применение лучшего совпадения",
-    "closing_soon": "Скоро закроется"
+    "closing_soon": "Скоро закроется",
+    "announce_started": "Анализ: {species}",
+    "announce_finished": "Анализ завершён: {species}"
   },
   "reclassification": {
     "unchanged_reason_non_bird": "Модель определила объект, не являющийся птицей, поэтому прежнее определение сохранено.",

@@ -22,6 +22,9 @@
     const scanningRow = row('row-scan', 'Great Tit');
     const quietRow = row('row-quiet', 'House Sparrow');
     const lastRow = row('row-last', 'Blue Tit');
+    // The same event as the scanning row, so it is analysed with it, carrying every qualifying mark.
+    const markedCard: Detection = { ...scanningRow, audio_confirmed: true, frigate_status: 'missing' };
+
 
     function scoreAt(index: number): number {
         return SCORES[index % SCORES.length];
@@ -79,6 +82,10 @@
         <DetectionCard detection={quietRow} onclick={() => (opened = 'idle')} onPlay={() => (played = 'idle')} />
     </div>
 </div>
+<div class="w-60" data-fixture="card-marked">
+    <DetectionCard detection={markedCard} ownerConfirmation="visit" onclick={() => (opened = 'marked')} onPlay={() => (played = 'marked')} />
+</div>
+<button type="button" class="btn btn-secondary" onclick={() => detectionsStore.dismissReclassification(scanningRow.frigate_event)}>End the analysis</button>
 <p data-fixture-opened={opened} data-fixture-played={played}>Opened {opened}, played {played}</p>
 
 <section data-fixture="row" class="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">

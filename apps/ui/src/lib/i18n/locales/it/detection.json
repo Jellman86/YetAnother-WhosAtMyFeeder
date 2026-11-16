@@ -256,7 +256,9 @@
     "snapshot_subtitle": "Uso del miglior fotogramma disponibile",
     "finalizing": "Finalizzazione del risultato",
     "finalizing_subtitle": "Applicazione della migliore corrispondenza",
-    "closing_soon": "Chiusura imminente"
+    "closing_soon": "Chiusura imminente",
+    "announce_started": "Analisi di {species} in corso",
+    "announce_finished": "Analisi completata per {species}"
   },
   "reclassification": {
     "unchanged_reason_non_bird": "Il modello ha identificato un soggetto diverso da un uccello, quindi è stata mantenuta l’identificazione precedente.",

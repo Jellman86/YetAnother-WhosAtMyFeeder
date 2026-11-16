@@ -680,8 +680,8 @@
     "arbitrary": 0
   },
   "lib/pages/Species.svelte": {
-    "palette": 397,
-    "dark": 193,
+    "palette": 394,
+    "dark": 192,
     "arbitrary": 8
   },
   "lib/pages/models/FinderDevicePanel.svelte": {

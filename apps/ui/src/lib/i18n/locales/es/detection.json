@@ -256,7 +256,9 @@
     "snapshot_subtitle": "Usando la mejor instantánea disponible",
     "finalizing": "Finalizando resultado",
     "finalizing_subtitle": "Aplicando la mejor coincidencia",
-    "closing_soon": "Se cerrará pronto"
+    "closing_soon": "Se cerrará pronto",
+    "announce_started": "Analizando {species}",
+    "announce_finished": "Análisis terminado para {species}"
   },
   "reclassification": {
     "unchanged_reason_non_bird": "El modelo identificó algo que no es un ave, por lo que se conservó la identificación anterior.",
