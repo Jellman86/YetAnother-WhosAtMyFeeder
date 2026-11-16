@@ -1,5 +1,6 @@
 <script lang="ts">
     import { _ } from 'svelte-i18n';
+    import { formatHour } from '../utils/datetime';
 
     /**
      * Visits per hour over the desk's rolling 24 hours. `data` is indexed by local clock hour, so
@@ -25,9 +26,6 @@
     const total = $derived(bars.reduce((sum, bar) => sum + bar.value, 0));
     const peak = $derived(bars.reduce((best, bar) => (bar.value > best.value ? bar : best), bars[0]));
 
-    function hourLabel(hour: number): string {
-        return `${String(hour).padStart(2, '0')}:00`;
-    }
 </script>
 
 <section data-dashboard-activity class="panel space-y-4" aria-labelledby="dashboard-activity-title">
@@ -42,7 +40,7 @@
     {#if total > 0}
         <p class="text-sm text-slate-700 dark:text-slate-200" data-dashboard-activity-peak>
             {$_('dashboard.histogram.peak', {
-                values: { time: hourLabel(peak.hour), count: peak.value },
+                values: { time: formatHour(peak.hour), count: peak.value },
                 default: 'Busiest at {time}, {count, plural, one {# visit} other {# visits}}'
             })}
         </p>
@@ -50,7 +48,7 @@
             class="relative flex h-24 items-end gap-0.5"
             role="img"
             aria-label={$_('dashboard.histogram.aria', {
-                values: { count: total, time: hourLabel(peak.hour) },
+                values: { count: total, time: formatHour(peak.hour) },
                 default: 'Visits per hour over the last 24 hours: {count, plural, one {# visit} other {# visits}} in all, busiest at {time}'
             })}
         >
@@ -63,7 +61,7 @@
                           : 'bg-slate-200 dark:bg-slate-800'}"
                     style:height="{Math.max((bar.value / maxVal) * 100, bar.value > 0 ? 6 : 2)}%"
                     title={$_('dashboard.histogram.tooltip_visits', {
-                        values: { count: bar.value, time: hourLabel(bar.hour) },
+                        values: { count: bar.value, time: formatHour(bar.hour) },
                         default: '{count, plural, one {# visit} other {# visits}} at {time}'
                     })}
                     aria-hidden="true"
@@ -71,8 +69,8 @@
             {/each}
         </div>
         <div class="flex justify-between text-xs text-slate-600 dark:text-slate-400" aria-hidden="true">
-            <span>{hourLabel(bars[0].hour)}</span>
-            <span>{hourLabel(bars[12].hour)}</span>
+            <span>{formatHour(bars[0].hour)}</span>
+            <span>{formatHour(bars[12].hour)}</span>
             <span class="font-semibold text-slate-700 dark:text-slate-200">{$_('dashboard.histogram.now', { default: 'now' })}</span>
         </div>
     {:else}

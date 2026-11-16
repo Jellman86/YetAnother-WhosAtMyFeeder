@@ -6,7 +6,7 @@ const authState: { dateFormat: string; timeFormat: string } = { dateFormat: 'loc
 vi.mock('../stores/settings.svelte', () => ({ settingsStore: settingsState }));
 vi.mock('../stores/auth.svelte', () => ({ authStore: authState }));
 
-const { formatCalendarDay, formatDay, formatTime, formatDateTime, normalizeDateFormat, normalizeTimeFormat } = await import('./datetime');
+const { formatCalendarDay, formatDay, formatHour, formatShortDay, formatTime, formatDateTime, normalizeDateFormat, normalizeTimeFormat } = await import('./datetime');
 
 // 13:45 local, so the two clocks are unambiguous.
 const AFTERNOON = new Date(2026, 7, 22, 13, 45, 0);
@@ -127,5 +127,52 @@ describe('a day in a record names its year, so a span across years reads plainly
         settingsState.settings = { date_format: 'dmy' };
         expect(formatDay(new Date(2026, 10, 2, 8, 41))).toBe('02/11/2026');
         expect(formatDay(null)).toBe('');
+    });
+});
+
+describe('a whole hour, on a chart axis or in a sentence, follows the same clock as every other time', () => {
+    beforeEach(() => {
+        settingsState.settings = null;
+        authState.timeFormat = 'locale';
+    });
+
+    it('reads on the 24 hour clock when the owner asks for one', () => {
+        settingsState.settings = { time_format: '24h' };
+        expect(formatHour(7)).toBe('07:00');
+        expect(formatHour(17)).toBe('17:00');
+        expect([0, 6, 12, 18, 23].map((hour) => formatHour(hour, 'axis'))).toEqual(['00', '06', '12', '18', '23']);
+    });
+
+    it('reads on the 12 hour clock when the owner asks for one, with no space an axis could break at', () => {
+        settingsState.settings = { time_format: '12h' };
+        expect(formatHour(17)).toMatch(/^0?5:00\s?(PM|pm)$/);
+        expect(formatHour(0, 'axis')).toMatch(/^12\u00a0?(AM|am)$/);
+        expect(formatHour(17, 'axis')).not.toMatch(/ /);
+    });
+
+    it('never prints an hour outside the day', () => {
+        settingsState.settings = { time_format: '24h' };
+        expect(formatHour(-3)).toBe('00:00');
+        expect(formatHour(40)).toBe('23:00');
+    });
+});
+
+describe('a short day, as a chart or a strip of days labels it', () => {
+    const NOW = new Date(2026, 9, 31, 9, 0, 0);
+
+    beforeEach(() => {
+        settingsState.settings = null;
+        authState.dateFormat = 'locale';
+    });
+
+    it('is a day and short month under the locale format', () => {
+        const expected = new Date(2026, 9, 1).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+        expect(formatShortDay(new Date(2026, 9, 1, 15, 30), NOW)).toBe(expected);
+    });
+
+    it('follows a pinned date format, and leaves an unreadable value empty', () => {
+        settingsState.settings = { date_format: 'ymd' };
+        expect(formatShortDay(new Date(2026, 9, 1, 15, 30), NOW)).toBe('2026-10-01');
+        expect(formatShortDay('not a date', NOW)).toBe('');
     });
 });

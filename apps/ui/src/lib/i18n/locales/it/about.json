@@ -3,7 +3,6 @@
   "credits": "Crediti e ringraziamenti",
   "view_changelog": "Visualizza changelog",
   "flaticon_credit": "Icone di uccelli create da Freepik - Flaticon",
-  "license_notice": "© {year} Jellman86 • Concesso in licenza con {license}",
   "project_desc_1": "Ho iniziato questo progetto per scoprire fino a dove potevo arrivare programmando con l'aiuto dell'IA. Il {link} originale non era più mantenuto, quindi c'era qualcosa di reale da ricostruire invece di un progetto giocattolo. Da allora gira alla mia mangiatoia.",
   "project_desc_2": "Frigate sorveglia la mangiatoia e segnala tutto ciò che sembra un uccello. YA-WAMF lo classifica, lo confronta con l'audio di BirdNET-Go e salva il risultato. Ogni foto in questa pagina viene da quella telecamera.",
   "links": {
@@ -122,10 +121,10 @@
     "newest_arrival": "Arrivo più recente",
     "first_seen": "vista per la prima volta il {date}",
     "latest": "Ultima visita",
-    "open_visit": "Apri la visita di {name} del {time}",
     "gone": "Quella visita non è più nella cronologia.",
     "community": "{count, plural, one {# mangiatoia ha usato YA-WAMF questa settimana.} other {# mangiatoie hanno usato YA-WAMF questa settimana.}}",
     "loading": "Caricamento dei dati di questa mangiatoia…",
-    "unavailable": "Non è stato possibile caricare i dati di questa mangiatoia."
+    "unavailable": "Non è stato possibile caricare i dati di questa mangiatoia.",
+    "open_this_visit": "Apri questa visita"
   }
 }

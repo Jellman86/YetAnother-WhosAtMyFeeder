@@ -3,7 +3,6 @@
   "credits": "Credits & Dank",
   "view_changelog": "Changelog anzeigen",
   "flaticon_credit": "Vogel-Icons erstellt von Freepik - Flaticon",
-  "license_notice": "© {year} Jellman86 • Lizenziert unter der {license}",
   "project_desc_1": "Ich habe damit angefangen, um herauszufinden, wie weit ich mit KI-Unterstützung beim Programmieren komme. Das ursprüngliche {link} wurde nicht mehr gepflegt, also gab es etwas Echtes nachzubauen statt eines Spielprojekts. Seitdem läuft es an meinem eigenen Futterhaus.",
   "project_desc_2": "Frigate überwacht die Futterstelle und meldet alles, was nach einem Vogel aussieht. YA-WAMF bestimmt es, gleicht es mit BirdNET-Go-Audio ab und speichert das Ergebnis. Jedes Foto auf dieser Seite stammt von dieser Kamera.",
   "links": {
@@ -122,10 +121,10 @@
     "newest_arrival": "Neuester Gast",
     "first_seen": "zuerst gesehen am {date}",
     "latest": "Letzter Besuch",
-    "open_visit": "Den Besuch von {name} am {time} öffnen",
     "gone": "Dieser Besuch ist nicht mehr im Verlauf.",
     "community": "{count, plural, one {# Futterhaus nutzte YA-WAMF diese Woche.} other {# Futterhäuser nutzten YA-WAMF diese Woche.}}",
     "loading": "Die Fakten dieses Futterplatzes werden geladen…",
-    "unavailable": "Die Fakten dieses Futterplatzes konnten nicht geladen werden."
+    "unavailable": "Die Fakten dieses Futterplatzes konnten nicht geladen werden.",
+    "open_this_visit": "Diesen Besuch öffnen"
   }
 }

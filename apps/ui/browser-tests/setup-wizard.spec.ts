@@ -1056,7 +1056,7 @@ test('a failed broker test is worded from its cause code in the page language', 
     await dialog.locator('#setup-mqtt-server').press('Tab');
     await dialog.getByRole('button', { name: /test/i }).click();
     const failed = dialog.locator('[data-setup-connection-result="failed"]');
-    await expect(failed).toContainText('Der Hostname in mqtt.invalid:1883 wurde nicht gefunden. Prüfe die Adresse.');
+    await expect(failed).toContainText('Der Hostname in mqtt.invalid:1883 wurde nicht gefunden. Prüfen Sie die Adresse.');
     await expect(failed).toContainText('MQTT-Broker');
     await expect(dialog).not.toContainText('English fallback sentence.');
 });

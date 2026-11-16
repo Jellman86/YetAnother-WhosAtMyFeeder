@@ -174,7 +174,7 @@
   "errors_filtered_title": "Gefilterte Erkennungen",
   "errors_filtered_none": "Bisher wurde nichts herausgefiltert.",
   "errors_filtered_summary": "{count, plural, one {# Erkennung hat Ihre Erkennungseinstellungen nicht erfüllt.} other {# Erkennungen haben Ihre Erkennungseinstellungen nicht erfüllt.}} Das ist der Filter bei der Arbeit, kein Fehler.",
-  "errors_filtered_hint": "Passen Sie den Konfidenzschwellenwert unter Einstellungen → Erkennung an, um mehr davon zu behalten.",
+  "errors_filtered_hint": "Passen Sie die Benennungsschwelle unter Einstellungen → Erkennung an, um mehr davon zu behalten.",
   "errors_filtered_recent": "Zuletzt",
   "errors_activity_title": "Was passiert ist",
   "errors_activity_subtitle": "Erfasste Besuche, herausgefilterte Erkennungen und Pipelinefehler in zeitlicher Reihenfolge",
@@ -196,7 +196,7 @@
   "errors_filtered_preview": "Vorschau des als {species} gefilterten Bildes",
   "errors_filtered_frame_gone": "Frigate hat dieses Bild nicht mehr",
   "errors_drop_reason_row": {
-    "filter_low_confidence": "Nicht erfasst, unter Ihrem Konfidenzschwellenwert",
+    "filter_low_confidence": "Nicht erfasst, unter Ihrer Benennungsschwelle",
     "filter_below_threshold": "Nicht erfasst, unter dem Artenschwellenwert",
     "filter_blocked_label": "Nicht erfasst, diese Bezeichnung ist blockiert",
     "filter_abstention_label": "Nicht erfasst, das Modell enthielt sich",
@@ -204,7 +204,7 @@
     "filter_out_of_range": "Nicht erfasst, in Ihrer eBird-Region nie gesehen"
   },
   "errors_drop_reason": {
-    "filter_low_confidence": "Unter Konfidenzschwelle",
+    "filter_low_confidence": "Unter Benennungsschwelle",
     "filter_below_threshold": "Unter Artenschwelle",
     "filter_blocked_label": "Blockierte Bezeichnung",
     "filter_abstention_label": "Modell enthielt sich",

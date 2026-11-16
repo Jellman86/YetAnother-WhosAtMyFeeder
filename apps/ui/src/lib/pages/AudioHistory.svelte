@@ -26,7 +26,7 @@
     } from './audio-history-filters';
     import { withAuthParams } from '../api/core';
     import { appApiPath, toAppPath } from '../app/url-base';
-    import { formatDate, formatDateTime, formatTime } from '../utils/datetime';
+    import { formatCalendarDay, formatDate, formatDateTime, formatHour, formatTime } from '../utils/datetime';
     import { getErrorMessage, isTransientRequestError } from '../utils/error-handling';
     import { logger } from '../utils/logger';
     import LazyModal from '../components/LazyModal.svelte';
@@ -256,10 +256,6 @@
         return `${Math.round((value ?? 0) * 100)}%`;
     }
 
-    function hourLabel(hour: number): string {
-        return `${String(hour).padStart(2, '0')}:00`;
-    }
-
     function spectrogramUrl(birdnet_id: number | null | undefined): string | null {
         if (!birdnet_id) return null;
         // Loaded as an <img> src; append the JWT as a query param so it works
@@ -285,8 +281,8 @@
     }
 
     // One series per chart, drawn by the canvas and listed by its table, so the two always agree.
-    const dailyPoints = $derived(dailySeries(summary?.daily_counts ?? [], $locale ?? undefined));
-    const hourlyPoints = $derived(hourlySeries(summary?.hourly_counts ?? []));
+    const dailyPoints = $derived(dailySeries(summary?.daily_counts ?? [], formatCalendarDay));
+    const hourlyPoints = $derived(hourlySeries(summary?.hourly_counts ?? [], formatHour));
 
     let dailyChartConfig = $derived((): CanvasChartConfig => {
         const points = summary?.daily_counts ?? [];
@@ -493,7 +489,7 @@
             </div>
             <div class="border-r border-slate-200/80 px-3 py-4 dark:border-slate-800 sm:px-5">
                 <dt class="text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('audio.stat.peak_hour', { default: 'Peak hour' })}</dt>
-                {@render statValue(peakHour ? hourLabel(peakHour.hour) : '—')}
+                {@render statValue(peakHour ? formatHour(peakHour.hour) : '—')}
                 {#if measured}
                     <dd class="mt-1 text-xs text-slate-600 dark:text-slate-400">{peakHour ? $_('audio.stat.peak_hour_sub', { values: { count: peakHour.count }, default: '{count, plural, one {# detection} other {# detections}}' }) : $_('audio.stat.no_calls', { default: 'No calls in this window' })}</dd>
                 {/if}

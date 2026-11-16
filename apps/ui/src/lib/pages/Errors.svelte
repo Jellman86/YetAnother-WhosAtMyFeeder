@@ -925,7 +925,7 @@
                                 {/each}
                             </ul>
                         {/if}
-                        <p class="mt-2 text-xs text-slate-700 dark:text-slate-300">{$_('jobs.errors_filtered_hint', { default: 'Adjust the confidence threshold in Settings → Detection to keep more of these.' })}</p>
+                        <p class="mt-2 text-xs text-slate-700 dark:text-slate-300">{$_('jobs.errors_filtered_hint', { default: 'Adjust the naming threshold in Settings → Detection to keep more of these.' })}</p>
                     {/if}
                 </li>
 

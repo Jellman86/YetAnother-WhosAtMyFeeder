@@ -2,6 +2,7 @@
   import { onMount, onDestroy } from 'svelte';
   import { _ } from 'svelte-i18n';
   import type { Map as LeafletMap } from 'leaflet';
+  import MapCredit from './MapCredit.svelte';
 
   type LeafletApi = typeof import('leaflet');
 
@@ -42,6 +43,7 @@
     if (!L) return;
 
     map = L.map(mapElement, {
+      // MapCredit draws the credit; the range layer's source is named beside the map's title.
       attributionControl: false,
       zoomControl: false,
       scrollWheelZoom: false
@@ -84,6 +86,7 @@
 
 <div class={`relative w-full ${heightClass} rounded-2xl overflow-hidden border border-slate-200/60 dark:border-slate-700/60 bg-slate-100 dark:bg-slate-800`}>
   <div bind:this={mapElement} class="w-full h-full z-0"></div>
+  <MapCredit />
   <div class="absolute top-3 right-3 z-20 flex flex-col gap-2 pointer-events-auto">
     <button
       type="button"

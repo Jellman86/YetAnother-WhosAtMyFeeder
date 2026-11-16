@@ -709,7 +709,7 @@
         {/if}
         {#if model.recommended_threshold != null}
             <p class="text-sm text-slate-600 dark:text-slate-300">
-                {$_('settings.detection.model_manager_threshold_hint', { default: 'Recommended confidence threshold for this model:' })}
+                {$_('settings.detection.model_manager_threshold_hint', { default: 'Recommended naming threshold for this model:' })}
                 <strong class="font-semibold text-slate-900 dark:text-white">{Math.round(model.recommended_threshold * 100)}%</strong>
             </p>
         {/if}

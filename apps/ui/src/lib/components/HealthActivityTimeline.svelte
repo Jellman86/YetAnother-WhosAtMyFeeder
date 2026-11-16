@@ -3,7 +3,7 @@
     import VisitCaptures from './VisitCaptures.svelte';
     import { _ } from 'svelte-i18n';
     import type { Detection } from '../api';
-    import { getBirdNames } from '../naming';
+    import { birdNames } from '../naming';
     import { settingsStore } from '../stores/settings.svelte';
     import { formatTime } from '../utils/datetime';
     import { SCORE_FILL, SCORE_TEXT, scoreBand } from '../utils/score-tone';
@@ -30,7 +30,7 @@
     }: Props = $props();
 
     function names(detection: Detection): { primary: string; secondary: string | null } {
-        return getBirdNames(
+        return $birdNames(
             detection,
             settingsStore.displayCommonNames,
             settingsStore.scientificNamePrimary

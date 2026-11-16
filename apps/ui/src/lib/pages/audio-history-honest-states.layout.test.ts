@@ -35,7 +35,7 @@ describe('Audio history keeps loading, measured-empty, failed and stale apart', 
 
     it('draws each chart and lists its numbers from one series, so day and hour always agree', () => {
         expect(source).toContain('dailySeries(summary?.daily_counts ?? []');
-        expect(source).toContain('hourlySeries(summary?.hourly_counts ?? [])');
+        expect(source).toContain('hourlySeries(summary?.hourly_counts ?? [], formatHour)');
         expect(source).toContain('dailyPoints.map((point) => [point.label, point.count.toLocaleString()])');
         expect(source).toContain('hourlyPoints.map((point) => [point.label, point.count.toLocaleString()])');
         expect(source).not.toContain('T12:00:00Z');

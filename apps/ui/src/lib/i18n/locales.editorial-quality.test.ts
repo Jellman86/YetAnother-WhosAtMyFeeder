@@ -235,7 +235,6 @@ describe('sentence case', () => {
         it(`${name} labels capitalise only their first word and names`, () => {
             expect(
                 stringLeaves(locale)
-                    .filter(([path]) => !path.startsWith('project_notes.'))
                     .map(([path, value]) => [path, value, titleCasedWords(value, names)] as const)
                     .filter(([, , words]) => words.length > 0)
                     .map(([path, value]) => `${path}: ${value}`)

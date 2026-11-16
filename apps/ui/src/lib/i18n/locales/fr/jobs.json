@@ -174,7 +174,7 @@
   "errors_filtered_title": "Détections filtrées",
   "errors_filtered_none": "Rien n’a encore été filtré.",
   "errors_filtered_summary": "{count, plural, one {# détection n’a pas satisfait vos réglages de détection.} other {# détections n’ont pas satisfait vos réglages de détection.}} C’est le filtre qui fonctionne, pas une panne.",
-  "errors_filtered_hint": "Ajustez le seuil de confiance dans Paramètres → Détection pour en conserver davantage.",
+  "errors_filtered_hint": "Ajustez le seuil d’identification dans Paramètres → Détection pour en conserver davantage.",
   "errors_filtered_recent": "Les plus récentes",
   "errors_activity_title": "Ce qui s’est passé",
   "errors_activity_subtitle": "Visites enregistrées, détections filtrées et défaillances du pipeline, dans l’ordre où elles se sont produites",
@@ -196,7 +196,7 @@
   "errors_filtered_preview": "Aperçu de l’image filtrée comme {species}",
   "errors_filtered_frame_gone": "Frigate n’a plus cette image",
   "errors_drop_reason_row": {
-    "filter_low_confidence": "Non enregistré, sous votre seuil de confiance",
+    "filter_low_confidence": "Non enregistré, sous votre seuil d’identification",
     "filter_below_threshold": "Non enregistré, sous le seuil d’espèce",
     "filter_blocked_label": "Non enregistré, cette étiquette est bloquée",
     "filter_abstention_label": "Non enregistré, le modèle s’est abstenu",
@@ -204,7 +204,7 @@
     "filter_out_of_range": "Non enregistré, jamais vu dans votre région eBird"
   },
   "errors_drop_reason": {
-    "filter_low_confidence": "Sous le seuil de confiance",
+    "filter_low_confidence": "Sous le seuil d’identification",
     "filter_below_threshold": "Sous le seuil d’espèce",
     "filter_blocked_label": "Étiquette bloquée",
     "filter_abstention_label": "Le modèle s’est abstenu",

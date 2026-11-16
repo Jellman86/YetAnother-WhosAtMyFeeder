@@ -174,7 +174,7 @@
   "errors_filtered_title": "Rilevamenti filtrati",
   "errors_filtered_none": "Non è ancora stato filtrato nulla.",
   "errors_filtered_summary": "{count, plural, one {# rilevamento non ha soddisfatto le tue impostazioni di rilevamento.} other {# rilevamenti non hanno soddisfatto le tue impostazioni di rilevamento.}} È il filtro che funziona, non un guasto.",
-  "errors_filtered_hint": "Regola la soglia di confidenza in Impostazioni → Rilevamento per conservarne di più.",
+  "errors_filtered_hint": "Regola la soglia di identificazione in Impostazioni → Rilevamento per conservarne di più.",
   "errors_filtered_recent": "Più recenti",
   "errors_activity_title": "Cosa è successo",
   "errors_activity_subtitle": "Visite registrate, rilevamenti filtrati ed errori della pipeline, nell’ordine in cui sono avvenuti",
@@ -196,7 +196,7 @@
   "errors_filtered_preview": "Anteprima del fotogramma filtrato come {species}",
   "errors_filtered_frame_gone": "Frigate non ha più questo fotogramma",
   "errors_drop_reason_row": {
-    "filter_low_confidence": "Non registrato, sotto la tua soglia di confidenza",
+    "filter_low_confidence": "Non registrato, sotto la tua soglia di identificazione",
     "filter_below_threshold": "Non registrato, sotto la soglia di specie",
     "filter_blocked_label": "Non registrato, questa etichetta è bloccata",
     "filter_abstention_label": "Non registrato, il modello si è astenuto",
@@ -204,7 +204,7 @@
     "filter_out_of_range": "Non registrato, mai visto nella tua regione eBird"
   },
   "errors_drop_reason": {
-    "filter_low_confidence": "Sotto la soglia di confidenza",
+    "filter_low_confidence": "Sotto la soglia di identificazione",
     "filter_below_threshold": "Sotto la soglia di specie",
     "filter_blocked_label": "Etichetta bloccata",
     "filter_abstention_label": "Il modello si è astenuto",

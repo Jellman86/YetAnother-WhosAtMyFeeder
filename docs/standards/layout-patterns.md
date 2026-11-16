@@ -645,8 +645,8 @@ build something better."*
   ("Background jobs, health and system events are shown only to you, not to visitors."), never on
   every row.
 - The footer of a working page carries the build's version, the licence and the links, and nothing
-  that changes from page to page. Bird facts live in the "Did you know?" card on About and change
-  only when asked for another.
+  that changes from page to page. About carries no general bird trivia either: every line on it is
+  about this install.
 - A count names its unit and its window: "Detections, all time", "Availability, last 24 hours".
   A figure that was not measured is said in words at body size ("Not measured. The start time could
   not be read from the backend."), never as a headline value beside one that was.
@@ -746,6 +746,35 @@ build something better."*
   record and the field log draw one score in one colour in every theme. **Exception:** a frame the filter rejected scores under 60 by
   definition and wants nothing from anyone, so it renders in slate with its reason in words. Amber
   on those rows would contradict 1.3 and put seven of them under a heading saying nothing failed.
+- **One name**: a component names a bird through `$birdNames(…)` (`naming.ts`) wherever it is
+  printed, a toast and an accessible name included, so the reader's naming preference and language
+  hold on every surface. It is a store, so a name follows a language change at once; the pure
+  `getBirdNames()` beneath it is for code outside a component, which passes the translated name in.
+  Never print `display_name`: it is the stored English label. A visit without a species is
+  "Unknown bird", in that casing and translated, from the same helper. The score a visit
+  must reach to be named is the **naming threshold** everywhere, Settings included.
+- **Clock and dates**: every time, date and hour label comes from `utils/datetime.ts`
+  (`formatTime`, `formatHour` for a whole hour in a sentence or on an axis, `formatShortDay` for a
+  chart or strip label), so the owner's clock and date format hold on a chart axis as they do in
+  the log. Never call `toLocaleTimeString`, `toLocaleDateString` or `Intl.DateTimeFormat` for a
+  time or date in a component.
+- **Weather words**: a stored condition ("Rain") and a wind direction are translated through
+  `utils/weather-condition.ts`; a condition outside the known vocabulary prints as stored.
+- **Maps**: every map that draws OpenStreetMap tiles carries `MapCredit`, the credit its licence
+  requires, in the app's own ink. A hint beside a map names only the gestures that map accepts.
+- **High contrast**: one black scheme. The theme store adds `dark` whenever the mode is on, so a
+  component needs no high-contrast styles of its own provided every light ink and fill has its
+  `dark:` pair. `app.css` then repaints each text colour family (`[class*='text-slate-']`), never
+  a list of classes, and gives a chosen or primary control a yellow fill under black words.
+  A filled element sets its ground and its ink together and everything inside it takes that ink;
+  a disabled control gives up its fill and is grey on black inside a dashed edge. An ink a
+  component cannot write as a utility is a token set per theme in `app.css` (the record's AI panel
+  uses `--ai-*`), never a colour in a scoped `<style>`, which the mode cannot reach.
+  `app.high-contrast.test.ts` fails a colour family the app writes and the mode does not repaint,
+  a fill under white words that is neither dark enough nor named in the mode, and a literal ink in
+  a component's styles; `browser-tests/high-contrast.spec.ts` measures every word at 7:1 over both
+  themes, with and without the reading font, on filled and disabled controls and in the record's
+  AI panel. A new ink colour family or filled control must be added to the mode in the same change.
 - **Touch targets**: `min-h-11` on anything interactive, including chips and inline actions. The
   kit's `.tab-button` and `.btn-icon` carry the floor themselves, so a tab or an icon button needs
   no extra class.

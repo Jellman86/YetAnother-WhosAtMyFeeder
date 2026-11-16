@@ -73,5 +73,32 @@
   "diagnostic_state_failed": "Non riuscito",
   "diagnostic_state_warning": "Superato con un avviso",
   "diagnostic_state_skipped": "Non eseguito",
-  "technical_details": "Dettagli tecnici"
+  "technical_details": "Dettagli tecnici",
+  "map_credit": "© contributori di OpenStreetMap",
+  "chart_total": "{count} in totale",
+  "unknown_bird": "Uccello sconosciuto",
+  "weather_condition": {
+    "clear_sky": "Cielo sereno",
+    "partly_cloudy": "Parzialmente nuvoloso",
+    "foggy": "Nebbia",
+    "drizzle": "Pioviggine",
+    "rain": "Pioggia",
+    "snow": "Neve",
+    "rain_showers": "Rovesci",
+    "thunderstorm": "Temporale",
+    "cloudy": "Nuvoloso",
+    "hail": "Grandine",
+    "windy": "Ventoso",
+    "exceptional": "Eccezionale"
+  },
+  "compass": {
+    "n": "N",
+    "ne": "NE",
+    "e": "E",
+    "se": "SE",
+    "s": "S",
+    "sw": "SO",
+    "w": "O",
+    "nw": "NO"
+  }
 }

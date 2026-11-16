@@ -103,7 +103,7 @@ describe('review queue walk-through', () => {
     });
 
     it('uses the record naming preferences for each current queue item', () => {
-        expect(modalSource).toMatch(/getBirdNames\(current,\s*settingsStore.displayCommonNames,\s*settingsStore.scientificNamePrimary\)/);
+        expect(modalSource).toMatch(/\$birdNames\(current,\s*settingsStore.displayCommonNames,\s*settingsStore.scientificNamePrimary\)/);
         expect(modalSource).toContain('{#if naming.secondary}');
         expect(modalSource).toContain('{naming.secondary}');
     });

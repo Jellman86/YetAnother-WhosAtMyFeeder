@@ -3,6 +3,8 @@
     import { getReelImageUrl, type FeederPortrait } from '../api';
     import { formatDate, formatDateTime } from '../utils/datetime';
     import VisitFilm from './VisitFilm.svelte';
+    import { birdNames } from '../naming';
+    import { settingsStore } from '../stores/settings.svelte';
 
     /**
      * The About page's opener: this feeder in a few facts it has measured, beside its latest
@@ -23,6 +25,11 @@
 
     const latest = $derived(portrait.latest_visit ?? null);
     const opening = $derived(latest !== null && openingEvent === latest.frigate_event);
+
+    // The portrait names a bird as every other page does: the reader's naming preference.
+    function name(bird: { display_name: string; scientific_name?: string | null }): string {
+        return $birdNames(bird, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary).primary;
+    }
 
     // The busiest day is a calendar date, not an instant: read at midday so no offset moves it.
     const busiestDate = $derived(portrait.busiest_day ? formatDate(`${portrait.busiest_day.date}T12:00:00`) : null);
@@ -56,10 +63,6 @@
         <button
             type="button"
             class="group relative block aspect-video w-full overflow-hidden rounded-2xl border border-slate-200/80 bg-slate-900 text-left shadow-card transition-[translate,box-shadow] duration-200 ease-out hover:-translate-y-0.5 hover:shadow-xl focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus motion-reduce:translate-none dark:border-slate-700/60 dark:shadow-card-dark"
-            aria-label={$_('about.portrait.open_visit', {
-                values: { name: latest.display_name, time: formatDateTime(latest.detection_time) },
-                default: 'Open the {name} visit from {time}'
-            })}
             aria-busy={opening}
             data-feeder-portrait-visit
             onclick={() => onopenvisit(latest.frigate_event)}
@@ -72,10 +75,12 @@
                 height={360}
                 class="h-full w-full"
             />
-            <span class="pointer-events-none absolute inset-x-0 bottom-0 bg-linear-to-t/srgb from-slate-950/80 to-transparent px-4 pb-3 pt-10" aria-hidden="true">
+            <!-- The caption is the button's name, so what is read out starts with what is shown. -->
+            <span class="pointer-events-none absolute inset-x-0 bottom-0 bg-linear-to-t/srgb from-slate-950/80 to-transparent px-4 pb-3 pt-10">
                 <span class="block text-xs font-semibold text-white/75">{$_('about.portrait.latest', { default: 'Latest visit' })}</span>
-                <span class="block wrap-break-word text-base font-semibold text-white">{latest.display_name}</span>
+                <span class="block wrap-break-word text-base font-semibold text-white">{name(latest)}</span>
                 <span class="block text-xs text-white/75">{formatDateTime(latest.detection_time)}</span>
+                <span class="sr-only">{$_('about.portrait.open_this_visit', { default: 'Open this visit' })}</span>
             </span>
             {#if opening}
                 <span class="absolute inset-0 flex items-center justify-center bg-slate-950/45" aria-hidden="true">
@@ -117,7 +122,7 @@
                                 data-feeder-portrait-arrival
                                 onclick={() => onopenspecies(arrival.species)}
                             >
-                                {arrival.display_name}
+                                {name(arrival)}
                             </button>
                         </dd>
                         <dd class="text-xs text-slate-600 dark:text-slate-400">

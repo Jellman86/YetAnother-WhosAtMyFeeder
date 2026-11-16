@@ -12,7 +12,7 @@
     import { explanation } from '../utils/explanation';
     import DetectionCardAnalysisOverlay from './DetectionCardAnalysisOverlay.svelte';
 
-    import { getBirdNames } from '../naming';
+    import { birdNames } from '../naming';
     import { formatDate as formatDateValue, formatTime } from '../utils/datetime';
     import { photoFitFor, type PhotoFit } from '../utils/photo-fit';
     import type { SpeciesInCapture } from '../utils/visit-captures';
@@ -73,7 +73,7 @@
     // Dynamic Naming Logic
     const showCommon = $derived(settingsStore.settings?.display_common_names ?? authStore.displayCommonNames ?? true);
     const preferSci = $derived(settingsStore.settings?.scientific_name_primary ?? authStore.scientificNamePrimary ?? false);
-    let naming = $derived(getBirdNames(detection, showCommon, preferSci));
+    let naming = $derived($birdNames(detection, showCommon, preferSci));
 
     let primaryName = $derived(mixed ? $_('events.multiple_species', { default: 'Multiple species' }) : naming.primary);
     let subName = $derived(mixed ? null : naming.secondary);
@@ -419,7 +419,7 @@
                 <ul class="mt-1.5 flex flex-wrap gap-1.5" aria-label={$_('events.species_in_capture', { default: 'Species in this capture' })}>
                     {#each speciesMix as entry (entry.species)}
                         <li class="inline-flex min-h-6 items-center gap-1.5 rounded-full border border-line-soft bg-surface px-2 text-2xs font-semibold text-slate-700 dark:text-slate-200">
-                            {getBirdNames(entry, showCommon, preferSci).primary}<span class="font-bold tabular-nums text-brand-700 dark:text-brand-300">{entry.count}</span>
+                            {$birdNames(entry, showCommon, preferSci).primary}<span class="font-bold tabular-nums text-brand-700 dark:text-brand-300">{entry.count}</span>
                         </li>
                     {/each}
                 </ul>

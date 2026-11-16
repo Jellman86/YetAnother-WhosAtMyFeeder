@@ -174,7 +174,7 @@
   "errors_filtered_title": "Detecciones filtradas",
   "errors_filtered_none": "Todavía no se ha filtrado nada.",
   "errors_filtered_summary": "{count, plural, one {# detección no cumplió tus ajustes de detección.} other {# detecciones no cumplieron tus ajustes de detección.}} Es el filtro funcionando, no un fallo.",
-  "errors_filtered_hint": "Ajusta el umbral de confianza en Ajustes → Detección para conservar más.",
+  "errors_filtered_hint": "Ajusta el umbral de identificación en Ajustes → Detección para conservar más.",
   "errors_filtered_recent": "Más recientes",
   "errors_activity_title": "Qué ha pasado",
   "errors_activity_subtitle": "Visitas registradas, detecciones filtradas y fallos del proceso, en el orden en que ocurrieron",
@@ -196,7 +196,7 @@
   "errors_filtered_preview": "Vista previa del fotograma filtrado como {species}",
   "errors_filtered_frame_gone": "Frigate ya no tiene este fotograma",
   "errors_drop_reason_row": {
-    "filter_low_confidence": "No registrado, por debajo de tu umbral de confianza",
+    "filter_low_confidence": "No registrado, por debajo de tu umbral de identificación",
     "filter_below_threshold": "No registrado, por debajo del umbral de especie",
     "filter_blocked_label": "No registrado, esta etiqueta está bloqueada",
     "filter_abstention_label": "No registrado, el modelo se abstuvo",
@@ -204,7 +204,7 @@
     "filter_out_of_range": "No registrado, nunca visto en tu región de eBird"
   },
   "errors_drop_reason": {
-    "filter_low_confidence": "Bajo el umbral de confianza",
+    "filter_low_confidence": "Bajo el umbral de identificación",
     "filter_below_threshold": "Bajo el umbral de especie",
     "filter_blocked_label": "Etiqueta bloqueada",
     "filter_abstention_label": "El modelo se abstuvo",

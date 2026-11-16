@@ -73,5 +73,32 @@
   "diagnostic_state_failed": "未通过",
   "diagnostic_state_warning": "通过但有警告",
   "diagnostic_state_skipped": "未运行",
-  "technical_details": "技术详情"
+  "technical_details": "技术详情",
+  "map_credit": "© OpenStreetMap 贡献者",
+  "chart_total": "共 {count}",
+  "unknown_bird": "未知鸟类",
+  "weather_condition": {
+    "clear_sky": "晴",
+    "partly_cloudy": "局部多云",
+    "foggy": "雾",
+    "drizzle": "毛毛雨",
+    "rain": "雨",
+    "snow": "雪",
+    "rain_showers": "阵雨",
+    "thunderstorm": "雷暴",
+    "cloudy": "阴",
+    "hail": "冰雹",
+    "windy": "大风",
+    "exceptional": "异常天气"
+  },
+  "compass": {
+    "n": "北",
+    "ne": "东北",
+    "e": "东",
+    "se": "东南",
+    "s": "南",
+    "sw": "西南",
+    "w": "西",
+    "nw": "西北"
+  }
 }

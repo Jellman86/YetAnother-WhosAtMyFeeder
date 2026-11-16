@@ -369,10 +369,10 @@
             <button
                 class="btn btn-ghost min-h-11 min-w-11 focus-ring rounded-xl p-2.5 text-slate-600 transition-all duration-200 hover:bg-surface-raised dark:text-slate-400"
                 onclick={() => themeStore.toggle()}
-                title={themeStore.isDark ? $_('theme.switch_light') : $_('theme.switch_dark')}
-                aria-label={themeStore.isDark ? $_('theme.switch_light') : $_('theme.switch_dark')}
+                title={themeStore.prefersDark ? $_('theme.switch_light') : $_('theme.switch_dark')}
+                aria-label={themeStore.prefersDark ? $_('theme.switch_light') : $_('theme.switch_dark')}
             >
-                {#if themeStore.isDark}
+                {#if themeStore.prefersDark}
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
                     </svg>

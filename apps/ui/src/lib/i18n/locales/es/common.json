@@ -73,5 +73,32 @@
   "diagnostic_state_failed": "Fallida",
   "diagnostic_state_warning": "Superada con un aviso",
   "diagnostic_state_skipped": "No ejecutada",
-  "technical_details": "Detalles técnicos"
+  "technical_details": "Detalles técnicos",
+  "map_credit": "© colaboradores de OpenStreetMap",
+  "chart_total": "{count} en total",
+  "unknown_bird": "Ave desconocida",
+  "weather_condition": {
+    "clear_sky": "Cielo despejado",
+    "partly_cloudy": "Parcialmente nublado",
+    "foggy": "Niebla",
+    "drizzle": "Llovizna",
+    "rain": "Lluvia",
+    "snow": "Nieve",
+    "rain_showers": "Chubascos",
+    "thunderstorm": "Tormenta",
+    "cloudy": "Nublado",
+    "hail": "Granizo",
+    "windy": "Ventoso",
+    "exceptional": "Excepcional"
+  },
+  "compass": {
+    "n": "N",
+    "ne": "NE",
+    "e": "E",
+    "se": "SE",
+    "s": "S",
+    "sw": "SO",
+    "w": "O",
+    "nw": "NO"
+  }
 }

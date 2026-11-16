@@ -54,7 +54,7 @@
         {#if title}
             <h4 class="text-sm font-medium text-slate-700 dark:text-slate-300">{title}</h4>
         {/if}
-        <span class="text-xs text-slate-600 dark:text-slate-400">{total} total</span>
+        <span class="text-xs text-slate-600 dark:text-slate-400">{$_('common.chart_total', { values: { count: total }, default: 'Total: {count}' })}</span>
     </div>
 
     <!-- Chart container with proper overflow handling -->
@@ -91,9 +91,11 @@
         <!-- Labels row - separate for better control -->
         <div class="flex mt-1.5 overflow-hidden">
             {#each labels as label, i}
-                <div class="flex-1 min-w-0 text-center">
+                <!-- The first and last labels are set against the chart's edges, so a label wider
+                     than its bar never runs out of the chart and loses its end. -->
+                <div class="flex min-w-0 flex-1 {i === 0 ? 'justify-start' : i === labels.length - 1 ? 'justify-end' : 'justify-center'}">
                     {#if shouldShowLabel(i)}
-                        <span class="text-xs leading-none text-slate-600 dark:text-slate-400
+                        <span class="whitespace-nowrap text-xs leading-none text-slate-600 dark:text-slate-400
                                      {hoveredIndex === i ? 'text-slate-700 dark:text-slate-300 font-medium' : ''}">
                             {label}
                         </span>
