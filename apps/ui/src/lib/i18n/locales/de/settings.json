@@ -1473,7 +1473,9 @@
     "measurement_gap": "Für diese Probe liegt kein Auslastungswert vor. Die Worker-Zeilen unten zeigen den geladenen Beschleuniger; diese Lücke belegt keinen Rückfall auf die CPU.",
     "unreadable_nvidia": "{label} ist vorhanden, aber ihr Treiber veröffentlicht keinen Auslastungszähler, den ein Container lesen kann.",
     "unreadable_accelerator": "{label} ist vorhanden, aber der Zähler ist aus dem Container heraus nicht lesbar.",
-    "table_region": "Last nach Prozess"
+    "table_region": "Last nach Prozess",
+    "chart_title": "Last der letzten 30 Minuten",
+    "col_time": "Uhrzeit"
   },
   "text_size": {
     "label": "Textgröße",

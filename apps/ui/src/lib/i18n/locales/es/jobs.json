@@ -62,7 +62,7 @@
   "errors_clear": "Borrar historial de errores",
   "errors_summary": "{groups} grupos • {events} eventos • {snapshots} instantáneas de salud",
   "errors_latest_health": "Estado más reciente: {status} a las {at}",
-  "errors_empty": "No hay ninguno registrado.",
+  "errors_backend_empty": "El backend no ha registrado avisos ni errores desde que se vació el historial de errores por última vez.",
   "errors_count": "{count}x",
   "errors_first_seen": "Visto por primera vez",
   "errors_last_seen": "Visto por última vez",

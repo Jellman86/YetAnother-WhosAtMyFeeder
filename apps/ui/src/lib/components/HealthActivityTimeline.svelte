@@ -50,30 +50,30 @@
 
     function dropToneClass(isFault: boolean): string {
         return isFault
-            ? 'border-l-rose-400 bg-rose-50/35 dark:border-l-rose-700 dark:bg-rose-950/10'
-            : 'border-l-slate-300 bg-slate-50/55 dark:border-l-slate-600 dark:bg-slate-900/35';
+            ? 'border-l-status-fail-line bg-status-fail-soft/60'
+            : 'border-l-status-neutral-line bg-surface-raised';
     }
 </script>
 
 <div
-    class="overflow-hidden rounded-2xl border border-slate-200/80 bg-white/50 dark:border-slate-700/60 dark:bg-slate-900/20"
+    class="overflow-hidden rounded-2xl border border-line bg-surface"
     data-health-activity-timeline
 >
     <div
-        class="flex flex-wrap gap-x-4 gap-y-2 border-b border-slate-200/70 bg-slate-50/80 px-4 py-3 text-xs font-semibold text-slate-600 dark:border-slate-700/50 dark:bg-slate-900/60 dark:text-slate-300"
+        class="flex flex-wrap gap-x-4 gap-y-2 border-b border-line bg-surface-raised px-4 py-3 text-xs font-semibold text-muted"
         role="group"
         aria-label={$_('jobs.errors_activity_key', { default: 'Activity key' })}
     >
         <span class="inline-flex items-center gap-1.5">
-            <span class="h-2 w-2 rounded-full bg-brand-500" aria-hidden="true"></span>
+            <span class="h-2 w-2 rounded-full bg-status-info-line" aria-hidden="true"></span>
             {$_('jobs.errors_activity_recorded', { default: 'Recorded visit' })}
         </span>
         <span class="inline-flex items-center gap-1.5">
-            <span class="h-2 w-2 rounded-full bg-slate-400 dark:bg-slate-500" aria-hidden="true"></span>
+            <span class="h-2 w-2 rounded-full bg-status-neutral-line" aria-hidden="true"></span>
             {$_('jobs.errors_activity_filtered', { default: 'Filtered out' })}
         </span>
         <span class="inline-flex items-center gap-1.5">
-            <span class="h-2 w-2 rounded-full bg-rose-500" aria-hidden="true"></span>
+            <span class="h-2 w-2 rounded-full bg-status-fail-line" aria-hidden="true"></span>
             {$_('jobs.errors_activity_fault', { default: 'Pipeline fault' })}
         </span>
     </div>
@@ -81,34 +81,34 @@
     {#if loading && rows.length === 0}
         <div class="space-y-px p-2" data-health-activity-loading>
             {#each Array(5) as _unused, index (index)}
-                <div class="h-18 animate-pulse rounded-xl bg-slate-100/80 dark:bg-slate-800/50"></div>
+                <div class="h-18 animate-pulse rounded-xl bg-surface-raised"></div>
             {/each}
         </div>
     {:else if rows.length === 0}
         <div class="flex flex-col items-center justify-center px-6 py-12 text-center">
-            <div class="mb-4 grid h-12 w-12 place-items-center rounded-full bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+            <div class="mb-4 grid h-12 w-12 place-items-center rounded-full bg-surface-raised text-muted">
                 <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M4 12h3l2-5 4 10 2-5h5" />
                 </svg>
             </div>
-            <p class="max-w-lg text-sm font-medium leading-6 text-slate-600 dark:text-slate-400">{emptyMessage}</p>
+            <p class="max-w-lg text-sm font-medium leading-6 text-muted">{emptyMessage}</p>
         </div>
     {:else}
-        <ol class="divide-y divide-slate-200/70 dark:divide-slate-700/45">
+        <ol class="divide-y divide-line">
             {#each rows as row (row.key)}
                 {#if row.kind === 'visit'}
                     {@const visit = row.visit}
                     {@const naming = names(visit.lead)}
                     {@const score = visit.best.score ?? 0}
                     <li
-                        class="relative grid grid-cols-[3rem_auto_minmax(0,1fr)] items-center gap-x-2.5 gap-y-1 border-l-[3px] border-l-brand-400 bg-brand-50/25 px-2 py-2.5 sm:grid-cols-[4.5rem_0.75rem_auto_minmax(0,1fr)_4.5rem_7.5rem] sm:gap-x-3 sm:px-3 dark:border-l-brand-600 dark:bg-brand-950/10"
+                        class="relative grid grid-cols-[3rem_auto_minmax(0,1fr)] items-center gap-x-2.5 gap-y-1 border-l-[3px] border-l-status-info-line bg-status-info-soft/40 px-2 py-2.5 sm:grid-cols-[4.5rem_0.75rem_auto_minmax(0,1fr)_4.5rem_7.5rem] sm:gap-x-3 sm:px-3"
                         data-health-activity-row
                         data-row-kind="recorded"
                     >
-                        <span class="text-xs tabular-nums text-slate-600 dark:text-slate-400">{span(row)}</span>
+                        <span class="text-xs tabular-nums text-muted">{span(row)}</span>
                         <span class="relative hidden h-full justify-center sm:flex" class:sm:row-span-2={(visit.server?.capture_count ?? 0) > 1} aria-hidden="true">
-                            <span class="absolute inset-y-[-0.8rem] w-px bg-slate-200 dark:bg-slate-700"></span>
-                            <span class="relative mt-[0.45rem] h-2 w-2 rounded-full bg-brand-500 ring-2 ring-white dark:ring-slate-900"></span>
+                            <span class="absolute inset-y-[-0.8rem] w-px bg-line"></span>
+                            <span class="relative mt-[0.45rem] h-2 w-2 rounded-full bg-status-info-line ring-2 ring-surface"></span>
                         </span>
                         <DetectionPreview
                             detection={visit.best}
@@ -120,11 +120,11 @@
                         />
                         <div class="min-w-0 pr-12 sm:pr-0">
                             <p class="flex min-w-0 items-baseline justify-between gap-2">
-                                <span class="truncate text-sm font-semibold text-slate-950 dark:text-white">{naming.primary}</span>
+                                <span class="truncate text-sm font-semibold text-strong">{naming.primary}</span>
                                 <span class="shrink-0 text-xs font-bold tabular-nums sm:hidden {SCORE_TEXT[scoreBand(score)]}">{Math.round(score * 100)}%</span>
                             </p>
-                            <p class="flex flex-wrap items-center gap-x-1.5 text-2xs text-slate-600 dark:text-slate-400">
-                                <span class="font-semibold text-brand-700 dark:text-brand-300">
+                            <p class="flex flex-wrap items-center gap-x-1.5 text-2xs text-muted">
+                                <span class="font-semibold text-accent-ink">
                                     {$_('jobs.errors_activity_recorded', { default: 'Recorded visit' })}
                                 </span>
                                 <Separator />
@@ -135,7 +135,7 @@
                                 {/if}
                                 {#if visit.audioConfirmed}
                                     <Separator />
-                                    <span class="font-medium text-brand-700 dark:text-brand-300">
+                                    <span class="font-medium text-accent-ink">
                                         {$_('detection.fact_heard_yes', { default: 'matching call' })}
                                     </span>
                                 {/if}
@@ -143,7 +143,7 @@
                         </div>
                         <span class="hidden flex-col items-end gap-1 sm:flex">
                             <span class="text-xs font-bold tabular-nums {SCORE_TEXT[scoreBand(score)]}">{Math.round(score * 100)}%</span>
-                            <span class="h-[3px] w-16 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+                            <span class="h-[3px] w-16 overflow-hidden rounded-full bg-line">
                                 <span class="block h-full rounded-full {SCORE_FILL[scoreBand(score)]}" style="width: {Math.round(score * 100)}%"></span>
                             </span>
                         </span>
@@ -172,12 +172,12 @@
                         data-health-activity-row
                         data-row-kind={isFault ? 'fault' : 'filtered'}
                     >
-                        <span class="text-xs tabular-nums text-slate-600 dark:text-slate-400">
+                        <span class="text-xs tabular-nums text-muted">
                             {drop.timestamp ? formatTime(drop.timestamp) : ''}
                         </span>
                         <span class="relative hidden h-full justify-center sm:flex" aria-hidden="true">
-                            <span class="absolute inset-y-[-0.8rem] w-px bg-slate-200 dark:bg-slate-700"></span>
-                            <span class="relative mt-[0.45rem] h-2 w-2 rounded-full ring-2 ring-white dark:ring-slate-900 {isFault ? 'bg-rose-500' : 'bg-slate-400 dark:bg-slate-500'}"></span>
+                            <span class="absolute inset-y-[-0.8rem] w-px bg-line"></span>
+                            <span class="relative mt-[0.45rem] h-2 w-2 rounded-full ring-2 ring-surface {isFault ? 'bg-status-fail-line' : 'bg-status-neutral-line'}"></span>
                         </span>
                         <FilteredFramePreview
                             eventId={drop.eventId}
@@ -190,13 +190,13 @@
                                 : null}
                         />
                         <div class="min-w-0">
-                            <p class="flex min-w-0 items-baseline justify-between gap-2 text-sm font-semibold {isFault ? 'text-rose-900 dark:text-rose-100' : 'italic text-slate-700 dark:text-slate-200'}">
+                            <p class="flex min-w-0 items-baseline justify-between gap-2 text-sm font-semibold {isFault ? 'text-strong' : 'italic text-ink'}">
                                 <span class="truncate">{drop.label ?? $_('jobs.errors_activity_unidentified', { default: 'Unidentified detection' })}</span>
                                 {#if drop.score !== null}
-                                    <span class="shrink-0 text-xs font-bold not-italic tabular-nums text-slate-600 sm:hidden dark:text-slate-400">{Math.round(drop.score * 100)}%</span>
+                                    <span class="shrink-0 text-xs font-bold not-italic tabular-nums text-muted sm:hidden">{Math.round(drop.score * 100)}%</span>
                                 {/if}
                             </p>
-                            <p class="flex flex-wrap items-center gap-x-1.5 text-2xs font-medium leading-4 {isFault ? 'text-rose-700 dark:text-rose-300' : 'text-slate-600 dark:text-slate-400'}">
+                            <p class="flex flex-wrap items-center gap-x-1.5 text-2xs font-medium leading-4 {isFault ? 'text-status-fail' : 'text-muted'}">
                                 {#if isFault}
                                     <span class="font-semibold">{$_('jobs.errors_activity_fault', { default: 'Pipeline fault' })}</span>
                                     <Separator />
@@ -212,9 +212,9 @@
                         </div>
                         <span class="hidden flex-col items-end gap-1 sm:flex">
                             {#if drop.score !== null}
-                                <span class="text-xs font-bold tabular-nums text-slate-600 dark:text-slate-400">{Math.round(drop.score * 100)}%</span>
-                                <span class="h-[3px] w-16 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
-                                    <span class="block h-full rounded-full bg-slate-400 dark:bg-slate-500" style="width: {Math.round(drop.score * 100)}%"></span>
+                                <span class="text-xs font-bold tabular-nums text-muted">{Math.round(drop.score * 100)}%</span>
+                                <span class="h-[3px] w-16 overflow-hidden rounded-full bg-line">
+                                    <span class="block h-full rounded-full bg-status-neutral-line" style="width: {Math.round(drop.score * 100)}%"></span>
                                 </span>
                             {/if}
                         </span>
@@ -225,7 +225,7 @@
 
         {#if hiddenCount > 0}
             <p
-                class="flex min-h-11 items-center justify-center gap-2 border-t border-slate-200/70 bg-slate-50/70 px-4 py-2 text-center text-xs font-medium text-slate-600 dark:border-slate-700/50 dark:bg-slate-900/50 dark:text-slate-400"
+                class="flex min-h-11 items-center justify-center gap-2 border-t border-line bg-surface-raised px-4 py-2 text-center text-xs font-medium text-muted"
                 data-health-activity-remainder
             >
                 <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">

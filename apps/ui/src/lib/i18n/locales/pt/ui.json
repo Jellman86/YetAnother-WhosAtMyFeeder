@@ -1,0 +1,15 @@
+{
+  "state": {
+    "loading": "Carregando…",
+    "empty": "Nada aqui ainda",
+    "failed": "Não foi possível carregar",
+    "stale": "Pode estar desatualizado",
+    "off": "Desativado",
+    "not_measured": "Não medido",
+    "try_again": "Tentar novamente"
+  },
+  "chart": {
+    "show_data": "Mostrar os dados em uma tabela",
+    "key": "Legenda"
+  }
+}

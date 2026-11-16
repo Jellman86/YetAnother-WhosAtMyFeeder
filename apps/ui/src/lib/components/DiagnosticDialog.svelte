@@ -1,5 +1,7 @@
 <script lang="ts">
     import DialogCloseButton from './DialogCloseButton.svelte';
+    import StatusIcon from './ui/StatusIcon.svelte';
+    import { TONE_CHIP, TONE_INK, TONE_MARK, type Tone } from './ui/tone';
     import type { Snippet } from 'svelte';
     import { onMount } from 'svelte';
     import { _ } from 'svelte-i18n';
@@ -142,12 +144,13 @@
         if (event.key === 'Escape') onClose();
     }
 
-    function stageIcon(state: DiagnosticStageState): string {
-        if (state === 'passed') return '✓';
-        if (state === 'failed') return '!';
-        if (state === 'warning') return '!';
-        if (state === 'skipped') return '–';
-        return '';
+    /** A step's tone: green passed, amber warned (it needs a look), rose failed, brand running. */
+    function stageTone(state: DiagnosticStageState): Tone {
+        if (state === 'passed') return 'ok';
+        if (state === 'failed') return 'fail';
+        if (state === 'warning') return 'attention';
+        if (state === 'running') return 'info';
+        return 'neutral';
     }
 </script>
 
@@ -155,7 +158,7 @@
 
 <div
     use:portal
-    class="fixed inset-0 z-80 flex items-center justify-center overflow-y-auto bg-slate-950/60 p-4 backdrop-blur-xs"
+    class="fixed inset-0 z-80 flex items-center justify-center overflow-y-auto bg-media/60 p-4 backdrop-blur-xs"
     role="presentation"
 >
     <div
@@ -165,7 +168,7 @@
         aria-labelledby="diagnostic-title"
         aria-describedby={subtitle ? 'diagnostic-description' : undefined}
         tabindex="-1"
-        class="my-8 w-full max-w-2xl overflow-hidden rounded-2xl border border-white/10 bg-surface shadow-2xl ring-1 ring-black/5"
+        class="my-8 w-full max-w-2xl overflow-hidden rounded-2xl border border-line-soft bg-surface shadow-2xl"
     >
         <!-- Plain divisions, not header and footer: the dialog is portalled to the body, where those
              elements would count as a second page banner and a second page footer. -->
@@ -173,13 +176,13 @@
             <div class="flex items-start justify-between gap-4">
                 <div class="space-y-1">
                     {#if eyebrow}
-                        <p class="text-xs font-semibold text-brand-700 dark:text-brand-300">{eyebrow}</p>
+                        <p class="text-xs font-semibold text-accent-ink">{eyebrow}</p>
                     {/if}
-                    <h2 id="diagnostic-title" class="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+                    <h2 id="diagnostic-title" class="text-2xl font-bold tracking-tight text-strong">
                         {title}
                     </h2>
                     {#if subtitle}
-                        <p id="diagnostic-description" class="text-sm text-slate-600 dark:text-slate-300">{subtitle}</p>
+                        <p id="diagnostic-description" class="text-sm text-muted">{subtitle}</p>
                     {/if}
                 </div>
                 <DialogCloseButton label={closeLabel} onclick={onClose} />
@@ -187,7 +190,7 @@
 
             <div class="flex items-center gap-1.5" aria-hidden="true">
                 {#each displayStages as stage}
-                    <span class="h-1.5 flex-1 rounded-full transition-colors duration-300 {stage.state === 'passed' ? 'bg-brand-500' : stage.state === 'failed' ? 'bg-red-500' : stage.state === 'warning' ? 'bg-attention-500' : stage.state === 'running' ? 'animate-pulse bg-brand-400' : 'bg-slate-200 dark:bg-slate-700'}"></span>
+                    <span class="h-1.5 flex-1 rounded-full transition-colors duration-300 {stage.state === 'pending' || stage.state === 'skipped' ? 'bg-line' : TONE_MARK[stageTone(stage.state)]} {stage.state === 'running' ? 'animate-pulse' : ''}"></span>
                 {/each}
             </div>
             <span class="sr-only" role="progressbar" aria-labelledby="diagnostic-title" aria-valuenow={progress} aria-valuemin="0" aria-valuemax="100">{progress}%</span>
@@ -202,27 +205,32 @@
                 </div>
             {/if}
 
-            <ol class="divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200 dark:divide-slate-800 dark:border-slate-700">
+            <ol class="divide-y divide-line-soft overflow-hidden rounded-2xl border border-line">
                 {#each displayStages as stage, index}
-                    <li class="flex items-start gap-3 p-3.5 {stage.state === 'failed' ? 'bg-red-50/70 dark:bg-red-950/20' : stage.state === 'warning' ? 'bg-attention-50/70 dark:bg-attention-950/20' : stage.state === 'running' ? 'bg-brand-50/60 dark:bg-brand-950/15' : ''}">
-                        <span class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold {stage.state === 'failed' ? 'bg-red-600 text-white' : stage.state === 'warning' ? 'bg-attention-500 text-white' : stage.state === 'passed' ? 'bg-success-600 text-white' : stage.state === 'running' ? 'animate-pulse bg-brand-700 text-white' : 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300'}">
-                            {stageIcon(stage.state) || index + 1}
-                        </span>
+                    <li class="flex items-start gap-3 p-3.5 {stage.state === 'failed' ? 'bg-status-fail-soft' : stage.state === 'warning' ? 'bg-status-attention-soft' : stage.state === 'running' ? 'bg-status-info-soft' : ''}" data-diagnostic-stage-tone={stageTone(stage.state)}>
+                        <!-- The step's shape says its outcome as well as its colour: a tick, a diamond, a cross, a disc. -->
+                        {#if stage.state === 'pending'}
+                            <span class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-xs font-bold {TONE_CHIP.neutral}">{index + 1}</span>
+                        {:else}
+                            <span class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center {TONE_INK[stageTone(stage.state)]} {stage.state === 'running' ? 'animate-pulse' : ''}">
+                                <StatusIcon tone={stageTone(stage.state)} class="h-5 w-5" />
+                            </span>
+                        {/if}
                         <div class="min-w-0 flex-1 space-y-0.5">
                             <div class="flex flex-wrap items-center gap-2">
-                                <h3 class="text-sm font-bold text-slate-900 dark:text-white">{stage.label}</h3>
+                                <h3 class="text-sm font-bold text-strong">{stage.label}</h3>
                                 {#if stage.state === 'running'}
-                                    <span class="text-3xs font-bold text-brand-700 dark:text-brand-300">{runningLabel ?? $_('common.testing', { default: 'Testing' })}</span>
+                                    <span class="text-3xs font-bold text-accent-ink">{runningLabel ?? $_('common.testing', { default: 'Testing' })}</span>
                                 {:else if stateWord(stage.state)}
-                                    <span class="text-xs font-semibold {stage.state === 'failed' ? 'text-red-700 dark:text-red-300' : 'text-slate-600 dark:text-slate-300'}" data-diagnostic-stage-state={stage.state}>{stateWord(stage.state)}</span>
+                                    <span class="text-xs font-semibold {stage.state === 'failed' ? 'text-status-fail' : 'text-muted'}" data-diagnostic-stage-state={stage.state}>{stateWord(stage.state)}</span>
                                 {/if}
                             </div>
                             {#if stage.state !== 'pending'}
-                                <p class="text-xs leading-relaxed text-slate-600 dark:text-slate-300">{stage.message}</p>
+                                <p class="text-xs leading-relaxed text-muted">{stage.message}</p>
                             {/if}
                             {#if stage.hint && (stage.state === 'failed' || stage.state === 'warning')}
                                 <!-- A failure never ends on the failure: the next line says what to do about it. -->
-                                <p class="text-xs font-semibold leading-relaxed text-slate-800 dark:text-slate-100" data-diagnostic-stage-hint>{stage.hint}</p>
+                                <p class="text-xs font-semibold leading-relaxed text-strong" data-diagnostic-stage-hint>{stage.hint}</p>
                             {/if}
                         </div>
                     </li>
@@ -230,21 +238,24 @@
             </ol>
 
             {#if result && resultShown && summaryAddsSomething}
-                <div data-diagnostic-result class="rounded-2xl border p-4 {result.ok ? 'border-success-200 bg-success-50 text-success-900 dark:border-success-900/60 dark:bg-success-950/20 dark:text-success-100' : 'border-red-200 bg-red-50 text-red-900 dark:border-red-900/60 dark:bg-red-950/20 dark:text-red-100'}">
-                    <p class="font-bold">{diagnosticHeadline(result, displayStages)}</p>
-                    {#if result.hint}
-                        <p class="mt-1 text-sm">{result.hint}</p>
-                    {/if}
+                <div data-diagnostic-result class="flex items-start gap-3 rounded-2xl border p-4 {result.ok ? 'border-status-ok-line bg-status-ok-soft' : 'border-status-fail-line bg-status-fail-soft'}">
+                    <span class="mt-0.5 {TONE_INK[result.ok ? 'ok' : 'fail']}"><StatusIcon tone={result.ok ? 'ok' : 'fail'} class="h-5 w-5" /></span>
+                    <div class="min-w-0 flex-1">
+                        <p class="font-bold text-strong">{diagnosticHeadline(result, displayStages)}</p>
+                        {#if result.hint}
+                            <p class="mt-1 text-sm text-ink">{result.hint}</p>
+                        {/if}
+                    </div>
                 </div>
             {/if}
 
             {#if note}
-                <p class="text-xs leading-relaxed text-slate-600 dark:text-slate-400">{note}</p>
+                <p class="text-xs leading-relaxed text-muted">{note}</p>
             {/if}
         </div>
 
         {#if onRetry}
-        <div class="flex items-center justify-end gap-2 border-t border-slate-200 px-6 py-4 dark:border-slate-700" data-diagnostic-actions>
+        <div class="flex items-center justify-end gap-2 border-t border-line px-6 py-4" data-diagnostic-actions>
             <button type="button" class="btn btn-primary min-h-11 px-5 py-2.5" disabled={busy} onclick={onRetry}>
                 {busy
                     ? (runningLabel ?? $_('common.testing', { default: 'Testing' }))

@@ -26,14 +26,13 @@ describe('success is a semantic colour, not the brand accent', () => {
     });
 
     it('keeps passed and warning visually distinct in the shared diagnostic dialog', () => {
-        expect(diagnosticDialogSource).toContain("stage.state === 'passed' ? 'bg-success-600");
-        expect(diagnosticDialogSource).toContain("stage.state === 'warning' ? 'bg-attention-500");
-        expect(diagnosticDialogSource).not.toMatch(/stage\.state === 'passed' \? 'bg-accent-/);
+        expect(diagnosticDialogSource).toContain("if (state === 'passed') return 'ok';");
+        expect(diagnosticDialogSource).toContain("if (state === 'warning') return 'attention';");
+        expect(diagnosticDialogSource).toContain('TONE_INK[stageTone(stage.state)]');
     });
 
     it('paints a successful diagnostic result green rather than amber', () => {
-        expect(diagnosticDialogSource).toMatch(/result\.ok \? 'border-success-/);
-        expect(diagnosticDialogSource).not.toMatch(/result\.ok \? 'border-accent-/);
+        expect(diagnosticDialogSource).toMatch(/result\.ok \? 'border-status-ok-line bg-status-ok-soft'/);
     });
 
     it('paints successful setup checks green', () => {

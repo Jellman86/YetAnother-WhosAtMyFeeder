@@ -9,6 +9,7 @@ import {
     pointAt,
     seriesArea,
     seriesSegments,
+    sampleTable,
     shareRows,
     timeTicks,
     unreadableAccelerators,
@@ -155,5 +156,35 @@ describe('the lines the panel draws', () => {
         expect(markerFor(points, 1, cpuLoad, 10, 100, 100)).toEqual({ x: 100, y: 50 });
         expect(markerFor(points, 0, acceleratorLoad('accel0'), 10, 100, 100)).toBeNull();
         expect(markerFor(points, 7, cpuLoad, 10, 100, 100)).toBeNull();
+    });
+});
+
+describe('the chart as a table of samples', () => {
+    const series = chartSeries({ points: [], accelerators: [accelerator()] }, 'CPU');
+    const timeOf = (at: number) => `t${at}`;
+
+    it('lists each sample once, at its own time, and invents none for the axis ticks', () => {
+        // Right after start-up there is one sample; the axis still names four times across 30 minutes.
+        const rows = sampleTable([point(1000, 12.5, 3)], series, timeOf, 'Not measured');
+        expect(rows).toEqual([['t1000', '12.5%', '3.0%']]);
+    });
+
+    it('keeps every sample, so a peak between two axis ticks is in the table', () => {
+        const points = [point(0, 10, 1), point(5, 97, 1), point(10, 11, 1)];
+        const rows = sampleTable(points, series, timeOf, 'Not measured');
+        expect(rows.map((row) => row[0])).toEqual(['t0', 't5', 't10']);
+        expect(rows[1][1]).toBe('97.0%');
+    });
+
+    it('says a missing reading in words rather than as a number or a blank', () => {
+        const rows = sampleTable([point(0, null, null), point(5, 20, null)], series, timeOf, 'Not measured');
+        expect(rows).toEqual([
+            ['t0', 'Not measured', 'Not measured'],
+            ['t5', '20.0%', 'Not measured']
+        ]);
+    });
+
+    it('is empty when nothing has been sampled', () => {
+        expect(sampleTable([], series, timeOf, 'Not measured')).toEqual([]);
     });
 });

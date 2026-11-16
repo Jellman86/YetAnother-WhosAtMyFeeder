@@ -64,7 +64,7 @@
   "errors_clear": "Clear error history",
   "errors_summary": "{groups} groups • {events} events • {snapshots} health snapshots",
   "errors_latest_health": "Latest health: {status} at {at}",
-  "errors_empty": "None recorded.",
+  "errors_backend_empty": "The backend has recorded no warnings or errors since the error history was last cleared.",
   "errors_count": "{count}x",
   "errors_first_seen": "First seen",
   "errors_last_seen": "Last seen",

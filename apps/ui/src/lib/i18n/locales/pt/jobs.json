@@ -62,7 +62,7 @@
   "errors_clear": "Limpar histórico de erros",
   "errors_summary": "{groups} grupos • {events} eventos • {snapshots} instantâneos de saúde",
   "errors_latest_health": "Saúde mais recente: {status} em {at}",
-  "errors_empty": "Nenhum registrado.",
+  "errors_backend_empty": "O backend não registrou avisos nem erros desde a última vez que o histórico de erros foi limpo.",
   "errors_count": "{count}x",
   "errors_first_seen": "Visto pela primeira vez",
   "errors_last_seen": "Visto pela última vez",

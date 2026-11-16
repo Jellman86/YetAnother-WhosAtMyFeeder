@@ -3,9 +3,9 @@ import { formatTime } from './datetime';
 
 /** The bands the visual standard sets for scores: under 60 amber, under 85 brand, above green. */
 export function heardConfidenceTone(confidence: number): string {
-    if (confidence < 0.6) return 'text-accent-700 dark:text-accent-300';
-    if (confidence < 0.85) return 'text-brand-700 dark:text-brand-300';
-    return 'text-success-700 dark:text-success-300';
+    if (confidence < 0.6) return 'text-status-attention';
+    if (confidence < 0.85) return 'text-status-info';
+    return 'text-status-ok';
 }
 
 /** "3 calls to 09:17" reads only when the calls ran past the minute they started in. */

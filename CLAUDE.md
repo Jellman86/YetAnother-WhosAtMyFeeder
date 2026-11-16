@@ -139,6 +139,12 @@ sources — is [`docs/standards/code-quality.md`](docs/standards/code-quality.md
 - A first-time user should understand what a screen does and what a click will do,
   without a manual. Label actions by their effect. Show *why* something is disabled,
   empty, or skipped.
+- **Colour comes from the semantic tokens** (`bg-surface`, `text-muted`, `text-status-fail`, …)
+  resolved once per mode in `app.css`, and sections, states and chips from the primitives in
+  `apps/ui/src/lib/components/ui/` (`Panel`, `StatusChip`, `StateBlock`, `PageHeader`, `Stat`,
+  `ChartFigure`). No new raw palette class, `dark:` colour override or arbitrary value: the
+  design-token ratchet fails the build. See
+  [`docs/standards/design-tokens.md`](docs/standards/design-tokens.md).
 - **The shared UI kit in [`apps/ui/src/app.css`](apps/ui/src/app.css) is the source
   of truth for controls.** Use `btn` + `btn-primary`/`btn-secondary`/`btn-ghost`,
   `input-base`, `select-base`, `tab-button`, and `card-base` rather than hand-rolled
@@ -285,7 +291,8 @@ looser.
   Alembic migration smoke (`upgrade → downgrade → upgrade`), migration path matrix
   ([`backend/scripts/ci_migration_path_check.py`](backend/scripts/ci_migration_path_check.py)),
   single-Alembic-head check, and `pytest`. **frontend**: `npm ci` → `npm run check`
-  → `npm run lint:dead` (knip: no unused files, exports, or packages) → `npm test` → `npm run build`.
+  → `npm run lint:dead` (knip: no unused files, exports, or packages) → `npm run lint:tokens`
+  (the design-token ratchet and contrast proof) → `npm test` → `npm run build`.
   **browser**: the complete Chromium fixture suite, with failure screenshots and traces retained.
   **intel image**: when the Dockerfile, `docker/`, the Intel requirements or the motion decoder
   change, builds the Intel image without publishing it and runs the flavor smoke test, including
