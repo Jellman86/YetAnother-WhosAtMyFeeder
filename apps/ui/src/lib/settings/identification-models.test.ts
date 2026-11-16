@@ -77,6 +77,33 @@ describe('identificationStatus', () => {
         });
     });
 
+    it('says an installed in-process model that failed to load is not naming birds, with a plain cause', () => {
+        const failed = status({ runtime_source: 'in_process', loaded: false, error: 'RuntimeError: unsupported opset 21' });
+        expect(identificationStatus(failed)).toEqual({
+            kind: 'failed',
+            modelId: 'rope_vit_b14_inat21',
+            modelName: 'RoPE ViT-B14 (Medium Accuracy)',
+            cause: 'runtime',
+            detail: 'RuntimeError: unsupported opset 21',
+        });
+    });
+
+    it('names unreadable files as the cause when the runtime could not find them', () => {
+        const failed = status({ runtime_source: 'in_process', loaded: false, error: 'Model not found: /data/models/x/model.onnx' });
+        expect(identificationStatus(failed)).toMatchObject({ kind: 'failed', cause: 'missing_files' });
+    });
+
+    it('says an installed in-process model that is not loaded and reports no error is unavailable', () => {
+        expect(identificationStatus(status({ image_execution_mode: 'in_process', runtime_source: 'in_process', loaded: false, error: null }))).toMatchObject({
+            kind: 'unavailable',
+        });
+    });
+
+    it('keeps the worker semantics: workers load on first use, so a not-loaded subprocess model is not a failure', () => {
+        expect(identificationStatus(status({ image_execution_mode: 'subprocess', runtime_source: 'planned', loaded: false, error: 'stale in-process note' }))).toMatchObject({ kind: 'planned' });
+        expect(identificationStatus(status({ image_execution_mode: 'subprocess', runtime_source: 'worker', loaded: false, error: null }))).toMatchObject({ kind: 'running' });
+    });
+
     it('says when the isolated workers keep stopping and identification runs in the app', () => {
         expect(
             identificationStatus(status({ worker_in_process_fallback: { active: true } } as Partial<ClassifierStatus>))
@@ -139,22 +166,27 @@ describe('recommendIdentificationModel', () => {
     ];
 
     it('recommends the regional quick model to an install that runs the small starter model', () => {
-        expect(recommendIdentificationModel(lineup, { currentId: 'mobilenet_v2_birds' })?.id).toBe('small_birds');
+        expect(recommendIdentificationModel(lineup, { currentId: 'mobilenet_v2_birds', currentInUse: true })?.id).toBe('small_birds');
     });
 
     it('recommends a model when nothing can name birds yet', () => {
-        expect(recommendIdentificationModel(lineup, { currentId: null })?.id).toBe('small_birds');
+        expect(recommendIdentificationModel(lineup, { currentId: null, currentInUse: false })?.id).toBe('small_birds');
     });
 
     it('recommends nothing once a fuller model is in use, so a deliberate choice is not second-guessed', () => {
-        expect(recommendIdentificationModel(lineup, { currentId: 'rope_vit_b14_inat21' })).toBeNull();
+        expect(recommendIdentificationModel(lineup, { currentId: 'rope_vit_b14_inat21', currentInUse: true })).toBeNull();
     });
 
     it('never recommends the model that is already in use', () => {
-        expect(recommendIdentificationModel(lineup, { currentId: 'small_birds' })).toBeNull();
+        expect(recommendIdentificationModel(lineup, { currentId: 'small_birds', currentInUse: true })).toBeNull();
+    });
+
+    it('never recommends the chosen model again when its files are missing, but offers the next one', () => {
+        expect(recommendIdentificationModel(lineup, { currentId: 'small_birds', currentInUse: false })?.id).toBe('rope_vit_b14_inat21');
+        expect(recommendIdentificationModel(lineup, { currentId: 'small_birds/eu', currentInUse: false })?.id).toBe('rope_vit_b14_inat21');
     });
 
     it('recommends the starter model on a Raspberry Pi image, where larger models are too heavy', () => {
-        expect(recommendIdentificationModel(lineup, { currentId: null, imageFlavor: 'rpi' })?.id).toBe('mobilenet_v2_birds');
+        expect(recommendIdentificationModel(lineup, { currentId: null, currentInUse: false, imageFlavor: 'rpi' })?.id).toBe('mobilenet_v2_birds');
     });
 });

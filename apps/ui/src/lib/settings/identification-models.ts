@@ -9,6 +9,10 @@ export type IdentificationStatus =
     | { kind: 'checking' }
     /** The chosen model's files are not on this install, so nothing can name birds. */
     | { kind: 'missing'; modelId: string | null; modelName: string | null }
+    /** Loaded inside the app, which tried and could not open it; `detail` is the runtime's own words. */
+    | { kind: 'failed'; modelId: string | null; modelName: string | null; cause: 'missing_files' | 'runtime'; detail: string | null }
+    /** Inside the app, installed but not loaded, with no error reported. */
+    | { kind: 'unavailable'; modelId: string | null; modelName: string | null }
     /** Workers start on the first detection; until then the device is the plan, not a fact. */
     | { kind: 'planned'; modelId: string | null; modelName: string | null; device: string | null }
     | {
@@ -26,6 +30,18 @@ export function identificationStatus(status: ClassifierStatus | null | undefined
     const modelId = status.effective_model_id ?? status.active_model_id ?? null;
     const modelName = status.effective_model_name ?? null;
     if (status.active_model_installed === false) return { kind: 'missing', modelId, modelName };
+    // Only a model held inside the app reports whether it loaded. Isolated workers load on their
+    // first detection, so there "not loaded" is the normal idle state, never a failure.
+    const inApp = status.runtime_source === 'in_process' || status.runtime_source === 'in_process_fallback'
+        || (status.image_execution_mode === 'in_process' && status.runtime_source !== 'worker' && status.runtime_source !== 'planned');
+    if (inApp && status.loaded === false) {
+        const detail = status.error?.trim() || null;
+        if (detail) {
+            const cause = /not found|no such file|missing/i.test(detail) ? 'missing_files' : 'runtime';
+            return { kind: 'failed', modelId, modelName, cause, detail };
+        }
+        return { kind: 'unavailable', modelId, modelName };
+    }
     const device = deviceName(status.active_provider);
     if (status.runtime_source === 'planned') return { kind: 'planned', modelId, modelName, device };
     const fallback = status.worker_in_process_fallback?.active ? 'workers' : status.fallback_reason ? 'device' : null;
@@ -124,10 +140,11 @@ const STARTER_MODEL_ID = 'mobilenet_v2_birds';
  */
 export function recommendIdentificationModel(
     models: readonly ModelMetadata[],
-    context: { currentId: string | null; imageFlavor?: string | null }
+    context: { currentId: string | null; currentInUse: boolean; imageFlavor?: string | null }
 ): ModelMetadata | null {
+    // The chosen model is never offered again, whether or not its files are here.
     const current = context.currentId ? familyId(context.currentId) : null;
-    if (current !== null && current !== STARTER_MODEL_ID) return null;
+    if (context.currentInUse && current !== null && current !== STARTER_MODEL_ID) return null;
     const order = context.imageFlavor === 'rpi' ? [STARTER_MODEL_ID] : RECOMMENDATION_ORDER;
     for (const id of order) {
         if (id === current) continue;

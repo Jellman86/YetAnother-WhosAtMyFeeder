@@ -1323,9 +1323,12 @@ return 422. It does not reclassify saved detections or wait indefinitely for an 
 - `GET /api/maintenance/last-runs` (owner) — the newest recorded run of each Maintenance job, so
   Settings › Maintenance can say when each one last ran and what it found. `runs` holds one entry
   per job that has run: `kind` (`taxonomy`, `timezone_scan`, `timezone_repair`, `analyze_unknowns`,
-  or the backfill kinds `detections` and `weather`), `status`, `finished_at`, `checked` (records
-  looked at) and `changed` (records repaired, found or queued). A job with no entry has no recorded
-  run. Runs are kept in the maintenance job history, so they survive a restart.
+  or the backfill kinds `detections` and `weather`), `status` (`completed`, `failed`, or for a
+  backfill also `running` or `cancelled`), `started_at` where recorded, `finished_at`, `checked`
+  (records looked at), `changed` (records repaired, found or queued) and `unchecked` (records it
+  looked at but could not check, such as timezone lookups Frigate did not answer, or backfill
+  errors). A scan with `unchecked` above zero is not an all-clear. A job with no entry has no
+  recorded run. Runs are kept in the maintenance job history, so they survive a restart.
 - `GET /api/maintenance/stats` (owner) — total detections, the oldest one, the saved
   `retention_days`, and `detections_to_cleanup`: how many the saved retention deletes at the next
   cleanup. `kept_newest_per_species` is the per-species floor and `automatic_cleanup` says whether

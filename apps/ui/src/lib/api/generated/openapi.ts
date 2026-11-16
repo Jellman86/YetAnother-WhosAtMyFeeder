@@ -1778,7 +1778,9 @@ export interface components {
     checked?: number | null;
     finished_at?: string | null;
     kind: "taxonomy" | "timezone_scan" | "timezone_repair" | "analyze_unknowns" | "detections" | "weather";
+    started_at?: string | null;
     status: string;
+    unchecked?: number | null;
 };
     MaintenanceLastRunsResponse: {
     runs: Array<components['schemas']['MaintenanceLastRun']>;

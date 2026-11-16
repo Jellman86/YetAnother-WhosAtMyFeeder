@@ -229,11 +229,17 @@
     "maintenance_jobs_desc": "Por padrão, cada tipo de tarefa acima é executado um de cada vez, para não disputar com a identificação de aves.",
     "storage_limit": "Limitar o espaço de fotos e vídeo",
     "storage_limit_size": "Limite de armazenamento em GB",
-    "storage_policy_limited": "Quando as fotos e o vídeo passam de {size} GB, os mais antigos saem primeiro. Os favoritos e o seu arquivo são sempre mantidos.",
-    "storage_policy_unlimited": "Sem limite de tamanho: fotos e vídeo ficam até o período do histórico remover as suas visitas. Os favoritos são sempre mantidos.",
     "species_limits_title": "Limites por espécie",
     "per_species_minimum_count": "Visitas mantidas por espécie",
-    "per_species_maximum_count": "Visitas por espécie com fotos e vídeo"
+    "per_species_maximum_count": "Visitas por espécie com fotos e vídeo",
+    "storage_limit_invalid": "Introduza um tamanho de 0,5 a 1024 GB. Até lá, o limite fica em {size} GB.",
+    "storage_limit_invalid_short": "Introduza um limite de armazenamento de 0,5 a 1024 GB.",
+    "storage_policy_size_limit": "Quando as fotos e o vídeo passam de {size} GB, os mais antigos saem primeiro.",
+    "storage_policy_no_size_limit": "Sem limite de tamanho.",
+    "storage_policy_history_only": "Sem limite de tamanho: fotos e vídeo ficam até o período do histórico remover as suas visitas.",
+    "storage_policy_species_cap": "{count, plural, one {Cada espécie mantém fotos e vídeo apenas da visita mais recente.} other {Cada espécie mantém fotos e vídeo apenas das # visitas mais recentes.}}",
+    "storage_policy_species_floor": "{count, plural, one {A visita mais recente de cada espécie mantém as fotos além do período do histórico.} other {As # visitas mais recentes de cada espécie mantêm as fotos além do período do histórico.}}",
+    "storage_policy_favourites": "Os favoritos e o seu arquivo são sempre mantidos."
   },
   "security": {
     "title": "Segurança",
@@ -1837,7 +1843,10 @@
       "small_birds": "Conhece as aves da sua região e continua rápido num CPU comum.",
       "rope_vit_b14_inat21": "Identifica aves e outra fauna com boa precisão a velocidade moderada.",
       "mobilenet_v2_birds": "Pequeno o suficiente para este dispositivo e não precisa de hardware gráfico."
-    }
+    },
+    "status_failed_files": "{model} está instalado mas não foi possível carregá-lo: não foi possível ler os seus ficheiros. Nada identifica as aves até ser carregado.",
+    "status_failed_runtime": "{model} está instalado mas não foi possível carregá-lo: o ambiente de execução não o conseguiu abrir nesta máquina. Nada identifica as aves até ser carregado.",
+    "status_unavailable": "{model} está instalado mas não carregado, por isso neste momento nada identifica as aves."
   },
   "save_rule": "As alterações nas configurações esperam até você escolher Salvar alterações. Botões como Testar, Executar e Baixar agem na hora.",
   "appearance": {
@@ -1865,6 +1874,16 @@
     "candidate_ok": "Correto",
     "candidate_unsupported": "Desvio que não é seguro reparar",
     "candidate_lookup_error": "Não foi possível verificar",
-    "timezone_nothing_last_scan": "Nada para reparar: a última análise não encontrou deteções que precisem."
+    "timezone_nothing_last_scan": "Nada para reparar: a última análise não encontrou deteções que precisem.",
+    "last_run_running": "A decorrer, iniciada {when}.",
+    "last_run_running_undated": "A decorrer.",
+    "last_run_cancelled": "A última execução, {when}, foi parada antes de terminar.",
+    "last_run_cancelled_undated": "A última execução foi parada antes de terminar.",
+    "last_run_unfinished_undated": "A última execução não terminou.",
+    "last_run_timezone_scan_incomplete": "A última análise {when} não conseguiu verificar {unchecked} de {checked} deteções (o Frigate não respondeu).",
+    "last_run_timezone_scan_rest": "{changed} das restantes precisam de reparação.",
+    "scan_again": "Analise de novo.",
+    "timezone_last_scan_incomplete": "{count, plural, one {A última análise não conseguiu verificar # deteção (o Frigate não respondeu). Analise de novo.} other {A última análise não conseguiu verificar # deteções (o Frigate não respondeu). Analise de novo.}}",
+    "timezone_scan_incomplete": "{count, plural, one {Esta análise não conseguiu verificar # deteção (o Frigate não respondeu). Analise de novo.} other {Esta análise não conseguiu verificar # deteções (o Frigate não respondeu). Analise de novo.}}"
   }
 }

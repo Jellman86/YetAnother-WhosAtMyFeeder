@@ -35,6 +35,41 @@ test('cache limits and scanning use the existing settings controls without overf
     await card.screenshot({ path: testInfo.outputPath('media-settings-dark.png'), animations: 'disabled' });
 });
 
+test('a cleared or out-of-range storage limit keeps the saved limit and says why', async ({ page }) => {
+    await page.goto('/browser-tests/media-settings.html');
+    await page.getByRole('switch', { name: /^Limit the space photos and video use/ }).click();
+    const limit = page.getByRole('spinbutton', { name: /^Storage limit in GB/ });
+    const chosen = page.getByRole('status', { name: 'Selected cache settings' });
+    await limit.fill('2');
+    await limit.blur();
+    await expect(chosen).toHaveText('0 / 2048 / intensive');
+    // Clearing the field must never stand in for a tiny limit that evicts most of the media.
+    for (const typed of ['', '0', '2000']) {
+        await limit.fill(typed);
+        await limit.blur();
+        await expect(chosen).toHaveText('0 / 2048 / intensive');
+        await expect(limit).toHaveAttribute('aria-invalid', 'true');
+        await expect(limit).toHaveAccessibleDescription(/Enter a size from 0\.5 to 1024 GB\. The limit stays at 2 GB until you do\./);
+        await expect(page.getByRole('status', { name: 'Storage limit invalid' })).toHaveText('true');
+    }
+    await limit.fill('3');
+    await limit.blur();
+    await expect(chosen).toHaveText('0 / 3072 / intensive');
+    await expect(limit).not.toHaveAttribute('aria-invalid', 'true');
+    await expect(page.getByRole('status', { name: 'Storage limit invalid' })).toHaveText('false');
+});
+
+test('the storage summary names every rule that removes media, the per-species cap included', async ({ page }) => {
+    await page.goto('/browser-tests/media-settings.html');
+    const summary = page.locator('[data-settings-row]').filter({ has: page.getByRole('switch', { name: /^Limit the space photos and video use/ }) });
+    await expect(summary).toContainText('No size limit: photos and video stay until the history window removes their visits.');
+    await page.getByRole('button', { name: /^Show advanced options.*Per-species limits/ }).click();
+    await page.getByRole('switch', { name: /^Limit visits per species with photos and video/ }).click();
+    // With a cap on, "until the history window" would be a promise the cap breaks.
+    await expect(summary).not.toContainText('until the history window');
+    await expect(summary).toContainText('No size limit. Each species keeps photos and video only for its newest 100 visits.');
+});
+
 test('favourites archive figures wait for a measurement instead of showing zero', async ({ page }) => {
     await page.goto('/browser-tests/media-settings.html');
     const archive = page.locator('[data-archive-usage]');

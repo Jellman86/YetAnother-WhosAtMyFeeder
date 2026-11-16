@@ -24,7 +24,10 @@ describe('one sentence of what names birds right now', () => {
     });
 
     it('says what needs a person in words and an icon, never by colour alone', () => {
-        expect(statusLineSource).toContain("status.kind === 'missing' || (status.kind === 'running' && status.fallback !== null)");
+        for (const kind of ["'missing'", "'failed'", "'unavailable'"]) expect(statusLineSource).toContain(`status.kind === ${kind}`);
+        expect(statusLineSource).toContain("(status.kind === 'running' && status.fallback !== null)");
+        // The runtime's raw error can name paths, so About (which guests may see) never shows it.
+        expect(statusLineSource).toContain("context !== 'about'");
         const attention = statusLineSource.slice(statusLineSource.indexOf('needsAttention ?'));
         expect(attention).toContain('text-attention-800');
         expect(statusLineSource).toMatch(/\{#if needsAttention\}\s*<svg/);

@@ -5,8 +5,9 @@
     const noop = async (): Promise<void> => {};
     let maximum = $state(0);
     let budget = $state(0);
+    let budgetInvalid = $state(false);
     let scan = $state<'standard' | 'intensive'>('intensive');
-    const props: Omit<ComponentProps<typeof DataSettings>, 'cachePerSpeciesMaximum' | 'cacheMaxSizeMb' | 'cacheBirdScanMode'> = {
+    const props: Omit<ComponentProps<typeof DataSettings>, 'cachePerSpeciesMaximum' | 'cacheMaxSizeMb' | 'cacheMaxSizeInvalid' | 'cacheBirdScanMode'> = {
         maintenanceStats: null,
         retentionDays: 0,
         frigateMissingBehavior: 'mark_missing',
@@ -37,6 +38,7 @@
 </script>
 
 <main class="mx-auto max-w-4xl space-y-6 p-4">
-    <DataSettings {...props} bind:cachePerSpeciesMaximum={maximum} bind:cacheMaxSizeMb={budget} bind:cacheBirdScanMode={scan} />
+    <DataSettings {...props} bind:cachePerSpeciesMaximum={maximum} bind:cacheMaxSizeMb={budget} bind:cacheMaxSizeInvalid={budgetInvalid} bind:cacheBirdScanMode={scan} />
+    <output aria-label="Storage limit invalid">{budgetInvalid}</output>
     <output aria-label="Selected cache settings">{maximum} / {budget} / {scan}</output>
 </main>

@@ -73,7 +73,54 @@ async def test_timezone_scan_records_what_it_scanned_and_found(client: httpx.Asy
     assert run["status"] == "completed"
     assert run["checked"] == 40
     assert run["changed"] == 3
+    assert run["unchecked"] == 0
     assert run["finished_at"]
+
+
+@pytest.mark.asyncio
+async def test_a_timezone_scan_whose_lookups_failed_is_never_recorded_as_an_all_clear(
+    client: httpx.AsyncClient, monkeypatch
+):
+    async def _fake_preview():
+        return {
+            "summary": {
+                "scanned_count": 40,
+                "repair_candidate_count": 0,
+                "ok_count": 0,
+                "missing_frigate_event_count": 0,
+                "unsupported_delta_count": 0,
+                "lookup_error_count": 40,
+            },
+            "candidates": [],
+        }
+
+    monkeypatch.setattr(timezone_repair_service, "preview", _fake_preview)
+    assert (await client.get("/api/maintenance/timezone-repair/preview")).status_code == 200
+
+    run = _run((await client.get("/api/maintenance/last-runs")).json(), "timezone_scan")
+    assert run is not None
+    assert (run["checked"], run["changed"], run["unchecked"]) == (40, 0, 40)
+
+
+@pytest.mark.asyncio
+async def test_a_running_backfill_reports_when_it_started_and_no_finish_time(client: httpx.AsyncClient):
+    async with get_db() as db:
+        await MaintenanceJobRepository(db).save(
+            {
+                "id": "running-backfill",
+                "kind": "detections",
+                "status": "running",
+                "started_at": "2026-11-16T01:00:00+00:00",
+            }
+        )
+    try:
+        run = _run((await client.get("/api/maintenance/last-runs")).json(), "detections")
+        assert run is not None
+        assert (run["status"], run["started_at"], run["finished_at"]) == ("running", "2026-11-16T01:00:00+00:00", None)
+    finally:
+        async with get_db() as db:
+            await db.execute("DELETE FROM maintenance_job_history WHERE id=?", ("running-backfill",))
+            await db.commit()
 
 
 @pytest.mark.asyncio

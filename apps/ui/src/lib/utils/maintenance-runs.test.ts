@@ -10,7 +10,7 @@ const translate = (key: string, options?: { default?: string; values?: Record<st
 const formatWhen = (): string => '15/11/2026 09:30';
 
 function run(overrides: Partial<MaintenanceLastRun>): MaintenanceLastRun {
-    return { kind: 'taxonomy', status: 'completed', finished_at: '2026-11-15T09:30:00Z', checked: 120, changed: 7, ...overrides } as MaintenanceLastRun;
+    return { kind: 'taxonomy', status: 'completed', started_at: null, finished_at: '2026-11-15T09:30:00Z', checked: 120, changed: 7, unchecked: null, ...overrides } as MaintenanceLastRun;
 }
 
 describe('lastRunSentence', () => {
@@ -34,6 +34,33 @@ describe('lastRunSentence', () => {
         );
     });
 
+    it('says a scan whose lookups failed could not check them, never that nothing needs a repair', () => {
+        const failed = run({ kind: 'timezone_scan', checked: 40, changed: 0, unchecked: 40 });
+        expect(lastRunSentence(failed, 'timezone_scan', { translate, formatWhen })).toBe(
+            'Last scan 15/11/2026 09:30 could not check 40 of 40 detections (Frigate did not answer). Scan again.'
+        );
+        const partly = run({ kind: 'timezone_scan', checked: 40, changed: 2, unchecked: 10 });
+        expect(lastRunSentence(partly, 'timezone_scan', { translate, formatWhen })).toBe(
+            'Last scan 15/11/2026 09:30 could not check 10 of 40 detections (Frigate did not answer). 2 of the rest need a repair. Scan again.'
+        );
+    });
+
+    it('says a running job is running and when it started, not that it did not finish', () => {
+        expect(lastRunSentence(run({ kind: 'detections', status: 'running', started_at: '2026-11-16T01:00:00Z', finished_at: null }), 'detections', { translate, formatWhen })).toBe(
+            'Running now, started 15/11/2026 09:30.'
+        );
+        expect(lastRunSentence(run({ kind: 'detections', status: 'running', started_at: null, finished_at: null }), 'detections', { translate, formatWhen })).toBe('Running now.');
+    });
+
+    it('says a stopped job was stopped, and never leaves an empty date in the sentence', () => {
+        expect(lastRunSentence(run({ kind: 'detections', status: 'cancelled' }), 'detections', { translate, formatWhen })).toBe(
+            'The last run, 15/11/2026 09:30, was stopped before it finished.'
+        );
+        expect(lastRunSentence(run({ status: 'failed', finished_at: null, checked: null, changed: null }), 'taxonomy', { translate, formatWhen })).toBe(
+            'The last run did not finish.'
+        );
+    });
+
     it('says a run that did not finish did not finish, without inventing counts', () => {
         expect(lastRunSentence(run({ status: 'failed', checked: null, changed: null }), 'taxonomy', { translate, formatWhen })).toBe(
             'The last run, 15/11/2026 09:30, did not finish.'
@@ -42,6 +69,14 @@ describe('lastRunSentence', () => {
 });
 
 describe('timezoneRepairBlockedReason', () => {
+    it('asks for a new scan when the last one could not check some detections', () => {
+        expect(timezoneRepairBlockedReason(null, run({ kind: 'timezone_scan', checked: 40, changed: 0, unchecked: 40 }))).toBe('last_scan_incomplete');
+    });
+
+    it('says this visit\'s scan was incomplete rather than that nothing needs a repair', () => {
+        expect(timezoneRepairBlockedReason({ summary: { repair_candidate_count: 0, lookup_error_count: 40 } })).toBe('scan_incomplete');
+    });
+
     it('asks for a scan before a repair can run', () => {
         expect(timezoneRepairBlockedReason(null)).toBe('scan_first');
     });

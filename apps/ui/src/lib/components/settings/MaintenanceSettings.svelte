@@ -309,6 +309,10 @@
             <p id="timezone-repair-blocked" class="text-sm text-slate-600 dark:text-slate-300" data-timezone-repair-blocked={timezoneRepairBlocked}>
                 {#if timezoneRepairBlocked === 'scan_first'}
                     {$_('settings.maintenance.timezone_scan_first', { default: 'Scan first. The repair is offered once a scan finds detections that need it.' })}
+                {:else if timezoneRepairBlocked === 'last_scan_incomplete'}
+                    {$_('settings.maintenance.timezone_last_scan_incomplete', { values: { count: lastRuns?.find((run) => run.kind === 'timezone_scan')?.unchecked ?? 0 }, default: '{count, plural, one {The last scan could not check # detection (Frigate did not answer). Scan again.} other {The last scan could not check # detections (Frigate did not answer). Scan again.}}' })}
+                {:else if timezoneRepairBlocked === 'scan_incomplete'}
+                    {$_('settings.maintenance.timezone_scan_incomplete', { values: { count: timezoneRepairPreview?.summary.lookup_error_count ?? 0 }, default: '{count, plural, one {This scan could not check # detection (Frigate did not answer). Scan again.} other {This scan could not check # detections (Frigate did not answer). Scan again.}}' })}
                 {:else if timezoneRepairBlocked === 'nothing_last_scan'}
                     {$_('settings.maintenance.timezone_nothing_last_scan', { default: 'Nothing to repair: the last scan found no detections that need it.' })}
                 {:else}

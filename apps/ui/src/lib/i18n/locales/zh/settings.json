@@ -229,11 +229,17 @@
     "maintenance_jobs_desc": "默认情况下，上面每种任务一次只运行一个，以免与鸟类识别争用资源。",
     "storage_limit": "限制照片和视频占用的空间",
     "storage_limit_size": "存储上限（GB）",
-    "storage_policy_limited": "照片和视频超过 {size} GB 时，最旧的先删除。收藏及其存档始终保留。",
-    "storage_policy_unlimited": "无大小限制：照片和视频会一直保留，直到历史时长删除其到访。收藏始终保留。",
     "species_limits_title": "按物种限制",
     "per_species_minimum_count": "每个物种保留的到访数",
-    "per_species_maximum_count": "每个物种带照片和视频的到访数"
+    "per_species_maximum_count": "每个物种带照片和视频的到访数",
+    "storage_limit_invalid": "请输入 0.5 到 1024 GB 之间的大小。在此之前上限保持为 {size} GB。",
+    "storage_limit_invalid_short": "请输入 0.5 到 1024 GB 之间的存储上限。",
+    "storage_policy_size_limit": "照片和视频超过 {size} GB 时，最旧的先删除。",
+    "storage_policy_no_size_limit": "无大小限制。",
+    "storage_policy_history_only": "无大小限制：照片和视频会一直保留，直到历史时长删除其到访。",
+    "storage_policy_species_cap": "{count, plural, other {每个物种只为最新的 # 次到访保留照片和视频。}}",
+    "storage_policy_species_floor": "{count, plural, other {每个物种最新的 # 次到访在超出历史时长后仍保留照片。}}",
+    "storage_policy_favourites": "收藏及其存档始终保留。"
   },
   "security": {
     "title": "安全",
@@ -1837,7 +1843,10 @@
       "small_birds": "认识你所在地区的鸟类，在普通 CPU 上也很快。",
       "rope_vit_b14_inat21": "以适中的速度准确识别鸟类和其他野生动物。",
       "mobilenet_v2_birds": "足够小，适合此设备，不需要图形硬件。"
-    }
+    },
+    "status_failed_files": "{model} 已安装但加载失败：无法读取其文件。在加载之前不会识别鸟类。",
+    "status_failed_runtime": "{model} 已安装但加载失败：运行时无法在这台机器上打开它。在加载之前不会识别鸟类。",
+    "status_unavailable": "{model} 已安装但未加载，因此目前没有在识别鸟类。"
   },
   "save_rule": "设置的更改会等到您选择“保存更改”后才生效。测试、运行和下载等按钮会立即执行。",
   "appearance": {
@@ -1865,6 +1874,16 @@
     "candidate_ok": "正确",
     "candidate_unsupported": "偏移无法安全修复",
     "candidate_lookup_error": "无法检查",
-    "timezone_nothing_last_scan": "没有需要修复的内容：上次扫描未发现需要修复的检测。"
+    "timezone_nothing_last_scan": "没有需要修复的内容：上次扫描未发现需要修复的检测。",
+    "last_run_running": "正在运行，开始于 {when}。",
+    "last_run_running_undated": "正在运行。",
+    "last_run_cancelled": "上次运行（{when}）在完成前被停止。",
+    "last_run_cancelled_undated": "上次运行在完成前被停止。",
+    "last_run_unfinished_undated": "上次运行未完成。",
+    "last_run_timezone_scan_incomplete": "上次扫描 {when} 无法检查 {checked} 条检测中的 {unchecked} 条（Frigate 未响应）。",
+    "last_run_timezone_scan_rest": "其余的有 {changed} 条需要修复。",
+    "scan_again": "请重新扫描。",
+    "timezone_last_scan_incomplete": "{count, plural, other {上次扫描无法检查 # 条检测（Frigate 未响应）。请重新扫描。}}",
+    "timezone_scan_incomplete": "{count, plural, other {本次扫描无法检查 # 条检测（Frigate 未响应）。请重新扫描。}}"
   }
 }

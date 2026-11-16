@@ -9,7 +9,7 @@
     import SettingsToggle from './_primitives/SettingsToggle.svelte';
     import SettingsSelect from './_primitives/SettingsSelect.svelte';
     import AdvancedSection from './_primitives/AdvancedSection.svelte';
-    import { gigabytesToStoredMegabytes, storedMegabytesToGigabytes } from '../../settings/storage-budget';
+    import { gigabytesToStoredMegabytes, parseStorageLimitGigabytes, storedMegabytesToGigabytes } from '../../settings/storage-budget';
 
     // What YA-WAMF keeps, for how long, and the backup of its configuration. Jobs that repair or
     // fill in history, and the actions that delete it, are on the Maintenance tab.
@@ -23,6 +23,7 @@
         cacheRetentionDays = $bindable(0),
         cachePerSpeciesMaximum = $bindable<number>(0),
         cacheMaxSizeMb = $bindable<number>(0),
+        cacheMaxSizeInvalid = $bindable(false),
         cacheAutomaticMultiBirdScan = $bindable(false),
         cacheBirdScanMode = $bindable<'standard' | 'intensive'>('intensive'),
         cachePerSpeciesMinimum = $bindable(0),
@@ -55,6 +56,8 @@
         cacheRetentionDays: number;
         cachePerSpeciesMaximum: number;
         cacheMaxSizeMb: number;
+        /** The size typed in GB could not be read; the limit stays as it was and the save is refused. */
+        cacheMaxSizeInvalid?: boolean;
         cacheAutomaticMultiBirdScan?: boolean;
         cacheBirdScanMode: 'standard' | 'intensive';
         cachePerSpeciesMinimum: number;
@@ -138,6 +141,20 @@
     function setStorageLimit(on: boolean): void {
         if (!on && cacheMaxSizeMb > 0) remembered.size = cacheMaxSizeMb;
         cacheMaxSizeMb = on ? remembered.size : 0;
+        cacheMaxSizeInvalid = false;
+    }
+    // What was typed while it cannot be read, so the field keeps showing it beside the reason.
+    let invalidLimitText = $state('');
+    const limitFieldText = $derived(cacheMaxSizeInvalid ? invalidLimitText : String(storedMegabytesToGigabytes(cacheMaxSizeMb)));
+    function commitStorageLimit(text: string): void {
+        const gigabytes = parseStorageLimitGigabytes(text);
+        if (gigabytes === null) {
+            invalidLimitText = text;
+            cacheMaxSizeInvalid = true;
+            return;
+        }
+        cacheMaxSizeMb = gigabytesToStoredMegabytes(gigabytes);
+        cacheMaxSizeInvalid = false;
     }
     function setSpeciesFloor(on: boolean): void {
         if (!on && cachePerSpeciesMinimum > 0) remembered.floor = cachePerSpeciesMinimum;
@@ -148,15 +165,33 @@
         cachePerSpeciesMaximum = on ? remembered.maximum : 0;
     }
     const wholeCount = (value: string): number => Math.max(1, Math.min(10000, Math.round(Number(value)) || 1));
-    // One sentence of what the storage rules add up to, so the owner never works out precedence.
+    // What the storage rules add up to, every active rule in it, so no limit evicts media unannounced.
     const storagePolicy = $derived(
-        cacheMaxSizeMb > 0
-            ? $_('settings.data.storage_policy_limited', {
-                values: { size: storedMegabytesToGigabytes(cacheMaxSizeMb) },
-                default: 'When photos and video pass {size} GB, the oldest go first. Favourites and their archive are always kept.'
-            })
-            : $_('settings.data.storage_policy_unlimited', { default: 'No size limit: photos and video stay until the history window removes their visits. Favourites are always kept.' })
+        [
+            cacheMaxSizeMb > 0
+                ? $_('settings.data.storage_policy_size_limit', {
+                    values: { size: storedMegabytesToGigabytes(cacheMaxSizeMb) },
+                    default: 'When photos and video pass {size} GB, the oldest go first.'
+                })
+                : cachePerSpeciesMaximum > 0
+                    ? $_('settings.data.storage_policy_no_size_limit', { default: 'No size limit.' })
+                    : $_('settings.data.storage_policy_history_only', { default: 'No size limit: photos and video stay until the history window removes their visits.' }),
+            cachePerSpeciesMaximum > 0
+                ? $_('settings.data.storage_policy_species_cap', {
+                    values: { count: cachePerSpeciesMaximum },
+                    default: '{count, plural, one {Each species keeps photos and video only for its newest visit.} other {Each species keeps photos and video only for its newest # visits.}}'
+                })
+                : null,
+            cachePerSpeciesMinimum > 0
+                ? $_('settings.data.storage_policy_species_floor', {
+                    values: { count: cachePerSpeciesMinimum },
+                    default: "{count, plural, one {Each species' newest visit keeps its photos past the history window.} other {Each species' newest # visits keep their photos past the history window.}}"
+                })
+                : null,
+            $_('settings.data.storage_policy_favourites', { default: 'Favourites and their archive are always kept.' })
+        ].filter((part): part is string => part !== null).join(' ')
     );
+
     const buttonNeutralClass = 'btn btn-secondary min-h-11 px-4 py-3';
     const buttonDangerOutlineClass = 'btn btn-danger min-h-11 px-4 py-3';
 </script>
@@ -379,12 +414,15 @@
                     <label class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
                         <span class="sr-only">{$_('settings.data.storage_limit_size', { default: 'Storage limit in GB' })}</span>
                         <input
+                            id="cache-max-size-gb"
                             type="number"
                             min="0.5"
                             max="1024"
                             step="0.5"
-                            value={storedMegabytesToGigabytes(cacheMaxSizeMb)}
-                            onchange={(event) => (cacheMaxSizeMb = gigabytesToStoredMegabytes(Number(event.currentTarget.value)))}
+                            value={limitFieldText}
+                            onchange={(event) => commitStorageLimit(event.currentTarget.value)}
+                            aria-invalid={cacheMaxSizeInvalid}
+                            aria-describedby={cacheMaxSizeInvalid ? 'storage-limit-error' : undefined}
                             class="input-base w-24 py-2 text-right font-semibold"
                         />
                         <span aria-hidden="true">GB</span>
@@ -397,6 +435,14 @@
                     onchange={setStorageLimit}
                 />
             </div>
+            {#if cacheMaxSizeInvalid && cacheMaxSizeMb > 0}
+                <p id="storage-limit-error" class="mt-2 text-sm font-medium text-red-700 dark:text-red-300" role="alert" data-storage-limit-error>
+                    {$_('settings.data.storage_limit_invalid', {
+                        values: { size: storedMegabytesToGigabytes(cacheMaxSizeMb) },
+                        default: 'Enter a size from 0.5 to 1024 GB. The limit stays at {size} GB until you do.'
+                    })}
+                </p>
+            {/if}
         </SettingsRow>
 
         <div>

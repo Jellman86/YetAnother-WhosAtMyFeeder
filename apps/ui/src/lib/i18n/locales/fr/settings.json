@@ -229,11 +229,17 @@
     "maintenance_jobs_desc": "Par défaut, chaque type de tâche ci-dessus s’exécute un à la fois, pour ne pas concurrencer l’identification des oiseaux.",
     "storage_limit": "Limiter l’espace des photos et vidéos",
     "storage_limit_size": "Limite de stockage en Go",
-    "storage_policy_limited": "Quand les photos et vidéos dépassent {size} Go, les plus anciennes partent en premier. Les favoris et leur archive sont toujours conservés.",
-    "storage_policy_unlimited": "Aucune limite de taille : photos et vidéos restent jusqu’à ce que la durée de l’historique retire leurs visites. Les favoris sont toujours conservés.",
     "species_limits_title": "Limites par espèce",
     "per_species_minimum_count": "Visites gardées par espèce",
-    "per_species_maximum_count": "Visites par espèce avec photos et vidéos"
+    "per_species_maximum_count": "Visites par espèce avec photos et vidéos",
+    "storage_limit_invalid": "Saisissez une taille de 0,5 à 1024 Go. La limite reste à {size} Go en attendant.",
+    "storage_limit_invalid_short": "Saisissez une limite de stockage de 0,5 à 1024 Go.",
+    "storage_policy_size_limit": "Quand les photos et vidéos dépassent {size} Go, les plus anciennes partent en premier.",
+    "storage_policy_no_size_limit": "Aucune limite de taille.",
+    "storage_policy_history_only": "Aucune limite de taille : photos et vidéos restent jusqu’à ce que la durée de l’historique retire leurs visites.",
+    "storage_policy_species_cap": "{count, plural, one {Chaque espèce ne garde photos et vidéos que pour sa visite la plus récente.} other {Chaque espèce ne garde photos et vidéos que pour ses # visites les plus récentes.}}",
+    "storage_policy_species_floor": "{count, plural, one {La visite la plus récente de chaque espèce garde ses photos au-delà de la durée de l’historique.} other {Les # visites les plus récentes de chaque espèce gardent leurs photos au-delà de la durée de l’historique.}}",
+    "storage_policy_favourites": "Les favoris et leur archive sont toujours conservés."
   },
   "security": {
     "title": "Sécurité",
@@ -1837,7 +1843,10 @@
       "small_birds": "Connaît les oiseaux de votre région et reste rapide sur un processeur ordinaire.",
       "rope_vit_b14_inat21": "Nomme les oiseaux et autre faune avec une bonne précision à vitesse modérée.",
       "mobilenet_v2_birds": "Assez petit pour cet appareil et sans besoin de matériel graphique."
-    }
+    },
+    "status_failed_files": "{model} est installé mais n’a pas pu se charger : ses fichiers n’ont pas pu être lus. Rien ne nomme les oiseaux tant qu’il n’est pas chargé.",
+    "status_failed_runtime": "{model} est installé mais n’a pas pu se charger : l’environnement d’exécution n’a pas pu l’ouvrir sur cette machine. Rien ne nomme les oiseaux tant qu’il n’est pas chargé.",
+    "status_unavailable": "{model} est installé mais pas chargé, donc rien ne nomme les oiseaux pour l’instant."
   },
   "save_rule": "Les changements de réglages attendent que vous choisissiez Enregistrer les modifications. Les boutons comme Tester, Lancer et Télécharger agissent tout de suite.",
   "appearance": {
@@ -1865,6 +1874,16 @@
     "candidate_ok": "Correct",
     "candidate_unsupported": "Décalage impossible à réparer sans risque",
     "candidate_lookup_error": "N’a pas pu être vérifié",
-    "timezone_nothing_last_scan": "Rien à réparer : la dernière analyse n’a trouvé aucune détection qui en ait besoin."
+    "timezone_nothing_last_scan": "Rien à réparer : la dernière analyse n’a trouvé aucune détection qui en ait besoin.",
+    "last_run_running": "En cours, démarrée {when}.",
+    "last_run_running_undated": "En cours.",
+    "last_run_cancelled": "La dernière exécution, {when}, a été arrêtée avant la fin.",
+    "last_run_cancelled_undated": "La dernière exécution a été arrêtée avant la fin.",
+    "last_run_unfinished_undated": "La dernière exécution ne s’est pas terminée.",
+    "last_run_timezone_scan_incomplete": "La dernière analyse {when} n’a pas pu vérifier {unchecked} détections sur {checked} (Frigate n’a pas répondu).",
+    "last_run_timezone_scan_rest": "{changed} des autres sont à réparer.",
+    "scan_again": "Relancez l’analyse.",
+    "timezone_last_scan_incomplete": "{count, plural, one {La dernière analyse n’a pas pu vérifier # détection (Frigate n’a pas répondu). Relancez l’analyse.} other {La dernière analyse n’a pas pu vérifier # détections (Frigate n’a pas répondu). Relancez l’analyse.}}",
+    "timezone_scan_incomplete": "{count, plural, one {Cette analyse n’a pas pu vérifier # détection (Frigate n’a pas répondu). Relancez l’analyse.} other {Cette analyse n’a pas pu vérifier # détections (Frigate n’a pas répondu). Relancez l’analyse.}}"
   }
 }

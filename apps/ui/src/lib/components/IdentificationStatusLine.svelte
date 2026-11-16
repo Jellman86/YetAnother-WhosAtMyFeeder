@@ -20,7 +20,12 @@
         if (status.kind === 'checking' || !status.modelId) return $_('settings.models.status_unnamed_model', { default: 'The chosen model' });
         return identificationModelName({ id: status.modelId, name: status.modelName }, translate).name;
     });
-    const needsAttention = $derived(status.kind === 'missing' || (status.kind === 'running' && status.fallback !== null));
+    const needsAttention = $derived(
+        status.kind === 'missing' || status.kind === 'failed' || status.kind === 'unavailable'
+            || (status.kind === 'running' && status.fallback !== null)
+    );
+    // The runtime's own words can name paths, so only the owner's pages show them.
+    const showDetail = $derived(status.kind === 'failed' && status.detail !== null && context !== 'about');
 
     const sentence = $derived.by((): string => {
         switch (status.kind) {
@@ -34,6 +39,12 @@
                         : $_('settings.models.status_missing_next_settings', { default: 'Download it below, or choose another model.' });
                 return `${$_('settings.models.status_missing', { default: 'Nothing is naming birds yet: {model} is not on this install.', values: { model } })} ${next}`;
             }
+            case 'failed':
+                return status.cause === 'missing_files'
+                    ? $_('settings.models.status_failed_files', { default: '{model} is installed but failed to load: its files could not be read. Nothing is naming birds until it loads.', values: { model } })
+                    : $_('settings.models.status_failed_runtime', { default: '{model} is installed but failed to load: the runtime could not open it on this machine. Nothing is naming birds until it loads.', values: { model } });
+            case 'unavailable':
+                return $_('settings.models.status_unavailable', { default: '{model} is installed but not loaded, so nothing is naming birds right now.', values: { model } });
             case 'planned':
                 return status.device
                     ? $_('settings.models.status_planned', { default: '{model} will name birds on {device}. It loads with the first detection.', values: { model, device: status.device } })
@@ -69,3 +80,12 @@
     {/if}
     <span class="min-w-0 wrap-break-word">{sentence}</span>
 </p>
+{#if showDetail && status.kind === 'failed'}
+    <details class="group mt-1 pl-6" data-identification-status-detail>
+        <summary class="inline-flex min-h-11 cursor-pointer list-none items-center gap-1.5 rounded-sm text-sm font-medium text-brand-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus dark:text-brand-300">
+            {$_('settings.detection.model_manager_technical_details', { default: 'Technical details' })}
+            <svg class="h-4 w-4 transition-transform group-open:rotate-180 motion-reduce:transition-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
+        </summary>
+        <p class="mt-1 break-all font-mono text-xs text-slate-700 dark:text-slate-200">{status.detail}</p>
+    </details>
+{/if}

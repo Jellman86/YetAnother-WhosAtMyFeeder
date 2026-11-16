@@ -229,11 +229,17 @@
     "maintenance_jobs_desc": "Standardmäßig läuft jede Art von Aufgabe oben einzeln, damit sie nicht mit der Vogelbestimmung konkurriert.",
     "storage_limit": "Speicherplatz für Fotos und Videos begrenzen",
     "storage_limit_size": "Speichergrenze in GB",
-    "storage_policy_limited": "Wenn Fotos und Videos {size} GB überschreiten, werden die ältesten zuerst entfernt. Favoriten und ihr Archiv bleiben immer erhalten.",
-    "storage_policy_unlimited": "Keine Größengrenze: Fotos und Videos bleiben, bis der Verlaufszeitraum ihre Besuche entfernt. Favoriten bleiben immer erhalten.",
     "species_limits_title": "Grenzen pro Art",
     "per_species_minimum_count": "Behaltene Besuche pro Art",
-    "per_species_maximum_count": "Besuche pro Art mit Fotos und Videos"
+    "per_species_maximum_count": "Besuche pro Art mit Fotos und Videos",
+    "storage_limit_invalid": "Geben Sie eine Größe von 0,5 bis 1024 GB ein. Bis dahin bleibt die Grenze bei {size} GB.",
+    "storage_limit_invalid_short": "Geben Sie eine Speichergrenze von 0,5 bis 1024 GB ein.",
+    "storage_policy_size_limit": "Wenn Fotos und Videos {size} GB überschreiten, werden die ältesten zuerst entfernt.",
+    "storage_policy_no_size_limit": "Keine Größengrenze.",
+    "storage_policy_history_only": "Keine Größengrenze: Fotos und Videos bleiben, bis der Verlaufszeitraum ihre Besuche entfernt.",
+    "storage_policy_species_cap": "{count, plural, one {Jede Art behält Fotos und Videos nur für ihren neuesten Besuch.} other {Jede Art behält Fotos und Videos nur für ihre neuesten # Besuche.}}",
+    "storage_policy_species_floor": "{count, plural, one {Der neueste Besuch jeder Art behält seine Fotos über den Verlaufszeitraum hinaus.} other {Die neuesten # Besuche jeder Art behalten ihre Fotos über den Verlaufszeitraum hinaus.}}",
+    "storage_policy_favourites": "Favoriten und ihr Archiv bleiben immer erhalten."
   },
   "security": {
     "title": "Sicherheit",
@@ -1837,7 +1843,10 @@
       "small_birds": "Kennt die Vögel Ihrer Region und bleibt auf einer gewöhnlichen CPU schnell.",
       "rope_vit_b14_inat21": "Bestimmt Vögel und andere Wildtiere genau bei mittlerer Geschwindigkeit.",
       "mobilenet_v2_birds": "Klein genug für dieses Gerät und braucht keine Grafikhardware."
-    }
+    },
+    "status_failed_files": "{model} ist installiert, konnte aber nicht geladen werden: Seine Dateien ließen sich nicht lesen. Bis es geladen ist, bestimmt nichts die Vögel.",
+    "status_failed_runtime": "{model} ist installiert, konnte aber nicht geladen werden: Die Laufzeit konnte es auf diesem Rechner nicht öffnen. Bis es geladen ist, bestimmt nichts die Vögel.",
+    "status_unavailable": "{model} ist installiert, aber nicht geladen, daher bestimmt gerade nichts die Vögel."
   },
   "save_rule": "Änderungen an Einstellungen warten, bis Sie „Änderungen speichern“ wählen. Schaltflächen wie Testen, Ausführen und Herunterladen wirken sofort.",
   "appearance": {
@@ -1865,6 +1874,16 @@
     "candidate_ok": "Korrekt",
     "candidate_unsupported": "Versatz nicht sicher reparierbar",
     "candidate_lookup_error": "Konnte nicht geprüft werden",
-    "timezone_nothing_last_scan": "Nichts zu reparieren: Die letzte Suche hat keine Erkennungen gefunden, die es brauchen."
+    "timezone_nothing_last_scan": "Nichts zu reparieren: Die letzte Suche hat keine Erkennungen gefunden, die es brauchen.",
+    "last_run_running": "Läuft gerade, gestartet {when}.",
+    "last_run_running_undated": "Läuft gerade.",
+    "last_run_cancelled": "Der letzte Lauf am {when} wurde vor dem Ende angehalten.",
+    "last_run_cancelled_undated": "Der letzte Lauf wurde vor dem Ende angehalten.",
+    "last_run_unfinished_undated": "Der letzte Lauf wurde nicht abgeschlossen.",
+    "last_run_timezone_scan_incomplete": "Die letzte Suche {when} konnte {unchecked} von {checked} Erkennungen nicht prüfen (Frigate hat nicht geantwortet).",
+    "last_run_timezone_scan_rest": "{changed} der übrigen brauchen eine Reparatur.",
+    "scan_again": "Suchen Sie erneut.",
+    "timezone_last_scan_incomplete": "{count, plural, one {Die letzte Suche konnte # Erkennung nicht prüfen (Frigate hat nicht geantwortet). Suchen Sie erneut.} other {Die letzte Suche konnte # Erkennungen nicht prüfen (Frigate hat nicht geantwortet). Suchen Sie erneut.}}",
+    "timezone_scan_incomplete": "{count, plural, one {Diese Suche konnte # Erkennung nicht prüfen (Frigate hat nicht geantwortet). Suchen Sie erneut.} other {Diese Suche konnte # Erkennungen nicht prüfen (Frigate hat nicht geantwortet). Suchen Sie erneut.}}"
   }
 }

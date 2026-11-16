@@ -229,11 +229,17 @@
     "maintenance_jobs_desc": "既定では、上の各種ジョブは種類ごとに一つずつ実行され、鳥の識別と競合しません。",
     "storage_limit": "写真と動画の使用容量を制限",
     "storage_limit_size": "保存容量の上限 (GB)",
-    "storage_policy_limited": "写真と動画が {size} GB を超えると、古いものから削除されます。お気に入りとそのアーカイブは常に保持されます。",
-    "storage_policy_unlimited": "容量の上限なし: 履歴期間が訪問を削除するまで写真と動画は残ります。お気に入りは常に保持されます。",
     "species_limits_title": "種ごとの制限",
     "per_species_minimum_count": "種ごとに残す訪問数",
-    "per_species_maximum_count": "写真と動画を残す種ごとの訪問数"
+    "per_species_maximum_count": "写真と動画を残す種ごとの訪問数",
+    "storage_limit_invalid": "0.5〜1024 GB のサイズを入力してください。それまで上限は {size} GB のままです。",
+    "storage_limit_invalid_short": "0.5〜1024 GB の保存容量の上限を入力してください。",
+    "storage_policy_size_limit": "写真と動画が {size} GB を超えると、古いものから削除されます。",
+    "storage_policy_no_size_limit": "容量の上限なし。",
+    "storage_policy_history_only": "容量の上限なし: 履歴期間が訪問を削除するまで写真と動画は残ります。",
+    "storage_policy_species_cap": "{count, plural, other {各種は最新の # 件の訪問だけ写真と動画を残します。}}",
+    "storage_policy_species_floor": "{count, plural, other {各種の最新の # 件の訪問は、履歴期間を過ぎても写真を残します。}}",
+    "storage_policy_favourites": "お気に入りとそのアーカイブは常に保持されます。"
   },
   "security": {
     "title": "セキュリティ",
@@ -1837,7 +1843,10 @@
       "small_birds": "お住まいの地域の鳥を知っていて、一般的な CPU でも高速です。",
       "rope_vit_b14_inat21": "鳥とその他の野生動物を、中程度の速度で高い精度で識別します。",
       "mobilenet_v2_birds": "このデバイスに十分小さく、グラフィックス用ハードウェアは不要です。"
-    }
+    },
+    "status_failed_files": "{model} はインストール済みですが読み込めませんでした: ファイルを読み取れません。読み込まれるまで鳥は識別されません。",
+    "status_failed_runtime": "{model} はインストール済みですが読み込めませんでした: このマシンのランタイムで開けません。読み込まれるまで鳥は識別されません。",
+    "status_unavailable": "{model} はインストール済みですが読み込まれていないため、現在鳥は識別されていません。"
   },
   "save_rule": "設定の変更は「変更を保存」を選ぶまで反映されません。テスト、実行、ダウンロードなどのボタンはすぐに動作します。",
   "appearance": {
@@ -1865,6 +1874,16 @@
     "candidate_ok": "正しい",
     "candidate_unsupported": "安全に修復できないずれ",
     "candidate_lookup_error": "確認できませんでした",
-    "timezone_nothing_last_scan": "修復するものはありません: 前回のスキャンで修復が必要な検出は見つかりませんでした。"
+    "timezone_nothing_last_scan": "修復するものはありません: 前回のスキャンで修復が必要な検出は見つかりませんでした。",
+    "last_run_running": "実行中、{when} に開始。",
+    "last_run_running_undated": "実行中。",
+    "last_run_cancelled": "前回 ({when}) の実行は完了前に停止されました。",
+    "last_run_cancelled_undated": "前回の実行は完了前に停止されました。",
+    "last_run_unfinished_undated": "前回の実行は完了しませんでした。",
+    "last_run_timezone_scan_incomplete": "前回のスキャン {when} では {checked} 件中 {unchecked} 件の検出を確認できませんでした (Frigate が応答しませんでした)。",
+    "last_run_timezone_scan_rest": "残りのうち {changed} 件に修復が必要です。",
+    "scan_again": "もう一度スキャンしてください。",
+    "timezone_last_scan_incomplete": "{count, plural, other {前回のスキャンでは # 件の検出を確認できませんでした (Frigate が応答しませんでした)。もう一度スキャンしてください。}}",
+    "timezone_scan_incomplete": "{count, plural, other {このスキャンでは # 件の検出を確認できませんでした (Frigate が応答しませんでした)。もう一度スキャンしてください。}}"
   }
 }

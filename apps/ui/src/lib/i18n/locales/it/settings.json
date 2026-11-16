@@ -229,11 +229,17 @@
     "maintenance_jobs_desc": "Per impostazione predefinita, ogni tipo di attività qui sopra viene eseguito uno alla volta, così non compete con l’identificazione degli uccelli.",
     "storage_limit": "Limita lo spazio di foto e video",
     "storage_limit_size": "Limite di spazio in GB",
-    "storage_policy_limited": "Quando foto e video superano {size} GB, i più vecchi vengono rimossi per primi. I preferiti e il loro archivio restano sempre.",
-    "storage_policy_unlimited": "Nessun limite di dimensione: foto e video restano finché la durata della cronologia non rimuove le loro visite. I preferiti restano sempre.",
     "species_limits_title": "Limiti per specie",
     "per_species_minimum_count": "Visite conservate per specie",
-    "per_species_maximum_count": "Visite per specie con foto e video"
+    "per_species_maximum_count": "Visite per specie con foto e video",
+    "storage_limit_invalid": "Inserisci una dimensione da 0,5 a 1024 GB. Fino ad allora il limite resta a {size} GB.",
+    "storage_limit_invalid_short": "Inserisci un limite di spazio da 0,5 a 1024 GB.",
+    "storage_policy_size_limit": "Quando foto e video superano {size} GB, i più vecchi vengono rimossi per primi.",
+    "storage_policy_no_size_limit": "Nessun limite di dimensione.",
+    "storage_policy_history_only": "Nessun limite di dimensione: foto e video restano finché la durata della cronologia non rimuove le loro visite.",
+    "storage_policy_species_cap": "{count, plural, one {Ogni specie conserva foto e video solo per la visita più recente.} other {Ogni specie conserva foto e video solo per le # visite più recenti.}}",
+    "storage_policy_species_floor": "{count, plural, one {La visita più recente di ogni specie conserva le foto oltre la durata della cronologia.} other {Le # visite più recenti di ogni specie conservano le foto oltre la durata della cronologia.}}",
+    "storage_policy_favourites": "I preferiti e il loro archivio restano sempre."
   },
   "security": {
     "title": "Sicurezza",
@@ -1837,7 +1843,10 @@
       "small_birds": "Conosce gli uccelli della tua regione e resta veloce su una normale CPU.",
       "rope_vit_b14_inat21": "Identifica uccelli e altra fauna con buona precisione a velocità moderata.",
       "mobilenet_v2_birds": "Abbastanza piccolo per questo dispositivo e non richiede hardware grafico."
-    }
+    },
+    "status_failed_files": "{model} è installato ma non è stato caricato: non è stato possibile leggere i suoi file. Nulla identifica gli uccelli finché non si carica.",
+    "status_failed_runtime": "{model} è installato ma non è stato caricato: il runtime non è riuscito ad aprirlo su questo computer. Nulla identifica gli uccelli finché non si carica.",
+    "status_unavailable": "{model} è installato ma non caricato, quindi ora nulla identifica gli uccelli."
   },
   "save_rule": "Le modifiche alle impostazioni aspettano finché non scegli Salva modifiche. Pulsanti come Prova, Esegui e Scarica agiscono subito.",
   "appearance": {
@@ -1865,6 +1874,16 @@
     "candidate_ok": "Corretto",
     "candidate_unsupported": "Scostamento non riparabile in sicurezza",
     "candidate_lookup_error": "Non è stato possibile verificare",
-    "timezone_nothing_last_scan": "Niente da riparare: l’ultima scansione non ha trovato rilevamenti che ne abbiano bisogno."
+    "timezone_nothing_last_scan": "Niente da riparare: l’ultima scansione non ha trovato rilevamenti che ne abbiano bisogno.",
+    "last_run_running": "In corso, avviata {when}.",
+    "last_run_running_undated": "In corso.",
+    "last_run_cancelled": "L’ultima esecuzione, {when}, è stata fermata prima di finire.",
+    "last_run_cancelled_undated": "L’ultima esecuzione è stata fermata prima di finire.",
+    "last_run_unfinished_undated": "L’ultima esecuzione non è terminata.",
+    "last_run_timezone_scan_incomplete": "L’ultima scansione {when} non ha potuto verificare {unchecked} rilevamenti su {checked} (Frigate non ha risposto).",
+    "last_run_timezone_scan_rest": "{changed} degli altri sono da riparare.",
+    "scan_again": "Esegui di nuovo la scansione.",
+    "timezone_last_scan_incomplete": "{count, plural, one {L’ultima scansione non ha potuto verificare # rilevamento (Frigate non ha risposto). Esegui di nuovo la scansione.} other {L’ultima scansione non ha potuto verificare # rilevamenti (Frigate non ha risposto). Esegui di nuovo la scansione.}}",
+    "timezone_scan_incomplete": "{count, plural, one {Questa scansione non ha potuto verificare # rilevamento (Frigate non ha risposto). Esegui di nuovo la scansione.} other {Questa scansione non ha potuto verificare # rilevamenti (Frigate non ha risposto). Esegui di nuovo la scansione.}}"
   }
 }

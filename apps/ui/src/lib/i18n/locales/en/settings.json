@@ -229,11 +229,17 @@
     "maintenance_jobs_desc": "By default each kind of job above runs one at a time, which keeps it from competing with bird identification.",
     "storage_limit": "Limit the space photos and video use",
     "storage_limit_size": "Storage limit in GB",
-    "storage_policy_limited": "When photos and video pass {size} GB, the oldest go first. Favourites and their archive are always kept.",
-    "storage_policy_unlimited": "No size limit: photos and video stay until the history window removes their visits. Favourites are always kept.",
     "species_limits_title": "Per-species limits",
     "per_species_minimum_count": "Visits kept per species",
-    "per_species_maximum_count": "Visits per species with photos and video"
+    "per_species_maximum_count": "Visits per species with photos and video",
+    "storage_limit_invalid": "Enter a size from 0.5 to 1024 GB. The limit stays at {size} GB until you do.",
+    "storage_limit_invalid_short": "Enter a storage limit from 0.5 to 1024 GB.",
+    "storage_policy_size_limit": "When photos and video pass {size} GB, the oldest go first.",
+    "storage_policy_no_size_limit": "No size limit.",
+    "storage_policy_history_only": "No size limit: photos and video stay until the history window removes their visits.",
+    "storage_policy_species_cap": "{count, plural, one {Each species keeps photos and video only for its newest visit.} other {Each species keeps photos and video only for its newest # visits.}}",
+    "storage_policy_species_floor": "{count, plural, one {Each species' newest visit keeps its photos past the history window.} other {Each species' newest # visits keep their photos past the history window.}}",
+    "storage_policy_favourites": "Favourites and their archive are always kept."
   },
   "security": {
     "title": "Security",
@@ -1837,7 +1843,10 @@
       "small_birds": "Knows the birds of your region and stays quick on an ordinary CPU.",
       "rope_vit_b14_inat21": "Names birds and other wildlife with good accuracy at a moderate speed.",
       "mobilenet_v2_birds": "Small enough for this device and needs no graphics hardware."
-    }
+    },
+    "status_failed_files": "{model} is installed but failed to load: its files could not be read. Nothing is naming birds until it loads.",
+    "status_failed_runtime": "{model} is installed but failed to load: the runtime could not open it on this machine. Nothing is naming birds until it loads.",
+    "status_unavailable": "{model} is installed but not loaded, so nothing is naming birds right now."
   },
   "save_rule": "Changes to settings wait until you choose Save changes. Buttons such as Test, Run and Download act straight away.",
   "appearance": {
@@ -1865,6 +1874,16 @@
     "candidate_ok": "Correct",
     "candidate_unsupported": "Offset not safe to repair",
     "candidate_lookup_error": "Could not be checked",
-    "timezone_nothing_last_scan": "Nothing to repair: the last scan found no detections that need it."
+    "timezone_nothing_last_scan": "Nothing to repair: the last scan found no detections that need it.",
+    "last_run_running": "Running now, started {when}.",
+    "last_run_running_undated": "Running now.",
+    "last_run_cancelled": "The last run, {when}, was stopped before it finished.",
+    "last_run_cancelled_undated": "The last run was stopped before it finished.",
+    "last_run_unfinished_undated": "The last run did not finish.",
+    "last_run_timezone_scan_incomplete": "Last scan {when} could not check {unchecked} of {checked} detections (Frigate did not answer).",
+    "last_run_timezone_scan_rest": "{changed} of the rest need a repair.",
+    "scan_again": "Scan again.",
+    "timezone_last_scan_incomplete": "{count, plural, one {The last scan could not check # detection (Frigate did not answer). Scan again.} other {The last scan could not check # detections (Frigate did not answer). Scan again.}}",
+    "timezone_scan_incomplete": "{count, plural, one {This scan could not check # detection (Frigate did not answer). Scan again.} other {This scan could not check # detections (Frigate did not answer). Scan again.}}"
   }
 }

@@ -32,6 +32,7 @@ async def record_maintenance_run(
     status: Literal["completed", "failed"],
     checked: int | None = None,
     changed: int | None = None,
+    unchecked: int | None = None,
 ) -> None:
     """Keep the outcome of one run. A failure to record never fails the job it describes."""
     payload = {
@@ -41,6 +42,9 @@ async def record_maintenance_run(
         "finished_at": datetime.now(timezone.utc).isoformat(),
         "checked": checked,
         "changed": changed,
+        # Records the run looked at but could not check, e.g. Frigate did not answer. Without it a
+        # scan whose every lookup failed would read as an all-clear.
+        "unchecked": unchecked,
     }
     try:
         async with get_db() as db:
@@ -68,8 +72,13 @@ def _summary(payload: dict) -> dict:
         return {
             "kind": payload["kind"],
             "status": payload.get("status") or "failed",
+            "started_at": payload.get("started_at"),
             "finished_at": payload.get("finished_at"),
             "checked": payload.get("processed"),
             "changed": changed,
+            "unchecked": payload.get("errors"),
         }
-    return {key: payload.get(key) for key in ("kind", "status", "finished_at", "checked", "changed")}
+    return {
+        key: payload.get(key)
+        for key in ("kind", "status", "started_at", "finished_at", "checked", "changed", "unchecked")
+    }

@@ -12628,10 +12628,34 @@
             "title": "Kind",
             "type": "string"
           },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When it started, where recorded (a running backfill has no finish yet)",
+            "title": "Started At"
+          },
           "status": {
             "description": "completed or failed; a backfill job can also report running or cancelled",
             "title": "Status",
             "type": "string"
+          },
+          "unchecked": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Records it looked at but could not check, e.g. Frigate did not answer; not an all-clear",
+            "title": "Unchecked"
           }
         },
         "required": [

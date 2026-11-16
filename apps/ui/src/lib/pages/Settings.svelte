@@ -933,7 +933,11 @@
     const isDirty = $derived(unsavedSummary.count > 0);
 
     const standingErrors = $derived(
-        fieldErrors.length > 0 ? standingFieldErrors(fieldErrors, refusedPayload, buildSettingsPayload() as Record<string, unknown>) : []
+        fieldErrors.length > 0
+            ? standingFieldErrors(fieldErrors, refusedPayload, buildSettingsPayload() as Record<string, unknown>)
+                // The size field's value never changes while it is unreadable, so its refusal ends when it reads again.
+                .filter((error) => error.field !== 'media_cache_max_size_mb' || cacheMaxSizeInvalid)
+            : []
     );
     // Tabs holding a refused value, so the navigation can say which need a fix.
     const refusedTabs = $derived(
@@ -1118,6 +1122,7 @@
     let cacheRetentionDays = $state(0);
     let cachePerSpeciesMaximum = $state<number>(0);
     let cacheMaxSizeMb = $state<number>(0);
+    let cacheMaxSizeInvalid = $state(false);
     let cacheAutomaticMultiBirdScan = $state(false);
     let cacheBirdScanMode = $state<'standard' | 'intensive'>('intensive');
     let cachePerSpeciesMinimum = $state(0);
@@ -2265,6 +2270,7 @@
         cacheRetentionDays = settings.media_cache_retention_days ?? 0;
         cachePerSpeciesMaximum = settings.media_cache_per_species_maximum ?? 0;
         cacheMaxSizeMb = settings.media_cache_max_size_mb ?? 0;
+        cacheMaxSizeInvalid = false;
         cacheAutomaticMultiBirdScan = settings.media_cache_automatic_multi_bird_scan ?? false;
         cacheBirdScanMode = settings.media_cache_bird_scan_mode ?? 'intensive';
         cachePerSpeciesMinimum = settings.media_cache_per_species_minimum ?? 0;
@@ -2732,6 +2738,10 @@
     // Values checked here before sending, in the same shape the server uses for a refusal.
     function locallyRefusedFields(): SettingsFieldError[] {
         const refused: SettingsFieldError[] = [];
+        // An unreadable size is never saved as some other limit; the saved one stays until it is fixed.
+        if (cacheMaxSizeInvalid && cacheMaxSizeMb > 0) {
+            refused.push({ field: 'media_cache_max_size_mb', key: 'settings.data.storage_limit_invalid_short', fallback: 'Enter a storage limit from 0.5 to 1024 GB.' });
+        }
         if (!Number.isFinite(recordingFrameDelaySeconds) || recordingFrameDelaySeconds < 1 || recordingFrameDelaySeconds > 120) {
             refused.push(rangeFieldError('recording_frame_delay_seconds', 1, 120));
         }
@@ -3242,6 +3252,7 @@
                     bind:cacheRetentionDays
                     bind:cachePerSpeciesMaximum
                     bind:cacheMaxSizeMb
+                    bind:cacheMaxSizeInvalid
                     bind:cacheAutomaticMultiBirdScan
                     bind:cacheBirdScanMode
                     bind:cachePerSpeciesMinimum

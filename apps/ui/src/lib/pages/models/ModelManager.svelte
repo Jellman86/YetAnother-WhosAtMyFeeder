@@ -827,7 +827,7 @@
         {@const classifierModels = availableModels.filter((model) => (model.artifact_kind || 'classifier') === 'classifier')}
         {@const modelGroups = groupTieredModelLineup(classifierModels, true, currentModelId)}
         {@const currentModel = currentModelId ? classifierModels.find((entry) => entry.id === currentModelId) ?? getInstalledModel(currentModelId)?.metadata ?? null : null}
-        {@const recommended = recommendIdentificationModel(classifierModels, { currentId: currentModel && isActive(currentModel.id) ? currentModel.id : null, imageFlavor: classifierStatus?.image_flavor })}
+        {@const recommended = recommendIdentificationModel(classifierModels, { currentId: currentModel?.id ?? currentModelId, currentInUse: currentModel ? isActive(currentModel.id) : false, imageFlavor: classifierStatus?.image_flavor })}
         {@const birdFinderOptions = (['yolox_tiny', 'rfdetr_nano'] as const)
             .map((choice) => ({ choice, model: cropDetectorModels.find((model) => model.id === BIRD_FINDER_MODEL_IDS[choice]) }))
             .filter((option): option is { choice: BirdFinder; model: ModelMetadata } => Boolean(option.model))}

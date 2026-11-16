@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { gigabytesToStoredMegabytes, storedMegabytesToGigabytes } from './storage-budget';
+import { gigabytesToStoredMegabytes, parseStorageLimitGigabytes, storedMegabytesToGigabytes } from './storage-budget';
 
 describe('the photo and video storage budget', () => {
     it('shows the saved limit in GB, the unit the rest of the tab uses', () => {
@@ -12,8 +12,15 @@ describe('the photo and video storage budget', () => {
         expect(gigabytesToStoredMegabytes(0.5)).toBe(512);
     });
 
-    it('never saves a limit below half a GB, so a stray small number cannot empty the media library', () => {
-        expect(gigabytesToStoredMegabytes(0)).toBe(512);
-        expect(gigabytesToStoredMegabytes(Number.NaN)).toBe(512);
+    it('reads a typed limit only when it is a size it can keep', () => {
+        expect(parseStorageLimitGigabytes('25')).toBe(25);
+        expect(parseStorageLimitGigabytes(' 0.5 ')).toBe(0.5);
+        expect(parseStorageLimitGigabytes('1024')).toBe(1024);
+    });
+
+    it('rejects an emptied, zero, negative, too large or unreadable limit instead of substituting a small one', () => {
+        for (const typed of ['', '   ', '0', '0.4', '-3', '1025', 'abc', 'NaN', 'Infinity']) {
+            expect(parseStorageLimitGigabytes(typed), typed).toBeNull();
+        }
     });
 });

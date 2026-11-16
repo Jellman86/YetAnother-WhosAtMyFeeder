@@ -229,11 +229,17 @@
     "maintenance_jobs_desc": "De forma predeterminada, cada tipo de tarea de arriba se ejecuta de uno en uno, para que no compita con la identificación de aves.",
     "storage_limit": "Limitar el espacio de fotos y vídeo",
     "storage_limit_size": "Límite de almacenamiento en GB",
-    "storage_policy_limited": "Cuando las fotos y el vídeo superan {size} GB, se eliminan primero los más antiguos. Los favoritos y su archivo se conservan siempre.",
-    "storage_policy_unlimited": "Sin límite de tamaño: las fotos y el vídeo se quedan hasta que el período del historial elimina sus visitas. Los favoritos se conservan siempre.",
     "species_limits_title": "Límites por especie",
     "per_species_minimum_count": "Visitas conservadas por especie",
-    "per_species_maximum_count": "Visitas por especie con fotos y vídeo"
+    "per_species_maximum_count": "Visitas por especie con fotos y vídeo",
+    "storage_limit_invalid": "Introduzca un tamaño de 0,5 a 1024 GB. Mientras tanto, el límite sigue en {size} GB.",
+    "storage_limit_invalid_short": "Introduzca un límite de almacenamiento de 0,5 a 1024 GB.",
+    "storage_policy_size_limit": "Cuando las fotos y el vídeo superan {size} GB, se eliminan primero los más antiguos.",
+    "storage_policy_no_size_limit": "Sin límite de tamaño.",
+    "storage_policy_history_only": "Sin límite de tamaño: las fotos y el vídeo se quedan hasta que el período del historial elimina sus visitas.",
+    "storage_policy_species_cap": "{count, plural, one {Cada especie conserva fotos y vídeo solo de su visita más reciente.} other {Cada especie conserva fotos y vídeo solo de sus # visitas más recientes.}}",
+    "storage_policy_species_floor": "{count, plural, one {La visita más reciente de cada especie conserva sus fotos más allá del período del historial.} other {Las # visitas más recientes de cada especie conservan sus fotos más allá del período del historial.}}",
+    "storage_policy_favourites": "Los favoritos y su archivo se conservan siempre."
   },
   "security": {
     "title": "Seguridad",
@@ -1837,7 +1843,10 @@
       "small_birds": "Conoce las aves de su región y sigue siendo rápido en una CPU normal.",
       "rope_vit_b14_inat21": "Identifica aves y otra fauna con buena precisión a velocidad moderada.",
       "mobilenet_v2_birds": "Lo bastante pequeño para este dispositivo y no necesita hardware gráfico."
-    }
+    },
+    "status_failed_files": "{model} está instalado pero no se pudo cargar: no se pudieron leer sus archivos. Nada identifica las aves hasta que se cargue.",
+    "status_failed_runtime": "{model} está instalado pero no se pudo cargar: el entorno de ejecución no pudo abrirlo en este equipo. Nada identifica las aves hasta que se cargue.",
+    "status_unavailable": "{model} está instalado pero no cargado, así que ahora mismo nada identifica las aves."
   },
   "save_rule": "Los cambios en los ajustes esperan hasta que elija Guardar cambios. Los botones como Probar, Ejecutar y Descargar actúan al momento.",
   "appearance": {
@@ -1865,6 +1874,16 @@
     "candidate_ok": "Correcto",
     "candidate_unsupported": "Desfase que no es seguro reparar",
     "candidate_lookup_error": "No se pudo comprobar",
-    "timezone_nothing_last_scan": "Nada que reparar: el último análisis no encontró detecciones que lo necesiten."
+    "timezone_nothing_last_scan": "Nada que reparar: el último análisis no encontró detecciones que lo necesiten.",
+    "last_run_running": "En curso, iniciada {when}.",
+    "last_run_running_undated": "En curso.",
+    "last_run_cancelled": "La última ejecución, {when}, se detuvo antes de terminar.",
+    "last_run_cancelled_undated": "La última ejecución se detuvo antes de terminar.",
+    "last_run_unfinished_undated": "La última ejecución no terminó.",
+    "last_run_timezone_scan_incomplete": "El último análisis {when} no pudo comprobar {unchecked} de {checked} detecciones (Frigate no respondió).",
+    "last_run_timezone_scan_rest": "{changed} de las demás necesitan reparación.",
+    "scan_again": "Vuelva a analizar.",
+    "timezone_last_scan_incomplete": "{count, plural, one {El último análisis no pudo comprobar # detección (Frigate no respondió). Vuelva a analizar.} other {El último análisis no pudo comprobar # detecciones (Frigate no respondió). Vuelva a analizar.}}",
+    "timezone_scan_incomplete": "{count, plural, one {Este análisis no pudo comprobar # detección (Frigate no respondió). Vuelva a analizar.} other {Este análisis no pudo comprobar # detecciones (Frigate no respondió). Vuelva a analizar.}}"
   }
 }

@@ -56,6 +56,18 @@ test('after a recorded scan that found nothing, the reason says so instead of as
     await expect(page.locator('[data-maintenance-last-run="timezone_scan"]')).toContainText('none of 500 detections need a repair');
 });
 
+test('a scan whose Frigate lookups failed is never shown as an all-clear', async ({ page }) => {
+    await openMaintenance(page, null, { runs: [{ kind: 'timezone_scan', status: 'completed', finished_at: '2026-11-13T20:21:00Z', checked: 40, changed: 0, unchecked: 40 }] });
+    await expect(page.locator('[data-maintenance-last-run="timezone_scan"]')).toHaveText(/could not check 40 of 40 detections \(Frigate did not answer\)\. Scan again\.$/);
+    await expect(page.getByRole('button', { name: 'Apply timezone repair', exact: true }))
+        .toHaveAccessibleDescription('The last scan could not check 40 detections (Frigate did not answer). Scan again.');
+});
+
+test('a backfill that is still running says so and when it started', async ({ page }) => {
+    await openMaintenance(page, null, { runs: [{ kind: 'detections', status: 'running', started_at: '2026-11-16T01:00:00Z', finished_at: null, checked: 10, changed: 0, unchecked: 0 }] });
+    await expect(page.locator('[data-maintenance-last-run="detections"]')).toHaveText(/^Running now, started .+\.$/);
+});
+
 test('the job sections are plain headings, with no collapsed sections to open', async ({ page }) => {
     await openMaintenance(page);
     for (const name of ['Jobs at once', 'Delete data']) {

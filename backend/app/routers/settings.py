@@ -172,9 +172,15 @@ async def get_taxonomy_status(auth: AuthContext = Depends(require_owner)):
 class MaintenanceLastRun(BaseModel):
     kind: Literal["taxonomy", "timezone_scan", "timezone_repair", "analyze_unknowns", "detections", "weather"]
     status: str = Field(description="completed or failed; a backfill job can also report running or cancelled")
+    started_at: Optional[str] = Field(
+        None, description="When it started, where recorded (a running backfill has no finish yet)"
+    )
     finished_at: Optional[str] = None
     checked: Optional[int] = Field(None, description="Records the run looked at")
     changed: Optional[int] = Field(None, description="Records it changed, found or queued")
+    unchecked: Optional[int] = Field(
+        None, description="Records it looked at but could not check, e.g. Frigate did not answer; not an all-clear"
+    )
 
 
 class MaintenanceLastRunsResponse(BaseModel):
@@ -1994,6 +2000,7 @@ async def preview_timezone_repair(auth: AuthContext = Depends(require_owner)):
         status="completed",
         checked=int(summary.get("scanned_count") or 0),
         changed=int(summary.get("repair_candidate_count") or 0),
+        unchecked=int(summary.get("lookup_error_count") or 0),
     )
     return preview
 
