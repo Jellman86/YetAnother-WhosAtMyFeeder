@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { openMoreOptions } from './settings-page-mock';
 
 // The compatibility check can move classification onto a newly validated
 // accelerator. The Models tab must then show the provider the workers
@@ -308,6 +309,7 @@ test('the recording delay survives navigation and saves with its selected source
     const counters = await openDetectionWithCompatibilityRun(page, () => ({ status: 200, json: cpuStatus }));
     await selectSettingsSection(page, 'Cameras & connection');
     await expect(page.locator('#recording-frame-delay')).toHaveCount(0);
+    await openMoreOptions(page);
     await page.locator('#classification-image-source').selectOption('recording_snapshot');
     const input = page.getByRole('spinbutton', { name: 'Initial identification delay (seconds)' });
     await expect(input).toHaveValue('12');
@@ -329,6 +331,7 @@ test('the recording delay survives navigation and saves with its selected source
 test('an empty recording delay is explained without sending a settings write', async ({ page }) => {
     const counters = await openDetectionWithCompatibilityRun(page, () => ({ status: 200, json: cpuStatus }));
     await selectSettingsSection(page, 'Cameras & connection');
+    await openMoreOptions(page);
     await page.locator('#classification-image-source').selectOption('recording_snapshot');
     await page.locator('#recording-frame-delay').fill('');
     await page.getByRole('button', { name: 'Save changes', exact: true }).click();

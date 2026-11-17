@@ -97,7 +97,7 @@
     "blocked_sort": "Gehörte Rufe erscheinen nur zwischen Besuchen, wenn die Besuche zeitlich sortiert sind.",
     "load_failed": "Die gehörten Rufe konnten nicht geladen werden. Die Besuche sind davon nicht betroffen.",
     "truncated": "Diese Seite umfasst mehr Rufe, als auf einmal angezeigt werden können, daher fehlen die ältesten. Grenzen Sie den Zeitraum ein, um sie zu sehen.",
-    "none_stored": "Für die Zeit dieser Besuche sind keine BirdNET-Go-Rufe gespeichert. Wenn Rufe zu erwarten waren, prüfen Sie unter Einstellungen, Integrationen, ob BirdNET-Go läuft.",
+    "none_stored": "Für die Zeit dieser Besuche sind keine BirdNET-Go-Rufe gespeichert. Wenn Rufe zu erwarten waren, prüfen Sie unter Einstellungen, Kameras & Verbindung, Weitere Optionen, ob BirdNET-Go läuft.",
     "seek": "Ab einer Stelle des Rufs abspielen. Pfeiltasten springen um eine Sekunde.",
     "play_call": "Ruf abspielen: {species}",
     "pause_call": "Ruf anhalten: {species}",

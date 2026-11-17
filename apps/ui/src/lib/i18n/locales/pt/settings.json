@@ -252,7 +252,7 @@
     "frigate_success": "Conectado ao Frigate v{version} em {url}",
     "frigate_unexpected": "O Frigate retornou um estado inesperado",
     "frigate_error": "Falha ao conectar ao Frigate",
-    "mqtt_title": "O broker para onde o Frigate publica seus eventos. O YA-WAMF escuta ali as novas detecções.",
+    "mqtt_title": "O broker para onde o Frigate publica seus eventos. O YA-WAMF escuta ali as novas visitas.",
     "simulating": "Simulando…",
     "advanced_title": "Ajuste fino",
     "full_visit_advanced_title": "Clipes de visita completa",
@@ -295,6 +295,36 @@
     "sharing": "Compartilhamento e integrações",
     "storage": "Armazenamento e manutenção",
     "display": "Exibição"
+  },
+  "status": {
+    "title": "Estado",
+    "chip": "{name}: {state}",
+    "open_health": "Detalhes em Saúde",
+    "in_this_section": "Nesta seção",
+    "not_read": "Ainda não medido: o estado não foi lido.",
+    "stale": "Esta leitura está desatualizada: nenhuma mais recente chegou.",
+    "display_note": "Nada aqui depende de outro serviço. Tema, tamanho do texto e idioma mudam na hora neste dispositivo.",
+    "state": {
+      "ok": "funcionando",
+      "degraded": "sob pressão",
+      "error": "não funciona",
+      "off": "desligado",
+      "unknown": "não medido"
+    },
+    "subsystem": {
+      "frigate": "Frigate",
+      "mqtt": "Broker MQTT",
+      "classifier": "Modelo de identificação",
+      "finder": "Localizador de aves",
+      "audio": "BirdNET-Go",
+      "storage": "Armazenamento",
+      "notifications": "Alertas"
+    },
+    "sharing_note": "Cada serviço abaixo indica se está ligado. O login e o acesso de convidados também são definidos aqui."
+  },
+  "more": {
+    "title": "Mais opções",
+    "cameras": "Detalhes do Frigate, origem da imagem, clipes e BirdNET-Go"
   },
   "debug": {
     "llm_prompts_title": "Modelos de prompt LLM",
@@ -407,6 +437,8 @@
       "source_discovery_mapping_value": "Valor de mapeamento",
       "source_discovery_sample_id": "ID de exemplo",
       "source_discovery_seen": "Visto",
+      "source_discovery_add": "Selecione uma para adicioná-la",
+      "source_discovery_add_to": "{source}, ouvida {time}. Selecione-a para adicioná-la a {camera}.",
       "advanced_title": "Buffer de áudio e mapeamento de sensores",
       "test_subtitle": "Confirma que o BirdNET-Go está acessível, que o broker MQTT aceita uma publicação e que uma detecção simulada percorre o pipeline.",
       "test_title": "Teste de conexão do BirdNET-Go"
@@ -685,7 +717,8 @@
     "test_connection_both": "Testar Frigate e MQTT",
     "test_again": "Testar novamente",
     "stage_frigate_next": "Verifique o URL do servidor Frigate neste separador e se o Frigate está em execução.",
-    "stage_mqtt_next": "Verifique o endereço do broker, a porta e o início de sessão neste separador."
+    "stage_mqtt_next": "Verifique o endereço do broker, a porta e o início de sessão neste separador.",
+    "more_title": "Detalhes do Frigate"
   },
   "cameras": {
     "title": "Câmaras a observar",
@@ -1739,16 +1772,22 @@
     "conflicts": "{count, plural, one {Uma configuração que você alterou também foi alterada em outro lugar. Escolha qual valor manter antes de salvar:} other {# configurações que você alterou também foram alteradas em outro lugar. Escolha qual valor manter antes de salvar:}}",
     "use_saved": "Usar o valor salvo",
     "use_mine": "Usar minha alteração",
-    "conflict_field": "O valor salvo mudou em outro lugar desde que você editou isto. Escolha qual manter na barra abaixo.",
+    "conflict_field": "O valor salvo mudou em outro lugar desde que você editou isto. Escolha qual manter em “Alterações à espera de salvar”, no fim desta seção.",
     "conflict_choice_for": "para {field}",
-    "how_saving_works": "Como funciona a gravação",
     "conflict_values": "Guardado noutro lugar: {saved} · O seu: {mine}",
     "value_on": "Ligado",
     "value_off": "Desligado",
     "value_not_set": "Sem valor",
     "value_other": "Um valor diferente",
     "discard_short": "Descartar",
-    "save_short": "Salvar"
+    "save_short": "Salvar",
+    "details": "Detalhes",
+    "go_to_details": "Ir para os detalhes",
+    "details_title": "Alterações à espera de salvar",
+    "line": "{count, plural, one {# alteração não salva} other {# alterações não salvas}}",
+    "line_conflicts": "{count, plural, one {# alteração a decidir} other {# alterações a decidir}}",
+    "line_not_saved": "Não salvo",
+    "line_short": "{count, plural, one {# pendente} other {# pendentes}}"
   },
   "leave": {
     "title": "Sair sem salvar?",

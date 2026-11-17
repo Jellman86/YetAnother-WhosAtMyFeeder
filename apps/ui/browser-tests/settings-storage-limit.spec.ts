@@ -16,7 +16,7 @@ test('an emptied storage limit blocks the save instead of saving a small limit',
     await expect(limit).toHaveAttribute('aria-invalid', 'true');
 
     await saveButton(page).click();
-    await expect(saveBar(page).locator('[data-save-problem]')).toContainText('Nothing was saved');
+    await expect(page.locator('[data-settings-save-details] [data-save-problem]')).toContainText('Nothing was saved');
     expect(harness.writes).toEqual([]);
 
     await limit.fill('25');

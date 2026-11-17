@@ -44,7 +44,7 @@ test('a failed save keeps the staged finder and says the settings were not saved
     const wide = finder(page).getByRole('radio', { name: /Wide frame/ });
     await wide.check();
     await page.getByRole('button', { name: 'Save changes', exact: true }).click();
-    await expect(unsaved(page).locator('[data-save-problem]')).toContainText('Nothing was saved');
+    await expect(page.locator('[data-settings-save-details] [data-save-problem]')).toContainText('Nothing was saved');
     await expect(wide).toBeChecked();
     await expect(unsaved(page)).toBeVisible();
     expect(state.saves).toEqual([]);

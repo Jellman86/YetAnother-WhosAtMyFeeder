@@ -23,8 +23,9 @@ describe('each read belongs to the route and task that shows it', () => {
         const loadSettings = body(settingsSource, 'async function loadSettings(');
         expect(loadSettings).not.toContain('fetchAudioSources');
         expect(loadSettings).not.toContain('loadRecordingClipCapability');
-        expect(settingsSource).toContain("cameras: ['cameras', 'recordingClips'],");
-        expect(settingsSource).toContain("sharing: ['cameras', 'audioSources', 'version'],");
+        // BirdNET-Go is set up with the cameras, so its sources are read there.
+        expect(settingsSource).toContain("cameras: ['cameras', 'recordingClips', 'audioSources'],");
+        expect(settingsSource).toContain("sharing: ['version'],");
         expect(settingsSource).toContain("storage: ['classifier', 'storage', 'cache', 'backfill']");
     });
 

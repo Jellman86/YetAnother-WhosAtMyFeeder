@@ -96,10 +96,10 @@ example counts or runtime values into product guarantees.
 | `settings-garden-cameras.png` | Garden animal settings under Beta features in setup order: steps, the Garden camera summary, labels, proposal threshold, Garden models, automatic naming, notifications and capture outcomes. Refreshed 31 October 2026 |
 | `garden-review.png` | Owner review prototype, separate views and first-capture guidance |
 | `settings-map.png` | Grouped Settings navigation and setup-wizard entry point |
-| `settings-connection.png` | Frigate, MQTT and the Cameras to watch list. Refreshed 31 October 2026 |
+| `settings-connection.png` | Frigate, MQTT and the Cameras to watch list. Refreshed 31 October 2026, before the Frigate labels and public URL moved under More options; to be retaken |
 | `settings-detection.png` | Saved Intel NPU preference and actual worker runtime status |
 | `model-manager-dino.png` | Selected DINO model, memory estimate and location guidance |
-| `settings-integrations.png` | BirdNET-Go and optional integration controls |
+| `settings-integrations.png` | The BirdNET-Go card, shown in Cameras & connection under More options. Taken before it moved there from Integrations; to be retaken |
 | `settings-notifications.png` | Global notification filters and channel controls |
 | `settings-security.png` | Authentication and public-access controls |
 | `settings-data.png` | History retention and separate photo/video storage limits |

@@ -5,11 +5,11 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const componentSource = readFileSync(
-    resolve(__dirname, 'IntegrationSettings.svelte'),
+    resolve(__dirname, 'BirdnetSettings.svelte'),
     'utf8'
 );
 
-describe('IntegrationSettings BirdNET source mapping helper', () => {
+describe('BirdNET-Go source mapping helper, set up with the cameras', () => {
     it('keeps manual text mapping while adding detected source picker controls', () => {
         expect(componentSource).toContain('addCameraAudioSource');
         expect(componentSource).toContain('removeCameraAudioSourceToken');

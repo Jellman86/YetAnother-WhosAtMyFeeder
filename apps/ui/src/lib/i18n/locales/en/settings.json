@@ -252,7 +252,7 @@
     "frigate_success": "Connected to Frigate v{version} at {url}",
     "frigate_unexpected": "Frigate returned unexpected status",
     "frigate_error": "Failed to connect to Frigate",
-    "mqtt_title": "The broker Frigate publishes its events to. YA-WAMF listens there for new detections.",
+    "mqtt_title": "The broker Frigate publishes its events to. YA-WAMF listens there for new visits.",
     "simulating": "Simulating…",
     "advanced_title": "Tuning",
     "full_visit_advanced_title": "Full-visit clips",
@@ -295,6 +295,36 @@
     "sharing": "Sharing & integrations",
     "storage": "Storage & upkeep",
     "display": "Display"
+  },
+  "status": {
+    "title": "Status",
+    "chip": "{name}: {state}",
+    "open_health": "Details in Health",
+    "in_this_section": "In this section",
+    "not_read": "Not measured yet: the status has not been read.",
+    "stale": "This reading is out of date: no newer one has arrived.",
+    "display_note": "Nothing here depends on another service. Theme, text size and language change at once on this device.",
+    "state": {
+      "ok": "working",
+      "degraded": "under strain",
+      "error": "not working",
+      "off": "off",
+      "unknown": "not measured"
+    },
+    "subsystem": {
+      "frigate": "Frigate",
+      "mqtt": "MQTT broker",
+      "classifier": "Identification model",
+      "finder": "Bird finder",
+      "audio": "BirdNET-Go",
+      "storage": "Storage",
+      "notifications": "Alerts"
+    },
+    "sharing_note": "Each service below says whether it is on. Sign-in and guest access are set here too."
+  },
+  "more": {
+    "title": "More options",
+    "cameras": "Frigate details, image source, clips and BirdNET-Go"
   },
   "debug": {
     "llm_prompts_title": "LLM prompt templates",
@@ -406,6 +436,8 @@
       "source_discovery_mapping_value": "Mapping value",
       "source_discovery_sample_id": "Sample ID",
       "source_discovery_seen": "Seen",
+      "source_discovery_add": "Select one to add it",
+      "source_discovery_add_to": "{source}, heard {time}. Select it to add it to {camera}.",
       "mqtt_topic_placeholder": "birdnet/text",
       "advanced_title": "Audio buffer & sensor mapping",
       "test_subtitle": "Confirms BirdNET-Go is reachable, the MQTT broker accepts a publish, and a mock detection flows through the pipeline.",
@@ -685,7 +717,8 @@
     "test_connection_both": "Test Frigate and MQTT",
     "test_again": "Test again",
     "stage_frigate_next": "Check the Frigate server URL on this tab, and that Frigate is running.",
-    "stage_mqtt_next": "Check the broker address, port and sign-in on this tab."
+    "stage_mqtt_next": "Check the broker address, port and sign-in on this tab.",
+    "more_title": "Frigate details"
   },
   "cameras": {
     "title": "Cameras to watch",
@@ -1739,16 +1772,22 @@
     "conflicts": "{count, plural, one {A setting you changed was also changed elsewhere. Choose which value to keep before saving:} other {# settings you changed were also changed elsewhere. Choose which value to keep before saving:}}",
     "use_saved": "Use the saved value",
     "use_mine": "Use my change",
-    "conflict_field": "The saved value changed elsewhere since you edited this. Choose which to keep in the bar below.",
+    "conflict_field": "The saved value changed elsewhere since you edited this. Choose which to keep under Changes waiting to be saved, at the end of this section.",
     "conflict_choice_for": "for {field}",
-    "how_saving_works": "How saving works",
     "conflict_values": "Saved elsewhere: {saved} · Yours: {mine}",
     "value_on": "On",
     "value_off": "Off",
     "value_not_set": "Not set",
     "value_other": "A different value",
     "discard_short": "Discard",
-    "save_short": "Save"
+    "save_short": "Save",
+    "details": "Details",
+    "go_to_details": "Go to details",
+    "details_title": "Changes waiting to be saved",
+    "line": "{count, plural, one {# unsaved change} other {# unsaved changes}}",
+    "line_conflicts": "{count, plural, one {# change to decide} other {# changes to decide}}",
+    "line_not_saved": "Not saved",
+    "line_short": "{count, plural, one {# unsaved} other {# unsaved}}"
   },
   "leave": {
     "title": "Leave without saving?",
