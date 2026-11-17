@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { onMount } from 'svelte';
+    import { onDestroy, onMount } from 'svelte';
     import { _ } from 'svelte-i18n';
     import { analyzeDetection, fetchDetectionConversation, sendDetectionConversationMessage, type ConversationTurn, type Detection } from '../../api';
     import { authStore } from '../../stores/auth.svelte';
@@ -10,7 +10,9 @@
     /**
      * The record's AI note and the conversation about it. The note is the record's own
      * `ai_analysis`, so a species change that clears it clears it here too; only a failed request,
-     * or a regeneration in flight, stands in for it. The parent remounts it for each record.
+     * or a regeneration in flight, stands in for it. The parent remounts it for each identification
+     * (`recordClassificationKey`), and an answer that arrives for one it no longer shows is dropped,
+     * so neither a failure nor a late note outlives a change of species.
      */
     type Props = { detection: Detection; llmReady: boolean; readOnly: boolean };
 
@@ -25,6 +27,12 @@
     let sending = $state(false);
     let error = $state<string | null>(null);
 
+    // The parent remounts this panel when the identification changes, so once it is retired an
+    // answer still on its way belongs to an identification no longer on screen.
+    let retired = false;
+    onDestroy(() => { retired = true; });
+    const stillShown = (): boolean => !retired;
+
     const analysis = $derived(llmReady ? (standIn ? standIn.text : (detection.ai_analysis ?? null)) : null);
 
     async function loadConversation(): Promise<void> {
@@ -32,9 +40,10 @@
         loading = true;
         error = null;
         try {
-            turns = await fetchDetectionConversation(detection.frigate_event);
+            const loaded = await fetchDetectionConversation(detection.frigate_event);
+            if (stillShown()) turns = loaded;
         } catch (e) {
-            error = getErrorMessage(e) || $_('detection.ai.conversation_error');
+            if (stillShown()) error = getErrorMessage(e) || $_('detection.ai.conversation_error');
         } finally {
             loading = false;
         }
@@ -46,10 +55,12 @@
         sending = true;
         error = null;
         try {
-            turns = await sendDetectionConversationMessage(detection.frigate_event, message);
+            const answered = await sendDetectionConversationMessage(detection.frigate_event, message);
+            if (!stillShown()) return;
+            turns = answered;
             input = '';
         } catch (e) {
-            error = getErrorMessage(e) || $_('detection.ai.conversation_error');
+            if (stillShown()) error = getErrorMessage(e) || $_('detection.ai.conversation_error');
         } finally {
             sending = false;
         }
@@ -69,12 +80,15 @@
         }
         try {
             const result = await analyzeDetection(detection.frigate_event, force);
+            // Written for the identification it was asked about, never for the one that replaced it.
+            if (!stillShown()) return;
             detection.ai_analysis = result.analysis;
             detection.ai_analysis_timestamp = result.analysis_timestamp;
             standIn = null;
             detectionsStore.updateDetection({ ...detection, ai_analysis: result.analysis, ai_analysis_timestamp: result.analysis_timestamp });
             await loadConversation();
         } catch (e) {
+            if (!stillShown()) return;
             standIn = { text: $_('detection.ai.error', { values: { message: getErrorMessage(e) || 'Analysis failed' } }) };
         } finally {
             analysing = false;

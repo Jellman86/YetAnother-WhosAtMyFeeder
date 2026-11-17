@@ -5,8 +5,13 @@
 - On a phone, a record whose photograph cannot be scanned for more birds (no whole frame kept, no
   crop detector, or another frame already being scanned or reviewed) no longer puts that notice
   between the photograph and the identification. **Find more birds** waits in **More actions**
-  with its reason, so the identification comes straight after the photograph. A frame that
-  changed during a scan still says so under the photograph.
+  with its reason, and the reason is said once after the identification, where a screen reader
+  hears it too, so the identification comes straight after the photograph. A frame that changed
+  during a scan still says so under the photograph.
+- An AI note that failed, or was still being written, no longer stays on a record after you choose
+  a different species: the record offers a fresh analysis of the bird it now names.
+- Figures keep their units on the same line ("6 km/h", "471 lx"), and the Conditions row on a
+  phone reads as a column under its label instead of a ragged right edge.
 - The photo strip's count and hint wrap onto a second line at large text sizes instead of being
   cut off, and "Choosing one changes the photograph" only appears when there is a photograph to
   choose.

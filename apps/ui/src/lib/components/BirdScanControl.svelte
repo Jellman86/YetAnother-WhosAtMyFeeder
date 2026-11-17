@@ -1,30 +1,21 @@
 <script lang="ts">
-    import { untrack } from 'svelte';
     import { _ } from 'svelte-i18n';
-    import { fetchBirdScan, startBirdScan } from '../api/media';
-    import { createBirdScanController, birdScanMediaVersion, type BirdScanView } from '../utils/bird-scan-controller';
     import { birdScanElapsedSeconds, birdScanProgress } from '../utils/bird-scan-progress';
     import { birdCountDisclosure } from '../utils/bird-count-disclosure';
     import BirdScanRegions from './BirdScanRegions.svelte';
-    import { isStandingUnavailability } from '../utils/bird-scan-standing';
+    import { birdScanUnavailableText } from '../utils/bird-scan-standing';
+    import type { BirdScan } from '../utils/bird-scan.svelte';
 
-    let { eventId, candidateId, imageVersion, sceneImageUrl = null, disabled = false, oncompleted, onstanding }: {
-        eventId: string;
-        candidateId: string | null;
-        imageVersion: string | null;
+    let { scan, sceneImageUrl = null, disabled = false, stepAside = false }: {
+        /** The photograph's scan, owned by the host so the record can read the same state. */
+        scan: BirdScan;
         sceneImageUrl?: string | null;
         disabled?: boolean;
-        oncompleted: (eventId: string, candidateId: string) => void;
-        /**
-         * Given, a standing reason the finder cannot run is handed to the host to show elsewhere (the
-         * record's More actions) and this row steps aside; null when it can run again.
-         */
-        onstanding?: (reason: string | null) => void;
+        /** The host says a standing reason elsewhere (the record, after the identification), so this row steps aside for it. */
+        stepAside?: boolean;
     } = $props();
-    let view = $state<BirdScanView>({ response: null, pending: false, readError: false, startUnconfirmed: false });
-    let controller: ReturnType<typeof createBirdScanController> | null = null;
-    const mediaRevision = $derived(birdScanMediaVersion(imageVersion));
-    const active = $derived(view.response?.status === 'queued' || view.response?.status === 'running');
+    const view = $derived(scan.view);
+    const active = $derived(scan.active);
     const scanStatus = $derived(view.response?.status ?? null);
     const progress = $derived(birdScanProgress(view.response));
     const countDisclosure = $derived(birdCountDisclosure(view.response));
@@ -59,21 +50,9 @@
         return () => clearInterval(tick);
     });
     const elapsed = $derived(scanStatus === 'running' ? birdScanElapsedSeconds(view.response?.started_at, seenAt, now) : null);
-    const unavailable = $derived(!candidateId || !mediaRevision ? 'full_scene_unavailable' : view.response?.unavailable_reason);
-    const unavailableText = $derived(unavailable === 'media_changed'
-        ? $_('detection.bird_scan.media_changed', { default: 'The frame changed during the scan. Try again on the current frame.' })
-        : unavailable === 'crop_model_unavailable'
-        ? $_('detection.bird_scan.detector_unavailable', { default: 'Install a crop detector to find additional birds.' })
-        : unavailable === 'scan_in_progress'
-          ? $_('detection.bird_scan.other_running', { default: 'Another frame in this capture is being scanned. Try again when it finishes.' })
-          : unavailable === 'reviewed_other_frame'
-          ? $_('detection.bird_scan.reviewed_other_frame', { default: 'Birds reviewed on another frame are kept. This frame cannot replace them.' })
-          : $_('detection.bird_scan.scene_unavailable', { default: 'More birds cannot be looked for: the whole frame behind this photograph was not kept.' }));
-    const standing = $derived(Boolean(onstanding) && !active && !view.readError && isStandingUnavailability(unavailable));
-    // The host lays out the record, so it is told when the finder steps aside and why.
-    $effect(() => {
-        onstanding?.(standing ? unavailableText : null);
-    });
+    const unavailable = $derived(scan.unavailableReason);
+    const unavailableText = $derived(birdScanUnavailableText(unavailable, $_));
+    const stepsAside = $derived(stepAside && scan.standingReason !== null);
     const errorText = $derived(view.response?.error === 'ambiguous_localization'
         ? $_('detection.bird_scan.ambiguous_localization', { default: 'Could not distinguish separate birds in this frame. Existing findings are kept. Try another whole frame.' })
         : view.response?.error === 'media_changed'
@@ -82,41 +61,15 @@
           ? $_('detection.bird_scan.interrupted', { default: 'The scan was interrupted. You can try again.' })
           : $_('detection.bird_scan.failed', { default: 'The scan could not finish. Your existing birds are kept.' }));
 
-    $effect(() => {
-        const event = eventId;
-        const candidate = candidateId;
-        const revision = mediaRevision;
-        return untrack(() => {
-            view = { response: null, pending: false, readError: false, startUnconfirmed: false };
-            if (!candidate || !revision) { controller = null; return; }
-            const current = createBirdScanController({
-                eventId: event, candidateId: candidate,
-                read: (signal) => fetchBirdScan(event, candidate, revision, signal),
-                start: (force, signal) => startBirdScan(event, candidate, revision, force, signal),
-                onChange: (next) => { view = next; },
-                onCompleted: () => oncompleted(event, candidate),
-                isVisible: () => !document.hidden
-            });
-            controller = current;
-            const visibility = () => { void current.visibilityChanged(); };
-            document.addEventListener('visibilitychange', visibility);
-            void current.refresh();
-            return () => {
-                current.dispose();
-                document.removeEventListener('visibilitychange', visibility);
-                if (controller === current) controller = null;
-            };
-        });
-    });
 </script>
 
 <!-- One quiet row under the photograph: what is known about this frame, then the action. On a
      phone the sentence takes the full width and the action sits beneath it. -->
-<div class="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl bg-surface-raised px-3 py-2" hidden={standing} data-bird-scan-control>
+<div class="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl bg-surface-raised px-3 py-2" hidden={stepsAside} data-bird-scan-control>
     <div class="min-w-0 flex-1 basis-56 text-xs leading-5 text-muted" role="status" aria-live="polite" data-bird-scan-state={view.readError ? 'status_unavailable' : unavailable ? 'unavailable' : scanStatus ?? 'loading'}>
         {#if view.readError}
             <p>{view.startUnconfirmed ? $_('detection.bird_scan.start_unconfirmed', { default: 'The scan request could not be confirmed. Checking its status before trying again.' }) : $_('detection.bird_scan.status_unavailable', { default: 'Scan status could not be loaded. Checking again shortly.' })}</p>
-            <button type="button" class="btn btn-ghost min-h-11 min-w-11 focus-ring" disabled={view.pending} onclick={() => { void controller?.refresh(); }}>{$_('common.retry', { default: 'Retry' })}</button>
+            <button type="button" class="btn btn-ghost min-h-11 min-w-11 focus-ring" disabled={view.pending} onclick={() => { void scan.refresh(); }}>{$_('common.retry', { default: 'Retry' })}</button>
         {:else if unavailable}
             <p>{unavailableText}</p>
         {:else if scanStatus === 'queued'}
@@ -187,8 +140,8 @@
     <!-- Disabled reads as disabled: a flat grey fill, muted words and no hover, with the reason in the line beside it. -->
     <button type="button" class="btn btn-secondary min-h-11 min-w-11 max-w-full gap-2 px-3 text-sm focus-ring disabled:border-line disabled:bg-surface-raised disabled:text-muted disabled:opacity-100 disabled:shadow-none disabled:hover:bg-surface-raised"
         aria-busy={active || view.pending}
-        disabled={disabled || view.pending || active || !candidateId || !mediaRevision || !view.response?.available || view.readError}
-        onclick={() => { void controller?.start(scanStatus === 'completed' || scanStatus === 'failed'); }}>
+        disabled={disabled || view.pending || active || !scan.ready || !view.response?.available || view.readError}
+        onclick={() => { void scan.start(scanStatus === 'completed' || scanStatus === 'failed'); }}>
         {#if active || (view.pending && view.response !== null)}
             <span class="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-current border-t-transparent motion-reduce:animate-none" aria-hidden="true"></span>
             {scanStatus === 'queued' ? $_('detection.bird_scan.action_waiting', { default: 'Waiting…' }) : $_('detection.bird_scan.action_scanning', { default: 'Scanning…' })}

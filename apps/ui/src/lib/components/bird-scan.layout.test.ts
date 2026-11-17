@@ -5,8 +5,11 @@ import page from '../pages/Settings.svelte?raw';
 
 describe('additional bird controls', () => {
     it('exposes an owner action on an explicit scan frame', () => {
+        // The record owns the scan, bound to the explicit scan frame, and only for an owner.
+        expect(modal).toContain('candidateId: scanFrameCandidate?.candidate_id ?? null');
+        expect(modal).toMatch(/new BirdScan\(\s*\(\) => hasOwnerDetectionActions/);
         const component = modal.slice(modal.indexOf('<BirdScanControl'), modal.indexOf('<BirdScanControl') + 600);
-        expect(component).toContain('candidateId={scanFrameCandidate?.candidate_id ?? null}');
+        expect(component).toContain('scan={birdScan}');
         expect(modal.slice(modal.indexOf('<BirdScanControl') - 100, modal.indexOf('<BirdScanControl'))).toContain('{#if hasOwnerDetectionActions}');
         const completion = modal.slice(modal.indexOf('async function refreshBirdsAfterScan'), modal.indexOf('async function handleGenerateSnapshotCandidates'));
         expect(completion).toContain('countedBirds = response.birds');

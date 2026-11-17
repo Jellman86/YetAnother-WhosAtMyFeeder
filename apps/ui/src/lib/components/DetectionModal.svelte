@@ -42,8 +42,11 @@
     import FrameStrip from './FrameStrip.svelte';
     import CountedBirds from './CountedBirds.svelte';
     import BirdScanControl from './BirdScanControl.svelte';
+    import { BirdScan } from '../utils/bird-scan.svelte';
+    import { birdScanUnavailableText } from '../utils/bird-scan-standing';
     import MediaImage from './MediaImage.svelte';
     import RecordAiAnalysis from './record/RecordAiAnalysis.svelte';
+    import { recordClassificationKey } from './record/record-classification';
     import RecordAudioEvidence from './record/RecordAudioEvidence.svelte';
     import RecordInaturalist from './record/RecordInaturalist.svelte';
     import RecordSpeciesReference from './record/RecordSpeciesReference.svelte';
@@ -219,8 +222,6 @@
     let failedSpeciesReferenceUrl = $state<string | null>(null);
     let commonNameEditorOpen = $state(false);
     let moreActionsOpen = $state(false);
-    /** Why the finder cannot run, when the reason stands; it is then listed in More actions, not under the photograph. */
-    let scanStandingReason = $state<string | null>(null);
     let speciesInfo = $state.raw<SpeciesInfo | null>(null);
     let commonNameOverride = $state<string | null>(null);
     let commonNameOverrideInput = $state('');
@@ -815,6 +816,15 @@
         findMatchingFullFrameCandidate(snapshotCandidates, currentSnapshotCandidateId)
     );
     const scanFrameCandidate = $derived(findScanFrameCandidate(snapshotCandidates, currentSnapshotCandidateId, currentSnapshotSource));
+    // One owner for the photograph's scan: the row under the photograph and the rail both read it.
+    const birdScan = new BirdScan(
+        () => hasOwnerDetectionActions
+            ? { eventId: detection.frigate_event, candidateId: scanFrameCandidate?.candidate_id ?? null, imageVersion: scanFrameCandidate?.image_url ?? null }
+            : null,
+        (eventId, candidateId) => { void refreshBirdsAfterScan(eventId, candidateId); }
+    );
+    /** Why the finder cannot run, when that stands: said after the identification, not under the photograph. */
+    const scanStandingText = $derived(birdScan.standingReason ? birdScanUnavailableText(birdScan.standingReason, $_) : null);
     // One thumbnail per moment of the visit; the framings of a moment fold into it (#256).
     // Candidate media is owner-gated, so the strip simply does not exist for a guest.
     const frameMoments = $derived<FrameMoment[]>(
@@ -1739,13 +1749,10 @@
 
                             {#if hasOwnerDetectionActions}
                                 <BirdScanControl
-                                    eventId={detection.frigate_event}
-                                    candidateId={scanFrameCandidate?.candidate_id ?? null}
-                                    imageVersion={scanFrameCandidate?.image_url ?? null}
+                                    scan={birdScan}
                                     sceneImageUrl={scanFrameCandidate?.image_url ?? null}
                                     disabled={snapshotApplyPending || snapshotGeneratePending || countedBirdsLoading}
-                                    oncompleted={(eventId, candidateId) => { void refreshBirdsAfterScan(eventId, candidateId); }}
-                                    onstanding={(reason) => { scanStandingReason = reason; }}
+                                    stepAside
                                 />
                             {/if}
                             {#if showInlineFramePicker}
@@ -1956,14 +1963,11 @@
                                 </button>
                             </li>
                         {/if}
-                        {#if scanStandingReason}
-                            <!-- The finder, when it cannot run for a reason that stands: here, with that
-                                 reason, so on a phone the identification follows the photograph. -->
-                            <li class="px-3 py-2" data-detection-scan-unavailable>
-                                <button type="button" class="btn btn-ghost min-h-11 w-full justify-start rounded-none px-0 text-sm disabled:opacity-100 disabled:text-muted" disabled aria-describedby="detection-scan-unavailable-reason">
-                                    <span class="min-w-0 text-left wrap-anywhere">{$_('detection.bird_scan.action', { default: 'Find more birds' })}</span>
-                                </button>
-                                <p id="detection-scan-unavailable-reason" class="text-xs text-muted">{scanStandingReason}</p>
+                        {#if scanStandingText}
+                            <!-- Not a control while it cannot run: its name and the reason, read in order. -->
+                            <li class="px-3 py-2 text-sm" data-detection-scan-unavailable>
+                                <p class="font-semibold text-muted">{$_('detection.bird_scan.action', { default: 'Find more birds' })}</p>
+                                <p class="text-xs text-muted">{scanStandingText}</p>
                             </li>
                         {/if}
                         {#if detection.scientific_name}
@@ -2039,6 +2043,9 @@
                         </li>
                     </ul>
                 {/if}
+                <!-- Always present for an owner, so a reason that comes or goes is announced; it says why
+                     the finder is not under the photograph, after the identification it would follow. -->
+                <p class={scanStandingText ? 'text-xs text-muted' : 'sr-only'} role="status" aria-live="polite" data-detection-scan-standing>{#if scanStandingText}<span class="font-semibold text-ink">{$_('detection.bird_scan.action', { default: 'Find more birds' })}:</span> {scanStandingText}{/if}</p>
             {/if}
 
             {#if domesticMatch?.declared}
@@ -2193,7 +2200,9 @@
                             <svg class="h-3.5 w-3.5 shrink-0 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 15a4 4 0 004 4h9a4 4 0 100-8h-1a5 5 0 10-9 4H7a4 4 0 00-4 4z" /></svg>
                             {$_('detection.fact_conditions', { default: 'Conditions' })}
                         </dt>
-                        <dd class="min-w-0 max-w-full text-right font-medium text-strong">
+                        <!-- Too long for the label's line, so it is a column under the label's words: level
+                             with them, not ragged at the right edge. -->
+                        <dd class="w-full min-w-0 pl-5.5 text-left font-medium text-strong">
                             {weatherSummary}
                         </dd>
                     </div>
@@ -2304,7 +2313,8 @@
                 {/key}
             {/if}
 
-            {#key detection.frigate_event}
+            <!-- One panel per identification: a new species starts its AI note afresh. -->
+            {#key recordClassificationKey(detection)}
                 <RecordAiAnalysis {detection} {llmReady} {readOnly} />
             {/key}
 
