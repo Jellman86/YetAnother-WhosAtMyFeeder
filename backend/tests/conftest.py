@@ -29,6 +29,7 @@ from tests.pure_lane import PURE_ONLY_SESSION, is_pure_test
 pytest_plugins = ("pytester",)
 
 BACKEND_DIR = Path(__file__).parent.parent.resolve()
+_REAL_SQLITE_CONNECT = sqlite3.connect
 
 _suite_dir: Path | None = None
 _history_template: Path | None = None
@@ -291,8 +292,11 @@ def restore_media_storage_availability():
 def forget_sealed_daily_totals():
     """A test that seals a day in the shared history (cleanup, or Frigate losing an event) must not
     change what every later test counts on that day: a sealed day is read from its totals only."""
+    shared_history = os.environ["DB_PATH"]
     yield
-    with closing(sqlite3.connect(os.environ["DB_PATH"], timeout=10)) as db:
+    # The real connect, captured at import: some tests replace sqlite3.connect to prove they do no I/O,
+    # and monkeypatch is undone only after this teardown.
+    with closing(_REAL_SQLITE_CONNECT(shared_history, timeout=10)) as db:
         tables = {row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
         if {"species_daily_totals", "daily_totals_days"} <= tables:
             db.execute("DELETE FROM species_daily_totals")
