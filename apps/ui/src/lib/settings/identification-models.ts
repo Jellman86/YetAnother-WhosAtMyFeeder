@@ -100,6 +100,16 @@ export function identificationModelName(
     return { name: translate(`settings.models.purpose.${id}`, { default: purpose }), technical };
 }
 
+/**
+ * The same two names on one line, for a select option or a sentence: "Birds of your region, quick
+ * (Small Birds)". Every surface that names a model uses this or `identificationModelName`, so a
+ * model is never called one thing in Settings and another in Model evaluation.
+ */
+export function identificationModelLabel(model: { id: string; name?: string | null }, translate: Translate): string {
+    const names = identificationModelName(model, translate);
+    return names.technical ? `${names.name} (${names.technical})` : names.name;
+}
+
 function sizeText(megabytes: number, translate: Translate): string {
     if (megabytes >= 1000) {
         return translate('settings.models.size_gb', { default: '{size} GB', values: { size: (megabytes / 1000).toFixed(1) } });

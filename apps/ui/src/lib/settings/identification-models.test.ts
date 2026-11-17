@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import type { ClassifierStatus, ModelMetadata } from '../api/classifier';
 import {
+    identificationModelLabel,
     identificationModelName,
     identificationStatus,
     modelFactsLine,
@@ -131,6 +132,22 @@ describe('identificationModelName', () => {
 
     it('falls back to the catalogue name for a model it has no purpose name for', () => {
         expect(identificationModelName({ id: 'brand_new', name: 'Brand New Net' }, translate)).toEqual({ name: 'Brand New Net', technical: null });
+    });
+});
+
+describe('identificationModelLabel', () => {
+    it('writes the purpose name with the technical name after it, as one line', () => {
+        expect(identificationModelLabel({ id: 'eva02_large_inat21', name: 'EVA-02 Large (Elite Accuracy)' }, translate)).toBe(
+            'Birds and wildlife, most accurate (EVA-02 Large)'
+        );
+    });
+
+    it('is the catalogue name alone for a model without a purpose name', () => {
+        expect(identificationModelLabel({ id: 'bird_crop_detector', name: 'Bird Crop Detector' }, translate)).toBe('Bird Crop Detector');
+    });
+
+    it('is the identifier when the catalogue has not been read, so a row is never unnamed', () => {
+        expect(identificationModelLabel({ id: 'brand_new' }, translate)).toBe('brand_new');
     });
 });
 
