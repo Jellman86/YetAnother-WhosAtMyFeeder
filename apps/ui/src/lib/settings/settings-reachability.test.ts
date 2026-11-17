@@ -60,7 +60,13 @@ const MOVED: Readonly<Record<string, SettingsPart>> = {
     // Garden's automatic naming and its threshold sit in the naming card, beside the birds' threshold.
     garden_automatic_naming: 'detection',
     garden_naming_threshold: 'detection',
-    'garden-naming-threshold': 'detection'
+    'garden-naming-threshold': 'detection',
+    // Garden's alerts send through the bird alert channels, so they are set in Alerts.
+    garden_notifications_enabled: 'notifications',
+    garden_notifications_use_bird_channels: 'notifications',
+    garden_notification_channels: 'notifications',
+    garden_notifications_include_photo: 'notifications',
+    'garden-section-alerts': 'notifications'
 };
 
 /**

@@ -326,7 +326,9 @@
     "title": "その他のオプション",
     "cameras": "Frigate の詳細、画像の取得元、クリップ、BirdNET-Go",
     "sharing": "eBird、iNaturalist、BirdWeather、Home Assistant の天気、種の情報、AI、テレメトリー",
-    "identification": "ブロックした種、分布域フィルター、動画チェック、ハードウェア、ベータ機能"
+    "identification": "ブロックした種、分布域フィルター、動画チェック、ハードウェア、ベータ機能",
+    "alerts": "待機時間、言語、リンク、種のフィルター",
+    "alerts_garden": "待機時間、言語、リンク、種のフィルター、庭の動物のアラート"
   },
   "debug": {
     "llm_prompts_title": "LLMプロンプトテンプレート",
@@ -989,10 +991,10 @@
       "status_after_apply": "庭をオンにして保存すると、配信状況がここに表示されます。",
       "refresh": "送信状況を更新"
     },
-    "garden_elsewhere": "庭の動物の通知は、ベータ機能の「庭の動物」で設定します。上のチャネルから送信されます。",
-    "garden_open": "庭の通知を開く",
     "link_open_connection": "接続を開く",
     "channels_title": "チャンネル",
+    "details_title": "間隔、言語、リンク、種",
+    "garden_title": "庭の動物のアラート",
     "channels_desc": "通知の送信先です。チャンネルをオンにすると設定できます。"
   },
   "discord": {
@@ -1548,6 +1550,7 @@
     "garden_motion_toggle": "{camera} で確認用の動体写真を収集",
     "garden_naming_off": "すべての動物は、確定して名前を付けるまで「要確認」で待機します。",
     "garden_naming_elsewhere": "自動の命名は、「鳥の識別」の先頭にある鳥の識別のしきい値と一緒に設定します。",
+    "garden_alerts_elsewhere": "庭の動物のアラートは「アラート」で、送信に使うチャンネルと一緒に設定します。",
     "garden_naming_threshold_help": "これはどの動物かを判断する 2 つ目のチェックです。この値以上なら動物が確定し名前が付きます。未満なら写真は「除外済み」に移り、そこから元に戻せます。",
     "garden_naming_threshold": "どの動物かこの確信度に達したら名前を付ける",
     "garden_naming": "動物に自動で名前を付ける",
@@ -1594,7 +1597,7 @@
     "garden_cameras_open": "接続でカメラを選ぶ",
     "garden_alerts_on": "庭の通知はオンです。「通知」で通知先と一緒に設定します。",
     "garden_alerts_off": "庭の通知はオフです。「通知」で通知先と一緒にオンにします。",
-    "garden_alerts_open": "通知を設定",
+    "garden_alerts_open": "庭のアラートを開く",
     "garden_domestic_birds": "飼っている家禽",
     "garden_domestic_birds_help": "飼っている鳥だけに使います。鳥モデルは野生種しか知らないため、ニワトリをセキショクヤケイと判定します。ここに追加した鳥は野鳥ではなく庭の動物として記録され、eBird、BirdWeather、iNaturalist には送信されません。",
     "garden_domestic_birds_wild": "追加するまでは何も家禽として扱われません。マガモ、ハイイロガン、野生のシチメンチョウ、カワラバトは野生にもいるため、追加後はすべてのカメラであなたの鳥として記録されます。",
@@ -1623,7 +1626,6 @@
     "garden_section_cameras": "カメラ",
     "garden_section_checks": "自動チェック",
     "garden_section_models": "モデル",
-    "garden_section_alerts": "通知",
     "garden_naming_help": "命名しきい値に達した動物は確認され、名前が付けられます。しきい値未満の写真は「却下」に移り、そこで元に戻せます。",
     "garden_device_note": "自動チェックは、設定 › モデル › ハードウェア で選んだデバイスが CPU と一致すればそれを使い、失敗すると CPU に戻ります。動きのスキャンは CPU を使います。庭は鳥とカメラが空いている間に一度に 1 つずつ処理します。",
     "garden_status_refresh": "状態を更新",
@@ -1643,7 +1645,6 @@
     "garden_fact_unreadable": "読み取れませんでした。更新して再試行してください。",
     "garden_fact_saved_crops": "保存した切り抜き",
     "garden_fact_saved_crops_value": "{count, plural, other {#件}} / {limit, number}",
-    "garden_channels_open": "通知でチャネルを設定",
     "garden_sentence_blocked_model": "まだチェックはありません: 庭のモデルがダウンロードされていません。",
     "garden_sentence_blocked_camera": "まだチェックはありません: 庭の動物を見ているカメラがありません。",
     "garden_sentence_no_check": "まだチェックは実行されていません。",

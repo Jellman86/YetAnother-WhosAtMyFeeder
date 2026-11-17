@@ -529,26 +529,28 @@ const notificationStatus = {
 const gardenNotifications: GardenHandler = (route, path) => path === '/api/garden/notifications'
     ? route.fulfill({ json: notificationStatus }) : undefined;
 
-/** Garden alerts are set in the Garden card, in its Alerts section. */
+/** Garden alerts are set in Alerts, under More options, beside the channels they send through. */
 async function openGardenAlerts(page: Page): Promise<void> {
-    await openBeta(page);
-    await openSection(page, 'Alerts');
+    await page.getByRole('link', { name: 'Alerts', exact: true }).click();
+    await openMoreOptions(page);
     await expect(page.locator('[data-garden-notifications]')).toBeVisible();
 }
 
-test('Garden alerts are set in the Garden card; Notifications links to them and keeps the channels', async ({ page }) => {
+test('Garden alerts are set in Alerts, marked Beta, and the Garden card links to them', async ({ page }) => {
     await openSettings(page, { garden_cameras: ['patio'] }, ['patio'], gardenNotifications);
-    await page.getByRole('link', { name: 'Alerts', exact: true }).click();
+    await openBeta(page);
     await expect(page.getByRole('switch', { name: 'Send Garden alerts' })).toHaveCount(0);
-    await expect(page.locator('[data-garden-alerts-elsewhere]')).toContainText('in Beta features');
+    await expect(page.locator('[data-garden-alerts-elsewhere]')).toContainText('set in Alerts');
     await page.getByRole('button', { name: 'Open Garden alerts', exact: true }).click();
-    await expect(page.getByRole('link', { name: 'Identifying birds', exact: true })).toHaveAttribute('aria-current', 'page');
-    const alerts = page.getByRole('heading', { name: 'Alerts' }).getByRole('button');
-    await expect(alerts).toHaveAttribute('aria-expanded', 'true');
-    await expect(alerts).toContainText('Off');
-    await expect(page.getByRole('switch', { name: 'Send Garden alerts' })).toHaveAttribute('aria-checked', 'false');
-    await page.getByRole('button', { name: 'Set up channels in Notifications' }).click();
     await expect(page.getByRole('link', { name: 'Alerts', exact: true })).toHaveAttribute('aria-current', 'page');
+    const alerts = page.locator('[data-garden-alerts]');
+    await expect(alerts).toBeVisible();
+    await expect(alerts).toContainText('Beta');
+    const send = page.getByRole('switch', { name: 'Send Garden alerts' });
+    await expect(send).toHaveAttribute('aria-checked', 'false');
+    await expect(send).toBeFocused();
+    // The channels they send through are on the same page, above.
+    await expect(page.locator('#notification-channels')).toBeVisible();
 });
 
 test('Garden alerts follow the enabled bird channels by default, attach the photo and report saved attempts', async ({ page }) => {
@@ -678,10 +680,10 @@ test('switching Garden on reveals its sections and the setup it still needs', as
 
     await expect(page.locator('[data-garden-beta-off-note]')).toHaveCount(0);
     const headings = page.locator('[data-garden-beta-settings] h3');
-    await expect(headings).toHaveText(['Still to set up', 'Cameras', 'Automatic checks', 'Models', 'Domestic birds you keep None', 'Alerts Off', 'Where captures go']);
+    await expect(headings).toHaveText(['Still to set up', 'Cameras', 'Automatic checks', 'Models', 'Domestic birds you keep None', 'Where captures go']);
     const expanded = page.locator('[data-beta-section] h3 button');
-    await expect(expanded).toHaveCount(6);
-    expect(await expanded.evaluateAll(buttons => buttons.map(button => button.getAttribute('aria-expanded')))).toEqual(['true', 'true', 'false', 'false', 'false', 'false']);
+    await expect(expanded).toHaveCount(5);
+    expect(await expanded.evaluateAll(buttons => buttons.map(button => button.getAttribute('aria-expanded')))).toEqual(['true', 'true', 'false', 'false', 'false']);
 
     await expect(page.locator('[data-beta-status]')).toHaveText('On after you save · no camera chosen');
     await expect(page.locator('[data-beta-status]')).toHaveAttribute('data-beta-status', 'attention');
@@ -748,14 +750,14 @@ test('the Garden switch works from the keyboard and reports its state', async ({
 test('a collapsible section opens and closes from the keyboard', async ({ page }) => {
     await openSettings(page);
     await openBeta(page);
-    const alerts = page.getByRole('heading', { name: 'Alerts' }).getByRole('button');
-    await alerts.focus();
+    const domestic = page.locator('#garden-section-domestic-toggle');
+    await domestic.focus();
     await page.keyboard.press('Enter');
-    await expect(alerts).toHaveAttribute('aria-expanded', 'true');
-    await expect(page.locator('[data-garden-notifications]')).toBeVisible();
+    await expect(domestic).toHaveAttribute('aria-expanded', 'true');
+    await expect(page.locator('#garden-section-domestic-panel')).toBeVisible();
     await page.keyboard.press('Space');
-    await expect(alerts).toHaveAttribute('aria-expanded', 'false');
-    await expect(page.locator('[data-garden-notifications]')).toBeHidden();
+    await expect(domestic).toHaveAttribute('aria-expanded', 'false');
+    await expect(page.locator('#garden-section-domestic-panel')).toBeHidden();
 });
 
 test('the camera selector in Connection follows the staged Garden switch and keeps Garden cameras', async ({ page }) => {

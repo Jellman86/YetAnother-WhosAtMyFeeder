@@ -699,9 +699,9 @@ person to confirm presence. Manual confirmation remains available as an override
 
 ## Send Garden notifications
 
-Garden alerts are off by default and are set in **Settings → Identifying birds → More
-options → Garden animals → Alerts**, with the rest of Garden. **Settings → Alerts** links there while the
-beta is on, and is where the channels themselves are set up.
+Garden alerts are off by default and are set in **Settings → Alerts → More options → Garden animal
+alerts**, marked Beta, beside the channels themselves. The Garden card links there while the beta
+is on.
 
 1. Turn on **Send Garden alerts**.
 2. Under **Send Garden alerts to**, keep **Use my bird channels** to send on

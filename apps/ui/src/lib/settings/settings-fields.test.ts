@@ -23,8 +23,8 @@ describe('where a saved setting lives', () => {
         expect(settingsFieldPart('frigate_url')).toBe('connection');
         expect(settingsFieldPart('mqtt_port')).toBe('connection');
         expect(settingsFieldPart('notifications_discord_webhook_url')).toBe('notifications');
-        // Garden's alerts are set with the rest of Garden.
-        expect(settingsFieldPart('garden_notifications_enabled')).toBe('beta');
+        // Garden's alerts send through the bird alert channels, so they are set in Alerts.
+        expect(settingsFieldPart('garden_notifications_enabled')).toBe('notifications');
         expect(settingsFieldPart('garden_cameras')).toBe('connection');
         // Garden's naming threshold is set in the naming card, beside the birds' one.
         expect(settingsFieldPart('garden_naming_threshold')).toBe('detection');

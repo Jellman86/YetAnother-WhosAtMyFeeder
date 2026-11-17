@@ -326,7 +326,9 @@
     "title": "Weitere Optionen",
     "cameras": "Frigate-Details, Bildquelle, Clips und BirdNET-Go",
     "sharing": "eBird, iNaturalist, BirdWeather, Home-Assistant-Wetter, Arteninformationen, KI und Telemetrie",
-    "identification": "Blockierte Arten, Verbreitungsfilter, Videoprüfungen, Hardware und Beta-Funktionen"
+    "identification": "Blockierte Arten, Verbreitungsfilter, Videoprüfungen, Hardware und Beta-Funktionen",
+    "alerts": "Abkühlzeit, Sprache, Link und Artenfilter",
+    "alerts_garden": "Abkühlzeit, Sprache, Link, Artenfilter und Benachrichtigungen zu Gartentieren"
   },
   "debug": {
     "llm_prompts_title": "LLM-Promptvorlagen",
@@ -989,10 +991,10 @@
       "status_after_apply": "Der Zustellstatus erscheint, sobald der Garten eingeschaltet und gespeichert ist.",
       "refresh": "Zustellstatus aktualisieren"
     },
-    "garden_elsewhere": "Benachrichtigungen zu Gartentieren werden bei den Gartentieren unter Beta-Funktionen eingestellt. Sie werden über die Kanäle oben gesendet.",
-    "garden_open": "Gartentier-Benachrichtigungen öffnen",
     "link_open_connection": "Verbindung öffnen",
     "channels_title": "Kanäle",
+    "details_title": "Abstand, Sprache, Links und Arten",
+    "garden_title": "Benachrichtigungen zu Gartentieren",
     "channels_desc": "Wohin Benachrichtigungen gehen. Schalten Sie einen Kanal ein, um ihn einzurichten."
   },
   "discord": {
@@ -1548,6 +1550,7 @@
     "garden_motion_toggle": "Bewegungsfotos zur Prüfung sammeln auf {camera}",
     "garden_naming_off": "Jedes Tier wartet unter Zu prüfen, bis Sie es bestätigen und benennen.",
     "garden_naming_elsewhere": "Die automatische Benennung wird mit der Benennungsschwelle der Vögel eingestellt, oben unter Vögel bestimmen.",
+    "garden_alerts_elsewhere": "Benachrichtigungen zu Gartentieren werden unter Benachrichtigungen eingestellt, bei den Kanälen, über die sie gesendet werden.",
     "garden_naming_threshold_help": "Dies ist eine zweite Prüfung, welches Tier es ist. Ab diesem Wert wird das Tier für Sie bestätigt und benannt. Darunter kommt sein Foto zu Verworfen, wo Sie es wiederherstellen können.",
     "garden_naming_threshold": "Ein Tier benennen, wenn so sicher, welches es ist",
     "garden_naming": "Tiere automatisch benennen",
@@ -1594,7 +1597,7 @@
     "garden_cameras_open": "Kameras unter Verbindung wählen",
     "garden_alerts_on": "Gartenmeldungen sind an. Sie werden unter Benachrichtigungen mit ihren Kanälen eingerichtet.",
     "garden_alerts_off": "Gartenmeldungen sind aus. Schalten Sie sie unter Benachrichtigungen mit ihren Kanälen ein.",
-    "garden_alerts_open": "Meldungen einrichten",
+    "garden_alerts_open": "Benachrichtigungen zu Gartentieren öffnen",
     "garden_domestic_birds": "Gehaltene Hausvögel",
     "garden_domestic_birds_help": "Nur für Vögel, die Sie halten. Das Vogelmodell kennt nur Wildarten und bestimmt ein Huhn deshalb als Bankivahuhn. Hier hinzugefügte Vögel werden als Gartentiere und nicht als Wildvögel erfasst und nie an eBird, BirdWeather oder iNaturalist gesendet.",
     "garden_domestic_birds_wild": "Nichts gilt als Hausvogel, bevor Sie es hinzufügen. Stockenten, Graugänse, Wildtruthühner und Felsentauben leben auch wild und werden danach auf jeder Kamera als Ihre Vögel erfasst.",
@@ -1623,7 +1626,6 @@
     "garden_section_cameras": "Kameras",
     "garden_section_checks": "Automatische Prüfungen",
     "garden_section_models": "Modelle",
-    "garden_section_alerts": "Meldungen",
     "garden_naming_help": "Tiere, die die Benennungsschwelle erreichen, werden bestätigt und benannt. Fotos darunter kommen zu Verworfen, wo Sie sie wiederherstellen können.",
     "garden_device_note": "Automatische Prüfungen nutzen das unter Einstellungen › Modelle › Hardware gewählte Gerät, sobald es mit der CPU übereinstimmt, und fallen bei einem Fehler auf die CPU zurück. Bewegungsscans nutzen die CPU. Der Garten führt jeweils eine Aufgabe aus, während Vögel und Kameras ruhen.",
     "garden_status_refresh": "Status aktualisieren",
@@ -1643,7 +1645,6 @@
     "garden_fact_unreadable": "Konnte nicht gelesen werden. Aktualisieren Sie, um es erneut zu versuchen.",
     "garden_fact_saved_crops": "Gespeicherte Ausschnitte",
     "garden_fact_saved_crops_value": "{count, plural, one {# Ausschnitt} other {# Ausschnitte}} von {limit, number}",
-    "garden_channels_open": "Kanäle unter Benachrichtigungen einrichten",
     "garden_sentence_blocked_model": "Noch keine Prüfung: Das Gartenmodell ist nicht heruntergeladen.",
     "garden_sentence_blocked_camera": "Noch keine Prüfung: Keine Kamera achtet auf Gartentiere.",
     "garden_sentence_no_check": "Es wurde noch keine Prüfung ausgeführt.",
