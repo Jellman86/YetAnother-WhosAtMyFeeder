@@ -27,6 +27,9 @@
    tightens its chrome there so the step has room and the actions stay in view. In px, like the
    breakpoints below, so a larger text size does not change which screens count as short. */
 @custom-variant short (@media (max-height: 640px));
+/* A desktop window that is wide but not tall (1920 × 900, 1440 × 800): the sidebar's wordmark sits
+   beside the mark instead of under it, so every place in the navigation and the way to Health fit. */
+@custom-variant compact-height (@media (max-height: 900px));
 
 @theme {
   /* Breakpoints stay in px, so a reader's larger text size never moves a layout to its phone

@@ -276,7 +276,7 @@ them.
 | Large phone, small tablet | 600 to 768 px | Still one column for reading; grids take a second column where a card keeps its shape. Filters stay in a sheet. |
 | Tablet, small laptop | 1024 px | The sidebar is docked. Explorer's filter rail is docked from here; below it the filters are a sheet. |
 | Desktop | 1280 to 1440 px | Secondary content (standing figures, reference, history) moves to a side column; charts and tables take the full width of the page. |
-| Wide | 1920 to 2560 px | Grids add columns rather than widening cards. Content-heavy pages fill about 70% or more of the window. Past 1920 px the page container (`max-w-shell`, 104 rem) stops growing and is centred with gutters. |
+| Wide | 1920 to 2560 px | Grids add columns rather than widening cards. Content-heavy pages fill about 70% or more of the window. Past 1920 px the page container (`max-w-shell`, 104 rem) stops growing and is centred with gutters; with the sidebar collapsed it already binds at 1920 px, centred with gutters of about 90 px. |
 
 What holds in every band:
 
@@ -288,8 +288,10 @@ What holds in every band:
   and About's pipeline do.
 - **Short screens:** a phone or small tablet held sideways (up to 640 px tall, the `short` variant)
   tightens dialog chrome so the actions stay in view. On a desktop window that is wide but not tall
-  (1920 × 900, 1440 × 800) every place in the sidebar stays in view: System status gives way first
-  and scrolls inside itself.
+  (up to 900 px, the `compact-height` variant: 1920 × 900, 1440 × 800) every place in the sidebar and
+  System status's way to Health stay in view without scrolling: the wordmark sits beside its mark, and
+  the status readings give way inside their card under the pinned Health link. At a much larger text
+  size the places and the status scroll together instead; the controls below never scroll.
 
 Explorer's filter rail orders filters by how often they change. Choices set once and
 left (**Visitors**, **Show**) are compact switches that explain only the chosen option
