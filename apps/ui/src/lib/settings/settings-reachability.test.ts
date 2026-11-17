@@ -1,184 +1,145 @@
 import { describe, expect, it } from 'vitest';
 import before from './settings-reachability.before.json';
+import { analyseSettings, type ControlPath } from './settings-reachability.analysis';
 import { canonicalSettingsPath, settingsPartPath, settingsSectionFromRoute, settingsSectionOfPart, type SettingsPart, type SettingsSection } from './settings-route';
 import { settingsFieldPart, settingsFieldSection } from './settings-fields';
 
-// Settings as it was before it was organised by task, frozen in settings-reachability.before.json:
-// every former tab, the components it mounted with the props each received, the element ids those
-// components rendered, and the tab that showed each saved field. This proves each is still
-// reachable from the section the former tab now opens. A setting that moves on purpose is named in
-// MOVED, so nothing is lost or renamed silently.
+// Settings as it was before it was organised by task, frozen in settings-reachability.before.json
+// from the twelve-tab page on dev:
+// - every control the page could render, at any depth, with the tab that rendered it and the
+//   saved-settings payload entries it wrote (settings-reachability.analysis.ts follows each one
+//   through every binding and callback up to the host's payload);
+// - every literal element id, with the tab that rendered it;
+// - the tab that showed each saved field.
+// This proves each is still reachable, and still saves, from the section its tab moved to.
+// Something moved on purpose is named in MOVED, so nothing is lost or renamed silently.
+//
+// The frozen controls and ids were written by running analyseSettings() over a checkout of dev at
+// dd5c1fa3f, the last twelve-tab page. They are never regenerated from a later page: a change that
+// moves or retires something on purpose names it in MOVED instead.
 
-interface FormerTab {
-    components: Record<string, string[]>;
-    ids: string[];
+interface Frozen {
+    controls: ControlPath[];
+    ids: Record<string, string[]>;
+    savedFields: Record<string, SettingsPart>;
 }
-const formerTabs = before.tabs as Record<SettingsPart, FormerTab>;
-const formerHomes = before.savedFields as Record<string, SettingsPart>;
+const frozen = before as unknown as Frozen;
 
-/** Fields or ids shown somewhere else on purpose, with the part that now shows them. */
+/** Controls, ids or fields shown somewhere else on purpose, with the part that now shows them. */
 const MOVED: Readonly<Record<string, SettingsPart>> = {};
 
-const SECTION_FILES: Readonly<Record<SettingsSection, string>> = {
-    cameras: '../components/settings/sections/CamerasSection.svelte',
-    identification: '../components/settings/sections/IdentificationSection.svelte',
-    alerts: '../components/settings/sections/AlertsSection.svelte',
-    sharing: '../components/settings/sections/SharingSection.svelte',
-    storage: '../components/settings/sections/StorageSection.svelte',
-    display: '../components/settings/sections/DisplaySection.svelte'
-};
+const HOST = '../pages/Settings.svelte';
+const sources = import.meta.glob<string>(['../components/**/*.svelte', '../pages/**/*.svelte', '../components/settings/sections/part-loaders.ts'], {
+    query: '?raw',
+    import: 'default',
+    eager: true
+});
+const current = analyseSettings(sources, HOST);
 
-const sources = import.meta.glob<string>(
-    ['../components/**/*.svelte', '../pages/**/*.svelte', '../components/settings/sections/part-loaders.ts'],
-    { query: '?raw', import: 'default', eager: true }
-);
+const FORMER_TABS: readonly SettingsPart[] = ['connection', 'detection', 'models', 'integrations', 'ai', 'notifications', 'security', 'data', 'maintenance', 'beta', 'appearance', 'accessibility'];
 
-function source(path: string): string {
-    const found = sources[path];
-    if (found === undefined) throw new Error(`No source for ${path}`);
-    return found;
+/** The section a former tab, or a frozen area name, now lives in. */
+function sectionOf(area: string, key?: string): SettingsSection {
+    const moved = key ? MOVED[key] : undefined;
+    return settingsSectionOfPart(moved ?? (area as SettingsPart));
 }
 
-/** `a/b/../c.svelte` written from `from` as a key of `sources`. */
-function resolvePath(from: string, relative: string): string {
-    const parts = from.split('/').slice(0, -1);
-    for (const segment of relative.split('/')) {
-        if (segment === '..') parts.pop();
-        else if (segment !== '.') parts.push(segment);
-    }
-    return parts.join('/');
-}
-
-const loadersSource = source('../components/settings/sections/part-loaders.ts');
-/** Each part loader's name and the component file it imports. */
-const LOADER_FILES: ReadonlyMap<string, string> = new Map(
-    [...loadersSource.matchAll(/export const (load\w+) = lazyComponent\(\(\) => import\('([^']+)'\)\)/g)].map(
-        ([, loader, file]) => [loader, resolvePath('../components/settings/sections/part-loaders.ts', file)]
-    )
-);
-
-function componentFile(name: string): string {
-    const file = [...LOADER_FILES.values()].find((path) => path.endsWith(`/${name}.svelte`));
-    if (!file) throw new Error(`No part loader imports ${name}`);
-    return file;
-}
-
-/** The markup of one part inside its section file, from its wrapper to the next part's. */
-function partMarkup(part: SettingsPart): string {
-    const file = source(SECTION_FILES[settingsSectionOfPart(part)]);
-    const start = file.indexOf(`data-settings-part="${part}"`);
-    if (start < 0) throw new Error(`${part} has no place in its section`);
-    const next = file.indexOf('data-settings-part="', start + 1);
-    return file.slice(start, next < 0 ? undefined : next);
-}
-
-/** The text of the tag starting at `start`, up to its closing `>`, skipping `>` inside braces. */
-function tagAt(text: string, start: number): string {
-    let depth = 0;
-    for (let index = start; index < text.length; index += 1) {
-        const char = text[index];
-        if (char === '{') depth += 1;
-        else if (char === '}') depth -= 1;
-        else if (char === '>' && depth === 0) return text.slice(start, index + 1);
-    }
-    throw new Error('unterminated tag');
-}
-
-/** The props a mounted component receives, by name: `bind:x`, `{x}`, `x={…}` and `x="…"`. */
-function propsOf(tag: string): Set<string> {
-    const names = new Set<string>();
-    for (const [, name] of tag.matchAll(/(?:^|\s)(?:bind:)?([A-Za-z]\w*)(?==|\s|\/?>)/g)) names.add(name);
-    for (const [, name] of tag.matchAll(/(?:^|\s)\{([A-Za-z]\w*)\}/g)) names.add(name);
-    return names;
-}
-
-/** The keys of a LazyRoute's `props={{ … }}` object, with any spread written as `...name`. */
-function propsObjectKeys(tag: string): Set<string> {
-    const body = /props=\{\{([\s\S]*)\}\}/.exec(tag)?.[1] ?? '';
-    const keys = new Set<string>();
-    let depth = 0;
-    let token = '';
-    for (const char of `${body},`) {
-        if ('{(['.includes(char)) depth += 1;
-        if ('})]'.includes(char)) depth -= 1;
-        if (char === ',' && depth === 0) {
-            const entry = token.trim();
-            if (entry) keys.add(entry.startsWith('...') ? entry : (/^(\w+)/.exec(entry)?.[1] ?? entry));
-            token = '';
-            continue;
-        }
-        token += char;
-    }
-    return keys;
-}
-
-/** What a part passes to a component: the props on its tag, or on the LazyRoute that loads it. */
-function propsPassed(part: SettingsPart, component: string): Set<string> | null {
-    const markup = partMarkup(part);
-    const tagStart = markup.search(new RegExp(`<${component}\\b`));
-    if (tagStart >= 0) return propsOf(tagAt(markup, tagStart));
-    const loader = [...LOADER_FILES.entries()].find(([, file]) => file === componentFile(component))?.[0];
-    const lazyStart = loader ? markup.indexOf(`loader={${loader}}`) : -1;
-    if (lazyStart < 0) return null;
-    const routeStart = markup.lastIndexOf('<LazyRoute', lazyStart);
-    return propsObjectKeys(tagAt(markup, routeStart));
-}
-
-/** Every component file a section can render: its part loaders' components and what they import. */
-function sectionTree(section: SettingsSection): string[] {
-    const sectionFile = SECTION_FILES[section];
-    const seen = new Set<string>([sectionFile]);
-    const queue = [...source(sectionFile).matchAll(/\b(load\w+)\b/g)]
-        .map(([, loader]) => LOADER_FILES.get(loader))
-        .filter((file): file is string => Boolean(file));
-    while (queue.length > 0) {
-        const file = queue.pop() as string;
-        if (seen.has(file) || !(file in sources)) continue;
-        seen.add(file);
-        for (const [, relative] of source(file).matchAll(/(?:from|import\()\s*'(\.[^']+\.svelte)'/g)) {
-            queue.push(resolvePath(file, relative));
+/** How many controls write each payload entry in each section; `(no setting)` for none. */
+function countBySectionAndEntry(controls: readonly ControlPath[], areaToSection: (control: ControlPath, area: string) => string): Map<string, number> {
+    const counts = new Map<string, number>();
+    for (const control of controls) {
+        // A control two former tabs both rendered (a shared dialog) counts once in their section.
+        for (const section of new Set(control.areas.map((area) => areaToSection(control, area)))) {
+            for (const entry of control.entries.length > 0 ? control.entries : ['(no setting)']) {
+                const key = `${section} | ${entry}`;
+                counts.set(key, (counts.get(key) ?? 0) + 1);
+            }
         }
     }
-    return [...seen];
+    return counts;
 }
 
-describe('every former Settings tab', () => {
-    it('is frozen with what it held, so the comparison has something to prove', () => {
-        expect(Object.keys(formerTabs)).toHaveLength(12);
-        expect(Object.values(formerTabs).reduce((count, tab) => count + tab.ids.length, 0)).toBeGreaterThan(150);
-        expect(Object.keys(formerHomes).length).toBeGreaterThan(190);
+describe('the frozen twelve-tab page', () => {
+    it('holds enough to prove something: controls at every depth, ids, and every saved field', () => {
+        expect(frozen.controls.length).toBeGreaterThan(150);
+        // Descendant controls a flat listing missed are in it.
+        expect(frozen.controls.find((control) => control.id === 'range-filter-level')?.entries).toEqual(['range_filter_region_level']);
+        expect(frozen.controls.find((control) => control.id === 'recording-frame-delay')?.entries).toEqual(['recording_frame_delay_seconds']);
+        expect(Object.keys(frozen.ids).length).toBeGreaterThan(180);
+        expect(Object.keys(frozen.savedFields).length).toBeGreaterThan(190);
     });
 
-    it.each(Object.keys(formerTabs) as SettingsPart[])('%s: its address opens the section that holds it, at its place', (part) => {
+    it('found a control writing every payload entry the page could edit', () => {
+        const written = new Set(frozen.controls.flatMap((control) => control.entries));
+        // 168 of the 172 payload entries. No control wrote the other four on dev: the media cache's
+        // own retention days, the place a pin lookup fills in (state, country), and the species
+        // information sources, which Integrations only summarised.
+        expect(written.size).toBe(168);
+        for (const unwritten of ['media_cache_retention_days', 'location_state', 'location_country', '...enrichmentSection.encodePatch(enrichmentDraft)']) {
+            expect(written.has(unwritten), unwritten).toBe(false);
+        }
+    });
+});
+
+describe('every former Settings tab', () => {
+    it.each(FORMER_TABS)('%s: its address opens the section that holds it, at its place', (part) => {
         const section = settingsSectionOfPart(part);
         expect(canonicalSettingsPath(`/settings/${part}`, '')).toBe(settingsPartPath(part));
         expect(canonicalSettingsPath('/settings', part)).toBe(settingsPartPath(part));
         expect(settingsSectionFromRoute(`/settings/${part}`)).toBe(section);
         expect(settingsPartPath(part)).toBe(`/settings/${section}#${part}`);
     });
+});
 
-    it.each(Object.keys(formerTabs) as SettingsPart[])('%s: each component it mounted is mounted in its part with every prop it had', (part) => {
+describe('every control the twelve tabs rendered', () => {
+    it('that had an id is still rendered, by the section its tab moved to, and still saves what it saved', () => {
         const problems: string[] = [];
-        for (const [component, props] of Object.entries(formerTabs[part].components)) {
-            const passed = propsPassed(part, component);
-            if (!passed) {
-                problems.push(`${component} is not mounted in the ${part} part`);
+        for (const control of frozen.controls) {
+            if (!control.id) continue;
+            const now = current.controls.filter((candidate) => candidate.id === control.id);
+            if (now.length === 0) {
+                problems.push(`${control.id}: no longer rendered`);
                 continue;
             }
-            for (const prop of props) if (!passed.has(prop)) problems.push(`${component} no longer receives ${prop}`);
+            const sections = new Set(now.flatMap((candidate) => candidate.areas));
+            for (const area of control.areas) {
+                const section = sectionOf(area, control.id);
+                if (!sections.has(section)) problems.push(`${control.id}: not rendered in ${section}`);
+            }
+            const entries = new Set(now.flatMap((candidate) => candidate.entries));
+            for (const entry of control.entries) if (!entries.has(entry)) problems.push(`${control.id}: no longer saves ${entry}`);
         }
         expect(problems).toEqual([]);
     });
 
-    it.each(Object.keys(formerTabs) as SettingsPart[])('%s: every element it rendered is still rendered by its section', (part) => {
-        const tree = sectionTree(settingsSectionOfPart(part)).map(source).join('\n');
-        const lost = formerTabs[part].ids.filter((id) => !MOVED[id] && !tree.includes(`id="${id}"`));
-        expect(lost).toEqual([]);
+    it('is matched, with or without an id: no section has fewer controls saving a setting than its tabs had', () => {
+        const was = countBySectionAndEntry(frozen.controls, (control, area) => sectionOf(area, control.id ?? undefined));
+        const now = countBySectionAndEntry(current.controls, (_control, area) => area);
+        const fewer = [...was].filter(([key, count]) => (now.get(key) ?? 0) < count).map(([key, count]) => `${key}: ${count} -> ${now.get(key) ?? 0}`);
+        expect(fewer).toEqual([]);
+    });
+});
+
+describe('every element id the twelve tabs rendered', () => {
+    it('is still rendered by the section its tab moved to', () => {
+        const problems: string[] = [];
+        for (const [id, areas] of Object.entries(frozen.ids)) {
+            const now = current.ids[id];
+            if (!now) {
+                problems.push(`${id}: no longer rendered`);
+                continue;
+            }
+            for (const area of areas) {
+                const section = sectionOf(area, id);
+                if (!now.includes(section)) problems.push(`${id}: not rendered in ${section}`);
+            }
+        }
+        expect(problems).toEqual([]);
     });
 });
 
 describe('every saved setting', () => {
-    it.each(Object.entries(formerHomes))('%s is shown by the section its former tab moved to', (field, formerPart) => {
+    it.each(Object.entries(frozen.savedFields))('%s is shown by the section its former tab moved to', (field, formerPart) => {
         const part = MOVED[field] ?? formerPart;
         expect(settingsFieldPart(field)).toBe(part);
         expect(settingsFieldSection(field)).toBe(settingsSectionOfPart(part));
