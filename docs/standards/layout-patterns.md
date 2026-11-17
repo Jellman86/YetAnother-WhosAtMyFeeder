@@ -471,7 +471,7 @@ shows grouping, not divergence.
 span bar: day, week, month, total · seen, heard, both
 wall: the leader named, the share bar as its navigation, then a contact sheet of this feeder's own visits
 flagged species: probable misidentifications, named apart for a person to check
-standing band: species, detections, busiest hour, heard or confirmed, rising, most recent
+standing band: species, visits (captures in the all-time view), busiest hour, heard or confirmed, rising, most recent
 rankings (with evidence), then analytics
 ```
 
@@ -480,7 +480,9 @@ species besides the classifier: confirmed by the owner, heard by BirdNET in the 
 camera alone (`leaderboard/evidence.ts`). A trend is claimed only when the history covers the whole
 previous window (`previous_window_complete` from the route); otherwise the page says when records
 start. Rankings count visits (`window_visit_count`, the shared server rule of a 60-second inactivity gap after the latest verified event end,
-with capture time as the fallback), and only the all-time view, which has no visit counts, says detections.
+with capture time as the fallback). Only the all-time view, which has no visit counts, shows the raw total of stored
+photographs, and it calls them captures ([`glossary.md`](glossary.md), Counting): a raw total is never relabelled as visits.
+The Leaderboard's strings still say "detections" until its copy pass; the copy-lint baseline counts them.
 The timeline and the composition chart share one colour per species
 (`leaderboard/species-palette.ts`, validated for colour-blind separation on both surfaces).
 

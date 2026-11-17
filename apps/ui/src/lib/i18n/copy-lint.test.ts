@@ -18,11 +18,12 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { loweredCounts, lowerBaseline, raisedCounts, ruleTotals } from '../../../scripts/copy-baseline.mjs';
 import { authoredLocale } from './authored-locales';
-import { COPY_RULES, GLOSSARY, lintCopy, lintDictionaries, type CopyCounts, type CopyRule } from './copy-lint';
+import { COPY_RULES, GLOSSARY, PROPER_NAMES, THIRD_PARTY_TERMS, lintCopy, lintDictionaries, type CopyCounts, type CopyRule } from './copy-lint';
 import { SUPPORTED_LOCALES } from './locale-partition';
 
 const BASELINE_PATH = join(process.cwd(), 'src/lib/i18n/copy-lint.baseline.json');
 const GLOSSARY_PATH = join(process.cwd(), '../../docs/standards/glossary.md');
+const MODEL_REGISTRY_PATH = join(process.cwd(), '../../backend/app/services/model_manager.py');
 
 function rules(locale: string, key: string, value: string): CopyRule[] {
     return lintCopy(locale, key, value).map((finding) => finding.rule);
@@ -112,9 +113,78 @@ describe('the copy lint', () => {
         expect(rules('en', 'jobs.summary', '{count} models, 3 minutes, 2 hidden, 4 species')).toEqual([]);
     });
 
+    it('leaves a forbidden word alone inside a code span, in another product’s term and in a catalogue name', () => {
+        expect(rules('en', 'setup.cameras.hint', 'Enable motion detection in Frigate for this camera.')).toEqual([]);
+        expect(rules('en', 'setup.cameras.hint', 'Frigate needs object detection on the same stream.')).toEqual([]);
+        expect(rules('en', 'settings.debug.field', 'The <code>detection</code> field holds the Frigate ID.')).toEqual([]);
+        expect(rules('en', 'settings.debug.field', 'Set <code class="x">detections.min_score</code> for each camera.')).toEqual([]);
+        expect(rules('en', 'model_eval.checks.row', 'Bird Crop Detector')).toEqual([]);
+        expect(rules('en', 'model_eval.checks.row', 'Bird Crop Detector Accurate (YOLOX-Tiny)')).toEqual([]);
+    });
+
+    it('still refuses the same words as the app’s own nouns, beside an exempt phrase or not', () => {
+        expect(rules('en', 'setup.cameras.hint', 'Motion detection starts a clip; each detection is then named.')).toEqual(['glossary']);
+        expect(rules('en', 'settings.debug.field', 'The <code>id</code> of this detection')).toEqual(['glossary']);
+        expect(rules('en', 'detection.detector_unavailable', 'Install a crop detector to find additional birds.')).toEqual(['glossary']);
+        expect(rules('en', 'audio.hidden', 'Audio detection hidden.')).toEqual(['glossary']);
+    });
+
+    it('gives every third-party term the product that owns it', () => {
+        expect(THIRD_PARTY_TERMS.filter((entry) => !/^(?:Frigate|BirdNET-Go)\b.{10,}/.test(entry.owner))).toEqual([]);
+    });
+
+    it('keeps every catalogue name in the model registry clear of the glossary rule', () => {
+        const registry = readFileSync(MODEL_REGISTRY_PATH, 'utf8');
+        const names = [...new Set([...registry.matchAll(/"name":\s*"([^"]+)"/g)].map((match) => match[1]))];
+        expect(names.length).toBeGreaterThan(10);
+        expect(names).toContain(PROPER_NAMES[1]);
+        expect(names.filter((name) => rules('en', 'settings.models.name', name).includes('glossary')), 'add the name to PROPER_NAMES in copy-lint.ts').toEqual([]);
+    });
+
+    it('finds the whole errno family, HTTP status lines and exception prefixes through the dictionary gate', () => {
+        const report = lintDictionaries({
+            en: {
+                errors: {
+                    disk: 'Could not save the photo: ENOSPC',
+                    limit: 'HTTP/1.1 429 Too Many Requests',
+                    script: 'ReferenceError: value is not defined',
+                    refused: 'Frigate said EHOSTUNREACH',
+                    python: 'KeyError while reading the model list',
+                    custom: 'ModelLoadException: weights missing',
+                    reason: 'eBird answered 403 Forbidden',
+                    plain: 'Frigate did not answer. Check its address in Settings → Cameras.',
+                    words: 'This page was not found. An error log is kept in Health. EVA-02 is not installed.'
+                }
+            }
+        });
+        expect(report.counts).toEqual({ 'raw-error': { 'en/errors': 7 } });
+        expect(report.lines.filter((line) => line.startsWith('raw-error')).map((line) => line.split(' ')[2])).toEqual([
+            'errors.disk:', 'errors.limit:', 'errors.script:', 'errors.refused:', 'errors.python:', 'errors.custom:', 'errors.reason:'
+        ]);
+    });
+
+    it('finds a status-only notification in each of the nine languages, and not a sentence that explains', () => {
+        const examples: Record<string, [statusOnly: string, explained: string]> = {
+            en: ['Health status: degraded', 'Health needs attention: Frigate has not answered since 08:14.'],
+            de: ['Zustand: Fehler', 'Zustand: Frigate antwortet seit 08:14 nicht mehr.'],
+            es: ['Estado del sistema: degradado', 'Estado: Frigate no responde desde las 08:14.'],
+            fr: ['État du système : dégradé', 'État : Frigate ne répond plus depuis 08:14.'],
+            it: ['Stato del sistema: degradato', 'Stato: Frigate non risponde dalle 08:14.'],
+            pt: ['Estado do sistema: degradado', 'Estado: o Frigate não responde desde as 08:14.'],
+            ru: ['Состояние системы: ошибка', 'Состояние: Frigate не отвечает с 08:14.'],
+            ja: ['システム状態: エラー', 'システム状態: Frigate が 08:14 から応答していません。'],
+            zh: ['系统状态：错误', '系统状态：Frigate 自 08:14 起没有响应。']
+        };
+        expect(Object.keys(examples).sort()).toEqual([...SUPPORTED_LOCALES].sort());
+        for (const [locale, [statusOnly, explained]] of Object.entries(examples)) {
+            expect(rules(locale, 'notifications.system_health_message', statusOnly), `${locale}: ${statusOnly}`).toEqual(['status-only']);
+            expect(rules(locale, 'notifications.system_health_message', explained), `${locale}: ${explained}`).toEqual([]);
+        }
+    });
+
     it('counts per rule and "language/namespace", and reports keys another language lacks', () => {
         const report = lintDictionaries({
-            en: { nav: { explorer: 'Explorer', events: 'Events' }, about: { title: 'About' } },
+            en: { nav: { explorer: 'Explorer', events: 'Go to Events' }, about: { title: 'About' } },
             de: { nav: { explorer: 'Explorer' } }
         });
         expect(report.counts).toEqual({ glossary: { 'en/nav': 1 }, 'missing-key': { 'de/nav': 1, 'de/about': 1 } });
@@ -122,17 +192,71 @@ describe('the copy lint', () => {
     });
 });
 
+/** The words in the last column of each term row under one heading of the glossary document. */
+function forbiddenInGlossary(document: string, heading: string, isTermRow: (firstCell: string) => boolean): string[] {
+    const start = document.indexOf(`\n## ${heading}`);
+    const end = document.indexOf('\n## ', start + 1);
+    return document
+        .slice(start, end === -1 ? undefined : end)
+        .split('\n')
+        .filter((line) => line.startsWith('|'))
+        .map((line) => line.split('|').slice(1, -1).map((cell) => cell.trim()))
+        .filter((cells) => cells.length === 3 && isTermRow(cells[0]))
+        .flatMap((cells) => cells[2].split(',').map((word) => word.trim()).filter(Boolean));
+}
+
 describe('the glossary and the lint', () => {
-    const glossary = readFileSync(GLOSSARY_PATH, 'utf8').replace(/\s+/g, ' ');
+    const document = readFileSync(GLOSSARY_PATH, 'utf8');
+    const listed: Record<string, string[]> = {
+        en: forbiddenInGlossary(document, '1. Terms', (cell) => cell.startsWith('**')),
+        de: forbiddenInGlossary(document, '2. German terms', (cell) => cell !== 'English' && !cell.startsWith('-'))
+    };
+    const context: Record<string, (word: string) => string> = {
+        en: (word) => `Then ${word} is shown here.`,
+        de: (word) => `Hier steht ${word} im Satz.`
+    };
+
+    it('cover the same languages', () => {
+        expect(Object.keys(GLOSSARY).sort()).toEqual(Object.keys(listed).sort());
+    });
 
     for (const [locale, terms] of Object.entries(GLOSSARY)) {
-        it(`agree on every ${locale} term and the words it replaces`, () => {
-            const unlisted = terms
-                .flatMap((entry) => [...entry.use.split(/, | or | oder /), ...entry.avoid])
-                .filter((word) => !glossary.includes(word));
-            expect(unlisted, 'docs/standards/glossary.md must list every word the lint enforces').toEqual([]);
+        const enforced = terms.flatMap((entry) => entry.avoid);
+
+        it(`${locale}: every word the glossary forbids is enforced, and every enforced word is in the glossary`, () => {
+            expect(listed[locale].length).toBeGreaterThan(20);
+            expect([...enforced].sort(), 'the "Not" columns of docs/standards/glossary.md and GLOSSARY in copy-lint.ts must list the same words').toEqual([...listed[locale]].sort());
+            expect(new Set(enforced).size, 'a word belongs to one term').toBe(enforced.length);
+        });
+
+        it(`${locale}: every forbidden word fails in a sentence, and the finding names the term to use`, () => {
+            const passed = terms.flatMap((entry) =>
+                entry.avoid.filter((word) => {
+                    const findings = lintCopy(locale, 'dashboard.note', context[locale](word));
+                    return !findings.some((finding) => finding.rule === 'glossary' && finding.detail.includes(`"${entry.use}"`));
+                })
+            );
+            expect(passed).toEqual([]);
+        });
+
+        it(`${locale}: the term each row keeps is written in the glossary`, () => {
+            const kept = terms.flatMap((entry) => entry.use.split(/, | or | oder /));
+            expect(kept.filter((word) => !document.includes(word))).toEqual([]);
         });
     }
+
+    it('refuses the forbidden words a reviewer found passing', () => {
+        expect(rules('en', 'shortcuts.go_history', 'Open the history page')).toEqual(['glossary']);
+        expect(rules('en', 'detection.score', 'Probability: {score}')).toEqual(['glossary']);
+        expect(rules('en', 'settings.public_access.note', 'An anonymous user sees the last 30 days.')).toEqual(['glossary']);
+        expect(rules('de', 'events.open', 'Datensatz öffnen')).toEqual(['glossary']);
+    });
+
+    it('matches a forbidden word whole, so a longer word or a compound is not mistaken for it', () => {
+        expect(rules('de', 'garden.motion_coverage', 'Vogelerkennung und Kameralast pausieren')).toEqual([]);
+        expect(rules('en', 'settings.auth.note', 'Administration is under Settings.')).toEqual([]);
+        expect(rules('de', 'first_run.admin_username', 'Admin-Benutzername')).toEqual(['glossary']);
+    });
 
     it('gives every exemption a reason', () => {
         const exemptions = Object.values(GLOSSARY).flat().flatMap((entry) => (entry.except ? [entry.except] : []));

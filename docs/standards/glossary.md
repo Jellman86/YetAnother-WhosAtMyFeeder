@@ -15,86 +15,128 @@ not need to.
 ## 1. Terms
 
 Each term says what it means to the owner, then the words it replaces. A word in the "Not" column
-is not wrong English; it is a second name for something that already has one.
+is not wrong English; it is a second name for something that already has one. The "Not" columns
+are exactly the words the copy lint refuses: the test fails if a word is listed here and not
+enforced, or enforced and not listed here.
 
 ### What the feeder records
 
 | Term | What it means to the owner | Not |
 |---|---|---|
 | **visit** | One bird coming to the feeder: everything the camera kept from its arrival until it had been gone for a minute. Visits are what the app counts, lists and ranks. | detection, detections, sighting, sightings |
-| **capture** | One stored photograph from a visit, with its own time and score. A visit has one or more captures. | detection, frame (a frame is one image inside a clip, before anything is stored) |
-| **record** | The page of one capture: its photograph, its identification, its evidence and its actions. "Open the record." | detection, entry, event |
-| **call** | One bird heard by the microphone (BirdNET-Go). Calls are heard, visits are seen. | audio detection, detection |
+| **capture** | One stored photograph from a visit, with its own time and score. A visit has one or more captures. | |
+| **record** | The page of one capture: its photograph, its identification, its evidence and its actions. "Open the record." | |
+| **call** | One bird heard by the microphone (BirdNET-Go). Calls are heard, visits are seen. | |
 | **observation** | Something the owner adds by hand (Add observation) or chooses to send to iNaturalist. Never a camera visit. | |
 | **sighting** | Someone else's report nearby, from eBird. Never this feeder's own visits. | |
-| **detection** | Internal only. It is the database row and the Frigate concept, and it stays in code, logs, API fields and developer docs. In the UI it is a visit, a capture, a record or a call, whichever the sentence is about. | |
-| **event** | Frigate's word for what it sends. Use it only when the sentence is about Frigate ("Frigate no longer has this event"). | |
+
+**Detection is internal only.** It is the database row and the Frigate concept, and it stays in
+code, logs, API fields and developer docs. In the UI it is a visit, a capture, a record or a call,
+whichever the sentence is about; "audio detection" is a call. A frame is one image inside a clip,
+before anything is stored, and is not a capture. "Event" is Frigate's word for what it sends: use
+it only when the sentence is about Frigate ("Frigate no longer has this event").
+
+**Counting.** Two counts exist and they are never interchanged
+([`layout-patterns.md`](layout-patterns.md), Standing):
+
+- **visits** wherever the visit rule has been applied: the Dashboard, Explorer, and the
+  Leaderboard's day, week and month views;
+- **captures** for a raw total of stored photographs, where no visit count exists: the
+  Leaderboard's all-time view, a species' all-time total, storage and retention figures.
+
+A raw total is never relabelled as visits, because several captures can be one visit and the
+figure would overstate the birds. Where both appear together, say both: "161 captures in 123
+visits".
 
 ### Naming birds
 
 | Term | What it means to the owner | Not |
 |---|---|---|
-| **model** | What names the birds: the thing the owner downloads and chooses under Settings › Models. | classifier, classifiers, network, LLM |
+| **model** | What names the birds: the thing the owner downloads and chooses under Settings → Identifying birds. | classifier, classifiers |
 | **naming threshold** | The score a guess must reach before a visit is saved under that species' name. Below it, the visit is kept as Unknown bird. | confidence threshold, species threshold, classification threshold, score threshold, configured threshold |
-| **Unknown bird** | A visit the model could not name with enough confidence. Always these two words, capital U. | Unknown species, Unidentified bird, Unidentified detection, Unidentified visit |
-| **bird finder** | The small model that finds where the birds are in a photograph, so each one can be cropped and named. | crop detector, bird detector, crop model, bird crop detector |
+| **Unknown bird** | A visit the model could not name with enough confidence. Always these two words, capital U. | Unknown species, Unidentified bird, Unidentified visit |
+| **bird finder** | The small model that finds where the birds are in a photograph, so each one can be cropped and named. | crop detector, crop detectors, bird detector, bird detectors, crop model, crop models |
 | **score** | How sure the model was, as a percentage. "Confidence" is acceptable in a sentence ("at least 70 % sure"); the figure itself is a score. | probability, certainty |
-| **AI** | The optional language-model features (AI insights). | LLM |
+| **AI** | The optional language-model features (AI insights). | LLM, LLMs |
 
 A model has two names, and both come from one formatter
 (`identificationModelName` and `identificationModelLabel` in
 `apps/ui/src/lib/settings/identification-models.ts`): the **purpose name** an owner chooses by
 ("Birds of your region, quick") and the **technical name** for comparing with documentation
-("Small Birds"). Models, the first-run wizard, Model evaluation and About all call it, so a model is
-never one thing in Settings and another in its results. The catalogue's bracketed claims ("Elite
-Accuracy") are never shown: a measured evaluation carries the accuracy claim.
+("Small Birds"). The model settings, the first-run wizard, Model evaluation and About all call it,
+so a model is never one thing in Settings and another in its results. The catalogue's bracketed
+claims ("Elite Accuracy") are never shown: a measured evaluation carries the accuracy claim.
 
 ### Places in the app
 
 | Term | What it means to the owner | Not |
 |---|---|---|
-| **Explorer** | The page that lists every visit, with filters. | Events, Go to Events, Events page, history page |
+| **Explorer** | The page that lists every visit, with filters. | Go to Events, Events page, Events tab, history page |
 | **Health** | The page that says whether the feeder is working and what went wrong. | system health, Errors page, Diagnostics page |
-| **Needs your call** | The visits waiting for the owner to decide: confirm, rename or dismiss. One name for the queue, the card and the state. | Needs review, Awaiting review, Pending review, review queue |
-| **Garden animal** | A visitor that is not a wild bird (a squirrel, a hedgehog, a kept hen), recorded by the Garden feature. | Garden wildlife, garden visitor, Garden creature |
+| **Needs your call** | Everything waiting for the owner to decide, of every kind: visits to confirm, rename or dismiss, the species the range check flags, Garden photos to confirm, and any later kind of waiting work. One name for the queue, the card and the state, whatever is in it. | Needs review, Awaiting review, Pending review, review queue |
+| **Garden animal** | A visitor that is not a wild bird (a squirrel, a hedgehog, a kept hen), recorded by the Garden feature. | Garden wildlife, garden visitor, garden visitors, Garden creature, Garden creatures |
 
-A path through the app is written with `›` and the names as the screen shows them:
-"Settings › Models". Not `→`, not `>`, and never a path where a link can be offered instead.
+"Needs your call" is the name of the work, not of one list. A section inside it may say what kind
+of decision it holds ("Needs a check" for flagged species), under that one name.
+
+A path through the app is written with `→` and the names as the screen shows them:
+"Settings → Identifying birds". One separator everywhere, and never a path where a link can be
+offered instead.
 
 ### People
 
 | Term | What it means | Not |
 |---|---|---|
-| **owner** | The person who runs this install and signs in. | admin, administrator, operator, user |
-| **guest** | Anyone viewing without signing in, when public access is on. | visitor (visitors are birds), anonymous user, public user |
+| **owner** | The person who runs this install and signs in. | admin, admins, administrator, administrators, operator, operators |
+| **guest** | Anyone viewing without signing in, when public access is on. | anonymous user, anonymous users, public user, public users |
 
 "You" is the owner. A guest is "guests" in the owner's settings and "you" on the screens a guest
-sees.
+sees. A "visitor" is a bird, never a person.
+
+### Where a forbidden word stays
+
+The glossary names the app's own things. A word from a "Not" column is left alone in three narrow
+cases, each of them listed in `copy-lint.ts`:
+
+- **Inside `<code>`.** An identifier, a setting name or a value is shown literally:
+  `<code>detection</code>` is a field, not a noun the app chose.
+- **Another product's name for its own feature.** Frigate's "motion detection" and "object
+  detection" are what the owner will look for in Frigate, so "Enable motion detection in Frigate"
+  keeps Frigate's words. The list is `THIRD_PARTY_TERMS`; a phrase is added with the product that
+  owns it.
+- **A model's or catalogue entry's proper name**, as the registry spells it ("Bird Crop
+  Detector"). The list is `PROPER_NAMES`, and a test reads the backend registry so a new name that
+  would trip the lint has to be added there.
+
+Two terms are exempt by key: "sighting" where the string is about eBird or a place, and the
+literal default user name "admin" in the sign-in placeholder.
 
 ## 2. German terms
 
-German is a full locale, not a rendering of the English. It uses the same one-term rule.
+German is a full locale, not a rendering of the English. It uses the same one-term rule, and its
+"Nicht" column is enforced the same way.
 
 | English | German | Nicht |
 |---|---|---|
 | visit | Besuch | Erkennung, Erkennungen, Sichtung, Sichtungen |
-| capture | Aufnahme | Erkennung |
-| record | Eintrag | Datensatz |
-| call | Ruf | Audioerkennung |
-| model | Modell | Klassifikator, Klassifizierer |
+| capture | Aufnahme | |
+| record | Eintrag | Datensatz, Datensatzes, Datensätze, Datensätzen |
+| call | Ruf | Audioerkennung, Audioerkennungen |
+| model | Modell | Klassifikator, Klassifikators, Klassifikatoren, Klassifizierer |
 | naming threshold | Benennungsschwelle | Konfidenzschwelle, Konfidenzschwellenwert, Artschwelle, Klassifizierungsschwelle |
-| Unknown bird | Unbekannter Vogel | Unbekannte Art, Unbestimmter Vogel, Unbestimmte Erkennung |
+| Unknown bird | Unbekannter Vogel | Unbekannte Art, Unbestimmter Vogel |
 | bird finder | Vogelfinder | Vogeldetektor, Zuschnittdetektor, Zuschnittmodell, Crop-Detektor |
-| AI | KI | LLM |
-| Explorer | Explorer | Ereignisse, Zu Ereignissen |
+| AI | KI | LLM, LLMs |
+| Explorer | Explorer | Zu Ereignissen, Ereignisseite |
 | Health | Zustand | Systemgesundheit, Systemzustand |
 | Needs your call | Erfordert Ihre Entscheidung | Zu prüfen, Prüfung erforderlich, Prüfwarteschlange |
 | Garden animal | Gartentier | Garten-Wildtier, Gartenbesucher |
-| owner | Besitzer | Eigentümer, Betreiber, Inhaber, Admin, Administrator |
-| guest | Gast | Besucher (Besucher sind Vögel) |
+| owner | Besitzer | Eigentümer, Eigentümers, Betreiber, Betreibers, Inhaber, Admin, Administrator |
+| guest | Gast | |
 
-"Sichtung" stays for eBird reports, as "sighting" does. Compounds that describe the activity rather
-than the counted thing ("Vogelerkennung") are fine.
+"Sichtung" stays for eBird reports, as "sighting" does. A word is matched whole, so a compound that
+describes the activity rather than the counted thing ("Vogelerkennung") is another word. Raw totals
+are "Aufnahmen", as they are "captures" in English. "Besucher" are birds, never people.
 
 ## 3. Form of address
 
@@ -119,7 +161,7 @@ One form per language, in every string.
 - **Label an action by its effect.** "Download and set up", "Hide from history", "Delete 931 visits".
   Not "OK", "Submit" or "Apply".
 - **An error gives a cause and a next step.** "Frigate did not answer. Check its address in
-  Settings › Connection." Never "Something went wrong", never an error code alone, and never the
+  Settings → Connection." Never "Something went wrong", never an error code alone, and never the
   server's or the browser's own sentence. What the server said belongs in a details disclosure,
   quoted as it arrived, under copy that was written for the owner.
 - **A status is not a message.** "Health status: degraded" tells the owner nothing they can act on.
@@ -153,17 +195,17 @@ One form per language, in every string.
 |---|---|
 | `em-dash` | An em dash used as punctuation. |
 | `vague-error` | "Something went wrong", "An error occurred", "Unknown error", "try again later", and each language's equivalents. |
-| `raw-error` | An errno name, an HTTP status line or a JavaScript exception name shown as copy. |
+| `raw-error` | An errno name (`ENOSPC`), an HTTP status line or reason phrase (`HTTP/1.1 429 Too Many Requests`), or an exception's class name (`ReferenceError: …`) shown as copy. |
 | `backend-prose` | A sentence that ends by quoting a raw message (`…: {error}`, `…: {message}`). |
-| `status-only` | A notification that is only a label and a state ("Health status: {status}"). |
-| `glossary` | A word from a "Not" column above, in English or German. |
+| `status-only` | A notification that is only a label and a state ("Health status: {status}", "Zustand: Fehler"), with each language's own state words. |
+| `glossary` | A word from a "Not" or "Nicht" column above, as a whole word, outside the three cases under "Where a forbidden word stays". |
 | `informal-address` | du, dein, euch and their forms in German. |
 | `unit-spacing` | A number or placeholder joined to its unit by an ordinary space. |
 | `missing-key` | A key English has and another language lacks. |
 
-The lint and this page list the same words; the test fails if they drift apart. A word that means
-something else in a few places (a "sighting" in eBird copy, the literal default user name "admin")
-is exempted in `copy-lint.ts` by key, with its reason.
+The lint builds its patterns from the same word lists as the tables above, and the test compares
+the two in both directions: a word in a "Not" column that the lint does not refuse fails, and so
+does a word the lint refuses that no "Not" column lists.
 
 **The baseline is a ratchet.** The app did not start clean, so
 `apps/ui/src/lib/i18n/copy-lint.baseline.json` records how many findings each rule has in each

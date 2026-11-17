@@ -27,15 +27,32 @@ export interface CopyFinding {
 interface GlossaryTerm {
     /** The one word the glossary keeps. */
     use: string;
-    /** The words it replaces, as written in docs/standards/glossary.md. */
+    /** The words it replaces, exactly as the "Not" column of docs/standards/glossary.md lists them. */
     avoid: readonly string[];
+    /** Built from `avoid`, so the lint cannot enforce a word the glossary does not list, or miss one it does. */
     pattern: RegExp;
     /** Keys where the avoided word means something else, with the reason. */
     except?: { keys: RegExp; reason: string };
 }
 
-function term(use: string, avoid: readonly string[], pattern: RegExp, except?: GlossaryTerm['except']): GlossaryTerm {
-    return { use, avoid, pattern, except };
+interface TermOptions {
+    /** Match the capitals as written: "Go to Events" is a page name, "events" is Frigate's word. */
+    exact?: boolean;
+    except?: GlossaryTerm['except'];
+}
+
+function escaped(text: string): string {
+    return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/** The listed words as whole words: a longer word or a German compound that contains one is another word. */
+function wholeWords(words: readonly string[], exact = false): RegExp {
+    const longestFirst = [...words].sort((a, b) => b.length - a.length).map(escaped);
+    return new RegExp(`(?<![\\p{L}\\p{N}])(?:${longestFirst.join('|')})(?![\\p{L}\\p{N}])`, exact ? 'u' : 'iu');
+}
+
+function term(use: string, avoid: readonly string[], options: TermOptions = {}): GlossaryTerm {
+    return { use, avoid, pattern: wholeWords(avoid, options.exact), except: options.except };
 }
 
 /** A sighting is someone else's report, so the word stays where the copy is about eBird or a place. */
@@ -43,75 +60,72 @@ const OTHER_PEOPLES_REPORTS = {
     keys: /ebird|nearby|notable|reference|hotspot|location|inat/i,
     reason: 'a sighting is a report from eBird or another observer, which is what these strings describe'
 };
+const DEFAULT_USER_NAME = {
+    keys: /^auth\.username_placeholder$/,
+    reason: 'the placeholder shows the literal default user name'
+};
 
 /**
- * One entry per glossary term that has words to avoid. The glossary document lists the same words,
- * and copy-lint.test.ts fails when the two disagree.
+ * One entry per glossary row that has words to avoid. The "Not" columns of the glossary document
+ * and these lists are the same sets of words; copy-lint.test.ts fails when they differ either way.
  */
 export const GLOSSARY: Record<string, readonly GlossaryTerm[]> = {
     en: [
-        term('visit, capture or call', ['detection', 'detections'], /\bdetections?\b/i),
-        term('visit', ['sighting', 'sightings'], /\bsightings?\b/i, OTHER_PEOPLES_REPORTS),
-        term(
-            'naming threshold',
-            ['confidence threshold', 'species threshold', 'classification threshold', 'score threshold', 'configured threshold'],
-            /\b(?:confidence|species|classification|score|configured) threshold\b/i
-        ),
-        term(
-            'Unknown bird',
-            ['Unknown species', 'Unidentified bird', 'Unidentified detection', 'Unidentified visit'],
-            /\bunknown species\b|\bunidentified (?:bird|detection|visit)s?\b/i
-        ),
-        term('Health', ['system health', 'Errors page', 'Diagnostics page'], /\bsystem health\b|\b(?:errors|diagnostics) page\b/i),
-        term('Explorer', ['Events', 'Go to Events', 'Events page'], /^Events$|\b(?:[Gg]o to|[Oo]pen|in|on) Events\b|\bEvents (?:page|tab|list)\b/),
-        term('Garden animal', ['Garden wildlife', 'garden visitor', 'Garden creature'], /\bgarden (?:wildlife|visitors?|creatures?)\b/i),
-        term('model', ['classifier', 'classifiers'], /\bclassifiers?\b/i),
-        term(
-            'bird finder',
-            ['crop detector', 'bird detector', 'crop model', 'bird crop detector'],
-            /\b(?:bird |crop )+detectors?\b|\bcrop models?\b/i
-        ),
-        term(
-            'Needs your call',
-            ['Needs review', 'Awaiting review', 'Pending review', 'review queue'],
-            /\b(?:needs|awaiting|pending) review\b|\breview queue\b/i
-        ),
-        term('owner', ['admin', 'administrator'], /\badmin(?:istrator)?s?\b/i, {
-            keys: /^auth\.username_placeholder$/,
-            reason: 'the placeholder shows the literal default user name'
-        }),
-        term('AI', ['LLM'], /\bLLMs?\b/)
+        term('visit, capture or call', ['detection', 'detections']),
+        term('visit', ['sighting', 'sightings'], { except: OTHER_PEOPLES_REPORTS }),
+        term('model', ['classifier', 'classifiers']),
+        term('naming threshold', ['confidence threshold', 'species threshold', 'classification threshold', 'score threshold', 'configured threshold']),
+        term('Unknown bird', ['Unknown species', 'Unidentified bird', 'Unidentified visit']),
+        term('bird finder', ['crop detector', 'crop detectors', 'bird detector', 'bird detectors', 'crop model', 'crop models']),
+        term('score', ['probability', 'certainty']),
+        term('AI', ['LLM', 'LLMs'], { exact: true }),
+        term('Explorer', ['Go to Events', 'Events page', 'Events tab'], { exact: true }),
+        term('Explorer', ['history page']),
+        term('Health', ['system health', 'Errors page', 'Diagnostics page']),
+        term('Needs your call', ['Needs review', 'Awaiting review', 'Pending review', 'review queue']),
+        term('Garden animal', ['Garden wildlife', 'garden visitor', 'garden visitors', 'Garden creature', 'Garden creatures']),
+        term('owner', ['admin', 'admins', 'administrator', 'administrators', 'operator', 'operators'], { except: DEFAULT_USER_NAME }),
+        term('guest', ['anonymous user', 'anonymous users', 'public user', 'public users'])
     ],
     de: [
-        term('Besuch, Aufnahme oder Ruf', ['Erkennung', 'Erkennungen'], /(?<![\p{L}-])Erkennung(?:en)?(?![\p{L}])/u),
-        term('Besuch', ['Sichtung', 'Sichtungen'], /(?<![\p{L}-])Sichtung(?:en)?(?![\p{L}])/u, OTHER_PEOPLES_REPORTS),
-        term(
-            'Benennungsschwelle',
-            ['Konfidenzschwelle', 'Artschwelle', 'Klassifizierungsschwelle', 'Konfidenzschwellenwert'],
-            /Konfidenzschwelle|Artschwelle|Klassifizierungsschwelle/u
-        ),
-        term(
-            'Unbekannter Vogel',
-            ['Unbekannte Art', 'Unbestimmter Vogel', 'Unbestimmte Erkennung'],
-            /Unbekannte[rn]? Art(?![\p{L}])|Unbestimmte[rn]? (?:Vogel|Erkennung|Besuch)/u
-        ),
-        term('Zustand', ['Systemgesundheit', 'Systemzustand'], /System(?:gesundheit|zustand)/u),
-        term('Explorer', ['Ereignisse', 'Zu Ereignissen'], /^Ereignisse$|\bZu(?:r|m)? Ereignissen\b/u),
-        term('Gartentier', ['Garten-Wildtier', 'Gartenbesucher'], /Garten-?[Ww]ildtier|Gartenbesucher/u),
-        term('Modell', ['Klassifikator', 'Klassifizierer'], /Klassifikator|Klassifizierer/u),
-        term('Vogelfinder', ['Vogeldetektor', 'Zuschnittdetektor', 'Zuschnittmodell', 'Crop-Detektor'], /Vogeldetektor|Zuschnitt-?(?:detektor|modell)|Crop-Detektor/u),
-        term(
-            'Erfordert Ihre Entscheidung',
-            ['Zu prüfen', 'Prüfung erforderlich', 'Prüfwarteschlange'],
-            /\bZu prüfen\b|Prüfung erforderlich|Prüfwarteschlange/u
-        ),
-        term('Besitzer', ['Eigentümer', 'Betreiber', 'Inhaber', 'Admin', 'Administrator'], /Eigentümer|Betreiber|(?<![\p{L}])Inhaber|\bAdmin(?:istrator)?/u, {
-            keys: /^auth\.username_placeholder$/,
-            reason: 'the placeholder shows the literal default user name'
-        }),
-        term('KI', ['LLM'], /\bLLMs?\b/)
+        term('Besuch, Aufnahme oder Ruf', ['Erkennung', 'Erkennungen']),
+        term('Besuch', ['Sichtung', 'Sichtungen'], { except: OTHER_PEOPLES_REPORTS }),
+        term('Eintrag', ['Datensatz', 'Datensatzes', 'Datensätze', 'Datensätzen']),
+        term('Ruf', ['Audioerkennung', 'Audioerkennungen']),
+        term('Modell', ['Klassifikator', 'Klassifikators', 'Klassifikatoren', 'Klassifizierer']),
+        term('Benennungsschwelle', ['Konfidenzschwelle', 'Konfidenzschwellenwert', 'Artschwelle', 'Klassifizierungsschwelle']),
+        term('Unbekannter Vogel', ['Unbekannte Art', 'Unbestimmter Vogel']),
+        term('Vogelfinder', ['Vogeldetektor', 'Zuschnittdetektor', 'Zuschnittmodell', 'Crop-Detektor']),
+        term('KI', ['LLM', 'LLMs'], { exact: true }),
+        term('Explorer', ['Zu Ereignissen', 'Ereignisseite'], { exact: true }),
+        term('Zustand', ['Systemgesundheit', 'Systemzustand']),
+        term('Erfordert Ihre Entscheidung', ['Zu prüfen', 'Prüfung erforderlich', 'Prüfwarteschlange']),
+        term('Gartentier', ['Garten-Wildtier', 'Gartenbesucher']),
+        term('Besitzer', ['Eigentümer', 'Eigentümers', 'Betreiber', 'Betreibers', 'Inhaber', 'Admin', 'Administrator'], { except: DEFAULT_USER_NAME })
     ]
 };
+
+/**
+ * Where a forbidden word is not the app's own noun, the glossary rule does not read it. Three
+ * narrow cases, each documented in the glossary:
+ *
+ * - text inside `<code>`: an identifier, a setting name or a value, shown literally;
+ * - a third-party product's own term for its own feature, which the owner will look for under
+ *   that name in that product;
+ * - a model's or a catalogue entry's proper name, as the registry spells it.
+ */
+const CODE_SPAN = /<code\b[^>]*>[\s\S]*?<\/code>/gi;
+export const THIRD_PARTY_TERMS: readonly { term: string; owner: string }[] = [
+    { term: 'motion detection', owner: 'Frigate: the setting that starts a recording' },
+    { term: 'object detection', owner: 'Frigate: the detector that finds a bird in the frame' }
+];
+export const PROPER_NAMES: readonly string[] = ['Bird Crop Detector Accurate', 'Bird Crop Detector'];
+const NOT_OUR_NOUNS = wholeWords([...THIRD_PARTY_TERMS.map((entry) => entry.term), ...PROPER_NAMES]);
+
+/** The string as the glossary rule reads it: without code spans, third-party terms and proper names. */
+function ownWords(value: string): string {
+    return value.replace(CODE_SPAN, ' ').replace(new RegExp(NOT_OUR_NOUNS.source, 'giu'), ' ');
+}
 
 /** Errors that name no cause and no next step, in each language's usual wording. */
 const VAGUE_ERRORS: Record<string, RegExp> = {
@@ -126,15 +140,53 @@ const VAGUE_ERRORS: Record<string, RegExp> = {
     zh: /出了点问题|出错了|发生错误|未知错误|意外错误|请稍后再试/
 };
 
-/** The transport's own words: an errno name, an HTTP status line, a JavaScript exception. */
-const RAW_ERROR =
-    /\bE(?:CONN(?:REFUSED|RESET|ABORTED)|TIMEDOUT|NOTFOUND|ACCES|NOENT|PIPE|HOSTUNREACH|AI_AGAIN)\b|\berrno\b|\bTraceback\b|\b(?:Network|Type|Syntax)Error\b|\bFailed to fetch\b|\bHTTP[ -]?(?:\{\w+\}|[1-5]\d\d)(?!\d)|\b[45]\d\d (?:Bad Request|Unauthorized|Forbidden|Not Found|Internal Server Error|Bad Gateway|Service Unavailable|Gateway Timeout)\b|\bInternal Server Error\b|\bBad Gateway\b|\bGateway Timeout\b|\bstatus code\b/;
+/** The errno names a network, a disk or a process can report (POSIX and Node's resolver). */
+const ERRNO_NAMES =
+    '2BIG ACCES ADDRINUSE ADDRNOTAVAIL AFNOSUPPORT AGAIN AI_AGAIN ALREADY BADF BUSY CANCELED CHILD CONNABORTED CONNREFUSED CONNRESET DEADLK DESTADDRREQ DQUOT EXIST FAULT FBIG HOSTDOWN HOSTUNREACH INPROGRESS INTR INVAL IO ISCONN ISDIR LOOP MFILE MLINK MSGSIZE NAMETOOLONG NETDOWN NETRESET NETUNREACH NFILE NOBUFS NODATA NODEV NOENT NOEXEC NOLCK NOMEM NOSPC NOSYS NOTCONN NOTDIR NOTEMPTY NOTFOUND NOTSOCK NOTSUP NOTTY NXIO OPNOTSUPP OVERFLOW PERM PIPE PROTO PROTONOSUPPORT RANGE ROFS SPIPE SRCH STALE TIMEDOUT TXTBSY WOULDBLOCK XDEV'
+        .split(' ')
+        .join('|');
+const HTTP_REASONS =
+    'Bad Request|Unauthorized|Payment Required|Forbidden|Not Found|Method Not Allowed|Not Acceptable|Request Timeout|Conflict|Gone|Payload Too Large|Unsupported Media Type|Unprocessable (?:Entity|Content)|Too Many Requests|Internal Server Error|Not Implemented|Bad Gateway|Service Unavailable|Gateway Timeout';
+/** The transport's own words: an errno name, an HTTP status line, an exception's class name. */
+const RAW_ERRORS: readonly RegExp[] = [
+    new RegExp(`\\bE(?:${ERRNO_NAMES})\\b`),
+    /\berrno\b/i,
+    /\bTraceback\b/,
+    // An exception class as a runtime prints it: "TypeError", "ReferenceError: x is not defined", "KeyError".
+    /\b[A-Z][A-Za-z]*(?:Error|Exception)\b(?=:)|\b(?:Type|Reference|Syntax|Range|Network|Abort|Key|Value|Runtime|Timeout|Connection|Permission|FileNotFound|OS|IO)Error\b/,
+    /\bFailed to fetch\b/,
+    // A status line or its parts: "HTTP/1.1 429 Too Many Requests", "HTTP 502", "HTTP {status}", "502 Bad Gateway".
+    /\bHTTP\/\d(?:\.\d)?(?![\w.])/,
+    /\bHTTP[ -]?(?:\{\w+\}|[1-5]\d\d)(?!\d)/,
+    new RegExp(`\\b[1-5]\\d\\d (?:${HTTP_REASONS})\\b`),
+    /\b(?:Internal Server Error|Bad Gateway|Gateway Timeout|Service Unavailable|Too Many Requests)\b/,
+    /\bstatus code\b/i
+];
 
 /** A sentence that hands over to whatever the server or an exception said. */
 const BACKEND_PROSE = /[:：]\s*\{(?:error|err|message|msg|detail|details|exception)\}[.。]?$/;
 
-/** "Health status: degraded": a state with no cause, no consequence and nothing to do. */
-const STATUS_ONLY = /^[^{}.!?]{0,40}[:：]\s*(?:\{(?:status|state|level|health|severity)\}|degraded|unhealthy|error|failed|unknown)[.。]?$/i;
+/**
+ * "Health status: degraded": a state with no cause, no consequence and nothing to do. The state
+ * words are each language's own, since a translated notification is as empty as the English one.
+ */
+const STATUS_VALUES: Record<string, readonly string[]> = {
+    en: ['degraded', 'unhealthy', 'healthy', 'error', 'failed', 'unknown', 'ok', 'warning', 'critical'],
+    de: ['beeinträchtigt', 'eingeschränkt', 'fehlerhaft', 'Fehler', 'fehlgeschlagen', 'unbekannt', 'gesund', 'Warnung', 'kritisch'],
+    es: ['degradado', 'error', 'fallido', 'desconocido', 'correcto', 'advertencia', 'crítico'],
+    fr: ['dégradé', 'erreur', 'échec', 'inconnu', 'sain', 'avertissement', 'critique'],
+    it: ['degradato', 'errore', 'non riuscito', 'sconosciuto', 'integro', 'avviso', 'critico'],
+    pt: ['degradado', 'erro', 'falhou', 'desconhecido', 'íntegro', 'aviso', 'crítico'],
+    ru: ['ухудшено', 'ошибка', 'сбой', 'неизвестно', 'в норме', 'предупреждение', 'критично'],
+    ja: ['低下', 'エラー', '失敗', '不明', '正常', '警告', '重大'],
+    zh: ['降级', '错误', '失败', '未知', '正常', '警告', '严重']
+};
+const STATUS_PLACEHOLDER = '\\{(?:status|state|level|health|severity)\\}';
+function statusOnly(locale: string): RegExp {
+    const words = [...new Set([...(STATUS_VALUES[locale] ?? []), ...STATUS_VALUES.en])].map(escaped);
+    return new RegExp(`^[^{}.!?。！？]{0,40}\\s?[:：]\\s*(?:${STATUS_PLACEHOLDER}|${words.join('|')})[.。]?$`, 'iu');
+}
+const STATUS_ONLY: Record<string, RegExp> = Object.fromEntries(Object.keys(STATUS_VALUES).map((locale) => [locale, statusOnly(locale)]));
 const STATUS_NAMESPACES = new Set(['notifications', 'jobs', 'status', 'errors', 'error', 'system_telemetry', 'update_banner', 'telemetry_banner']);
 
 const INFORMAL_GERMAN = /(?<![\p{L}-])(?:du|dich|dir|dein(?:e[mnrs]?)?|euch|euer|eure[mnrs]?)(?![\p{L}-])/iu;
@@ -160,18 +212,19 @@ export function lintCopy(locale: string, key: string, value: string): CopyFindin
     const vague = VAGUE_ERRORS[locale]?.exec(value);
     if (vague) add('vague-error', `"${vague[0]}" names no cause and no next step`);
 
-    const raw = RAW_ERROR.exec(value);
+    const raw = RAW_ERRORS.map((pattern) => pattern.exec(value)).find((found) => found !== null);
     if (raw) add('raw-error', `"${raw[0]}" is the transport's wording; say the cause and the next step`);
 
     if (BACKEND_PROSE.test(value)) add('backend-prose', 'ends by quoting a raw message; word the cause here and keep the raw text in details');
 
-    if (STATUS_NAMESPACES.has(namespaceOf(key)) && STATUS_ONLY.test(value)) {
+    if (STATUS_NAMESPACES.has(namespaceOf(key)) && (STATUS_ONLY[locale] ?? STATUS_ONLY.en).test(value)) {
         add('status-only', 'states a status alone; say what it means and what to do');
     }
 
+    const own = ownWords(value);
     for (const entry of GLOSSARY[locale] ?? []) {
         if (entry.except?.keys.test(key)) continue;
-        const found = entry.pattern.exec(value);
+        const found = entry.pattern.exec(own);
         if (found) add('glossary', `"${found[0]}": the glossary says "${entry.use}"`);
     }
 
