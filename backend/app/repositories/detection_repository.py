@@ -72,6 +72,7 @@ class AIAnalysisRevision:
 _SPECIES_ALIAS_CACHE: dict[tuple[str, str], tuple[float, dict]] = {}
 _SPECIES_ALIAS_CACHE_TTL_SECONDS = 60.0
 _SPECIES_ALIAS_CACHE_MAX_ENTRIES = 512
+_EVENT_LOOKUP_CHUNK = 500  # well under SQLite's bound-variable limit
 
 
 def clear_species_alias_cache() -> None:
@@ -1134,6 +1135,25 @@ class DetectionRepository:
             if row:
                 return _row_to_detection(row)
             return None
+
+    async def get_by_frigate_events(self, frigate_events: Collection[str]) -> dict[str, Detection]:
+        """Many detections by event id in a few bounded queries, keyed by event id; missing ids are absent."""
+        wanted = list(dict.fromkeys(frigate_events))
+        found: dict[str, Detection] = {}
+        for start in range(0, len(wanted), _EVENT_LOOKUP_CHUNK):
+            chunk = wanted[start : start + _EVENT_LOOKUP_CHUNK]
+            placeholders = ",".join("?" for _ in chunk)
+            async with self.db.execute(
+                f"""SELECT {DETECTION_SELECT_COLUMNS}
+                   FROM detections d
+                   LEFT JOIN detection_favorites f ON f.detection_id = d.id
+                   WHERE d.frigate_event IN ({placeholders})""",
+                chunk,
+            ) as cursor:
+                for row in await cursor.fetchall():
+                    detection = _row_to_detection(row)
+                    found[detection.frigate_event] = detection
+        return found
 
     async def has_recent_detection_for_species(
         self,
@@ -2549,7 +2569,7 @@ class DetectionRepository:
         def _branch(where: str, value: int | str) -> None:
             branches.append(
                 f"SELECT id FROM (SELECT id FROM detections WHERE {where} AND {hidden_clause} "
-                f"ORDER BY detection_time {direction} LIMIT {branch_limit})"
+                f"ORDER BY detection_time {direction}, id {direction} LIMIT {branch_limit})"
             )
             params.append(value)
 
@@ -2571,7 +2591,7 @@ class DetectionRepository:
         query = (
             f"SELECT {DETECTION_SELECT_COLUMNS} FROM detections d "
             "LEFT JOIN detection_favorites f ON f.detection_id = d.id "
-            f"WHERE d.id IN ({union}) ORDER BY d.detection_time {direction} LIMIT ? OFFSET ?"
+            f"WHERE d.id IN ({union}) ORDER BY d.detection_time {direction}, d.id {direction} LIMIT ? OFFSET ?"
         )
         params.extend([limit, offset])
         return query, params
@@ -2727,12 +2747,13 @@ class DetectionRepository:
             query += " WHERE " + " AND ".join(conditions)
 
         # Apply sort order
+        # The id breaks ties, so captures saved in the same instant keep one order across pages.
         if sort == "oldest":
-            query += " ORDER BY d.detection_time ASC"
+            query += " ORDER BY d.detection_time ASC, d.id ASC"
         elif sort == "confidence":
-            query += " ORDER BY d.score DESC, d.detection_time DESC"
+            query += " ORDER BY d.score DESC, d.detection_time DESC, d.id DESC"
         else:  # newest (default)
-            query += " ORDER BY d.detection_time DESC"
+            query += " ORDER BY d.detection_time DESC, d.id DESC"
 
         query += " LIMIT ? OFFSET ?"
         params.extend([limit, offset])

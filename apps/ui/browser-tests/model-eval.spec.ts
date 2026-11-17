@@ -461,6 +461,29 @@ test('the page names each thing once, in sentence case, with the kit and plain w
     await listed;
 });
 
+test('at 1440 px the start card stands in two columns, and below that the action follows what it does', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await openEvaluation(page);
+    const about = page.locator('[data-model-eval-start-about]');
+    const action = page.locator('[data-model-eval-start-action]');
+    const start = page.getByRole('button', { name: 'Start evaluation' });
+    await expect(start).toBeVisible();
+    let aboutBox = await about.boundingBox();
+    let startBox = await start.boundingBox();
+    // The action stands beside the explanation, level with the card's heading, not under it.
+    expect(aboutBox && startBox && startBox.x > aboutBox.x + aboutBox.width - 1).toBe(true);
+    expect(aboutBox && startBox && Math.abs(startBox.y - aboutBox.y)).toBeLessThan(24);
+    // The results table keeps the card's full width.
+    const card = await page.getByRole('region', { name: 'Results' }).boundingBox();
+    const table = await page.getByRole('region', { name: 'Results' }).getByRole('table').boundingBox();
+    expect(card && table && table.width).toBeGreaterThan((card?.width ?? 0) * 0.9);
+
+    await page.setViewportSize({ width: 1024, height: 768 });
+    aboutBox = await about.boundingBox();
+    startBox = await action.boundingBox();
+    expect(aboutBox && startBox && startBox.y >= aboutBox.y + aboutBox.height - 1).toBe(true);
+});
+
 test('checking every model states the download first and asks before it starts', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const posts: unknown[] = [];

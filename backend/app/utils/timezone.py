@@ -1,8 +1,11 @@
 """Timezone detection utility for extracting user timezone from HTTP headers."""
 
 import zoneinfo
+from datetime import tzinfo
 
 from fastapi import Request
+
+from app.utils.calendar_day import resolve_zone
 
 
 def get_user_timezone(request: Request) -> zoneinfo.ZoneInfo:
@@ -25,3 +28,8 @@ def get_user_timezone(request: Request) -> zoneinfo.ZoneInfo:
         except (zoneinfo.ZoneInfoNotFoundError, KeyError):
             pass
     return zoneinfo.ZoneInfo("UTC")
+
+
+def calendar_timezone(request: Request) -> tzinfo:
+    """The zone a requested calendar day is read in: a valid ``X-Timezone``, else ``TZ``, else UTC."""
+    return resolve_zone(request.headers.get("X-Timezone"))

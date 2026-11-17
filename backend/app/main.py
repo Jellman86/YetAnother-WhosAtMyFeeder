@@ -944,7 +944,7 @@ app.add_middleware(
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["X-YAWAMF-Audio-Suppressed-By-Mapping"],
+    expose_headers=["X-YAWAMF-Audio-Suppressed-By-Mapping", "X-Next-Offset"],
 )
 
 # Auth router - no auth required (provides login endpoint)

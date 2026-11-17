@@ -155,21 +155,21 @@ describe('model evaluation keeps the page quiet', () => {
         expect(source).toContain("critical: 'attention', warning: 'attention', info: 'neutral'");
         expect(english['model_eval.warning.severity.critical']).toBe('Needs a look');
         // Red is for a request that failed and a provider that did not run, not for a flagged model.
-        expect(markup.match(/bg-red-50/g)).toHaveLength(1);
+        expect(markup.match(/bg-status-fail-soft/g)).toHaveLength(1);
         expect(markup.slice(markup.indexOf('data-model-eval-stopped') - 200, markup.indexOf('data-model-eval-stopped'))).not.toContain('red');
     });
 
     it('writes a provider result in ordinary ink with a status dot, so it does not read as a link', () => {
         expect(source).not.toContain('TONE_TEXT');
         expect(source).not.toMatch(/text-success-\d|text-attention-\d/);
-        expect(source).toContain("pass: 'bg-success-500'");
-        expect(source).toContain("attention: 'bg-attention-500'");
+        expect(source).toContain("pass: 'bg-status-ok'");
+        expect(source).toContain("attention: 'bg-status-attention'");
         expect(markup).toContain("{TONE_DOT[cell.tone ?? 'neutral']}");
     });
 
     it('offers the downloads as quiet text actions, not a row of outlined buttons', () => {
         const downloads = markup.slice(markup.indexOf('model-eval-files-title'), markup.indexOf("$_('model_eval.results.folder'"));
-        expect(openingTags(downloads, 'button')[0]).toMatch(/class="btn btn-ghost [^"]*text-brand-700/);
+        expect(openingTags(downloads, 'button')[0]).toMatch(/class="btn btn-ghost [^"]*text-accent-ink/);
         expect(downloads).not.toContain('btn-secondary');
         expect(downloads).toContain('<Separator />');
     });
@@ -187,7 +187,7 @@ describe('model evaluation keeps the page quiet', () => {
     it('puts Delete in the Results header as a quiet action that still asks first', () => {
         const header = markup.slice(markup.indexOf('model-eval-results-title') - 400, markup.indexOf('<div class="mt-2 space-y-4">'));
         expect(header).toContain("$_('model_eval.results.delete'");
-        expect(header).toMatch(/class="btn btn-ghost [^"]*text-red-700/);
+        expect(header).toMatch(/class="btn btn-ghost [^"]*text-status-fail/);
         expect(header).toContain('justify-between');
         expect(markup).not.toContain('btn btn-danger"\n                        disabled={selectedIsRunning}');
         expect(source).toContain("$_('model_eval.confirm_delete.confirm'");
@@ -392,5 +392,16 @@ describe('says where the test photos come from', () => {
         }
         expect(english['settings.models.evaluation_row_desc']).toMatch(/from iNaturalist and Wikimedia Commons/);
         expect(modelSettingsSource).toContain('reference photos of known species from iNaturalist and Wikimedia Commons');
+    });
+});
+
+describe('model evaluation uses a wide screen', () => {
+    it('lays the start card out by its own width: what it does, with the action beside it', () => {
+        expect(source).toContain('<section class="card-base @container p-5" aria-labelledby="model-eval-start-title">');
+        expect(source).toContain('<div class="@5xl:grid @5xl:grid-cols-12 @5xl:gap-x-10">');
+        expect(source).toContain('<div class="min-w-0 @5xl:col-span-7" data-model-eval-start-about>');
+        expect(source).toContain('<div class="min-w-0 @5xl:col-span-5" data-model-eval-start-action>');
+        // The explanation comes first in reading order, so a phone still reads what it starts first.
+        expect(source.indexOf('data-model-eval-start-about')).toBeLessThan(source.indexOf('data-model-eval-start-action'));
     });
 });

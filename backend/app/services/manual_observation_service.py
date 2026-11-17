@@ -21,13 +21,10 @@ from app.config import settings
 from app.database import get_db
 from app.repositories.detection_repository import Detection, DetectionRepository
 from app.repositories.manual_observation_repository import ManualObservationDraft, ManualObservationRepository
-from app.services.capture_time import (
-    captured_at_from_image,
-    captured_at_from_mp4,
-    configured_timezone,
-)
+from app.services.capture_time import captured_at_from_image, captured_at_from_mp4
 from app.services.classifier_service import get_classifier
 from app.services.taxonomy.taxonomy_service import taxonomy_service
+from app.utils.calendar_day import instance_timezone
 from app.utils.api_datetime import utc_naive_datetime, utc_naive_now
 from app.utils.image_io import MAX_IMAGE_BYTES, MAX_IMAGE_PIXELS, load_rgb_image
 from app.utils.tasks import create_background_task
@@ -330,7 +327,7 @@ class ManualObservationService:
         self, source: Path, preview: Path, media_type: str, content_type: str
     ) -> UploadMetadata:
         now = datetime.now(timezone.utc)
-        local_zone = configured_timezone()
+        local_zone = instance_timezone()
         if media_type == "image":
 
             def validate_image() -> UploadMetadata:
