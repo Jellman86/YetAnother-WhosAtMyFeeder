@@ -27,7 +27,7 @@ test('Integrations opens with nothing unsaved, even when the place lookup names 
         }
     });
     await tabLink(page, 'Sharing & integrations').click();
-    await expect(page.locator('#birdnet-url')).toBeVisible();
+    await expect(page.locator('#location-lat')).toBeVisible();
     await expect.poll(() => lookups).toBeGreaterThan(0);
     // Give a late effect the chance to write into the draft before asserting nothing did.
     await page.waitForTimeout(300);

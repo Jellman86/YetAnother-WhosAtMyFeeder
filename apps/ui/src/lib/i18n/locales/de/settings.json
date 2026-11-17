@@ -319,7 +319,12 @@
       "audio": "BirdNET-Go",
       "storage": "Speicher",
       "notifications": "Benachrichtigungen"
-    }
+    },
+    "sharing_note": "Jeder Dienst unten zeigt, ob er eingeschaltet ist. Anmeldung und Gastzugang werden ebenfalls hier eingestellt."
+  },
+  "more": {
+    "title": "Weitere Optionen",
+    "cameras": "Frigate-Details, Bildquelle, Clips und BirdNET-Go"
   },
   "debug": {
     "llm_prompts_title": "LLM-Promptvorlagen",
@@ -710,7 +715,8 @@
     "test_connection_both": "Frigate und MQTT testen",
     "test_again": "Erneut testen",
     "stage_frigate_next": "Prüfen Sie die Frigate-Server-URL auf diesem Tab und ob Frigate läuft.",
-    "stage_mqtt_next": "Prüfen Sie Broker-Adresse, Port und Anmeldung auf diesem Tab."
+    "stage_mqtt_next": "Prüfen Sie Broker-Adresse, Port und Anmeldung auf diesem Tab.",
+    "more_title": "Frigate-Details"
   },
   "cameras": {
     "title": "Beobachtete Kameras",

@@ -319,7 +319,12 @@
       "audio": "BirdNET-Go",
       "storage": "ストレージ",
       "notifications": "アラート"
-    }
+    },
+    "sharing_note": "下の各サービスに、オンかどうかが表示されます。サインインとゲストアクセスもここで設定します。"
+  },
+  "more": {
+    "title": "その他のオプション",
+    "cameras": "Frigate の詳細、画像の取得元、クリップ、BirdNET-Go"
   },
   "debug": {
     "llm_prompts_title": "LLMプロンプトテンプレート",
@@ -710,7 +715,8 @@
     "test_connection_both": "Frigate と MQTT をテスト",
     "test_again": "もう一度テスト",
     "stage_frigate_next": "このタブの Frigate サーバー URL と、Frigate が起動しているかを確認してください。",
-    "stage_mqtt_next": "このタブのブローカーのアドレス、ポート、サインイン情報を確認してください。"
+    "stage_mqtt_next": "このタブのブローカーのアドレス、ポート、サインイン情報を確認してください。",
+    "more_title": "Frigate の詳細"
   },
   "cameras": {
     "title": "監視するカメラ",

@@ -11,9 +11,19 @@ the settings** link moves keyboard focus past it. On a phone or a narrow window 
 section** list names the section you are in. A section holding unsaved changes is marked "unsaved"
 in both. **Setup wizard** is a button under the list.
 
+Each section opens with a **Status** line read from the system's live status: one chip per part
+it depends on, such as Frigate, MQTT and BirdNET-Go for Cameras & connection, with **Details in
+Health** for the cause. A part not measured yet says so rather than showing a state. Then come
+the choices most owners need, and one **More options** disclosure holds the rest of the section.
+
+The page uses the width it has. From a tablet in landscape the section list sits beside the
+settings; on a wide monitor the Status line and the section's parts move to a column of their
+own beside the controls. Sentences keep a readable line length at every width, and a phone never
+scrolls sideways.
+
 | Section | What lives there |
 |---|---|
-| **Cameras & connection** | Where events come from: Frigate, its MQTT broker and the cameras to watch. |
+| **Cameras & connection** | Where events come from: Frigate, its MQTT broker, the cameras to watch, and BirdNET-Go for audio. |
 | **Identifying birds** | How sure a name must be, the models that find and name birds, the hardware they run on, and features still in Beta. |
 | **Alerts** | When you hear about a visit, and the channels the message goes to. |
 | **Sharing & integrations** | Other services YA-WAMF reads from or reports to, your location, AI descriptions, who can open this install, and what leaves it. |
@@ -44,10 +54,19 @@ it opens the section, scrolled to that part.
 | Appearance | Display | `/settings/display#appearance` |
 | Accessibility | Display | `/settings/display#accessibility` |
 
-Edits wait in one draft across every section. While anything differs from what is saved, a bar
-at the bottom of the page counts the changes and names their sections, with **Discard changes**
-(puts every saved value back) and **Save changes**. The bar also says that settings wait for
-**Save changes**, while buttons such as Test, Run and Download act straight away.
+Some settings have since moved within that map:
+
+| Setting | Was in | Now in |
+|---|---|---|
+| BirdNET-Go (connection, MQTT topic, audio buffer, source mapping, **Test Audio detection**) | Integrations | Cameras & connection, under **More options** |
+
+Edits wait in one draft across every section. While anything differs from what is saved, a short
+bar at the bottom of the page counts the changes, with **Discard changes** (puts every saved value
+back) and **Save changes**. On a phone it is two short lines at most, whatever the text size; a
+label too long for it ends in an ellipsis and keeps its whole name for a screen reader.
+**Details** opens a panel above the bar that names the changed sections, with a link to each, and
+says that settings wait for **Save changes**, while buttons such as Test, Run and Download act
+straight away.
 While the bar shows, the page keeps a focused control above it. Choosing another page with unsaved
 changes asks first, offering **Save and leave** (it leaves only once the save goes through) as well
 as **Leave without saving**; reloading or closing the tab asks too, and moving between sections keeps
@@ -57,10 +76,10 @@ line saying so. Passwords and keys are never kept; that line names any you need 
 Kept changes belong to the session that made them: signing out, an expired session or another
 sign-in drops them. On return Settings reads the saved values afresh. A setting changed elsewhere
 that you had not touched shows its new value; one you had also changed is not overwritten either
-way. It is marked, the bar names it with **Use the saved value** and **Use my change**, and Save
+way. It is marked, the details name it with **Use the saved value** and **Use my change**, and Save
 waits until each is decided. When a save is refused, nothing
-is stored: each refused field is marked with the reason in plain words, and the bar lists them
-with a link to each. Model activation, configuration import
+is stored: each refused field is marked with the reason in plain words, and the details list them
+with a link to each, opening **More options** first when the field is inside it. Model activation, configuration import
 and setup-wizard steps save immediately. Wizard saves refresh untouched fields in an
 open form while preserving other unsaved edits. Remove an environment override if
 you want the UI to control that field.
@@ -69,11 +88,14 @@ you want the UI to control that field.
 
 ## Cameras & connection
 
-Where events come from: Frigate, its MQTT broker and the cameras to watch.
+Where events come from: Frigate, its MQTT broker, the cameras to watch, and BirdNET-Go for audio.
 
 ### Connection
 
-Where bird events come from.
+Where bird events come from. The Frigate address, the MQTT broker and the cameras to watch are
+shown first. **More options** holds the rest of Frigate's settings (the labels to act on, the
+public Frigate URL, the image used for the first identification, and clips) and the
+[BirdNET-Go](#birdnet-go) connection.
 
 ![Settings → Cameras & connection: a Frigate NVR card with Server URL, the Frigate labels to act on, and the public Frigate URL, beside a Cameras to watch card where the feeder camera watches for birds as a Feeder](../images/settings-connection.png)
 
@@ -117,6 +139,16 @@ migration:
 > FFmpeg `record` role and positive `record.continuous.days` retention. Alert or detection
 > retention alone can leave the start or end of the requested window missing. Settings
 > checks this coverage and names any camera that needs attention.
+
+#### BirdNET-Go
+
+Under **More options**, because like Frigate it is a source of events: the audio **MQTT Topic**
+(default `birdnet/text`), two URLs, the audio buffer and match window, and **BirdNET Source Mapping
+(Optional)**, which ties each audio source to a Frigate camera. **BirdNET-Go internal URL** is the
+address the backend uses to fetch spectrograms (usually the Docker network name); **BirdNET-Go
+browser URL** is the public address dashboard links open, and falls back to the internal one when
+empty. **Test Audio detection** runs the broker publish and a mock detection through the real
+pipeline. See [BirdNET-Go](../integrations/birdnet-go.md).
 
 ## Identifying birds
 
@@ -308,13 +340,8 @@ a saved credential can be re-tested without typing it again.
 
 ![Settings → Sharing & integrations: a BirdNET-Go card with the integration toggled on, its backend-only internal URL and the public browser URL used by dashboard links, beside an iNaturalist card that is switched off](../images/settings-integrations.png)
 
-- **BirdNET-Go** — the audio **MQTT Topic** (default `birdnet/text`), two URLs, the audio buffer
-  and match window, and **BirdNET Source Mapping (Optional)**, which ties each audio source to a
-  Frigate camera. **BirdNET-Go internal URL** is the address the backend uses to fetch
-  spectrograms (usually the Docker network name); **BirdNET-Go browser URL** is the public
-  address dashboard links open, and falls back to the internal one when empty. **Test Audio
-  detection** runs the broker publish and a mock detection through the real pipeline. See
-  [BirdNET-Go](../integrations/birdnet-go.md).
+- **BirdNET-Go** is set up with the cameras, under
+  [Cameras & connection → More options](#birdnet-go).
 - **BirdWeather** — enter your Station Token to contribute identified detections to the
   community project. **Test connection** sends a mock House Sparrow to your station.
 - **eBird** — an API key enables nearby and notable sightings. Enable the integration to show

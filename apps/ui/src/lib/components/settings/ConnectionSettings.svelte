@@ -58,7 +58,8 @@
         recordingClipCapability = null,
         recordingClipCapabilityLoading = false,
         camerasLoading,
-        loadCameras
+        loadCameras,
+        region = 'all'
     }: {
         frigateUrl: string;
         frigateIngestLabels: string;
@@ -88,7 +89,15 @@
         recordingClipCapabilityLoading: boolean;
         camerasLoading: boolean;
         loadCameras: () => Promise<void>;
+        /**
+         * Which cards to show: the ones most owners need (`main`), the rest under the section's More
+         * options (`more`), or both.
+         */
+        region?: 'main' | 'more' | 'all';
     } = $props();
+
+    const showMain = $derived(region !== 'more');
+    const showMore = $derived(region !== 'main');
 
     const watchSettings = $derived<CameraWatchSettings>({
         cameras: selectedCameras,
@@ -347,6 +356,7 @@
         </div>
     {/snippet}
 
+    {#if showMain}
     <SettingsCard title={$_('settings.frigate.title')}>
         <SettingsRow
             labelId="setting-frigate-url"
@@ -363,6 +373,13 @@
                 oninput={(v) => (frigateUrl = v)}
             />
         </SettingsRow>
+    </SettingsCard>
+    {/if}
+
+    {#if showMore}
+    <!-- The rest of Frigate, under the section's More options: what it sends, where its pages are,
+         which frame is identified and the clips kept. -->
+    <SettingsCard title={$_('settings.frigate.more_title', { default: 'Frigate details' })}>
 
         <SettingsRow
             labelId="setting-frigate-ingest-labels"
@@ -538,7 +555,9 @@
         {/if}
         </AdvancedSection>
     </SettingsCard>
+    {/if}
 
+    {#if showMain}
     <SettingsCard
         title={$_('settings.connection.mqtt_section', { default: 'MQTT broker' })}
     >
@@ -749,6 +768,7 @@
             {/if}
         </div>
     </SettingsCard>
+    {/if}
 
 </div>
 

@@ -7,6 +7,7 @@ import sharedSegmentedSource from '../ui/Segmented.svelte?raw';
 import cardSource from './_primitives/SettingsCard.svelte?raw';
 import gardenSource from './GardenBetaSettings.svelte?raw';
 import integrationSource from './IntegrationSettings.svelte?raw';
+import birdnetSource from './BirdnetSettings.svelte?raw';
 import authenticationSource from './AuthenticationSettings.svelte?raw';
 import modelManagerSource from '../../pages/models/ModelManager.svelte?raw';
 import telemetrySource from './TelemetrySettings.svelte?raw';
@@ -68,7 +69,8 @@ describe('Settings has one look across tabs', () => {
     it('never repeats a card title as the label of the row below it', () => {
         // The switch for a whole card sits in its header, named by the card title.
         expect(cardSource).toContain('titleId');
-        for (const service of ['birdnet', 'inaturalist', 'ebird', 'birdweather', 'ha-weather']) {
+        expect(birdnetSource).toContain('titleId="integration-birdnet-title"');
+        for (const service of ['inaturalist', 'ebird', 'birdweather', 'ha-weather']) {
             expect(integrationSource, service).toContain(`titleId="integration-${service}-title"`);
         }
         expect(authenticationSource).toContain('titleId="security-auth-title"');

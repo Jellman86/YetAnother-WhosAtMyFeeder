@@ -18,10 +18,10 @@
 
     /** What each section depends on, as the live status measures it. Display depends on nothing. */
     const STATUS_KEYS: Readonly<Record<SettingsSection, readonly SubsystemKey[]>> = {
-        cameras: ['frigate', 'mqtt'],
+        cameras: ['frigate', 'mqtt', 'audio'],
         identification: ['classifier', 'finder'],
         alerts: ['notifications'],
-        sharing: ['audio'],
+        sharing: [],
         storage: ['storage'],
         display: []
     };
@@ -58,7 +58,9 @@
     </h2>
     {#if keys.length === 0}
         <p class="text-muted" data-section-status-note>
-            {$_('settings.status.display_note', { default: 'Nothing here depends on another service. Theme, text size and language change at once on this device.' })}
+            {section === 'sharing'
+                ? $_('settings.status.sharing_note', { default: 'Each service below says whether it is on. Sign-in and guest access are set here too.' })
+                : $_('settings.status.display_note', { default: 'Nothing here depends on another service. Theme, text size and language change at once on this device.' })}
         </p>
     {:else if !snapshot}
         <StateBlock state="not-measured" variant="inline" cause={$_('settings.status.not_read', { default: 'Not measured yet: the status has not been read.' })} />

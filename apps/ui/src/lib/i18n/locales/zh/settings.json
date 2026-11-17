@@ -319,7 +319,12 @@
       "audio": "BirdNET-Go",
       "storage": "存储",
       "notifications": "提醒"
-    }
+    },
+    "sharing_note": "下面每个服务都会显示是否已开启。登录和访客访问也在这里设置。"
+  },
+  "more": {
+    "title": "更多选项",
+    "cameras": "Frigate 详情、图像来源、剪辑和 BirdNET-Go"
   },
   "debug": {
     "llm_prompts_title": "LLM 提示模板",
@@ -710,7 +715,8 @@
     "test_connection_both": "测试 Frigate 和 MQTT",
     "test_again": "再次测试",
     "stage_frigate_next": "请检查此标签页中的 Frigate 服务器 URL，并确认 Frigate 正在运行。",
-    "stage_mqtt_next": "请检查此标签页中的代理服务器地址、端口和登录信息。"
+    "stage_mqtt_next": "请检查此标签页中的代理服务器地址、端口和登录信息。",
+    "more_title": "Frigate 详情"
   },
   "cameras": {
     "title": "要监视的摄像头",

@@ -25,8 +25,42 @@ interface Frozen {
 }
 const frozen = before as unknown as Frozen;
 
-/** Controls, ids or fields shown somewhere else on purpose, with the part that now shows them. */
-const MOVED: Readonly<Record<string, SettingsPart>> = {};
+/**
+ * Fields and element ids shown somewhere else on purpose, with the part that now shows them. A
+ * control without an id has moved when every field it saves has.
+ */
+const MOVED: Readonly<Record<string, SettingsPart>> = {
+    // BirdNET-Go is a source of events, like Frigate, so it is set up with the cameras.
+    birdnet_enabled: 'connection',
+    birdnet_url: 'connection',
+    birdnet_external_url: 'connection',
+    audio_topic: 'connection',
+    audio_buffer_hours: 'connection',
+    audio_correlation_window_seconds: 'connection',
+    camera_audio_mapping: 'connection',
+    'birdnet-url': 'connection',
+    'birdnet-external-url': 'connection',
+    'audio-topic': 'connection',
+    'integrations-birdnet-advanced': 'connection',
+    'audio-buffer': 'connection',
+    'correlation-window': 'connection',
+    'birdnet-source-options': 'connection'
+};
+
+/**
+ * Controls that save nothing and have no id (a test or an action button), moved on purpose: by the
+ * part they left and the part that now shows them.
+ */
+const MOVED_ACTIONS: ReadonlyArray<{ what: string; from: SettingsPart; to: SettingsPart }> = [
+    { what: 'Test BirdNET-Go', from: 'integrations', to: 'connection' }
+];
+
+/** The part a frozen control is shown by now: by its id, else by the fields it saves, else its tab's. */
+function movedPart(control: ControlPath): SettingsPart | undefined {
+    if (control.id && MOVED[control.id]) return MOVED[control.id];
+    const moved = control.entries.map((entry) => MOVED[entry]);
+    return moved.length > 0 && moved.every((part) => part === moved[0]) ? moved[0] : undefined;
+}
 
 const HOST = '../pages/Settings.svelte';
 const sources = import.meta.glob<string>(['../components/**/*.svelte', '../pages/**/*.svelte', '../components/settings/sections/part-loaders.ts'], {
@@ -38,9 +72,8 @@ const current = analyseSettings(sources, HOST);
 
 const FORMER_TABS: readonly SettingsPart[] = ['connection', 'detection', 'models', 'integrations', 'ai', 'notifications', 'security', 'data', 'maintenance', 'beta', 'appearance', 'accessibility'];
 
-/** The section a former tab, or a frozen area name, now lives in. */
-function sectionOf(area: string, key?: string): SettingsSection {
-    const moved = key ? MOVED[key] : undefined;
+/** The section a former tab now lives in, unless what it held moved on purpose. */
+function sectionOf(area: string, moved?: SettingsPart): SettingsSection {
     return settingsSectionOfPart(moved ?? (area as SettingsPart));
 }
 
@@ -103,7 +136,7 @@ describe('every control the twelve tabs rendered', () => {
             }
             const sections = new Set(now.flatMap((candidate) => candidate.areas));
             for (const area of control.areas) {
-                const section = sectionOf(area, control.id);
+                const section = sectionOf(area, movedPart(control));
                 if (!sections.has(section)) problems.push(`${control.id}: not rendered in ${section}`);
             }
             const entries = new Set(now.flatMap((candidate) => candidate.entries));
@@ -113,7 +146,13 @@ describe('every control the twelve tabs rendered', () => {
     });
 
     it('is matched, with or without an id: no section has fewer controls saving a setting than its tabs had', () => {
-        const was = countBySectionAndEntry(frozen.controls, (control, area) => sectionOf(area, control.id ?? undefined));
+        const was = countBySectionAndEntry(frozen.controls, (control, area) => sectionOf(area, movedPart(control)));
+        for (const { from, to } of MOVED_ACTIONS) {
+            const left = `${settingsSectionOfPart(from)} | (no setting)`;
+            const arrived = `${settingsSectionOfPart(to)} | (no setting)`;
+            was.set(left, (was.get(left) ?? 0) - 1);
+            was.set(arrived, (was.get(arrived) ?? 0) + 1);
+        }
         const now = countBySectionAndEntry(current.controls, (_control, area) => area);
         const fewer = [...was].filter(([key, count]) => (now.get(key) ?? 0) < count).map(([key, count]) => `${key}: ${count} -> ${now.get(key) ?? 0}`);
         expect(fewer).toEqual([]);
@@ -130,7 +169,7 @@ describe('every element id the twelve tabs rendered', () => {
                 continue;
             }
             for (const area of areas) {
-                const section = sectionOf(area, id);
+                const section = sectionOf(area, MOVED[id]);
                 if (!now.includes(section)) problems.push(`${id}: not rendered in ${section}`);
             }
         }

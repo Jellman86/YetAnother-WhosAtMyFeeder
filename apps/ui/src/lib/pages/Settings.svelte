@@ -93,6 +93,7 @@
     import StorageSection from '../components/settings/sections/StorageSection.svelte';
     import DisplaySection from '../components/settings/sections/DisplaySection.svelte';
     import SectionAside from '../components/settings/sections/SectionAside.svelte';
+    import { settingsMoreId } from '../settings/settings-more';
     import {
         loadConnectionSettings,
         loadGardenBetaSettings,
@@ -1247,10 +1248,11 @@
     // time it opens in this visit; the page's own refresh and the actions in a section read them again.
     type SectionReading = 'cameras' | 'classifier' | 'storage' | 'cache' | 'version' | 'recordingClips' | 'audioSources' | 'backfill';
     const READINGS_BY_SECTION: Partial<Record<SettingsSection, readonly SectionReading[]>> = {
-        cameras: ['cameras', 'recordingClips'],
+        // BirdNET-Go is set up with the cameras, so its sources are read here and mapped to them.
+        cameras: ['cameras', 'recordingClips', 'audioSources'],
         // Models reads the classifier itself, when the pushed model revision moves.
-        // Integrations maps BirdNET-Go sources to the cameras; Security names the running version.
-        sharing: ['cameras', 'audioSources', 'version'],
+        // Security names the running version.
+        sharing: ['version'],
         storage: ['classifier', 'storage', 'cache', 'backfill']
     };
     const readingsTaken = new Set<SectionReading>();
@@ -1445,8 +1447,10 @@
         list?.focus({ preventScroll: true });
     }
 
-    // Notifications needs the Frigate public URL for its Frigate links; it is set in Connection.
+    // Notifications needs the Frigate public URL for its Frigate links; it is set under Cameras &
+    // connection's More options.
     async function openFrigatePublicUrl(): Promise<void> {
+        disclosures.setOpen(settingsMoreId('cameras'), true);
         openSection(settingsSectionOfPart('connection'));
         const field = await fieldInOpenedPart(loadConnectionSettings, () => document.getElementById('frigate-external-url'));
         field?.scrollIntoView({ block: 'center' });
@@ -3046,8 +3050,8 @@
         if (section && section !== activeSection) openSection(section);
         const place = settingsFieldPlace(field);
         // A closed section either does not render its inputs or keeps them hidden; open every
-        // section that holds this one, then wait until the input can actually take focus.
-        disclosures.reveal(place?.disclosures ?? []);
+        // section that holds this one, More options first, then wait until the input can take focus.
+        disclosures.reveal([...(section ? [settingsMoreId(section)] : []), ...(place?.disclosures ?? [])]);
         const inputId = place?.inputId;
         if (!inputId) return;
         for (let frame = 0; frame < FIELD_WAIT_FRAMES; frame += 1) {
@@ -3163,6 +3167,17 @@
                 {recordingClipCapabilityLoading}
                 {camerasLoading}
                 {loadCameras}
+                bind:birdnetEnabled
+                bind:birdnetUrl
+                bind:birdnetExternalUrl
+                bind:audioTopic
+                bind:audioBufferHours
+                bind:audioCorrelationWindowSeconds
+                bind:cameraAudioMapping
+                {birdnetSourceOptions}
+                {loadingBirdnetSources}
+                {birdnetSourcesError}
+                {availableCameras}
             />
         {:else if activeSection === 'identification'}
             <!-- Identifying birds: detection, models and Beta features -->
@@ -3285,17 +3300,6 @@
             <!-- Sharing & integrations: integrations, AI and security -->
             <SharingSection
                 weatherUnitSystem={locationWeatherUnitSystem}
-                bind:birdnetEnabled
-                bind:birdnetUrl
-                bind:birdnetExternalUrl
-                bind:audioTopic
-                bind:audioBufferHours
-                bind:audioCorrelationWindowSeconds
-                bind:cameraAudioMapping
-                {birdnetSourceOptions}
-                {loadingBirdnetSources}
-                {birdnetSourcesError}
-                {availableCameras}
                 bind:birdweatherEnabled
                 bind:birdweatherStationToken
                 bind:birdweatherStationTokenSaved

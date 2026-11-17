@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import setupIntegrationSource from './IntegrationsStep.svelte?raw';
 import integrationSettingsSource from '../settings/IntegrationSettings.svelte?raw';
 import connectionSettingsSource from '../settings/ConnectionSettings.svelte?raw';
+import birdnetSettingsSource from '../settings/BirdnetSettings.svelte?raw';
 
 describe('setup and settings diagnostics use current values honestly', () => {
     it('uses the shared staged dialog for the setup BirdNET-Go diagnostic', () => {
@@ -18,7 +19,7 @@ describe('setup and settings diagnostics use current values honestly', () => {
     });
 
     it('tests edited BirdNET-Go and connection values instead of stale saved values', () => {
-        expect(integrationSettingsSource).toContain('checkBirdNetReachability(birdnetUrl.trim())');
+        expect(birdnetSettingsSource).toContain('checkBirdNetReachability(birdnetUrl.trim())');
         expect(connectionSettingsSource).toContain('testFrigateConnection(frigateUrl.trim())');
         expect(connectionSettingsSource).toContain('testMQTTPublish({');
     });

@@ -4,6 +4,7 @@ import type { SettingsPart } from '../../../settings/settings-route';
 // Each part's code loads when its section first opens. The drafts stay on the Settings page, so a
 // part's edits survive leaving its section. The page also waits on these to land on a field.
 export const loadConnectionSettings = lazyComponent(() => import('../ConnectionSettings.svelte'));
+export const loadBirdnetSettings = lazyComponent(() => import('../BirdnetSettings.svelte'));
 export const loadDetectionSettings = lazyComponent(() => import('../DetectionSettings.svelte'));
 export const loadModelSettings = lazyComponent(() => import('../ModelSettings.svelte'));
 export const loadGardenBetaSettings = lazyComponent(() => import('../GardenBetaSettings.svelte'));

@@ -11,6 +11,7 @@ import detectionSource from './DetectionSettings.svelte?raw';
 import modelSource from './ModelSettings.svelte?raw';
 import enrichmentSource from './EnrichmentSettings.svelte?raw';
 import integrationSource from './IntegrationSettings.svelte?raw';
+import birdnetSource from './BirdnetSettings.svelte?raw';
 import notificationSource from './NotificationSettings.svelte?raw';
 import advancedSectionSource from './_primitives/AdvancedSection.svelte?raw';
 import settingsCardSource from './_primitives/SettingsCard.svelte?raw';
@@ -41,8 +42,8 @@ describe('Settings progressive disclosure', () => {
         expect(authenticationSource.indexOf('{#if authEnabled}')).toBeLessThan(authenticationSource.indexOf('labelId="setting-auth-username"'));
         expect(authenticationSource.indexOf('{#if publicAccessEnabled}')).toBeLessThan(authenticationSource.indexOf('labelId="setting-public-show-cameras"'));
 
+        expect(birdnetSource.indexOf('{#if birdnetEnabled}')).toBeLessThan(birdnetSource.indexOf('setting-birdnet-url'));
         for (const [enabled, firstField] of [
-            ['birdnetEnabled', 'setting-birdnet-url'],
             ['inaturalistEnabled', 'setting-inat-client-id'],
             ['ebirdEnabled', 'setting-ebird-api-key'],
             ['birdweatherEnabled', 'setting-birdweather-token']

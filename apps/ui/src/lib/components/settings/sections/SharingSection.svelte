@@ -30,17 +30,6 @@
 
     let {
         weatherUnitSystem,
-        birdnetEnabled = $bindable(),
-        birdnetUrl = $bindable(),
-        birdnetExternalUrl = $bindable(),
-        audioTopic = $bindable(),
-        audioBufferHours = $bindable(),
-        audioCorrelationWindowSeconds = $bindable(),
-        cameraAudioMapping = $bindable(),
-        birdnetSourceOptions,
-        loadingBirdnetSources,
-        birdnetSourcesError,
-        availableCameras,
         birdweatherEnabled = $bindable(),
         birdweatherStationToken = $bindable(),
         birdweatherStationTokenSaved = $bindable(),
@@ -132,17 +121,6 @@
         {#snippet content(IntegrationSettings)}
         <IntegrationSettings
             {weatherUnitSystem}
-            bind:birdnetEnabled
-            bind:birdnetUrl
-            bind:birdnetExternalUrl
-            bind:audioTopic
-            bind:audioBufferHours
-            bind:audioCorrelationWindowSeconds
-            bind:cameraAudioMapping
-            {birdnetSourceOptions}
-            {loadingBirdnetSources}
-            {birdnetSourcesError}
-            {availableCameras}
             bind:birdweatherEnabled
             bind:birdweatherStationToken
             bind:birdweatherStationTokenSaved
