@@ -595,8 +595,8 @@
     "arbitrary": 4
   },
   "lib/pages/Notifications.svelte": {
-    "palette": 97,
-    "dark": 44,
+    "palette": 0,
+    "dark": 0,
     "arbitrary": 1
   },
   "lib/pages/models/FinderDevicePanel.svelte": {

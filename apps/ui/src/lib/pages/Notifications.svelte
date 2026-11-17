@@ -24,6 +24,7 @@
     import Pagination from '../components/Pagination.svelte';
     import { paginateItems } from '../utils/pagination';
     import JobCircuitBanner from '../components/JobCircuitBanner.svelte';
+    import StateBlock from '../components/ui/StateBlock.svelte';
 
     let { onNavigate }: { onNavigate?: (path: string) => void } = $props();
 
@@ -133,16 +134,16 @@
     }
 
     const TONE_DOT: Record<string, string> = {
-        attention: 'bg-attention-500 border-attention-500',
-        running: 'bg-brand-500 border-brand-500',
-        done: 'bg-success-500 border-success-500',
-        info: 'bg-slate-300 border-slate-300 dark:bg-slate-600 dark:border-slate-600'
+        attention: 'bg-status-attention border-status-attention',
+        running: 'bg-accent border-accent',
+        done: 'bg-status-ok border-status-ok',
+        info: 'bg-line-strong border-line-strong'
     };
     const TONE_ICON: Record<string, string> = {
-        attention: 'text-attention-800 bg-attention-50 border-attention-200 dark:text-attention-300 dark:bg-attention-950/40 dark:border-attention-900',
-        running: 'text-brand-700 bg-brand-50 border-brand-200 dark:text-brand-300 dark:bg-brand-950/40 dark:border-brand-900',
-        done: 'text-success-700 bg-success-50 border-success-200 dark:text-success-300 dark:bg-success-950/40 dark:border-success-900',
-        info: 'text-slate-600 bg-slate-50 border-slate-200 dark:text-slate-400 dark:bg-slate-800/60 dark:border-slate-700'
+        attention: 'text-status-attention bg-status-attention-soft border-status-attention-line',
+        running: 'text-accent-ink bg-accent-soft border-accent-line',
+        done: 'text-status-ok bg-status-ok-soft border-status-ok-line',
+        info: 'text-muted bg-surface-raised border-line'
     };
 </script>
 
@@ -156,7 +157,7 @@
              and a placeholder underneath, so a missing image cannot shift
              the row or imply a state. Keyed, so a photograph saved by a
              later run is drawn even where the earlier one failed. -->
-        <span class="grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-md border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-800">
+        <span class="grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-md border border-line bg-surface-raised">
             {#key thumbnailUrl}
                 <img
                     src={thumbnailUrl}
@@ -208,30 +209,30 @@
         <!-- The time sits on the title line, at the right edge, so a row is as tall as its words. -->
         <!-- Wraps: at a large text size the time takes a line of its own rather than leaving the row. -->
         <span class="flex flex-wrap items-baseline gap-x-2">
-            <span class="flex min-w-0 flex-1 basis-32 items-center gap-2 text-sm font-semibold text-slate-900 dark:text-white">
+            <span class="flex min-w-0 flex-1 basis-32 items-center gap-2 text-sm font-semibold text-strong">
                 <!-- Its own box, so a long word can break instead of pushing the unread dot off the row. -->
                 <span class="min-w-0 wrap-anywhere">{item.title}</span>
                 {#if !item.read}
-                    <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-brand-500" aria-hidden="true"></span>
+                    <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-accent" aria-hidden="true"></span>
                     <span class="sr-only">{$_('notifications.count_unread', { default: 'unread' })}</span>
                 {/if}
             </span>
             <!-- The group heading already carries the day, so only older rows repeat the date. -->
-            <span class="min-w-0 text-3xs tabular-nums wrap-anywhere text-slate-600 dark:text-slate-400">
+            <span class="min-w-0 text-3xs tabular-nums wrap-anywhere text-muted">
                 {groupKey === 'older' || groupKey === 'yesterday' ? formatDateTime(item.timestamp) : formatTime(item.timestamp)}
             </span>
         </span>
         {#if isStoppedJob(item)}
-            <span class="mt-0.5 block text-xs text-slate-600 dark:text-slate-300">{stoppedMessage(item, progress)}</span>
+            <span class="mt-0.5 block text-xs text-muted">{stoppedMessage(item, progress)}</span>
         {:else if item.message}
-            <span class="mt-0.5 block text-xs text-slate-600 dark:text-slate-300">{item.message}</span>
+            <span class="mt-0.5 block text-xs text-muted">{item.message}</span>
         {/if}
         {#if progress && showsProgress(item)}
-            <span class="mt-2 block h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+            <span class="mt-2 block h-1.5 overflow-hidden rounded-full bg-surface-raised">
                 <!-- Brand, not amber: a job in flight needs nobody. -->
-                <span class="block h-full w-full origin-left rounded-full {isStoppedJob(item) ? 'bg-slate-400 dark:bg-slate-500' : 'bg-brand-500 transition-transform duration-200 ease-out motion-reduce:transition-none'}" style={`transform: scaleX(${progress.percent / 100})`}></span>
+                <span class="block h-full w-full origin-left rounded-full {isStoppedJob(item) ? 'bg-status-neutral' : 'bg-accent transition-transform duration-200 ease-out motion-reduce:transition-none'}" style={`transform: scaleX(${progress.percent / 100})`}></span>
             </span>
-            <span class="mt-1 flex justify-between text-3xs tabular-nums text-slate-600 dark:text-slate-400">
+            <span class="mt-1 flex justify-between text-3xs tabular-nums text-muted">
                 <span>{progress.current.toLocaleString()} / {progress.total.toLocaleString()}</span>
                 <span>{isStoppedJob(item) ? $_('notifications.job_stopped_label') : `${progress.percent}%`}</span>
             </span>
@@ -242,7 +243,7 @@
     </span>
     {#if opens}
         <!-- The row is the link; the chevron says so without a button of its own. -->
-        <svg class="mt-1 h-4 w-4 shrink-0 text-slate-500 dark:text-slate-400" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true" data-notification-chevron>
+        <svg class="mt-1 h-4 w-4 shrink-0 text-muted" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true" data-notification-chevron>
             <path d="m6 3.5 4.5 4.5L6 12.5" stroke-linecap="round" stroke-linejoin="round" />
         </svg>
     {/if}
@@ -253,14 +254,14 @@
     <!-- One window, stated once, with the same metrics the dashboard day bar uses. -->
     <div class="flex flex-wrap items-center justify-between gap-3">
         <div class="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-            <h2 class="font-display text-xl font-bold text-slate-900 dark:text-white">
+            <h2 class="font-display text-xl font-bold text-strong">
                 {$_('notifications.page_history', { default: 'History' })}
             </h2>
-            <p class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600 dark:text-slate-400">
-                <span><b class="font-semibold tabular-nums text-slate-900 dark:text-white">{items.length}</b>
+            <p class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
+                <span><b class="font-semibold tabular-nums text-strong">{items.length}</b>
                     {$_('notifications.count_events', { values: { count: items.length }, default: '{count, plural, one {event} other {events}}' })}</span>
                 {#if unread > 0}
-                    <span><b class="font-semibold tabular-nums text-slate-900 dark:text-white">{unread}</b>
+                    <span><b class="font-semibold tabular-nums text-strong">{unread}</b>
                         {$_('notifications.count_unread_unit', { values: { count: unread }, default: '{count, plural, one {unread} other {unread}}' })}</span>
                 {/if}
             </p>
@@ -270,7 +271,7 @@
                 <!-- Three actions, three weights: a link elsewhere, the everyday action, and the one that empties the list. -->
                 <a
                     href={toAppPath('/system-health')}
-                    class="focus-ring inline-flex min-h-11 items-center rounded-sm px-1 text-xs font-semibold text-brand-700 underline underline-offset-2 hover:text-brand-800 dark:text-brand-300 dark:hover:text-brand-200"
+                    class="focus-ring inline-flex min-h-11 items-center rounded-sm px-1 text-xs font-semibold text-accent-ink underline underline-offset-2"
                     onclick={(event) => { if (onNavigate) { event.preventDefault(); onNavigate('/system-health'); } }}
                 >
                     {$_('settings.data.open_diagnostics', { default: 'Open Health' })}
@@ -288,7 +289,7 @@
 
     {#if isOwner && items.some(isOwnerOnlyItem)}
         <!-- Said once for the page, in words: marking it on every row was most of the rows. -->
-        <p class="text-xs text-slate-600 dark:text-slate-400" data-notifications-owner-note>
+        <p class="text-xs text-muted" data-notifications-owner-note>
             {$_('notifications.owner_only_note', { default: 'Background jobs, health and system events are shown only to you, not to visitors.' })}
         </p>
     {/if}
@@ -299,13 +300,13 @@
             <button
                 type="button"
                 class="focus-ring inline-flex min-h-11 items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-colors {effectiveFilter === name
-                    ? 'border-brand-300 bg-brand-50 text-brand-700 dark:border-brand-800 dark:bg-brand-950/50 dark:text-brand-300'
-                    : 'border-slate-200 text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:text-slate-300'}"
+                    ? 'border-accent-line bg-accent-soft text-accent-ink'
+                    : 'border-line text-muted hover:border-line-strong'}"
                 aria-pressed={effectiveFilter === name}
                 onclick={() => selectFilter(name)}
             >
                 {$_(`notifications.filter_${name}`)}
-                <span class="tabular-nums text-3xs text-slate-600 dark:text-slate-400">{counts[name]}</span>
+                <span class="tabular-nums text-3xs text-muted">{counts[name]}</span>
             </button>
         {/each}
     </div>
@@ -313,34 +314,29 @@
     {#if historyPending}
         <div class="space-y-3" role="status" aria-label={$_('common.loading', { default: 'Loading…' })} data-notifications-loading>
             {#each [1, 2, 3, 4, 5, 6, 7, 8] as row (row)}
-                <div class="h-20 rounded-xl bg-slate-100 motion-safe:animate-pulse dark:bg-slate-800" aria-hidden="true"></div>
+                <div class="h-20 rounded-xl bg-surface-raised motion-safe:animate-pulse" aria-hidden="true"></div>
             {/each}
         </div>
     {:else if groups.length === 0}
-        <div class="card-base px-6 py-10 text-center">
-            {#if items.length > 0}
-                <p class="text-sm text-slate-600 dark:text-slate-400">
-                    {$_('notifications.empty_filtered', { default: 'Nothing matches this filter.' })}
-                </p>
-            {:else}
-                <h3 class="font-display text-lg font-bold text-slate-900 dark:text-white">
-                    {$_('notifications.empty_title', { default: 'Nothing has happened yet' })}
-                </h3>
-                <p class="mx-auto mt-1 max-w-sm text-sm text-slate-600 dark:text-slate-400">
-                    {$_('notifications.empty_body', {
-                        default:
-                            'Visits appear here as the classifier names them, and background work as it runs. Newest first.'
-                    })}
-                </p>
-                <button type="button" class="btn btn-secondary mt-4 min-h-11 px-3 py-2 text-xs" onclick={() => navigate('/')}>
-                    {$_('notifications.empty_action', { default: 'Open the field log' })}
-                </button>
-            {/if}
-        </div>
+        {#if items.length > 0}
+            <div class="card-base px-6 py-10">
+                <StateBlock state="empty" variant="inline" cause={$_('notifications.empty_filtered', { default: 'Nothing matches this filter.' })} class="justify-center" />
+            </div>
+        {:else}
+            <StateBlock
+                state="empty"
+                title={$_('notifications.empty_title', { default: 'Nothing has happened yet' })}
+                cause={$_('notifications.empty_body', {
+                    default: 'Visits appear here as the classifier names them, and background work as it runs. Newest first.'
+                })}
+                action={{ label: $_('notifications.empty_action', { default: 'Open the field log' }), onclick: () => navigate('/') }}
+                data-notifications-empty
+            />
+        {/if}
     {:else}
         <div class="card-base p-4 sm:p-5">
             {#each groups as group (group.key)}
-                <h3 class="mb-1 mt-5 text-3xs font-bold text-slate-600 first:mt-0 dark:text-slate-400">
+                <h3 class="mb-1 mt-5 text-3xs font-bold text-muted first:mt-0">
                     {$_(`notifications.group_${group.key}`)}
                 </h3>
                 <ol class="ml-1">
@@ -356,7 +352,7 @@
                                     <!-- The rail starts and stops at the outer dots rather than
                                          dangling past them. A lone entry needs no rail at all. -->
                                     <span
-                                        class="absolute left-1/2 w-px -translate-x-1/2 bg-slate-200 dark:bg-slate-700 {index ===
+                                        class="absolute left-1/2 w-px -translate-x-1/2 bg-line {index ===
                                         0
                                             ? 'top-7 bottom-0'
                                             : index === group.items.length - 1
@@ -372,7 +368,7 @@
                                 {#if canOpen(item)}
                                     <button
                                         type="button"
-                                        class="focus-ring flex min-h-11 w-full min-w-0 items-start gap-3 rounded-lg px-2 py-2 text-left transition-colors hover:bg-slate-100 dark:hover:bg-slate-800/70"
+                                        class="focus-ring flex min-h-11 w-full min-w-0 items-start gap-3 rounded-lg px-2 py-2 text-left transition-colors hover:bg-surface-raised"
                                         onclick={() => openItem(item)}
                                         data-notification-row="link"
                                     >
