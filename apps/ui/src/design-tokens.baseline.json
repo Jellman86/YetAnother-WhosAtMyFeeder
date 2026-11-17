@@ -494,76 +494,6 @@
     "dark": 3,
     "arbitrary": 0
   },
-  "lib/components/setup/AccountStep.svelte": {
-    "palette": 20,
-    "dark": 9,
-    "arbitrary": 0
-  },
-  "lib/components/setup/CameraThumbnail.svelte": {
-    "palette": 13,
-    "dark": 3,
-    "arbitrary": 0
-  },
-  "lib/components/setup/CamerasStep.svelte": {
-    "palette": 25,
-    "dark": 11,
-    "arbitrary": 0
-  },
-  "lib/components/setup/ConnectionStep.svelte": {
-    "palette": 48,
-    "dark": 22,
-    "arbitrary": 0
-  },
-  "lib/components/setup/HistoryStep.svelte": {
-    "palette": 44,
-    "dark": 20,
-    "arbitrary": 0
-  },
-  "lib/components/setup/IntegrationsStep.svelte": {
-    "palette": 20,
-    "dark": 9,
-    "arbitrary": 0
-  },
-  "lib/components/setup/ModelStep.svelte": {
-    "palette": 100,
-    "dark": 49,
-    "arbitrary": 0
-  },
-  "lib/components/setup/QualityStep.svelte": {
-    "palette": 10,
-    "dark": 4,
-    "arbitrary": 0
-  },
-  "lib/components/setup/ReviewStep.svelte": {
-    "palette": 34,
-    "dark": 15,
-    "arbitrary": 0
-  },
-  "lib/components/setup/SetupStepIcon.svelte": {
-    "palette": 6,
-    "dark": 3,
-    "arbitrary": 0
-  },
-  "lib/components/setup/WelcomeStep.svelte": {
-    "palette": 10,
-    "dark": 5,
-    "arbitrary": 0
-  },
-  "lib/components/setup/WizardLoadState.svelte": {
-    "palette": 9,
-    "dark": 3,
-    "arbitrary": 0
-  },
-  "lib/components/setup/WizardShell.svelte": {
-    "palette": 29,
-    "dark": 12,
-    "arbitrary": 0
-  },
-  "lib/components/setup/WizardStepLayout.svelte": {
-    "palette": 13,
-    "dark": 6,
-    "arbitrary": 0
-  },
   "lib/pages/About.svelte": {
     "palette": 29,
     "dark": 14,
@@ -584,24 +514,14 @@
     "dark": 0,
     "arbitrary": 2
   },
-  "lib/pages/FirstRunWizard.svelte": {
-    "palette": 0,
-    "dark": 1,
-    "arbitrary": 0
-  },
   "lib/pages/ManualObservation.svelte": {
     "palette": 196,
     "dark": 87,
     "arbitrary": 4
   },
-  "lib/pages/ModelEvaluation.svelte": {
-    "palette": 100,
-    "dark": 48,
-    "arbitrary": 0
-  },
   "lib/pages/Notifications.svelte": {
-    "palette": 97,
-    "dark": 44,
+    "palette": 0,
+    "dark": 0,
     "arbitrary": 1
   },
   "lib/pages/models/FinderDevicePanel.svelte": {

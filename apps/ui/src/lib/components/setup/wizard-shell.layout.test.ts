@@ -200,7 +200,21 @@ describe('setup wizard wiring', () => {
 
     it('keeps Back and Continue in the card: the step scrolls above them, never with them', () => {
         expect(wizardShellSource).not.toContain('max-h-[70vh]');
-        expect(wizardShellSource).not.toContain('overflow-y-auto');
+        // The shell itself never scrolls; the one scrolling box in it is the skip prompt's words, held
+        // to half the screen with its buttons outside it, so they and the step's actions stay put.
+        expect(wizardShellSource.match(/overflow-y-auto/g) ?? []).toHaveLength(1);
+        const prompt = wizardShellSource.slice(wizardShellSource.indexOf('role="alertdialog"') - 200);
+        expect(prompt).toMatch(/max-h-half-screen shrink-0 flex-col[^"]*" role="alertdialog"/);
+        expect(prompt.indexOf('overflow-y-auto')).toBeLessThan(prompt.indexOf('skip_confirm_action'));
+        // A failed skip is said outside the scrolling words, just above the buttons, so it is never below the fold.
+        const words = prompt.indexOf('data-skip-setup-text');
+        const wordsEnd = prompt.indexOf('</div>', words);
+        const error = prompt.indexOf('data-skip-setup-error');
+        expect(error).toBeGreaterThan(wordsEnd);
+        expect(error).toBeLessThan(prompt.indexOf('skip_confirm_action'));
+        expect(prompt.slice(words, wordsEnd)).not.toContain('role="alert"');
+        // The words take a tab stop and a name, so the keyboard can scroll them in Safari too.
+        expect(prompt).toMatch(/overflow-y-auto[^"]*" role="group" tabindex="0" aria-labelledby="skip-setup-title" data-skip-setup-text/);
         expect(wizardShellSource).toContain('flex max-h-full w-full max-w-2xl flex-col');
         const scroller = wizardStepLayoutSource.indexOf('data-setup-scroll');
         const footer = wizardStepLayoutSource.indexOf('data-setup-footer');

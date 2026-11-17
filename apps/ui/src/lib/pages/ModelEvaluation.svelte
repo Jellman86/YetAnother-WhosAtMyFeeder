@@ -52,10 +52,10 @@
     // A result is its word in ordinary ink. The dot beside it only helps the eye find the rows that
     // differ: amber where the owner should look, red only for a provider that really failed.
     const TONE_DOT: Record<Tone, string> = {
-        neutral: 'bg-slate-400 dark:bg-slate-500',
-        pass: 'bg-success-500',
-        attention: 'bg-attention-500',
-        failure: 'bg-red-600 dark:bg-red-500',
+        neutral: 'bg-status-neutral',
+        pass: 'bg-status-ok',
+        attention: 'bg-status-attention',
+        failure: 'bg-status-fail',
     };
 
     interface Cell { text: string | null; tone?: Tone; dot?: boolean }
@@ -519,7 +519,7 @@
 </script>
 
 {#snippet problem(issue: EvaluationProblem, retry?: () => void)}
-    <div role="alert" class="flex flex-col gap-3 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800 sm:flex-row sm:items-center sm:justify-between dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-200" data-model-eval-problem>
+    <div role="alert" class="flex flex-col gap-3 rounded-xl border border-status-fail-line bg-status-fail-soft p-3 text-sm text-status-fail sm:flex-row sm:items-center sm:justify-between" data-model-eval-problem>
         <div class="min-w-0 space-y-1">
             <p class="font-semibold">{$_(`model_eval.problem.what.${issue.what}`)}</p>
             <p>{$_(`model_eval.problem.cause.${issue.cause}`)}</p>
@@ -543,7 +543,7 @@
         <span class="block text-xs font-normal text-muted" data-model-technical-name>{row.technical}</span>
     {/if}
     {#if row.kind}
-        <span class="block text-xs font-normal text-slate-600 dark:text-slate-400">{row.kind}</span>
+        <span class="block text-xs font-normal text-muted">{row.kind}</span>
     {/if}
 {/snippet}
 
@@ -562,11 +562,11 @@
 
 <!-- Every note reads the same: a dot, what kind of note it is, and one quiet sentence with the next step. -->
 {#snippet noteLines(notes: Note[])}
-    <ul class="space-y-1 text-sm text-slate-600 dark:text-slate-300">
+    <ul class="space-y-1 text-sm text-muted">
         {#each notes as note}
             <li class="flex items-baseline gap-2">
                 <span class="inline-block h-1.5 w-1.5 shrink-0 -translate-y-0.5 rounded-full {TONE_DOT[note.tone]}" aria-hidden="true"></span>
-                <span class="min-w-0"><span class="font-semibold text-slate-900 dark:text-white">{note.label}</span> {note.text}</span>
+                <span class="min-w-0"><span class="font-semibold text-strong">{note.label}</span> {note.text}</span>
             </li>
         {/each}
     </ul>
@@ -589,7 +589,7 @@
     <div class="hidden overflow-x-auto focus-ring @2xl:block" role="group" tabindex="0" aria-labelledby={labelId}>
         <table class="w-full text-sm">
             <thead>
-                <tr class="border-b border-line-soft text-left align-bottom text-xs font-semibold text-slate-600 dark:text-slate-400">
+                <tr class="border-b border-line-soft text-left align-bottom text-xs font-semibold text-muted">
                     <th scope="col" class="py-2 pr-4">{$_('model_eval.col_model', { default: 'Model' })}</th>
                     {#each table.columns as column}
                         <th scope="col" class="px-2 py-2 {column.numeric ? 'text-right' : ''}">{column.label}</th>
@@ -599,9 +599,9 @@
             <tbody>
                 {#each table.rows as row (row.id)}
                     <tr class="align-top {row.notes.length ? '' : 'border-b border-line-soft'}">
-                        <th scope="row" class="whitespace-nowrap py-2 pr-4 text-left font-semibold text-slate-900 dark:text-white">{@render modelName(row)}</th>
+                        <th scope="row" class="whitespace-nowrap py-2 pr-4 text-left font-semibold text-strong">{@render modelName(row)}</th>
                         {#each row.cells as cell, index}
-                            <td class="px-2 py-2 {table.columns[index].numeric ? 'whitespace-nowrap text-right tabular-nums' : ''} {table.columns[index].nowrap ? 'whitespace-nowrap' : ''} text-slate-700 dark:text-slate-300">{@render cellValue(cell)}</td>
+                            <td class="px-2 py-2 {table.columns[index].numeric ? 'whitespace-nowrap text-right tabular-nums' : ''} {table.columns[index].nowrap ? 'whitespace-nowrap' : ''} text-ink">{@render cellValue(cell)}</td>
                         {/each}
                     </tr>
                     {#if row.notes.length}
@@ -616,11 +616,11 @@
     <ul class="divide-y divide-line-soft border-y border-line-soft @2xl:hidden" aria-labelledby={labelId}>
         {#each table.rows as row (row.id)}
             <li class="space-y-2 py-3">
-                <h3 class="text-sm font-semibold text-slate-900 wrap-break-word dark:text-white">{@render modelName(row)}</h3>
+                <h3 class="text-sm font-semibold text-strong wrap-break-word">{@render modelName(row)}</h3>
                 <dl class="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
                     {#each table.columns as column, index}
-                        <dt class="text-slate-600 dark:text-slate-400">{column.label}</dt>
-                        <dd class="flex justify-end text-right tabular-nums text-slate-700 dark:text-slate-300">{@render cellValue(row.cells[index])}</dd>
+                        <dt class="text-muted">{column.label}</dt>
+                        <dd class="flex justify-end text-right tabular-nums text-ink">{@render cellValue(row.cells[index])}</dd>
                     {/each}
                 </dl>
                 {#if row.notes.length}{@render noteLines(row.notes)}{/if}
@@ -631,148 +631,157 @@
 
 <!-- A screen tall, so the footer does not sit under a short page and move when the results land. -->
 <div class="min-h-screen space-y-6" data-model-evaluation>
-    <section class="card-base p-5" aria-labelledby="model-eval-start-title">
-        <h2 id="model-eval-start-title" class="font-display text-lg font-semibold text-slate-900 dark:text-white">
-            {$_('model_eval.start.title', { default: 'Start an evaluation' })}
-        </h2>
-        <p class="mt-2 max-w-3xl text-sm leading-relaxed text-slate-600 dark:text-slate-300">{$_('model_eval.start.what')}</p>
+    <!-- Where the card is wide enough (about 1440 px of window) what the evaluation is and its options
+         stand on the left at a reading measure, and the action and its progress beside them, rather
+         than one strip with the rest of the card empty. -->
+    <section class="card-base @container p-5" aria-labelledby="model-eval-start-title">
+        <div class="@5xl:grid @5xl:grid-cols-12 @5xl:gap-x-10">
+            <div class="min-w-0 @5xl:col-span-7" data-model-eval-start-about>
+                <h2 id="model-eval-start-title" class="font-display text-lg font-semibold text-strong">
+                    {$_('model_eval.start.title', { default: 'Start an evaluation' })}
+                </h2>
+                <p class="mt-2 max-w-3xl text-sm leading-relaxed text-muted">{$_('model_eval.start.what')}</p>
 
-        <div class="mt-2 max-w-3xl">
-            {@render disclosure($_('model_eval.how.title', { default: 'How this works' }), howOpen, 'model-eval-how', () => (howOpen = !howOpen))}
-            {#if howOpen}
-                <div id="model-eval-how" class="space-y-3 pb-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
-                    <p>{$_('model_eval.how.photos')}</p>
-                    <p>{$_('model_eval.how.cost')}</p>
-                    <p>{$_('model_eval.how.limit')}</p>
-                    <div>
-                        <h3 class="text-sm font-semibold text-slate-900 dark:text-white">{$_('model_eval.how.columns_title', { default: 'What the columns mean' })}</h3>
-                        <dl class="mt-1 space-y-1">
-                            {#each columnMeanings as column}
-                                <div class="flex flex-wrap gap-x-2">
-                                    <dt class="font-semibold text-slate-900 dark:text-white">{column.label}</dt>
-                                    <dd class="min-w-0 flex-1 basis-64">{column.meaning}</dd>
-                                </div>
-                            {/each}
-                        </dl>
-                    </div>
-                    <p>{$_('model_eval.how.checks')}</p>
-                </div>
-            {/if}
-        </div>
-
-        <div class="max-w-3xl">
-            {@render disclosure(
-                optionsOpen
-                    ? $_('model_eval.start.options_hide', { default: 'Hide evaluation options' })
-                    : $_('model_eval.start.options_show', { default: 'Show evaluation options' }),
-                optionsOpen,
-                'model-eval-options',
-                () => (optionsOpen = !optionsOpen)
-            )}
-            {#if optionsOpen}
-                <div id="model-eval-options" class="space-y-4 pb-2 pt-1">
-                <SettingsRow
-                    labelId="model-eval-each-photo"
-                    label={$_('model_eval.start.each_photo_label', { default: 'Keep each photo’s result' })}
-                    description={$_('model_eval.start.each_photo_desc')}
-                >
-                    <SettingsToggle
-                        checked={includePerImage}
-                        labelledBy="model-eval-each-photo"
-                        srLabel={$_('model_eval.start.each_photo_label', { default: 'Keep each photo’s result' })}
-                        disabled={active !== null || starting}
-                        onchange={(next) => (includePerImage = next)}
-                    />
-                </SettingsRow>
-                <SettingsRow
-                    labelId="model-eval-all-models"
-                    label={$_('model_eval.start.all_models_label', { default: 'Check every model on every provider' })}
-                    description={$_('model_eval.start.all_models_desc')}
-                >
-                    <SettingsToggle
-                        checked={sweepDevices}
-                        labelledBy="model-eval-all-models"
-                        srLabel={$_('model_eval.start.all_models_label', { default: 'Check every model on every provider' })}
-                        disabled={active !== null || starting}
-                        onchange={setSweepDevices}
-                    />
-                </SettingsRow>
-                {#if sweepDevices}
-                    <div class="space-y-1 text-sm text-slate-700 dark:text-slate-200" role="status" data-model-eval-download>
-                        <p class="font-semibold">{downloadLine(download)}</p>
-                        {#if !nothingToDownload && download.status !== 'reading'}
-                            <p class="text-slate-600 dark:text-slate-300">{$_('model_eval.start.download_note')}</p>
-                        {/if}
-                    </div>
-                {/if}
-                </div>
-            {/if}
-        </div>
-
-        <div class="mt-4 flex flex-wrap items-center gap-3">
-            <button
-                type="button"
-                class="btn btn-primary"
-                disabled={active !== null || starting}
-                aria-describedby={active ? 'model-eval-running-reason' : undefined}
-                onclick={startRun}
-            >
-                {active
-                    ? $_('model_eval.start.running', { default: 'Evaluation running' })
-                    : $_('model_eval.start.action', { default: 'Start evaluation' })}
-            </button>
-            {#if active}
-                <button type="button" class="btn btn-danger" onclick={stopRun}>
-                    {$_('model_eval.start.stop', { default: 'Stop evaluation' })}
-                </button>
-            {/if}
-        </div>
-        {#if active}
-            <p id="model-eval-running-reason" class="mt-2 text-sm text-slate-600 dark:text-slate-400">
-                {$_('model_eval.start.running_reason', { default: 'One evaluation runs at a time. Stop this one to start another.' })}
-            </p>
-        {/if}
-
-        {#if startProblem}
-            <div class="mt-4">{@render problem(startProblem)}</div>
-        {/if}
-
-        {#if progress}
-            <div class="mt-4 max-w-3xl space-y-2" data-model-eval-progress>
-                <div class="flex flex-wrap justify-between gap-x-4 text-sm font-medium text-slate-700 dark:text-slate-200">
-                    <span role="status">{$_(`model_eval.progress.phase.${progress.phase}`)}</span>
-                    {#if progress.total > 0}
-                        <span class="tabular-nums">{$_('model_eval.progress.count', { values: { done: progress.done, total: progress.total }, default: '{done} of {total}' })}</span>
+                <div class="mt-2 max-w-3xl">
+                    {@render disclosure($_('model_eval.how.title', { default: 'How this works' }), howOpen, 'model-eval-how', () => (howOpen = !howOpen))}
+                    {#if howOpen}
+                        <div id="model-eval-how" class="space-y-3 pb-2 text-sm leading-relaxed text-muted">
+                            <p>{$_('model_eval.how.photos')}</p>
+                            <p>{$_('model_eval.how.cost')}</p>
+                            <p>{$_('model_eval.how.limit')}</p>
+                            <div>
+                                <h3 class="text-sm font-semibold text-strong">{$_('model_eval.how.columns_title', { default: 'What the columns mean' })}</h3>
+                                <dl class="mt-1 space-y-1">
+                                    {#each columnMeanings as column}
+                                        <div class="flex flex-wrap gap-x-2">
+                                            <dt class="font-semibold text-strong">{column.label}</dt>
+                                            <dd class="min-w-0 flex-1 basis-64">{column.meaning}</dd>
+                                        </div>
+                                    {/each}
+                                </dl>
+                            </div>
+                            <p>{$_('model_eval.how.checks')}</p>
+                        </div>
                     {/if}
                 </div>
-                <div
-                    role="progressbar"
-                    aria-label={$_('model_eval.progress.label', { default: 'Progress of the evaluation' })}
-                    aria-valuemin="0"
-                    aria-valuemax="100"
-                    aria-valuenow={progress.percent ?? undefined}
-                    class="h-2 w-full overflow-hidden rounded-full bg-brand-100 dark:bg-brand-900/40"
-                >
-                    {#if progress.percent === null}
-                        <div class="h-full w-full animate-pulse rounded-full bg-brand-500/50 motion-reduce:animate-none"></div>
-                    {:else}
-                        <div class="h-full rounded-full bg-brand-500 transition-all duration-500 motion-reduce:transition-none" style="width: {progress.percent}%"></div>
+
+                <div class="max-w-3xl">
+                    {@render disclosure(
+                        optionsOpen
+                            ? $_('model_eval.start.options_hide', { default: 'Hide evaluation options' })
+                            : $_('model_eval.start.options_show', { default: 'Show evaluation options' }),
+                        optionsOpen,
+                        'model-eval-options',
+                        () => (optionsOpen = !optionsOpen)
+                    )}
+                    {#if optionsOpen}
+                        <div id="model-eval-options" class="space-y-4 pb-2 pt-1">
+                        <SettingsRow
+                            labelId="model-eval-each-photo"
+                            label={$_('model_eval.start.each_photo_label', { default: 'Keep each photo’s result' })}
+                            description={$_('model_eval.start.each_photo_desc')}
+                        >
+                            <SettingsToggle
+                                checked={includePerImage}
+                                labelledBy="model-eval-each-photo"
+                                srLabel={$_('model_eval.start.each_photo_label', { default: 'Keep each photo’s result' })}
+                                disabled={active !== null || starting}
+                                onchange={(next) => (includePerImage = next)}
+                            />
+                        </SettingsRow>
+                        <SettingsRow
+                            labelId="model-eval-all-models"
+                            label={$_('model_eval.start.all_models_label', { default: 'Check every model on every provider' })}
+                            description={$_('model_eval.start.all_models_desc')}
+                        >
+                            <SettingsToggle
+                                checked={sweepDevices}
+                                labelledBy="model-eval-all-models"
+                                srLabel={$_('model_eval.start.all_models_label', { default: 'Check every model on every provider' })}
+                                disabled={active !== null || starting}
+                                onchange={setSweepDevices}
+                            />
+                        </SettingsRow>
+                        {#if sweepDevices}
+                            <div class="space-y-1 text-sm text-ink" role="status" data-model-eval-download>
+                                <p class="font-semibold">{downloadLine(download)}</p>
+                                {#if !nothingToDownload && download.status !== 'reading'}
+                                    <p class="text-muted">{$_('model_eval.start.download_note')}</p>
+                                {/if}
+                            </div>
+                        {/if}
+                        </div>
                     {/if}
                 </div>
             </div>
-        {/if}
+
+            <div class="min-w-0 @5xl:col-span-5" data-model-eval-start-action>
+                <div class="mt-4 flex flex-wrap items-center gap-3 @5xl:mt-0">
+                    <button
+                        type="button"
+                        class="btn btn-primary"
+                        disabled={active !== null || starting}
+                        aria-describedby={active ? 'model-eval-running-reason' : undefined}
+                        onclick={startRun}
+                    >
+                        {active
+                            ? $_('model_eval.start.running', { default: 'Evaluation running' })
+                            : $_('model_eval.start.action', { default: 'Start evaluation' })}
+                    </button>
+                    {#if active}
+                        <button type="button" class="btn btn-danger" onclick={stopRun}>
+                            {$_('model_eval.start.stop', { default: 'Stop evaluation' })}
+                        </button>
+                    {/if}
+                </div>
+                {#if active}
+                    <p id="model-eval-running-reason" class="mt-2 text-sm text-muted">
+                        {$_('model_eval.start.running_reason', { default: 'One evaluation runs at a time. Stop this one to start another.' })}
+                    </p>
+                {/if}
+
+                {#if startProblem}
+                    <div class="mt-4">{@render problem(startProblem)}</div>
+                {/if}
+
+                {#if progress}
+                    <div class="mt-4 max-w-3xl space-y-2" data-model-eval-progress>
+                        <div class="flex flex-wrap justify-between gap-x-4 text-sm font-medium text-ink">
+                            <span role="status">{$_(`model_eval.progress.phase.${progress.phase}`)}</span>
+                            {#if progress.total > 0}
+                                <span class="tabular-nums">{$_('model_eval.progress.count', { values: { done: progress.done, total: progress.total }, default: '{done} of {total}' })}</span>
+                            {/if}
+                        </div>
+                        <div
+                            role="progressbar"
+                            aria-label={$_('model_eval.progress.label', { default: 'Progress of the evaluation' })}
+                            aria-valuemin="0"
+                            aria-valuemax="100"
+                            aria-valuenow={progress.percent ?? undefined}
+                            class="h-2 w-full overflow-hidden rounded-full bg-track"
+                        >
+                            {#if progress.percent === null}
+                                <div class="h-full w-full animate-pulse rounded-full bg-accent/50 motion-reduce:animate-none"></div>
+                            {:else}
+                                <div class="h-full rounded-full bg-accent transition-all duration-500 motion-reduce:transition-none" style="width: {progress.percent}%"></div>
+                            {/if}
+                        </div>
+                    </div>
+                {/if}
+            </div>
+        </div>
     </section>
 
     <section class="card-base @container p-5" aria-labelledby="model-eval-results-title" aria-busy={pane === 'loading'}>
         <!-- The header keeps a control's height from the start, so nothing moves when Delete arrives. -->
         <div class="flex min-h-11 flex-wrap items-center justify-between gap-x-4 gap-y-2">
-            <h2 id="model-eval-results-title" class="font-display text-lg font-semibold text-slate-900 dark:text-white">
+            <h2 id="model-eval-results-title" class="font-display text-lg font-semibold text-strong">
                 {$_('model_eval.results.title', { default: 'Results' })}
             </h2>
             {#if pane === 'list'}
                 <button
                     type="button"
-                    class="btn btn-ghost -mr-2 text-red-700 hover:text-red-800 dark:text-red-300 dark:hover:text-red-200"
+                    class="btn btn-ghost -mr-2 text-status-fail"
                     disabled={selectedIsRunning}
                     aria-describedby={selectedIsRunning ? 'model-eval-delete-blocked' : undefined}
                     onclick={deleteSelected}
@@ -786,19 +795,19 @@
             {#if historyProblem}
                 {@render problem(historyProblem, () => void refresh(true))}
                 {#if pane === 'list'}
-                    <p class="text-sm text-slate-600 dark:text-slate-400">{$_('model_eval.problem.stale', { default: 'What is shown below may be out of date.' })}</p>
+                    <p class="text-sm text-muted">{$_('model_eval.problem.stale', { default: 'What is shown below may be out of date.' })}</p>
                 {/if}
             {/if}
 
             {#if pane === 'loading'}
                 {@render placeholder($_('model_eval.results.loading_list', { default: 'Reading the past evaluations' }))}
             {:else if pane === 'empty'}
-                <p class="max-w-3xl text-sm text-slate-600 dark:text-slate-300" data-model-eval-empty>
+                <p class="max-w-3xl text-sm text-muted" data-model-eval-empty>
                     {$_('model_eval.results.empty', { default: 'No evaluation has been run yet. Start one above and its results appear here.' })}
                 </p>
             {:else if pane !== 'failed'}
                     <div class="space-y-1.5 sm:max-w-sm">
-                        <label for="model-eval-choose" class="block text-sm font-semibold text-slate-900 dark:text-white">{$_('model_eval.results.choose', { default: 'Evaluation' })}</label>
+                        <label for="model-eval-choose" class="block text-sm font-semibold text-strong">{$_('model_eval.results.choose', { default: 'Evaluation' })}</label>
                         <select
                             id="model-eval-choose"
                             class="select-base min-h-11"
@@ -811,12 +820,12 @@
                         </select>
                     </div>
                 {#if selectedIsRunning}
-                    <p id="model-eval-delete-blocked" class="text-sm text-slate-600 dark:text-slate-400">
+                    <p id="model-eval-delete-blocked" class="text-sm text-muted">
                         {$_('model_eval.results.delete_blocked', { default: 'Stop it before you delete it.' })}
                     </p>
                 {/if}
                 {#if runs.length >= LISTED_EVALUATIONS}
-                    <p class="text-sm text-slate-600 dark:text-slate-400">{$_('model_eval.results.capped', { default: 'Only the 20 most recent evaluations are listed.' })}</p>
+                    <p class="text-sm text-muted">{$_('model_eval.results.capped', { default: 'Only the 20 most recent evaluations are listed.' })}</p>
                 {/if}
 
                 {#if actionProblem}
@@ -829,30 +838,30 @@
                     {@render placeholder($_('model_eval.results.loading', { default: 'Reading the results' }))}
                 {:else}
                     {#if testSetFacts.length}
-                        <p class="text-sm text-slate-600 dark:text-slate-400" data-model-eval-facts>
+                        <p class="text-sm text-muted" data-model-eval-facts>
                             {#each testSetFacts as fact, index}{#if index > 0}<Separator spaced />{/if}<span class="whitespace-nowrap">{fact}</span>{/each}
                         </p>
                     {/if}
 
                     {#if selectedRun.in_progress || selectedIsRunning}
-                        <p class="text-sm text-slate-700 dark:text-slate-200" data-model-eval-still-running>
+                        <p class="text-sm text-ink" data-model-eval-still-running>
                             {$_('model_eval.results.still_running', { default: 'This evaluation is still running. Results appear here as each model finishes.' })}
                         </p>
                     {/if}
 
                     {#if stopped}
-                        <div class="flex items-baseline gap-2 text-sm text-slate-600 dark:text-slate-300" data-model-eval-stopped>
+                        <div class="flex items-baseline gap-2 text-sm text-muted" data-model-eval-stopped>
                             <span class="inline-block h-1.5 w-1.5 shrink-0 -translate-y-0.5 rounded-full {TONE_DOT.attention}" aria-hidden="true"></span>
-                            <p class="min-w-0 max-w-3xl"><span class="font-semibold text-slate-900 dark:text-white">{$_('model_eval.results.stopped_early')}</span> {$_(`model_eval.stopped.${stopped}`)}</p>
+                            <p class="min-w-0 max-w-3xl"><span class="font-semibold text-strong">{$_('model_eval.results.stopped_early')}</span> {$_(`model_eval.stopped.${stopped}`)}</p>
                         </div>
                     {/if}
 
                     {#if compatibilityOnly}
                         <div class="rounded-xl bg-surface-raised p-3">
-                            <h3 class="text-sm font-semibold text-slate-900 dark:text-white">
+                            <h3 class="text-sm font-semibold text-strong">
                                 {$_('model_eval.compat_only_title', { default: 'Provider check only' })}
                             </h3>
-                            <p class="mt-1 max-w-3xl text-sm text-slate-600 dark:text-slate-300">
+                            <p class="mt-1 max-w-3xl text-sm text-muted">
                                 {$_('model_eval.compat_only_body')}
                             </p>
                         </div>
@@ -861,23 +870,23 @@
                     {#if resultsTable}
                         {@render modelTable(resultsTable, 'model-eval-results-title')}
                         {#if !compatibilityOnly}
-                            <p class="max-w-3xl text-sm text-slate-600 dark:text-slate-400">
+                            <p class="max-w-3xl text-sm text-muted">
                                 {#if selectedRun.models?.some((model) => model.vocabulary_known)}{$_('model_eval.results.vocabulary_note')}{' '}{/if}{$_('model_eval.results.columns_hint')}
                             </p>
                         {/if}
                     {:else if !selectedRun.in_progress && !selectedIsRunning && !stopped && skippedModels.length === 0}
-                        <p class="text-sm text-slate-600 dark:text-slate-300">{$_('model_eval.results.no_models', { default: 'No model was tested in this evaluation.' })}</p>
+                        <p class="text-sm text-muted">{$_('model_eval.results.no_models', { default: 'No model was tested in this evaluation.' })}</p>
                     {/if}
 
                     {#if skippedModels.length}
                         <div data-model-eval-skipped>
-                            <h3 class="text-sm font-semibold text-slate-900 dark:text-white">{$_('model_eval.skipped.title', { default: 'Models that were not tested' })}</h3>
+                            <h3 class="text-sm font-semibold text-strong">{$_('model_eval.skipped.title', { default: 'Models that were not tested' })}</h3>
                             <ul class="mt-2 space-y-2 text-sm">
                                 {#each skippedModels as skipped (skipped.id)}
                                     <li class="flex gap-2">
                                         <span class="mt-2 inline-block h-1.5 w-1.5 shrink-0 rounded-full {TONE_DOT.attention}" aria-hidden="true"></span>
-                                        <span class="min-w-0 text-slate-700 dark:text-slate-300">
-                                            <span class="block font-semibold text-slate-900 dark:text-white">{skipped.name}</span>
+                                        <span class="min-w-0 text-ink">
+                                            <span class="block font-semibold text-strong">{skipped.name}</span>
                                             {#if skipped.technical}
                                                 <span class="block text-xs text-muted" data-model-technical-name>{skipped.technical}</span>
                                             {/if}
@@ -897,10 +906,10 @@
                                 {#each files as file, index (file.name)}
                                     {@const label = $_(`model_eval.results.file.${file.label}`)}
                                     <!-- Where the row wraps, a separator would be left hanging at a line end. -->
-                                    {#if index > 0}<span class="hidden text-slate-600 @2xl:inline dark:text-slate-400"><Separator /></span>{/if}
+                                    {#if index > 0}<span class="hidden text-muted @2xl:inline"><Separator /></span>{/if}
                                     <button
                                         type="button"
-                                        class="btn btn-ghost px-2 font-medium text-brand-700 hover:underline dark:text-brand-300"
+                                        class="btn btn-ghost px-2 font-medium text-accent-ink hover:underline"
                                         disabled={downloadingFile !== null}
                                         aria-label={$_('model_eval.results.file_download', { values: { label, file: file.name }, default: 'Download {label} ({file})' })}
                                         onclick={() => selectedRun && downloadFile(selectedRun.run_id, file.name)}
@@ -914,7 +923,7 @@
                                     </button>
                                 {/each}
                             </div>
-                            <p class="text-xs text-slate-600 dark:text-slate-400">
+                            <p class="text-xs text-muted">
                                 {$_('model_eval.results.folder', { default: 'Folder on the server:' })}
                                 <code class="font-mono wrap-break-word">{RUNS_FOLDER}/{selectedRun.run_id}/</code>
                             </p>
@@ -927,10 +936,10 @@
 
     {#if checksTable}
         <section class="card-base @container p-5" aria-labelledby="model-eval-checks-title">
-            <h2 id="model-eval-checks-title" class="font-display text-lg font-semibold text-slate-900 dark:text-white">
+            <h2 id="model-eval-checks-title" class="font-display text-lg font-semibold text-strong">
                 {$_('model_eval.checks.title', { default: 'Provider checks' })}
             </h2>
-            <p class="mt-2 max-w-3xl text-sm leading-relaxed text-slate-600 dark:text-slate-300">{$_('model_eval.checks.body')}</p>
+            <p class="mt-2 max-w-3xl text-sm leading-relaxed text-muted">{$_('model_eval.checks.body')}</p>
             <div class="mt-4">{@render modelTable(checksTable, 'model-eval-checks-title')}</div>
         </section>
     {/if}

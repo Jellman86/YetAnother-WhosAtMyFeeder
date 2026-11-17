@@ -2,7 +2,7 @@
     let { step }: { step: string } = $props();
 </script>
 
-<span class="flex h-10 w-10 items-center justify-center rounded-full bg-brand-50 text-brand-700 ring-1 ring-brand-100 dark:bg-brand-950/40 dark:text-brand-300 dark:ring-brand-900/70" aria-hidden="true">
+<span class="flex h-10 w-10 items-center justify-center rounded-full bg-accent-soft text-accent-ink ring-1 ring-accent-line/40" aria-hidden="true">
     {#if step === 'account'}
         <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10" width="14" height="10" rx="2" /><path d="M8 10V7a4 4 0 0 1 8 0v3m-4 4v2" /></svg>
     {:else if step === 'connection'}
