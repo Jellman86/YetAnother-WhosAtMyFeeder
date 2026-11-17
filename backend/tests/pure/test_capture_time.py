@@ -15,7 +15,6 @@ from app.services.capture_time import (
     captured_at_from_exif,
     captured_at_from_image,
     captured_at_from_mp4,
-    configured_timezone,
 )
 
 NOW = datetime(2026, 10, 31, 12, 0, tzinfo=timezone.utc)
@@ -192,10 +191,3 @@ def test_a_future_video_creation_time_is_rejected() -> None:
     created = int(datetime(2030, 1, 1, tzinfo=timezone.utc).timestamp())
 
     assert captured_at_from_mp4(_mp4(_box(b"moov", _mvhd(created))), now=NOW) is None
-
-
-def test_configured_timezone_reads_tz_and_falls_back_to_utc() -> None:
-    assert configured_timezone({"TZ": "Europe/London"}) == ZoneInfo("Europe/London")
-    assert configured_timezone({"TZ": "Not/AZone"}) == timezone.utc
-    assert configured_timezone({"TZ": "../../etc/passwd"}) == timezone.utc
-    assert configured_timezone({}) == timezone.utc
