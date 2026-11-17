@@ -534,13 +534,13 @@
             {/if}
             <div class="flex flex-wrap gap-3">
                 {#if onopenactivitylog}
-                    <button type="button" class="btn btn-ghost min-h-11 px-3 text-sm" onclick={onopenactivitylog} data-range-filter-open-log>
+                    <button type="button" class="btn btn-ghost min-h-11 max-w-full whitespace-normal px-3 text-left text-sm" onclick={onopenactivitylog} data-range-filter-open-log>
                         {$_('settings.range_filter.skips_open_log', { default: 'Open Health' })}
                         <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m8 5 5 5-5 5" /></svg>
                     </button>
                 {/if}
                 {#if onopenmanualobservation}
-                    <button type="button" class="btn btn-ghost min-h-11 px-3 text-sm" onclick={onopenmanualobservation} data-range-filter-record>
+                    <button type="button" class="btn btn-ghost min-h-11 max-w-full whitespace-normal px-3 text-left text-sm" onclick={onopenmanualobservation} data-range-filter-record>
                         {$_('settings.range_filter.skips_add_manually', { default: 'Add an observation' })}
                         <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m8 5 5 5-5 5" /></svg>
                     </button>
