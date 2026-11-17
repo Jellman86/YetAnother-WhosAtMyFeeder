@@ -200,7 +200,12 @@ describe('setup wizard wiring', () => {
 
     it('keeps Back and Continue in the card: the step scrolls above them, never with them', () => {
         expect(wizardShellSource).not.toContain('max-h-[70vh]');
-        expect(wizardShellSource).not.toContain('overflow-y-auto');
+        // The shell itself never scrolls; the one scrolling box in it is the skip prompt's words, held
+        // to half the screen with its buttons outside it, so they and the step's actions stay put.
+        expect(wizardShellSource.match(/overflow-y-auto/g) ?? []).toHaveLength(1);
+        const prompt = wizardShellSource.slice(wizardShellSource.indexOf('role="alertdialog"') - 200);
+        expect(prompt).toMatch(/max-h-half-screen shrink-0 flex-col[^"]*" role="alertdialog"/);
+        expect(prompt.indexOf('overflow-y-auto')).toBeLessThan(prompt.indexOf('skip_confirm_action'));
         expect(wizardShellSource).toContain('flex max-h-full w-full max-w-2xl flex-col');
         const scroller = wizardStepLayoutSource.indexOf('data-setup-scroll');
         const footer = wizardStepLayoutSource.indexOf('data-setup-footer');

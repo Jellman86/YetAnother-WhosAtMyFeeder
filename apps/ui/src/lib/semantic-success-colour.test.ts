@@ -36,11 +36,13 @@ describe('success is a semantic colour, not the brand accent', () => {
     });
 
     it('paints successful setup checks green', () => {
-        expect(connectionStepSource).toMatch(/row\.ok \? 'bg-success-600'/);
-        expect(connectionStepSource).not.toMatch(/row\.ok \? 'bg-accent-/);
-        expect(modelStepSource).toMatch(/rowOk\(m\) \? 'bg-success-/);
+        // The ok status tokens, never the accent: green says it worked, the brand says nothing about state.
+        expect(connectionStepSource).toMatch(/row\.ok \? 'text-status-ok'/);
+        expect(connectionStepSource).toContain("<StatusIcon tone={row.ok ? 'ok' : 'fail'}");
+        expect(connectionStepSource).not.toMatch(/row\.ok \? '(?:bg|text)-accent/);
+        expect(modelStepSource).toMatch(/rowOk\(m\) \? 'bg-status-ok-soft text-status-ok'/);
         expect(modelStepSource).not.toMatch(/rowOk\(m\) \? 'bg-accent-/);
-        expect(reviewStepSource).toMatch(/ok: 'bg-success-/);
-        expect(cameraThumbnailSource).toMatch(/frameState === 'ok' \? 'bg-success-/);
+        expect(reviewStepSource).toMatch(/ok: 'bg-status-ok-soft/);
+        expect(cameraThumbnailSource).toMatch(/frameState === 'ok' \? 'bg-status-ok-line'/);
     });
 });

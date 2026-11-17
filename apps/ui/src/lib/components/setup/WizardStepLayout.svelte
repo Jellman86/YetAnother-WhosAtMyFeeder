@@ -76,9 +76,10 @@
 
 <!-- The step fills the card: what it says scrolls, and the actions below it never leave the card. -->
 <div class="flex min-h-0 flex-1 flex-col">
-    <div class="min-h-0 flex-1 space-y-6 overflow-y-auto p-6" data-setup-scroll>
-        <!-- Setup opens under the app's own mark; each later step has an icon for what it sets up. -->
-        <div>
+    <div class="min-h-0 flex-1 space-y-6 overflow-y-auto p-6 short:space-y-4 short:p-4" data-setup-scroll>
+        <!-- Setup opens under the app's own mark; each later step has an icon for what it sets up. On a
+             screen held sideways the icon gives its room to the step's own controls. -->
+        <div class="short:hidden">
             {#if setupWizardStore.current.id === 'welcome'}
                 <BrandMark alt="" class="h-10 w-10 rounded-xl" width={40} height={40} sizes="40px" />
             {:else}
@@ -88,9 +89,9 @@
         <div class="space-y-1">
             <!-- The heading takes focus on each step. On the first one the dialog is still being moved to
                  the body when this mounts, which drops focus, so the focus trap is told to start here too. -->
-            <h2 bind:this={heading} tabindex="-1" data-initial-focus class="text-2xl font-bold text-slate-900 outline-hidden dark:text-white">{title}</h2>
+            <h2 bind:this={heading} tabindex="-1" data-initial-focus class="text-2xl font-bold text-strong outline-hidden short:text-xl">{title}</h2>
             {#if description}
-                <p class="text-sm text-slate-600 dark:text-slate-300">{description}</p>
+                <p class="text-sm text-muted">{description}</p>
             {/if}
         </div>
 
@@ -99,15 +100,15 @@
         </div>
 
         {#if actionError}
-            <div role="alert" class="border-l-2 border-rose-500 bg-rose-50/70 px-3 py-2 text-sm text-rose-800 dark:bg-rose-950/20 dark:text-rose-200">
+            <div role="alert" class="border-l-2 border-status-fail-line bg-status-fail-soft px-3 py-2 text-sm text-status-fail">
                 {actionError}
             </div>
         {/if}
     </div>
 
-    <div class="shrink-0 space-y-2 border-t border-slate-200 px-6 py-4 dark:border-slate-700" data-setup-footer>
+    <div class="shrink-0 space-y-2 border-t border-line px-6 py-4 short:space-y-1 short:py-2" data-setup-footer>
         {#if blocked}
-            <p id="setup-continue-blocked" class="text-sm text-slate-700 sm:text-right dark:text-slate-200" data-setup-continue-blocked>
+            <p id="setup-continue-blocked" class="text-sm text-ink sm:text-right" data-setup-continue-blocked>
                 {blockedReason}
             </p>
         {/if}

@@ -42,20 +42,20 @@
     });
 </script>
 
-<div class="group relative aspect-video overflow-hidden rounded-xl border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-800">
+<div class="group relative aspect-video overflow-hidden rounded-xl border border-line bg-surface-raised">
     {#if frameState === 'ok' && url}
         <img src={url} alt={camera} class="h-full w-full object-cover" onerror={() => (frameState = 'offline')} />
     {:else}
         <div class="flex h-full w-full items-center justify-center">
             {#if frameState === 'loading'}
-                <div class="h-5 w-5 animate-spin rounded-full border-2 border-slate-300 border-t-brand-500"></div>
+                <div class="h-5 w-5 animate-spin rounded-full border-2 border-line border-t-accent"></div>
             {:else}
-                <span class="text-xs font-medium text-slate-600 dark:text-slate-400">{$_('setup.cameras.offline', { default: 'No preview' })}</span>
+                <span class="text-xs font-medium text-muted">{$_('setup.cameras.offline', { default: 'No preview' })}</span>
             {/if}
         </div>
     {/if}
-    <div class="absolute inset-x-0 bottom-0 flex items-center justify-between bg-linear-to-t/srgb from-black/70 to-transparent px-2 py-1.5">
-        <span class="truncate text-xs font-semibold text-white">{showName ? camera : ''}</span>
-        <span class="h-2 w-2 shrink-0 rounded-full {frameState === 'ok' ? 'bg-success-400' : frameState === 'loading' ? 'bg-slate-300' : 'bg-rose-400'}"></span>
+    <div class="absolute inset-x-0 bottom-0 flex items-center justify-between bg-linear-to-t/srgb from-media/70 to-transparent px-2 py-1.5">
+        <span class="truncate text-xs font-semibold text-on-media">{showName ? camera : ''}</span>
+        <span class="h-2 w-2 shrink-0 rounded-full {frameState === 'ok' ? 'bg-status-ok-line' : frameState === 'loading' ? 'bg-status-neutral-line' : 'bg-status-fail-line'}"></span>
     </div>
 </div>

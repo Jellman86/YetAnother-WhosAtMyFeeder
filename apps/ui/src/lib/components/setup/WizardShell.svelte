@@ -78,33 +78,33 @@
 
 <svelte:window onkeydown={handleKeydown} />
 
-<div use:portal role="presentation" class="fixed inset-0 z-70 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-xs">
+<div use:portal role="presentation" class="fixed inset-0 z-70 flex items-center justify-center bg-media/60 p-4 backdrop-blur-xs short:p-2">
     <div
         bind:this={modalElement}
         role="dialog"
         aria-modal="true"
         aria-label={$_('nav.setup_wizard', { default: 'Setup wizard' })}
         tabindex="-1"
-        class="flex max-h-full w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-surface shadow-2xl ring-1 ring-black/5"
+        class="flex max-h-full w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-2xl"
     >
         <!-- Header -->
-        <div class="space-y-3 bg-surface-raised px-6 py-4">
+        <div class="space-y-3 bg-surface-raised px-6 py-4 short:space-y-1.5 short:py-2">
             <!-- Wraps: at a large text size the step name takes a line of its own under the brand. -->
             <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-                <span class="flex items-center gap-1.5 text-sm font-bold tracking-tight text-brand-700 dark:text-brand-300">
+                <span class="flex items-center gap-1.5 text-sm font-bold tracking-tight text-accent-ink">
                     <BrandMark alt="" class="h-6 w-6" width={24} height={24} sizes="24px" /> YA-WAMF
                 </span>
                 <div class="flex min-w-0 items-center gap-3">
-                    <span class="min-w-0 text-xs font-semibold text-slate-600 wrap-break-word dark:text-slate-400">
+                    <span class="min-w-0 text-xs font-semibold text-muted wrap-break-word">
                         {$_('setup.step_of', { values: { n: setupWizardStore.position, total: setupWizardStore.total }, default: `Step ${setupWizardStore.position} of ${setupWizardStore.total}` })}
-                        <span class="text-slate-700 dark:text-slate-200">· {stepName(step.id)}</span>
+                        <span class="text-ink">· {stepName(step.id)}</span>
                     </span>
                     {#if canExit}
                         <DialogCloseButton label={$_('setup.exit', { default: 'Exit setup' })} onclick={() => setupWizardStore.close()} />
                     {:else}
                         <button
                             type="button"
-                            class="min-h-11 rounded-full px-3 text-xs font-bold text-slate-600 hover:bg-slate-200/60 hover:text-slate-700 focus-ring dark:text-slate-400 dark:hover:bg-slate-700/60 dark:hover:text-slate-200"
+                            class="min-h-11 rounded-full px-3 text-xs font-bold text-muted hover:bg-line hover:text-ink focus-ring"
                             onclick={() => (skipConfirming = true)}
                         >
                             {$_('setup.skip', { default: 'Skip setup' })}
@@ -117,7 +117,7 @@
             <ol class="flex items-center gap-1.5" aria-label={$_('setup.step_list', { default: 'Setup steps' })}>
                 {#each steps as s, i (s.id)}
                     <li
-                        class="h-1.5 flex-1 rounded-full transition-colors duration-300 motion-reduce:transition-none {i < index ? 'bg-brand-500' : i === index ? 'bg-brand-400' : 'bg-slate-200 dark:bg-slate-700'}"
+                        class="h-1.5 flex-1 rounded-full transition-colors duration-300 motion-reduce:transition-none {i < index ? 'bg-accent-line' : i === index ? 'bg-accent' : 'bg-track'}"
                         aria-current={i === index ? 'step' : undefined}
                     >
                         <span class="sr-only">{stepName(s.id)}</span>
@@ -128,11 +128,14 @@
         </div>
 
         {#if skipConfirming}
-            <div class="border-b border-slate-200 bg-attention-50/70 px-6 py-4 dark:border-slate-700 dark:bg-attention-950/20" role="alertdialog" aria-labelledby="skip-setup-title" aria-describedby="skip-setup-body">
-                <p id="skip-setup-title" class="text-sm font-bold text-slate-900 dark:text-white">
+            <!-- At most half the card: its words scroll inside it and its two buttons stay put, so on a short
+                 screen the step's own Back and Continue are never pushed out of the card either. -->
+            <div class="flex max-h-half-screen shrink-0 flex-col border-b border-line bg-status-attention-soft" role="alertdialog" aria-labelledby="skip-setup-title" aria-describedby="skip-setup-body">
+                <div class="min-h-0 overflow-y-auto px-6 pt-4 short:pt-2">
+                <p id="skip-setup-title" class="text-sm font-bold text-strong">
                     {$_('setup.skip_confirm_title', { default: 'Skip setup and open the app?' })}
                 </p>
-                <p id="skip-setup-body" class="mt-1 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+                <p id="skip-setup-body" class="mt-1 text-sm leading-relaxed text-muted">
                     {#if authStore.needsInitialSetup}
                         {$_('setup.skip_confirm_body_no_account', { default: 'The app will run without a password until you set one under Settings → Sharing & integrations. Everything this wizard covers can be configured later, and you can re-run it any time from Settings → Setup wizard.' })}
                     {:else}
@@ -140,9 +143,10 @@
                     {/if}
                 </p>
                 {#if skipError}
-                    <p role="alert" class="mt-2 text-sm font-semibold text-red-700 dark:text-red-400">{skipError}</p>
+                    <p role="alert" class="mt-2 text-sm font-semibold text-status-fail">{skipError}</p>
                 {/if}
-                <div class="mt-3 flex flex-wrap gap-2">
+                </div>
+                <div class="flex shrink-0 flex-wrap gap-2 px-6 pb-4 pt-3 short:pb-2 short:pt-2">
                     <button type="button" class="btn btn-secondary min-h-11 px-4" disabled={skipBusy} onclick={() => { skipConfirming = false; skipError = null; }}>
                         {$_('common.cancel', { default: 'Cancel' })}
                     </button>

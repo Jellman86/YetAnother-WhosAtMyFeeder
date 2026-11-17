@@ -23,6 +23,9 @@
    section in FieldLog.svelte declares the container these query. */
 @custom-variant log-wide (@container field-log (width >= 32rem));
 @custom-variant log-narrow (@container field-log (width < 16rem));
+/* A short screen: a phone or small tablet held sideways (844 × 390, 1024 × 600). Dialogs tighten
+   their chrome there so the actions stay in view. */
+@custom-variant short (@media (max-height: 32rem));
 
 @theme {
   /* Breakpoints stay in px, so a reader's larger text size never moves a layout to its phone
@@ -819,6 +822,11 @@ img[data-media-failed] {
 /* A bottom sheet on a phone stops short of the top, so the page it covers still shows above it. */
 @utility max-h-sheet {
   max-height: 92dvh;
+}
+
+/* A prompt inside a dialog takes at most half the screen, so the dialog's own actions keep their place. */
+@utility max-h-half-screen {
+  max-height: 50dvh;
 }
 
 /* Pulsing status indicator */

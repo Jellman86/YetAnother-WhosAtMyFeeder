@@ -10,9 +10,9 @@
     import { modelActivityStore } from '../../stores/model_activity.svelte';
 
     const STATUS_BADGE: Record<SetupSectionStatus, string> = {
-        ok: 'bg-success-100 text-success-800 dark:bg-success-900/30 dark:text-success-200',
-        attention: 'bg-attention-100 text-attention-800 dark:bg-attention-900/30 dark:text-attention-200',
-        optional: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
+        ok: 'bg-status-ok-soft text-status-ok',
+        attention: 'bg-status-attention-soft text-status-attention',
+        optional: 'bg-surface-raised text-muted'
     };
 
     let sections = $derived(setupWizardStore.setupState?.sections ?? []);
@@ -148,12 +148,12 @@
     onContinue={() => setupWizardStore.close()}
 >
     {#if setupWizardStore.refreshing && sections.length === 0}
-        <div role="status" class="flex min-h-28 items-center justify-center gap-3 text-sm text-slate-600 dark:text-slate-400">
-            <span class="h-5 w-5 animate-spin rounded-full border-2 border-brand-200 border-t-brand-600" aria-hidden="true"></span>
+        <div role="status" class="flex min-h-28 items-center justify-center gap-3 text-sm text-muted">
+            <span class="h-5 w-5 animate-spin rounded-full border-2 border-accent-line/30 border-t-accent" aria-hidden="true"></span>
             {$_('setup.review.loading', { default: 'Checking the saved setup…' })}
         </div>
     {:else if setupWizardStore.refreshFailed && sections.length === 0}
-        <div role="alert" class="space-y-3 border-l-2 border-rose-500 bg-rose-50/70 px-4 py-3 text-sm text-rose-800 dark:bg-rose-950/20 dark:text-rose-200">
+        <div role="alert" class="space-y-3 border-l-2 border-status-fail-line bg-status-fail-soft px-4 py-3 text-sm text-status-fail">
             <p>{$_('setup.review.load_failed', { default: 'The setup summary could not be loaded. Your saved settings were not changed.' })}</p>
             <button type="button" class="btn btn-secondary min-h-11 px-4 py-2" onclick={() => setupWizardStore.refresh()}>
                 {$_('setup.review.retry', { default: 'Retry summary' })}
@@ -161,18 +161,18 @@
         </div>
     {:else}
     {#if setupWizardStore.refreshFailed}
-        <div role="alert" class="flex flex-wrap items-center justify-between gap-2 border-l-2 border-attention-500 bg-attention-50/70 px-3 py-2 text-sm text-attention-800 dark:bg-attention-950/20 dark:text-attention-200">
+        <div role="alert" class="flex flex-wrap items-center justify-between gap-2 border-l-2 border-status-attention-line bg-status-attention-soft px-3 py-2 text-sm text-status-attention">
             <span>{$_('setup.review.stale', { default: 'Showing the last setup summary because the latest refresh failed.' })}</span>
             <button type="button" class="btn btn-ghost min-h-11 px-3 py-2" onclick={() => setupWizardStore.refresh()}>{$_('common.retry', { default: 'Retry' })}</button>
         </div>
     {/if}
-    <ul class="divide-y divide-slate-200 border-y border-slate-200 dark:divide-slate-700 dark:border-slate-700">
+    <ul class="divide-y divide-line border-y border-line">
         {#each sections as section}
             <li class="flex items-center justify-between gap-3 p-3">
                 <div class="min-w-0">
-                    <p class="text-sm font-medium text-slate-800 dark:text-slate-100">{sectionLabel(section.id)}</p>
+                    <p class="text-sm font-medium text-strong">{sectionLabel(section.id)}</p>
                     {#if sectionDetail(section)}
-                        <p class="wrap-break-word text-xs leading-relaxed text-slate-600 dark:text-slate-400">{sectionDetail(section)}</p>
+                        <p class="wrap-break-word text-xs leading-relaxed text-muted">{sectionDetail(section)}</p>
                     {/if}
                 </div>
                 <div class="flex shrink-0 items-center gap-2">

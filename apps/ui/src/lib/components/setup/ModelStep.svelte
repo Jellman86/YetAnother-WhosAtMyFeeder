@@ -516,27 +516,27 @@
     <WizardLoadState state={loadState} onRetry={load}>
         <IdentificationStatusLine classifierStatus={status} context="wizard" />
         <div>
-            <label for="setup-model-id" class="text-sm font-medium text-slate-700 dark:text-slate-300">{$_('setup.model.choose_model', { default: 'Model' })}</label>
+            <label for="setup-model-id" class="text-sm font-medium text-ink">{$_('setup.model.choose_model', { default: 'Model' })}</label>
             <select id="setup-model-id" bind:value={selectedModelId} onchange={(event) => resetValidationResult(event.currentTarget.value)} disabled={validating || downloading || saving} class="select-base mt-1">
                 {#each modelOptions as model (model.id)}
                     <option value={model.id}>{optionLabel(model)}</option>
                 {/each}
             </select>
             {#if selectedModel}
-                <p class="mt-1 text-sm text-slate-600 dark:text-slate-400" data-setup-model-facts>{modelFactsLine(selectedModel, selectedInstall, translate)}</p>
+                <p class="mt-1 text-sm text-muted" data-setup-model-facts>{modelFactsLine(selectedModel, selectedInstall, translate)}</p>
                 {#if selectedInstalledModel?.ready === false}
-                    <p role="status" class="mt-1 text-xs font-semibold text-attention-700 dark:text-attention-300">{$_('setup.model.incomplete_install', { default: 'This model install is incomplete. Download and verify it again before continuing.' })}</p>
+                    <p role="status" class="mt-1 text-xs font-semibold text-status-attention">{$_('setup.model.incomplete_install', { default: 'This model install is incomplete. Download and verify it again before continuing.' })}</p>
                 {:else if needsDownload}
-                    <p class="mt-1 text-xs font-semibold text-attention-700 dark:text-attention-300">{$_('setup.model.download_required', { default: 'Download and verify this model here before validating it on this hardware.' })}</p>
+                    <p class="mt-1 text-xs font-semibold text-status-attention">{$_('setup.model.download_required', { default: 'Download and verify this model here before validating it on this hardware.' })}</p>
                 {:else if !selectedModelReady}
-                    <p class="mt-1 text-xs font-semibold text-attention-700 dark:text-attention-300">{$_('setup.model.validation_required', { default: 'Validate this model on the current image and hardware before continuing.' })}</p>
+                    <p class="mt-1 text-xs font-semibold text-status-attention">{$_('setup.model.validation_required', { default: 'Validate this model on the current image and hardware before continuing.' })}</p>
                 {/if}
             {/if}
         </div>
 
         {#if isRegional}
             <div data-setup-model-region>
-                <label for="setup-model-region" class="text-sm font-medium text-slate-700 dark:text-slate-300">{$_('settings.detection.region_override_title', { default: 'Bird model region' })}</label>
+                <label for="setup-model-region" class="text-sm font-medium text-ink">{$_('settings.detection.region_override_title', { default: 'Bird model region' })}</label>
                 <select
                     id="setup-model-region"
                     value={regionOverride}
@@ -554,7 +554,7 @@
                 <p
                     id="setup-model-region-status"
                     role="status"
-                    class="mt-1 text-xs leading-relaxed {regionNotice.kind === 'no_country' ? 'font-semibold text-attention-700 dark:text-attention-300' : 'text-slate-600 dark:text-slate-400'}"
+                    class="mt-1 text-xs leading-relaxed {regionNotice.kind === 'no_country' ? 'font-semibold text-status-attention' : 'text-muted'}"
                 >
                     {#if regionNotice.kind === 'no_country'}
                         {$_('setup.model.region_no_country', { default: 'No country is saved, so Auto uses the North American species list. Choose Europe if your feeder is in Europe.' })}
@@ -570,7 +570,7 @@
         {/if}
 
         <div>
-            <label for="setup-provider" class="text-sm font-medium text-slate-700 dark:text-slate-300">{$_('settings.detection.inference_provider', { default: 'Identification model runs on' })}</label>
+            <label for="setup-provider" class="text-sm font-medium text-ink">{$_('settings.detection.inference_provider', { default: 'Identification model runs on' })}</label>
             <select id="setup-provider" bind:value={selectedProvider} onchange={() => { providerTouched = true; providerMessage = ''; }} disabled={validating || downloading || saving} class="select-base mt-1">
                 {#each providerChoices as choice (choice.value)}
                     <option value={choice.value} disabled={choice.unavailable}>
@@ -578,9 +578,9 @@
                     </option>
                 {/each}
             </select>
-            <p class="mt-1 text-xs text-slate-600 dark:text-slate-400">{$_('setup.model.provider_hint', { default: 'Only providers available in this image, on this host, and for the selected model are shown.' })}</p>
+            <p class="mt-1 text-xs text-muted">{$_('setup.model.provider_hint', { default: 'Only providers available in this image, on this host, and for the selected model are shown.' })}</p>
             {#if providerPreferenceLabel}
-                <p aria-live="polite" class="mt-1 text-xs font-semibold text-slate-600 dark:text-slate-400">
+                <p aria-live="polite" class="mt-1 text-xs font-semibold text-muted">
                     {$_('settings.detection.provider_runtime_order', {
                         values: { order: providerPreferenceLabel },
                         default: `Current runtime order: ${providerPreferenceLabel}`
@@ -588,7 +588,7 @@
                 </p>
             {/if}
             {#if configuredProviderUnavailable}
-                <p role="status" class="mt-1 border-l-2 border-attention-400 py-1 pl-3 text-xs font-semibold leading-relaxed text-attention-800 dark:border-attention-500 dark:text-attention-200">
+                <p role="status" class="mt-1 border-l-2 border-status-attention-line py-1 pl-3 text-xs font-semibold leading-relaxed text-status-attention">
                     {$_('settings.detection.provider_saved_unavailable', {
                         values: { provider: providerLabel(selectedProvider as InferenceProvider) },
                         default: `Saved: ${providerLabel(selectedProvider as InferenceProvider)}. It is not among the devices this model can use here now, so another device is used. Check devices on this host, or choose Auto.`
@@ -598,20 +598,20 @@
         </div>
 
         {#if usesLocation}
-            <fieldset disabled={validating || downloading || saving} class="space-y-2 border-l-2 border-brand-100 pl-4 dark:border-brand-900/60">
-                <legend class="text-sm font-medium text-slate-700 dark:text-slate-300">{$_('setup.model.location_title', { default: 'Feeder location' })}</legend>
-                <p class="text-xs leading-relaxed text-slate-600 dark:text-slate-400">{$_('setup.model.location_hint', { default: 'Validating or continuing saves these coordinates first, using the same feeder location as Settings → Sharing & integrations → Location. This model does not use the date or a location accuracy radius.' })}</p>
+            <fieldset disabled={validating || downloading || saving} class="space-y-2 border-l-2 border-line-soft pl-4">
+                <legend class="text-sm font-medium text-ink">{$_('setup.model.location_title', { default: 'Feeder location' })}</legend>
+                <p class="text-xs leading-relaxed text-muted">{$_('setup.model.location_hint', { default: 'Validating or continuing saves these coordinates first, using the same feeder location as Settings → Sharing & integrations → Location. This model does not use the date or a location accuracy radius.' })}</p>
                 <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <label for="setup-model-latitude" class="text-sm text-slate-700 dark:text-slate-300">
+                    <label for="setup-model-latitude" class="text-sm text-ink">
                         {$_('manual_observation.location.latitude', { default: 'Latitude' })}
                         <input id="setup-model-latitude" type="number" min="-90" max="90" step="any" value={latitudeText} oninput={(event) => (latitudeText = event.currentTarget.value)} class="input-base mt-1" aria-invalid={coordinates.error !== null} aria-describedby="setup-model-location-status" />
                     </label>
-                    <label for="setup-model-longitude" class="text-sm text-slate-700 dark:text-slate-300">
+                    <label for="setup-model-longitude" class="text-sm text-ink">
                         {$_('manual_observation.location.longitude', { default: 'Longitude' })}
                         <input id="setup-model-longitude" type="number" min="-180" max="180" step="any" value={longitudeText} oninput={(event) => (longitudeText = event.currentTarget.value)} class="input-base mt-1" aria-invalid={coordinates.error !== null} aria-describedby="setup-model-location-status" />
                     </label>
                 </div>
-                <p id="setup-model-location-status" role={coordinates.error ? 'alert' : 'status'} class="text-xs leading-relaxed text-slate-600 dark:text-slate-400">
+                <p id="setup-model-location-status" role={coordinates.error ? 'alert' : 'status'} class="text-xs leading-relaxed text-muted">
                     {#if coordinates.error === 'incomplete'}
                         {$_('setup.model.location_incomplete', { default: 'Enter both latitude and longitude, or leave both empty.' })}
                     {:else if coordinates.error === 'range'}
@@ -627,18 +627,18 @@
 
         {#if accelerators.length || verified.length}
             <div>
-                <p class="text-sm font-medium text-slate-700 dark:text-slate-300">{$_('setup.model.detected', { default: 'Detected accelerators' })}</p>
+                <p class="text-sm font-medium text-ink">{$_('setup.model.detected', { default: 'Detected accelerators' })}</p>
                 {#if accelerators.length}
                     <div class="mt-1.5 flex flex-wrap gap-2">
                         {#each accelerators as acc (acc.id)}
-                            <span class="inline-flex items-center gap-1 rounded-full bg-success-100 px-2.5 py-1 text-xs font-semibold text-success-800 dark:bg-success-900/30 dark:text-success-200">
+                            <span class="inline-flex items-center gap-1 rounded-full bg-status-ok-soft px-2.5 py-1 text-xs font-semibold text-status-ok">
                                 <span aria-hidden="true">✓</span> {acc.label}
                             </span>
                         {/each}
                     </div>
                 {/if}
                 {#if verified.length}
-                    <p class="mt-2 text-xs text-success-700 dark:text-success-300">{$_('setup.model.verified', { values: { list: verified.join(', ') }, default: `Validated providers: ${verified.join(', ')}` })}</p>
+                    <p class="mt-2 text-xs text-status-ok">{$_('setup.model.verified', { values: { list: verified.join(', ') }, default: `Validated providers: ${verified.join(', ')}` })}</p>
                 {/if}
             </div>
         {/if}
@@ -650,14 +650,14 @@
                 aria-valuemin="0"
                 aria-valuemax="100"
                 aria-valuenow={downloadPct}
-                class="space-y-2 rounded-lg bg-brand-50 p-3 dark:bg-brand-950/20"
+                class="space-y-2 rounded-lg bg-accent-soft p-3"
             >
                 <div class="flex items-center justify-between text-sm">
-                    <span class="font-medium text-brand-800 dark:text-brand-200">{$_('settings.detection.model_manager_installing_pct', { values: { pct: downloadPct }, default: `Downloading… ${downloadPct}%` })}</span>
-                    <span class="text-xs tabular-nums text-brand-700 dark:text-brand-400">{downloadPct}%</span>
+                    <span class="font-medium text-accent-ink">{$_('settings.detection.model_manager_installing_pct', { values: { pct: downloadPct }, default: `Downloading… ${downloadPct}%` })}</span>
+                    <span class="text-xs tabular-nums text-accent-ink">{downloadPct}%</span>
                 </div>
-                <div class="h-2 w-full overflow-hidden rounded-full bg-brand-100 dark:bg-brand-900/40">
-                    <div class="h-full rounded-full bg-brand-500 transition-all duration-500" style="width: {downloadPct}%"></div>
+                <div class="h-2 w-full overflow-hidden rounded-full bg-track">
+                    <div class="h-full rounded-full bg-accent-line transition-all duration-500 motion-reduce:transition-none" style="width: {downloadPct}%"></div>
                 </div>
             </div>
         {:else if needsDownload}
@@ -672,14 +672,14 @@
                 aria-valuemax={progress.total > 0 ? progress.total : undefined}
                 aria-valuenow={progress.total > 0 ? progress.done : undefined}
                 aria-valuetext={phaseLabel(progress.phase)}
-                class="space-y-2 rounded-lg bg-brand-50 p-3 dark:bg-brand-950/20"
+                class="space-y-2 rounded-lg bg-accent-soft p-3"
             >
                 <div class="flex items-center justify-between text-sm">
-                    <span class="font-medium text-brand-800 dark:text-brand-200">{phaseLabel(progress.phase)}</span>
-                    {#if progress.total > 0}<span class="text-xs text-brand-700 dark:text-brand-400">{progress.done}/{progress.total}</span>{/if}
+                    <span class="font-medium text-accent-ink">{phaseLabel(progress.phase)}</span>
+                    {#if progress.total > 0}<span class="text-xs text-accent-ink">{progress.done}/{progress.total}</span>{/if}
                 </div>
-                <div class="h-2 w-full overflow-hidden rounded-full bg-brand-100 dark:bg-brand-900/40">
-                    <div class="h-full rounded-full bg-brand-500 transition-all duration-500" style="width: {progress.total > 0 ? progressPct : 15}%"></div>
+                <div class="h-2 w-full overflow-hidden rounded-full bg-track">
+                    <div class="h-full rounded-full bg-accent-line transition-all duration-500 motion-reduce:transition-none" style="width: {progress.total > 0 ? progressPct : 15}%"></div>
                 </div>
             </div>
         {:else}
@@ -689,29 +689,29 @@
         {/if}
 
         {#if validating}
-            <p role="status" class="text-xs leading-relaxed text-slate-600 dark:text-slate-400">{$_('setup.model.check_running', { default: 'Continue is available when the check finishes. Leaving this step does not stop the check. Return later to read the saved results.' })}</p>
+            <p role="status" class="text-xs leading-relaxed text-muted">{$_('setup.model.check_running', { default: 'Continue is available when the check finishes. Leaving this step does not stop the check. Return later to read the saved results.' })}</p>
         {/if}
         {#if providerMessage}
-            <p role="status" class="text-xs font-semibold text-attention-700 dark:text-attention-300">{providerMessage}</p>
+            <p role="status" class="text-xs font-semibold text-status-attention">{providerMessage}</p>
         {/if}
         {#if errorMsg}
-            <div role="alert" class="rounded-md bg-attention-50 p-2 text-sm text-attention-800 dark:bg-attention-900/20 dark:text-attention-200">{errorMsg}</div>
+            <div role="alert" class="rounded-md bg-status-attention-soft p-2 text-sm text-status-attention">{errorMsg}</div>
         {/if}
         {#if validationMsg}
-            <div role="status" class="rounded-md bg-success-50 p-2 text-sm text-success-800 dark:bg-success-900/20 dark:text-success-200">{validationMsg}</div>
+            <div role="status" class="rounded-md bg-status-ok-soft p-2 text-sm text-status-ok">{validationMsg}</div>
         {/if}
 
         {#if results}
             {#if results.length === 0}
-                <p class="text-sm text-slate-600 dark:text-slate-400">{$_('setup.model.no_results', { default: 'No installed models were evaluated.' })}</p>
+                <p class="text-sm text-muted">{$_('setup.model.no_results', { default: 'No installed models were evaluated.' })}</p>
             {:else}
-                <ul class="divide-y divide-slate-200 overflow-hidden rounded-lg border border-slate-200 dark:divide-slate-700 dark:border-slate-700">
+                <ul class="divide-y divide-line overflow-hidden rounded-lg border border-line">
                     {#each results as m (m.model_id)}
                         {@const outcome = validationRecommendation(m.model_id, m, matrix)}
                         <li class="flex items-center justify-between gap-3 p-2.5">
                             <div class="min-w-0">
-                                <p class="text-sm font-medium text-slate-800 dark:text-slate-100">{identificationModelName({ id: m.model_id, name: availableModels.find((model) => model.id === m.model_id)?.name }, translate).name}</p>
-                                <p class="text-xs text-slate-600 dark:text-slate-400">
+                                <p class="text-sm font-medium text-strong">{identificationModelName({ id: m.model_id, name: availableModels.find((model) => model.id === m.model_id)?.name }, translate).name}</p>
+                                <p class="text-xs text-muted">
                                     {#if outcome.provider && outcome.medianMs !== null}
                                         {$_('setup.model.best_provider', { values: { provider: providerLabel(outcome.provider), ms: outcome.medianMs.toFixed(0) }, default: `Best validated provider: ${providerLabel(outcome.provider)}, ${outcome.medianMs.toFixed(0)} ms per image` })}
                                     {:else if outcome.provider}
@@ -720,19 +720,19 @@
                                 </p>
                                 {#if !rowOk(m)}
                                     {@const reason = m.warnings?.find((warning) => warning.severity === 'critical')?.message}
-                                    {#if reason}<p class="text-xs text-attention-700 dark:text-attention-300" data-setup-model-warning>{reason}</p>{/if}
+                                    {#if reason}<p class="text-xs text-status-attention" data-setup-model-warning>{reason}</p>{/if}
                                 {/if}
                                 {#if m.failed_providers?.length}
-                                    <p class="text-xs text-attention-700 dark:text-attention-300">{$_('setup.model.failed_providers', { values: { providers: m.failed_providers.map((value) => providerLabel(parseInferenceProvider(value) ?? 'auto')).join(', ') }, default: `Failed: ${m.failed_providers.join(', ')}` })}</p>
+                                    <p class="text-xs text-status-attention">{$_('setup.model.failed_providers', { values: { providers: m.failed_providers.map((value) => providerLabel(parseInferenceProvider(value) ?? 'auto')).join(', ') }, default: `Failed: ${m.failed_providers.join(', ')}` })}</p>
                                 {/if}
                             </div>
-                            <span class="shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold {rowOk(m) ? 'bg-success-100 text-success-800 dark:bg-success-900/30 dark:text-success-200' : 'bg-attention-100 text-attention-800 dark:bg-attention-900/30 dark:text-attention-200'}">
+                            <span class="shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold {rowOk(m) ? 'bg-status-ok-soft text-status-ok' : 'bg-status-attention-soft text-status-attention'}">
                                 {rowOk(m) ? $_('setup.model.row_ok', { default: 'Runs' }) : $_('setup.model.row_warn', { default: 'Check' })}
                             </span>
                         </li>
                     {/each}
                 </ul>
-                <p class="text-xs text-slate-600 dark:text-slate-400">{$_('model_eval.compat_only_body', { default: 'This run checked that each provider loads, gives finite output and agrees with the CPU baseline. It did not measure accuracy, so no accuracy figures are shown. Run Evaluation to measure accuracy.' })}</p>
+                <p class="text-xs text-muted">{$_('model_eval.compat_only_body', { default: 'This run checked that each provider loads, gives finite output and agrees with the CPU baseline. It did not measure accuracy, so no accuracy figures are shown. Run Evaluation to measure accuracy.' })}</p>
             {/if}
         {/if}
     </WizardLoadState>
