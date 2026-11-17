@@ -83,7 +83,7 @@ def test_unraid_template_keeps_provider_selection_in_app_and_documents_flavors()
     for tag in ("latest-cpu", "latest-intel", "latest-cuda"):
         assert tag in requirements
         assert f"`{tag}`" in guide
-    assert "Settings → Models" in requirements
+    assert "Settings → Identifying birds" in requirements
 
     assert "CLASSIFICATION__INFERENCE_PROVIDER" in guide
     assert "overrides the in-app value" in guide
@@ -403,7 +403,7 @@ def test_unraid_guide_has_a_local_template_import_and_complete_connection_setup(
     assert "paste the template URL" not in guide
     assert "/boot/config/plugins/dockerMan/templates-user/my-YA-WAMF.xml" in guide
     assert "Frigate & MQTT connection" in guide
-    assert "Settings → Connection" in guide
+    assert "Settings → Cameras & connection" in guide
     assert "FRIGATE__FRIGATE_URL" in guide and "overrides" in guide
     assert "Docker Safe New" not in guide
 

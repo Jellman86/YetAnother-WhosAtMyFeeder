@@ -20,7 +20,7 @@ YA-WAMF is a self-hosted application. I believe your data belongs to you.
 *   **Frigate:** This application interacts with your local Frigate NVR. Please refer to Frigate's documentation regarding its data handling.
 *   **Local models:** ONNX Runtime, OpenVINO and TensorFlow Lite classification run locally. Downloading model weights contacts the configured release host; inference does not upload the image to the model author.
 *   **Optional services:** LLM analysis, notification channels, BirdWeather, enrichment providers and owner-reviewed exports have separate data-sharing boundaries. BirdWeather reports species, confidence, time and configured location; eBird/iNaturalist lookups can use configured location. Review the [integration guides](docs/index.md#-integrations) and [telemetry privacy boundaries](docs/features/telemetry.md) before enabling them.
-*   **Public access:** Guests can see only the history and media permitted by **Settings → Security**. Sharing photographs, video, audio or camera names is an explicit owner decision.
+*   **Public access:** Guests can see only the history and media permitted by **Settings → Sharing & integrations**. Sharing photographs, video, audio or camera names is an explicit owner decision.
 *   **Support bundles:** An owner-requested diagnostics file is downloaded locally and is not automatically sent to the project. Review the file and your notes before attaching it publicly.
 
 ## User Responsibility
