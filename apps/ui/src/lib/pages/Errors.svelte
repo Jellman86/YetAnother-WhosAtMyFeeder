@@ -390,18 +390,19 @@
         return withOpenIncidents(healthVerdict(overallStatus(), connections));
     }
 
-    const GENERIC_DIAGNOSTIC_TITLE = 'A processing step failed. Technical details have the exact error.';
+    const GENERIC_DIAGNOSTIC_TITLE = 'A processing step failed in a way YA-WAMF does not recognise.';
 
     /**
      * A reason code in the reader's words, with what to try. The backend's message can carry an
      * exception's text, paths and URLs, so it is never the title: an unknown code gets the generic
-     * cause and its message stays under Technical details.
+     * cause, a next step that does not pretend to know the cause, and its message stays under
+     * Technical details.
      */
     function diagnosticWords(reasonCode: string | null | undefined): { title: string; next: string | null } {
         const key = diagnosticWordsKey(reasonCode);
         const title = $_(`jobs.diagnostic_words.${key}.title`, { default: '' })
             || $_('jobs.diagnostic_words.generic.title', { default: GENERIC_DIAGNOSTIC_TITLE });
-        const next = key === 'generic' ? '' : $_(`jobs.diagnostic_words.${key}.next`, { default: '' });
+        const next = $_(`jobs.diagnostic_words.${key}.next`, { default: '' });
         return { title, next: next || null };
     }
 
@@ -426,22 +427,22 @@
         switch (problem) {
             case 'mqtt_down':
                 return {
-                    title: $_('jobs.errors_problem.mqtt_down', { values: { server }, default: 'The MQTT broker at {server} is not connected, so no new detections can arrive.' }),
+                    title: $_('jobs.errors_problem.mqtt_down', { values: { server }, default: 'The MQTT broker at {server} is not connected, so no new visits can be recorded.' }),
                     next: $_('jobs.errors_problem.mqtt_down_next', { default: 'Check its address in Settings → Cameras & connection and that the broker is running.' })
                 };
             case 'mqtt_not_configured':
                 return {
-                    title: $_('jobs.errors_problem.mqtt_not_configured', { default: 'No MQTT broker is set, so no detections can arrive.' }),
+                    title: $_('jobs.errors_problem.mqtt_not_configured', { default: 'No MQTT broker is set, so no visits can be recorded.' }),
                     next: $_('jobs.errors_problem.mqtt_not_configured_next', { default: 'Add one in Settings → Cameras & connection.' })
                 };
             case 'mqtt_stopped':
                 return {
-                    title: $_('jobs.errors_problem.mqtt_stopped', { default: 'The MQTT service is not running, so no new detections can arrive.' }),
+                    title: $_('jobs.errors_problem.mqtt_stopped', { default: 'The MQTT service is not running, so no new visits can be recorded.' }),
                     next: $_('jobs.errors_problem.mqtt_stopped_next', { default: 'Restart YA-WAMF to start it again.' })
                 };
             case 'frigate_down':
                 return {
-                    title: $_('jobs.errors_problem.frigate_down', { values: { url }, default: 'Frigate at {url} is not answering, so new detections cannot be saved.' }),
+                    title: $_('jobs.errors_problem.frigate_down', { values: { url }, default: 'Frigate at {url} is not answering, so new visits cannot be saved.' }),
                     next: $_('jobs.errors_problem.frigate_down_next', { default: 'Check its address in Settings → Cameras & connection and that Frigate is running.' })
                 };
         }
@@ -453,15 +454,15 @@
             return $_('jobs.errors_summary_connections_unread', { default: 'Nothing inside YA-WAMF reports a fault, but the MQTT broker and Frigate connections could not be read.' });
         }
         if (status === 'ok' || status === 'healthy') {
-            return $_('jobs.errors_summary_healthy', { default: 'All monitored services look healthy right now.' });
+            return $_('jobs.errors_summary_healthy', { default: 'Everything YA-WAMF checks is working.' });
         }
         if (statusTone(status) === 'unknown') {
             return $_('jobs.errors_summary_unknown', { default: 'This reading did not say whether YA-WAMF is working, so no state is claimed.' });
         }
         if (status === 'degraded') {
-            return $_('jobs.errors_summary_degraded', { default: 'Some subsystems are under pressure or recovering, but the app is still serving traffic.' });
+            return $_('jobs.errors_summary_degraded', { default: 'Some parts are busy or recovering. YA-WAMF is still working.' });
         }
-        return $_('jobs.errors_summary_faults', { default: 'The app is reporting active faults that need attention.' });
+        return $_('jobs.errors_summary_faults', { default: 'Something is failing and needs your attention. The problems are listed below.' });
     }
 
     /** When the verdict was measured; the pill beside it already says what it is. */
@@ -480,13 +481,13 @@
         const criticalFailures = asNumber(pipeline.critical_failures);
         const faults = faultDropCount(pipeline);
         if (eventPipelineStatus() === 'unknown') {
-            return $_('jobs.errors_pipeline_unmeasured', { default: 'Nothing can arrive while the MQTT broker is not connected, so these counts do not show whether the pipeline works.' });
+            return $_('jobs.errors_pipeline_unmeasured', { default: 'Nothing can arrive while the MQTT broker is not connected, so these counts do not show whether processing works.' });
         }
         if (criticalFailureActive) return $_('jobs.errors_pipeline_critical', { values: { count: criticalFailures }, default: '{count, plural, one {# critical failure recorded.} other {# critical failures recorded.}}' });
-        if (criticalFailures > 0) return $_('jobs.errors_pipeline_historical', { values: { count: criticalFailures }, default: '{count, plural, one {# historical failure recorded; pipeline has since recovered.} other {# historical failures recorded; pipeline has since recovered.}}' });
-        if (faults > 0) return $_('jobs.errors_pipeline_dropped', { values: { count: faults }, default: '{count, plural, one {# event was dropped by a fault.} other {# events were dropped by a fault.}}' });
-        if (asNumber(pipeline.started_events) === 0) return $_('jobs.errors_pipeline_idle', { default: 'No detections have reached the pipeline since this instance started.' });
-        return $_('jobs.errors_pipeline_ok', { default: 'The ingest pipeline is processing detections normally.' });
+        if (criticalFailures > 0) return $_('jobs.errors_pipeline_historical', { values: { count: criticalFailures }, default: '{count, plural, one {# earlier failure recorded; processing has since recovered.} other {# earlier failures recorded; processing has since recovered.}}' });
+        if (faults > 0) return $_('jobs.errors_pipeline_dropped', { values: { count: faults }, default: '{count, plural, one {# Frigate event was dropped by a fault.} other {# Frigate events were dropped by a fault.}}' });
+        if (asNumber(pipeline.started_events) === 0) return $_('jobs.errors_pipeline_idle', { default: 'Nothing has arrived from Frigate since this instance started.' });
+        return $_('jobs.errors_pipeline_ok', { default: 'What Frigate sends is being processed normally.' });
     }
 
     // Filtering is reported on its own, away from the health verdict: it is useful
@@ -502,7 +503,7 @@
         }
         return $_('jobs.errors_filtered_summary', {
             values: { count },
-            default: '{count, plural, one {# detection did not meet your detection settings.} other {# detections did not meet your detection settings.}} This is the filter working, not a fault.'
+            default: '{count, plural, one {# Frigate event did not pass your identification settings.} other {# Frigate events did not pass your identification settings.}} This is the filter working, not a fault.'
         });
     }
 
@@ -537,10 +538,10 @@
             return $_('jobs.errors_mqtt_connecting', { values: { server }, default: 'Connecting to {server}.' });
         }
         if (link.state === 'not_configured') {
-            return $_('jobs.errors_problem.mqtt_not_configured', { default: 'No MQTT broker is set, so no detections can arrive.' });
+            return $_('jobs.errors_problem.mqtt_not_configured', { default: 'No MQTT broker is set, so no visits can be recorded.' });
         }
         if (link.state === 'stopped') {
-            return $_('jobs.errors_problem.mqtt_stopped', { default: 'The MQTT service is not running, so no new detections can arrive.' });
+            return $_('jobs.errors_problem.mqtt_stopped', { default: 'The MQTT service is not running, so no new visits can be recorded.' });
         }
         const connected = $_('jobs.errors_mqtt_connected', { values: { server, at: at(link.connected_since) }, default: 'Connected to {server} since {at}.' });
         return `${connected} ${mqttLoadSummary()}`;
@@ -609,12 +610,12 @@
         const inFlight = asNumber(mqtt.in_flight);
         const capacity = asNumber(mqtt.in_flight_capacity);
         if (pressure === 'critical' || pressure === 'high') {
-            return $_('jobs.errors_mqtt_pressure', { values: { pressure, inFlight: inFlight.toLocaleString(), capacity: capacity.toLocaleString() }, default: `MQTT handlers are under ${pressure} pressure at ${inFlight}/${capacity} in flight.` });
+            return $_('jobs.errors_mqtt_pressure', { values: { pressure, inFlight: inFlight.toLocaleString(), capacity: capacity.toLocaleString() }, default: `The MQTT connection is under {pressure} load: {inFlight} of {capacity} messages being handled.` });
         }
         const reconnects = asNumber(mqtt.topic_liveness_reconnects);
         return reconnects > 0
-            ? $_('jobs.errors_mqtt_reconnected', { values: { count: reconnects }, default: 'MQTT recovered cleanly after {count, plural, one {# topic reconnect} other {# topic reconnects}}.' })
-            : $_('jobs.errors_mqtt_ok', { default: 'Its handlers are keeping up.' });
+            ? $_('jobs.errors_mqtt_reconnected', { values: { count: reconnects }, default: 'MQTT is working again after {count, plural, one {# reconnect} other {# reconnects}}.' })
+            : $_('jobs.errors_mqtt_ok', { default: 'Messages are handled as they arrive.' });
     }
 
     function liveClassificationStatus(): string {
@@ -628,12 +629,12 @@
         const running = asNumber(live.in_flight);
         const maxConcurrent = asNumber(live.max_concurrent);
         if (live.recovery_active) {
-            return $_('jobs.errors_live_class_recovering', { values: { running: running.toLocaleString(), maxConcurrent: maxConcurrent.toLocaleString() }, default: `Live classification is recovering while ${running}/${maxConcurrent} slots are active.` });
+            return $_('jobs.errors_live_class_recovering', { values: { running: running.toLocaleString(), maxConcurrent: maxConcurrent.toLocaleString() }, default: `Naming is recovering: {running} of {maxConcurrent} running.` });
         }
         if (queued > 0) {
-            return $_('jobs.errors_live_class_queued', { values: { queued: queued.toLocaleString(), running: running.toLocaleString(), maxConcurrent: maxConcurrent.toLocaleString() }, default: `${queued.toLocaleString()} live items are queued behind ${running}/${maxConcurrent} active slots.` });
+            return $_('jobs.errors_live_class_queued', { values: { queued: queued.toLocaleString(), running: running.toLocaleString(), maxConcurrent: maxConcurrent.toLocaleString() }, default: `{queued} waiting to be named, behind {running} of {maxConcurrent} running.` });
         }
-        return $_('jobs.errors_live_class_ok', { default: 'Live classification capacity is currently clear.' });
+        return $_('jobs.errors_live_class_ok', { default: 'Nothing is waiting to be named.' });
     }
 
     function backgroundStatus(): string {
@@ -645,7 +646,7 @@
     function backgroundSummary(): string {
         const background = health?.ml?.background_image ?? {};
         if (background.background_throttled) {
-            return $_('jobs.errors_background_throttled', { values: { queued: asNumber(background.queued).toLocaleString() }, default: `Background work is throttled with ${asNumber(background.queued).toLocaleString()} items waiting.` });
+            return $_('jobs.errors_background_throttled', { values: { queued: asNumber(background.queued).toLocaleString() }, default: `Background work is held back, with {queued} waiting, so new visits are named first.` });
         }
         return $_('jobs.errors_background_plain', { values: { queued: asNumber(background.queued).toLocaleString(), running: asNumber(background.in_flight).toLocaleString() }, default: 'Background work: {queued} waiting, {running} running.' });
     }
@@ -664,12 +665,12 @@
         const droppedJobs = asNumber(dispatcher.dropped_jobs);
         const dbWait = asNumber(dbPool.acquire_wait_max_ms);
         if (droppedJobs > 0) {
-            return $_('jobs.errors_dispatcher_dropped', { values: { count: droppedJobs }, default: 'Notification dispatcher dropped {count, plural, one {# job} other {# jobs}}.' });
+            return $_('jobs.errors_dispatcher_dropped', { values: { count: droppedJobs }, default: '{count, plural, one {# notification was not sent because too many were waiting.} other {# notifications were not sent because too many were waiting.}}' });
         }
         if (dbWait >= 5000) {
-            return $_('jobs.errors_dispatcher_db_wait', { values: { ms: dbWait.toLocaleString() }, default: `DB acquire wait reached ${dbWait.toLocaleString()}ms.` });
+            return $_('jobs.errors_dispatcher_db_wait', { values: { ms: dbWait.toLocaleString() }, default: `The longest wait for the database was {ms} ms.` });
         }
-        return $_('jobs.errors_dispatcher_ok', { default: 'Notification dispatch and DB pool look healthy.' });
+        return $_('jobs.errors_dispatcher_ok', { default: 'Notifications are being sent and the database is answering.' });
     }
 
     function startupStatus(): string {
@@ -678,11 +679,11 @@
 
     function startupSummary(): string {
         if (startupWarnings.length <= 0) {
-            return $_('jobs.errors_startup_ok', { default: 'No startup warnings are currently recorded.' });
+            return $_('jobs.errors_startup_ok', { default: 'YA-WAMF started without warnings.' });
         }
         const first = startupWarnings[0] ?? {};
-        const phase = asText((first as Record<string, unknown>).phase, $_('jobs.errors_unknown_phase', { default: 'Unknown phase' }));
-        return $_('jobs.errors_startup_summary', { values: { count: startupWarnings.length, phase }, default: '{count, plural, one {# startup warning recorded.} other {# startup warnings recorded.}} Latest phase: {phase}.' });
+        const phase = asText((first as Record<string, unknown>).phase, $_('jobs.errors_unknown_phase', { default: 'Unknown step' }));
+        return $_('jobs.errors_startup_summary', { values: { count: startupWarnings.length, phase }, default: '{count, plural, one {# start-up warning recorded.} other {# start-up warnings recorded.}} Latest step: {phase}.' });
     }
 
     function namingStatus(): string {
@@ -899,8 +900,8 @@
                                 </svg>
                             </div>
                             <div class="min-w-0 flex-1">
-                                <h4 class="eyebrow text-inherit">{$_('jobs.frigate_media_advisory_title', { default: 'Frigate often has no snapshot for a detection' })}</h4>
-                                <p class="mt-1 text-sm font-semibold">{$_('jobs.frigate_media_advisory_body', { values: { percent: frigateMediaDropPercent, dropped: frigateMediaAdvisory.dropped.toLocaleString(), started: frigateMediaAdvisory.started.toLocaleString() }, default: `${frigateMediaDropPercent}% of recent detections (${frigateMediaAdvisory.dropped.toLocaleString()} of ${frigateMediaAdvisory.started.toLocaleString()}) were dropped because Frigate had no snapshot, thumbnail, or recording for them. This usually means briefly-tracked birds that never persist as Frigate events, or short recording retention.` })}</p>
+                                <h4 class="eyebrow text-inherit">{$_('jobs.frigate_media_advisory_title', { default: 'Frigate often has no snapshot for an event' })}</h4>
+                                <p class="mt-1 text-sm font-semibold">{$_('jobs.frigate_media_advisory_body', { values: { percent: frigateMediaDropPercent, dropped: frigateMediaAdvisory.dropped.toLocaleString(), started: frigateMediaAdvisory.started.toLocaleString() }, default: `{percent}% of recent Frigate events ({dropped} of {started}) were dropped because Frigate had no snapshot, thumbnail or recording for them. This usually means birds tracked too briefly for Frigate to keep, or recordings kept for too short a time.` })}</p>
                                 <a href={FRIGATE_MISSING_DOCS_URL} target="_blank" rel="noopener noreferrer" class="mt-2 inline-block text-xs font-bold underline underline-offset-2 hover:no-underline">
                                     {$_('jobs.frigate_media_advisory_link', { default: 'How to reduce this →' })}
                                 </a>
@@ -916,7 +917,7 @@
              its heading and says its state in a worded chip; nothing is tinted and no text is dimmed. ── -->
         <details class="border-t border-line-soft pt-4" data-subsystem-detail>
             <summary class="group flex min-h-11 cursor-pointer items-center justify-between gap-3 py-2 eyebrow focus-ring">
-                <span>{$_('jobs.errors_subsystems_title', { default: 'Subsystem detail' })}</span>
+                <span>{$_('jobs.errors_subsystems_title', { default: 'Detail by part' })}</span>
                 <svg class="h-4 w-4 shrink-0 text-muted transition-transform duration-200 group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
             </summary>
             {#if !workspacePayload}
@@ -936,7 +937,7 @@
 
                 <!-- Filtering is the detection settings working, not a state: its chip is a count in neutral ink. -->
                 <li class="py-4" data-health-subsystem="filtered">
-                    {@render subsystemHead($_('jobs.errors_filtered_title', { default: 'Filtered detections' }), expectedDropCount(health?.event_pipeline).toLocaleString(), 'unknown', filteredStatus())}
+                    {@render subsystemHead($_('jobs.errors_filtered_title', { default: 'Filtered out' }), expectedDropCount(health?.event_pipeline).toLocaleString(), 'unknown', filteredStatus())}
                     <p class="mt-1 text-sm text-ink">{filteredSummary()}</p>
                     {#if expectedDropReasons(health?.event_pipeline).length > 0}
                         <dl class="mt-2 grid grid-cols-1 gap-1 text-xs sm:max-w-md">
@@ -990,7 +991,7 @@
                 </li>
 
                 <li class="py-4" data-health-subsystem="live">
-                    {@render subsystemHead($_('jobs.errors_card_live_classification', { default: 'Live classification' }), statusLabel(liveClassificationStatus()), liveClassificationStatus(), liveClassificationStatus())}
+                    {@render subsystemHead($_('jobs.errors_card_live_classification', { default: 'Naming new visits' }), statusLabel(liveClassificationStatus()), liveClassificationStatus(), liveClassificationStatus())}
                     <p class="mt-1 text-sm text-ink">{liveClassificationSummary()}</p>
                     {@render metricList([
                         { label: $_('jobs.errors_metric_waiting', { default: 'Waiting' }), value: asNumber(health?.ml?.live_image?.queued).toLocaleString() },
@@ -1001,7 +1002,7 @@
                 </li>
 
                 <li class="py-4" data-health-subsystem="video">
-                    {@render subsystemHead($_('jobs.errors_card_video_classification', { default: 'Video classification' }), statusLabel(videoClassifierCard.status), videoClassifierCard.status, videoClassifierCard.status)}
+                    {@render subsystemHead($_('jobs.errors_card_video_classification', { default: 'Video analysis' }), statusLabel(videoClassifierCard.status), videoClassifierCard.status, videoClassifierCard.status)}
                     <p class="mt-1 text-sm text-ink">{videoSummary()}</p>
                     {@render metricList([
                         { label: $_('jobs.errors_metric_waiting', { default: 'Waiting' }), value: videoClassifierCard.pending.toLocaleString() },
@@ -1011,7 +1012,7 @@
                 </li>
 
                 <li class="py-4" data-health-subsystem="background">
-                    {@render subsystemHead($_('jobs.errors_card_background_maintenance', { default: 'Background maintenance' }), statusLabel(backgroundStatus()), backgroundStatus(), backgroundStatus())}
+                    {@render subsystemHead($_('jobs.errors_card_background_maintenance', { default: 'Background work' }), statusLabel(backgroundStatus()), backgroundStatus(), backgroundStatus())}
                     <p class="mt-1 text-sm text-ink">{backgroundSummary()}</p>
                     {@render metricList([
                         { label: $_('jobs.errors_metric_waiting', { default: 'Waiting' }), value: asNumber(health?.ml?.background_image?.queued).toLocaleString() },
@@ -1022,7 +1023,7 @@
                 </li>
 
                 <li class="py-4" data-health-subsystem="dispatch">
-                    {@render subsystemHead($_('jobs.errors_card_notifications_db', { default: 'Notifications & DB' }), statusLabel(dispatcherStatus()), dispatcherStatus(), dispatcherStatus())}
+                    {@render subsystemHead($_('jobs.errors_card_notifications_db', { default: 'Notifications and database' }), statusLabel(dispatcherStatus()), dispatcherStatus(), dispatcherStatus())}
                     <p class="mt-1 text-sm text-ink">{dispatcherSummary()}</p>
                     {@render metricList([
                         { label: $_('jobs.errors_metric_notifications_dropped', { default: 'Notifications dropped' }), value: asNumber(health?.notification_dispatcher?.dropped_jobs).toLocaleString() },
@@ -1055,7 +1056,7 @@
                                 </li>
                             {/each}
                         </ul>
-                        <p class="mt-2 text-xs text-ink">{$_('jobs.errors_catalog_rollback', { default: 'The catalogue is a separate file from your detection history. Rolling one back changes names, never your recorded sightings, and a backup of the data directory covers both.' })}</p>
+                        <p class="mt-2 text-xs text-ink">{$_('jobs.errors_catalog_rollback', { default: 'The catalogue is a separate file from your visit history. Rolling one back changes names, never your recorded visits, and a backup of the data folder covers both.' })}</p>
                     {/if}
                 </li>
 
@@ -1066,7 +1067,7 @@
                         <ul class="mt-2 space-y-2 text-xs">
                             {#each startupWarnings.slice(0, 2) as warning}
                                 <li>
-                                    <p class="text-ink">{asText((warning as Record<string, unknown>).phase, $_('jobs.errors_unknown_phase', { default: 'Unknown phase' }))}</p>
+                                    <p class="text-ink">{asText((warning as Record<string, unknown>).phase, $_('jobs.errors_unknown_phase', { default: 'Unknown step' }))}</p>
                                     <p class="font-semibold wrap-break-word text-strong">{asText((warning as Record<string, unknown>).error, $_('jobs.errors_unknown_warning', { default: 'Unknown warning' }))}</p>
                                 </li>
                             {/each}
@@ -1086,7 +1087,7 @@
     <Panel
         title={$_('jobs.errors_activity_title', { default: 'What happened' })}
         description={$_('jobs.errors_activity_subtitle', {
-            default: 'Recorded visits, filtered detections and pipeline faults, in the order they happened'
+            default: 'Recorded visits, filtered events and faults, in the order they happened'
         })}
         data-health-timeline
     >
@@ -1117,7 +1118,7 @@
                     rows={timelineRows}
                     emptyMessage={$_('jobs.errors_activity_empty', {
                         values: { started: startedAgoText() },
-                        default: 'No detection activity has been reported since this instance started {started} ago.'
+                        default: 'No visits, filtered events or faults have been reported since this instance started {started} ago.'
                     })}
                     hiddenCount={timelineHidden}
                     hiddenLabel={$_('jobs.errors_activity_earlier', {
@@ -1153,7 +1154,7 @@
                 <span id="health-clear-effect" class="sr-only">{$_('jobs.errors_clear_effect', { default: 'Removes recorded errors and incidents now. Live checks carry on.' })}</span>
             {/snippet}
             {#if clearError}
-                <p class="mt-4 text-sm font-semibold text-status-fail" role="alert">{$_('jobs.errors_clear_failed', { default: 'The error history could not be cleared. Try again.' })}</p>
+                <p class="mt-4 text-sm font-semibold text-status-fail" role="alert">{$_('jobs.errors_clear_failed', { default: 'The error history could not be cleared. Try again; if it keeps failing, check that YA-WAMF is running.' })}</p>
             {/if}
             {#if recentIncidents.length === 0}
                 <StateBlock class="mt-4" state="empty" cause={$_('jobs.earlier_incidents_empty', { default: 'Nothing has cleared since the error history was last cleared.' })} />
@@ -1175,7 +1176,7 @@
             data-health-backend-diagnostics
         >
             {#if backendEvents.length === 0}
-                <StateBlock class="mt-4" state="empty" cause={$_('jobs.errors_backend_empty', { default: 'The backend has recorded no warnings or errors since the error history was last cleared.' })} />
+                <StateBlock class="mt-4" state="empty" cause={$_('jobs.errors_backend_empty', { default: 'The backend has recorded no warnings or errors since the error history was last cleared. Connection problems are listed at the top of this page, not here.' })} />
             {:else}
                 <!-- One ruled row per diagnostic: the state in a worded chip, the cause in the reader's
                      language where it is known, and the backend's own words under Technical details. -->
@@ -1237,7 +1238,7 @@
 
         <p class="mt-4 max-w-2xl text-sm text-muted">
             {$_('jobs.errors_export_desc', {
-                default: 'A bundle captures workspace health, backend diagnostics, classifier status, startup warnings and incidents as one JSON file. Attach one when you report a problem.'
+                default: 'A bundle captures this page, the backend’s warnings and errors, the model’s status, start-up warnings and incidents as one JSON file. Attach one when you report a problem.'
             })}
         </p>
 

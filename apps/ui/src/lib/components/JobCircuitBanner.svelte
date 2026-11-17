@@ -29,7 +29,7 @@
             await analysisQueueStatusStore.refresh({ fresh: true });
         } catch {
             resetError = $_('jobs.circuit_reset_failed', {
-                default: 'The queue could not be resumed. Try again.'
+                default: 'The analysis could not be resumed. Try again; if it keeps failing, open Health.'
             });
         } finally {
             resetting = false;
@@ -43,7 +43,7 @@
         data-job-circuit-banner
     >
         <p class="text-sm font-semibold text-status-attention">
-            {$_('jobs.circuit_open_message', { default: 'Reclassification queue paused by circuit breaker.' })}
+            {$_('jobs.circuit_open_message', { default: 'Video analysis is paused after repeated failures.' })}
         </p>
         <p class="mt-1 text-xs text-status-attention">
             {$_('jobs.circuit_open_detail', {
@@ -51,7 +51,7 @@
                     queued: queuedJobs.toLocaleString(),
                     failures: failureCount.toLocaleString()
                 },
-                default: '{queued} queued items are waiting. Recent failures: {failures}.'
+                default: '{queued} waiting. Failures in a row: {failures}.'
             })}
             {#if circuitOpenUntil}
                 · {$_('jobs.circuit_open_until', { default: 'Until' })}: {formatDateTime(circuitOpenUntil)}
@@ -74,7 +74,7 @@
                 {$_('jobs.circuit_reset_button', { default: 'Try again' })}
             </button>
             <p class="mt-1 text-3xs text-status-attention">
-                {$_('jobs.circuit_reset_confirm', { default: 'This will reopen the video classification queue immediately. Queued jobs will retry.' })}
+                {$_('jobs.circuit_reset_confirm', { default: 'Queued analysis will resume straight away.' })}
             </p>
             {#if resetError}
                 <p class="mt-2 text-xs font-semibold text-status-fail" role="alert">{resetError}</p>

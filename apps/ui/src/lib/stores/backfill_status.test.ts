@@ -38,7 +38,7 @@ describe('BackfillStatusStore', () => {
         expect(stale?.status).toBe('stale');
         expect(stale?.current).toBe(0);
         expect(stale?.total).toBe(23);
-        expect(stale?.message).toContain('Status unavailable');
+        expect(stale?.message).toContain('The status was lost');
         expect(jobProgressStore.historyJobs.find((job) => job.id === 'backfill:detections:old-job')).toBeUndefined();
     });
 

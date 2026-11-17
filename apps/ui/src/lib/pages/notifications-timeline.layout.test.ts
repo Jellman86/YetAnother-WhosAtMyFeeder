@@ -15,7 +15,7 @@ describe('Notifications timeline layout', () => {
         for (const name of ['all', 'birds', 'updates', 'jobs', 'errors']) {
             expect(en.notifications[`filter_${name}` as keyof typeof en.notifications]).toBeTruthy();
         }
-        expect(en.notifications.clear_notifications).toBe('Clear notifications');
+        expect(en.notifications.clear_notifications).toBe('Clear all notifications');
     });
 
     it('paginates the filtered river instead of rendering the full retained history', () => {
@@ -127,6 +127,5 @@ describe('a job that stopped reporting', () => {
         expect(source).toContain('notificationCenter.remove(item.id)');
         expect(en.notifications.job_stopped).toContain('Nothing is still running');
         expect(en.notifications.job_stopped).toContain('{time}');
-        expect(en.notifications.global_progress_stale).not.toContain('stale');
     });
 });

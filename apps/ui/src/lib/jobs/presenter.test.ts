@@ -63,8 +63,8 @@ describe('jobs presenter', () => {
 
         const presented = presentPipelineKindRow(makeRow({ running: 0 }), analysisStatus, t);
 
-        expect(presented.activityLabel).toBe('Paused by circuit breaker');
-        expect(presented.blockerLabel).toBe('Recent failures paused reclassification work');
+        expect(presented.activityLabel).toBe('Paused after repeated failures');
+        expect(presented.blockerLabel).toBe('Repeated failures paused the analysis');
     });
 
     it('surfaces queue depth and free-capacity labels for throughput rows', () => {
@@ -107,18 +107,18 @@ describe('jobs presenter', () => {
             (kind) => kind === 'reclassify' ? 'Reclassification' : kind
         );
 
-        expect(presented.title).toBe('Analyze Unknowns');
+        expect(presented.title).toBe('Naming Unknown bird visits');
         expect(presented.stateLabel).toBe('Running');
         expect(presented.runningLabel).toBe('2 running');
         expect(presented.queuedLabel).toBe('18 queued');
         expect(presented.capacityLabel).toBe('2 of 2 worker slots busy');
-        expect(presented.batchLabel).toBe('Batching up to 50 at a time; newest 200 scanned');
-        expect(presented.candidateLabel).toBe('132 more candidates may remain');
+        expect(presented.batchLabel).toBe('Up to 50 at a time, from the newest 200');
+        expect(presented.candidateLabel).toBe('132 more may remain');
     });
 
-    it('gives the batch lane its own name instead of a second Analyze Unknowns', () => {
+    it('gives the batch lane its own name instead of a second copy of the lane name', () => {
         // Both reclassify kinds share queue telemetry, so both lanes were titled
-        // "Analyze Unknowns" and the same work read as two unrelated jobs.
+        // the lane name and the same work read as two unrelated jobs.
         const presented = presentWorkLane(
             makeRow({ kind: 'reclassify_batch', queued: 4, running: 1 }),
             null,
@@ -179,7 +179,7 @@ describe('jobs presenter', () => {
 
         expect(summary.headline).toBe('2 jobs running');
         // The subline says what the leading job is doing; the headline already holds the counts.
-        expect(summary.subline).toBe('Reclassification: analyzing clips');
+        expect(summary.subline).toBe('Reclassification: analysing clips');
         // No common total, so no bar and no placeholder words standing in for progress.
         expect(summary.determinate).toBe(false);
         expect(summary.progressLabel).toBeNull();
@@ -255,9 +255,9 @@ describe('jobs presenter', () => {
             (kind) => kind === 'reclassify' ? 'Reclassification' : kind
         );
 
-        expect(summary.headline).toBe('Analyze Unknowns queued');
+        expect(summary.headline).toBe('Naming Unknown bird visits: queued');
         expect(summary.subline).toBe('0 running · 18 queued');
-        expect(summary.progressLabel).toBe('Batching up to 50 at a time; newest 200 scanned');
+        expect(summary.progressLabel).toBe('Up to 50 at a time, from the newest 200');
         expect(summary.determinate).toBe(false);
     });
 
@@ -281,7 +281,7 @@ describe('jobs presenter', () => {
             (kind) => kind === 'reclassify' ? 'Reclassification' : 'Backfill'
         );
 
-        expect(summary.subline).toBe('Reclassification: analyzing clips');
+        expect(summary.subline).toBe('Reclassification: analysing clips');
     });
 
 

@@ -259,7 +259,7 @@
             </h2>
             <p class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
                 <span><b class="font-semibold tabular-nums text-strong">{items.length}</b>
-                    {$_('notifications.count_events', { values: { count: items.length }, default: '{count, plural, one {event} other {events}}' })}</span>
+                    {$_('notifications.count_events', { values: { count: items.length }, default: '{count, plural, one {notification} other {notifications}}' })}</span>
                 {#if unread > 0}
                     <span><b class="font-semibold tabular-nums text-strong">{unread}</b>
                         {$_('notifications.count_unread_unit', { values: { count: unread }, default: '{count, plural, one {unread} other {unread}}' })}</span>
@@ -282,7 +282,7 @@
             </button>
             <!-- Undoable from the toast that follows, so it needs no confirmation and no red. -->
             <button type="button" class="btn btn-ghost min-h-11 px-3 py-2 text-xs" onclick={clearWithUndo}>
-                {$_('notifications.clear_notifications', { default: 'Clear notifications' })}
+                {$_('notifications.clear_notifications', { default: 'Clear all notifications' })}
             </button>
         </div>
     </div>
@@ -290,7 +290,7 @@
     {#if isOwner && items.some(isOwnerOnlyItem)}
         <!-- Said once for the page, in words: marking it on every row was most of the rows. -->
         <p class="text-xs text-muted" data-notifications-owner-note>
-            {$_('notifications.owner_only_note', { default: 'Background jobs, health and system events are shown only to you, not to visitors.' })}
+            {$_('notifications.owner_only_note', { default: 'Background jobs, Health and system notices are shown only to you, not to guests.' })}
         </p>
     {/if}
 
@@ -327,9 +327,9 @@
                 state="empty"
                 title={$_('notifications.empty_title', { default: 'Nothing has happened yet' })}
                 cause={$_('notifications.empty_body', {
-                    default: 'Visits appear here as the classifier names them, and background work as it runs. Newest first.'
+                    default: 'Visits appear here as the model names them, and background work as it runs. Newest first.'
                 })}
-                action={{ label: $_('notifications.empty_action', { default: 'Open the field log' }), onclick: () => navigate('/') }}
+                action={{ label: $_('notifications.empty_action', { default: 'Open the Dashboard' }), onclick: () => navigate('/') }}
                 data-notifications-empty
             />
         {/if}
