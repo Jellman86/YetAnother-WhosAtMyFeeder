@@ -94,16 +94,6 @@
     "dark": 0,
     "arbitrary": 1
   },
-  "lib/components/FeederPortrait.svelte": {
-    "palette": 33,
-    "dark": 14,
-    "arbitrary": 3
-  },
-  "lib/components/FeederPortraitPlaceholder.svelte": {
-    "palette": 6,
-    "dark": 3,
-    "arbitrary": 1
-  },
   "lib/components/FieldLog.svelte": {
     "palette": 0,
     "dark": 0,
@@ -199,16 +189,6 @@
     "dark": 4,
     "arbitrary": 0
   },
-  "lib/components/InstancePipeline.svelte": {
-    "palette": 19,
-    "dark": 9,
-    "arbitrary": 1
-  },
-  "lib/components/InstanceSummary.svelte": {
-    "palette": 58,
-    "dark": 27,
-    "arbitrary": 7
-  },
   "lib/components/KeyboardShortcuts.svelte": {
     "palette": 9,
     "dark": 4,
@@ -260,8 +240,8 @@
     "arbitrary": 0
   },
   "lib/components/PrivacySummary.svelte": {
-    "palette": 6,
-    "dark": 3,
+    "palette": 0,
+    "dark": 0,
     "arbitrary": 1
   },
   "lib/components/ProviderWarning.svelte": {
@@ -492,11 +472,6 @@
   "lib/components/settings/_primitives/SettingsTextarea.svelte": {
     "palette": 6,
     "dark": 3,
-    "arbitrary": 0
-  },
-  "lib/pages/About.svelte": {
-    "palette": 29,
-    "dark": 14,
     "arbitrary": 0
   },
   "lib/pages/AudioHistory.svelte": {

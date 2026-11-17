@@ -139,21 +139,21 @@
 {#if isOwner}
     <section class="card-base min-w-0 max-w-full space-y-4 p-6" data-about-instance aria-labelledby="about-instance-heading">
         <div class="flex flex-wrap items-center gap-3">
-            <h2 id="about-instance-heading" class="font-display text-xl font-bold text-slate-900 dark:text-white">
+            <h2 id="about-instance-heading" class="font-display text-xl font-bold text-strong">
                 {$_('about.instance.title', { default: 'This instance' })}
             </h2>
 
             {#if updateStatus?.enabled}
                 <span
                     class="ml-auto inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-2xs font-semibold {updateStatus.update_available
-                        ? 'border-brand-300 text-brand-800 dark:border-brand-700 dark:text-brand-200'
-                        : 'border-slate-200 text-slate-600 dark:border-slate-700 dark:text-slate-300'}"
+                        ? 'border-accent-line text-accent-ink'
+                        : 'border-line text-muted'}"
                     data-instance-update
                 >
                     <span
                         class="h-1.5 w-1.5 rounded-full {updateStatus.update_available
-                            ? 'bg-brand-500'
-                            : 'bg-success-500'}"
+                            ? 'bg-accent'
+                            : 'bg-status-ok'}"
                         aria-hidden="true"
                     ></span>
                     {#if updateStatus.update_available}
@@ -165,7 +165,7 @@
                         {$_('about.instance.up_to_date', { default: 'Up to date' })}
                     {/if}
                     {#if updateStatus.checked_at}
-                        <span class="font-normal text-slate-600 dark:text-slate-400">
+                        <span class="font-normal text-muted">
                             {$_('about.instance.checked', {
                                 values: { when: formatTime(updateStatus.checked_at) },
                                 default: 'checked {when}'
@@ -176,24 +176,26 @@
             {/if}
         </div>
 
-        <div class="grid min-w-0 gap-6 sm:grid-cols-[minmax(0,0.7fr)_minmax(0,0.7fr)_minmax(0,1.6fr)]">
-            <div class="min-w-0" data-instance-runtime>
-                <p class="text-2xs font-semibold text-slate-600 wrap-anywhere dark:text-slate-400">
+        <!-- Bird identification takes the whole row: its sentence can be long (a model to download) and in a
+             narrow first column it ran to seven lines beside two short ones. -->
+        <div class="grid min-w-0 gap-6 sm:grid-cols-3">
+            <div class="min-w-0 sm:col-span-3" data-instance-runtime>
+                <p class="text-2xs font-semibold text-muted wrap-anywhere">
                     {$_('about.instance.runtime', { default: 'Bird identification' })}
                 </p>
                 <!-- The same sentence Settings › Models and the setup wizard show, from the same report. -->
-                <div class="mt-1">
+                <div class="mt-1 max-w-prose">
                     <IdentificationStatusLine classifierStatus={classifier} context="about" />
                 </div>
             </div>
 
             <div data-instance-uptime class="min-w-0">
-                <p class="text-2xs font-semibold text-slate-600 wrap-anywhere dark:text-slate-400">
+                <p class="text-2xs font-semibold text-muted wrap-anywhere">
                     {$_('about.instance.uptime', { default: 'Running for' })}
                 </p>
                 {#if uptime && startedAt}
-                    <p class="font-display text-2xl font-bold text-slate-900 dark:text-white" data-instance-running-for>{uptime}</p>
-                    <p class="text-2xs text-slate-600 dark:text-slate-400">
+                    <p class="font-display text-2xl font-bold text-strong" data-instance-running-for>{uptime}</p>
+                    <p class="text-2xs text-muted">
                         {$_('about.instance.since', {
                             values: { when: `${formatDate(startedAt)} ${formatTime(startedAt)}` },
                             default: 'since {when}'
@@ -201,24 +203,24 @@
                     </p>
                 {:else if startRead}
                     <!-- A dash where the figure would be, and one muted line for why: never a sentence as the value. -->
-                    <p class="font-display text-2xl font-bold text-slate-900 dark:text-white" data-instance-running-unmeasured>
+                    <p class="font-display text-2xl font-bold text-strong" data-instance-running-unmeasured>
                         <span aria-hidden="true">&mdash;</span>
                         <span class="sr-only">{$_('about.instance.uptime_unmeasured_value', { default: 'Not measured' })}</span>
                     </p>
-                    <p class="text-2xs text-slate-600 dark:text-slate-400">
+                    <p class="text-2xs text-muted">
                         {$_('about.instance.uptime_unmeasured', { default: 'The backend did not report when it started.' })}
                     </p>
                 {:else}
-                    <p class="mt-1 text-sm text-slate-600 dark:text-slate-400" role="status">{$_('common.loading', { default: 'Loading…' })}</p>
+                    <p class="mt-1 text-sm text-muted" role="status">{$_('common.loading', { default: 'Loading…' })}</p>
                 {/if}
 
-                <p class="mt-4 text-2xs font-semibold text-slate-600 wrap-anywhere dark:text-slate-400">
+                <p class="mt-4 text-2xs font-semibold text-muted wrap-anywhere">
                     {$_('about.instance.availability_heading', { values: { hours: 24 }, default: 'Availability, last {hours} hours' })}
                 </p>
                 {#if uptimeLoadState === 'ready' && uptimeWindow}
                     {#if availability}
                         <!-- The percentage covers only the hours that were recorded, and says so. -->
-                        <p class="font-display text-2xl font-bold tabular-nums text-slate-900 dark:text-white" data-uptime-availability>
+                        <p class="font-display text-2xl font-bold tabular-nums text-strong" data-uptime-availability>
                             {#if coverage && !coverage.complete}
                                 {$_('about.instance.availability_partial', {
                                     values: { percent: availability, hours: coverage.recordedHours },
@@ -233,7 +235,7 @@
                         </p>
                     {/if}
                     <div
-                        class="mt-2 flex w-full min-w-0 max-w-full gap-[2px]"
+                        class="mt-2 flex w-full min-w-0 max-w-full gap-0.5"
                         role="img"
                         aria-label={$_('about.instance.strip_label', {
                             values: { hours: 24 },
@@ -243,24 +245,24 @@
                     >
                         {#each uptimeWindow.buckets as bucket (bucket.start)}
                             <span
-                                class="h-4 min-w-0 flex-1 rounded-[2px] {bucket.state === 'up'
-                                    ? 'bg-success-500/80'
+                                class="h-4 min-w-0 flex-1 rounded-xs {bucket.state === 'up'
+                                    ? 'bg-status-ok'
                                     : bucket.state === 'down'
-                                      ? 'bg-rose-500'
-                                      : 'bg-slate-200 dark:bg-slate-700'}"
+                                      ? 'bg-status-fail'
+                                      : 'bg-line'}"
                                 title={`${formatTime(bucket.start)} · ${bucket.state}`}
                             ></span>
                         {/each}
                     </div>
                     <!-- A 24 bar strip with no scale leaves the reader guessing which end is now. -->
                     <div
-                        class="mt-1 flex justify-between text-3xs tabular-nums text-slate-600 dark:text-slate-400"
+                        class="mt-1 flex justify-between text-3xs tabular-nums text-muted"
                         aria-hidden="true"
                     >
                         <span>{$_('about.instance.window_start', { values: { hours: 24 }, default: '{hours} h ago' })}</span>
                         <span>{$_('about.instance.window_now', { default: 'now' })}</span>
                     </div>
-                    <p class="mt-1.5 text-2xs text-slate-600 dark:text-slate-400">
+                    <p class="mt-1.5 text-2xs text-muted">
                         {#if uptimeWindow.longest_gap_minutes > 0 && uptimeWindow.longest_gap_start}
                             {$_('about.instance.gap', {
                                 values: {
@@ -283,21 +285,21 @@
                         {/if}
                     </p>
                 {:else if uptimeLoadState === 'loading'}
-                    <div class="mt-2 flex w-full min-w-0 max-w-full gap-[2px]" aria-hidden="true">
+                    <div class="mt-2 flex w-full min-w-0 max-w-full gap-0.5" aria-hidden="true">
                         {#each { length: 24 } as _, slot (slot)}
-                            <span class="h-4 min-w-0 flex-1 rounded-[2px] bg-slate-200/70 dark:bg-slate-700/50"></span>
+                            <span class="h-4 min-w-0 flex-1 rounded-xs bg-line"></span>
                         {/each}
                     </div>
-                    <p class="mt-1.5 text-2xs text-slate-600 dark:text-slate-400">
+                    <p class="mt-1.5 text-2xs text-muted">
                         {$_('about.instance.history_loading', { default: 'Loading availability…' })}
                     </p>
                 {:else if uptimeLoadState === 'error'}
-                    <div class="mt-2 flex w-full min-w-0 max-w-full gap-[2px]" aria-hidden="true">
+                    <div class="mt-2 flex w-full min-w-0 max-w-full gap-0.5" aria-hidden="true">
                         {#each { length: 24 } as _, slot (slot)}
-                            <span class="h-4 min-w-0 flex-1 rounded-[2px] bg-slate-200/70 dark:bg-slate-700/50"></span>
+                            <span class="h-4 min-w-0 flex-1 rounded-xs bg-line"></span>
                         {/each}
                     </div>
-                    <p class="mt-1.5 text-2xs text-slate-600 dark:text-slate-400">
+                    <p class="mt-1.5 text-2xs text-muted">
                         {$_('about.instance.history_unavailable', {
                             default: 'Availability could not be read.'
                         })}
@@ -305,12 +307,12 @@
                 {/if}
             </div>
 
-            <div class="min-w-0" data-instance-report>
-                <p class="text-2xs font-semibold text-slate-600 wrap-anywhere dark:text-slate-400">
+            <div class="min-w-0 sm:col-span-2" data-instance-report>
+                <p class="text-2xs font-semibold text-muted wrap-anywhere">
                     {$_('about.instance.for_issue', { default: 'For an issue report' })}
                 </p>
-                <div class="mt-1.5 flex min-w-0 flex-col items-stretch gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 sm:flex-row sm:items-center dark:border-slate-700 dark:bg-slate-900/50">
-                    <code class="min-w-0 max-w-full whitespace-normal font-mono text-xs leading-relaxed text-slate-700 sm:flex-1 dark:text-slate-200">
+                <div class="mt-1.5 flex min-w-0 flex-col items-stretch gap-2 rounded-xl border border-line bg-surface-raised px-3 py-2 sm:flex-row sm:items-center">
+                    <code class="min-w-0 max-w-full whitespace-normal font-mono text-xs leading-relaxed text-ink sm:flex-1">
                         {#each supportParts as part, position (position)}{#if position > 0}{' · '}{/if}<span class="inline-block max-w-full align-top wrap-anywhere">{part}</span>{/each}
                     </code>
                     <button class="btn btn-secondary min-h-11 w-full sm:w-auto shrink-0 px-3 py-1.5 text-xs" onclick={copySummary}>
@@ -319,7 +321,7 @@
                             : $_('about.instance.copy', { default: 'Copy' })}
                     </button>
                 </div>
-                <p class="mt-1.5 text-2xs text-slate-600 dark:text-slate-400">
+                <p class="mt-1.5 text-2xs text-muted">
                     {copyFailed
                         ? $_('about.instance.copy_failed', {
                               default: 'Copying was refused, select the text instead.'

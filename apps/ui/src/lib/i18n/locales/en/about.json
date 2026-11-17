@@ -56,6 +56,11 @@
   "outbound": {
     "title": "What leaves your network",
     "intro": "The outside services this install contacts, who makes each request and what it sends. Services at addresses you enter yourself, such as Frigate, your MQTT broker or BirdNET-Go, are not listed.",
+    "show_everything": "Show everything YA-WAMF can contact",
+    "show_everything_note": "{count} more",
+    "now_heading": "Sending now",
+    "now_heading_unknown": "Sending now, or depends on the owner’s settings",
+    "rest_heading": "Off, or only when someone starts it",
     "from_server": "Sent by this server",
     "from_browser": "Sent by each viewer’s browser",
     "on_demand": "When you connect, test or run diagnostics",

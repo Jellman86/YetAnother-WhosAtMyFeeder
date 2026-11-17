@@ -1,5 +1,6 @@
 <script lang="ts">
     import type { Snippet } from 'svelte';
+    import Separator from '../Separator.svelte';
 
     /**
      * The one disclosure: a full-width row naming what it holds, with a chevron that turns when it
@@ -22,7 +23,10 @@
 <details class="group {className}" {open} {...data}>
     <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 rounded-lg px-1 text-xs font-semibold text-muted hover:bg-surface-raised hover:text-strong focus-ring [&::-webkit-details-marker]:hidden">
         <span class="min-w-0 wrap-break-word">
-            {label}{#if note}<span class="font-semibold text-accent-ink"> · {note}</span>{/if}
+            <!-- The space before the note is its own text node, so the compiler cannot trim it from the
+                 start of the span, and the dot (the shared Separator, which is not read out) stays with the
+                 note rather than ending a line. -->
+            {label}{#if note}{' '}<span class="font-semibold text-accent-ink"><Separator />&nbsp;{note}</span>{/if}
         </span>
         <svg class="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m5 7.5 5 5 5-5" /></svg>
     </summary>
