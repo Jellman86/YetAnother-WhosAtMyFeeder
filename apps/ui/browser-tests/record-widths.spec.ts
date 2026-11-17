@@ -65,7 +65,7 @@ test('from 1280 px the species reference stands beside the identification; below
     expect(narrowPrimary && narrowSecondary && narrowSecondary.y >= narrowPrimary.y + narrowPrimary.height - 1).toBe(true);
 });
 
-for (const size of [{ width: 1024, height: 600 }, { width: 844, height: 390 }]) {
+for (const size of [{ width: 1280, height: 600 }, { width: 1440, height: 640 }, { width: 1024, height: 600 }, { width: 844, height: 390 }]) {
     test(`at ${size.width} × ${size.height} the close button is in view and every identification action can be reached`, async ({ page }) => {
         await openRecord(page, size);
         await expect(page.locator('[data-detection-modal-close]')).toBeInViewport({ ratio: 1 });
@@ -102,5 +102,23 @@ test('on a wide screen the photograph keeps its shape at the top of its column, 
     const ground = await page.locator('[data-detection-photograph]').evaluate((node) => getComputedStyle(node.parentElement as Element).backgroundColor);
     const black = await page.locator('[data-detection-photograph]').evaluate((node) => getComputedStyle(node).backgroundColor);
     expect(ground).not.toBe(black);
+});
+
+test('on a phone the visit\'s frames and the finder come after the identification, not between it and the photograph', async ({ page }) => {
+    await openRecord(page, { width: 390, height: 844 });
+    const order = await page.evaluate(() => {
+        const identity = document.querySelector('[data-detection-identity]');
+        const strip = document.querySelector('[data-detection-inline-frame-picker]');
+        return Boolean(identity && strip && identity.compareDocumentPosition(strip) & Node.DOCUMENT_POSITION_FOLLOWING);
+    });
+    expect(order).toBe(true);
+    await expect(page.locator('[data-detection-media-footer] [data-detection-inline-frame-picker]')).toHaveCount(0);
+    // Taps on the photograph beside the buttons reach the photograph.
+    const row = page.locator('[data-detection-media-actions]');
+    expect(await row.evaluate((node) => getComputedStyle(node).pointerEvents)).toBe('none');
+    // Turned to a desktop width, the frames return under the photograph.
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await expect(page.locator('[data-detection-media-footer] [data-detection-inline-frame-picker]')).toHaveCount(1);
+    await expect(page.locator('[data-detection-stacked-strip]')).toHaveCount(0);
 });
 

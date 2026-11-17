@@ -374,8 +374,10 @@ from 1280px the record widens; where it is at least 72 rem wide (1280px at the u
 double text) the reference gets a column of its own:
 [ media, 2/5 ]   [ identification, actions, facts, 3/10 ]   [ lineage, reference, AI, Details, 3/10 ]
 on a phone, one column: the photograph with its star and play buttons on its lower edge (no band
-under it), then the identification; held sideways (a short screen) the photograph and the
-identification stand side by side, so the identification is on the first screen
+under it), then the identification and its actions, then the finder and the visit's frames; held
+sideways (a short screen below 1024px) the photograph and the identification stand side by side, so
+the identification is on the first screen. From 1024px the record is side by side at any height, and
+the photograph keeps its shape at the top of its column
 ```
 
 The rail's "Identified as" heading names the bird once and titles the dialog. The photograph does

@@ -149,10 +149,11 @@ describe('the frame strip is one ordered set of moments (#256)', () => {
 });
 
 describe('the record uses the strip and drops the framing toggle (#256)', () => {
-    it('mounts the strip in the media footer and hands it the grouped moments', () => {
+    it('mounts the strip in the media footer (after the identification when the record stacks) and hands it the grouped moments', () => {
         const footerStart = modalSource.indexOf('data-detection-media-footer');
-        const pickerStart = modalSource.indexOf('data-detection-inline-frame-picker', footerStart);
-        expect(pickerStart).toBeGreaterThan(footerStart);
+        expect(modalSource.indexOf('{#if !recordStacked}{@render visitStrip()}{/if}', footerStart)).toBeGreaterThan(footerStart);
+        const pickerStart = modalSource.indexOf('data-detection-inline-frame-picker', modalSource.indexOf('{#snippet visitStrip()}'));
+        expect(pickerStart).toBeGreaterThan(-1);
         const picker = modalSource.slice(pickerStart, pickerStart + 1400);
         expect(picker).toContain('<FrameStrip');
         expect(picker).toContain('moments={frameMoments}');

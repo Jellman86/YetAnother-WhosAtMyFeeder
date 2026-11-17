@@ -40,6 +40,7 @@
     import type { Detection } from '../api';
     import ReclassificationOverlay from './ReclassificationOverlay.svelte';
     import FrameStrip from './FrameStrip.svelte';
+    import { MediaQuery } from 'svelte/reactivity';
     import CountedBirds from './CountedBirds.svelte';
     import BirdScanControl from './BirdScanControl.svelte';
     import { BirdScan } from '../utils/bird-scan.svelte';
@@ -936,6 +937,11 @@
         && !snapshotGeneratePending
         && Boolean(snapshotStatus?.high_quality_bird_crop_enabled)
     );
+    // The record stacks (photograph, then details) on a phone or tablet held upright; from 1024px, or
+    // held sideways on a short screen, the two stand side by side. Stacked, the visit's frames and the
+    // finder follow the identification instead of standing between it and the photograph.
+    const recordSideBySide = new MediaQuery('(min-width: 1024px), ((min-width: 640px) and (max-height: 640px))', true);
+    const recordStacked = $derived(!recordSideBySide.current);
     const showInlineFramePicker = $derived(
         hasOwnerDetectionActions
         && hasFrameSource
@@ -1495,6 +1501,39 @@
     }
 </script>
 
+{#snippet visitStrip()}
+    {#if hasOwnerDetectionActions}
+        <BirdScanControl
+            scan={birdScan}
+            sceneImageUrl={scanFrameCandidate?.image_url ?? null}
+            disabled={snapshotApplyPending || snapshotGeneratePending || countedBirdsLoading}
+            stepAside
+        />
+    {/if}
+    {#if showInlineFramePicker}
+        <!-- One ordered strip of the visit's moments (#256). Where a frame came from is not
+             shown; choosing one changes the photograph and nothing else. -->
+        <div data-detection-inline-frame-picker>
+            <FrameStrip
+                moments={frameMoments}
+                current={activeMoment}
+                {primaryName}
+                loading={snapshotCandidatesLoading}
+                applyingKey={applyingMomentKey}
+                busy={snapshotApplyPending || snapshotGeneratePending}
+                asRecordedUrl={originalFrigateSnapshotAvailable ? originalFrigateSnapshotUrl : null}
+                photographUrl={snapshotImageUrl}
+                canRegenerate={Boolean(snapshotStatus?.high_quality_bird_crop_enabled)}
+                regeneratePending={snapshotGeneratePending}
+                eventId={detection.frigate_event}
+                onremove={hasOwnerDetectionActions ? removePhotoChoice : undefined}
+                onuse={(moment) => { void handleUseMoment(moment); }}
+                onregenerate={() => { void handleGenerateSnapshotCandidates(); }}
+            />
+        </div>
+    {/if}
+{/snippet}
+
 <div
     data-detection-detail-modal
     class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto overscroll-contain bg-media/60 p-0 backdrop-blur-xs sm:p-4"
@@ -1543,11 +1582,11 @@
 
         <!-- Side by side from 1024px, and on a phone or tablet held sideways (a short screen), where a
              photograph above the identification would push it off the first screen. -->
-        <div class="flex-1 overflow-y-auto flex flex-col @container lg:overflow-hidden lg:grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] xl:grid-cols-5 sm:short:grid sm:short:grid-cols-2 sm:short:overflow-hidden">
+        <div class="flex-1 overflow-y-auto flex flex-col @container lg:overflow-hidden lg:grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] xl:grid-cols-5 sm:max-lg:short:grid sm:max-lg:short:grid-cols-2 sm:max-lg:short:overflow-hidden">
                 <!-- The photograph keeps its own shape at the top of its column, with its buttons and frames under
                      it; the rest of a tall column is page, not a black band around the picture. -->
-                <div class="flex min-h-0 shrink-0 flex-col bg-media lg:shrink lg:overflow-y-auto lg:border-r lg:border-line lg:bg-surface xl:col-span-2 sm:short:shrink sm:short:overflow-y-auto sm:short:border-r sm:short:border-line">
-                    <div class="relative min-w-0 aspect-4/3 min-h-72 shrink-0 overflow-hidden bg-media sm:aspect-video short:min-h-0 max-sm:short:max-h-half-screen" data-detection-photograph>
+                <div class="flex min-h-0 shrink-0 flex-col bg-media lg:shrink lg:overflow-y-auto lg:border-r lg:border-line lg:bg-surface xl:col-span-2 sm:max-lg:short:shrink sm:max-lg:short:overflow-y-auto sm:max-lg:short:border-r sm:max-lg:short:border-line">
+                    <div class="relative min-w-0 aspect-4/3 min-h-72 shrink-0 overflow-hidden bg-media sm:aspect-video short:min-h-0 max-sm:max-lg:short:max-h-half-screen" data-detection-photograph>
                         {#if photographDrawnUrl}
                             <img data-detection-media-ambient src={photographDrawnUrl} alt="" aria-hidden="true" class="absolute inset-0 h-full w-full scale-110 object-cover opacity-25 blur-2xl" />
                         {/if}
@@ -1657,13 +1696,13 @@
                                 {/if}
 
                                 {#if canShowFavoriteAction || canPlayVideo || showFetchFullVisitAction || isManualObservation || frigateIssueBadgeVisible}
-                                    <div class="flex flex-wrap items-center gap-2 max-sm:absolute max-sm:inset-x-4 max-sm:bottom-full max-sm:z-30 max-sm:mb-3" data-detection-media-actions>
+                                    <div class="flex flex-wrap items-center gap-2 max-sm:pointer-events-none max-sm:absolute max-sm:inset-x-4 max-sm:bottom-full max-sm:z-30 max-sm:mb-3" data-detection-media-actions>
                                         {#if canShowFavoriteAction}
                                             <button
                                                 type="button"
                                                 onclick={handleFavoriteToggle}
                                                 disabled={favoritePending}
-                                                class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border shadow-lg backdrop-blur-xs transition-colors disabled:opacity-60 focus-ring-on-dark {detection.is_favorite ? 'border-on-media-accent bg-accent text-accent-fg hover:bg-accent-hover' : 'border-on-media/35 bg-media/45 text-on-media hover:bg-media/60'}"
+                                                class="pointer-events-auto inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border shadow-lg backdrop-blur-xs transition-colors disabled:opacity-60 focus-ring-on-dark {detection.is_favorite ? 'border-on-media-accent bg-accent text-accent-fg hover:bg-accent-hover' : 'border-on-media/35 bg-media/45 text-on-media hover:bg-media/60'}"
                                                 title={detection.is_favorite ? $_('detection.favorite_remove', { default: 'Remove favorite' }) : $_('detection.favorite_add', { default: 'Add favorite' })}
                                                 aria-label={detection.is_favorite ? $_('detection.favorite_remove', { default: 'Remove favorite' }) : $_('detection.favorite_add', { default: 'Add favorite' })}
                                             >
@@ -1753,40 +1792,11 @@
                             </div>
                             {/if}
 
-                            {#if hasOwnerDetectionActions}
-                                <BirdScanControl
-                                    scan={birdScan}
-                                    sceneImageUrl={scanFrameCandidate?.image_url ?? null}
-                                    disabled={snapshotApplyPending || snapshotGeneratePending || countedBirdsLoading}
-                                    stepAside
-                                />
-                            {/if}
-                            {#if showInlineFramePicker}
-                    <!-- One ordered strip of the visit's moments (#256). Where a frame came from is not
-                         shown; choosing one changes the photograph and nothing else. -->
-                    <div data-detection-inline-frame-picker>
-                        <FrameStrip
-                            moments={frameMoments}
-                            current={activeMoment}
-                            {primaryName}
-                            loading={snapshotCandidatesLoading}
-                            applyingKey={applyingMomentKey}
-                            busy={snapshotApplyPending || snapshotGeneratePending}
-                            asRecordedUrl={originalFrigateSnapshotAvailable ? originalFrigateSnapshotUrl : null}
-                            photographUrl={snapshotImageUrl}
-                            canRegenerate={Boolean(snapshotStatus?.high_quality_bird_crop_enabled)}
-                            regeneratePending={snapshotGeneratePending}
-                            eventId={detection.frigate_event}
-                            onremove={hasOwnerDetectionActions ? removePhotoChoice : undefined}
-                            onuse={(moment) => { void handleUseMoment(moment); }}
-                            onregenerate={() => { void handleGenerateSnapshotCandidates(); }}
-                        />
-                    </div>
-                            {/if}
+                            {#if !recordStacked}{@render visitStrip()}{/if}
                         </div>
                 </div>
 
-            <div data-detection-details-column class="flex min-w-0 flex-1 flex-col gap-5 wrap-break-word lg:overflow-y-auto sm:short:overflow-y-auto p-5 sm:p-6 xl:col-span-3 @6xl:grid @6xl:grid-cols-2 @6xl:items-start @6xl:gap-x-8 {showTagDropdown ? 'blur-xs pointer-events-none select-none' : ''}">
+            <div data-detection-details-column class="flex min-w-0 flex-1 flex-col gap-5 wrap-break-word lg:overflow-y-auto sm:max-lg:short:overflow-y-auto p-5 sm:p-6 xl:col-span-3 @6xl:grid @6xl:grid-cols-2 @6xl:items-start @6xl:gap-x-8 {showTagDropdown ? 'blur-xs pointer-events-none select-none' : ''}">
             <!-- The identification and what it rests on: the decision first. -->
             <div class="flex min-w-0 flex-col gap-5" data-detection-primary-column>
             {#if isManualObservation && detection.observation_notes}
@@ -2055,6 +2065,11 @@
                      the finder is not under the photograph, after the identification it would follow. -->
                 <p class={scanStandingText ? 'text-xs text-muted' : 'sr-only'} role="status" aria-live="polite" data-detection-scan-standing>{#if scanStandingText}<span class="font-semibold text-ink">{$_('detection.bird_scan.action', { default: 'Find more birds' })}:</span> {scanStandingText}{/if}</p>
             {/if}
+                <!-- On a phone or tablet held upright the visit's frames and the finder come after the
+                     identification, so the decision is read first; on its own dark ground, as under the photograph. -->
+                {#if recordStacked && (hasOwnerDetectionActions || showInlineFramePicker)}
+                    <div class="overflow-hidden rounded-xl bg-media py-3" data-detection-stacked-strip>{@render visitStrip()}</div>
+                {/if}
 
             {#if domesticMatch?.declared}
                 <div class="card-base space-y-2 p-3 text-sm text-ink" data-detection-domestic-bird>

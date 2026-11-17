@@ -115,7 +115,12 @@ describe('detection surface polish', () => {
     it('keeps media controls and snapshot choices in one ordered footer flow', () => {
         const footerStart = detectionModalSource.indexOf('data-detection-media-footer');
         const actionStart = detectionModalSource.indexOf('data-detection-media-actions', footerStart);
-        const pickerStart = detectionModalSource.indexOf('data-detection-inline-frame-picker', footerStart);
+        // The frames and the finder are one snippet, drawn in the footer after the media controls on a
+        // side-by-side layout, and after the identification when the record stacks.
+        const pickerStart = detectionModalSource.indexOf('{#if !recordStacked}{@render visitStrip()}{/if}', footerStart);
+        const strip = detectionModalSource.slice(detectionModalSource.indexOf('{#snippet visitStrip()}'), detectionModalSource.indexOf('{/snippet}', detectionModalSource.indexOf('{#snippet visitStrip()}')));
+        expect(strip).toContain('data-detection-inline-frame-picker');
+        expect(strip).toContain('<BirdScanControl');
 
         expect(footerStart).toBeGreaterThan(-1);
         expect(actionStart).toBeGreaterThan(footerStart);
@@ -277,7 +282,12 @@ describe('detection surface polish', () => {
         // On a phone the star and play buttons sit on the photograph's lower edge.
         expect(detectionModalSource).toContain('max-sm:absolute max-sm:inset-x-4 max-sm:bottom-full max-sm:z-30 max-sm:mb-3" data-detection-media-actions');
         // Held sideways, photograph and identification stand side by side.
-        expect(detectionModalSource).toContain('sm:short:grid sm:short:grid-cols-2 sm:short:overflow-hidden');
+        expect(detectionModalSource).toContain('sm:max-lg:short:grid sm:max-lg:short:grid-cols-2 sm:max-lg:short:overflow-hidden');
+        // Only below 1024px: from there the record is already side by side, and from 1280px in five columns.
+        expect(detectionModalSource).not.toMatch(/(?<!max-lg:)\bsm:short:/);
+        // Stacked, the frames and the finder follow the identification; the button row lets taps through.
+        expect(detectionModalSource.indexOf('data-detection-stacked-strip')).toBeGreaterThan(detectionModalSource.indexOf('data-detection-identity'));
+        expect(detectionModalSource).toContain('max-sm:pointer-events-none max-sm:absolute');
     });
 });
 
