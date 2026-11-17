@@ -6,6 +6,11 @@ import diagnosticDialogSource from '../DiagnosticDialog.svelte?raw';
 import advancedSectionSource from './_primitives/AdvancedSection.svelte?raw';
 import detectionSettingsSource from './DetectionSettings.svelte?raw';
 import modelSettingsSource from './ModelSettings.svelte?raw';
+import hardwareSource from './HardwareSettings.svelte?raw';
+import namingSource from './NamingSettings.svelte?raw';
+import deviceCheckDialogSource from './DeviceCheckDialog.svelte?raw';
+import deviceCheckSource from '../../settings/device-check.svelte.ts?raw';
+import identificationSource from './sections/IdentificationSection.svelte?raw';
 import statusLineSource from '../IdentificationStatusLine.svelte?raw';
 import modelManagerSource from '../../pages/models/ModelManager.svelte?raw';
 import settingsPageSource from '../../pages/Settings.svelte?raw';
@@ -30,56 +35,62 @@ describe('Detection and Models settings, status first', () => {
     it('counts real problems for the report link and opens the report on trouble', () => {
         expect(modelSettingsSource).toContain('const healthIssueCount = $derived(');
         expect(modelSettingsSource).toContain('classifierStatus?.fallback_reason ? 1 : 0');
-        // A failing video check is reported beside its switch in Detection, not counted twice.
-        expect(detectionSettingsSource).toContain('autoVideoClassification && videoCircuitOpen');
+        // A failing video check is reported once, at the top of the section, not counted twice.
+        expect(identificationSource).toContain('autoVideoClassification && videoCircuitOpen');
         // The report and its card open for a runtime problem through the page (runtime-problem.ts),
         // and the health link opens both.
         expect(modelSettingsSource).toContain('const RUNTIME_REPORT_SECTION_ID = RUNTIME_DISCLOSURES[0];');
-        expect(modelSettingsSource).toMatch(/runtimeReport\.open = true;\s*await tick\(\);/);
+        // The report is in Hardware, under More options: the link opens both before scrolling.
+        expect(modelSettingsSource).toMatch(/more\.open = true;\s*runtimeReport\.open = true;/);
         expect(modelSettingsSource).toContain('scrollIntoView');
     });
 
-    it('leads with what decides an identification, and keeps the models and their hardware in Models', () => {
+    it('leads with what decides an identification, then the models, with the rest under More options', () => {
+        // The section opens on the naming threshold, then the models; the rest is under More options.
+        const sectionOrder = ['<NamingSettings', '<ModelSettings', '<SectionMore', '<DetectionSettings', '<HardwareSettings', 'data-settings-part="beta"'].map((key) => identificationSource.indexOf(key));
+        for (const at of sectionOrder) expect(at).toBeGreaterThan(-1);
+        expect([...sectionOrder].sort((a, b) => a - b)).toEqual(sectionOrder);
+        expect(namingSource).toContain('acceptance_desc');
         const order = [
-            'acceptance_title',
             "settings.detection.blocked_labels'",
             '<RangeFilterSettings',
             'frigate_video_title',
         ].map((key) => detectionSettingsSource.indexOf(key));
         for (const at of order) expect(at).toBeGreaterThan(-1);
         expect([...order].sort((a, b) => a - b)).toEqual(order);
-        expect(detectionSettingsSource.match(/<SettingsCard/g)).toHaveLength(3);
+        expect(detectionSettingsSource.match(/<SettingsCard/g)).toHaveLength(2);
         expect(detectionSettingsSource).toContain('id="detection-frigate-video"');
         expect(detectionSettingsSource.match(/<SettingsCard\s+collapsible/g)).toHaveLength(1);
-        // Models opens on what names birds, then the models (with the evaluation row), then hardware.
-        const modelsOrder = ['<IdentificationStatusLine', 'models_card_title', 'setting-model-evaluation', 'hardware_title'].map((key) => modelSettingsSource.indexOf(key));
+        // Models opens on what names birds, then the models with the evaluation row; Hardware is its own card.
+        const modelsOrder = ['<IdentificationStatusLine', 'models_card_title', 'setting-model-evaluation'].map((key) => modelSettingsSource.indexOf(key));
         for (const at of modelsOrder) expect(at).toBeGreaterThan(-1);
         expect([...modelsOrder].sort((a, b) => a - b)).toEqual(modelsOrder);
+        expect(hardwareSource).toContain('hardware_title');
         // Hardware is a plain section: its device choice is on the surface, the rest under advanced options.
-        expect(modelSettingsSource).not.toMatch(/<SettingsCard\s+collapsible/);
+        expect(hardwareSource).not.toMatch(/<SettingsCard\s+collapsible/);
         expect(modelSettingsSource).not.toContain('tuning_column');
     });
 
     it('keeps everyday choices visible and puts memory and isolation behind a disclosure that opens when customised', () => {
-        const memory = modelSettingsSource.indexOf('id="detection-memory-advanced"');
-        const report = modelSettingsSource.indexOf('id={RUNTIME_REPORT_SECTION_ID}');
+        const memory = hardwareSource.indexOf('id="detection-memory-advanced"');
+        const report = hardwareSource.indexOf('id={RUNTIME_REPORT_SECTION_ID}');
         expect(memory).toBeGreaterThan(-1);
+        expect(modelSettingsSource).toContain('id="bird-model-region-override"');
         for (const id of [
             'id="inference-provider"',
-            'id="bird-model-region-override"',
-            'onclick={() => runCompatCheck()}',
+            'onclick={() => deviceCheck.run()}',
         ]) {
-            const at = modelSettingsSource.indexOf(id);
+            const at = hardwareSource.indexOf(id);
             expect(at, id).toBeGreaterThan(-1);
             expect(at, `${id} must sit on the default surface`).toBeLessThan(memory);
         }
         for (const id of ['id="image-execution-mode"', 'id="live-worker-count"', 'id="background-worker-count"']) {
-            const at = modelSettingsSource.indexOf(id);
+            const at = hardwareSource.indexOf(id);
             expect(at, id).toBeGreaterThan(memory);
             expect(at, id).toBeLessThan(report);
         }
-        expect(modelSettingsSource).toContain('openByDefault={memoryCustomised}');
-        expect(modelSettingsSource).toContain("imageExecutionMode !== 'subprocess'");
+        expect(hardwareSource).toContain('openByDefault={memoryCustomised}');
+        expect(hardwareSource).toContain("imageExecutionMode !== 'subprocess'");
     });
 
     it('gives models their own card, carrying the bird finder choice through the settings form', () => {
@@ -124,28 +135,29 @@ describe('Detection and Models settings, status first', () => {
     });
 
     it('retains visible warnings and gold-standard interaction sizing', () => {
-        expect(detectionSettingsSource).toContain('autoVideoClassification && videoCircuitOpen');
+        expect(identificationSource).toContain('autoVideoClassification && videoCircuitOpen');
+        expect(identificationSource).toContain('role="alert"');
         expect(modelSettingsSource).toContain('classifierStatus?.fallback_reason');
-        expect(modelSettingsSource).toContain('role="alert"');
+        expect(hardwareSource).toContain('role="alert"');
         expect(detectionSettingsSource).toContain('role="alert"');
         expect(detectionSettingsSource).toContain('h-11');
         expect(detectionSettingsSource).not.toMatch(/text-\[(9|10|11)px\]/);
     });
 
     it('explains runtime image/provider mismatches without adding another card', () => {
-        expect(modelSettingsSource).toContain('classifierStatus.image_flavor');
-        expect(modelSettingsSource).toContain('classifierStatus.packaged_inference_providers');
-        expect(modelSettingsSource).toContain("classifierStatus.image_flavor_warning === 'selected_provider_not_packaged'");
-        expect(modelSettingsSource).toContain('settings.detection.image_flavor_mismatch');
-        expect(modelSettingsSource).toContain('docs/setup/hardware-acceleration.md');
+        expect(hardwareSource).toContain('classifierStatus.image_flavor');
+        expect(hardwareSource).toContain('classifierStatus.packaged_inference_providers');
+        expect(hardwareSource).toContain("classifierStatus.image_flavor_warning === 'selected_provider_not_packaged'");
+        expect(hardwareSource).toContain('settings.detection.image_flavor_mismatch');
+        expect(hardwareSource).toContain('docs/setup/hardware-acceleration.md');
     });
 
     it('uses the live provider contract instead of advertising every runtime', () => {
-        expect(modelSettingsSource).toContain('buildInferenceProviderChoices');
-        expect(modelSettingsSource).toContain('getProviderPreferenceOrder');
-        expect(modelSettingsSource).toContain('providerPreferenceLabel');
-        expect(modelSettingsSource).toContain('configuredProviderUnavailable');
-        expect(modelSettingsSource).not.toContain("{ value: 'cuda', label:");
+        expect(hardwareSource).toContain('buildInferenceProviderChoices');
+        expect(hardwareSource).toContain('getProviderPreferenceOrder');
+        expect(hardwareSource).toContain('providerPreferenceLabel');
+        expect(hardwareSource).toContain('configuredProviderUnavailable');
+        expect(hardwareSource).not.toContain("{ value: 'cuda', label:");
     });
 
     it('keeps the saved provider, including Intel NPU, through Settings hydration, dirty checks and saves', () => {
@@ -169,18 +181,20 @@ describe('Detection and Models settings, status first', () => {
     });
 
     it('keeps device compatibility warnings and skipped checks honest', () => {
-        expect(modelSettingsSource).toContain('<DiagnosticDialog');
-        expect(modelSettingsSource).toContain("state: 'warning'");
-        expect(modelSettingsSource).not.toContain("if (state === 'skipped') state = 'passed'");
-        expect(modelSettingsSource).toContain('ok: !failed && !warned && !skipped');
-        expect(modelSettingsSource).toContain('compat_results_unavailable');
-        expect(modelSettingsSource.match(/cdRunId \+= 1/g)).toHaveLength(4);
+        expect(deviceCheckDialogSource).toContain('<DiagnosticDialog');
+        expect(deviceCheckDialogSource).toContain("state: 'warning'");
+        expect(deviceCheckDialogSource).not.toContain("if (state === 'skipped') state = 'passed'");
+        expect(deviceCheckDialogSource).toContain('ok: !failed && !warned && !skipped');
+        expect(deviceCheckSource).toContain('compat_results_unavailable');
+        // The dialog is redrawn when a check starts, when it stops, and when its result (or the
+        // reason it has none) arrives.
+        expect(deviceCheckSource.match(/dialogRunId \+= 1/g)).toHaveLength(3);
         expect(diagnosticDialogSource).toContain("s.state === 'skipped'");
         expect(diagnosticDialogSource).toContain("stage.state === 'warning'");
     });
 
     it('offers provider validation in every runtime image rather than only on Intel hosts', () => {
-        expect(modelSettingsSource).toContain('classifierStatus.host_available_providers');
-        expect(modelSettingsSource).toContain('compatMatrix.providers');
+        expect(hardwareSource).toContain('classifierStatus.host_available_providers');
+        expect(hardwareSource).toContain('deviceCheck.matrix.providers');
     });
 });

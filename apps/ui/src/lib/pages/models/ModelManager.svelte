@@ -790,7 +790,7 @@
                     {$_('settings.detection.model_manager_location_desc', { default: 'This model also uses the feeder coordinates saved in Settings → Sharing & integrations → Location. If no valid coordinates are saved, it identifies birds without location. It does not use the date or a location accuracy radius.' })}
                 </p>
                 <a
-                    href={toAppPath('/settings/integrations')}
+                    href={toAppPath('/settings/sharing')}
                     onclick={handleLocationSettingsClick}
                     class="inline-flex min-h-11 items-center rounded-sm font-semibold text-brand-700 underline underline-offset-2 hover:text-brand-800 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus dark:text-brand-300 dark:hover:text-brand-200"
                 >

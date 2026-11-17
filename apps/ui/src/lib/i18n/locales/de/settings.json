@@ -303,7 +303,7 @@
     "in_this_section": "In diesem Bereich",
     "not_read": "Noch nicht gemessen: Der Status wurde noch nicht gelesen.",
     "stale": "Diese Messung ist veraltet: Es ist keine neuere eingetroffen.",
-    "display_note": "Hier hängt nichts von einem anderen Dienst ab. Design, Textgröße und Sprache ändern sich sofort auf diesem Gerät.",
+    "display_note": "Hier hängt nichts von einem anderen Dienst ab. Design, Textgröße und Sprache ändern sich sofort auf diesem Gerät. Einheiten warten auf Speichern und gelten für alle.",
     "state": {
       "ok": "funktioniert",
       "degraded": "unter Last",
@@ -325,7 +325,8 @@
   "more": {
     "title": "Weitere Optionen",
     "cameras": "Frigate-Details, Bildquelle, Clips und BirdNET-Go",
-    "sharing": "eBird, iNaturalist, BirdWeather, Home-Assistant-Wetter, Arteninformationen, KI und Telemetrie"
+    "sharing": "eBird, iNaturalist, BirdWeather, Home-Assistant-Wetter, Arteninformationen, KI und Telemetrie",
+    "identification": "Blockierte Arten, Verbreitungsfilter, Videoprüfungen, Hardware und Beta-Funktionen"
   },
   "debug": {
     "llm_prompts_title": "LLM-Promptvorlagen",
@@ -1345,6 +1346,7 @@
     "compat_note_baseline": "CPU-Referenz",
     "compat_note_fails": "Kompilierung schlägt fehl",
     "compat_note_match": "{n}/{n} stimmen mit CPU überein",
+    "compat_note_boxes": "{m}/{n} Rahmen stimmen mit CPU überein",
     "compat_note_nan": "nicht-endliche Ausgabe",
     "compat_note_partial": "{m}/{n} stimmen mit CPU überein",
     "compat_note_runs": "läuft",
@@ -1540,10 +1542,12 @@
   },
   "beta": {
     "title": "Beta-Funktionen",
+    "chip": "Beta",
     "garden_animals": "Gartentiere",
     "garden_animals_desc": "Sammelt Katzen, Füchse und andere Besucher, die keine Vögel sind, von Kameras Ihrer Wahl zur Durchsicht.",
     "garden_motion_toggle": "Bewegungsfotos zur Prüfung sammeln auf {camera}",
     "garden_naming_off": "Jedes Tier wartet unter Zu prüfen, bis Sie es bestätigen und benennen.",
+    "garden_naming_elsewhere": "Die automatische Benennung wird mit der Benennungsschwelle der Vögel eingestellt, oben unter Vögel bestimmen.",
     "garden_naming_threshold_help": "Dies ist eine zweite Prüfung, welches Tier es ist. Ab diesem Wert wird das Tier für Sie bestätigt und benannt. Darunter kommt sein Foto zu Verworfen, wo Sie es wiederherstellen können.",
     "garden_naming_threshold": "Ein Tier benennen, wenn so sicher, welches es ist",
     "garden_naming": "Tiere automatisch benennen",
@@ -1617,7 +1621,7 @@
     "garden_off_note": "Der Garten sammelt keine neuen Aufnahmen mehr. Vorhandene Aufnahmen und Einstellungen bleiben erhalten und sind wieder da, wenn Sie ihn erneut einschalten.",
     "garden_off_effects": "Solange er aus ist, ist der Garten im Explorer ausgeblendet, seine Meldungen stoppen und Vögel, die Sie halten, werden als Wildvögel erfasst. Die Aufbewahrungsdauer gilt weiterhin für gespeicherte Aufnahmen.",
     "garden_section_cameras": "Kameras",
-    "garden_section_checks": "Automatische Prüfungen und Benennung",
+    "garden_section_checks": "Automatische Prüfungen",
     "garden_section_models": "Modelle",
     "garden_section_alerts": "Meldungen",
     "garden_naming_help": "Tiere, die die Benennungsschwelle erreichen, werden bestätigt und benannt. Fotos darunter kommen zu Verworfen, wo Sie sie wiederherstellen können.",
@@ -1962,5 +1966,9 @@
   "units": {
     "title": "Einheiten",
     "desc": "Für alle, die diese Installation öffnen, nicht nur für dieses Gerät."
+  },
+  "naming": {
+    "title": "Benennungsschwelle",
+    "garden_title": "Gartentiere"
   }
 }

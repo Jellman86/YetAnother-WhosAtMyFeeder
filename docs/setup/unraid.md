@@ -135,7 +135,7 @@ Port, Variable, Label or Device**, and add:
 - Config Type **Device**, Value `/dev/accel/accel0` — Intel Core Ultra "AI Boost" NPU (`intel_npu`).
 
 Add only the device you actually have. Run the model compatibility check, then pick a validated provider under
-**Settings → Identifying birds → Hardware → Inference provider**, or keep **Auto**. GPU/NPU access can also require
+**Settings → Identifying birds → More options → Hardware → Inference provider**, or keep **Auto**. GPU/NPU access can also require
 supplementary host groups. Look up the numeric group owning the render or
 accelerator device, then append `--group-add <gid>`
 to **Extra Parameters**, preserving `--user 99:100`. See
@@ -160,7 +160,7 @@ behaviour.
    Newer Unraid/NVIDIA toolkit releases may offer CDI device selection instead;
    use one exposure method, not both.
 4. Start the container, leave the in-app provider on **Auto** initially, and
-   check **Settings → Identifying birds → Runtime diagnostics**. It must show a `full` or
+   check **Settings → Identifying birds → More options → Hardware → Runtime report**. It must show a `full` or
    `cuda` image, CUDA under **Packaged**, the GPU as available, and CUDA as
    **Active** during supported-model inference.
 
@@ -174,7 +174,7 @@ diagnostic reason.
 Back up the mapped **Config** and **Data** directories consistently before updating,
 then update the existing container through Unraid so its mappings and device access
 are retained. Wait for the container to become healthy, confirm recent photographs
-and history, then check **Settings → Identifying birds → Runtime diagnostics**. New model
+and history, then check **Settings → Identifying birds → More options → Hardware → Runtime report**. New model
 assets need an application build with their integration; a rolling model-catalogue
 release does not update an older application. See the [upgrade guide](../../MIGRATION.md)
 for retention-switch migration and rollback precautions.

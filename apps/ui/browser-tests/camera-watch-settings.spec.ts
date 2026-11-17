@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
+import { openMoreOptions } from './settings-page-mock';
 
 // Settings → Cameras & connection → Cameras to watch: one row per Frigate camera choosing Off, Birds,
 // Garden animals or Both. Each choice must land in the server's independent lists exactly:
@@ -203,6 +204,7 @@ test('the watch choice works from the keyboard and shows focus', async ({ page }
 test('Beta features summarises Garden cameras and opens the list in Connection', async ({ page }) => {
     await openConnection(page, { garden_cameras: ['patio', 'greenhouse'], garden_motion_cameras: ['greenhouse', 'front'] });
     await page.getByRole('link', { name: 'Identifying birds', exact: true }).click();
+    await openMoreOptions(page);
     const summary = page.locator('[data-garden-camera-summary]');
     await expect(summary).toContainText('Watching patio and greenhouse for Garden animals.');
     await expect(summary).toContainText('Motion review photos are collected on greenhouse.');

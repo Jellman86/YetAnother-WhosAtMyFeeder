@@ -42,7 +42,8 @@ async function selectSettingsSection(page: Page, name: 'Cameras & connection' | 
         await page.getByRole('link', { name, exact: true }).click();
     }
     if (name !== 'Identifying birds') return;
-    // Hardware is a plain section: the provider is on the surface, the runtime report folded inside it.
+    // Hardware is under the section's More options: the provider on its surface, the runtime report folded inside it.
+    await openMoreOptions(page);
     await expect(page.getByRole('heading', { name: 'Hardware', exact: true })).toBeVisible();
 }
 
