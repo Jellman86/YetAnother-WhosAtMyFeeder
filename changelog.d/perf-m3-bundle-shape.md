@@ -3,5 +3,8 @@
   so a page needs a few. The code loaded before anything is drawn is slightly smaller than before.
   Dialogs and the setup wizard keep their code apart and fetch it only when they open, and the
   charts, video player and maps still load only on the pages that draw them.
-- **Pointing at a page in the sidebar starts loading it**, by mouse or keyboard, so the click that
-  follows shows the page without a wait. Nothing is loaded ahead when the browser asks to save data.
+- **Pointing at a page in the sidebar starts loading it**, with a mouse or pen, or by reaching it with
+  the keyboard, so the click that follows shows the page without a wait. A finger scrolling past a
+  link loads nothing, and nothing is loaded ahead when the browser asks to save data.
+- **An update that changes one page leaves the rest cached**: the other pages, the shared code and
+  the languages keep their file names, so the browser does not fetch them again.
