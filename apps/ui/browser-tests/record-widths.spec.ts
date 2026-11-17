@@ -85,3 +85,22 @@ for (const size of [{ width: 1024, height: 600 }, { width: 844, height: 390 }]) 
         await noSidewaysScroll(page);
     });
 }
+
+test('on a wide screen the photograph keeps its shape at the top of its column, with no black band above or below it', async ({ page }) => {
+    await openRecord(page, { width: 1920, height: 1080 });
+    const photo = await page.locator('[data-detection-photograph]').boundingBox();
+    const column = await page.locator('[data-detection-photograph]').evaluate((node) => {
+        const box = node.parentElement?.getBoundingClientRect();
+        return box ? { x: box.x, y: box.y, width: box.width, height: box.height } : null;
+    });
+    expect(photo && column).toBeTruthy();
+    if (!photo || !column) return;
+    // 16:9 at the column's width, not stretched to the column's height.
+    expect(Math.abs(photo.height - photo.width * 9 / 16)).toBeLessThan(3);
+    expect(Math.abs(photo.y - column.y)).toBeLessThan(2);
+    // What is left of a tall column is the page's own ground, not black.
+    const ground = await page.locator('[data-detection-photograph]').evaluate((node) => getComputedStyle(node.parentElement as Element).backgroundColor);
+    const black = await page.locator('[data-detection-photograph]').evaluate((node) => getComputedStyle(node).backgroundColor);
+    expect(ground).not.toBe(black);
+});
+
