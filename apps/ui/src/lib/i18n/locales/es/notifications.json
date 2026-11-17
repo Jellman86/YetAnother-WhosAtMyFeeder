@@ -59,6 +59,7 @@
     "mqtt_down": "El bróker MQTT no está conectado, así que no pueden llegar detecciones nuevas.",
     "mqtt_not_configured": "No hay ningún bróker MQTT configurado, así que no pueden llegar detecciones.",
     "frigate_down": "Frigate no responde, así que no se pueden guardar detecciones nuevas.",
+    "model_missing": "El modelo de identificación elegido no está en esta instalación, así que no se puede nombrar ningún ave.",
     "pipeline_critical": "La canalización de detecciones tiene un fallo crítico.",
     "other": "Algo no funciona como debería. Abre Estado para ver qué es."
   }

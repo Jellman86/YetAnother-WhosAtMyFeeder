@@ -82,6 +82,9 @@ class ClassifierCropStatus(_StatusSection):
     last_execution: InferenceExecution | None = None
     model_id: str = ""
     chosen_model_id: str = ""
+    # Whether the chosen finder's own files are installed; `installed` describes the spec in use,
+    # which may be a fallback.
+    chosen_installed: bool | None = None
     selected_tier: str = ""
     resolved_tier: str = ""
     installed: bool = False

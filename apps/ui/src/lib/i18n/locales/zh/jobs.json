@@ -215,7 +215,9 @@
     "mqtt_stopped": "MQTT服务未运行，因此不会有新的检测到达。",
     "mqtt_stopped_next": "重启YA-WAMF即可重新启动它。",
     "frigate_down": "位于 {url} 的Frigate无响应，因此新的检测无法保存。",
-    "frigate_down_next": "请在 设置 → 摄像头与连接 中检查地址，并确认Frigate正在运行。"
+    "frigate_down_next": "请在 设置 → 摄像头与连接 中检查地址，并确认Frigate正在运行。",
+    "model_missing": "所选的识别模型不在此安装中，因此无法为任何鸟命名。",
+    "model_missing_next": "请在 设置 → 识别鸟类 中下载它，或选择一个已安装的模型。"
   },
   "errors_clear_effect": "立即删除已记录的错误和事件。实时检查会继续。",
   "earlier_incidents_title": "以往的事件",

@@ -3935,6 +3935,17 @@
             ],
             "title": "Active Provider"
           },
+          "chosen_installed": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chosen Installed"
+          },
           "chosen_model_id": {
             "default": "",
             "title": "Chosen Model Id",

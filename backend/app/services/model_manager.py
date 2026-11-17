@@ -1070,6 +1070,9 @@ class ModelManager:
             resolved_tier=normalized_selected_tier,
         )
         requested_spec["chosen_model_id"] = requested_model_id
+        # Whether the chosen detector's own files are here: a fallback spec reports its own
+        # `installed`, which says nothing about the finder the owner chose.
+        requested_spec["chosen_installed"] = requested_spec["installed"]
         if normalized_selected_tier != "accurate" or requested_spec["healthy"]:
             return requested_spec
 
@@ -1084,6 +1087,7 @@ class ModelManager:
             )
             if default_spec["healthy"]:
                 default_spec["chosen_model_id"] = requested_model_id
+                default_spec["chosen_installed"] = requested_spec["installed"]
                 return default_spec
 
         fallback_spec = self._build_crop_detector_spec(
@@ -1094,6 +1098,7 @@ class ModelManager:
         )
         fallback_spec["enabled_for_runtime"] = bool(fallback_spec["healthy"])
         fallback_spec["chosen_model_id"] = requested_model_id
+        fallback_spec["chosen_installed"] = requested_spec["installed"]
         return fallback_spec
 
     def get_crop_detector_spec_by_model_id(self, model_id: str) -> dict[str, Any]:

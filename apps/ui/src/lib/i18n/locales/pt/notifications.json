@@ -59,6 +59,7 @@
     "mqtt_down": "O broker MQTT não está ligado, por isso não podem chegar novas deteções.",
     "mqtt_not_configured": "Não há nenhum broker MQTT definido, por isso não podem chegar deteções.",
     "frigate_down": "O Frigate não responde, por isso não é possível guardar novas deteções.",
+    "model_missing": "O modelo de identificação escolhido não está nesta instalação, então nenhuma ave pode ser nomeada.",
     "pipeline_critical": "O pipeline de deteções tem uma falha crítica.",
     "other": "Algo não está a funcionar como devia. Abra a página Saúde para ver o quê."
   }

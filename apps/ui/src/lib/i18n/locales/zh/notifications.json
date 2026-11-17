@@ -59,6 +59,7 @@
     "mqtt_down": "MQTT 代理未连接，因此无法收到新的检测。",
     "mqtt_not_configured": "未设置 MQTT 代理，因此无法收到检测。",
     "frigate_down": "Frigate 没有响应，因此无法保存新的检测。",
+    "model_missing": "所选的识别模型不在此安装中，因此无法为任何鸟命名。",
     "pipeline_critical": "检测处理管道出现严重故障。",
     "other": "有些功能未正常工作。请打开运行状况查看详情。"
   }

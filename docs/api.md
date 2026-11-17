@@ -203,8 +203,11 @@ curl -N "http://localhost:9852/api/sse?ticket=$TICKET"
     `disconnected`, `unreachable`, `cameras_offline`, `cpu_fallback`, `not_writable`,
     `nothing_heard` or `none_enabled`. A chosen identification model whose files are not on the
     install is `classifier` `error` `model_missing` (the same rule as the Models status line,
-    `identification_readiness`), and a chosen bird finder that is not downloaded is `finder`
-    `degraded` `not_downloaded`.
+    `identification_readiness`), even before the runtime has reported; it makes `overall`
+    `degraded` with that cause. A chosen bird finder that is not downloaded is `finder`
+    `degraded` `not_downloaded`, judged on the chosen finder even when an installed one stands in
+    (`crop_detector.chosen_installed` in the classifier status). A finder is optional and never
+    bundled, so this cause alone leaves `overall` as it was.
   - `jobs_summary`: the prominent work as one count (`running`, `queued`, from the lane totals,
     which count every job) and `progress`, set only when every running job counts the same unit
     towards a known total; the banner shows these counts. `jobs` is the

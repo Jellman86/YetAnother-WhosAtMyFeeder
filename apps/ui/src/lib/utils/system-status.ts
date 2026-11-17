@@ -1,5 +1,5 @@
 import type { ServiceConnections } from '../api/diagnostics';
-import { connectionProblems } from './connection-health';
+import { healthProblems, type SubsystemReading } from './connection-health';
 import type { LiveFeedState } from './live-feed-state';
 
 /**
@@ -130,9 +130,10 @@ export function healthAttention(openIssues: number | null): HealthAttention {
 }
 
 /**
- * What the Health page lists as open: the failed connections of the workspace reading, then every
- * incident not yet resolved. Counted the same way here so the sidebar and the page cannot disagree.
+ * What the Health page lists as open: the failed connections and a missing identification model,
+ * then every incident not yet resolved. Counted the same way here so the sidebar and the page
+ * cannot disagree.
  */
-export function openHealthItems(connections: ServiceConnections | null, openIncidents: number): number {
-    return connectionProblems(connections).length + Math.max(0, openIncidents);
+export function openHealthItems(connections: ServiceConnections | null, status: SubsystemReading | null, openIncidents: number): number {
+    return healthProblems(connections, status).length + Math.max(0, openIncidents);
 }

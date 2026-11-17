@@ -59,6 +59,11 @@ _FIX_ORDER: tuple[SubsystemKey, ...] = (
     "audio",
 )
 
+# An optional part that was never downloaded is described by its own chip and panel, not counted
+# against the install: no finder is bundled or downloaded on its own, so counting it would leave
+# every install without one degraded, with a standing notification Health could not name.
+_OPTIONAL_PARTS_MISSING: frozenset[tuple[SubsystemKey, str]] = frozenset({("finder", "not_downloaded")})
+
 
 @dataclass(frozen=True)
 class SystemStatusInputs:
@@ -158,9 +163,10 @@ def _finder_verdict(inputs: SystemStatusInputs) -> SubsystemVerdict:
         return SubsystemVerdict(key="finder", state="degraded", cause="cpu_fallback")
     if not str(finder.get("model_id") or ""):
         return SubsystemVerdict(key="finder", state="off", cause="none_selected")
-    # A chosen finder that is not downloaded runs nowhere until someone downloads it.
+    # A chosen finder that is not downloaded runs nowhere until someone downloads it. The spec may
+    # describe an installed fallback, so the chosen finder's own files are what count.
     crop = inputs.classifier_status.get("crop_detector")
-    if isinstance(crop, dict) and crop.get("installed") is False:
+    if isinstance(crop, dict) and crop.get("chosen_installed", crop.get("installed")) is False:
         return SubsystemVerdict(key="finder", state="degraded", cause="not_downloaded")
     return SubsystemVerdict(key="finder", state="ok", cause="ready")
 
@@ -204,7 +210,7 @@ def _overall_verdict(inputs: SystemStatusInputs, subsystems: list[SubsystemVerdi
         return OverallVerdict(state="degraded", cause="pipeline_critical")
     for key in _FIX_ORDER:
         verdict = by_key[key]
-        if verdict.state == "degraded":
+        if verdict.state == "degraded" and (key, verdict.cause) not in _OPTIONAL_PARTS_MISSING:
             return OverallVerdict(state="degraded", cause=verdict.cause, subsystem=key)
     if inputs.event_pipeline is not None and str(pipeline.get("status") or "") != "ok":
         return OverallVerdict(state="degraded", cause="pipeline_degraded")

@@ -84,6 +84,9 @@ describe('AnalysisQueueStatusStore', () => {
         expect(notification?.read).toBe(true);
         expect(notification?.meta?.current).toBe(21);
         expect(notification?.meta?.total).toBe(21);
+        // Kept from before the job cards moved under More options, it now opens them there.
+        expect(notification?.meta?.route).toBe('/settings/maintenance');
+        expect(completed?.route).toBe('/settings/maintenance');
     });
     it('shares the reading taken as the page opens, and asks the server again after the owner changes the queue', async () => {
         const status: AnalysisStatus = { pending: 0, active: 0, circuit_open: false };

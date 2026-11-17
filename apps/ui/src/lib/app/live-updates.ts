@@ -6,6 +6,7 @@ import { describeBackfillProgress, withOutcomeNote, resolveRunningBackfillMessag
 import { formatTerminalBackfillMessage } from '../backfill/terminal-message';
 import { notificationPolicy } from '../notifications/policy';
 import { statusNotificationCause, verdictFor } from '../stores/system_status.svelte';
+import { MAINTENANCE_JOBS_ROUTE } from '../settings/settings-route';
 import { createRetryingReader, type RetryingReader } from './retrying-reader';
 import { guardedValue, mapGuarded, type Guarded } from '../api/core';
 
@@ -898,7 +899,7 @@ export class LiveUpdateCoordinator {
                     read: false,
                     meta: {
                         source: 'poll',
-                        route: '/settings/data',
+                        route: MAINTENANCE_JOBS_ROUTE,
                         kind: 'reclassify_batch',
                         current,
                         total: baseline,
@@ -917,7 +918,7 @@ export class LiveUpdateCoordinator {
                     kind: 'reclassify_batch',
                     title: this.deps.t('settings.data.batch_analysis_title'),
                     message,
-                    route: '/settings/data',
+                    route: MAINTENANCE_JOBS_ROUTE,
                     current,
                     total: baseline,
                     source: 'poll'
@@ -968,7 +969,7 @@ export class LiveUpdateCoordinator {
                     kind: 'reclassify_batch',
                     current: completedTotal,
                     total: completedTotal,
-                    route: '/settings/data',
+                    route: MAINTENANCE_JOBS_ROUTE,
                     open_label: this.deps.t('notifications.open_action')
                 }
             });
@@ -980,7 +981,7 @@ export class LiveUpdateCoordinator {
                 kind: 'reclassify_batch',
                 title: this.deps.t('settings.data.batch_analysis_title'),
                 message: completionMessage,
-                route: '/settings/data',
+                route: MAINTENANCE_JOBS_ROUTE,
                 current: completedTotal,
                 total: completedTotal,
                 source: 'poll'

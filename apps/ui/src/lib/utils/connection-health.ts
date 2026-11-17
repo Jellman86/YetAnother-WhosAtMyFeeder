@@ -4,6 +4,27 @@ import { statusTone } from './status-tone';
 /** A connection that stops new detections, in the order an owner should fix them. */
 export type ConnectionProblem = 'mqtt_down' | 'mqtt_not_configured' | 'mqtt_stopped' | 'frigate_down';
 
+/** What Health lists as needing a fix: the connections that stop detections, then a missing model. */
+export type HealthProblem = ConnectionProblem | 'model_missing';
+
+/** The pushed status's subsystem verdicts, as far as Health's problem list reads them. */
+export interface SubsystemReading {
+    subsystems: ReadonlyArray<{ key: string; cause: string }>;
+}
+
+/**
+ * Every problem Health lists, in the order to fix them. A chosen identification model that is not on
+ * this install names no bird, and the status's verdict says so; Health, the sidebar's count and the
+ * notification read it from here, so none of them can leave it unnamed.
+ */
+export function healthProblems(connections: ServiceConnections | null, status: SubsystemReading | null): HealthProblem[] {
+    const problems: HealthProblem[] = [...connectionProblems(connections)];
+    if (status?.subsystems.some((verdict) => verdict.key === 'classifier' && verdict.cause === 'model_missing')) {
+        problems.push('model_missing');
+    }
+    return problems;
+}
+
 export function connectionProblems(connections: ServiceConnections | null): ConnectionProblem[] {
     if (!connections) return [];
     const problems: ConnectionProblem[] = [];

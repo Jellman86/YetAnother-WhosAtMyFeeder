@@ -84,9 +84,15 @@ describe('the count is what the Health page lists as open', () => {
     } as ServiceConnections;
 
     it('adds failed connections to unresolved incidents, as the page does', () => {
-        expect(openHealthItems(null, 0)).toBe(0);
-        expect(openHealthItems(null, 2)).toBe(2);
+        expect(openHealthItems(null, null, 0)).toBe(0);
+        expect(openHealthItems(null, null, 2)).toBe(2);
         expect(connectionProblems(down).length).toBeGreaterThan(0);
-        expect(openHealthItems(down, 2)).toBe(connectionProblems(down).length + 2);
+        expect(openHealthItems(down, null, 2)).toBe(connectionProblems(down).length + 2);
+    });
+
+    it('counts a missing identification model, which Health lists as open, and nothing optional', () => {
+        const status = (cause: string, key = 'classifier') => ({ subsystems: [{ key, cause }] });
+        expect(openHealthItems(null, status('model_missing'), 1)).toBe(2);
+        expect(openHealthItems(null, status('not_downloaded', 'finder'), 0)).toBe(0);
     });
 });

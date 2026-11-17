@@ -215,7 +215,9 @@
     "mqtt_stopped": "Der MQTT-Dienst läuft nicht, daher können keine neuen Besuche erfasst werden.",
     "mqtt_stopped_next": "Starten Sie YA-WAMF neu, um ihn wieder zu starten.",
     "frigate_down": "Frigate unter {url} antwortet nicht, daher können neue Besuche nicht gespeichert werden.",
-    "frigate_down_next": "Prüfen Sie die Adresse unter Einstellungen → Kameras & Verbindung und ob Frigate läuft."
+    "frigate_down_next": "Prüfen Sie die Adresse unter Einstellungen → Kameras & Verbindung und ob Frigate läuft.",
+    "model_missing": "Das gewählte Bestimmungsmodell ist auf dieser Installation nicht vorhanden, daher kann kein Vogel benannt werden.",
+    "model_missing_next": "Laden Sie es herunter oder wählen Sie ein installiertes unter Einstellungen → Vögel bestimmen."
   },
   "errors_clear_effect": "Entfernt aufgezeichnete Fehler und Vorfälle sofort. Laufende Prüfungen gehen weiter.",
   "earlier_incidents_title": "Frühere Vorfälle",

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ServiceConnections } from '../api/diagnostics';
-import { connectionProblems, frigateCardStatus, healthVerdict, mqttCardStatus, pipelineCardStatus } from './connection-health';
+import { connectionProblems, frigateCardStatus, healthProblems, healthVerdict, mqttCardStatus, pipelineCardStatus } from './connection-health';
 
 function connections(mqtt: ServiceConnections['mqtt']['state'], frigate: ServiceConnections['frigate']['state']): ServiceConnections {
     return {
@@ -21,6 +21,15 @@ describe('connection problems', () => {
         expect(connectionProblems(connections('connected', 'reachable'))).toEqual([]);
         expect(connectionProblems(connections('connecting', 'unchecked'))).toEqual([]);
         expect(connectionProblems(null)).toEqual([]);
+    });
+});
+
+describe('the problems Health lists', () => {
+    it('names a missing identification model after the connections, and nothing else from the status', () => {
+        const missing = { subsystems: [{ key: 'classifier', cause: 'model_missing' }, { key: 'finder', cause: 'not_downloaded' }] };
+        expect(healthProblems(connections('disconnected', 'reachable'), missing)).toEqual(['mqtt_down', 'model_missing']);
+        expect(healthProblems(null, { subsystems: [{ key: 'finder', cause: 'not_downloaded' }] })).toEqual([]);
+        expect(healthProblems(connections('connected', 'reachable'), null)).toEqual([]);
     });
 });
 

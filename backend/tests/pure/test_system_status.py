@@ -155,6 +155,38 @@ def test_a_chosen_finder_not_downloaded_needs_a_look_rather_than_reading_as_read
     assert verdicts(downloaded)["finder"] == ("ok", "ready")
 
 
+def test_a_finder_not_downloaded_behind_an_installed_fallback_is_still_not_downloaded():
+    # The spec describes the fallback it would run (installed), and names the chosen finder apart.
+    fallback = {
+        "model_id": "bird_crop_detector_accurate_yolox_tiny",
+        "chosen_model_id": "bird_crop_detector_accurate_rfdetr_nano",
+        "installed": True,
+        "chosen_installed": False,
+        "reason": "fallback_default_accurate",
+    }
+    inputs = healthy(classifier_status={"active_model_id": "small", "crop_detector": fallback})
+    assert verdicts(inputs)["finder"] == ("degraded", "not_downloaded")
+
+
+def test_a_finder_never_downloaded_leaves_the_install_ok():
+    # Optional and never bundled: its chip and panel say so, but the install is not degraded and no
+    # notification stands for it.
+    inputs = healthy(
+        classifier_status={"active_model_id": "small", "crop_detector": {"model_id": "yolox", "installed": False}}
+    )
+    assert overall(inputs) == ("ok", "ok", None)
+
+
+def test_a_missing_model_is_an_error_even_before_the_runtime_has_reported():
+    # Whether the model's files are here is measured from the install, not from the runtime, so
+    # no runtime reading yet does not make it unmeasured.
+    inputs = healthy(
+        classifier_health={}, classifier_status={"active_model_id": "small", "active_model_installed": False}
+    )
+    assert verdicts(inputs)["classifier"] == ("error", "model_missing")
+    assert overall(inputs) == ("degraded", "model_missing", "classifier")
+
+
 def test_parts_switched_off_are_off_and_do_not_degrade():
     inputs = healthy(birdnet_enabled=False, notification_channels_enabled=0)
     assert verdicts(inputs)["audio"] == ("off", "disabled")

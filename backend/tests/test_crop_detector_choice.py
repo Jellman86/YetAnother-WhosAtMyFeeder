@@ -118,3 +118,47 @@ async def test_the_detector_choice_round_trips_through_the_api(chosen_detector):
             assert settings.classification.bird_crop_accurate_detector == "rfdetr_nano"
     finally:
         settings.auth.enabled = auth_enabled
+
+
+def _finder_verdict_for(spec: dict) -> tuple[str, str]:
+    """The status chip's finder verdict for this spec, as the classifier status carries it."""
+    from types import SimpleNamespace
+
+    from app.services.system_status import _finder_verdict
+
+    inputs = SimpleNamespace(
+        classifier_health={"status": "ok", "bird_finder": {"active": False, "model_id": RFDETR_ID}},
+        classifier_status={"crop_detector": spec},
+    )
+    verdict = _finder_verdict(inputs)
+    return verdict.state, verdict.cause
+
+
+def test_the_spec_says_whether_the_chosen_finder_itself_is_installed(tmp_path, monkeypatch, chosen_detector):
+    monkeypatch.setattr("app.services.model_manager.MODELS_DIR", str(tmp_path))
+    _install(tmp_path, YOLOX_ID)
+    _install(tmp_path, RFDETR_ID)
+    chosen_detector("rfdetr_nano")
+
+    spec = ModelManager().get_crop_detector_spec("accurate")
+
+    assert spec["chosen_installed"] is True
+    assert _finder_verdict_for(spec) == ("ok", "ready")
+
+
+@pytest.mark.parametrize("installed", [[YOLOX_ID, "bird_crop_detector"], ["bird_crop_detector"], []])
+def test_a_chosen_finder_not_downloaded_is_named_whatever_it_falls_back_to(
+    tmp_path, monkeypatch, chosen_detector, installed
+):
+    # The status chip and the finder panel judge the chosen finder: an installed fallback that the
+    # scan would use does not make the chosen one "ready".
+    monkeypatch.setattr("app.services.model_manager.MODELS_DIR", str(tmp_path))
+    for model_id in installed:
+        _install(tmp_path, model_id)
+    chosen_detector("rfdetr_nano")
+
+    spec = ModelManager().get_crop_detector_spec("accurate")
+
+    assert spec["chosen_model_id"] == RFDETR_ID
+    assert spec["chosen_installed"] is False
+    assert _finder_verdict_for(spec) == ("degraded", "not_downloaded")

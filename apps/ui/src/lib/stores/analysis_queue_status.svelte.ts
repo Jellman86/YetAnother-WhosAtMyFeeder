@@ -5,6 +5,8 @@ import { authStore } from './auth.svelte';
 import { jobDiagnosticsStore } from './job_diagnostics.svelte';
 import { jobProgressStore } from './job_progress.svelte';
 import { notificationCenter } from './notification_center.svelte';
+import { MAINTENANCE_JOBS_ROUTE } from '../settings/settings-route';
+
 
 const RECLASSIFY_PROGRESS_ID = 'reclassify:progress';
 const DEFAULT_BATCH_ANALYSIS_TITLE = 'Batch Analysis';
@@ -65,7 +67,7 @@ function settleSyntheticBatchProgress(status: AnalysisStatus): void {
                     kind: 'reclassify_batch',
                     current: completedTotal,
                     total: completedTotal,
-                    route: '/settings/data',
+                    route: MAINTENANCE_JOBS_ROUTE,
                     open_label: existingProgressNotification.meta?.open_label
                 }
             });
@@ -80,7 +82,7 @@ function settleSyntheticBatchProgress(status: AnalysisStatus): void {
             kind: 'reclassify_batch',
             title: existingBatchJob?.title || existingProgressNotification?.title || DEFAULT_BATCH_ANALYSIS_TITLE,
             message: DEFAULT_BATCH_ANALYSIS_COMPLETE_MESSAGE,
-            route: existingBatchJob?.route || '/settings/data',
+            route: MAINTENANCE_JOBS_ROUTE,
             current: completedTotal,
             total: completedTotal,
             source: 'poll'

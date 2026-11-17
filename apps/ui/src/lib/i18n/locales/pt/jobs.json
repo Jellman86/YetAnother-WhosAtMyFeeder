@@ -215,7 +215,9 @@
     "mqtt_stopped": "O serviço MQTT não está em execução, então nenhuma nova detecção pode chegar.",
     "mqtt_stopped_next": "Reinicie o YA-WAMF para iniciá-lo novamente.",
     "frigate_down": "O Frigate em {url} não responde, então novas detecções não podem ser salvas.",
-    "frigate_down_next": "Verifique o endereço em Configurações → Câmeras e conexão e se o Frigate está em execução."
+    "frigate_down_next": "Verifique o endereço em Configurações → Câmeras e conexão e se o Frigate está em execução.",
+    "model_missing": "O modelo de identificação escolhido não está nesta instalação, então nenhuma ave pode ser nomeada.",
+    "model_missing_next": "Baixe-o, ou escolha um instalado, em Configurações → Identificar aves."
   },
   "errors_clear_effect": "Remove agora os erros e incidentes registrados. As verificações ao vivo continuam.",
   "earlier_incidents_title": "Incidentes anteriores",
