@@ -219,5 +219,7 @@
   "span_group": "期間",
   "more_options": "その他",
   "table_share": "割合",
-  "standing_heading": "期間のまとめ"
+  "standing_heading": "期間のまとめ",
+  "no_activity_daily_totals": "これらの日は日別の合計によるもので、キャプチャの件数は残りますが時刻は残りません。",
+  "heatmap_stored_only": "時間帯と曜日は保存済みのキャプチャだけを数えます。日別の合計には時刻がありません。"
 }

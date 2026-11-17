@@ -219,5 +219,7 @@
   "span_group": "时间范围",
   "more_options": "更多",
   "table_share": "占比",
-  "standing_heading": "本时段概况"
+  "standing_heading": "本时段概况",
+  "no_activity_daily_totals": "这些日期来自每日合计，只保留拍摄数量，不保留时间。",
+  "heatmap_stored_only": "时段和星期只统计已保存的拍摄：每日合计没有具体时间。"
 }

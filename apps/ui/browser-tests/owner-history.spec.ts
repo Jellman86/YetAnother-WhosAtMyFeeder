@@ -155,3 +155,30 @@ for (const opened of ['row', 'elsewhere'] as const) {
         await summary.screenshot({ path: testInfo.outputPath(`species-dialog-${opened}.png`) });
     });
 }
+
+test('a species seen only before retention keeps its month chart and says where its counts come from', async ({ page }) => {
+    await page.route('https://fonts.googleapis.com/**', route => route.fulfill({ contentType: 'text/css', body: '' }));
+    await page.route('https://fonts.gstatic.com/**', route => route.abort());
+    await page.route(url => url.pathname.startsWith('/api/'), async route => {
+        const path = new URL(route.request().url()).pathname;
+        if (path.endsWith('/stats')) return route.fulfill({ json: {
+            species_name: 'Parus major', scientific_name: 'Parus major', common_name: 'Great Tit',
+            total_sightings: 14, first_seen: null, last_seen: null, cameras: [],
+            hourly_distribution: Array(24).fill(0), daily_distribution: [2, 2, 2, 2, 2, 2, 2],
+            monthly_distribution: [0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0],
+            avg_confidence: 0, min_confidence: 0, max_confidence: 0, recent_sightings: [],
+            history_first_day: '2026-09-02',
+            daily_totals: { totals_through: '2026-09-30', complete_from: null, partial: false },
+        } });
+        if (path.endsWith('/range')) return route.fulfill({ json: { available: false } });
+        return route.fulfill({ json: {} });
+    });
+    await page.goto('/browser-tests/owner-history.html?surface=species');
+    const activity = page.locator('[data-species-activity]');
+    await expect(activity.getByRole('figure', { name: 'Month' })).toBeVisible();
+    await expect(activity.locator('[data-daily-totals-note]')).toHaveText(
+        /^Counts before 1 Oct( 2026)? come from daily totals; photos and clips from those days are no longer stored\. Time of day counts stored captures only, because a daily total has no time\.$/
+    );
+    // No photograph is claimed for days whose captures are gone.
+    await expect(page.locator('[data-species-recent-sightings]').getByRole('link')).toHaveCount(0);
+});

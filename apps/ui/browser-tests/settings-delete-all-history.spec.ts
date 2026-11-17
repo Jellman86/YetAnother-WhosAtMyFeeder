@@ -57,7 +57,7 @@ test('the question counts the detections first and cannot be confirmed until it 
     await page.screenshot({ path: testInfo.outputPath('delete-all-counting.png') });
 
     fixture.release();
-    await expect(dialog).toContainText('Delete all 931 detections, hidden ones included, every cached photo and clip, and every archived favourite? This cannot be undone.');
+    await expect(dialog).toContainText('Delete all 931 detections, hidden ones included, every cached photo and clip, every archived favourite, and the daily totals that keep older Leaderboard history? This cannot be undone.');
     await expect(confirm).toBeEnabled();
     await page.screenshot({ path: testInfo.outputPath('delete-all-counted.png') });
     expect(fixture.resets).toBe(0);
@@ -93,7 +93,7 @@ test('a count that cannot be read is left out, and the question still says it ca
     fixture.release();
     await page.getByRole('button', { name: 'Delete all history', exact: true }).click();
     const dialog = page.getByRole('alertdialog');
-    await expect(dialog).toContainText('Delete all detections, every cached photo and clip, and every archived favourite? The number of detections could not be read. This cannot be undone.');
+    await expect(dialog).toContainText('Delete all detections, every cached photo and clip, every archived favourite, and the daily totals that keep older Leaderboard history? The number of detections could not be read. This cannot be undone.');
     await expect(dialog).not.toContainText(/\d/);
     await expect(dialog.getByRole('button', { name: 'Delete all history permanently', exact: true })).toBeEnabled();
     await page.screenshot({ path: testInfo.outputPath('delete-all-uncounted.png') });

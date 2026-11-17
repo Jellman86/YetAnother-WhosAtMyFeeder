@@ -671,7 +671,13 @@
     2,
     0
    ],
+   "daily_totals": {
+    "complete_from": null,
+    "partial": false,
+    "totals_through": null
+   },
    "first_seen": "2033-06-10T08:00:00Z",
+   "history_first_day": "2033-06-10",
    "hourly_distribution": [
     0,
     0,
@@ -848,7 +854,13 @@
     1,
     0
    ],
+   "daily_totals": {
+    "complete_from": null,
+    "partial": false,
+    "totals_through": null
+   },
    "first_seen": "2033-06-10T08:09:00Z",
+   "history_first_day": "2033-06-10",
    "hourly_distribution": [
     0,
     0,
@@ -2610,7 +2622,13 @@
     2,
     0
    ],
+   "daily_totals": {
+    "complete_from": null,
+    "partial": false,
+    "totals_through": null
+   },
    "first_seen": "2033-06-10T08:00:00Z",
+   "history_first_day": "2033-06-10",
    "hourly_distribution": [
     0,
     0,
@@ -2787,7 +2805,13 @@
     1,
     0
    ],
+   "daily_totals": {
+    "complete_from": null,
+    "partial": false,
+    "totals_through": null
+   },
    "first_seen": "2033-06-10T08:09:00Z",
+   "history_first_day": "2033-06-10",
    "hourly_distribution": [
     0,
     0,
@@ -4537,7 +4561,13 @@
     2,
     0
    ],
+   "daily_totals": {
+    "complete_from": null,
+    "partial": false,
+    "totals_through": null
+   },
    "first_seen": "2033-06-10T08:00:00Z",
+   "history_first_day": "2033-06-10",
    "hourly_distribution": [
     0,
     0,
@@ -4714,7 +4744,13 @@
     1,
     0
    ],
+   "daily_totals": {
+    "complete_from": null,
+    "partial": false,
+    "totals_through": null
+   },
    "first_seen": "2033-06-10T08:09:00Z",
+   "history_first_day": "2033-06-10",
    "hourly_distribution": [
     0,
     0,
@@ -6452,7 +6488,13 @@
     2,
     0
    ],
+   "daily_totals": {
+    "complete_from": null,
+    "partial": false,
+    "totals_through": null
+   },
    "first_seen": "2033-06-10T08:00:00Z",
+   "history_first_day": "2033-06-10",
    "hourly_distribution": [
     0,
     0,
@@ -6629,7 +6671,13 @@
     1,
     0
    ],
+   "daily_totals": {
+    "complete_from": null,
+    "partial": false,
+    "totals_through": null
+   },
    "first_seen": "2033-06-10T08:09:00Z",
+   "history_first_day": "2033-06-10",
    "hourly_distribution": [
     0,
     0,
@@ -8474,7 +8522,13 @@
     2,
     0
    ],
+   "daily_totals": {
+    "complete_from": null,
+    "partial": false,
+    "totals_through": null
+   },
    "first_seen": "2033-06-10T08:00:00Z",
+   "history_first_day": "2033-06-10",
    "hourly_distribution": [
     0,
     0,
@@ -8651,7 +8705,13 @@
     1,
     0
    ],
+   "daily_totals": {
+    "complete_from": null,
+    "partial": false,
+    "totals_through": null
+   },
    "first_seen": "2033-06-10T08:09:00Z",
+   "history_first_day": "2033-06-10",
    "hourly_distribution": [
     0,
     0,
@@ -10543,7 +10603,13 @@
     2,
     0
    ],
+   "daily_totals": {
+    "complete_from": null,
+    "partial": false,
+    "totals_through": null
+   },
    "first_seen": "2033-06-10T08:00:00Z",
+   "history_first_day": "2033-06-10",
    "hourly_distribution": [
     0,
     0,
@@ -10720,7 +10786,13 @@
     1,
     0
    ],
+   "daily_totals": {
+    "complete_from": null,
+    "partial": false,
+    "totals_through": null
+   },
    "first_seen": "2033-06-10T08:09:00Z",
+   "history_first_day": "2033-06-10",
    "hourly_distribution": [
     0,
     0,
