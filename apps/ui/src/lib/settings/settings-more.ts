@@ -6,7 +6,7 @@ export function settingsMoreId(section: SettingsSection): string {
 }
 
 /** Parts shown inside their section's More options, which the page opens to land on them. */
-const PARTS_IN_MORE: ReadonlySet<SettingsPart> = new Set(['integrations', 'ai']);
+const PARTS_IN_MORE: ReadonlySet<SettingsPart> = new Set(['integrations', 'ai', 'beta']);
 
 export function settingsPartIsInMore(part: SettingsPart): boolean {
     return PARTS_IN_MORE.has(part);

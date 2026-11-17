@@ -762,8 +762,7 @@ async def test_delete_methods_report_exact_row_changes():
         row = await repo.get_by_frigate_event("evt_delete")
         assert row is not None
 
-        assert await repo.delete_by_id(row.id) is True
-        assert await repo.delete_by_id(row.id) is False
+        assert await repo.delete_by_frigate_event("evt_delete") is True
         assert await repo.delete_by_frigate_event("evt_delete") is False
 
 

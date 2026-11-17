@@ -68,5 +68,10 @@ def clear_species_alias_cache_between_tests():
 
 
 @pytest.fixture
+def forget_sealed_daily_totals():
+    pass
+
+
+@pytest.fixture
 def cleanup_async_singletons():
     pass

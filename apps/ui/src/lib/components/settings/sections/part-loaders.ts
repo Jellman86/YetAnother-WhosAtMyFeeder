@@ -7,6 +7,8 @@ export const loadConnectionSettings = lazyComponent(() => import('../ConnectionS
 export const loadBirdnetSettings = lazyComponent(() => import('../BirdnetSettings.svelte'));
 export const loadDetectionSettings = lazyComponent(() => import('../DetectionSettings.svelte'));
 export const loadModelSettings = lazyComponent(() => import('../ModelSettings.svelte'));
+export const loadHardwareSettings = lazyComponent(() => import('../HardwareSettings.svelte'));
+export const loadNamingSettings = lazyComponent(() => import('../NamingSettings.svelte'));
 export const loadGardenBetaSettings = lazyComponent(() => import('../GardenBetaSettings.svelte'));
 export const loadNotificationSettings = lazyComponent(() => import('../NotificationSettings.svelte'));
 export const loadIntegrationSettings = lazyComponent(() => import('../IntegrationSettings.svelte'));
@@ -25,13 +27,13 @@ export const loadAccessibilitySettings = lazyComponent(() => import('../Accessib
 /** Everything a part needs loaded before it has its full height. */
 export const SETTINGS_PART_LOADERS: Readonly<Record<SettingsPart, () => Promise<unknown>>> = {
     connection: () => Promise.all([loadConnectionSettings(), loadBirdnetSettings()]),
-    detection: loadDetectionSettings,
-    models: loadModelSettings,
+    detection: () => Promise.all([loadNamingSettings(), loadDetectionSettings()]),
+    models: () => Promise.all([loadModelSettings(), loadHardwareSettings()]),
     beta: loadGardenBetaSettings,
     notifications: loadNotificationSettings,
     integrations: () => Promise.all([loadIntegrationSettings(), loadHaWeatherSettings(), loadEnrichmentSettings()]),
-    ai: loadAiSettings,
-    security: () => Promise.all([loadLocationSettings(), loadAuthenticationSettings(), loadTelemetrySettings()]),
+    ai: () => Promise.all([loadAiSettings(), loadTelemetrySettings()]),
+    security: () => Promise.all([loadLocationSettings(), loadAuthenticationSettings()]),
     data: loadDataSettings,
     maintenance: loadMaintenanceSettings,
     appearance: () => Promise.all([loadAppearanceSettings(), loadUnitsSettings()]),

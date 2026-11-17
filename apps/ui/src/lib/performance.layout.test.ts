@@ -25,6 +25,7 @@ import speciesSource from './pages/Species.svelte?raw';
 import systemHealthPanelSource from './components/settings/SystemHealthPanel.svelte?raw';
 import modelManagerSource from './pages/models/ModelManager.svelte?raw';
 import modelSettingsSource from './components/settings/ModelSettings.svelte?raw';
+import identificationSectionSource from './components/settings/sections/IdentificationSection.svelte?raw';
 
 const SETTINGS_TABS = [
     'ConnectionSettings',
@@ -201,6 +202,7 @@ describe('a reading whose length is only known once it lands moves nothing benea
         expect(modelManagerSource).toContain('firstLoadSettled = true;');
         expect(modelSettingsSource).toContain('bind:firstLoadSettled={modelsListed}');
         expect(modelSettingsSource).toContain('{#if onopenmodelevaluation && modelsListed}');
-        expect(modelSettingsSource).toContain('    {#if modelsListed}\n    <SettingsCard');
+        // Hardware, under More options, is drawn only once the model list has its first answer.
+        expect(identificationSectionSource).toContain('{#if modelsListed}\n            <div class="space-y-8" data-settings-hardware>');
     });
 });

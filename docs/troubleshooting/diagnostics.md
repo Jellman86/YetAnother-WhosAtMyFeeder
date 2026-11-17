@@ -217,7 +217,7 @@ If step 5 fails, the most common cause is editing one path but mounting a differ
 ## ⚡ Inference acceleration diagnostics
 
 YA-WAMF exposes image, runtime, and device diagnostics under
-**Settings → Identifying birds → Runtime diagnostics** and at
+**Settings → Identifying birds → More options → Hardware → Runtime report** and at
 `GET /api/classifier/status`.
 
 ### What to check first (UI)

@@ -217,5 +217,7 @@
   "span_group": "Zeitraum",
   "more_options": "Mehr",
   "table_share": "Anteil",
-  "standing_heading": "Stand im Zeitraum"
+  "standing_heading": "Stand im Zeitraum",
+  "no_activity_daily_totals": "Diese Tage stammen aus Tagessummen, die die Zahl der Aufnahmen behalten, aber keine Uhrzeit.",
+  "heatmap_stored_only": "Stunde und Wochentag zählen nur gespeicherte Aufnahmen: Eine Tagessumme hat keine Uhrzeit."
 }

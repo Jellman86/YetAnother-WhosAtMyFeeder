@@ -25,6 +25,7 @@
     import { detectionsStore } from '../stores/detections.svelte';
     import { toastStore } from '../stores/toast.svelte';
     import SimpleBarChart from './SimpleBarChart.svelte';
+    import DailyTotalsNote from './DailyTotalsNote.svelte';
     import RangeMap from './RangeMap.svelte';
     import { _, locale } from 'svelte-i18n';
     import { summaryInAnotherLanguage } from '../utils/summary-language';
@@ -940,6 +941,10 @@
                             <SimpleBarChart data={stats.monthly_distribution} labels={MONTH_LABELS} title="" ariaLabel={$_('species_detail.month')} />
                         </ChartFigure>
                     </div>
+                    <DailyTotalsNote
+                        coverage={stats.daily_totals}
+                        extra={$_('species_detail.daily_totals_time_of_day', { default: 'Time of day counts stored captures only, because a daily total has no time.' })}
+                    />
                 </section>
 
                 <!-- Camera Breakdown -->

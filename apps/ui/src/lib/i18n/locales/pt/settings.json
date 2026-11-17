@@ -303,7 +303,7 @@
     "in_this_section": "Nesta seção",
     "not_read": "Ainda não medido: o estado não foi lido.",
     "stale": "Esta leitura está desatualizada: nenhuma mais recente chegou.",
-    "display_note": "Nada aqui depende de outro serviço. Tema, tamanho do texto e idioma mudam na hora neste dispositivo.",
+    "display_note": "Nada aqui depende de outro serviço. Tema, tamanho do texto e idioma mudam na hora neste dispositivo. As unidades esperam por Salvar e valem para todos.",
     "state": {
       "ok": "funcionando",
       "degraded": "sob pressão",
@@ -325,7 +325,8 @@
   "more": {
     "title": "Mais opções",
     "cameras": "Detalhes do Frigate, origem da imagem, clipes e BirdNET-Go",
-    "sharing": "eBird, iNaturalist, BirdWeather, tempo do Home Assistant, informações das espécies, IA e telemetria"
+    "sharing": "eBird, iNaturalist, BirdWeather, tempo do Home Assistant, informações das espécies, IA e telemetria",
+    "identification": "Espécies bloqueadas, filtro de área de distribuição, verificações de vídeo, hardware e funções beta"
   },
   "debug": {
     "llm_prompts_title": "Modelos de prompt LLM",
@@ -1076,13 +1077,13 @@
   "danger": {
     "title": "Excluir dados",
     "subtitle": "Cada uma destas ações exclui algo para sempre. Todas pedem confirmação antes de agir.",
-    "reset_desc": "Exclui todas as detecções, todas as fotos e clipes em cache e todos os favoritos arquivados.",
+    "reset_desc": "Exclui todas as detecções, todas as fotos e clipes em cache, todos os favoritos arquivados e os totais diários que preservam o histórico antigo da classificação.",
     "reset_button": "Excluir todo o histórico",
     "resetting": "Resetando…",
-    "confirm": "Excluir {count, plural, one {# detecção} other {as # detecções}}, incluindo as ocultas, todas as fotos e clipes em cache e todos os favoritos arquivados? Não é possível desfazer.",
-    "confirm_changed": "O número de detecções mudou enquanto isto estava aberto. Excluir {count, plural, one {# detecção} other {as # detecções}}, incluindo as ocultas, todas as fotos e clipes em cache e todos os favoritos arquivados? Não é possível desfazer.",
+    "confirm": "Excluir {count, plural, one {# detecção} other {as # detecções}}, incluindo as ocultas, todas as fotos e clipes em cache, todos os favoritos arquivados e os totais diários do histórico antigo da classificação? Não é possível desfazer.",
+    "confirm_changed": "O número de detecções mudou enquanto isto estava aberto. Excluir {count, plural, one {# detecção} other {as # detecções}}, incluindo as ocultas, todas as fotos e clipes em cache, todos os favoritos arquivados e os totais diários do histórico antigo da classificação? Não é possível desfazer.",
     "confirm_counting": "Contando as detecções que seriam excluídas…",
-    "confirm_uncounted": "Excluir todas as detecções, todas as fotos e clipes em cache e todos os favoritos arquivados? Não foi possível ler o número de detecções. Não é possível desfazer.",
+    "confirm_uncounted": "Excluir todas as detecções, todas as fotos e clipes em cache, todos os favoritos arquivados e os totais diários do histórico antigo da classificação? Não foi possível ler o número de detecções. Não é possível desfazer.",
     "reset_confirm_button": "Excluir todo o histórico permanentemente",
     "clear_feedback_button": "Excluir correções",
     "clear_feedback_desc": "O YA-WAMF usa as espécies que você corrigiu para ajustar suas pontuações em cada câmera. Excluir as correções volta às pontuações do próprio modelo.",
@@ -1345,6 +1346,7 @@
     "compat_note_baseline": "referência da CPU",
     "compat_note_fails": "falha ao compilar",
     "compat_note_match": "{n}/{n} coincidem com a CPU",
+    "compat_note_boxes": "{m}/{n} caixas coincidem com a CPU",
     "compat_note_nan": "saída não finita",
     "compat_note_partial": "{m}/{n} coincidem com a CPU",
     "compat_note_runs": "executa",
@@ -1540,10 +1542,12 @@
   },
   "beta": {
     "title": "Funcionalidades beta",
+    "chip": "Beta",
     "garden_animals": "Animais do jardim",
     "garden_animals_desc": "Recolhe gatos, raposas e outros visitantes que não são aves das câmaras que escolher, para que os reveja.",
     "garden_motion_toggle": "Recolher fotos de movimento para revisão em {camera}",
     "garden_naming_off": "Cada animal aguarda em Por rever até o confirmar e nomear.",
+    "garden_naming_elsewhere": "A nomeação automática é definida com o limiar de identificação das aves, no início de Identificar aves.",
     "garden_naming_threshold_help": "É uma segunda verificação, sobre qual é o animal. A partir deste valor, o animal é confirmado e nomeado por si. Abaixo dele, a foto vai para Descartadas, de onde a pode restaurar.",
     "garden_naming_threshold": "Nomear um animal com esta certeza de qual é",
     "garden_naming": "Nomear animais automaticamente",
@@ -1617,7 +1621,7 @@
     "garden_off_note": "O jardim deixa de recolher novas capturas. As capturas e definições existentes são mantidas e voltam quando o ligar novamente.",
     "garden_off_effects": "Enquanto está desligado, o jardim fica oculto no Explorador, os seus alertas param e as aves que cria são registadas como aves selvagens. A retenção do histórico continua a aplicar-se às capturas guardadas.",
     "garden_section_cameras": "Câmaras",
-    "garden_section_checks": "Verificações automáticas e nomes",
+    "garden_section_checks": "Verificações automáticas",
     "garden_section_models": "Modelos",
     "garden_section_alerts": "Alertas",
     "garden_naming_help": "Os animais que atingem o limiar de nomeação são confirmados e nomeados. As fotos abaixo dele vão para Dispensadas, onde as pode restaurar.",
@@ -1962,5 +1966,9 @@
   "units": {
     "title": "Unidades",
     "desc": "Para todas as pessoas que abrem esta instalação, não só neste dispositivo."
+  },
+  "naming": {
+    "title": "Limiar de identificação",
+    "garden_title": "Animais do jardim"
   }
 }

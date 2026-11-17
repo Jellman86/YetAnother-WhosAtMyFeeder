@@ -3,6 +3,7 @@
     import Segmented from '../components/ui/Segmented.svelte';
     import Disclosure from '../components/ui/Disclosure.svelte';
     import ChartFigure from '../components/ui/ChartFigure.svelte';
+    import DailyTotalsNote from '../components/DailyTotalsNote.svelte';
     import { bucketPrecipitation, chartTable, shareTable, type ChartSeries } from '../utils/chart-table';
     import CaptureWall from '../components/CaptureWall.svelte';
     import SpeciesChecks from '../components/SpeciesChecks.svelte';
@@ -993,6 +994,8 @@
     }
 
     let timelinePoints = $derived(() => timeline?.points || []);
+    /** Older days in range come from daily totals, which have no time of day for the heatmap. */
+    const heatmapCountsStoredOnly = $derived(Boolean(timeline?.daily_totals?.totals_through));
     let metricValues = $derived(() => timelinePoints().map((p) => metricValueFromPoint(p)));
     let metricPeak = $derived(() => metricValues().length ? Math.max(...metricValues()) : 0);
     let metricAvg = $derived(() => metricValues().length
@@ -2057,6 +2060,7 @@
                         <div class="h-full w-full rounded-2xl bg-surface-raised animate-pulse"></div>
                     {/if}
                 </div>
+                <DailyTotalsNote coverage={timeline?.daily_totals} />
                 {#each weatherPanels() as panel (panel.key)}
                     <div class="mt-3" data-leaderboard-weather-panel={panel.key}>
                         <p class="mb-1 text-xs font-semibold text-muted">{panel.title}</p>
@@ -2228,13 +2232,20 @@
                                 {$_('leaderboard.heatmap_species_empty', { values: { species: heatmapSubject ?? '' }, default: 'No {species} captures in this window.' })}
                             </div>
                         {:else if activityHeatmap && !heatmapSpecies}
-                            <div class="h-64 w-full rounded-2xl border border-dashed border-line bg-surface-raised flex items-center justify-center text-sm text-muted">
-                                {$_('leaderboard.no_activity_data', { default: 'No activity captured in this window yet.' })}
+                            <div class="h-64 w-full rounded-2xl border border-dashed border-line bg-surface-raised flex items-center justify-center px-6 text-center text-sm text-muted" data-heatmap-empty>
+                                {heatmapCountsStoredOnly
+                                    ? $_('leaderboard.no_activity_daily_totals', { default: 'These days come from daily totals, which keep the count of captures but not the time of day.' })
+                                    : $_('leaderboard.no_activity_data', { default: 'No activity captured in this window yet.' })}
                             </div>
                         {:else}
                             <div class="h-64 w-full rounded-2xl bg-surface-raised animate-pulse"></div>
                         {/if}
                     </div>
+                    {#if heatmapCountsStoredOnly && shownHeatmap && (shownHeatmap.total_count ?? 0) > 0}
+                        <p class="mt-3 max-w-prose text-xs leading-snug text-muted" data-heatmap-stored-only>
+                            {$_('leaderboard.heatmap_stored_only', { default: 'Hour and weekday count stored captures only: a daily total has no time of day.' })}
+                        </p>
+                    {/if}
                 </ChartFigure>
                 <ChartFigure
                     title={$_('leaderboard.detection_breakdown_subtitle', { default: 'Species composition' })}

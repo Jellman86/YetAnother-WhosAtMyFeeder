@@ -100,5 +100,8 @@
     "sw": "SO",
     "w": "O",
     "nw": "NO"
-  }
+  },
+  "daily_totals_note": "Les chiffres antérieurs au {date} viennent des totaux quotidiens ; les photos et clips de ces jours ne sont plus conservés.",
+  "daily_totals_partial": "Les totaux antérieurs au {date} ont été comptés après la suppression de certaines captures anciennes ; ils peuvent donc être inférieurs aux visites réelles.",
+  "daily_totals_partial_all": "Ces totaux ont été comptés après la suppression de certaines captures anciennes ; ils peuvent donc être inférieurs aux visites réelles."
 }

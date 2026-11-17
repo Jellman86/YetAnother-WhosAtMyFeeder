@@ -78,7 +78,7 @@ every image uses the same `/config` and `/data` volume contract.
 
 An image flavor states what is **packaged**, not what the host can execute. Intel
 devices still need device passthrough and host support; NVIDIA still needs its
-driver and Container Toolkit. **Settings → Identifying birds → Runtime diagnostics** is
+driver and Container Toolkit. **Settings → Identifying birds → More options → Hardware → Runtime report** is
 the source of truth for what is actually available and active.
 
 ## Switch safely between flavors
@@ -99,7 +99,7 @@ tag**; do not create new mount paths or copy data into the container filesystem.
    additional precaution for production data.
 3. Change only `YAWAMF_MONALITHIC_TAG`, pull the selected image, and recreate the
    existing `yawamf` service with the existing Compose project.
-4. Check **Settings → Identifying birds → Runtime diagnostics**. Confirm **Image**,
+4. Check **Settings → Identifying birds → More options → Hardware → Runtime report**. Confirm **Image**,
    **Packaged**, **Selected**, and **Active** before comparing inference.
 5. To roll back, restore the recorded tag and recreate the same service. No
    config import or database rollback is required for a same-commit flavor
@@ -118,7 +118,7 @@ directly on the Docker host.
 
 ## Providers
 
-Set the provider at **Settings → Identifying birds → Hardware → Inference provider**. The values map
+Set the provider at **Settings → Identifying birds → More options → Hardware → Inference provider**. The values map
 to `classification.inference_provider` (`auto|cpu|cuda|intel_gpu|intel_cpu|intel_npu`,
 also settable via the `CLASSIFICATION__INFERENCE_PROVIDER` environment variable):
 
@@ -158,7 +158,7 @@ selected again.
 
 ## Validate this host
 
-The **Setup wizard**, guided Model Manager flow, and **Settings → Identifying birds → Hardware →
+The **Setup wizard**, guided Model Manager flow, and **Settings → Identifying birds → More options → Hardware →
 Check devices on this host** use the same provider-validation engine. Candidates are the exact
 intersection of:
 
@@ -242,7 +242,7 @@ fallback cannot be mistaken for successful validation of the selected ONNX model
 
 ## Expected result
 
-Under **Settings → Identifying birds → Hardware → Runtime report**, the accelerator status pills reflect what YA-WAMF
+Under **Settings → Identifying birds → More options → Hardware → Runtime report**, the accelerator status pills reflect what YA-WAMF
 found. For example **Intel NPU: Auto-detected · verified ✓** means the NPU was
 detected and has passed validation for the loaded model. A device that is present
 but not yet proven for the current model shows **unverified**.
@@ -404,7 +404,7 @@ counting accuracy. See the [validation evidence and limits](../reviews/2026-10-2
 ## Next steps
 
 - Confirm the active backend and per-device diagnostics under
-  **Settings → Identifying birds → Runtime diagnostics**.
+  **Settings → Identifying birds → More options → Hardware → Runtime report**.
 - See [`configuration.md`](configuration.md) for all detection settings and
   [`../troubleshooting/diagnostics.md`](../troubleshooting/diagnostics.md) if
   inference is falling back unexpectedly.
