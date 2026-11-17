@@ -139,8 +139,8 @@ container cannot reach the broker on the Docker network. See
 ## 🔊 Audio Correlation Issues
 If camera visits appear but never have the **Audio confirmed** badge:
 
-1.  **Check the mapped source:** Open **Settings → Sharing & integrations → BirdNET-Go → Audio buffer &
-    sensor mapping** and inspect **Recently Detected BirdNET Sources**. Map the camera to the stable
+1.  **Check the mapped source:** Open **Settings → Cameras & connection → More options → BirdNET-Go → Audio
+    buffer & sensor mapping** and inspect **Recently Detected BirdNET Sources**. Map the camera to the stable
     source name that is actually arriving; multiple names can be comma-separated. A blank mapping
     is not a wildcard, and a different microphone's call does not confirm this camera's visit.
 2.  **Verify clocks and timestamps:** Confirm Frigate and BirdNET-Go report the correct moment, with

@@ -97,7 +97,7 @@
     "blocked_sort": "I canti uditi compaiono tra le visite solo quando le visite sono in ordine di tempo.",
     "load_failed": "Impossibile caricare i canti uditi. Le visite non sono interessate.",
     "truncated": "Questa pagina comprende più canti di quanti se ne possano mostrare insieme, quindi i più vecchi sono esclusi. Restringi le date per vederli.",
-    "none_stored": "Non ci sono canti di BirdNET-Go salvati per il periodo di queste visite. Se te ne aspettavi, controlla che BirdNET-Go sia attivo in Impostazioni, Integrazioni.",
+    "none_stored": "Non ci sono canti di BirdNET-Go salvati per il periodo di queste visite. Se te ne aspettavi, controlla che BirdNET-Go sia attivo in Impostazioni, Telecamere e connessione, Altre opzioni.",
     "seek": "Riproduci da un punto del canto. Le frecce spostano di un secondo.",
     "play_call": "Riproduci il canto di {species}",
     "pause_call": "Metti in pausa il canto di {species}",

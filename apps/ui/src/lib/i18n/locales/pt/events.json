@@ -97,7 +97,7 @@
     "blocked_sort": "Os cantos ouvidos só aparecem entre visitas quando as visitas estão em ordem de tempo.",
     "load_failed": "Não foi possível carregar os cantos ouvidos. As visitas não foram afetadas.",
     "truncated": "Esta página abrange mais cantos do que é possível mostrar de uma vez, então os mais antigos ficam de fora. Restrinja as datas para vê-los.",
-    "none_stored": "Não há cantos do BirdNET-Go salvos para o período destas visitas. Se você esperava cantos, verifique se o BirdNET-Go está em execução em Configurações, Integrações.",
+    "none_stored": "Não há cantos do BirdNET-Go salvos para o período destas visitas. Se você esperava cantos, verifique se o BirdNET-Go está em execução em Configurações, Câmeras e conexão, Mais opções.",
     "seek": "Tocar a partir de um ponto do canto. As setas avançam um segundo.",
     "play_call": "Tocar o canto de {species}",
     "pause_call": "Pausar o canto de {species}",
