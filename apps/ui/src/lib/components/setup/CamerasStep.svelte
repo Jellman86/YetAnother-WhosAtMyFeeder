@@ -80,9 +80,9 @@
 </script>
 
 <WizardStepLayout
-    title={$_('setup.cameras.title', { default: 'Cameras & detection' })}
+    title={$_('setup.cameras.title', { default: 'Cameras' })}
     description={$_('setup.cameras.description', {
-        default: 'Choose which Frigate cameras YA-WAMF watches. Advanced detection and classifier gates stay in Detection settings.'
+        default: 'Choose which Frigate cameras YA-WAMF watches. Finer control over what is kept is in Settings → Identifying birds.'
     })}
     canContinue={loadState === 'ready'}
     blockedReason={loadBlockedReason(loadState, $_)}
@@ -138,7 +138,7 @@
         <div class="flex items-start gap-2 rounded-lg bg-surface-raised p-3 text-xs text-muted">
             <svg class="mt-0.5 h-4 w-4 shrink-0 text-accent-ink" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18h6M10 22h4M8.5 14.5A7 7 0 1 1 15.5 14.5C14.5 15.2 14 16 14 17h-4c0-1-.5-1.8-1.5-2.5Z" /></svg>
             <span>
-                {$_('setup.cameras.gates_hint', { default: "Missing detections? Frigate's own min_score / threshold / min_initialized gates decide whether a snapshot ever reaches YA-WAMF." })}
+                {$_('setup.cameras.gates_hint', { default: "Seeing fewer birds here than in Frigate? Frigate decides which snapshots it sends, before YA-WAMF sees anything." })}
                 <a href={DOCS_URL} target="_blank" rel="noopener noreferrer" class="font-semibold text-accent-ink underline">{$_('setup.cameras.gates_link', { default: 'Tuning guide →' })}</a>
             </span>
         </div>

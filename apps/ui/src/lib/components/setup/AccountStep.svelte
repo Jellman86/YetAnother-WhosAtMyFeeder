@@ -43,7 +43,7 @@
             await setupWizardStore.refresh();
             setupWizardStore.completeStep();
         } catch (err) {
-            error = err instanceof Error ? err.message : get(_)('first_run.setup_failed', { default: 'Setup failed' });
+            error = err instanceof Error ? err.message : get(_)('first_run.setup_failed', { default: 'The password could not be saved. Check that YA-WAMF is running, then try again.' });
         } finally {
             busy = false;
         }
@@ -51,7 +51,7 @@
 </script>
 
 <WizardStepLayout
-    title={$_('setup.account.title', { default: 'Admin account & access' })}
+    title={$_('setup.account.title', { default: 'Owner account and access' })}
     description={$_('setup.account.description', {
         default: 'Protect the dashboard with an owner password, or run without authentication on a trusted network.'
     })}
@@ -65,7 +65,7 @@
     {:else}
         {#if !skipAuth}
             <div>
-                <label for="setup-username" class="text-sm font-medium text-ink">{$_('first_run.admin_username', { default: 'Admin username' })}</label>
+                <label for="setup-username" class="text-sm font-medium text-ink">{$_('first_run.admin_username', { default: 'Owner user name' })}</label>
                 <input id="setup-username" type="text" autocomplete="username" bind:value={username} class="input-base mt-1" />
             </div>
             <div>

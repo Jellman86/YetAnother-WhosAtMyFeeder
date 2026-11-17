@@ -789,9 +789,9 @@
     function startedAgoText(): string {
         if (instanceWindow === null) return $_('common.unknown', { default: 'unknown' });
         const minutes = Math.floor(instanceWindow / 60000);
-        if (minutes < 60) return $_('about.instance.uptime_minutes', { values: { count: minutes }, default: '{count} min' });
+        if (minutes < 60) return $_('about.instance.uptime_minutes', { values: { count: minutes }, default: '{count} min' });
         const hours = Math.floor(minutes / 60);
-        return $_('about.instance.uptime_hours', { values: { count: hours }, default: '{count} h' });
+        return $_('about.instance.uptime_hours', { values: { count: hours }, default: '{count} h' });
     }
 
     function goToDetection(eventId: string): void {

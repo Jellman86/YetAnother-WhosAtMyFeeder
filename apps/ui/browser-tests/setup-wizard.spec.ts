@@ -394,7 +394,7 @@ const modelSelect = (page: Page) => wizard(page).getByLabel('Model', { exact: tr
 const providerSelect = (page: Page) => wizard(page).getByLabel('Identification model runs on', { exact: true });
 const latitude = (page: Page) => wizard(page).getByLabel('Latitude', { exact: true });
 const longitude = (page: Page) => wizard(page).getByLabel('Longitude', { exact: true });
-const validateButton = (page: Page) => wizard(page).getByRole('button', { name: 'Validate on my hardware' });
+const validateButton = (page: Page) => wizard(page).getByRole('button', { name: 'Check it runs on this machine' });
 
 for (const importHistory of [false, true]) {
 test(`first run walks every step to Finish with history import ${importHistory} and isolated settings saves`, async ({ page }) => {
@@ -405,7 +405,7 @@ test(`first run walks every step to Finish with history import ${importHistory} 
     await expectStep(page, 'Set up YA-WAMF');
     await wizard(page).getByRole('button', { name: 'Get started' }).click();
 
-    await expectStep(page, 'Admin account & access');
+    await expectStep(page, 'Owner account and access');
     await wizard(page).getByLabel('Password', { exact: true }).fill('feeder2026');
     await wizard(page).getByLabel('Confirm password').fill('feeder2026');
     await continueButton(page).click();
@@ -419,14 +419,14 @@ test(`first run walks every step to Finish with history import ${importHistory} 
     await expect(wizard(page).getByText('Connected to Frigate 0.16.0')).toBeVisible();
     await continueButton(page).click();
 
-    await expectStep(page, 'Cameras & detection');
+    await expectStep(page, 'Cameras');
     await wizard(page).getByRole('checkbox', { name: 'feeder', exact: true }).check();
     await wizard(page).getByRole('checkbox', { name: 'nestbox', exact: true }).check();
     await continueButton(page).click();
 
     await expectStep(page, 'Model and hardware');
     await modelSelect(page).selectOption(DINO);
-    await expect(wizard(page).getByText('Download and verify this model here before validating it on this hardware.')).toBeVisible();
+    await expect(wizard(page).getByText('Download this model first. Then check that it runs on this machine.')).toBeVisible();
     await expect(continueButton(page)).toBeDisabled();
     await expect(wizard(page).getByRole('group', { name: 'Feeder location' })).toBeVisible();
 
@@ -435,13 +435,13 @@ test(`first run walks every step to Finish with history import ${importHistory} 
     await expect(continueButton(page)).toBeDisabled();
     fake.downloadDone = true;
     await expect(wizard(page).getByText('Downloaded and verified.')).toBeVisible({ timeout: 10_000 });
-    await expect(wizard(page).getByText('Validate this model on the current image and hardware before continuing.')).toBeVisible();
+    await expect(wizard(page).getByText('Check that this model runs on this machine before continuing.')).toBeVisible();
     await expect(continueButton(page)).toBeDisabled();
 
     await latitude(page).fill(LAT);
     await longitude(page).fill(LON);
     await validateButton(page).click();
-    await expect(wizard(page).getByRole('progressbar', { name: 'Validate on my hardware' })).toBeVisible();
+    await expect(wizard(page).getByRole('progressbar', { name: 'Check it runs on this machine' })).toBeVisible();
     await expect(continueButton(page)).toBeDisabled();
     await expect(modelSelect(page)).toBeDisabled();
     await expect(wizard(page).getByText('Leaving this step does not stop the check.', { exact: false })).toBeVisible();
@@ -456,7 +456,7 @@ test(`first run walks every step to Finish with history import ${importHistory} 
     expect(fake.requests[runStart].body).toMatchObject({ sweep_devices: true, compat_only: true, model_ids: [DINO] });
 
     fake.finishEval();
-    await expect(wizard(page).getByText('Best validated provider: Intel NPU (OpenVINO), 42 ms per image')).toBeVisible({ timeout: 10_000 });
+    await expect(wizard(page).getByText('Best device that passed: Intel NPU (OpenVINO), 42 ms a photo')).toBeVisible({ timeout: 10_000 });
     await expect(wizard(page).getByText('It did not measure accuracy', { exact: false })).toBeVisible();
     await expect(wizard(page).getByText('999')).toHaveCount(0);
     await expect(providerSelect(page)).toHaveValue('intel_npu');
@@ -477,7 +477,7 @@ test(`first run walks every step to Finish with history import ${importHistory} 
     await expectStep(page, 'Optional extras');
     await expect(wizard(page).getByRole('checkbox', { name: /share anonymous usage stats/i })).not.toBeChecked();
     if (importHistory) {
-        await wizard(page).getByRole('checkbox', { name: 'Import retained Frigate bird events' }).check();
+        await wizard(page).getByRole('checkbox', { name: 'Import the bird events Frigate still keeps' }).check();
         await wizard(page).getByText('Last week', { exact: true }).click();
         await wizard(page).getByRole('button', { name: 'Import & continue' }).click();
     } else {
@@ -524,7 +524,7 @@ test('a re-run edits one section and leaves every other setting alone', async ({
     expect(fake.settingsWrites()).toEqual([{ inference_provider: 'cpu' }]);
     expect(fake.posts(`/api/models/${MOBILENET}/activate`)).toEqual([]);
 
-    await openSectionFromReview(page, 'Cameras & detection');
+    await openSectionFromReview(page, 'Cameras');
     await expect(wizard(page).getByRole('checkbox', { name: 'feeder', exact: true })).toBeChecked();
     await wizard(page).getByRole('button', { name: 'Back' }).click();
     await expectStep(page, 'Review setup');
@@ -548,7 +548,7 @@ test('feeder coordinates must be a whole valid pair; zero is valid and empty mea
     await expect(modelSelect(page)).toHaveValue(DINO);
     await expect(latitude(page)).toHaveValue('10');
     await expect(longitude(page)).toHaveValue('20');
-    await expect(wizard(page).getByText('Validating or continuing saves these coordinates first', { exact: false })).toBeVisible();
+    await expect(wizard(page).getByText('Checking or continuing saves these coordinates first', { exact: false })).toBeVisible();
 
     await latitude(page).fill('');
     await expect(wizard(page).getByRole('alert').filter({ hasText: 'Enter both latitude and longitude, or leave both empty.' })).toBeVisible();
@@ -617,7 +617,7 @@ test('an explicit provider choice survives the check when it passes', async ({ p
     await providerSelect(page).selectOption('intel_gpu');
     await validateButton(page).click();
     fake.finishEval();
-    await expect(wizard(page).getByText('Best validated provider: Intel NPU (OpenVINO), 42 ms per image')).toBeVisible({ timeout: 10_000 });
+    await expect(wizard(page).getByText('Best device that passed: Intel NPU (OpenVINO), 42 ms a photo')).toBeVisible({ timeout: 10_000 });
     await expect(providerSelect(page)).toHaveValue('intel_gpu');
     await continueButton(page).click();
     await expectStep(page, 'Review setup');
@@ -636,7 +636,7 @@ test('an explicit provider that fails the check is replaced and the change is ex
     await validateButton(page).click();
     fake.finishEval(['intel_npu']);
     await expect(wizard(page).getByText('Intel NPU (OpenVINO) did not pass the check for this model, so Intel GPU (OpenVINO) is selected instead.')).toBeVisible({ timeout: 10_000 });
-    await expect(wizard(page).getByText('Failed: Intel NPU (OpenVINO)')).toBeVisible();
+    await expect(wizard(page).getByText('Did not pass: Intel NPU (OpenVINO)')).toBeVisible();
     await expect(providerSelect(page)).toHaveValue('intel_gpu');
     await continueButton(page).click();
     await expectStep(page, 'Review setup');
@@ -677,7 +677,7 @@ for (const leave of ['Back', 'Skip'] as const) {
         await openSectionFromReview(page, 'Model and hardware');
         await modelSelect(page).selectOption(DINO);
         await validateButton(page).click();
-        await expect(wizard(page).getByRole('progressbar', { name: 'Validate on my hardware' })).toBeVisible();
+        await expect(wizard(page).getByRole('progressbar', { name: 'Check it runs on this machine' })).toBeVisible();
         await wizard(page).getByRole('button', { name: leave === 'Skip' ? 'Skip step' : leave, exact: true }).click();
         await expectStep(page, 'Review setup');
 
@@ -717,7 +717,7 @@ test('an explicit Auto choice is saved instead of the activation recommendation'
     await providerSelect(page).selectOption('auto');
     await validateButton(page).click();
     fake.finishEval();
-    await expect(wizard(page).getByText('Best validated provider: Intel NPU (OpenVINO), 42 ms per image')).toBeVisible({ timeout: 10_000 });
+    await expect(wizard(page).getByText('Best device that passed: Intel NPU (OpenVINO), 42 ms a photo')).toBeVisible({ timeout: 10_000 });
     await expect(providerSelect(page)).toHaveValue('auto');
     await continueButton(page).click();
     await expectStep(page, 'Review setup');
@@ -826,7 +826,7 @@ for (const change of ['location', 'cameras', 'quality', 'integrations'] as const
             await latitude(page).fill(LAT);
             await longitude(page).fill(LON);
         } else if (change === 'cameras') {
-            await openSectionFromReview(page, 'Cameras & detection');
+            await openSectionFromReview(page, 'Cameras');
             await wizard(page).getByRole('checkbox', { name: 'feeder', exact: true }).check();
             await wizard(page).getByRole('checkbox', { name: 'nestbox', exact: true }).check();
         } else if (change === 'quality') {
@@ -865,7 +865,7 @@ test('in first run, a section opened from Review goes straight back to Review', 
     await wizard(page).getByRole('button', { name: 'Save & test connection' }).click();
     await expect(wizard(page).getByText('Connected to Frigate 0.16.0')).toBeVisible();
     await continueButton(page).click();
-    await expectStep(page, 'Cameras & detection');
+    await expectStep(page, 'Cameras');
     await continueButton(page).click();
     await expectStep(page, 'Model and hardware');
     await wizard(page).getByRole('button', { name: 'Skip step' }).click();
@@ -924,14 +924,14 @@ test('a failed check is not also reported as a green completion', async ({ page 
     fake.finishEval(['cpu', 'intel_cpu', 'intel_gpu', 'intel_npu']);
     await expect(wizard(page).getByRole('alert')).toContainText('did not pass the check');
     await expect(wizard(page).locator('[data-setup-model-warning]')).toHaveText('The model could not be loaded on this host.');
-    await expect(wizard(page).getByText('Hardware validation completed')).toHaveCount(0);
+    await expect(wizard(page).getByText('The check finished')).toHaveCount(0);
     await expect(wizard(page).getByText(/Runtime:|providers:/)).toHaveCount(0);
 });
 
 test('cameras come from Frigate, and a saved name it does not have is flagged', async ({ page }) => {
     const fake = new FakeBackend({ settings: { cameras: ['feedr'] } });
     await openRerun(page, fake);
-    await openSectionFromReview(page, 'Cameras & detection');
+    await openSectionFromReview(page, 'Cameras');
     const choices = wizard(page).locator('[data-setup-camera-choices]');
     await expect(choices.getByRole('checkbox')).toHaveCount(3);
     await expect(wizard(page).getByLabel('Cameras (comma-separated)')).toHaveCount(0);
@@ -948,7 +948,7 @@ test('typing cameras is only offered when Frigate cannot be read, and says the n
     const fake = new FakeBackend({});
     fake.frigateConfigFails = true;
     await openRerun(page, fake);
-    await openSectionFromReview(page, 'Cameras & detection');
+    await openSectionFromReview(page, 'Cameras');
     await expect(wizard(page).locator('[data-setup-camera-unread]')).toContainText('could not be read');
     await wizard(page).getByLabel('Cameras (comma-separated)').fill('feeder, feeder, nestbox');
     fake.frigateConfigFails = false;
@@ -998,7 +998,7 @@ test('the review names what it measured: no password is a choice, and a saved co
     const fake = new FakeBackend({ settings: { frigate_url: 'http://frigate:5000', mqtt_server: 'mqtt' } });
     fake.connectionReading = 'unreachable';
     const errors = await openRerun(page, fake);
-    const account = wizard(page).getByRole('listitem').filter({ hasText: 'Admin account & access' });
+    const account = wizard(page).getByRole('listitem').filter({ hasText: 'Owner account and access' });
     await expect(account.locator('[data-setup-status]')).toHaveText('No password');
     await expect(account).toContainText('Authentication disabled');
     await expect(account).not.toContainText('Configured');
@@ -1055,7 +1055,7 @@ test('a disabled Continue says why, and an unreachable Frigate can be set up lat
     await expect(wizard(page).getByRole('switch', { name: 'MQTT authentication' })).toHaveAttribute('aria-checked', 'false');
 
     await wizard(page).getByRole('button', { name: 'Set up later' }).click();
-    await expectStep(page, 'Cameras & detection');
+    await expectStep(page, 'Cameras');
     expect(errors).toEqual([]);
 });
 
@@ -1095,8 +1095,8 @@ test('the cameras step says it is waiting for Frigate, lets setup continue, and 
     let release = (): void => {};
     fake.frigateConfigHeld = new Promise<void>((resolve) => { release = resolve; });
     await openRerun(page, fake);
-    await openSectionFromReview(page, 'Cameras & detection');
-    await expectStep(page, 'Cameras & detection');
+    await openSectionFromReview(page, 'Cameras');
+    await expectStep(page, 'Cameras');
 
     // The settings have loaded; what is still outstanding is Frigate, and the step says so.
     const waiting = wizard(page).locator('[data-setup-camera-reading]');
@@ -1119,14 +1119,14 @@ test('continuing while Frigate is still being asked keeps the saved cameras', as
     const fake = new FakeBackend({ settings: { cameras: ['feeder'] } });
     fake.frigateConfigHeld = new Promise<void>(() => {});
     await openRerun(page, fake);
-    await openSectionFromReview(page, 'Cameras & detection');
+    await openSectionFromReview(page, 'Cameras');
     await expect(wizard(page).locator('[data-setup-camera-reading]')).toBeVisible();
     await continueButton(page).click();
     await expectStep(page, 'Review setup');
     expect(fake.settingsWrites()).toContainEqual({ cameras: ['feeder'] });
 });
 
-for (const section of ['Model and hardware', 'Cameras & detection']) {
+for (const section of ['Model and hardware', 'Cameras']) {
     test(`${section}: Back and Continue stay inside the card at 1440x900 while the step scrolls`, async ({ page }, testInfo) => {
         await page.setViewportSize({ width: 1440, height: 900 });
         const fake = new FakeBackend({});
@@ -1188,8 +1188,8 @@ test('the review does not call a model ready when its files are here but it coul
 
 test('the step bar marks the steps done, the current one and those ahead differently', async ({ page }) => {
     await openRerun(page, new FakeBackend({ settings: { cameras: ['feeder'] } }));
-    await openSectionFromReview(page, 'Cameras & detection');
-    await expectStep(page, 'Cameras & detection');
+    await openSectionFromReview(page, 'Cameras');
+    await expectStep(page, 'Cameras');
     const segments = wizard(page).getByRole('list', { name: 'Setup steps' }).getByRole('listitem');
     await expect(segments).toHaveCount(9);
     await expect(segments.nth(3)).toHaveAttribute('aria-current', 'step');
@@ -1270,7 +1270,7 @@ for (const size of [{ width: 1024, height: 600 }, { width: 844, height: 390 }]) 
         await expectStep(page, 'Set up YA-WAMF');
         await expectActionsInView(page, 'welcome');
         await wizard(page).getByRole('button', { name: 'Get started' }).click();
-        await expectStep(page, 'Admin account & access');
+        await expectStep(page, 'Owner account and access');
         await expectActionsInView(page, 'account');
         await wizard(page).getByLabel('Password', { exact: true }).fill('feeder2026');
         await wizard(page).getByLabel('Confirm password').fill('feeder2026');

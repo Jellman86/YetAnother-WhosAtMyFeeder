@@ -88,7 +88,7 @@
     "location_hint": "验证或继续时会先保存这些坐标，与设置 → 共享与集成 → 位置中的喂食器位置相同。此模型不使用日期或位置精度半径。",
     "location_incomplete": "请输入纬度和经度，或将两项都留空。",
     "location_empty": "不使用位置信息：此模型也能在没有位置的情况下识别鸟类。",
-    "ram_note": "建议约 {ram} MB 内存。",
+    "ram_note": "建议约 {ram} MB 内存。",
     "phase_starting": "正在开始检查…",
     "phase_preparing": "正在准备检查…",
     "phase_sweep": "正在每个设备上检查此模型…",

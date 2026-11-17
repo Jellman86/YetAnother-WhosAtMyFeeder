@@ -101,7 +101,7 @@
     "provider_replaced": "{previous} n’a pas réussi le test pour ce modèle ; {provider} est sélectionné à la place.",
     "no_passing_provider": "Ce modèle n’a pas réussi la vérification. Consultez les résultats et réessayez avant de continuer.",
     "readiness_retry": "Le test est terminé, mais l’état du modèle n’a pas pu être actualisé. Nouvelle tentative en cours ; vous pouvez quitter cette étape et revenir plus tard.",
-    "best_provider": "Meilleur moteur validé : {provider}, {ms} ms par image",
+    "best_provider": "Meilleur moteur validé : {provider}, {ms} ms par image",
     "best_provider_without_timing": "Meilleur moteur validé : {provider}",
     "failed_providers": "Échecs : {providers}",
     "blocked_downloading": "Vous pourrez continuer une fois le téléchargement terminé.",

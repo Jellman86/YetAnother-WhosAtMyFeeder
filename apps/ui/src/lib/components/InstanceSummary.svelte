@@ -86,12 +86,12 @@
         if (minutes < 60) {
             return $_('about.instance.uptime_minutes', {
                 values: { count: minutes },
-                default: '{count} min'
+                default: '{count} min'
             });
         }
         const hours = Math.floor(minutes / 60);
         if (hours < 48) {
-            return $_('about.instance.uptime_hours', { values: { count: hours }, default: '{count} h' });
+            return $_('about.instance.uptime_hours', { values: { count: hours }, default: '{count} h' });
         }
         return $_('about.instance.uptime_days', {
             values: { count: Math.floor(hours / 24) },
@@ -224,7 +224,7 @@
                             {#if coverage && !coverage.complete}
                                 {$_('about.instance.availability_partial', {
                                     values: { percent: availability, hours: coverage.recordedHours },
-                                    default: '{percent}% up over the {hours} h recorded'
+                                    default: '{percent}% up over the {hours} h recorded'
                                 })}
                             {:else}
                                 {$_('about.instance.availability', {
@@ -259,7 +259,7 @@
                         class="mt-1 flex justify-between text-3xs tabular-nums text-muted"
                         aria-hidden="true"
                     >
-                        <span>{$_('about.instance.window_start', { values: { hours: 24 }, default: '{hours} h ago' })}</span>
+                        <span>{$_('about.instance.window_start', { values: { hours: 24 }, default: '{hours} h ago' })}</span>
                         <span>{$_('about.instance.window_now', { default: 'now' })}</span>
                     </div>
                     <p class="mt-1.5 text-2xs text-muted">
@@ -324,7 +324,7 @@
                 <p class="mt-1.5 text-2xs text-muted">
                     {copyFailed
                         ? $_('about.instance.copy_failed', {
-                              default: 'Copying was refused, select the text instead.'
+                              default: 'The browser refused to copy. Select the text and copy it yourself.'
                           })
                         : $_('about.instance.no_secrets', {
                               default: 'Contains no keys, URLs or camera names.'
