@@ -112,6 +112,17 @@ async def test_a_chart_inside_retention_reports_no_daily_totals(client):
 
 
 @pytest.mark.asyncio
+async def test_a_rolling_window_that_opens_mid_way_through_a_sealed_day_does_not_take_its_whole_total(
+    client, monkeypatch
+):
+    # Thirty days back from noon on 11 March opens at noon on 10 February, after that day's captures.
+    monkeypatch.setattr(sys.modules[__name__], "NOW", datetime(2036, 3, 11, 12, 0))
+    body = (await client.get("/api/stats/detections/timeline?span=month")).json()
+    assert _counts(body) == {"2036-02-20": 2}
+    assert body["daily_totals"]["totals_through"] is None
+
+
+@pytest.mark.asyncio
 async def test_compare_lines_take_the_same_daily_totals(client):
     body = (await client.get("/api/stats/detections/timeline?span=all&compare_species=Turdus%20merula")).json()
     line = {

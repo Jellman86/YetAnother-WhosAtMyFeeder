@@ -904,7 +904,11 @@ async def get_detection_timeline_span(
         # A sealed day is counted from its daily totals alone; an hour bucket cannot hold a day's total.
         sealed: dict = {}
         if bucket != "hour":
+            # Only days wholly inside the window: a rolling window that opens mid-day keeps that
+            # day's stored captures rather than gaining its whole total.
             first_day = local_date(window_start, zone=zone)
+            if first_day is not None and local_midnight_utc(first_day, zone) < window_start:
+                first_day += timedelta(days=1)
             if history_floor is not None and first_day is not None:
                 first_day = max(first_day, history_floor)
             sealed = await totals_repo.sealed_days(first_day, local_date(window_end, zone=zone))
