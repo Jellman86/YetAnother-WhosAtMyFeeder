@@ -27,7 +27,7 @@
         if (!file) return;
         avatarError = null;
         if (file.size > AVATAR_MAX_BYTES) {
-            avatarError = $_('settings.auth.avatar_too_large', { default: 'That file is over 8 MB. Choose a smaller picture.' });
+            avatarError = $_('settings.auth.avatar_too_large', { default: 'That file is over 8 MB. Choose a smaller picture.' });
             return;
         }
         avatarBusy = true;
@@ -408,47 +408,47 @@
 
         <SettingsRow
             labelId="setting-public-show-audio"
-            label={$_('settings.public_access.show_audio', { default: 'Share audio with visitors' })}
-            description={$_('settings.public_access.show_audio_desc', { default: 'BirdNET detections, spectrograms and audio clips. Off means visitors see no audio surfaces at all.' })}
+            label={$_('settings.public_access.show_audio', { default: 'Share audio with guests' })}
+            description={$_('settings.public_access.show_audio_desc', { default: 'BirdNET calls, spectrograms and audio clips. Off means guests see no audio at all.' })}
         >
             <SettingsToggle
                 checked={publicAccessShowAudio}
                 labelledBy="setting-public-show-audio"
-                srLabel={$_('settings.public_access.show_audio', { default: 'Share audio with visitors' })}
+                srLabel={$_('settings.public_access.show_audio', { default: 'Share audio with guests' })}
                 onchange={(v) => (publicAccessShowAudio = v)}
             />
         </SettingsRow>
 
         <SettingsRow
             labelId="setting-public-show-snapshots"
-            label={$_('settings.public_access.show_snapshots', { default: 'Share photographs with visitors' })}
-            description={$_('settings.public_access.show_snapshots_desc', { default: 'Snapshots and thumbnails. Off means visitors see placeholders instead of images.' })}
+            label={$_('settings.public_access.show_snapshots', { default: 'Share photographs with guests' })}
+            description={$_('settings.public_access.show_snapshots_desc', { default: 'Snapshots and thumbnails. Off means guests see placeholders instead of images.' })}
         >
             <SettingsToggle
                 checked={publicAccessShowSnapshots}
                 labelledBy="setting-public-show-snapshots"
-                srLabel={$_('settings.public_access.show_snapshots', { default: 'Share photographs with visitors' })}
+                srLabel={$_('settings.public_access.show_snapshots', { default: 'Share photographs with guests' })}
                 onchange={(v) => (publicAccessShowSnapshots = v)}
             />
         </SettingsRow>
 
         <SettingsRow
             labelId="setting-public-show-clips"
-            label={$_('settings.public_access.show_clips', { default: 'Share video with visitors' })}
-            description={$_('settings.public_access.show_clips_desc', { default: 'Video clips and their previews. Off means visitors cannot play video at all; the download switch below only controls saving the file.' })}
+            label={$_('settings.public_access.show_clips', { default: 'Share video with guests' })}
+            description={$_('settings.public_access.show_clips_desc', { default: 'Video clips and their previews. Off means guests cannot play video at all; the download switch below only controls saving the file.' })}
         >
             <SettingsToggle
                 checked={publicAccessShowClips}
                 labelledBy="setting-public-show-clips"
-                srLabel={$_('settings.public_access.show_clips', { default: 'Share video with visitors' })}
+                srLabel={$_('settings.public_access.show_clips', { default: 'Share video with guests' })}
                 onchange={(v) => (publicAccessShowClips = v)}
             />
         </SettingsRow>
 
         <SettingsRow
             labelId="setting-public-location-precision"
-            label={$_('settings.public_access.location_precision', { default: 'Location shown to visitors' })}
-            description={$_('settings.public_access.location_precision_desc', { default: 'Approximate rounds the location to about 10 km before any visitor-facing feature uses it, so sharing your feeder does not publish your address.' })}
+            label={$_('settings.public_access.location_precision', { default: 'Location shown to guests' })}
+            description={$_('settings.public_access.location_precision_desc', { default: 'Approximate rounds the location to about 10 km before any feature a guest can see uses it, so sharing your feeder does not publish your address.' })}
             layout="stacked"
         >
             <SettingsSegmented
@@ -461,7 +461,7 @@
                     {
                         value: 'approximate',
                         label: $_('settings.public_access.location_approximate', { default: 'Approximate' }),
-                        sub: $_('settings.public_access.location_approximate_sub', { default: 'About 10 km. The safe default.' })
+                        sub: $_('settings.public_access.location_approximate_sub', { default: 'About 10 km. The safe default.' })
                     },
                     {
                         value: 'exact',

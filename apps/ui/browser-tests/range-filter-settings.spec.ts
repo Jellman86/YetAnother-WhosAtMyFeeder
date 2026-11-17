@@ -52,7 +52,7 @@ test('before it is switched on, the preview shows what would be set aside and th
     const preview = card(page).locator('[data-range-filter-preview]');
     await expect(preview).toContainText('Recorded here in the last 90 days');
     await expect(preview.locator('[data-range-filter-preview-seen]')).toContainText('Eurasian Blackbird');
-    await expect(preview.locator('[data-range-filter-preview-seen]')).toContainText('6 detections');
+    await expect(preview.locator('[data-range-filter-preview-seen]')).toContainText('6 visits');
     await expect(preview.locator('[data-range-filter-preview-total]')).toContainText('The current model can name 803 species');
     await expect(preview).toContainText('Northern Cardinal');
     // The rules sit behind a plain disclosure, closed at first.
@@ -63,7 +63,7 @@ test('before it is switched on, the preview shows what would be set aside and th
     await expect(how).toHaveAttribute('aria-expanded', 'true');
     await expect(card(page)).toContainText('its next answer that has been recorded');
 
-    const toggle = card(page).getByRole('switch', { name: 'Check new detections against your region' });
+    const toggle = card(page).getByRole('switch', { name: 'Check new visits against your region' });
     await toggle.click();
     await expect(toggle).toHaveAttribute('aria-checked', 'true');
     await expect(card(page).locator('[data-range-filter-unsaved]')).toHaveText('Save changes to turn the filter on.');
@@ -77,7 +77,7 @@ test('with no location the switch is disabled with the reason and a way to set o
     await open(page, { status: { reason: 'needs_location', location_precision: 'none' } });
 
     await expect(panel(page)).toContainText('Off: needs your location.');
-    const toggle = card(page).getByRole('switch', { name: 'Check new detections against your region' });
+    const toggle = card(page).getByRole('switch', { name: 'Check new visits against your region' });
     await expect(toggle).toHaveAttribute('aria-disabled', 'true');
     await expect(card(page)).toContainText('Set a location first.');
     await expect(card(page).locator('[data-range-filter-facts]')).toHaveCount(0);
@@ -171,7 +171,7 @@ test('detections set aside are listed with a way to the activity log and to reco
     await expect(skips).toContainText('Turdus merula');
     await expect(skips).toContainText('91% confidence');
     await expect(skips).toContainText('record it by hand');
-    await skips.getByRole('button', { name: 'Open the activity log' }).click();
+    await skips.getByRole('button', { name: 'Open Health' }).click();
     await expect(page.locator('[data-fixture-route]')).toHaveAttribute('data-fixture-route', '/system-health');
 });
 

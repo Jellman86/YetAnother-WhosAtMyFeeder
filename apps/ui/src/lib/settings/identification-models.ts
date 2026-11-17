@@ -112,15 +112,15 @@ export function identificationModelLabel(model: { id: string; name?: string | nu
 
 function sizeText(megabytes: number, translate: Translate): string {
     if (megabytes >= 1000) {
-        return translate('settings.models.size_gb', { default: '{size} GB', values: { size: (megabytes / 1000).toFixed(1) } });
+        return translate('settings.models.size_gb', { default: '{size} GB', values: { size: (megabytes / 1000).toFixed(1) } });
     }
-    return translate('settings.models.size_mb', { default: '{size} MB', values: { size: Math.max(1, Math.round(megabytes)) } });
+    return translate('settings.models.size_mb', { default: '{size} MB', values: { size: Math.max(1, Math.round(megabytes)) } });
 }
 
 function memoryText(ramMb: number, translate: Translate): string {
     const size = ramMb >= 1024
-        ? translate('settings.models.size_gb', { default: '{size} GB', values: { size: (ramMb / 1024).toFixed(1) } })
-        : translate('settings.models.size_mb', { default: '{size} MB', values: { size: Math.round(ramMb) } });
+        ? translate('settings.models.size_gb', { default: '{size} GB', values: { size: (ramMb / 1024).toFixed(1) } })
+        : translate('settings.models.size_mb', { default: '{size} MB', values: { size: Math.round(ramMb) } });
     return translate('settings.models.fact_memory', { default: 'about {size} memory', values: { size } });
 }
 

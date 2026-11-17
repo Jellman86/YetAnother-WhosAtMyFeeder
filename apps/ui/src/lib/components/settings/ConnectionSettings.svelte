@@ -439,7 +439,7 @@
         <SettingsRow
             labelId="setting-recording-clips"
             label={$_('settings.frigate.full_visit_clips', { default: 'Full-visit clips' })}
-            description={$_('settings.frigate.full_visit_clips_desc', { default: 'Serve a longer clip window from Frigate recordings around each detection.' })}
+            description={$_('settings.frigate.full_visit_clips_desc', { default: 'Serve a longer clip from Frigate’s recordings around each visit.' })}
         >
             <SettingsToggle
                 checked={recordingClipEnabled}
@@ -751,7 +751,7 @@
                 <div class="settings-row space-y-3 md:grid md:settings-row-columns md:items-start md:gap-x-8 md:space-y-0" data-settings-row data-nest-dedupe>
                     <div class="min-w-0">
                         <p class="text-base font-medium text-slate-900 dark:text-white">{$_('settings.cameras.nest_dedupe_label', { default: 'Nest dedupe window' })}</p>
-                        <p class="mt-1 max-w-prose text-sm leading-snug text-slate-600 dark:text-slate-400">{$_('settings.cameras.nest_dedupe_help', { default: 'Collapses repeat detections of the same species on a nest cam to one per N minutes.' })}</p>
+                        <p class="mt-1 max-w-prose text-sm leading-snug text-slate-600 dark:text-slate-400">{$_('settings.cameras.nest_dedupe_help', { default: 'Counts repeat visits by the same species to a nest camera as one per N minutes.' })}</p>
                     </div>
                     <div class="flex min-w-0 items-center gap-2">
                         <input

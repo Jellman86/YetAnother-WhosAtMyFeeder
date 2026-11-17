@@ -167,7 +167,7 @@
         <SettingsRow
             labelId="setting-llm-enabled"
             label={$_('settings.llm.enabled')}
-            description={$_('settings.llm.enabled_desc', { default: 'Lets you ask an AI provider to describe a detection from its record. Needs an API key from the provider, who bills each request.' })}
+            description={$_('settings.llm.enabled_desc', { default: 'Lets you ask an AI provider to describe a visit from its record. Needs an API key from the provider, who bills each request.' })}
         >
             <SettingsToggle
                 checked={draft.llmEnabled}

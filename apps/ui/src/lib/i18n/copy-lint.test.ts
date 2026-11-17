@@ -93,6 +93,7 @@ describe('the copy lint', () => {
         // The species dialog's eBird section and its map markers are eBird's reports too.
         expect(rules('en', 'species_detail.recent_sightings', 'Recent sightings')).toEqual([]);
         expect(rules('en', 'common.map_sighting', 'Sighting location')).toEqual([]);
+        expect(rules('en', 'settings.enrichment.sightings_title', 'Nearby sightings')).toEqual([]);
         // Named in full: the same key name under another namespace is not exempt.
         expect(rules('en', 'dashboard.recent_sightings', 'Recent sightings')).toEqual(['glossary']);
         expect(rules('en', 'species_detail.no_recent_sightings', 'No recent sightings.')).toEqual([]);
@@ -132,6 +133,8 @@ describe('the copy lint', () => {
         expect(rules('en', 'setup.cameras.hint', 'Motion detection starts a clip; each detection is then named.')).toEqual(['glossary']);
         expect(rules('en', 'settings.debug.field', 'The <code>id</code> of this detection')).toEqual(['glossary']);
         expect(rules('en', 'detection.detector_unavailable', 'Install a crop detector to find additional birds.')).toEqual(['glossary']);
+        // A catalogue name is exempt only as the registry capitalises it.
+        expect(rules('en', 'settings.detection.crop_tier_title', 'Bird crop detector')).toEqual(['glossary']);
         expect(rules('en', 'audio.hidden', 'Audio detection hidden.')).toEqual(['glossary']);
     });
 
