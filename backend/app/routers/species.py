@@ -14,7 +14,8 @@ from app.database import get_db
 from app.repositories.audio_history_repository import AudioHistoryRepository
 from app.repositories.daily_totals_repository import DailyTotalsRepository
 from app.repositories.detection_repository import DetectionRepository
-from app.services.daily_history import coverage, split_by_seal
+from app.services.daily_history import coverage, first_whole_day, sealed_ranges
+from app.services.daily_totals_lookup import species_history_keys
 from app.utils.calendar_day import instance_timezone, local_date
 from app.repositories.species_repository import SpeciesRepository
 from app.models import (
@@ -1236,36 +1237,43 @@ async def get_species_stats(
         # and their few kept captures are left out so nothing is counted twice (#949).
         zone = instance_timezone()
         totals_repo = DailyTotalsRepository(db)
-        history_floor = local_date(bounds["start_date"].replace(tzinfo=None), zone=zone) if bounds else None
+        guest_start = bounds["start_date"].replace(tzinfo=None) if bounds else None
+        # A guest sees no sealed day that began before their window, not even its boundary day.
+        history_floor = first_whole_day(guest_start, zone) if guest_start else None
         sealed = await totals_repo.sealed_days(history_floor, None)
-        totals_names = [species_name]
-        if is_unknown_query:
-            totals_names.extend(settings.classification.unknown_bird_labels)
-        elif alias_info:
-            totals_names.extend(
-                str(alias_info.get(field)) for field in ("scientific_name", "common_name") if alias_info.get(field)
-            )
-        species_totals = (
-            await totals_repo.totals(
-                history_floor,
-                None,
-                species_names=totals_names,
-                taxa_id=None if is_unknown_query or not alias_info else alias_info.get("taxa_id"),
-            )
-            if sealed
-            else []
+        ranges = sealed_ranges(sealed, zone)
+        history_keys = await species_history_keys(
+            db,
+            "Unknown Bird" if is_unknown_query else species_name,
+            aliases=tuple(
+                str(alias_info.get(field))
+                for field in ("scientific_name", "common_name")
+                if alias_info and alias_info.get(field)
+            ),
+            taxa_id=alias_info.get("taxa_id") if alias_info else None,
         )
+        species_totals = await totals_repo.totals(history_floor, None, species_keys=history_keys) if sealed else []
+        lost = await totals_repo.lost_captures(guest_start, None, species_keys=history_keys)
         live_first_day = None
 
         for label in query_labels:
             basic_stats = await repo.get_species_basic_stats(label, **bounds)
             if basic_stats["total"] > 0:
-                label_hourly_counts, sealed_rows = split_by_seal(
-                    await repo.get_species_utc_hourly_counts(label, **bounds), sealed, zone=zone
-                )
-                total_stats["total"] += basic_stats["total"] - sealed_rows
-                if label_hourly_counts:
-                    day = local_date(min(hour for hour, _count in label_hourly_counts), zone=zone)
+                every_hour = await repo.get_species_utc_hourly_counts(label, **bounds)
+                sealed_hours: dict[datetime, int] = {}
+                for range_start, range_end in ranges:
+                    for hour, count in await repo.get_species_utc_hourly_counts(
+                        label, start_date=range_start, end_date=range_end
+                    ):
+                        sealed_hours[hour] = sealed_hours.get(hour, 0) + count
+                live_hours = [
+                    (hour, count - sealed_hours.get(hour, 0))
+                    for hour, count in every_hour
+                    if count - sealed_hours.get(hour, 0) > 0
+                ]
+                total_stats["total"] += basic_stats["total"] - sum(sealed_hours.values())
+                if live_hours:
+                    day = local_date(min(hour for hour, _count in live_hours), zone=zone)
                     live_first_day = day if live_first_day is None else min(live_first_day, day)
                 if basic_stats["first_seen"]:
                     candidate_first_seen = _to_utc_naive(basic_stats["first_seen"])
@@ -1286,8 +1294,10 @@ async def get_species_stats(
                 confidence_sum += basic_stats["avg_confidence"] * basic_stats["total"]
                 confidence_count += basic_stats["total"]
 
-                # Aggregate distributions
-                _accumulate_local_distributions((hourly, daily, monthly), label_hourly_counts, user_tz)
+                # Time of day counts every stored capture; weekday and month count live days here,
+                # and sealed days from their totals below.
+                _accumulate_local_distributions((hourly, [0] * 7, [0] * 12), every_hour, user_tz)
+                _accumulate_local_distributions(([0] * 24, daily, monthly), live_hours, user_tz)
 
                 # Get camera breakdown
                 label_cameras = await repo.get_camera_breakdown(label, **bounds)
@@ -1297,14 +1307,30 @@ async def get_species_stats(
                 label_recent = await repo.get_recent_by_species(label, limit=5, **bounds)
                 recent.extend(label_recent)
 
+        # A capture Frigate lost still counts on its live day; it has a time but no stored capture.
+        total_stats["total"] += len(lost)
+        _accumulate_local_distributions(
+            ([0] * 24, daily, monthly), [(item.detection_time, 1) for item in lost], user_tz
+        )
         # A daily total has a day but no time of day, so it adds to the weekday and month charts only.
         for total in species_totals:
             total_stats["total"] += total.capture_count
             daily[(total.day.weekday() + 1) % 7] += total.capture_count
             monthly[total.day.month - 1] += total.capture_count
-        first_sealed_day = species_totals[0].day if species_totals else None
-        history_first_day = min((day for day in (first_sealed_day, live_first_day) if day is not None), default=None)
-        covered = coverage({day: seal.complete for day, seal in sealed.items()})
+        history_first_day = min(
+            (
+                day
+                for day in (
+                    species_totals[0].day if species_totals else None,
+                    live_first_day,
+                    local_date(lost[0].detection_time, zone=zone) if lost else None,
+                )
+                if day is not None
+            ),
+            default=None,
+        )
+        # The note under this species' charts speaks only when its own counts come from totals.
+        covered = coverage({day: seal.complete for day, seal in sealed.items()} if species_totals else {})
 
         if total_stats["total"] == 0:
             raise HTTPException(status_code=404, detail=i18n_service.translate("errors.detection_not_found", lang=lang))

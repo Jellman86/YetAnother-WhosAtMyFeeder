@@ -1006,11 +1006,14 @@ Notes:
 - `GET /api/species/search`
 - `GET /api/species/{species_name}/stats` On days sealed by cleanup, `total_sightings`,
   `daily_distribution` and `monthly_distribution` count the species' daily totals instead of
-  the few captures kept from those days, so nothing is counted twice; `hourly_distribution`,
-  `cameras`, confidence and `recent_sightings` come from stored captures only. A species seen only
-  on sealed days returns its totals with `first_seen`, `last_seen` and `recent_sightings` empty.
-  `history_first_day` is the first day counted either way, and `daily_totals` reports coverage as
-  below. See [Daily totals](features/favourites.md#daily-totals-keep-the-counts).
+  the few captures kept from those days, so nothing is counted twice; captures Frigate lost from
+  live days count there too. `hourly_distribution` counts every stored capture, kept ones on
+  sealed days included, and `cameras`, confidence and `recent_sightings` come from stored captures
+  only. Totals are matched by catalogue identity, so a renamed species keeps its sealed days. A
+  species seen only on sealed days returns its totals with `first_seen`, `last_seen` and
+  `recent_sightings` empty. `history_first_day` is the first day counted either way, and
+  `daily_totals` reports coverage as below, only when this species has sealed days. See
+  [Daily totals](features/favourites.md#daily-totals-keep-the-counts).
 - `GET /api/species/{species_name}/info` returns cached reference metadata. Known Wikimedia
   JPEG/PNG originals and oversized reference thumbnails use a supported 960-pixel rendition;
   smaller renditions and other providers retain their URLs. This also applies to older cache
@@ -1128,12 +1131,14 @@ stores it (parentheses included when the source writes them), or null when unrec
   entry, which is now ordered by visits. `total_count` and `hourly_distribution` still count frames.
 - `GET /api/stats/detections/daily`
 - `GET /api/stats/detections/timeline` With day or month buckets, sealed days are counted from
-  their daily totals (and compare lines from each species' totals), and `span=all` starts at the
-  first sealed day when that is older than every stored capture. Hour buckets use stored captures
-  only. `daily_totals` reports `totals_through` (the last day counted from totals, or `null`),
-  `partial` (some of those days were sealed after older captures were already gone) and
-  `complete_from` (the first day whose total is whole, when `partial`). Guests get no totals older
-  than their shared window.
+  their daily totals (and compare lines from each species' totals, matched by catalogue
+  identity), and `span=all` starts at the first sealed day when that is older than every stored
+  capture. Stored captures inside a sealed day's exact range are left out; captures Frigate lost
+  from live days are counted. Hour buckets use stored captures only. `daily_totals` reports
+  `totals_through` (the last day counted from totals, or `null`), `partial` (some of those days
+  began before daily totals were kept, so they may be low) and `complete_from` (the first day
+  whose total is whole, when `partial`). Guests get no sealed day that began before their shared
+  window.
 - `GET /api/stats/detections/activity-heatmap` (optional `species` limits the grid to one species)
 - `GET /api/stats/uptime` (owner) Availability over a recent window, derived from heartbeat rows
   written every 5 minutes. Buckets with no heartbeat report `down`; buckets from before the first

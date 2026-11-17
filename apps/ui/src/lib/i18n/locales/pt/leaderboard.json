@@ -219,5 +219,7 @@
   "span_group": "Período",
   "more_options": "Mais",
   "table_share": "Proporção",
-  "standing_heading": "Resumo do período"
+  "standing_heading": "Resumo do período",
+  "no_activity_daily_totals": "Estes dias vêm dos totais diários, que guardam o número de capturas mas não a hora.",
+  "heatmap_stored_only": "A hora e o dia da semana contam apenas as capturas guardadas: um total diário não tem hora."
 }

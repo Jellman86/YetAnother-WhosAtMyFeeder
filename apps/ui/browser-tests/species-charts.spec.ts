@@ -469,3 +469,26 @@ test('the chart says from which day its counts come from daily totals, and nothi
     await expect(page.getByRole('figure', { name: 'Captures over time' }).locator('[data-daily-totals-note]')).toHaveCount(1);
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
+
+test('the hour and weekday heatmap says sealed days have no time of day rather than that nothing was seen', async ({ page }) => {
+    await page.route('**/api/stats/detections/timeline?*', route => route.fulfill({ json: {
+        span: 'all', bucket: 'day', points, total_count: 54, window_start: start, window_end: end,
+        daily_totals: { totals_through: '2026-09-03', complete_from: null, partial: false },
+    } }));
+    await page.route('**/api/stats/detections/activity-heatmap?*', route => route.fulfill({ json: {
+        span: 'all', window_start: start, window_end: end, total_count: 0, max_cell_count: 0, cells: [],
+    } }));
+    await page.reload();
+    await expect(page.locator('[data-heatmap-empty]')).toHaveText(
+        'These days come from daily totals, which keep the count of captures but not the time of day.'
+    );
+
+    await page.route('**/api/stats/detections/activity-heatmap?*', route => route.fulfill({ json: {
+        span: 'all', window_start: start, window_end: end, total_count: 12, max_cell_count: 12,
+        cells: [{ day_of_week: 1, hour: 8, count: 12 }],
+    } }));
+    await page.reload();
+    await expect(page.locator('[data-heatmap-stored-only]')).toHaveText(
+        'Hour and weekday count stored captures only: a daily total has no time of day.'
+    );
+});

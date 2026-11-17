@@ -42,9 +42,11 @@ async def apply_missing_policy(
     if behavior == "delete":
         # Check the owner's keep decision in the DELETE itself. A stale read followed by
         # file cleanup would destroy a favourite accepted while that cleanup was awaiting.
-        # A past day keeps the count of a capture Frigate lost, the same as one cleanup removes (#949).
-        await DailyTotalsRepository(repo.db).seal_days_of_events([frigate_event], zone=instance_timezone(), now=checked)
-        deleted = await repo.delete_by_frigate_event(frigate_event, preserve_favorites=True)
+        # The capture's count is kept as its own record, in the same transaction as the delete,
+        # so its day stays live and correctable (#949).
+        deleted = await DailyTotalsRepository(repo.db).delete_lost_capture(
+            frigate_event, zone=instance_timezone(), now=checked, preserve_favorites=True
+        )
         if not deleted:
             detection = await repo.get_by_frigate_event(frigate_event)
             if detection is None or not detection.is_favorite:

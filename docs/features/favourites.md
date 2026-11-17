@@ -90,23 +90,34 @@ Review the [data settings](../setup/configuration.md) before changing retention.
 
 ### Daily totals keep the counts
 
-Cleanup keeps how many birds each day saw even after it deletes the captures. Just before it
-removes any capture from a day, it writes that day's captures and visits for each species, from
-the stored captures, and seals the day. The Leaderboard's chart and each species' weekday and
+Cleanup keeps how many birds each day saw even after it deletes the captures. Before it removes
+any capture from a day, it writes that day's captures and visits for each species, from the
+stored captures, and seals the day. This applies to the scheduled cleanup and to **Purge Old
+Records** alike: both delete through the same step, and if the totals cannot be saved nothing is
+deleted and Health says "Retention paused". The Leaderboard's chart and each species' weekday and
 month charts then count sealed days from these totals, so seasonal trends reach back past your
 retention period. Photos, clips and individual records for those days are gone; the charts say
 from which day their counts come from daily totals.
 
-- A day is local to the instance's timezone (`TZ`), like the rest of the history.
+- A day is local to the instance's timezone (`TZ`), like the rest of the history, including zones
+  half an hour or three quarters of an hour off UTC.
 - A sealed day never changes again. Hiding, renaming or deleting a capture is a correction that
-  changes the counts while the day's captures are still stored; once they are gone there is
-  nothing to check a correction against, so a sealed day keeps the totals it was sealed with.
-- A capture Frigate no longer has, removed under **Delete** for missing events, seals its day
-  first in the same way. Today is never sealed.
-- Totals start when you upgrade. Days whose older captures cleanup had already removed are
-  sealed with what was left and marked incomplete, and the charts say so.
-- **Delete all history** deletes the daily totals too.
+  changes the counts while the day is live. A day is sealed as soon as cleanup starts removing its
+  captures, so corrections to the ones still stored on it (kept favourites, or the later captures
+  on the oldest day kept) no longer change its totals.
+- A capture Frigate no longer has, removed under **Delete** for missing events, is kept as its
+  own record in the same step as the delete. Its day stays live and correctable, and the lost
+  capture still counts on it, today included, until cleanup folds it into the day's total.
+- Totals start when you upgrade. A day that began before then may already have lost captures
+  without a record (to an earlier cleanup or to missing-event deletes), so it is marked as
+  possibly low, and the charts say so.
+- Time of day and the hour-and-weekday grid count stored captures only: a daily total has no
+  time. The grid says so when older days come from daily totals.
+- **Delete all history** deletes the daily totals and lost-capture records too, and its
+  confirmation says so.
 - The ranked lists on the Leaderboard count their rolling day, week or month from stored captures.
+- Downgrading YA-WAMF below the release that added daily totals deletes them, and they cannot be
+  rebuilt: for days cleanup has already removed they are the only copy of the counts.
 
 The per-species floor is age protection, not reserved disk space. **Limit visits per species with
 photos and video** and **Limit the space photos and video use** can still evict ordinary cached media. Such eviction

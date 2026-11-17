@@ -35,7 +35,15 @@ from app.utils.public_access import (
 from app.utils.api_datetime import serialize_api_datetime, utc_naive_now
 from app.utils.timezone import calendar_timezone, get_user_timezone
 from app.utils.calendar_day import instance_timezone, local_date, today_so_far
-from app.services.daily_history import coverage, local_midnight_utc, local_noon_utc
+from app.services.daily_history import (
+    coverage,
+    first_whole_day,
+    local_midnight_utc,
+    local_noon_utc,
+    sealed_ranges,
+    subtract_counts,
+)
+from app.services.daily_totals_lookup import species_history_keys
 
 router = APIRouter()
 
@@ -824,7 +832,8 @@ async def get_detection_timeline_span(
         totals_repo = DailyTotalsRepository(db)
         bounds = {} if auth.is_owner else public_event_query_bounds(now.replace(tzinfo=timezone.utc))
         zone = instance_timezone()
-        history_floor = None if auth.is_owner else local_date(bounds["start_date"].replace(tzinfo=None), zone=zone)
+        # A guest sees no sealed day that began before their window, not even its boundary day.
+        history_floor = None if auth.is_owner else first_whole_day(bounds["start_date"].replace(tzinfo=None), zone)
 
         if span == "day":
             window_start = now - timedelta(hours=24)
@@ -906,28 +915,40 @@ async def get_detection_timeline_span(
         if bucket != "hour":
             # Only days wholly inside the window: a rolling window that opens mid-day keeps that
             # day's stored captures rather than gaining its whole total.
-            first_day = local_date(window_start, zone=zone)
-            if first_day is not None and local_midnight_utc(first_day, zone) < window_start:
-                first_day += timedelta(days=1)
-            if history_floor is not None and first_day is not None:
+            first_day = first_whole_day(window_start, zone)
+            if history_floor is not None:
                 first_day = max(first_day, history_floor)
-            sealed = await totals_repo.sealed_days(first_day, local_date(window_end, zone=zone))
-
-        def on_sealed_day(utc_bucket: datetime) -> bool:
-            return bool(sealed) and local_date(utc_bucket, zone=zone) in sealed
+            last_day = local_date(window_end, zone=zone)
+            sealed = await totals_repo.sealed_days(first_day, last_day) if last_day else {}
+        # Stored captures inside a sealed day's exact UTC range are already in its total.
+        ranges = [
+            (max(range_start, window_start), min(range_end, window_end))
+            for range_start, range_end in sealed_ranges(sealed, zone)
+        ]
 
         def bucket_of_day(day) -> str:
             key, _label = _localized_bucket_key_and_label(local_noon_utc(day, zone), bucket, user_tz)
             return key
 
-        hourly_counts = await repo.get_timebucket_counts_hourly(window_start, window_end)
+        async def in_ranges(read) -> dict:
+            found: dict = {}
+            for range_start, range_end in ranges:
+                for key, value in (await read(range_start, range_end)).items():
+                    found[key] = found.get(key, 0) + value
+            return found
+
+        hourly_counts = subtract_counts(
+            await repo.get_timebucket_counts_hourly(window_start, window_end),
+            await in_ranges(repo.get_timebucket_counts_hourly),
+        )
+        # A capture Frigate lost still counts on its live day.
+        for key, count in (await totals_repo.lost_hourly_counts(window_start, window_end)).items():
+            hourly_counts[key] = hourly_counts.get(key, 0) + count
         hourly_metrics = await repo.get_timebucket_metrics(window_start, window_end, "hour")
         metric_rollups: dict[str, dict[str, float | int]] = {}
 
         for bucket_key, count in hourly_counts.items():
             utc_bucket = _parse_utc_bucket_key(bucket_key)
-            if on_sealed_day(utc_bucket):
-                continue
             local_key, _label = _localized_bucket_key_and_label(
                 utc_bucket,
                 bucket,
@@ -949,18 +970,31 @@ async def get_detection_timeline_span(
                 rollup["weight"] = int(rollup["weight"]) + weight
 
         sealed_species: dict[str, set[str]] = {}
+        sealed_counts: dict[str, int] = {}
         for total in await totals_repo.totals(min(sealed), max(sealed)) if sealed else []:
             point = points_by_key.get(bucket_of_day(total.day))
             if point is None:
                 continue
-            point.count += total.capture_count
+            sealed_counts[point.bucket_start] = sealed_counts.get(point.bucket_start, 0) + total.capture_count
             sealed_species.setdefault(point.bucket_start, set()).add(total.species_key)
 
-        for point in points:
+        ordered = sorted(points, key=lambda item: item.bucket_start)
+        for index, point in enumerate(ordered):
             metrics = metric_rollups.get(point.bucket_start, {})
-            point.unique_species = max(
-                int(metrics.get("unique_species") or 0), len(sealed_species.get(point.bucket_start, ()))
-            )
+            species_here = sealed_species.get(point.bucket_start, set())
+            live_unique = int(metrics.get("unique_species") or 0)
+            if species_here and point.count > 0:
+                # A bucket that mixes sealed and live days counts each species once across both.
+                bucket_end = (
+                    _parse_utc_bucket_key(ordered[index + 1].bucket_start) if index + 1 < len(ordered) else window_end
+                )
+                live_keys = await totals_repo.live_species_keys(
+                    max(_parse_utc_bucket_key(point.bucket_start), window_start), bucket_end, exclude=ranges
+                )
+                point.unique_species = len(species_here | live_keys)
+            else:
+                point.unique_species = max(live_unique, len(species_here))
+            point.count += sealed_counts.get(point.bucket_start, 0)
             weight = int(metrics.get("weight") or 0)
             point.avg_confidence = (
                 float(metrics["confidence_sum"]) / weight
@@ -980,18 +1014,23 @@ async def get_detection_timeline_span(
                     break
 
             if sanitized_compare:
-                compare_counts = await repo.get_timebucket_species_counts_for_names(
-                    start=window_start,
-                    end=window_end,
-                    bucket="hour",
-                    species_names=sanitized_compare,
-                    language=lang,
+
+                async def compare_counts_between(range_start: datetime, range_end: datetime) -> dict:
+                    found = await repo.get_timebucket_species_counts_for_names(
+                        start=range_start,
+                        end=range_end,
+                        bucket="hour",
+                        species_names=sanitized_compare,
+                        language=lang,
+                    )
+                    return {(key, name): count for key, row in found.items() for name, count in row.items()}
+
+                live_compare = subtract_counts(
+                    await compare_counts_between(window_start, window_end), await in_ranges(compare_counts_between)
                 )
                 localized_compare_counts: dict[str, dict[str, int]] = {}
-                for bucket_key, species_counts in compare_counts.items():
-                    utc_bucket = _parse_utc_bucket_key(bucket_key)
-                    if on_sealed_day(utc_bucket):
-                        continue
+
+                def add_compare(utc_bucket: datetime, selected: str, count: int) -> None:
                     local_key, _label = _localized_bucket_key_and_label(
                         utc_bucket,
                         bucket,
@@ -999,10 +1038,18 @@ async def get_detection_timeline_span(
                         detailed_hour_label=(bucket == "hour" and span == "all"),
                     )
                     row = localized_compare_counts.setdefault(local_key, {})
-                    for selected, count in species_counts.items():
-                        row[selected] = row.get(selected, 0) + int(count)
-                for selected in sanitized_compare if sealed else []:
-                    for total in await totals_repo.totals(min(sealed), max(sealed), species_names=[selected]):
+                    row[selected] = row.get(selected, 0) + int(count)
+
+                for (bucket_key, selected), count in live_compare.items():
+                    add_compare(_parse_utc_bucket_key(bucket_key), selected, count)
+                for selected in sanitized_compare:
+                    keys = await species_history_keys(db, selected)
+                    lost = await totals_repo.lost_hourly_counts(window_start, window_end, species_keys=keys)
+                    for bucket_key, count in lost.items():
+                        add_compare(_parse_utc_bucket_key(bucket_key), selected, count)
+                    for total in (
+                        await totals_repo.totals(min(sealed), max(sealed), species_keys=keys) if sealed else []
+                    ):
                         row = localized_compare_counts.setdefault(bucket_of_day(total.day), {})
                         row[selected] = row.get(selected, 0) + total.capture_count
                 compare_series = []

@@ -10,6 +10,7 @@ import pytest
 
 REVISION = "b7d3e9f1a2c4"
 PARENT = "e6b2f4a8c9d1"
+TABLES = {"daily_totals_days", "species_daily_totals", "lost_captures", "daily_totals_tracking"}
 
 
 def _schema(db: sqlite3.Connection) -> list[tuple]:
@@ -38,6 +39,10 @@ def test_daily_totals_migration_round_trips_without_touching_history(tmp_path):
         # Every stored row is still there to read; no day is sealed until cleanup would remove rows.
         assert db.execute("SELECT COUNT(*) FROM daily_totals_days").fetchone() == (0,)
         assert db.execute("SELECT COUNT(*) FROM species_daily_totals").fetchone() == (0,)
+        assert db.execute("SELECT COUNT(*) FROM lost_captures").fetchone() == (0,)
+        # Tracking starts at the upgrade: an older day may already have been thinned without a record.
+        (started,) = db.execute("SELECT started_at FROM daily_totals_tracking").fetchone()
+        assert started > "2026-01-02 08:00:00"
         db.execute("PRAGMA foreign_keys=ON")
         # The schema refuses totals that could not have been counted.
         with pytest.raises(sqlite3.IntegrityError):
@@ -57,12 +62,15 @@ def test_daily_totals_migration_round_trips_without_touching_history(tmp_path):
             """INSERT INTO species_daily_totals(day,species_key,display_name,capture_count,visit_count)
             VALUES ('2026-01-02','label:robin','Robin',3,2)"""
         )
+        with pytest.raises(sqlite3.IntegrityError):
+            db.execute("INSERT INTO daily_totals_tracking(id, started_at) VALUES (2, '2026-01-01')")
 
     # Re-running the head is a no-op and keeps what it holds.
     migrate(REVISION)
     with sqlite3.connect(path) as db:
         assert _schema(db) == upgraded
         assert db.execute("SELECT capture_count, visit_count FROM species_daily_totals").fetchall() == [(3, 2)]
+        assert db.execute("SELECT started_at FROM daily_totals_tracking").fetchone() == (started,)
 
     migrate(PARENT, "downgrade")
     with sqlite3.connect(path) as db:
@@ -74,3 +82,16 @@ def test_daily_totals_migration_round_trips_without_touching_history(tmp_path):
     with sqlite3.connect(path) as db:
         assert _schema(db) == upgraded
         assert db.execute("SELECT COUNT(*) FROM daily_totals_days").fetchone() == (0,)
+
+
+def test_the_migration_says_its_downgrade_deletes_the_only_copy_of_old_history():
+    source = Path(__file__).resolve().parents[1] / "migrations" / "versions" / f"{REVISION}_durable_daily_totals.py"
+    text = source.read_text(encoding="utf-8")
+    assert "only copy" in text and "cannot be rebuilt" in text
+
+
+def test_the_schema_metadata_declares_the_daily_totals_tables():
+    # Autogenerate compares against this metadata; a table missing here is proposed for dropping.
+    from app.db_schema import metadata
+
+    assert TABLES <= set(metadata.tables)

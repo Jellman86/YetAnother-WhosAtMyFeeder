@@ -3728,6 +3728,7 @@ class DetectionRepository:
             # The daily totals are history too: deleting all of it leaves no count behind.
             await self.db.execute("DELETE FROM species_daily_totals")
             await self.db.execute("DELETE FROM daily_totals_days")
+            await self.db.execute("DELETE FROM lost_captures")
             await self.db.commit()
             return deleted, counted
         except BaseException:

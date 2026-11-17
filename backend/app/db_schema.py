@@ -363,6 +363,56 @@ Index("idx_species_rollup_date", species_daily_rollup.c.rollup_date)
 Index("idx_species_rollup_canonical", species_daily_rollup.c.canonical_key)
 Index("idx_species_rollup_display", species_daily_rollup.c.display_name)
 
+# Durable daily totals (#949): the only copy of the counts for days cleanup has removed.
+daily_totals_tracking = Table(
+    "daily_totals_tracking",
+    metadata,
+    Column("id", Integer, CheckConstraint("id = 1"), primary_key=True),
+    Column("started_at", TIMESTAMP, nullable=False),
+)
+
+daily_totals_days = Table(
+    "daily_totals_days",
+    metadata,
+    Column("day", Date, primary_key=True),
+    Column("sealed_at", TIMESTAMP, nullable=False),
+    Column("complete", Integer, CheckConstraint("complete IN (0, 1)"), nullable=False),
+)
+
+species_daily_totals = Table(
+    "species_daily_totals",
+    metadata,
+    Column("day", Date, ForeignKey("daily_totals_days.day", ondelete="CASCADE"), nullable=False),
+    Column("species_key", String, nullable=False),
+    Column("species_id", Integer),
+    Column("taxa_id", Integer),
+    Column("scientific_name", String),
+    Column("common_name", String),
+    Column("display_name", String, nullable=False),
+    Column("capture_count", Integer, CheckConstraint("capture_count > 0"), nullable=False),
+    Column("visit_count", Integer, nullable=False),
+    CheckConstraint("visit_count >= 0 AND visit_count <= capture_count"),
+    PrimaryKeyConstraint("day", "species_key", name="pk_species_daily_totals"),
+)
+
+Index("idx_species_daily_totals_species", species_daily_totals.c.species_key, species_daily_totals.c.day)
+
+lost_captures = Table(
+    "lost_captures",
+    metadata,
+    Column("frigate_event", String, primary_key=True),
+    Column("detection_time", TIMESTAMP, nullable=False),
+    Column("species_key", String, nullable=False),
+    Column("species_id", Integer),
+    Column("taxa_id", Integer),
+    Column("scientific_name", String),
+    Column("common_name", String),
+    Column("display_name", String, nullable=False),
+    Column("lost_at", TIMESTAMP, nullable=False),
+)
+
+Index("idx_lost_captures_time", lost_captures.c.detection_time)
+
 
 detection_favorites = Table(
     "detection_favorites",

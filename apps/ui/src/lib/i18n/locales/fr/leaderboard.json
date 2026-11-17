@@ -219,5 +219,7 @@
   "span_group": "Période",
   "more_options": "Plus",
   "table_share": "Part",
-  "standing_heading": "Bilan de la période"
+  "standing_heading": "Bilan de la période",
+  "no_activity_daily_totals": "Ces jours viennent des totaux quotidiens, qui gardent le nombre de captures mais pas l’heure.",
+  "heatmap_stored_only": "L’heure et le jour de la semaine ne comptent que les captures conservées : un total quotidien n’a pas d’heure."
 }
