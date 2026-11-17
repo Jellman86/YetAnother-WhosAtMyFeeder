@@ -160,9 +160,9 @@
             detail: modelName ?? runtime ?? noReading,
             note: modelName ? runtime : null,
             health: step.health === 'unhealthy'
-                ? $_('about.pipeline.inference_unhealthy', { default: 'Recent inferences are failing' })
+                ? $_('about.pipeline.inference_unhealthy', { default: 'Recent photos could not be named' })
                 : step.health === 'degraded'
-                  ? $_('about.pipeline.inference_degraded', { default: 'Some recent inferences failed' })
+                  ? $_('about.pipeline.inference_degraded', { default: 'Some recent photos could not be named' })
                   : null,
             state: readinessLabel(step.readiness, $_),
             tone: step.tone as Tone,
@@ -207,7 +207,7 @@
         },
         {
             key: 'audio',
-            detail: $_('about.pipeline.audio_detail', { default: 'BirdNET-Go correlation' }),
+            detail: $_('about.pipeline.audio_detail', { default: 'matches calls to visits' }),
             // The sidebar's own words for the same reading: on is only "Listening" while the broker is connected.
             state: !birdnetEnabled
                 ? $_('status.state_off', { default: 'Off' })
@@ -218,7 +218,7 @@
         },
         {
             key: 'store',
-            detail: $_('about.pipeline.store_detail', { default: 'SQLite under /data' }),
+            detail: $_('about.pipeline.store_detail', { default: 'one file in your data folder' }),
             state: notChecked,
             tone: 'unknown'
         },
@@ -240,7 +240,7 @@
         },
         {
             key: 'browser',
-            detail: $_('about.pipeline.browser_detail', { default: 'live updates over SSE' }),
+            detail: $_('about.pipeline.browser_detail', { default: 'updates as they happen' }),
             // "Live" is a claim about camera events; this step measures only the page's own stream.
             state: detectionsStore.connected
                 ? $_('status.state_connected', { default: 'Connected' })

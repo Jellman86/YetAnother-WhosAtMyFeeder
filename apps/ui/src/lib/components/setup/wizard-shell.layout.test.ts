@@ -120,14 +120,14 @@ describe('setup wizard wiring', () => {
         expect(modelStepSource).toContain('role="progressbar"');
         expect(modelStepSource).toContain('downloadPct');
         expect(modelStepSource).not.toContain('id="setup-execution-mode"');
-        expect(modelStepSource).toContain('Hardware validation completed successfully.');
+        expect(modelStepSource).toContain('The check finished: this model runs on this machine.');
         expect(modelStepSource).toContain('getVisibleTieredModelLineup');
     });
 
     it('treats best-image selection as one automatic policy', () => {
         expect(qualityStepSource).toContain('media_cache_high_quality_event_snapshots: hqSnapshots');
         expect(qualityStepSource).not.toContain('media_cache_high_quality_event_snapshot_bird_crop');
-        expect(qualityStepSource).toContain('strongest reliable bird crop');
+        expect(qualityStepSource).toContain('the best close-up of the bird');
     });
 
     it('blocks writes until each settings-backed step has loaded the saved configuration', () => {
@@ -167,7 +167,7 @@ describe('setup wizard wiring', () => {
         expect(historyStepSource).toContain('startBackfillJob');
         expect(historyStepSource).toContain('importHistory = $state(false)');
         expect(historyStepSource).toContain("route: '/jobs'");
-        expect(historyStepSource).toContain('cannot recreate BirdNET-Go audio');
+        expect(historyStepSource).toContain('not BirdNET-Go audio that was never stored');
     });
 
     it('says why Continue is disabled, and ties the reason to the button', () => {

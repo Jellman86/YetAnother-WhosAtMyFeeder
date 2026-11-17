@@ -174,10 +174,10 @@
     "unexpected": "Se detuvo por un error que esta página no puede identificar. Iníciala de nuevo; si vuelve a detenerse, la causa está en los registros del contenedor."
   },
   "warning": {
-    "high_abstention": "No dio ninguna especie en el {share} % de las fotos. Puede que no cubra estas aves o que su instalación esté incompleta. Revisa el modelo en Ajustes → Identificar aves.",
+    "high_abstention": "No dio ninguna especie en el {share} % de las fotos. Puede que no cubra estas aves o que su instalación esté incompleta. Revisa el modelo en Ajustes → Identificar aves.",
     "incomplete_install": "Sus archivos están incompletos. Usa «Reparar descarga» para este modelo en Ajustes → Identificar aves.",
     "inference_health_unhealthy": "Hubo errores o tiempos de espera agotados durante la ejecución. Busca la causa en los registros del contenedor.",
-    "latency_drift_high": "Mucho más lento que al cargarse: {measured, number} ms por foto frente a {loaded, number} ms. El proveedor en el que se ejecutó puede estar fallando. Pon el proveedor de inferencia en CPU en Ajustes → Identificar aves y evalúa de nuevo.",
+    "latency_drift_high": "Mucho más lento que al cargarse: {measured, number} ms por foto frente a {loaded, number} ms. El proveedor en el que se ejecutó puede estar fallando. Pon el proveedor de inferencia en CPU en Ajustes → Identificar aves y evalúa de nuevo.",
     "latency_drift_high_plain": "Mucho más lento que al cargarse. El proveedor en el que se ejecutó puede estar fallando. Pon el proveedor de inferencia en CPU en Ajustes → Identificar aves y evalúa de nuevo.",
     "low_shared_core": "Nombró bien menos de la mitad de las aves comunes de comedero, lo que suele indicar una instalación dañada. Usa «Reparar descarga» para este modelo en Ajustes → Identificar aves.",
     "partial_vocabulary": "No puede nombrar {outside} de las {total} especies de prueba, normalmente porque viven fuera de su región. Sus proporciones cubren las especies que sí puede nombrar.",

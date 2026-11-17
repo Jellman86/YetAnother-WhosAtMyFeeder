@@ -163,7 +163,7 @@
         if (savingRegion) return $_('setup.blocked.loading', { default: 'Continue is available once the current settings have loaded.' });
         if (!selectedModelId) return $_('setup.model.blocked_no_model', { default: 'Choose a model to continue, or skip this step to keep the model in use now.' });
         if (needsDownload) return $_('setup.model.blocked_download', { default: 'Download this model to continue, or skip this step to keep the model in use now.' });
-        if (!selectedModelReady) return $_('setup.model.blocked_check', { default: 'Check this model on this hardware to continue, or skip this step to keep the model in use now.' });
+        if (!selectedModelReady) return $_('setup.model.blocked_check', { default: 'Check that this model runs on this machine to continue, or skip this step to keep the model in use now.' });
         if (!locationValid) return $_('setup.model.blocked_location', { default: 'Enter the feeder’s latitude and longitude to continue, or leave both empty.' });
         if (configuredProviderUnavailable) return $_('setup.model.blocked_provider', { default: 'This host does not have the chosen device. Choose another, or Auto, to continue.' });
         return '';
@@ -227,7 +227,7 @@
         validating = false;
         progress = null;
         errorMsg = $_('setup.model.validation_timeout', {
-            default: 'Hardware validation exceeded 30 minutes. It may still be finishing in Diagnostics; check its status before starting another run.'
+            default: 'The check has run for more than 30 minutes. It may still be finishing: look under Model evaluation before starting another.'
         });
     }
 
@@ -330,7 +330,7 @@
             validationFailed = true;
             validating = false;
             progress = null;
-            errorMsg = err instanceof Error ? err.message : $_('setup.model.sweep_error', { default: 'Could not start validation.' });
+            errorMsg = err instanceof Error ? err.message : $_('setup.model.sweep_error', { default: 'The check could not be started. Check that YA-WAMF is running, then try again.' });
         }
     }
 
@@ -412,8 +412,8 @@
     }
 
     function validationSummary(models: ModelEvalModelSummary[]): string {
-        if (!models.length) return $_('setup.model.no_results', { default: 'No installed models were evaluated.' });
-        return $_('setup.model.validation_success', { default: 'Hardware validation completed successfully.' });
+        if (!models.length) return $_('setup.model.no_results', { default: 'No installed model was checked.' });
+        return $_('setup.model.validation_success', { default: 'The check finished: this model runs on this machine.' });
     }
 
     function resetValidationResult(modelId: string): void {
@@ -452,7 +452,7 @@
             resetValidationResult(selectedModelId);
         } catch (err) {
             regionOverride = previous;
-            errorMsg = err instanceof Error ? err.message : $_('setup.model.save_error', { default: 'Could not save model choices.' });
+            errorMsg = err instanceof Error ? err.message : $_('setup.model.save_error', { default: 'The model choice could not be saved. Check that YA-WAMF is running, then try again.' });
         } finally {
             savingRegion = false;
         }
@@ -495,7 +495,7 @@
             if (destroyed) return;
             setupWizardStore.completeStep();
         } catch (err) {
-            errorMsg = err instanceof Error ? err.message : $_('setup.model.save_error', { default: 'Could not save model choices.' });
+            errorMsg = err instanceof Error ? err.message : $_('setup.model.save_error', { default: 'The model choice could not be saved. Check that YA-WAMF is running, then try again.' });
         } finally {
             saving = false;
         }
@@ -527,9 +527,9 @@
                 {#if selectedInstalledModel?.ready === false}
                     <p role="status" class="mt-1 text-xs font-semibold text-status-attention">{$_('setup.model.incomplete_install', { default: 'This model install is incomplete. Download and verify it again before continuing.' })}</p>
                 {:else if needsDownload}
-                    <p class="mt-1 text-xs font-semibold text-status-attention">{$_('setup.model.download_required', { default: 'Download and verify this model here before validating it on this hardware.' })}</p>
+                    <p class="mt-1 text-xs font-semibold text-status-attention">{$_('setup.model.download_required', { default: 'Download this model first. Then check that it runs on this machine.' })}</p>
                 {:else if !selectedModelReady}
-                    <p class="mt-1 text-xs font-semibold text-status-attention">{$_('setup.model.validation_required', { default: 'Validate this model on the current image and hardware before continuing.' })}</p>
+                    <p class="mt-1 text-xs font-semibold text-status-attention">{$_('setup.model.validation_required', { default: 'Check that this model runs on this machine before continuing.' })}</p>
                 {/if}
             {/if}
         </div>
@@ -578,7 +578,7 @@
                     </option>
                 {/each}
             </select>
-            <p class="mt-1 text-xs text-muted">{$_('setup.model.provider_hint', { default: 'Only providers available in this image, on this host, and for the selected model are shown.' })}</p>
+            <p class="mt-1 text-xs text-muted">{$_('setup.model.provider_hint', { default: 'Only the devices this install can use for the chosen model are listed.' })}</p>
             {#if providerPreferenceLabel}
                 <p aria-live="polite" class="mt-1 text-xs font-semibold text-muted">
                     {$_('settings.detection.provider_runtime_order', {
@@ -600,7 +600,7 @@
         {#if usesLocation}
             <fieldset disabled={validating || downloading || saving} class="space-y-2 border-l-2 border-line-soft pl-4">
                 <legend class="text-sm font-medium text-ink">{$_('setup.model.location_title', { default: 'Feeder location' })}</legend>
-                <p class="text-xs leading-relaxed text-muted">{$_('setup.model.location_hint', { default: 'Validating or continuing saves these coordinates first, using the same feeder location as Settings → Sharing & integrations → Location. This model does not use the date or a location accuracy radius.' })}</p>
+                <p class="text-xs leading-relaxed text-muted">{$_('setup.model.location_hint', { default: 'Checking or continuing saves these coordinates first. They are the same feeder location as Settings → Sharing & integrations → Location. This model does not use the date or an accuracy radius.' })}</p>
                 <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <label for="setup-model-latitude" class="text-sm text-ink">
                         {$_('manual_observation.location.latitude', { default: 'Latitude' })}
@@ -627,7 +627,7 @@
 
         {#if accelerators.length || verified.length}
             <div>
-                <p class="text-sm font-medium text-ink">{$_('setup.model.detected', { default: 'Detected accelerators' })}</p>
+                <p class="text-sm font-medium text-ink">{$_('setup.model.detected', { default: 'Devices found on this machine' })}</p>
                 {#if accelerators.length}
                     <div class="mt-1.5 flex flex-wrap gap-2">
                         {#each accelerators as acc (acc.id)}
@@ -667,7 +667,7 @@
         {:else if validating && progress}
             <div
                 role="progressbar"
-                aria-label={$_('setup.model.validate', { default: 'Validate on my hardware' })}
+                aria-label={$_('setup.model.validate', { default: 'Check it runs on this machine' })}
                 aria-valuemin="0"
                 aria-valuemax={progress.total > 0 ? progress.total : undefined}
                 aria-valuenow={progress.total > 0 ? progress.done : undefined}
@@ -684,7 +684,7 @@
             </div>
         {:else}
             <button type="button" class="btn btn-secondary px-5 py-2.5" onclick={runValidation} disabled={!selectedModelId || !locationValid || saving || savingRegion}>
-                {results ? $_('setup.model.revalidate', { default: 'Re-run validation' }) : $_('setup.model.validate', { default: 'Validate on my hardware' })}
+                {results ? $_('setup.model.revalidate', { default: 'Check again' }) : $_('setup.model.validate', { default: 'Check it runs on this machine' })}
             </button>
         {/if}
 
@@ -703,7 +703,7 @@
 
         {#if results}
             {#if results.length === 0}
-                <p class="text-sm text-muted">{$_('setup.model.no_results', { default: 'No installed models were evaluated.' })}</p>
+                <p class="text-sm text-muted">{$_('setup.model.no_results', { default: 'No installed model was checked.' })}</p>
             {:else}
                 <ul class="divide-y divide-line overflow-hidden rounded-lg border border-line">
                     {#each results as m (m.model_id)}

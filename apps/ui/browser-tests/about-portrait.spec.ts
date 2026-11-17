@@ -183,7 +183,7 @@ for (const [name, report, state, health] of [
     ['a failed in-app fallback', { ...RUNNING, runtime_source: 'in_process_fallback', loaded: false, error: 'runtime could not open the model' }, 'Could not load', null],
     ['files that are not on this install', { ...RUNNING, active_model_installed: false, runtime_source: 'planned' }, 'Needs a download', null],
     ['a report with no evidence', { active_model_installed: true, effective_model_id: 'Bird classifier', image_execution_mode: 'subprocess' }, 'Not reported', null],
-    ['running with failing inferences', { ...RUNNING, inference_health: { status: 'unhealthy' } }, 'Running', 'Recent inferences are failing']
+    ['running with failing inferences', { ...RUNNING, inference_health: { status: 'unhealthy' } }, 'Running', 'Recent photos could not be named']
 ] as const) {
     test(`the pipeline's classifier step reads ${name} as ${state}`, async ({ page }) => {
         await open(page, route => route.fulfill({ json: portrait() }), report);
