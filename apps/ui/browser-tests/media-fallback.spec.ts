@@ -56,7 +56,7 @@ test('a spectrogram that fails keeps its box, shows a quiet placeholder and keep
     const failed = page.locator('[data-record-spectrogram]');
     await expect(failed.locator('[data-record-spectrogram-unavailable]')).toBeVisible();
     await expect(failed.locator('img')).toHaveCount(0);
-    await expect(failed).not.toContainText('BirdNET-Go spectrogram for the matched audio detection');
+    await expect(failed).not.toContainText('BirdNET-Go spectrogram of the matching call');
     const missing = await failed.boundingBox();
     expect(missing?.height).toBe(loaded?.height);
     expect(missing?.width).toBe(loaded?.width);

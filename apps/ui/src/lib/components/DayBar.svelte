@@ -136,8 +136,8 @@
                 countedBirds,
                 loading,
                 'plain',
-                countedCaptures === null ? '' : $_('dashboard.day_bar.birds_scope_short', { values: { count: countedCaptures }, default: 'from {count, plural, one {# analyzed capture} other {# analyzed captures}}' }),
-                countedCaptures === null ? '' : $_('dashboard.day_bar.birds_scope', { values: { count: countedCaptures }, default: 'From {count, plural, one {# analyzed capture} other {# analyzed captures}}; birds may be missed' }),
+                countedCaptures === null ? '' : $_('dashboard.day_bar.birds_scope_short', { values: { count: countedCaptures }, default: 'from {count, plural, one {# analysed capture} other {# analysed captures}}' }),
+                countedCaptures === null ? '' : $_('dashboard.day_bar.birds_scope', { values: { count: countedCaptures }, default: 'From {count, plural, one {# analysed capture} other {# analysed captures}}; birds may be missed' }),
                 true
             )}
         {/if}

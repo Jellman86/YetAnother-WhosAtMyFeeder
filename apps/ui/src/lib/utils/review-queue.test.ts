@@ -200,7 +200,7 @@ describe('reviewReasonMessage', () => {
     it('words every reason a detection can wait for', () => {
         expect(reviewReasonMessage('unknown_species', 0)).toEqual({
             key: 'dashboard.review_queue.reason_unknown_species',
-            default: 'Unknown species'
+            default: 'No species reached the naming threshold'
         });
         expect(reviewReasonMessage('low_score', 0)).toEqual({
             key: 'dashboard.review_queue.reason_low_score',

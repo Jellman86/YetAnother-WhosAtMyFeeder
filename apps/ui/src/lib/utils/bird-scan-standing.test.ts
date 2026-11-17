@@ -45,7 +45,7 @@ describe('birdScanStandingReason', () => {
 
 describe('birdScanUnavailableText', () => {
     it('says each reason in words', () => {
-        expect(birdScanUnavailableText('crop_model_unavailable', say)).toBe('Install a crop detector to find additional birds.');
+        expect(birdScanUnavailableText('crop_model_unavailable', say)).toBe('Install the bird finder to look for more birds in this photo.');
         expect(birdScanUnavailableText('full_scene_unavailable', say)).toMatch(/whole frame behind this photograph was not kept/);
         expect(birdScanUnavailableText('media_changed', say)).toMatch(/frame changed during the scan/);
     });

@@ -55,7 +55,7 @@
   "bulk_delete_confirm": "¿Eliminar {count, plural, one {# detección} other {# detecciones}}? Esta acción no se puede deshacer.",
   "bulk_delete_success": "{count, plural, one {Se eliminó # detección.} other {Se eliminaron # detecciones.}}",
   "bulk_delete_missing": "{count, plural, one {No se encontró # detección.} other {No se encontraron # detecciones.}}",
-  "bulk_delete_failed": "Error al eliminar: {message}",
+  "bulk_delete_failed": "No se pudieron eliminar los registros seleccionados. Inténtalo de nuevo; si sigue fallando, abre Estado.",
   "bulk_reclassify_success": "{count, plural, one {Se puso en cola # detección para análisis de video.} other {Se pusieron en cola # detecciones para análisis de video.}}",
   "bulk_reclassify_partial": "En cola: {queued}; no se pudieron poner en cola: {failed}.",
   "timeline_scope": "Días en esta página",

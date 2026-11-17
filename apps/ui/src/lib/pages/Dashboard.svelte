@@ -200,7 +200,7 @@
             toastStore.show(
                 $_('dashboard.review_session.species_blocked', {
                     values: { species: $birdNames(detection, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary).primary },
-                    default: '{species} blocked. Future detections will be dropped.'
+                    default: '{species} blocked. It will not be recorded from now on.'
                 }),
                 'success'
             );

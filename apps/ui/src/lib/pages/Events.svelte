@@ -1391,7 +1391,7 @@
             title: $_('actions.delete_selected', { default: 'Delete selected' }),
             message: $_('events.bulk_delete_confirm', {
                 values: { count },
-                default: 'Delete {count, plural, one {# detection} other {# detections}}? This cannot be undone.'
+                default: 'Delete {count, plural, one {# record} other {# records}}? This cannot be undone.'
             }),
             confirmLabel: $_('actions.delete_selected', { default: 'Delete selected' })
         });
@@ -1404,13 +1404,13 @@
                 events = events.filter(e => !result.deleted_event_ids.includes(e.frigate_event));
                 toastStore.success($_('events.bulk_delete_success', {
                     values: { count: result.deleted_count },
-                    default: 'Deleted {count, plural, one {# detection} other {# detections}}.'
+                    default: 'Deleted {count, plural, one {# record} other {# records}}.'
                 }));
             }
             if (result.missing_count > 0) {
                 toastStore.warning($_('events.bulk_delete_missing', {
                     values: { count: result.missing_count },
-                    default: '{count, plural, one {# detection was not found.} other {# detections were not found.}}'
+                    default: '{count, plural, one {# record was not found.} other {# records were not found.}}'
                 }));
             }
             selectedEventIds = [];
@@ -1445,7 +1445,7 @@
             if (failed === 0) {
                 toastStore.success($_('events.bulk_reclassify_success', {
                     values: { count: queued },
-                    default: 'Queued {count, plural, one {# detection} other {# detections}} for video analysis.'
+                    default: 'Queued {count, plural, one {# record} other {# records}} for video analysis.'
                 }));
             } else {
                 toastStore.warning($_('events.bulk_reclassify_partial', {
@@ -1810,7 +1810,7 @@
         } catch (failure) {
             if (signal.aborted) return;
             console.error('Failed to open the searched detection', failure);
-            toastStore.warning($_('events.search.record_open_failed', { default: 'This detection could not be opened. It may have been removed.' }));
+            toastStore.warning($_('events.search.record_open_failed', { default: 'This record could not be opened. It may have been removed.' }));
         }
     }
 

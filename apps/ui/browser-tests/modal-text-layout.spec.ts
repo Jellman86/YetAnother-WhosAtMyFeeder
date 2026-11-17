@@ -246,7 +246,7 @@ test('the record is walked by keyboard in the order it is read', async ({ page }
         expect(column[index].top, `"${column[index].name}" follows "${column[index - 1].name}"`).toBeGreaterThanOrEqual(column[index - 1].top - 1);
     }
     // The identifiers are the last thing read and the last thing reached.
-    expect(column.at(-1)!.name).toContain('Detection ID');
+    expect(column.at(-1)!.name).toContain('Record ID');
 });
 
 for (const [language, noted] of [['de', true], ['en', false]] as const) {

@@ -55,7 +55,7 @@ export function reviewReasonMessage(reason: ReviewReason, sightings: number): Re
         };
     }
     if (reason === 'unknown_species') {
-        return { key: 'dashboard.review_queue.reason_unknown_species', default: 'Unknown species' };
+        return { key: 'dashboard.review_queue.reason_unknown_species', default: 'No species reached the naming threshold' };
     }
     return { key: 'dashboard.review_queue.reason_low_score', default: 'Below the naming threshold' };
 }

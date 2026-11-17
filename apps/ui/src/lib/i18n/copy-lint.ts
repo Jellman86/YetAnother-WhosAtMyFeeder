@@ -99,7 +99,8 @@ export const GLOSSARY: Record<string, readonly GlossaryTerm[]> = {
         term('KI', ['LLM', 'LLMs'], { exact: true }),
         term('Explorer', ['Zu Ereignissen', 'Ereignisseite'], { exact: true }),
         term('Zustand', ['Systemgesundheit', 'Systemzustand']),
-        term('Erfordert Ihre Entscheidung', ['Zu prüfen', 'Prüfung erforderlich', 'Prüfwarteschlange']),
+        // As written, with its capital: "um es zu prüfen" is an ordinary verb, "Zu prüfen" is the old label.
+        term('Erfordert Ihre Entscheidung', ['Zu prüfen', 'Prüfung erforderlich', 'Prüfwarteschlange'], { exact: true }),
         term('Gartentier', ['Garten-Wildtier', 'Gartenbesucher']),
         term('Besitzer', ['Eigentümer', 'Eigentümers', 'Betreiber', 'Betreibers', 'Inhaber', 'Admin', 'Administrator'], { except: DEFAULT_USER_NAME })
     ]

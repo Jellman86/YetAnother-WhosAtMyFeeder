@@ -55,7 +55,7 @@
   "bulk_delete_confirm": "Eliminare {count, plural, one {# rilevamento} other {# rilevamenti}}? Questa azione non può essere annullata.",
   "bulk_delete_success": "{count, plural, one {Eliminato # rilevamento.} other {Eliminati # rilevamenti.}}",
   "bulk_delete_missing": "{count, plural, one {# rilevamento non trovato.} other {# rilevamenti non trovati.}}",
-  "bulk_delete_failed": "Eliminazione non riuscita: {message}",
+  "bulk_delete_failed": "Impossibile eliminare i record selezionati. Riprova; se continua a non riuscire, apri Stato.",
   "bulk_reclassify_success": "{count, plural, one {Accodato # rilevamento per l’analisi video.} other {Accodati # rilevamenti per l’analisi video.}}",
   "bulk_reclassify_partial": "Accodati {queued}; impossibile accodarne {failed}.",
   "timeline_scope": "Giorni in questa pagina",

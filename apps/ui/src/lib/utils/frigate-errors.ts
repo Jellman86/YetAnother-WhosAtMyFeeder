@@ -132,7 +132,7 @@ export function getVideoFailureInsight(detection: Detection, t: Translate): Vide
             ],
             checks: [
                 t('detection.video_analysis.error_details.checks_items.recording_policy', {
-                    default: 'Check Frigate camera recording/detection retention policy.'
+                    default: 'Check how long Frigate keeps recordings for this camera.'
                 }),
                 t('detection.video_analysis.error_details.checks_items.reduce_delay', {
                     default: 'Reduce video analysis delay if clips are being cleaned up too quickly.'
@@ -214,7 +214,7 @@ export function getVideoFailureInsight(detection: Detection, t: Translate): Vide
             ],
             checks: [
                 t('detection.video_analysis.error_details.checks_items.container_load', {
-                    default: 'Check Frigate container CPU/IO load at detection time.'
+                    default: 'Check how busy Frigate’s processor and disk were at the time.'
                 }),
                 t('detection.video_analysis.error_details.checks_items.network_path', {
                     default: 'Verify container-to-container networking and proxy path stability.'
@@ -254,7 +254,7 @@ export function getVideoFailureInsight(detection: Detection, t: Translate): Vide
         return {
             errorCode: code,
             summary: t('detection.video_analysis.error_details.video_timeout_summary', {
-                default: 'Video classifier timed out before producing a result.'
+                default: 'Video analysis ran out of time before it had a result.'
             }),
             causes: [
                 t('detection.video_analysis.error_details.causes.video_timeout_large_clip', {
@@ -292,7 +292,7 @@ export function getVideoFailureInsight(detection: Detection, t: Translate): Vide
             ],
             checks: [
                 t('detection.video_analysis.error_details.checks_items.retry_snapshot', {
-                    default: 'Try manual snapshot or video reclassification later.'
+                    default: 'Run the snapshot or video analysis again by hand.'
                 }),
                 t('detection.video_analysis.error_details.checks_items.camera_quality', {
                     default: 'Review camera focus/exposure around feeder area.'
@@ -313,15 +313,15 @@ export function getVideoFailureInsight(detection: Detection, t: Translate): Vide
                     default: 'Safety guard/circuit breaker paused background video jobs after repeated failures.'
                 }),
                 t('detection.video_analysis.error_details.causes.pipeline_exception', {
-                    default: 'A runtime exception or cancellation interrupted the classification task.'
+                    default: 'The analysis was interrupted before it finished.'
                 })
             ],
             checks: [
                 t('detection.video_analysis.error_details.checks_items.backend_logs', {
-                    default: 'Check YA-WAMF backend logs around this detection for the exact exception.'
+                    default: 'Check YA-WAMF’s log around this time for the exact error.'
                 }),
                 t('detection.video_analysis.error_details.checks_items.retry_manual', {
-                    default: 'Retry manual reclassification after service health stabilizes.'
+                    default: 'Run the analysis again once Health shows everything working.'
                 })
             ],
             isFrigateRelated: false
@@ -335,7 +335,7 @@ export function getVideoFailureInsight(detection: Detection, t: Translate): Vide
         }),
         causes: [
             t('detection.video_analysis.error_details.causes.unknown_1', {
-                default: 'An unexpected error occurred in media retrieval or video processing.'
+                default: 'Fetching the media or analysing the video failed in a way YA-WAMF does not recognise.'
             }),
             t('detection.video_analysis.error_details.causes.unknown_2', {
                 default: 'The event state changed while analysis was in progress.'
@@ -343,10 +343,10 @@ export function getVideoFailureInsight(detection: Detection, t: Translate): Vide
         ],
         checks: [
             t('detection.video_analysis.error_details.checks_items.backend_logs', {
-                default: 'Check YA-WAMF backend logs for technical details.'
+                default: 'Check YA-WAMF’s log around this time for the exact error.'
             }),
             t('detection.video_analysis.error_details.checks_items.retry_manual', {
-                default: 'Retry manual reclassification once services are healthy.'
+                default: 'Run the analysis again once Health shows everything working.'
             })
         ],
         isFrigateRelated: false

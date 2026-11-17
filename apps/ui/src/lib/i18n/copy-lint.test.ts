@@ -256,6 +256,10 @@ describe('the glossary and the lint', () => {
         expect(rules('de', 'garden.motion_coverage', 'Vogelerkennung und Kameralast pausieren')).toEqual([]);
         expect(rules('en', 'settings.auth.note', 'Administration is under Settings.')).toEqual([]);
         expect(rules('de', 'first_run.admin_username', 'Admin-Benutzername')).toEqual(['glossary']);
+        // The old German label is matched with its capital; the verb in a sentence is not the label.
+        expect(rules('de', 'garden.pending', 'Zu prüfen')).toEqual(['glossary']);
+        expect(rules('de', 'detection.upstream_check.not_checked', 'Öffnen Sie diesen Eintrag erneut, um es zu prüfen.')).toEqual([]);
+        expect(rules('de', 'dashboard.day_bar.nothing_to_review', 'nichts zu prüfen')).toEqual([]);
     });
 
     it('gives every exemption a reason', () => {

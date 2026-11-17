@@ -114,7 +114,7 @@
                 onclick={() => analyse(true)}
                 disabled={analysing}
                 class="btn btn-secondary min-h-11 w-full px-4 text-sm"
-                title={$_('detection.ai.regenerate_warning', { default: 'Regenerate analysis (clears AI conversation history for this detection)' })}
+                title={$_('detection.ai.regenerate_warning', { default: 'Regenerate analysis (clears the AI conversation for this record)' })}
             >
                 <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -123,7 +123,7 @@
             </button>
             {#if turns.length > 0}
                 <p class="text-xs text-muted">
-                    {$_('detection.ai.regenerate_clears_chat_note', { default: 'Note: Regenerating clears the AI conversation history for this detection.' })}
+                    {$_('detection.ai.regenerate_clears_chat_note', { default: 'Note: regenerating clears the AI conversation for this record.' })}
                 </p>
             {/if}
         {/if}

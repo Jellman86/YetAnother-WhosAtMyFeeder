@@ -55,7 +55,7 @@
   "bulk_delete_confirm": "{count, plural, other {# 件の検出を削除しますか？ この操作は元に戻せません。}}",
   "bulk_delete_success": "{count, plural, other {# 件の検出を削除しました。}}",
   "bulk_delete_missing": "{count, plural, other {# 件の検出が見つかりませんでした。}}",
-  "bulk_delete_failed": "削除に失敗しました: {message}",
+  "bulk_delete_failed": "選択した記録を削除できませんでした。もう一度お試しください。解決しない場合は「稼働状況」を開いてください。",
   "bulk_reclassify_success": "{count, plural, other {# 件の検出を動画解析キューに追加しました。}}",
   "bulk_reclassify_partial": "{queued} 件を追加し、{failed} 件は追加できませんでした。",
   "timeline_scope": "このページの日付",
