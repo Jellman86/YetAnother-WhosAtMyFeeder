@@ -6,6 +6,7 @@ import about from '../pages/About.svelte?raw';
 import species from '../pages/Species.svelte?raw';
 import audioHistory from '../pages/AudioHistory.svelte?raw';
 import detectionModal from './DetectionModal.svelte?raw';
+import recordAiAnalysis from './record/RecordAiAnalysis.svelte?raw';
 import reviewQueueModal from './ReviewQueueModal.svelte?raw';
 import lazyDialogs from './lazy-dialogs.ts?raw';
 
@@ -24,7 +25,8 @@ describe('dialogs load on first open', () => {
 
     it('renders AI text without putting markdown-it in the record dialog', () => {
         expect(detectionModal).not.toContain("from '../utils/markdown'");
-        expect(detectionModal).toContain('<MarkdownText text={aiAnalysis} />');
+        expect(recordAiAnalysis).not.toContain("from '../../utils/markdown'");
+        expect(recordAiAnalysis).toContain('<MarkdownText text={analysis} />');
     });
 });
 

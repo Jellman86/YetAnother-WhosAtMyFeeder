@@ -26,7 +26,7 @@
 </script>
 
 {#if recorded}
-<p class="mt-1 text-xs {onDark ? 'text-slate-300' : 'text-slate-600 dark:text-slate-400'}" data-classification-source>
+<p class="mt-1 text-xs {onDark ? 'text-on-media/80' : 'text-muted'}" data-classification-source>
     {#if evidence?.source === 'owner_species_choice'}
         {$_('detection.named_from.owner', { default: 'Named by you' })}
     {:else if evidence?.source === 'frigate_sublabel'}

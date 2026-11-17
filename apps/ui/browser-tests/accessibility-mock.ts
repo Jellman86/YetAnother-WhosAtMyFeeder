@@ -187,6 +187,12 @@ function replayedStatus(overrides: Record<string, unknown>): unknown {
 }
 
 /** Answer the app's requests from the recording, and open it in `theme` with motion settled. */
+/**
+ * Marks the replay's answer for a read the recording does not hold, so a test can tell a gap in
+ * the fixture from a real failure: every recorded answer, and every error a test injects, lacks it.
+ */
+export const NOT_RECORDED_HEADER = 'x-fixture-not-recorded';
+
 export async function replayFeeder(
     page: Page,
     theme: Theme,
@@ -219,7 +225,9 @@ export async function replayFeeder(
         }
         if (route.request().method() !== 'GET') return route.fulfill({ status: 503, json: { detail: 'The fixture is read-only' } });
         const recorded = recordedFor(url);
-        if (!recorded || recorded.json === undefined) return route.fulfill({ status: 404, json: { detail: 'Not part of this fixture' } });
+        if (!recorded || recorded.json === undefined) {
+            return route.fulfill({ status: 404, headers: { [NOT_RECORDED_HEADER]: '1' }, json: { detail: 'Not part of this fixture' } });
+        }
         return route.fulfill({ status: recorded.status, json: replayAt(rewrite(recorded.json, url), shiftMs) });
     });
 }

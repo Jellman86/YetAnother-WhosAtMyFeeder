@@ -19,7 +19,8 @@ export function formatIlluminance(lux: number | null | undefined, locale?: strin
     if (lux === null || lux === undefined || !Number.isFinite(lux) || lux < 0) return null;
     // Below 10 lx the first decimal separates dusk from dark; above it, it is noise.
     const maximumFractionDigits = lux < 9.95 ? 1 : 0;
-    return `${lux.toLocaleString(locale, { maximumFractionDigits })} lx`;
+    // A no-break space, so "lx" never ends up on a line of its own.
+    return `${lux.toLocaleString(locale, { maximumFractionDigits })}\u00a0lx`;
 }
 
 export interface IlluminanceStepText {
