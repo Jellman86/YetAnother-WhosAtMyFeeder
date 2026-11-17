@@ -172,7 +172,8 @@
       "no_results": "L'analyse vidéo n'a donné aucun résultat.",
       "event_missing": "Événement introuvable dans Frigate.",
       "unknown": "Échec de l'analyse vidéo. Analyse via instantané.",
-      "clip_not_retained": "Le clip n'est plus conservé dans Frigate (hors de la fenêtre de rétention)."
+      "clip_not_retained": "Le clip n'est plus conservé dans Frigate (hors de la fenêtre de rétention).",
+      "event_missing_media_cached": "Frigate n’a plus cet événement, mais YA-WAMF en a encore les médias."
     },
     "error_details": {
       "why": "Pourquoi cela peut arriver",
@@ -202,7 +203,9 @@
         "unknown_1": "Une erreur inattendue s'est produite lors de la récupération des médias ou du traitement vidéo.",
         "unknown_2": "L'état de l'événement a changé pendant l'analyse.",
         "video_timeout_large_clip": "Le traitement du clip a pris plus longtemps que le délai configuré.",
-        "video_timeout_resource": "Les ressources GPU/CPU étaient saturées lors de l'inférence."
+        "video_timeout_resource": "Les ressources GPU/CPU étaient saturées lors de l'inférence.",
+        "event_missing_media_cached": "YA-WAMF avait déjà enregistré les médias de cette capture ; ils restent donc lisibles bien que Frigate n’ait plus l’événement.",
+        "event_missing_media_cached_retention": "Frigate a peut-être supprimé l’événement à la fin de sa durée de conservation, alors que YA-WAMF a gardé l’instantané ou le clip de la visite complète."
       },
       "checks_items": {
         "api_health": "Vérifier l'endpoint de santé de l'API Frigate et la configuration d'authentification.",
@@ -222,7 +225,9 @@
         "retention_settings": "Revoir les paramètres de rétention Frigate et l'état du stockage.",
         "retry_manual": "Réessayer la reclassification manuelle après la stabilisation du service.",
         "retry_snapshot": "Réessayer la reclassification manuelle du snapshot ou de la vidéo ultérieurement.",
-        "video_timeout_setting": "Augmenter le délai d'analyse vidéo ou réduire les images échantillonnées."
+        "video_timeout_setting": "Augmenter le délai d'analyse vidéo ou réduire les images échantillonnées.",
+        "use_cached_media": "Utilisez l’instantané ou le clip que possède YA-WAMF. S’il se lit, il n’y a rien à faire.",
+        "frigate_retention_if_unexpected": "Si cela s’est produit plus tôt que prévu, vérifiez combien de temps Frigate conserve les événements."
       }
     },
     "fallback_title": "Résultat depuis une capture",
@@ -239,7 +244,7 @@
     "gated_action": "Reclassifier",
     "evidence": {
       "title": "Indices de cette analyse",
-      "summary": "{processed} images sur {sampled} échantillonnées ont été décodées. Une image devait atteindre au moins {threshold} % de confiance pour voter.",
+      "summary": "{processed} images sur {sampled} échantillonnées ont été décodées. Une image devait atteindre au moins {threshold} % de confiance pour voter.",
       "confident_short": "fiables",
       "required": "Il fallait {required} instants fiables et concordants pour cette source.",
       "top_candidates": "Candidats les plus récurrents",
@@ -303,7 +308,7 @@
     "analyzing": "Analyse du comportement…",
     "regenerating": "Régénération…",
     "regenerate": "Régénérer l'analyse",
-    "error": "Erreur : {message}",
+    "error": "L’IA n’a renvoyé aucune analyse. Vérifiez le fournisseur et la clé dans Paramètres, puis réessayez.",
     "conversation_title": "Conversation",
     "conversation_loading": "Chargement de la conversation…",
     "conversation_empty": "Aucune conversation pour le moment. Posez une question de suivi à l’IA.",
@@ -503,10 +508,10 @@
   },
   "identified_by_owner": "Identifié par le propriétaire",
   "moved_to_garden": "Déplacé dans Jardin. La fiche d’oiseau est masquée ; affichez-la de nouveau depuis Masquées pour la restaurer.",
-  "move_to_garden_failed": "Impossible de déplacer cette fiche dans Jardin : {message}",
+  "move_to_garden_failed": "Impossible de déplacer cet enregistrement vers Jardin. Réessayez ; si l’échec persiste, ouvrez État.",
   "domestic_bird_declared": "C’est un oiseau de type {bird}, un oiseau domestique que vous élevez. Déplacez-le dans Jardin pour l’enregistrer comme animal du jardin. Cette fiche d’oiseau est masquée, pas supprimée.",
   "move_to_garden": "Déplacer dans Jardin",
-  "range_fallback": "Filtre d'aire : le modèle a d'abord proposé {original} ({score} %), jamais signalé par eBird dans {region}, sa réponse suivante dans l'aire a donc été gardée.",
+  "range_fallback": "Filtre d'aire : le modèle a d'abord proposé {original} ({score} %), jamais signalé par eBird dans {region}, sa réponse suivante dans l'aire a donc été gardée.",
   "audio_context_all": "Tous les chants entendus autour de cette visite",
   "record_label": "Fiche de détection",
   "more_actions": "Autres actions",

@@ -31,7 +31,7 @@ export function birdScanStandingReason(reason: string | null, state: { active: b
 
 export function birdScanUnavailableText(reason: string | null, t: Translate): string {
     if (reason === 'media_changed') return t('detection.bird_scan.media_changed', { default: 'The frame changed during the scan. Try again on the current frame.' });
-    if (reason === 'crop_model_unavailable') return t('detection.bird_scan.detector_unavailable', { default: 'Install a crop detector to find additional birds.' });
+    if (reason === 'crop_model_unavailable') return t('detection.bird_scan.detector_unavailable', { default: 'Install the bird finder to look for more birds in this photo.' });
     if (reason === 'scan_in_progress') return t('detection.bird_scan.other_running', { default: 'Another frame in this capture is being scanned. Try again when it finishes.' });
     if (reason === 'reviewed_other_frame') return t('detection.bird_scan.reviewed_other_frame', { default: 'Birds reviewed on another frame are kept. This frame cannot replace them.' });
     return t('detection.bird_scan.scene_unavailable', { default: 'More birds cannot be looked for: the whole frame behind this photograph was not kept.' });

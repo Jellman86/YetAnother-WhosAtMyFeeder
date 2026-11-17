@@ -256,6 +256,14 @@ describe('the glossary and the lint', () => {
         expect(rules('de', 'garden.motion_coverage', 'Vogelerkennung und Kameralast pausieren')).toEqual([]);
         expect(rules('en', 'settings.auth.note', 'Administration is under Settings.')).toEqual([]);
         expect(rules('de', 'first_run.admin_username', 'Admin-Benutzername')).toEqual(['glossary']);
+        // The old German label is matched in any case: lower case, it still names the queue.
+        expect(rules('de', 'garden.pending', 'Zu prüfen')).toEqual(['glossary']);
+        expect(rules('de', 'dashboard.day_bar.nothing_to_review', 'nichts zu prüfen')).toEqual(['glossary']);
+        expect(rules('de', 'garden.explorer.empty_pending', 'Keine Gartenaufnahmen zu prüfen')).toEqual(['glossary']);
+        // The sentences that use the verb are exempt by key, so the same words elsewhere still count.
+        expect(rules('de', 'detection.upstream_check.not_checked', 'Öffnen Sie diesen Eintrag erneut, um es zu prüfen.')).toEqual([]);
+        expect(rules('de', 'visits.capture_actions', 'Öffnen Sie eine Aufnahme, um die Bestimmung zu prüfen.')).toEqual([]);
+        expect(rules('de', 'dashboard.some_new_key', 'Öffnen Sie eine Aufnahme, um die Bestimmung zu prüfen.')).toEqual(['glossary']);
     });
 
     it('gives every exemption a reason', () => {

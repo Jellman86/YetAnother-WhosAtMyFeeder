@@ -55,7 +55,7 @@
   "bulk_delete_confirm": "Supprimer {count, plural, one {# détection} other {# détections}} ? Cette action est irréversible.",
   "bulk_delete_success": "{count, plural, one {# détection supprimée.} other {# détections supprimées.}}",
   "bulk_delete_missing": "{count, plural, one {# détection est introuvable.} other {# détections sont introuvables.}}",
-  "bulk_delete_failed": "Échec de la suppression : {message}",
+  "bulk_delete_failed": "Impossible de supprimer les enregistrements sélectionnés. Réessayez ; si l’échec persiste, ouvrez État.",
   "bulk_reclassify_success": "{count, plural, one {# détection mise en file pour l’analyse vidéo.} other {# détections mises en file pour l’analyse vidéo.}}",
   "bulk_reclassify_partial": "{queued} mises en file ; échec pour {failed}.",
   "timeline_scope": "Jours sur cette page",

@@ -229,7 +229,7 @@
 
     function taxonCount(taxon: ExplorerSearchTaxon): string {
         const counts: string[] = [];
-        if (taxon.bird_detections > 0) counts.push($_('events.search.detections', { values: { count: taxon.bird_detections }, default: '{count, plural, one {# detection} other {# detections}}' }));
+        if (taxon.bird_detections > 0) counts.push($_('events.search.detections', { values: { count: taxon.bird_detections }, default: '{count, plural, one {# capture} other {# captures}}' }));
         if (taxon.garden_captures > 0) counts.push($_('events.search.garden_captures', { values: { count: taxon.garden_captures }, default: '{count, plural, one {# Garden capture} other {# Garden captures}}' }));
         return counts.join(', ');
     }
@@ -237,7 +237,7 @@
     function recordTitle(record: ExplorerSearchRecord): string {
         const named = record.display_name || record.common_name || record.scientific_name;
         if (record.kind === 'garden') return named ?? $_('events.search.garden_record', { default: 'Garden capture' });
-        return named ? speciesNames(record).primary : $_('events.search.detection_record', { default: 'Detection' });
+        return named ? speciesNames(record).primary : $_('events.search.detection_record', { default: 'Record' });
     }
 
     function recordDetail(record: ExplorerSearchRecord): string {
@@ -351,7 +351,7 @@
                                 <span class="shrink-0 text-right text-2xs tabular-nums text-muted">{taxonCount(option.taxon)}</span>
                             {:else if option.kind === 'species'}
                                 <span class="shrink-0 text-2xs tabular-nums text-muted">
-                                    {$_('events.search.detections', { values: { count: option.species.count ?? 0 }, default: '{count, plural, one {# detection} other {# detections}}' })}
+                                    {$_('events.search.detections', { values: { count: option.species.count ?? 0 }, default: '{count, plural, one {# capture} other {# captures}}' })}
                                 </span>
                             {:else if option.kind === 'camera' && option.count !== null}
                                 <span class="shrink-0 text-2xs tabular-nums text-muted">{option.count}</span>

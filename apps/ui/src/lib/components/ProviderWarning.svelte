@@ -19,7 +19,7 @@
         </p>
         <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">
             {checking
-                ? $_('dashboard.provider_checking_detail', { default: 'This check runs once. The classifier reloads automatically if the accelerator passes.' })
+                ? $_('dashboard.provider_checking_detail', { default: 'This check runs once. The model reloads by itself if the device passes.' })
                 : model?.fallback_reason ?? $_('dashboard.provider_review', { default: 'Review model and provider' })}
         </p>
         <button class="btn btn-secondary mt-3 min-h-11" onclick={() => onnavigate?.('/settings/models')}>
