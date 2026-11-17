@@ -90,6 +90,13 @@ describe('the copy lint', () => {
 
     it('keeps "sighting" for other people’s reports and the literal default user name', () => {
         expect(rules('en', 'about.outbound.ebird_desc', 'Recent sightings near the feeder.')).toEqual([]);
+        // The species dialog's eBird section and its map markers are eBird's reports too.
+        expect(rules('en', 'species_detail.recent_sightings', 'Recent sightings')).toEqual([]);
+        expect(rules('en', 'common.map_sighting', 'Sighting location')).toEqual([]);
+        expect(rules('en', 'settings.enrichment.sightings_title', 'Nearby sightings')).toEqual([]);
+        // Named in full: the same key name under another namespace is not exempt.
+        expect(rules('en', 'dashboard.recent_sightings', 'Recent sightings')).toEqual(['glossary']);
+        expect(rules('en', 'species_detail.no_recent_sightings', 'No recent sightings.')).toEqual([]);
         expect(rules('en', 'dashboard.summary', '{count} sightings today')).toEqual(['glossary']);
         expect(rules('en', 'auth.username_placeholder', 'admin')).toEqual([]);
     });
@@ -126,6 +133,8 @@ describe('the copy lint', () => {
         expect(rules('en', 'setup.cameras.hint', 'Motion detection starts a clip; each detection is then named.')).toEqual(['glossary']);
         expect(rules('en', 'settings.debug.field', 'The <code>id</code> of this detection')).toEqual(['glossary']);
         expect(rules('en', 'detection.detector_unavailable', 'Install a crop detector to find additional birds.')).toEqual(['glossary']);
+        // A catalogue name is exempt only as the registry capitalises it.
+        expect(rules('en', 'settings.detection.crop_tier_title', 'Bird crop detector')).toEqual(['glossary']);
         expect(rules('en', 'audio.hidden', 'Audio detection hidden.')).toEqual(['glossary']);
     });
 
@@ -256,6 +265,14 @@ describe('the glossary and the lint', () => {
         expect(rules('de', 'garden.motion_coverage', 'Vogelerkennung und Kameralast pausieren')).toEqual([]);
         expect(rules('en', 'settings.auth.note', 'Administration is under Settings.')).toEqual([]);
         expect(rules('de', 'first_run.admin_username', 'Admin-Benutzername')).toEqual(['glossary']);
+        // The old German label is matched in any case: lower case, it still names the queue.
+        expect(rules('de', 'garden.pending', 'Zu prüfen')).toEqual(['glossary']);
+        expect(rules('de', 'dashboard.day_bar.nothing_to_review', 'nichts zu prüfen')).toEqual(['glossary']);
+        expect(rules('de', 'garden.explorer.empty_pending', 'Keine Gartenaufnahmen zu prüfen')).toEqual(['glossary']);
+        // The sentences that use the verb are exempt by key, so the same words elsewhere still count.
+        expect(rules('de', 'detection.upstream_check.not_checked', 'Öffnen Sie diesen Eintrag erneut, um es zu prüfen.')).toEqual([]);
+        expect(rules('de', 'visits.capture_actions', 'Öffnen Sie eine Aufnahme, um die Bestimmung zu prüfen.')).toEqual([]);
+        expect(rules('de', 'dashboard.some_new_key', 'Öffnen Sie eine Aufnahme, um die Bestimmung zu prüfen.')).toEqual(['glossary']);
     });
 
     it('gives every exemption a reason', () => {

@@ -249,3 +249,26 @@ test('on a phone Needs your call comes before the field log; on a desktop it hea
     // From 1920px the rail has two columns and the card spans both.
     expect(wideCard && wideAside && Math.abs(wideCard.width - wideAside.width)).toBeLessThan(2);
 });
+
+test('under the log on a tablet the rail\'s two groups stand side by side, and beside it on a desktop they stack', async ({ page }) => {
+    await page.setViewportSize({ width: 1024, height: 768 });
+    await openDashboard(page, { status: owner });
+    await settled(page);
+    const now = page.locator('[data-dashboard-rail-now]');
+    const reference = page.locator('[data-dashboard-rail-reference]');
+    let nowBox = await now.boundingBox();
+    let referenceBox = await reference.boundingBox();
+    expect(nowBox && referenceBox && referenceBox.x >= nowBox.x + nowBox.width - 1).toBe(true);
+    expect(nowBox && referenceBox && Math.abs(referenceBox.y - nowBox.y)).toBeLessThan(2);
+    // Each group keeps a card's width rather than the whole page's.
+    expect(nowBox?.width ?? Infinity).toBeLessThan(600);
+
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await expect.poll(async () => {
+        const [a, b] = await Promise.all([now.boundingBox(), reference.boundingBox()]);
+        return Boolean(a && b && b.y >= a.y + a.height - 1);
+    }).toBe(true);
+    nowBox = await now.boundingBox();
+    referenceBox = await reference.boundingBox();
+    expect(nowBox && referenceBox && Math.abs(referenceBox.x - nowBox.x)).toBeLessThan(2);
+});

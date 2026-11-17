@@ -85,7 +85,7 @@
 
 <DiagnosticDialog
     title={$_('settings.ai.test_title', { default: 'AI model diagnostic' })}
-    subtitle={$_('settings.ai.test_subtitle', { default: 'Checking the same multi-frame vision format used for detection analysis.' })}
+    subtitle={$_('settings.ai.test_subtitle', { default: 'Checks the same multi-frame format the AI analysis of a record uses.' })}
     {stages}
     busy={running}
     result={diagnosticResult}

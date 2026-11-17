@@ -42,7 +42,7 @@ for (const font of ['system', 'wide fallback'] as const) {
         await expect(modal.locator('[data-counted-birds-state="not-counted"]')).toBeVisible();
         await modal.locator('[data-detection-more-actions]').click();
         await expect(modal.getByRole('button', { name: 'Diesen Besuch dauerhaft löschen' })).toHaveCount(1);
-        await expect(modal.getByRole('button', { name: /^(Erkennung ausblenden|Ausblenden)$/ })).toHaveCount(1);
+        await expect(modal.getByRole('button', { name: /^(Eintrag ausblenden|Ausblenden)$/ })).toHaveCount(1);
         const technical = modal.locator('[data-detection-technical-identity]');
         await technical.locator('summary').click();
         await expect(technical).toHaveAttribute('open', '');
@@ -196,11 +196,13 @@ test('the record is walked by keyboard in the order it is read', async ({ page }
     // One close button, in a strip nothing scrolls under.
     await expect(modal.locator('[data-dialog-close]')).toHaveCount(1);
 
-    // The long article is a few lines and a link, below every decision.
+    // The long article is a few lines and a link, after every decision: at this width in the side
+    // column beside them, read once the identification column is done.
     const referenceText = modal.locator('[data-detection-reference-text]');
     expect((await referenceText.boundingBox())!.height).toBeLessThan(90);
-    const confirmTop = (await modal.locator('[data-detection-confirm]').boundingBox())!.y;
-    expect(confirmTop).toBeLessThan((await referenceText.boundingBox())!.y);
+    await expect(modal.locator('[data-detection-secondary-column] [data-detection-reference-text]')).toHaveCount(1);
+    const confirmBox = (await modal.locator('[data-detection-confirm]').boundingBox())!;
+    expect((await referenceText.boundingBox())!.x).toBeGreaterThanOrEqual(confirmBox.x + confirmBox.width - 1);
 
     // More actions is a list drawn whole under its trigger at desktop width: every row is on screen
     // inside the list's own box and can be clicked. The scrolling column once squashed the list.
@@ -221,7 +223,7 @@ test('the record is walked by keyboard in the order it is read', async ({ page }
 
     // Walk every stop in the details column and record where each one is drawn.
     await modal.locator('[data-dialog-close]').focus();
-    const stops: { name: string; top: number; column: boolean }[] = [];
+    const stops: { name: string; top: number; column: boolean; secondary: boolean }[] = [];
     for (let step = 0; step < 60; step += 1) {
         await page.keyboard.press('Tab');
         const stop = await page.evaluate(() => {
@@ -229,11 +231,13 @@ test('the record is walked by keyboard in the order it is read', async ({ page }
             if (!active || active === document.body) return null;
             active.scrollIntoView({ block: 'nearest' });
             const column = active.closest('[data-detection-details-column]');
+            const part = active.closest('[data-detection-primary-column], [data-detection-secondary-column]');
             return {
                 name: (active.getAttribute('aria-label') ?? active.textContent ?? '').trim().slice(0, 60),
-                // Position inside the scrolling column, so scrolling does not disturb the order.
-                top: column ? active.getBoundingClientRect().top - column.getBoundingClientRect().top + column.scrollTop : -1,
-                column: column !== null
+                // Position inside its own column of the details, so scrolling does not disturb the order.
+                top: column && part ? active.getBoundingClientRect().top - part.getBoundingClientRect().top : -1,
+                column: column !== null,
+                secondary: part?.hasAttribute('data-detection-secondary-column') ?? false
             };
         });
         if (!stop) break;
@@ -242,11 +246,16 @@ test('the record is walked by keyboard in the order it is read', async ({ page }
     }
     const column = stops.filter(stop => stop.column);
     expect(column.length).toBeGreaterThan(4);
+    // The identification column is walked first, then the side column, each from top to bottom.
+    const firstSecondary = column.findIndex(stop => stop.secondary);
+    expect(firstSecondary).toBeGreaterThan(0);
+    expect(column.slice(firstSecondary).every(stop => stop.secondary)).toBe(true);
     for (let index = 1; index < column.length; index += 1) {
+        if (index === firstSecondary) continue;
         expect(column[index].top, `"${column[index].name}" follows "${column[index - 1].name}"`).toBeGreaterThanOrEqual(column[index - 1].top - 1);
     }
     // The identifiers are the last thing read and the last thing reached.
-    expect(column.at(-1)!.name).toContain('Detection ID');
+    expect(column.at(-1)!.name).toContain('Record ID');
 });
 
 for (const [language, noted] of [['de', true], ['en', false]] as const) {

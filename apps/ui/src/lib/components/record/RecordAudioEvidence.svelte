@@ -97,7 +97,7 @@
                     {#if failedSpectrogramUrl !== spectrogramUrl}
                         <img
                             src={spectrogramUrl}
-                            alt={$_('detection.audio_spectrogram_alt', { default: 'BirdNET-Go spectrogram for the matched audio detection' })}
+                            alt={$_('detection.audio_spectrogram_alt', { default: 'BirdNET-Go spectrogram of the matching call' })}
                             loading="lazy"
                             class="pointer-events-none absolute inset-0 block h-full w-full select-none object-fill"
                             onerror={() => { failedSpectrogramUrl = spectrogramUrl; }}
@@ -153,7 +153,7 @@
                     preload="metadata"
                     src={clipUrl}
                     class="hidden"
-                    aria-label={$_('detection.audio_clip_aria', { default: 'BirdNET-Go audio clip for the matched detection' })}
+                    aria-label={$_('detection.audio_clip_aria', { default: 'BirdNET-Go audio clip of the matching call' })}
                 ></audio>
             {/if}
             {#if entry}

@@ -64,7 +64,7 @@
             steps.push({ id: 'reachable', label: $_('settings.integrations.birdnet.stage_reachable', { default: 'BirdNET-Go reachable' }), run: () => checkBirdNetReachability(birdnetUrl.trim()) });
         }
         steps.push({ id: 'mqtt', label: $_('settings.integrations.birdnet.stage_mqtt', { default: 'MQTT broker publish' }), run: testMQTTPublish });
-        steps.push({ id: 'pipeline', label: $_('settings.integrations.birdnet.stage_pipeline', { default: 'Detection pipeline (mock detection)' }), run: testBirdNET });
+        steps.push({ id: 'pipeline', label: $_('settings.integrations.birdnet.stage_pipeline', { default: 'Receiving and storing a call' }), run: testBirdNET });
         // Each check stands alone: a missing URL never stops the MQTT or pipeline checks from running.
         bnResult = await runSequentialDiagnostic(steps, (stages) => (bnStages = stages), { independent: true });
         bnRunning = false;
@@ -382,7 +382,7 @@
 {#if bnTestOpen}
     <DiagnosticDialog
         title={$_('settings.integrations.birdnet.test_title', { default: 'BirdNET-Go connection test' })}
-        subtitle={$_('settings.integrations.birdnet.test_subtitle', { default: 'Confirms BirdNET-Go is reachable, the MQTT broker accepts a publish, and a mock detection flows through the pipeline.' })}
+        subtitle={$_('settings.integrations.birdnet.test_subtitle', { default: 'Confirms BirdNET-Go can be reached, the MQTT broker accepts a message, and a test call is received and stored.' })}
         stages={bnStages}
         busy={bnRunning}
         result={bnResult}

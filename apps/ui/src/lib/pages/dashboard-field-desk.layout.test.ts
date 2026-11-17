@@ -30,7 +30,7 @@ describe('dashboard field desk layout', () => {
         // From 1280px the grid places them: the card heads the rail, the log spans both of its rows.
         expect(dashboardSource).toContain('<div class="min-w-0 xl:col-start-2 xl:row-start-1" data-dashboard-needs-call>');
         expect(dashboardSource).toContain('<div class="min-w-0 xl:col-start-1 xl:row-span-2 xl:row-start-1" data-dashboard-field-log-column>');
-        expect(dashboardSource).toContain("xl:col-start-2 3xl:grid-cols-2 {needsCall.visible ? 'xl:row-start-2' : 'xl:row-start-1'}");
+        expect(dashboardSource).toContain("md:grid-cols-2 xl:col-start-2 xl:grid-cols-1 3xl:grid-cols-2 {needsCall.visible ? 'xl:row-start-2' : 'xl:row-start-1'}");
         expect(dashboardSource).toMatch(/\[data-dashboard-field-desk\] \{\s*grid-template-rows: auto 1fr;/);
     });
 

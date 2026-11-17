@@ -235,7 +235,7 @@
                         })}
                         {#if classifierStatus.active_model_estimated_ram_mb}
                             {$_('settings.detection.execution_mode_worker_ram', {
-                                default: 'The active model is estimated at {each} MB per copy, about {total} MB across the workers.',
+                                default: 'The active model is estimated at {each} MB per copy, about {total} MB across the workers.',
                                 values: {
                                     each: classifierStatus.active_model_estimated_ram_mb,
                                     total:
@@ -253,7 +253,7 @@
                 <SettingsRow
                     labelId="setting-worker-counts"
                     label={$_('settings.detection.worker_counts', { default: 'Worker processes' })}
-                    description={$_('settings.detection.worker_counts_desc', { default: 'Each worker holds its own copy of the model. Leave empty for the default of one. Applied the next time the classifier workers restart.' })}
+                    description={$_('settings.detection.worker_counts_desc', { default: 'Each worker holds its own copy of the model. Leave empty for the default of one. Applied the next time the workers restart.' })}
                     layout="stacked"
                 >
                     <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">

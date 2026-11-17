@@ -172,7 +172,8 @@
       "no_results": "L'analisi video non ha prodotto risultati.",
       "event_missing": "Evento non trovato in Frigate.",
       "unknown": "Analisi video fallita. Usata analisi snapshot.",
-      "clip_not_retained": "Il clip non è più conservato in Frigate (fuori dalla finestra di conservazione)."
+      "clip_not_retained": "Il clip non è più conservato in Frigate (fuori dalla finestra di conservazione).",
+      "event_missing_media_cached": "Frigate non ha più questo evento, ma YA-WAMF ne conserva ancora i media."
     },
     "error_details": {
       "why": "Perché può accadere",
@@ -202,7 +203,9 @@
         "unknown_1": "Si è verificato un errore imprevisto nel recupero dei media o nell'elaborazione video.",
         "unknown_2": "Lo stato dell'evento è cambiato mentre l'analisi era in corso.",
         "video_timeout_large_clip": "L'elaborazione del clip ha richiesto più tempo del timeout configurato.",
-        "video_timeout_resource": "Le risorse GPU/CPU erano sature durante l'inferenza."
+        "video_timeout_resource": "Le risorse GPU/CPU erano sature durante l'inferenza.",
+        "event_missing_media_cached": "YA-WAMF aveva già salvato i media di questa acquisizione, quindi si possono ancora riprodurre anche se Frigate non ha più l’evento.",
+        "event_missing_media_cached_retention": "Frigate potrebbe aver rimosso l’evento allo scadere della conservazione, mentre YA-WAMF ha tenuto l’istantanea o il clip della visita completa."
       },
       "checks_items": {
         "api_health": "Verificare l'endpoint di salute dell'API Frigate e la configurazione di autenticazione.",
@@ -222,7 +225,9 @@
         "retention_settings": "Rivedere le impostazioni di conservazione di Frigate e lo stato dello storage.",
         "retry_manual": "Riprovare la riclassificazione manuale dopo la stabilizzazione del servizio.",
         "retry_snapshot": "Riprovare la riclassificazione manuale di snapshot o video in seguito.",
-        "video_timeout_setting": "Aumentare il timeout dell'analisi video o ridurre i frame campionati."
+        "video_timeout_setting": "Aumentare il timeout dell'analisi video o ridurre i frame campionati.",
+        "use_cached_media": "Usa l’istantanea o il clip che YA-WAMF possiede. Se viene riprodotto, non c’è nulla da fare.",
+        "frigate_retention_if_unexpected": "Se è successo prima del previsto, controlla per quanto tempo Frigate conserva gli eventi."
       }
     },
     "fallback_title": "Risultato da snapshot",
@@ -303,7 +308,7 @@
     "analyzing": "Analisi comportamento…",
     "regenerating": "Rigenerazione…",
     "regenerate": "Rigenera analisi",
-    "error": "Errore: {message}",
+    "error": "L’IA non ha restituito alcuna analisi. Controlla provider e chiave in Impostazioni, poi riprova.",
     "conversation_title": "Conversazione",
     "conversation_loading": "Caricamento conversazione…",
     "conversation_empty": "Nessuna conversazione ancora. Fai una domanda di approfondimento all'IA.",
@@ -461,7 +466,7 @@
     "queued_behind": "In attesa di esaminare tutto il fotogramma. {count, plural, one {# ricerca prima.} other {# ricerche prima.}}",
     "progress_label": "Avanzamento della ricerca",
     "progress_waiting": "In attesa di iniziare",
-    "elapsed": "{seconds} s",
+    "elapsed": "{seconds} s",
     "action_waiting": "In attesa…",
     "action_scanning": "Ricerca…",
     "incomplete": "{count, plural, =0 {Nessun uccello confermato in questa immagine.} one {Almeno un uccello confermato in questa immagine.} other {Almeno # uccelli confermati in questa immagine.}} {regions, plural, one {Un altro possibile uccello non è stato contato.} other {Altri # possibili uccelli non sono stati contati.}}",
@@ -503,7 +508,7 @@
   },
   "identified_by_owner": "Identificato dal proprietario",
   "moved_to_garden": "Spostato in Giardino. La scheda dell'uccello è nascosta; mostrala di nuovo da Nascoste per ripristinarla.",
-  "move_to_garden_failed": "Impossibile spostare questa scheda in Giardino: {message}",
+  "move_to_garden_failed": "Impossibile spostare questo record in Giardino. Riprova; se continua a non riuscire, apri Stato.",
   "domestic_bird_declared": "È un uccello di tipo {bird}, un uccello domestico che allevi. Spostalo in Giardino per registrarlo come animale del giardino. Questa scheda viene nascosta, non eliminata.",
   "move_to_garden": "Sposta in Giardino",
   "range_fallback": "Filtro di areale: il modello aveva detto prima {original} ({score}%), mai registrato da eBird in {region}, quindi è stata tenuta la sua risposta successiva nell'areale.",

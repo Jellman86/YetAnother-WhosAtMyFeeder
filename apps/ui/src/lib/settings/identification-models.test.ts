@@ -160,13 +160,13 @@ describe('modelFactsLine', () => {
 
     it('states coverage, download and memory in sentence case, with one rounded size', () => {
         expect(modelFactsLine(model({ file_size_mb: 102.8, estimated_ram_mb: 1100 }), { installed: false }, translate)).toBe(
-            'Birds and other wildlife · 103 MB download · about 1.1 GB memory'
+            'Birds and other wildlife · 103 MB download · about 1.1 GB memory'
         );
     });
 
     it('says the model is already here instead of quoting a download', () => {
         expect(modelFactsLine(model({ taxonomy_scope: 'birds_only', estimated_ram_mb: 64 }), { installed: true }, translate)).toBe(
-            'Birds only · on this install · about 64 MB memory'
+            'Birds only · on this install · about 64 MB memory'
         );
     });
 

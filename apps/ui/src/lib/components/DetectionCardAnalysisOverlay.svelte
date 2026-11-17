@@ -42,7 +42,7 @@
             ? $_('detection.card_analysis.finalizing', { default: 'Finalizing result' })
             : hasFallenBackToSnapshot
                 ? $_('detection.reclassification.snapshot_fallback_title', { default: 'Classifying from snapshot' })
-                : $_('detection.card_analysis.title', { default: 'Analyzing detection' })
+                : $_('detection.card_analysis.title', { default: 'Analysing this capture' })
     );
     let statusSubtitle = $derived(
         isComplete

@@ -218,7 +218,7 @@ test('automatic naming is on at 0.80 by default and both choices save with the p
 
     await naming.click();
     await expect(threshold).toHaveCount(0);
-    await expect(page.locator('[data-naming-garden]').getByText('Every animal waits in Needs review for you to confirm and name it.')).toBeVisible();
+    await expect(page.locator('[data-naming-garden]').getByText('Every animal waits in Needs your call for you to confirm and name it.')).toBeVisible();
     await page.getByRole('button', { name: 'Save changes', exact: true }).click();
     await expect.poll(() => writes.length).toBe(2);
     expect(writes[1]).toMatchObject({ garden_automatic_naming: false });
@@ -382,7 +382,7 @@ test('the view explains each capture outcome and links daily review to the Explo
     await openBeta(page);
     await openSection(page, 'Where captures go');
     const outcomes = page.locator('[data-garden-outcomes]');
-    await expect(outcomes.getByRole('term')).toHaveText(['Needs review', 'Confirmed animals', 'Dismissed']);
+    await expect(outcomes.getByRole('term')).toHaveText(['Needs your call', 'Confirmed animals', 'Dismissed']);
     // The naming threshold is the floor for what Garden shows: below it, a photo is dismissed.
     await expect(outcomes.getByRole('definition').first()).not.toContainText('below the naming threshold');
     await expect(outcomes).toContainText('photos whose species score is below the naming threshold');

@@ -170,8 +170,8 @@
         { grouped: false, short: $_('events.filters.show_captures_short', { default: 'Captures' }), hint: $_('events.filters.show_captures_hint', { default: 'Every capture on its own.' }) }
     ]);
     const reviewOptions = $derived<{ value: GardenReview; label: string }[]>([
-        { value: 'reviewable', label: $_('garden.explorer.review_animals', { default: 'Animals and waiting for review' }) },
-        { value: 'pending', label: $_('garden.pending', { default: 'Needs review' }) },
+        { value: 'reviewable', label: $_('garden.explorer.review_animals', { default: 'Animals and Needs your call' }) },
+        { value: 'pending', label: $_('garden.pending', { default: 'Needs your call' }) },
         { value: 'confirmed', label: $_('garden.confirmed', { default: 'Confirmed animals' }) },
         { value: 'dismissed', label: $_('garden.dismissed', { default: 'Dismissed' }) }
     ]);
@@ -367,7 +367,7 @@
                 </div>
                 {#if gardenOnly && gardenReviewAvailable}
                     <div class="min-w-0 shrink-0" role="group" aria-labelledby="explorer-garden-review-heading" data-explorer-garden-review-facet>
-                        <p id="explorer-garden-review-heading" class="eyebrow">{$_('garden.explorer.review_heading', { default: 'Review' })}</p>
+                        <p id="explorer-garden-review-heading" class="eyebrow">{$_('garden.explorer.review_heading', { default: 'Garden status' })}</p>
                         <div class="mt-2 space-y-0.5">
                             {#each reviewOptions as option (option.value)}
                                 {@const chosen = gardenReview === option.value}

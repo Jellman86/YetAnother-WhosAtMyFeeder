@@ -190,7 +190,7 @@
 
                         <div class="min-w-0 {cell.body}">
                             <p class="truncate text-sm font-semibold italic text-ink">
-                                {drop.label ?? $_('common.unknown_species', { default: 'Unknown species' })}
+                                {drop.label ?? $_('common.unknown_species', { default: 'Species not named' })}
                             </p>
                             <p class="truncate text-2xs font-medium text-muted">
                                 {$_(`jobs.errors_drop_reason_row.${drop.reason}`, {

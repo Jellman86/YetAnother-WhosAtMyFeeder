@@ -365,7 +365,8 @@ day bar: eyebrow, the window as the page heading (the page's only h1), live indi
 from 1920px the rail splits into those two columns, under the card that spans both:
 [ primary log, 1.4fr ]  [ Needs your call, across both          ]
                         [ happening, 1fr ]  [ reference, 1fr ]
-on a phone, one column: the day bar, Needs your call, the log, then the rail
+on a phone, one column: the day bar, Needs your call, the log, then the rail; from 768px to 1279px
+the rail under the log stands in its two columns (happening, reference) instead of full-width cards
 ```
 
 The rail is ordered by urgency, not by data source: what needs you, then what is running, then
@@ -397,7 +398,15 @@ slim bar: subject, camera, time, close
 [ media, 1.1fr ]               [ decision rail, 1fr ]
   photograph                     identification, stated once
   frame strip                    confirm / pick a different species / score again
-                                 supporting analysis, facts, then Details
+                                 supporting analysis, facts, then the reference and Details
+from 1280px the record widens; where it is at least 72 rem wide (1280px at the usual text size, not at
+double text) the reference gets a column of its own:
+[ media, 2/5 ]   [ identification, actions, facts, 3/10 ]   [ lineage, reference, AI, Details, 3/10 ]
+on a phone, one column: the photograph with its star and play buttons on its lower edge (no band
+under it), then the identification and its actions, then the finder and the visit's frames; held
+sideways (a short screen below 1024px) the photograph and the identification stand side by side, so
+the identification is on the first screen. From 1024px the record is side by side at any height, and
+the photograph keeps its shape at the top of its column
 ```
 
 The rail's "Identified as" heading names the bird once and titles the dialog. The photograph does
@@ -616,6 +625,13 @@ and latest visit; an older response cannot restore withdrawn media. The install 
 off with update checks, and absent rather than zero when unknown.
 
 ---
+
+### Health
+
+The System card (the verdict, the host's chart and the resource table) keeps the page's full width
+in every band. From 1280px what happened (`HealthActivityTimeline`) takes the main column and the
+history (earlier incidents, backend warnings and errors) and the diagnostics export stand in a side
+column beside it; below that they follow it, the two history lists side by side from 1024px.
 
 ## 3. Components and where they belong
 

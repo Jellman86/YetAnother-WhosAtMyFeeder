@@ -302,7 +302,7 @@
   "global_queue_only_headline": "{title}: {state}",
   "queue_updated_age": "Warteschlange vor {age} gelesen",
   "state_paused": "Pausiert",
-  "backfill_nothing_to_check": "In diesem Zeitraum gibt es nichts zu prüfen",
+  "backfill_nothing_to_check": "In diesem Zeitraum liegt nichts vor",
   "backfill_reason_nothing_in_range": "Frigate hat in diesem Zeitraum nichts.",
   "backfill_reason_weather_unavailable": "Das Wetterarchiv hat für diesen Zeitraum keine Daten.",
   "backfill_server_note": "Der Server ergänzte: „{message}“",

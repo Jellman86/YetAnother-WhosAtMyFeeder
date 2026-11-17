@@ -172,7 +172,8 @@
       "no_results": "Análise de vídeo não retornou resultados.",
       "event_missing": "Evento não encontrado no Frigate.",
       "unknown": "Análise de vídeo falhou. Usando análise de snapshot.",
-      "clip_not_retained": "O clipe não está mais retido no Frigate (fora da janela de retenção)."
+      "clip_not_retained": "O clipe não está mais retido no Frigate (fora da janela de retenção).",
+      "event_missing_media_cached": "O Frigate já não tem este evento, mas o YA-WAMF ainda tem a mídia."
     },
     "error_details": {
       "why": "Por que isso pode acontecer",
@@ -202,7 +203,9 @@
         "unknown_1": "Ocorreu um erro inesperado na recuperação de mídia ou no processamento de vídeo.",
         "unknown_2": "O estado do evento mudou durante a análise.",
         "video_timeout_large_clip": "O processamento do clipe demorou mais do que o timeout configurado.",
-        "video_timeout_resource": "Os recursos de GPU/CPU estavam saturados durante a inferência."
+        "video_timeout_resource": "Os recursos de GPU/CPU estavam saturados durante a inferência.",
+        "event_missing_media_cached": "O YA-WAMF já tinha guardado a mídia desta captura, por isso ainda pode ser reproduzida embora o Frigate já não tenha o evento.",
+        "event_missing_media_cached_retention": "O Frigate pode ter removido o evento quando a retenção terminou, enquanto o YA-WAMF manteve o instantâneo ou o clipe da visita completa."
       },
       "checks_items": {
         "api_health": "Verificar o endpoint de saúde da API do Frigate e a configuração de autenticação.",
@@ -222,7 +225,9 @@
         "retention_settings": "Revisar as configurações de retenção do Frigate e a integridade do armazenamento.",
         "retry_manual": "Tentar reclassificação manual novamente após a estabilização do serviço.",
         "retry_snapshot": "Tentar reclassificação manual de snapshot ou vídeo mais tarde.",
-        "video_timeout_setting": "Aumentar o timeout de análise de vídeo ou reduzir os frames amostrados."
+        "video_timeout_setting": "Aumentar o timeout de análise de vídeo ou reduzir os frames amostrados.",
+        "use_cached_media": "Use o instantâneo ou o clipe que o YA-WAMF tem. Se for reproduzido, não é preciso fazer nada.",
+        "frigate_retention_if_unexpected": "Se aconteceu mais cedo do que esperava, verifique por quanto tempo o Frigate guarda os eventos."
       }
     },
     "fallback_title": "Resultado a partir de captura",
@@ -303,7 +308,7 @@
     "analyzing": "Analisando comportamento…",
     "regenerating": "Regenerando…",
     "regenerate": "Regenerar análise",
-    "error": "Erro: {message}",
+    "error": "A IA não devolveu nenhuma análise. Verifique o provedor e a chave em Configurações e tente novamente.",
     "conversation_title": "Conversa",
     "conversation_loading": "Carregando conversa…",
     "conversation_empty": "Ainda não há conversa. Faça uma pergunta de acompanhamento para a IA.",
@@ -461,7 +466,7 @@
     "queued_behind": "Aguardando para examinar todo o quadro. {count, plural, one {# busca antes.} other {# buscas antes.}}",
     "progress_label": "Progresso da busca",
     "progress_waiting": "Aguardando para começar",
-    "elapsed": "{seconds} s",
+    "elapsed": "{seconds} s",
     "action_waiting": "Aguardando…",
     "action_scanning": "Buscando…",
     "incomplete": "{count, plural, =0 {Nenhuma ave confirmada nesta imagem.} one {Pelo menos uma ave confirmada nesta imagem.} other {Pelo menos # aves confirmadas nesta imagem.}} {regions, plural, one {Outra possível ave não foi contada.} other {Outras # possíveis aves não foram contadas.}}",
@@ -503,7 +508,7 @@
   },
   "identified_by_owner": "Identificado pelo proprietário",
   "moved_to_garden": "Movida para o Jardim. O registro de ave está oculto; mostre-o novamente em Ocultas para restaurá-lo.",
-  "move_to_garden_failed": "Não foi possível mover este registro para o Jardim: {message}",
+  "move_to_garden_failed": "Não foi possível mover este registro para Jardim. Tente novamente; se continuar falhando, abra Saúde.",
   "domestic_bird_declared": "Esta é uma ave do tipo {bird}, uma ave doméstica que você cria. Mova-a para o Jardim para registrá-la como animal do jardim. Este registro de ave é ocultado, não excluído.",
   "move_to_garden": "Mover para o Jardim",
   "range_fallback": "Filtro de área: o modelo disse primeiro {original} ({score}%), que o eBird nunca registou em {region}, por isso manteve-se a resposta seguinte dentro da área.",

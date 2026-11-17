@@ -192,7 +192,8 @@ describe('Settings reads operational data only for the section that shows it', (
 describe('a reading whose length is only known once it lands moves nothing beneath it', () => {
     it('shows the Health page beneath the verdict once the verdict has its first reading', () => {
         expect(errorsSource).toContain("<SystemHealthPanel statusRead={readState !== 'reading'}>");
-        expect(errorsSource).toMatch(/\{#if readState !== 'reading'\}\n    <Panel\n[^>]*data-health-timeline/);
+        // The timeline, and the side column beside it, wait for the reading together.
+        expect(errorsSource).toMatch(/\{#if readState !== 'reading'\}\n(?:\s*<!--[\s\S]*?-->\n)?\s*<div class="grid[^"]*">\n\s*<div[^>]*data-health-main>\n\s*<Panel\n[^>]*data-health-timeline/);
         expect(systemHealthPanelSource).toContain('{#if !statusRead}');
         expect(systemHealthPanelSource).toContain('{#if details && statusRead}');
     });

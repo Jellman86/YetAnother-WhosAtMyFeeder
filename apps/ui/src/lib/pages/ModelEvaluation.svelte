@@ -640,9 +640,9 @@
                 <h2 id="model-eval-start-title" class="font-display text-lg font-semibold text-strong">
                     {$_('model_eval.start.title', { default: 'Start an evaluation' })}
                 </h2>
-                <p class="mt-2 max-w-3xl text-sm leading-relaxed text-muted">{$_('model_eval.start.what')}</p>
+                <p class="mt-2 max-w-prose text-sm leading-relaxed text-muted">{$_('model_eval.start.what')}</p>
 
-                <div class="mt-2 max-w-3xl">
+                <div class="mt-2 max-w-prose">
                     {@render disclosure($_('model_eval.how.title', { default: 'How this works' }), howOpen, 'model-eval-how', () => (howOpen = !howOpen))}
                     {#if howOpen}
                         <div id="model-eval-how" class="space-y-3 pb-2 text-sm leading-relaxed text-muted">
@@ -665,7 +665,7 @@
                     {/if}
                 </div>
 
-                <div class="max-w-3xl">
+                <div class="max-w-prose">
                     {@render disclosure(
                         optionsOpen
                             ? $_('model_eval.start.options_hide', { default: 'Hide evaluation options' })
@@ -802,7 +802,7 @@
             {#if pane === 'loading'}
                 {@render placeholder($_('model_eval.results.loading_list', { default: 'Reading the past evaluations' }))}
             {:else if pane === 'empty'}
-                <p class="max-w-3xl text-sm text-muted" data-model-eval-empty>
+                <p class="max-w-prose text-sm text-muted" data-model-eval-empty>
                     {$_('model_eval.results.empty', { default: 'No evaluation has been run yet. Start one above and its results appear here.' })}
                 </p>
             {:else if pane !== 'failed'}
@@ -852,7 +852,7 @@
                     {#if stopped}
                         <div class="flex items-baseline gap-2 text-sm text-muted" data-model-eval-stopped>
                             <span class="inline-block h-1.5 w-1.5 shrink-0 -translate-y-0.5 rounded-full {TONE_DOT.attention}" aria-hidden="true"></span>
-                            <p class="min-w-0 max-w-3xl"><span class="font-semibold text-strong">{$_('model_eval.results.stopped_early')}</span> {$_(`model_eval.stopped.${stopped}`)}</p>
+                            <p class="min-w-0 max-w-prose"><span class="font-semibold text-strong">{$_('model_eval.results.stopped_early')}</span> {$_(`model_eval.stopped.${stopped}`)}</p>
                         </div>
                     {/if}
 
@@ -861,7 +861,7 @@
                             <h3 class="text-sm font-semibold text-strong">
                                 {$_('model_eval.compat_only_title', { default: 'Provider check only' })}
                             </h3>
-                            <p class="mt-1 max-w-3xl text-sm text-muted">
+                            <p class="mt-1 max-w-prose text-sm text-muted">
                                 {$_('model_eval.compat_only_body')}
                             </p>
                         </div>
@@ -870,7 +870,7 @@
                     {#if resultsTable}
                         {@render modelTable(resultsTable, 'model-eval-results-title')}
                         {#if !compatibilityOnly}
-                            <p class="max-w-3xl text-sm text-muted">
+                            <p class="max-w-prose text-sm text-muted">
                                 {#if selectedRun.models?.some((model) => model.vocabulary_known)}{$_('model_eval.results.vocabulary_note')}{' '}{/if}{$_('model_eval.results.columns_hint')}
                             </p>
                         {/if}
@@ -939,7 +939,7 @@
             <h2 id="model-eval-checks-title" class="font-display text-lg font-semibold text-strong">
                 {$_('model_eval.checks.title', { default: 'Provider checks' })}
             </h2>
-            <p class="mt-2 max-w-3xl text-sm leading-relaxed text-muted">{$_('model_eval.checks.body')}</p>
+            <p class="mt-2 max-w-prose text-sm leading-relaxed text-muted">{$_('model_eval.checks.body')}</p>
             <div class="mt-4">{@render modelTable(checksTable, 'model-eval-checks-title')}</div>
         </section>
     {/if}

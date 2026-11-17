@@ -115,7 +115,12 @@ describe('detection surface polish', () => {
     it('keeps media controls and snapshot choices in one ordered footer flow', () => {
         const footerStart = detectionModalSource.indexOf('data-detection-media-footer');
         const actionStart = detectionModalSource.indexOf('data-detection-media-actions', footerStart);
-        const pickerStart = detectionModalSource.indexOf('data-detection-inline-frame-picker', footerStart);
+        // The frames and the finder are one snippet, drawn in the footer after the media controls on a
+        // side-by-side layout, and after the identification when the record stacks.
+        const pickerStart = detectionModalSource.indexOf('{#if !recordStacked}{@render visitStrip()}{/if}', footerStart);
+        const strip = detectionModalSource.slice(detectionModalSource.indexOf('{#snippet visitStrip()}'), detectionModalSource.indexOf('{/snippet}', detectionModalSource.indexOf('{#snippet visitStrip()}')));
+        expect(strip).toContain('data-detection-inline-frame-picker');
+        expect(strip).toContain('<BirdScanControl');
 
         expect(footerStart).toBeGreaterThan(-1);
         expect(actionStart).toBeGreaterThan(footerStart);
@@ -262,4 +267,27 @@ describe('detection surface polish', () => {
         expect(row).not.toContain('aria-label');
         expect(row).toContain("{$_('actions.delete_detection')}");
     });
+
+    it('uses the width it is given: a side column from 1280px, no band under a phone photograph, side by side when held sideways', () => {
+        // The identification and the reference are two columns from 1280px, identification first in reading order.
+        const primary = detectionModalSource.indexOf('data-detection-primary-column');
+        const secondary = detectionModalSource.indexOf('data-detection-secondary-column');
+        expect(primary).toBeGreaterThan(detectionModalSource.indexOf('data-detection-details-column'));
+        expect(secondary).toBeGreaterThan(primary);
+        expect(detectionModalSource.indexOf('<TaxonomyLineage')).toBeGreaterThan(secondary);
+        expect(detectionModalSource.indexOf('data-detection-identity')).toBeLessThan(secondary);
+        expect(detectionModalSource).toContain('xl:col-span-3 @6xl:grid @6xl:grid-cols-2 @6xl:items-start');
+        expect(detectionModalSource).toContain('<div class="flex-1 overflow-y-auto flex flex-col @container lg:overflow-hidden');
+        expect(detectionModalSource).toContain('sm:rounded-2xl xl:max-w-7xl');
+        // On a phone the star and play buttons sit on the photograph's lower edge.
+        expect(detectionModalSource).toContain('max-sm:absolute max-sm:inset-x-4 max-sm:bottom-full max-sm:z-30 max-sm:mb-3" data-detection-media-actions');
+        // Held sideways, photograph and identification stand side by side.
+        expect(detectionModalSource).toContain('sm:max-lg:short:grid sm:max-lg:short:grid-cols-2 sm:max-lg:short:overflow-hidden');
+        // Only below 1024px: from there the record is already side by side, and from 1280px in five columns.
+        expect(detectionModalSource).not.toMatch(/(?<!max-lg:)\bsm:short:/);
+        // Stacked, the frames and the finder follow the identification; the button row lets taps through.
+        expect(detectionModalSource.indexOf('data-detection-stacked-strip')).toBeGreaterThan(detectionModalSource.indexOf('data-detection-identity'));
+        expect(detectionModalSource).toContain('max-sm:pointer-events-none max-sm:absolute');
+    });
 });
+

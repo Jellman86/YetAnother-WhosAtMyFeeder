@@ -36,7 +36,7 @@ describe('one sentence of what names birds right now', () => {
 
     it('never calls a planned device one that has run', () => {
         expect(statusLineSource).toContain("settings.models.status_planned'");
-        expect(statusLineSource).toContain('It loads with the first detection.');
+        expect(statusLineSource).toContain('It loads with the first visit.');
     });
 
     it('points to the runtime report only when there is something in it to check', () => {

@@ -31,7 +31,6 @@
   "dismiss_suggestion": "忽略建议",
   "group_only": "仅确定动物类群，物种尚未确定。",
   "identification_confirmed": "你已确认此识别结果",
-  "identification_needs_review": "建议的识别结果 · 需要审核",
   "identification_unknown": "没有可靠的识别结果。可以保留为未识别，或请求新的建议。",
   "model": "庭院模型",
   "model_crop": "SpeciesNet 4.0.3a · 跟踪对象裁剪",

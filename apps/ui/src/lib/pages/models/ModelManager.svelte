@@ -1058,7 +1058,7 @@
                                                 : $_('settings.detection.bird_finder_standard_desc', { default: 'Small and quick. Misses many birds that are small in a wide frame.' })}
                                         </span>
                                         <span class="block text-xs text-slate-600 dark:text-slate-400" data-finder-option-meta>
-                                            {t('settings.detection.model_manager_card_download', '{size} MB download', { size: Math.round(option.model.file_size_mb) })}{#if option.model.estimated_ram_mb != null}{' · '}{t('settings.detection.bird_finder_ram', '{ram} RAM', { ram: ramShortLabel(option.model.estimated_ram_mb) })}{/if}{#if !optionInstalled}{' · '}{t('settings.detection.bird_finder_not_downloaded', 'not downloaded yet')}{/if}
+                                            {t('settings.detection.model_manager_card_download', '{size} MB download', { size: Math.round(option.model.file_size_mb) })}{#if option.model.estimated_ram_mb != null}{' · '}{t('settings.detection.bird_finder_ram', '{ram} RAM', { ram: ramShortLabel(option.model.estimated_ram_mb) })}{/if}{#if !optionInstalled}{' · '}{t('settings.detection.bird_finder_not_downloaded', 'not downloaded yet')}{/if}
                                         </span>
                                     </span>
                                 </label>

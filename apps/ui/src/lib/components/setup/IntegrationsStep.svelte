@@ -75,7 +75,7 @@
         });
         steps.push({
             id: 'pipeline',
-            label: $_('settings.integrations.birdnet.stage_pipeline', { default: 'Detection ingest and storage' }),
+            label: $_('settings.integrations.birdnet.stage_pipeline', { default: 'Receiving and storing a call' }),
             run: testBirdNET
         });
         try {

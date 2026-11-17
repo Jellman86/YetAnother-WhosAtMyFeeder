@@ -59,7 +59,7 @@ describe('Garden captures in the Explorer', () => {
         expect(rowSource).toContain('bg-status-attention-soft');
         expect(rowSource).toContain('attention-dot');
         for (const source of [rowSource, cardSource, modalSource]) expect(source).not.toMatch(/accent-\d/);
-        expect(en.garden.explorer.state_presence).toMatch(/Needs review/);
+        expect(en.garden.explorer.state_presence).toMatch(/Needs your call/);
     });
 
     it('keeps bird-only actions out of the Garden record and states what each decision does', () => {

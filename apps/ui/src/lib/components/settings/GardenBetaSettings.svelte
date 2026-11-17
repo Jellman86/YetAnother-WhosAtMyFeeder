@@ -140,7 +140,7 @@
         </p>
         <p>{$_('settings.beta.garden_off_effects', { default: 'While it is off, Garden is hidden in the Explorer, its alerts stop, and birds you keep are recorded as wild birds. History retention still applies to saved captures.' })}</p>
         <p class="text-xs" data-garden-beta-requirements>
-            {$_('settings.beta.garden_requirements', { default: 'Needs Frigate cameras that track animals or keep motion recordings. Garden downloads its own models only when you ask: 224 MB for automatic checks, plus optional 224 MB and 101 MB models. Your bird model is not changed.' })}
+            {$_('settings.beta.garden_requirements', { default: 'Needs Frigate cameras that track animals or keep motion recordings. Garden downloads its own models only when you ask: 224 MB for automatic checks, plus optional 224 MB and 101 MB models. Your bird model is not changed.' })}
         </p>
     </div>
 {/snippet}

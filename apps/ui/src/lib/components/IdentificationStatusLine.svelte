@@ -54,11 +54,11 @@
             case 'loading':
                 return $_('settings.models.status_loading', { default: '{model} is loading. Nothing is naming birds until it has loaded.', values: { model } });
             case 'unknown':
-                return $_('settings.models.status_unknown', { default: 'The classifier did not say whether {model} is naming birds.', values: { model } });
+                return $_('settings.models.status_unknown', { default: 'YA-WAMF could not tell whether {model} is naming birds.', values: { model } });
             case 'planned':
                 return status.device
-                    ? $_('settings.models.status_planned', { default: '{model} will name birds on {device}. It loads with the first detection.', values: { model, device: status.device } })
-                    : $_('settings.models.status_planned_no_device', { default: '{model} will name birds. It loads with the first detection.', values: { model } });
+                    ? $_('settings.models.status_planned', { default: '{model} will name birds on {device}. It loads with the first visit.', values: { model, device: status.device } })
+                    : $_('settings.models.status_planned_no_device', { default: '{model} will name birds. It loads with the first visit.', values: { model } });
             case 'running': {
                 if (status.fallback === 'workers') {
                     return $_('settings.models.status_fallback_workers', { default: 'Naming birds with {model} inside the app, because the isolated workers keep stopping.', values: { model } });

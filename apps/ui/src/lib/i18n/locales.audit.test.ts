@@ -223,7 +223,6 @@ const MUST_BE_LOCALIZED = [
     'settings.integrations.birdnet.add_detected_source_label',
     'settings.integrations.birdnet.source_token_list_label',
     'settings.integrations.birdnet.source_token_remove',
-    'settings.notifications.enable_notify_hint',
     'settings.notifications.delay_until_video_desc',
     'settings.notifications.video_fallback_timeout',
     'settings.notifications.video_fallback_timeout_desc',

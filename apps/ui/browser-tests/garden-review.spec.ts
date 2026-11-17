@@ -132,7 +132,7 @@ test('automatic rejections explain the result and can return to review without a
     await openFirst(page);
     await expect(record(page).locator('[data-garden-automatic-check]')).toContainText('Blank scene or vehicle suggested.');
     await fitsNarrowScreen(page);
-    await record(page).getByRole('button', { name: 'Return to review' }).click();
+    await record(page).getByRole('button', { name: 'Return to Needs your call' }).click();
     await expect(record(page)).toHaveCount(0);
     await wideAgain(page);
     await chooseReview(page, 'pending');
@@ -237,18 +237,18 @@ for (const sourceKind of ['motion', 'frigate_event']) {
             });
             await openReview(page, 'dismissed');
             await openFirst(page);
-            const restore = record(page).getByRole('button', { name: 'Return to review' });
+            const restore = record(page).getByRole('button', { name: 'Return to Needs your call' });
             if (photoAvailable) {
                 await expect(restore).toBeEnabled();
                 await restore.click();
-                await expect(toasts(page)).toContainText('Photo returned to review.');
+                await expect(toasts(page)).toContainText('Photo returned to Needs your call.');
                 await chooseReview(page, 'pending');
                 await openFirst(page);
                 await expect(record(page).getByText(sourceKind === 'motion' ? 'Candidate from retained motion footage' : 'Frigate suggested: cat')).toBeVisible();
                 expect(writes).toBe(1);
             } else {
                 await expect(restore).toBeDisabled();
-                await expect(record(page).getByText('Photo unavailable. It cannot return to review.')).toBeVisible();
+                await expect(record(page).getByText('Photo unavailable. It cannot return to Needs your call.')).toBeVisible();
                 expect(writes).toBe(0);
             }
             await fitsNarrowScreen(page);
@@ -270,10 +270,10 @@ test('owner can dismiss a false capture, restore it and review at narrow widths'
     await expect(record(page).getByRole('button', { name: 'Confirm animal manually' })).toBeDisabled();
     await record(page).getByRole('button', { name: 'Dismiss capture' }).click();
     await expect(record(page)).toHaveCount(0);
-    await expect(page.getByText('No Garden captures need review')).toBeVisible();
+    await expect(page.getByText('No Garden captures need your call')).toBeVisible();
     await chooseReview(page, 'dismissed');
     await openFirst(page);
-    await record(page).getByRole('button', { name: 'Return to review' }).click();
+    await record(page).getByRole('button', { name: 'Return to Needs your call' }).click();
     await chooseReview(page, 'pending');
     await openFirst(page);
     await expect(record(page).getByText('Frigate suggested: cat')).toBeVisible();
@@ -292,7 +292,7 @@ test('owner confirms presence only after the photo loads', async ({ page }) => {
     await expect(record(page).getByRole('button', { name: 'Confirm animal manually' })).toBeEnabled();
     await record(page).getByRole('button', { name: 'Confirm animal manually' }).click();
     await expect(record(page)).toHaveCount(0);
-    await expect(page.getByText('No Garden captures need review')).toBeVisible();
+    await expect(page.getByText('No Garden captures need your call')).toBeVisible();
     await chooseReview(page, 'confirmed');
     await openFirst(page);
     await expect(record(page).getByText('Frigate suggested: cat')).toBeVisible();
@@ -310,10 +310,10 @@ test('a failed read is visible and Try again recovers', async ({ page }) => {
     const retry = alert.getByRole('button', { name: 'Try again', exact: true });
     await expect(retry).toBeVisible();
     // A failed read is never an empty review queue.
-    await expect(page.getByText('No Garden captures need review')).toHaveCount(0);
+    await expect(page.getByText('No Garden captures need your call')).toHaveCount(0);
     failed = false;
     await retry.click();
-    await expect(page.getByText('No Garden captures need review')).toBeVisible();
+    await expect(page.getByText('No Garden captures need your call')).toBeVisible();
 });
 
 for (const outcome of ['species', 'group', 'unknown'] as const) {
@@ -542,7 +542,7 @@ for (const concurrentReview of [false, true]) {
                 await expect(toasts(page)).toContainText('1 photo was unchanged');
             }
             await page.getByRole('button', { name: 'Undo group dismissal', exact: true }).click();
-            await expect(toasts(page)).toContainText(`${concurrentReview ? 78 : 79} photos returned to review.`);
+            await expect(toasts(page)).toContainText(`${concurrentReview ? 78 : 79} photos returned to Needs your call.`);
             expect(writes[1].ids).not.toContain(animalId);
             if (concurrentReview) expect(writes[1].ids).not.toContain(concurrentId);
             expect(states.get(animalId)).toBe('confirmed');
@@ -593,7 +593,7 @@ for (const action of ['confirm', 'dismiss'] as const) {
         await nextPhoto(page);
         await record(page).getByRole('button', { name: action === 'confirm' ? 'Confirm animal manually' : 'Dismiss capture', exact: true }).click();
         await expect(toasts(page)).toContainText(action === 'confirm' ? 'Photo confirmed.' : 'Capture dismissed.');
-        await expect(toasts(page)).toContainText('Other photos in this group still need review.');
+        await expect(toasts(page)).toContainText('Other photos in this group still need your call.');
         await expect(record(page).locator('[data-garden-capture-photo]')).toHaveAttribute('src', new RegExp(`${row.id}/snapshot`));
         await expect(page.locator('[data-explorer-count]')).toContainText('1 Garden visit · 1 capture');
         expect(writes).toEqual([second]);
@@ -633,7 +633,7 @@ test('confirmation in a position group applies only to the displayed original ph
 test('the Garden review link reads Garden captures even when owner settings arrive after the page', async ({ page }) => {
     // In the app the Explorer mounts while /api/settings is still loading. The link must not read
     // bird visits meanwhile and then label them as an empty Garden queue (UI audit, 725 bird visits
-    // shown as "Showing 1-24 of 725" under "No Garden captures need review").
+    // shown as "Showing 1-24 of 725" under "No Garden captures need your call").
     const reads: URL[] = [];
     await mockGarden(page, { items: requested => (requested === 'pending' ? [row] : []) });
     await page.route(url => url.pathname === '/api/visits', route => {
@@ -652,7 +652,7 @@ test('the Garden review link reads Garden captures even when owner settings arri
 
     await expect(page.locator('[data-garden-card]')).toHaveCount(1);
     await expect(page.locator('[data-explorer-count]')).toContainText('1 Garden visit · 1 capture');
-    await expect(page.getByText('No Garden captures need review')).toHaveCount(0);
+    await expect(page.getByText('No Garden captures need your call')).toHaveCount(0);
     await expect(page.getByText(/of 725/)).toHaveCount(0);
     // The first and only read is the one the link asked for.
     expect(reads.map(url => `${url.pathname}?status=${url.searchParams.get('status')}`)).toEqual(['/api/garden/visits?status=pending']);
@@ -679,7 +679,7 @@ test('the Garden review link reads nothing until owner settings load, says so, a
     await expect(failure).toContainText('Your settings could not be loaded, so the Explorer cannot tell which visitors to show.');
     // Neither the old bug's bird read nor any other history read happened with unknown settings.
     expect(reads).toEqual([]);
-    await expect(page.getByText('No Garden captures need review')).toHaveCount(0);
+    await expect(page.getByText('No Garden captures need your call')).toHaveCount(0);
 
     await failure.getByRole('button', { name: 'Try again' }).click();
     await expect(page.locator('[data-garden-card]')).toHaveCount(1);
@@ -830,7 +830,7 @@ const birdCheck = (reason: 'bird_camera' | 'wild_bird') => ({
 });
 
 for (const [reason, text] of [
-    ['bird_camera', 'Bird, handled by bird detection on this camera.'],
+    ['bird_camera', 'A bird, which this camera already records as a bird visit.'],
     ['wild_bird', 'Wild bird. Turn on birds for this camera to record it.']
 ] as const) {
     test(`a dismissed ${reason} capture says who records birds and asks once about chickens`, async ({ page }) => {
