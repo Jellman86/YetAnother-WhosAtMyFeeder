@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { openSettings } from './settings-page-mock';
+import { openMoreOptions, openSettings } from './settings-page-mock';
 
 // A Home Assistant light sensor (#945): the settings field, its live test and the stored value on a
 // record. Home Assistant itself is never called; the server's answers are fixtures.
@@ -37,6 +37,7 @@ async function answerLiveTest(page: Page, illuminance: Record<string, unknown>):
 async function openHomeAssistantCard(page: Page, saved: Record<string, unknown> = CONNECTED) {
     const harness = await openSettings(page, saved);
     await page.getByRole('link', { name: 'Sharing & integrations', exact: true }).click();
+    await openMoreOptions(page);
     await expect(page.locator('#ha-weather-illuminance')).toBeVisible();
     return harness;
 }

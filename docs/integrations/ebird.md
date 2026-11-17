@@ -13,12 +13,12 @@ Enable eBird for nearby sightings and notable reports. Species identities and mo
 - **Range filter:** Optionally set aside identifications of species eBird has never recorded in your region. See [Range filter](../features/range-filter.md).
 
 ## Configuration
-1. Go to **Settings → Sharing & integrations → eBird**.
+1. Go to **Settings → Sharing & integrations → More options → eBird**.
 2. Enable eBird.
 3. Enter your eBird API Key.
    *   *Note:* You can request an API key from eBird [here](https://ebird.org/api/keygen).
 4. Set a complete latitude/longitude pair under **Settings → Sharing & integrations → Location**, then set your search radius and history limit (days).
-   *   The radius field uses the unit system chosen in **Settings → Sharing & integrations → Location → Display Units**: kilometres for Metric, miles for Imperial and British. eBird accepts 1-50 km (1-31 miles), and YA-WAMF stores the value in kilometres whichever unit you type.
+   *   The radius field uses the unit system chosen in **Settings → Display → Units**: kilometres for Metric, miles for Imperial and British. eBird accepts 1-50 km (1-31 miles), and YA-WAMF stores the value in kilometres whichever unit you type.
 
 Map popups display externally supplied place names and observation details as
 text, preserving their content without interpreting it as HTML.
@@ -34,7 +34,7 @@ cannot download it. Local CSV export also works with the eBird integration
 switched off or without an eBird API key. With application authentication switched
 off, requests retain the existing owner-equivalent access.
 
-1. Go to **Settings → Sharing & integrations → eBird**.
+1. Go to **Settings → Sharing & integrations → More options → eBird**.
 2. Optionally choose inclusive `From` / `To` dates if you want a bounded checklist range. Leave both blank to export all detections.
 3. Click **Export All Sightings (CSV)**.
 4. Log in to the [eBird Import Data](https://ebird.org/import) tool.

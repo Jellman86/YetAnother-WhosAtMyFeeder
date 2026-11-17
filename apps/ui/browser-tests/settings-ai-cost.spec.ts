@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { openSettings } from './settings-page-mock';
+import { openMoreOptions, openSettings } from './settings-page-mock';
 
 // Settings → Sharing & integrations shows a dollar amount only for usage that has a price. A model with no price is
 // "not priced", a total over part of the usage says what it covers, and usage with no prices at
@@ -18,6 +18,7 @@ async function openUsage(page: Page, usage: Record<string, unknown>): Promise<vo
             : undefined)
     });
     await page.getByRole('link', { name: 'Sharing & integrations', exact: true }).click();
+    await openMoreOptions(page);
     await page.getByRole('button', { name: /AI usage dashboard/ }).click();
 }
 

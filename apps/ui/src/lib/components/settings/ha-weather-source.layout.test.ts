@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import integrationSource from './IntegrationSettings.svelte?raw';
+import integrationSource from './HaWeatherSettings.svelte?raw';
 import settingsPageSource from '../../pages/Settings.svelte?raw';
 
 describe('weather from Home Assistant sensors (#277)', () => {

@@ -66,7 +66,7 @@ on the integration asking for new ones.
 ## Weather and light from your own sensors
 
 This direction is separate from the custom component above: here YA-WAMF reads from Home
-Assistant. Open **Settings → Sharing & integrations → Home Assistant weather**, switch it on, and enter
+Assistant. Open **Settings → Sharing & integrations → More options → Home Assistant weather**, switch it on, and enter
 the URL YA-WAMF can reach and a long-lived access token (Home Assistant profile, **Security**,
 **Long-lived access tokens**).
 

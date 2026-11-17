@@ -161,6 +161,7 @@
 
 
     <SettingsCard
+        level={3}
         title={$_('settings.ai.connection_title', { default: 'AI provider' })}
     >
         <SettingsRow

@@ -21,7 +21,7 @@ describe('the six Settings sections', () => {
             cameras: ['connection'],
             identification: ['detection', 'models', 'beta'],
             alerts: ['notifications'],
-            sharing: ['integrations', 'ai', 'security'],
+            sharing: ['security', 'integrations', 'ai'],
             storage: ['data', 'maintenance'],
             display: ['appearance', 'accessibility']
         });

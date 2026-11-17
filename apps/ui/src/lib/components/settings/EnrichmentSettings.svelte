@@ -47,6 +47,7 @@
 </script>
 
 <SettingsCard
+    level={3}
     title={$_('settings.enrichment.title')}
     description={$_('settings.enrichment.desc')}
 >

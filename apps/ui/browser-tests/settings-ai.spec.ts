@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { openSettings, saveBar as unsavedChanges } from './settings-page-mock';
+import { openMoreOptions, openSettings, saveBar as unsavedChanges } from './settings-page-mock';
 
 // Settings → Sharing & integrations keeps its fields in the one Settings draft and loads its tab body, with the
 // built-in prompt templates, only when opened. Save changes saves it with the rest of the form.
@@ -17,6 +17,7 @@ test('AI loads on first open, follows a provider switch and saves with Save chan
     expect(harness.moduleRequests('llm-prompt-templates.ts')).toBe(0);
 
     await page.getByRole('link', { name: 'Sharing & integrations', exact: true }).click();
+    await openMoreOptions(page);
     const model = page.locator('#llm-model');
     await expect(model).toHaveValue('gemini-3.1-pro-preview');
     expect(harness.moduleRequests('AISettings.svelte')).toBe(1);
@@ -37,6 +38,7 @@ test('AI loads on first open, follows a provider switch and saves with Save chan
     await page.getByRole('link', { name: 'Cameras & connection', exact: true }).click();
     await expect(page.locator('#mqtt-server')).toBeVisible();
     await page.getByRole('link', { name: 'Sharing & integrations', exact: true }).click();
+    await openMoreOptions(page);
     await expect(model).toHaveValue('claude-opus-4-8');
 
     await page.getByRole('button', { name: 'Save changes', exact: true }).click();
@@ -60,6 +62,7 @@ test('a provider set outside Settings shows as itself, never as the first choice
         llm_model: 'my-model'
     });
     await page.getByRole('link', { name: 'Sharing & integrations', exact: true }).click();
+    await openMoreOptions(page);
     const provider = page.getByRole('combobox', { name: /^Provider/ });
     await expect(provider).toHaveValue('custom-provider');
     await expect(provider.locator('option:checked')).toHaveText('custom-provider (set outside Settings)');

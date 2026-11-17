@@ -11,7 +11,7 @@
     "cameras": "Woher Ereignisse kommen: Frigate, sein MQTT-Broker und die beobachteten Kameras.",
     "identification": "Wie sicher ein Name sein muss, die Modelle, die Vögel finden und bestimmen, mit ihrer Hardware, und Funktionen, die noch Beta sind.",
     "alerts": "Wann Sie von einem Besuch erfahren, und über welche Kanäle.",
-    "sharing": "Andere Dienste, aus denen YA-WAMF liest oder an die es meldet, Ihr Standort, KI-Beschreibungen und wer diese Installation öffnen kann.",
+    "sharing": "Der Standort Ihrer Futterstelle und wer diese Installation öffnen kann, dann die anderen Dienste, aus denen YA-WAMF liest oder an die es meldet, KI-Beschreibungen und Telemetrie.",
     "storage": "Was aufbewahrt wird und wie lange, eine Sicherung dieser Einstellungen und die Aufgaben, die den Verlauf reparieren oder ergänzen.",
     "display": "Wie YA-WAMF aussieht und Vögel benennt, dazu Kontrast, eine Leseschrift, Bewegung und vorgelesene Aktualisierungen."
   },

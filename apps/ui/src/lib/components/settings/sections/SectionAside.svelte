@@ -65,7 +65,7 @@
     {#if keys.length === 0}
         <p class="text-muted" data-section-status-note>
             {section === 'sharing'
-                ? $_('settings.status.sharing_note', { default: 'Each service below says whether it is on. Sign-in and guest access are set here too.' })
+                ? $_('settings.status.sharing_note', { default: 'Nothing here depends on a measured connection. Sign-in and guest access are set here; each service under More options says whether it is on.' })
                 : $_('settings.status.display_note', { default: 'Nothing here depends on another service. Theme, text size and language change at once on this device.' })}
         </p>
     {:else if !snapshot}

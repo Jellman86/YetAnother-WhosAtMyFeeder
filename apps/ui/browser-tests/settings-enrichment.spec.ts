@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { openSettings } from './settings-page-mock';
+import { openMoreOptions, openSettings } from './settings-page-mock';
 
 // Integrations ends with which provider fills each part of a species page. It loads with that tab,
 // never counts as an edit, and every save sends the stored providers back.
@@ -19,6 +19,7 @@ test('the species information sources load with Integrations, show the stored pr
     expect(harness.moduleRequests('EnrichmentSettings.svelte')).toBe(0);
 
     await page.locator('[data-settings-navigation]').getByRole('link', { name: 'Sharing & integrations', exact: true }).click();
+    await openMoreOptions(page);
     const sightings = page.locator('[data-enrichment-summary] div').filter({ hasText: 'Nearby sightings' });
     await expect(sightings).toContainText('eBird');
     expect(harness.moduleRequests('EnrichmentSettings.svelte')).toBe(1);

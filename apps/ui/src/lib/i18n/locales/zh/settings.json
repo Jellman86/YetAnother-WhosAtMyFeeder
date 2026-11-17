@@ -320,11 +320,12 @@
       "storage": "存储",
       "notifications": "提醒"
     },
-    "sharing_note": "下面每个服务都会显示是否已开启。登录和访客访问也在这里设置。"
+    "sharing_note": "这里没有需要测量的连接。登录和访客访问在这里设置；“更多选项”中的每个服务都会显示是否已开启。"
   },
   "more": {
     "title": "更多选项",
-    "cameras": "Frigate 详情、图像来源、剪辑和 BirdNET-Go"
+    "cameras": "Frigate 详情、图像来源、剪辑和 BirdNET-Go",
+    "sharing": "eBird、iNaturalist、BirdWeather、Home Assistant 天气、物种信息、AI 和遥测"
   },
   "debug": {
     "llm_prompts_title": "LLM 提示模板",
@@ -1038,6 +1039,8 @@
   },
   "location": {
     "title": "位置",
+    "card_title": "你的喂食器位置",
+    "card_desc": "每次到访记录的天气、附近的 eBird 目击、分布范围筛选以及发送到 iNaturalist 的观察都以此为准。",
     "auto": "自动",
     "manual": "手动",
     "latitude": "纬度",
@@ -1955,5 +1958,9 @@
     "scan_again": "请重新扫描。",
     "timezone_last_scan_incomplete": "{count, plural, other {上次扫描无法检查 # 条检测（Frigate 未响应）。请重新扫描。}}",
     "timezone_scan_incomplete": "{count, plural, other {本次扫描无法检查 # 条检测（Frigate 未响应）。请重新扫描。}}"
+  },
+  "units": {
+    "title": "单位",
+    "desc": "适用于打开此安装的所有人，而不仅是这台设备。"
   }
 }

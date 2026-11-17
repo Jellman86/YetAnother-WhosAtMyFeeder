@@ -11,12 +11,15 @@ export const loadGardenBetaSettings = lazyComponent(() => import('../GardenBetaS
 export const loadNotificationSettings = lazyComponent(() => import('../NotificationSettings.svelte'));
 export const loadIntegrationSettings = lazyComponent(() => import('../IntegrationSettings.svelte'));
 export const loadEnrichmentSettings = lazyComponent(() => import('../EnrichmentSettings.svelte'));
+export const loadHaWeatherSettings = lazyComponent(() => import('../HaWeatherSettings.svelte'));
+export const loadLocationSettings = lazyComponent(() => import('../LocationSettings.svelte'));
 export const loadAiSettings = lazyComponent(() => import('../AISettings.svelte'));
 export const loadAuthenticationSettings = lazyComponent(() => import('../AuthenticationSettings.svelte'));
 export const loadTelemetrySettings = lazyComponent(() => import('../TelemetrySettings.svelte'));
 export const loadDataSettings = lazyComponent(() => import('../DataSettings.svelte'));
 export const loadMaintenanceSettings = lazyComponent(() => import('../MaintenanceSettings.svelte'));
 export const loadAppearanceSettings = lazyComponent(() => import('../AppearanceSettings.svelte'));
+export const loadUnitsSettings = lazyComponent(() => import('../UnitsSettings.svelte'));
 export const loadAccessibilitySettings = lazyComponent(() => import('../AccessibilitySettings.svelte'));
 
 /** Everything a part needs loaded before it has its full height. */
@@ -26,11 +29,11 @@ export const SETTINGS_PART_LOADERS: Readonly<Record<SettingsPart, () => Promise<
     models: loadModelSettings,
     beta: loadGardenBetaSettings,
     notifications: loadNotificationSettings,
-    integrations: () => Promise.all([loadIntegrationSettings(), loadEnrichmentSettings()]),
+    integrations: () => Promise.all([loadIntegrationSettings(), loadHaWeatherSettings(), loadEnrichmentSettings()]),
     ai: loadAiSettings,
-    security: () => Promise.all([loadAuthenticationSettings(), loadTelemetrySettings()]),
+    security: () => Promise.all([loadLocationSettings(), loadAuthenticationSettings(), loadTelemetrySettings()]),
     data: loadDataSettings,
     maintenance: loadMaintenanceSettings,
-    appearance: loadAppearanceSettings,
+    appearance: () => Promise.all([loadAppearanceSettings(), loadUnitsSettings()]),
     accessibility: loadAccessibilitySettings
 };
