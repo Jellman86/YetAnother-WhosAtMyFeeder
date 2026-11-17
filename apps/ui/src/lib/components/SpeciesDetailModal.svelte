@@ -608,8 +608,8 @@
                                      Leaderboard's visits in a chosen period, and a guest sees only the shared history. -->
                                 <dt class="text-xs font-medium text-muted" data-species-detections-label>
                                     {authStore.isGuest
-                                        ? $_('species_detail.detections_shared', { default: 'Detections, shared history' })
-                                        : $_('species_detail.detections_all_time', { default: 'Detections, all time' })}
+                                        ? $_('species_detail.detections_shared', { default: 'Captures, shared history' })
+                                        : $_('species_detail.detections_all_time', { default: 'Captures, all time' })}
                                 </dt>
                                 <dd class="mt-1 text-2xl font-bold tracking-tight {statLead === 'row_visits' ? 'text-strong' : 'text-accent-ink'}">{stats.total_sightings}</dd>
                             </div>
@@ -634,7 +634,7 @@
                     {#if stats.recent_sightings.length > 0}
                         <section data-species-recent-sightings aria-labelledby="recent-sightings-heading">
                             <div class="mb-4 flex items-center gap-2.5">
-                                <h3 id="recent-sightings-heading" class="text-base font-semibold text-strong">{$_('species_detail.recent_sightings')}</h3>
+                                <h3 id="recent-sightings-heading" class="text-base font-semibold text-strong">{$_('species_detail.recent_visits')}</h3>
                             </div>
                             <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
                                 {#each stats.recent_sightings as sighting}

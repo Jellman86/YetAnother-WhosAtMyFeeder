@@ -19,3 +19,7 @@
   below the feeder's own sightings.
 - Under the hood, these pages and dialogs draw from the semantic colour tokens in every mode and
   high contrast.
+- The Leaderboard, Audio history and species details now use the app's words throughout: calls for
+  what BirdNET-Go heard, visits for grouped counts and captures for raw totals of stored
+  photographs (the timeline, the heatmap and the all-time view), and **Needs your call** for work
+  waiting on you. Their links into Settings go straight to the new section addresses.

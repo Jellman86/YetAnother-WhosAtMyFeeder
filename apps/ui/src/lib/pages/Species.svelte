@@ -313,7 +313,7 @@
         if (sourceMode === 'both') {
             return countsAreVisits
                 ? $_('leaderboard.showcase_visits_and_calls', { values: { count }, default: 'visits and calls' })
-                : $_('leaderboard.showcase_detections_and_calls', { values: { count }, default: 'detections and calls' });
+                : $_('leaderboard.showcase_detections_and_calls', { values: { count }, default: 'captures and calls' });
         }
         if (countsAreVisits) {
             return count === 1
@@ -321,8 +321,8 @@
                 : $_('leaderboard.showcase_visits', { values: { count }, default: 'visits' });
         }
         return count === 1
-            ? $_('leaderboard.showcase_detection', { default: 'detection' })
-            : $_('leaderboard.showcase_detections', { values: { count }, default: 'detections' });
+            ? $_('leaderboard.showcase_detection', { default: 'capture' })
+            : $_('leaderboard.showcase_detections', { values: { count }, default: 'captures' });
     }
     // The opener: a contact sheet of this feeder's own visits in the window. It loads beside the
     // standings and never blocks them; a failed load simply leaves the wall out.
@@ -954,7 +954,7 @@
     }
 
     function metricLabel(): string {
-        return $_('leaderboard.metric_detections', { default: 'Detections' });
+        return $_('leaderboard.metric_detections', { default: 'Captures' });
     }
 
     function metricValueFromPoint(point: DetectionsTimelineSpanResponse['points'][number]): number {
@@ -1445,7 +1445,7 @@
         return {
             columns: [
                 $_('leaderboard.species', { default: 'Species' }),
-                countsAreVisits ? $_('leaderboard.metric_visits', { default: 'Visits' }) : $_('leaderboard.metric_detections', { default: 'Detections' }),
+                countsAreVisits ? $_('leaderboard.metric_visits', { default: 'Visits' }) : $_('leaderboard.metric_detections', { default: 'Captures' }),
                 $_('leaderboard.table_share', { default: 'Share' })
             ],
             rows: labels
@@ -1463,7 +1463,7 @@
         const { labels, series } = donutSeries();
         const totalLabel = countsAreVisits
             ? $_('leaderboard.metric_visits', { default: 'Visits' })
-            : $_('leaderboard.metric_detections', { default: 'Detections' });
+            : $_('leaderboard.metric_detections', { default: 'Captures' });
         const centerTotal = doughnutInsightPlugin('leaderboardCenterTotal', series, totalLabel, isDark());
         return {
             type: 'doughnut',
@@ -1725,7 +1725,7 @@
                         value={sourceMode}
                         options={sourceOptions}
                         onchange={(next) => (sourceMode = next)}
-                        label={$_('leaderboard.source_toggle', { default: 'Detection source' })}
+                        label={$_('leaderboard.source_toggle', { default: 'Seen or heard' })}
                         width="content"
                         size="sm"
                         optionAttribute="data-leaderboard-source"
@@ -1771,7 +1771,7 @@
             <h2 class="text-lg font-semibold text-strong mb-2">{$_('leaderboard.no_species')}</h2>
             <p class="text-muted">
                 {sourceMode === 'heard'
-                    ? $_('leaderboard.no_audio_species', { default: 'No BirdNET detections were recorded in this period.' })
+                    ? $_('leaderboard.no_audio_species', { default: 'No calls were heard in this window.' })
                     : species.length > 0 && !includeUnknownBird
                     ? $_('leaderboard.only_unknown_desc')
                     : $_('leaderboard.no_species_desc')}
@@ -1828,17 +1828,17 @@
                         : sourceMode === 'both'
                           ? countsAreVisits
                             ? $_('leaderboard.standing_visits_and_calls', { default: 'Visits and calls' })
-                            : $_('leaderboard.standing_detections_and_calls', { default: 'Detections and calls' })
+                            : $_('leaderboard.standing_detections_and_calls', { default: 'Captures and calls' })
                           : countsAreVisits
                             ? $_('leaderboard.metric_visits', { default: 'Visits' })
-                            : $_('leaderboard.metric_detections', { default: 'Detections' })}
+                            : $_('leaderboard.metric_detections', { default: 'Captures' })}
                 </dt>
                 <dd class="mt-1 font-display text-2xl font-bold tabular-nums text-strong">{sourceTotal.toLocaleString()}</dd>
             </div>
             <div class="min-w-0">
                 <dt class="text-xs font-semibold text-muted">{$_('leaderboard.standing_busiest_hour', { default: 'Busiest hour' })}</dt>
                 <dd class="mt-1 font-display text-2xl font-bold tabular-nums text-strong">{busiestHour ? formatHour(busiestHour.hour) : '—'}</dd>
-                {#if busiestHour}<dd class="text-xs text-muted">{$_('leaderboard.standing_busiest_hour_count', { values: { count: busiestHour.count }, default: '{count, plural, one {# detection} other {# detections}} on camera' })}</dd>{/if}
+                {#if busiestHour}<dd class="text-xs text-muted">{$_('leaderboard.standing_busiest_hour_count', { values: { count: busiestHour.count }, default: '{count, plural, one {# capture} other {# captures}} on camera' })}</dd>{/if}
             </div>
             <div class="min-w-0" data-leaderboard-corroboration>
                 <dt class="text-xs font-semibold text-muted">{audioKnown ? $_('leaderboard.standing_corroborated', { default: 'Heard or confirmed' }) : $_('leaderboard.standing_confirmed', { default: 'Confirmed by you' })}</dt>
@@ -1954,9 +1954,9 @@
                         <tr>
                             <th scope="col" class="w-14 px-3 py-3 text-center">{$_('leaderboard.rank')}</th>
                             <th scope="col" class="w-1/3 px-3 py-3">{$_('leaderboard.species')}</th>
-                            <th scope="col" class="px-3 py-3 text-right">{countsAreVisits ? $_('leaderboard.metric_visits', { default: 'Visits' }) : $_('leaderboard.metric_detections', { default: 'Detections' })}</th>
+                            <th scope="col" class="px-3 py-3 text-right">{countsAreVisits ? $_('leaderboard.metric_visits', { default: 'Visits' }) : $_('leaderboard.metric_detections', { default: 'Captures' })}</th>
                             {#if birdnetEnabled}<th scope="col" class="px-3 py-3 text-right">{$_('leaderboard.source_heard', { default: 'Heard' })}</th>{/if}
-                            <th scope="col" class="hidden w-52 px-3 py-3 @5xl:table-cell" title={$_('leaderboard.evidence_hint', { default: 'Camera only: BirdNET did not hear this species in the same window and no detection of it has been confirmed. Worth a look before you trust it.' })}>{$_('leaderboard.evidence', { default: 'Evidence' })}</th>
+                            <th scope="col" class="hidden w-52 px-3 py-3 @5xl:table-cell" title={$_('leaderboard.evidence_hint', { default: 'Camera only: BirdNET did not hear this species in the same window and none of its visits has been confirmed. Worth a look before you trust it.' })}>{$_('leaderboard.evidence', { default: 'Evidence' })}</th>
                             {#if trendAvailable}<th scope="col" class="hidden px-3 py-3 text-right @5xl:table-cell">{$_('leaderboard.trend')}</th>{/if}
                             {#if showCameraColumn}<th scope="col" class="hidden px-3 py-3 text-right @6xl:table-cell">{$_('leaderboard.cameras')}</th>{/if}
                             <th scope="col" class="hidden px-3 py-3 text-right @6xl:table-cell">{$_('leaderboard.avg_confidence')}</th>
@@ -2205,7 +2205,7 @@
                             </div>
                         {:else if heatmapSpecies && shownHeatmap}
                             <div class="h-64 w-full rounded-2xl border border-dashed border-line bg-surface-raised flex items-center justify-center px-6 text-center text-sm text-muted">
-                                {$_('leaderboard.heatmap_species_empty', { values: { species: heatmapSubject ?? '' }, default: 'No {species} detections in this window.' })}
+                                {$_('leaderboard.heatmap_species_empty', { values: { species: heatmapSubject ?? '' }, default: 'No {species} captures in this window.' })}
                             </div>
                         {:else if activityHeatmap && !heatmapSpecies}
                             <div class="h-64 w-full rounded-2xl border border-dashed border-line bg-surface-raised flex items-center justify-center text-sm text-muted">
@@ -2218,7 +2218,7 @@
                 </ChartFigure>
                 <ChartFigure
                     title={$_('leaderboard.detection_breakdown_subtitle', { default: 'Species composition' })}
-                    description={`${selectedCountLabel()} · ${totalCount.toLocaleString()} ${countsAreVisits ? $_('leaderboard.showcase_visits', { default: 'visits' }) : $_('leaderboard.showcase_detections', { default: 'detections' })}`}
+                    description={`${selectedCountLabel()} · ${totalCount.toLocaleString()} ${countsAreVisits ? $_('leaderboard.showcase_visits', { default: 'visits' }) : $_('leaderboard.showcase_detections', { default: 'captures' })}`}
                     table={compositionTable}
                     class="xl:col-span-2"
                 >

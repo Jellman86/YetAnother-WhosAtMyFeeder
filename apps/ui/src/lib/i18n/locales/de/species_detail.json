@@ -27,10 +27,11 @@
   "no_local_visits_title": "Noch keine Besuche an Ihrer Futterstelle",
   "no_local_visits_body": "Ihre Kameras haben diesen Vogel noch nicht aufgezeichnet. Alles Folgende stammt aus öffentlichen Nachschlagequellen.",
   "reclassify_clip": "Aus dem Clip neu klassifizieren",
-  "detections_all_time": "Erkennungen, gesamter Zeitraum",
-  "detections_shared": "Erkennungen, geteilter Verlauf",
+  "detections_all_time": "Aufnahmen, gesamter Zeitraum",
+  "detections_shared": "Aufnahmen, geteilter Verlauf",
   "visits_day": "Besuche, letzte 24 Stunden",
   "visits_week": "Besuche, letzte 7 Tage",
   "visits_month": "Besuche, letzte 30 Tage",
-  "detections_note": "Jedes bestimmte Einzelbild zählt einmal. Ein Besuch kann mehrere Bilder enthalten, daher sind die Besuchszahlen in der Bestenliste niedriger."
+  "detections_note": "Jedes bestimmte Einzelbild zählt einmal. Ein Besuch kann mehrere Bilder enthalten, daher sind die Besuchszahlen in der Bestenliste niedriger.",
+  "recent_visits": "Letzte Besuche"
 }

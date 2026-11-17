@@ -27,10 +27,11 @@
   "no_local_visits_title": "No visits at your feeder yet",
   "no_local_visits_body": "Your cameras have not recorded this bird. Everything below comes from public reference sources.",
   "reclassify_clip": "Reclassify from the clip",
-  "detections_all_time": "Detections, all time",
-  "detections_shared": "Detections, shared history",
+  "detections_all_time": "Captures, all time",
+  "detections_shared": "Captures, shared history",
   "visits_day": "Visits, last 24 hours",
   "visits_week": "Visits, last 7 days",
   "visits_month": "Visits, last 30 days",
-  "detections_note": "Every identified frame counts once. One visit can hold several frames, so the Leaderboard’s visit counts are lower."
+  "detections_note": "Every identified frame counts once. One visit can hold several frames, so the Leaderboard’s visit counts are lower.",
+  "recent_visits": "Recent visits"
 }

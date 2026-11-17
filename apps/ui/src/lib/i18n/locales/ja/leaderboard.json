@@ -95,7 +95,6 @@
   "weather_overlay_range_limited": "天気オーバーレイは日・週・月の範囲でのみ利用できます。",
   "weather_overlays": "天気オーバーレイ",
   "detection_breakdown_subtitle": "種の構成",
-  "detection_breakdown_title": "検出の内訳",
   "other_species": "その他",
   "podium_title": "期間の上位",
   "audio_unavailable_title": "BirdNET の結果を取得できません",

@@ -32,5 +32,6 @@
   "visits_day": "Visitas, últimas 24 horas",
   "visits_week": "Visitas, últimos 7 días",
   "visits_month": "Visitas, últimos 30 días",
-  "detections_note": "Cada fotograma identificado cuenta una vez. Una visita puede incluir varios fotogramas, por lo que los recuentos de visitas de la clasificación son menores."
+  "detections_note": "Cada fotograma identificado cuenta una vez. Una visita puede incluir varios fotogramas, por lo que los recuentos de visitas de la clasificación son menores.",
+  "recent_visits": "Visitas recientes"
 }

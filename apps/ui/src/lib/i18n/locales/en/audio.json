@@ -2,7 +2,7 @@
   "chart": {
     "heard": "Heard",
     "daily_title": "Activity over time",
-    "daily_sub": "BirdNET-Go detections heard per day",
+    "daily_sub": "Calls BirdNET-Go heard per day",
     "hourly_title": "Time of day",
     "species_title": "Species mix",
     "empty": "No activity in this window.",
@@ -16,11 +16,11 @@
   },
   "stat": {
     "heard": "Heard",
-    "heard_sub": "BirdNET-Go detections in this window",
+    "heard_sub": "Calls BirdNET-Go heard in this window",
     "species": "Species",
     "species_sub": "Heard in this window",
     "peak_hour": "Peak hour",
-    "peak_hour_sub": "{count, plural, one {# detection} other {# detections}}",
+    "peak_hour_sub": "{count, plural, one {# call} other {# calls}}",
     "no_activity": "No activity yet",
     "sources": "Sources",
     "sources_sub": "Microphones or streams",
@@ -48,13 +48,13 @@
     "max": "max"
   },
   "history": {
-    "title": "Detection history",
+    "title": "Call history",
     "sub": "Every call BirdNET-Go reported, kept apart from camera visits.",
-    "empty": "No BirdNET detections match these filters.",
+    "empty": "No calls match these filters.",
     "showing": "Showing {from}-{to} of {total}",
     "hide": "Hide from YA-WAMF",
     "undo": "Undo",
-    "hidden_message": "Audio detection hidden.",
+    "hidden_message": "Call hidden.",
     "local_only": "Hiding removes an entry from YA-WAMF history and future audio matches. BirdNET-Go is unchanged; upstream deletions are not automatically synced.",
     "read_failed": "Audio history could not be read from YA-WAMF, so nothing on this page is a measurement.",
     "read_failed_next": "Try again. If it keeps failing, open Health to see whether the backend reports a fault.",
@@ -67,7 +67,7 @@
     "source": "Source",
     "confidence": "Confidence",
     "open_birdnet": "Open in BirdNET-Go",
-    "open_visual_match": "Open matching visual detection",
+    "open_visual_match": "Open the matching visit",
     "unknown_source": "Unknown source",
     "spectrogram_alt": "Spectrogram of the {species} call"
   },

@@ -533,7 +533,7 @@
     <section class="space-y-5" data-audio-history-log aria-labelledby="audio-history-title">
         <div class="flex flex-wrap items-start justify-between gap-4">
             <div class="min-w-0 max-w-prose">
-                <h2 id="audio-history-title" class="text-xl font-bold text-strong">{$_('audio.history.title', { default: 'Detection history' })}</h2>
+                <h2 id="audio-history-title" class="text-xl font-bold text-strong">{$_('audio.history.title', { default: 'Call history' })}</h2>
                 <p class="mt-1 text-sm text-muted">{$_('audio.history.sub', { default: 'Every call BirdNET-Go reported, kept apart from camera visits.' })}</p>
             </div>
             <button type="button" class="btn btn-secondary min-h-11 flex-none px-4 text-sm" onclick={() => void loadAudioHistory()} disabled={loading}>
@@ -579,7 +579,7 @@
             {/if}
         {#if detections.length === 0}
             <div class="border-y border-dashed border-line px-4 py-12 text-center text-sm font-semibold text-muted">
-                {$_('audio.history.empty', { default: 'No BirdNET detections match these filters.' })}
+                {$_('audio.history.empty', { default: 'No calls match these filters.' })}
             </div>
         {:else}
             <!-- A table only where its own box has room at the reader's text size (rem, so larger text
@@ -676,7 +676,7 @@
             <div class="min-w-0">
                 <dt class="text-xs font-semibold text-muted">{$_('audio.stat.heard', { default: 'Heard' })}</dt>
                 {@render statValue((summary?.total ?? 0).toLocaleString())}
-                <dd class="mt-1 text-xs text-muted">{$_('audio.stat.heard_sub', { default: 'BirdNET-Go detections in this window' })}</dd>
+                <dd class="mt-1 text-xs text-muted">{$_('audio.stat.heard_sub', { default: 'Calls BirdNET-Go heard in this window' })}</dd>
             </div>
             <div class="min-w-0">
                 <dt class="text-xs font-semibold text-muted">{$_('audio.stat.species', { default: 'Species' })}</dt>
@@ -687,7 +687,7 @@
                 <dt class="text-xs font-semibold text-muted">{$_('audio.stat.peak_hour', { default: 'Peak hour' })}</dt>
                 {@render statValue(peakHour ? formatHour(peakHour.hour) : '—')}
                 {#if measured}
-                    <dd class="mt-1 text-xs text-muted">{peakHour ? $_('audio.stat.peak_hour_sub', { values: { count: peakHour.count }, default: '{count, plural, one {# detection} other {# detections}}' }) : $_('audio.stat.no_calls', { default: 'No calls in this window' })}</dd>
+                    <dd class="mt-1 text-xs text-muted">{peakHour ? $_('audio.stat.peak_hour_sub', { values: { count: peakHour.count }, default: '{count, plural, one {# call} other {# calls}}' }) : $_('audio.stat.no_calls', { default: 'No calls in this window' })}</dd>
                 {/if}
             </div>
             <div class="min-w-0">
@@ -772,7 +772,7 @@
     <section class="min-w-0 space-y-8 border-t border-line-soft pt-8" data-audio-history-analytics aria-labelledby="audio-analytics-title">
         <div class="max-w-prose">
             <h2 id="audio-analytics-title" class="text-xl font-bold text-strong">{$_('leaderboard.analytics_section')}</h2>
-            <p class="mt-1 text-sm text-muted">{$_('audio.chart.daily_sub', { default: 'BirdNET-Go detections heard per day' })}</p>
+            <p class="mt-1 text-sm text-muted">{$_('audio.chart.daily_sub', { default: 'Calls BirdNET-Go heard per day' })}</p>
         </div>
 
         <ChartFigure

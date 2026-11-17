@@ -1,5 +1,6 @@
 <script lang="ts">
     import DialogHeader from './ui/DialogHeader.svelte';
+    import { settingsPartPath } from '../settings/settings-route';
     /**
      * One Garden capture opened from the Explorer, in the record's shape: the photograph with
      * the animal crop takes the larger half, the decisions the smaller one.
@@ -665,7 +666,7 @@
                 </p>
                 {#if checkSetupNeeded}
                     <!-- The one thing that unblocks the wait, where the wait is stated. -->
-                    <a href={toAppPath('/settings/beta')} class="btn btn-secondary inline-flex min-h-11 items-center self-start px-4" data-garden-model-setup>
+                    <a href={toAppPath(settingsPartPath('beta'))} class="btn btn-secondary inline-flex min-h-11 items-center self-start px-4" data-garden-model-setup>
                         {$_('garden.explorer.set_up_check_model', { default: 'Set up the automatic check model' })}
                     </a>
                 {/if}

@@ -2,7 +2,7 @@
   "chart": {
     "heard": "Gehört",
     "daily_title": "Aktivität im Zeitverlauf",
-    "daily_sub": "Pro Tag gehörte BirdNET-Go-Erkennungen",
+    "daily_sub": "Von BirdNET-Go gehörte Rufe pro Tag",
     "hourly_title": "Tageszeit",
     "species_title": "Artenverteilung",
     "empty": "Keine Aktivität in diesem Zeitraum.",
@@ -16,11 +16,11 @@
   },
   "stat": {
     "heard": "Gehört",
-    "heard_sub": "BirdNET-Go-Erkennungen in diesem Zeitraum",
+    "heard_sub": "Von BirdNET-Go gehörte Rufe in diesem Zeitraum",
     "species": "Arten",
     "species_sub": "In diesem Zeitraum gehört",
     "peak_hour": "Aktivste Stunde",
-    "peak_hour_sub": "{count, plural, one {# Erkennung} other {# Erkennungen}}",
+    "peak_hour_sub": "{count, plural, one {# Ruf} other {# Rufe}}",
     "no_activity": "Noch keine Aktivität",
     "sources": "Quellen",
     "sources_sub": "Mikrofone oder Streams",
@@ -48,13 +48,13 @@
     "max": "Max."
   },
   "history": {
-    "title": "Erkennungsverlauf",
+    "title": "Rufverlauf",
     "sub": "Jeder Ruf, den BirdNET-Go gemeldet hat, getrennt von den Kamerabesuchen.",
-    "empty": "Keine BirdNET-Erkennungen entsprechen diesen Filtern.",
+    "empty": "Keine Rufe entsprechen diesen Filtern.",
     "showing": "{from}–{to} von {total} werden angezeigt",
     "hide": "In YA-WAMF ausblenden",
     "undo": "Rückgängig",
-    "hidden_message": "Audioerkennung ausgeblendet.",
+    "hidden_message": "Ruf ausgeblendet.",
     "local_only": "Ausblenden entfernt einen Eintrag aus dem YA-WAMF-Verlauf und zukünftigen Audioabgleichen. BirdNET-Go bleibt unverändert; dortige Löschungen werden nicht automatisch synchronisiert.",
     "read_failed": "Der Audioverlauf konnte nicht von YA-WAMF gelesen werden, daher ist nichts auf dieser Seite ein Messwert.",
     "read_failed_next": "Versuchen Sie es erneut. Wenn es weiter fehlschlägt, öffnen Sie die Seite Zustand, um zu sehen, ob das Backend einen Fehler meldet.",
@@ -67,7 +67,7 @@
     "source": "Quelle",
     "confidence": "Konfidenz",
     "open_birdnet": "In BirdNET-Go öffnen",
-    "open_visual_match": "Passende visuelle Erkennung öffnen",
+    "open_visual_match": "Passenden Besuch öffnen",
     "unknown_source": "Unbekannte Quelle",
     "spectrogram_alt": "Spektrogramm des Rufs von {species}"
   },

@@ -66,10 +66,10 @@
         if (subject) {
             return $_('leaderboard.heatmap_subject_many', {
                 values: { count, subject },
-                default: '{count, plural, one {# {subject} detection} other {# {subject} detections}}'
+                default: '{count, plural, one {# {subject} capture} other {# {subject} captures}}'
             });
         }
-        return $_('leaderboard.heatmap_count_many', { values: { count }, default: '{count, plural, one {# detection} other {# detections}}' });
+        return $_('leaderboard.heatmap_count_many', { values: { count }, default: '{count, plural, one {# capture} other {# captures}}' });
     }
 
     // What a screen reader hears on each cell: the same sentence the tooltip shows.
@@ -243,7 +243,7 @@
             0
             <span class="inline-block h-2 w-24 rounded-full" style="background-image: {heatmapLegendGradient(dark)}"></span>
             {maxCellCount.toLocaleString()}
-            <span>{$_('leaderboard.heatmap_per_hour', { default: 'detections in one hour slot' })}</span>
+            <span>{$_('leaderboard.heatmap_per_hour', { default: 'captures in one hour slot' })}</span>
         </span>
         {#if peak}
             <span class="inline-flex items-center gap-1.5">
