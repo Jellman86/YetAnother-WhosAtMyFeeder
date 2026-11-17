@@ -31,7 +31,6 @@
   "dismiss_suggestion": "Rejeter la suggestion",
   "group_only": "Groupe animal seulement ; l’espèce reste indéterminée.",
   "identification_confirmed": "Identification confirmée par vous",
-  "identification_needs_review": "Identification suggérée · À vérifier",
   "identification_unknown": "Identification non fiable. Laissez cet animal non identifié ou demandez une nouvelle suggestion.",
   "model": "Modèle du jardin",
   "model_crop": "SpeciesNet 4.0.3a · Recadrage de l’objet suivi",

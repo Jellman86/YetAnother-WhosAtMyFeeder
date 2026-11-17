@@ -20,17 +20,17 @@ The required 224 MB tracked-crop model is the **Automatic check model** under
 captures arrive; if you have not, it downloads and verifies automatically when an
 enabled Garden camera has a new photo to check. Checks use the device chosen under
 **Settings → Identifying birds → More options → Hardware**, one photo at a time, while birds and Frigate cameras are idle. They use the detector's exact box;
-missing boxes or unavailable checks stay in **Needs review** for retry. With automatic naming
+missing boxes or unavailable checks stay in **Needs your call** for retry. With automatic naming
 enabled, a photo whose species score is below the naming threshold moves to restorable
 **Dismissed**, whether or not the check is confident an animal is there.
 A candidate from the motion scan stays out of sight until its automatic check decides:
-the timeline, Dashboard and **Needs review** count it as *waiting for the automatic check*
+the timeline, Dashboard and **Needs your call** count it as *waiting for the automatic check*
 rather than listing it. It appears only if the check names an animal (in **Confirmed
-animals**) or cannot decide (in **Needs review**, with the reason). Candidates are held only
+animals**) or cannot decide (in **Needs your call**, with the reason). Candidates are held only
 while their camera's checks are making progress, and for at most 30 minutes each: if no
 check there has finished for 30 minutes, for example because the camera stays under pressure,
 or a candidate is itself more than 30 minutes old and still unchecked, it appears in
-**Needs review** instead. A failed check also releases its capture. Checking candidates
+**Needs your call** instead. A failed check also releases its capture. Checking candidates
 already found takes priority over scanning recordings for more, but a camera that cannot
 be checked never holds up checks or scans on the others.
 Checks go in order: candidates away from a *known blank spot* first, then never-checked,
@@ -92,16 +92,16 @@ Garden animals page opens the Explorer's Garden review instead.
    Choose **Download** for the **Automatic check model**, and for the **Motion detector**
    if a camera collects motion review photos.
 5. Open the **Explorer**, or choose **Review Garden animals** under **Where captures go** on the Garden card. In
-   the filter rail choose **Garden animals** under **Visitors**, then **Needs review**. Open a capture, inspect the
+   the filter rail choose **Garden animals** under **Visitors**, then **Needs your call**. Open a capture, inspect the
    photograph, and either open **Manual override** and choose **Confirm animal manually**, or
    dismiss it with the crossed-out eye beneath the decisions, as on a bird record.
-   Under **Dismissed**, **Return to review** restores a capture while its photo remains available.
+   Under **Dismissed**, **Return to Needs your call** restores a capture while its photo remains available.
 
 ## Garden animals on the Dashboard
 
 With Garden on, the Dashboard's **Field log** shows the last 24 hours of animal visits on the same
 thread as bird visits, placed by their most recent capture. It lists the same Garden entries as the
-Explorer's **Animals and waiting for review**: confirmed animals and captures still waiting, with
+Explorer's **Animals and Needs your call**: confirmed animals and captures still waiting, with
 dismissed captures left out. Each row says **Garden** in words, and one that needs you is flagged in
 amber with its reason and a **Review** button. **Open** or **Review** shows the Garden record on the
 Dashboard; a review there updates the log. The log shows the 12 most recent visits of either kind,
@@ -123,7 +123,7 @@ With Garden on, the **Explorer** shows each opted-in camera's animals beside its
 time between the visits they fell between. **Visitors** at the top of the filter rail chooses
 **Both** (the default), **Birds** or **Garden animals**, and this device remembers the
 choice like **Cards** and **List**. The filter's token uses the same name. Under **Garden animals**,
-**Review** chooses **Animals and waiting for review**, **Needs review**, **Confirmed animals** or
+**Garden status** chooses **Animals and Needs your call**, **Needs your call**, **Confirmed animals** or
 **Dismissed**. Both appear as removable filters, and bird-only filters step aside while Garden
 animals is chosen. The count reads like the bird one, for example **2 Garden visits · 2 captures**.
 
@@ -134,7 +134,7 @@ lists every camera once, also without counts. A visitor cannot read your Garden 
 visitor is offered the cameras of the Garden captures already shown, and none while camera names
 are not shared. Choosing a camera narrows the Garden captures as well as the birds.
 
-- The Explorer shows confirmed animals and captures still waiting for review. Dismissed captures,
+- The Explorer shows confirmed animals and captures that still need your call. Dismissed captures,
   whether you or the automatic check dismissed them, are listed under **Review**, **Dismissed**, as
   an empty Garden view says.
 - Wording follows who is reading. You read **Identified by you** and **Species confirmed by you**;
@@ -248,11 +248,11 @@ are not shared. Choosing a camera narrows the Garden captures as well as the bir
   an explicit action on the complete loaded stack.
 - With **Public access** on, guests also see confirmed Garden animals beside the birds, under the
   same history window, photograph, video and camera-name switches as bird detections. Guests never
-  see captures waiting for review, dismissed captures, automatic check details or any review
+  see captures that need the owner's call, dismissed captures, automatic check details or any review
   control. Frigate can miss a person in an animal photograph, so check a photo before you confirm
   it if you share photographs.
 
-![The Explorer with Garden visitors and Needs review chosen in the filter rail: a card for six motion photos at the same position and a single Frigate capture, each marked Garden and flagged Needs review](../images/garden-review.png)
+![The Explorer with Garden visitors and Needs your call chosen in the filter rail: a card for six motion photos at the same position and a single Frigate capture, each marked Garden and flagged Needs your call](../images/garden-review.png)
 
 ![A Garden record showing Red fox, the animal crop, two selectable crop thumbnails from its visit and separate species-review and model controls](../images/garden-record.png)
 
@@ -298,7 +298,7 @@ Garden. This does not change which devices qualify for Garden's own models.
 
 **Where captures go** in the same view summarises the outcomes:
 
-- **Needs review**: checks waiting to run or retry, missing country/catalogue identity, and
+- **Needs your call**: checks waiting to run or retry, missing country/catalogue identity, and
   owner overrides. Automatic
   work says it is waiting, rather than asking for presence verification.
 - **Confirmed animals**: animals you confirm, confident animals named automatically, and
@@ -324,10 +324,10 @@ ingest labels, take precedence, except for [domestic birds you keep](#domestic-b
 labels. A later person or false-positive update removes its Frigate event capture from all views
 and prevents a delayed animal message from restoring it, even after capture is
 switched off. This relies on Frigate's labels; a missed person could still be in
-an animal photograph, so captures waiting for review and dismissed captures, with their
+an animal photograph, so captures that need your call and dismissed captures, with their
 media, are always owner-only. Guests see confirmed animals only.
 
-Frigate events without an advertised snapshot are skipped. **Needs review** omits
+Frigate events without an advertised snapshot are skipped. **Needs your call** omits
 captures whose photo is known to be unavailable, without deleting or changing
 their review metadata. Confirmed history remains visible after photo loss.
 Frigate event photographs are requested for automatic checks and when viewed;
@@ -409,7 +409,7 @@ deadline. The detector stays loaded between scans and is released after 60 secon
 scan, as soon as bird work is waiting, and after any failed or interrupted scan. Busy systems
 may collect no photos until pressure clears.
 
-Candidates appear in **Needs review**, labelled **Candidate from retained motion
+Candidates appear in **Needs your call**, labelled **Candidate from retained motion
 footage**. Each motion photo outlines the saved Cedar candidate before presence
 confirmation. The box marks the detector's proposal; it is not an animal count or
 proof that an animal is present. It stays visible if you dismiss a species suggestion.
@@ -426,7 +426,7 @@ people; unreviewed motion photographs remain owner-only. Once confirmed, a motio
 shared with guests when public access shares photographs.
 
 The Explorer groups motion proposals around the same position on a camera into
-one card, within a page of up to 128 captures under **Needs review**, and within the page's captures elsewhere. The group compares each box with the
+one card, within a page of up to 128 captures under **Needs your call**, and within the page's captures elsewhere. The group compares each box with the
 first box and requires the same detector. Boxes group when intersection over union
 is at least 75%, or when their top-left corners closely align and their extents
 vary within bounded limits: at most twice the width or height, corner movement
@@ -458,7 +458,7 @@ so it outlasts the expiry without holding one of the 128 review slots. Confirmed
 identification metadata and saved animal crops remain
 subject to normal history retention and the crop budget below. A recording cannot create another review or
 undo a dismissal when the detector changes. Dismissed photos stay available for
-**Return to review** until expiry or until a new candidate needs their space. At
+**Return to Needs your call** until expiry or until a new candidate needs their space. At
 the photo limit, the oldest dismissed photos are reclaimed first; pending and
 confirmed photos are protected. A reclaimed capture stays in **Dismissed** until
 expiry, with Restore unavailable and an explanation. If all photo slots belong to
@@ -530,9 +530,9 @@ its plausible group, for example *cat family*.
 
 The naming threshold is also the floor for what Garden shows. A photo whose species score
 is below it moves to **Dismissed** with its score and the threshold shown, even when the
-check is confident an animal is there: a capture nobody can name is noise in Needs review.
-It keeps its photo and its **Return to review** action, and a capture you return is never
-dismissed automatically again. A name the catalogue cannot bind waits in **Needs review**
+check is confident an animal is there: a capture nobody can name is noise in Needs your call.
+It keeps its photo and its **Return to Needs your call** action, and a capture you return is never
+dismissed automatically again. A name the catalogue cannot bind waits in **Needs your call**
 only when its score reached the threshold. The configured
 species threshold is authoritative;
 a separate coarse presence floor does not prevent an otherwise qualifying animal name.
@@ -864,7 +864,7 @@ or reconstructed. A failed request is retried an hour later. Captures confirmed
 before this change keep their photo only if its source still existed when the job
 reached them.
 
-**What is never kept.** Captures waiting for review and dismissed captures are never
+**What is never kept.** Captures that need your call and dismissed captures are never
 copied. Playing a waiting capture's clip streams it from Frigate without storing it.
 
 **When it is deleted.** The kept photo and clip are deleted when you dismiss the

@@ -539,7 +539,7 @@
                         {:else}
                             <div class="grid h-14 w-14 place-items-center rounded-2xl bg-brand-100 text-brand-700 dark:bg-brand-900/50 dark:text-brand-300"><svg class="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 16V4m0 0L8 8m4-4 4 4M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4" /></svg></div>
                             <div class="mt-4 text-sm font-bold text-slate-800 dark:text-slate-100">{$_('manual_observation.upload.drop', { default: 'Drop media here or choose a file' })}</div>
-                            <div class="mt-1 px-6 text-xs leading-5 text-slate-600 dark:text-slate-400">{$_('manual_observation.upload.formats', { default: 'JPEG, PNG, WebP up to 25 MB · MP4, MOV, WebM up to 250 MB / 3 minutes' })}</div>
+                            <div class="mt-1 px-6 text-xs leading-5 text-slate-600 dark:text-slate-400">{$_('manual_observation.upload.formats', { default: 'JPEG, PNG or WebP up to 25 MB · MP4, MOV or WebM up to 250 MB and 3 minutes' })}</div>
                         {/if}
                     </button>
                     <input bind:this={fileInput} class="sr-only" type="file" aria-label={$_('manual_observation.upload.title', { default: 'Choose a photo or video' })} accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm" onchange={(event) => setFile(event.currentTarget.files?.[0] ?? null)} />

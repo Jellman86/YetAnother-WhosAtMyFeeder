@@ -2476,14 +2476,14 @@
         {:else if pane.state === 'empty' && gardenOnly && authStore.hasOwnerAccess && gardenCameraCount === 0}
             <div class="border-y border-dashed border-line py-12 text-center" data-explorer-garden-empty>
                 <h2 class="text-lg font-semibold text-strong">{$_('garden.explorer.no_cameras_title', { default: 'No camera has Garden animals turned on' })}</h2>
-                <p class="mt-2 text-sm text-muted">{$_('garden.explorer.no_cameras_desc', { default: 'Turn Garden animals on for a camera, and its confirmed animals and captures waiting for review appear here.' })}</p>
+                <p class="mt-2 text-sm text-muted">{$_('garden.explorer.no_cameras_desc', { default: 'Turn Garden animals on for a camera, and its confirmed animals and the captures that need your call appear here.' })}</p>
                 <a href={toAppPath('/settings/beta')} class="btn btn-secondary mt-4 inline-flex min-h-11 items-center px-4">{$_('garden.open_settings', { default: 'Garden settings' })}</a>
             </div>
         {:else if pane.state === 'empty' && gardenOnly}
             <div class="border-y border-dashed border-line py-12 text-center" data-explorer-garden-empty>
                 <h2 class="text-lg font-semibold text-strong">
                     {gardenReview === 'pending'
-                        ? $_('garden.explorer.empty_pending', { default: 'No Garden captures need review' })
+                        ? $_('garden.explorer.empty_pending', { default: 'No Garden captures need your call' })
                         : gardenReview === 'confirmed'
                           ? $_('garden.explorer.empty_confirmed', { default: 'No confirmed animals yet' })
                           : gardenReview === 'dismissed'
@@ -2496,7 +2496,7 @@
                     </p>
                 {/if}
                 <p class="mt-2 text-sm text-muted">{authStore.hasOwnerAccess
-                    ? $_('garden.explorer.empty_desc', { default: 'Confirmed animals and captures waiting for review appear here. Dismissed captures are under Review, Dismissed.' })
+                    ? $_('garden.explorer.empty_desc', { default: 'Confirmed animals and captures that need your call appear here. Dismissed captures are under Garden status, Dismissed.' })
                     : $_('garden.explorer.empty_guest_desc', { default: 'Animals confirmed on the Garden cameras appear here.' })}</p>
             </div>
         {:else if pane.state === 'empty' || pane.state === 'empty-filtered'}

@@ -47,7 +47,7 @@
     "help": "Verwenden Sie möglichst die Originaldatei. YA-WAMF bewahrt sie auf und wählt die beste Eingabe für die Klassifizierung.",
     "change": "Andere Datei auswählen",
     "drop": "Medium hier ablegen oder Datei auswählen",
-    "formats": "JPEG, PNG, WebP bis 25 MB · MP4, MOV, WebM bis 250 MB / 3 Minuten",
+    "formats": "JPEG, PNG oder WebP bis 25 MB · MP4, MOV oder WebM bis 250 MB und 3 Minuten",
     "uploading": "Original wird gesichert…",
     "analyse": "Hochladen und analysieren"
   },

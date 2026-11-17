@@ -359,7 +359,7 @@
               : $_('garden.photo_restored', { default: 'Photo returned to Needs your call.' });
         // Similar photos stay; saying so keeps one decision from reading as the whole stack's.
         const remaining = groupTotal > 1 && action !== 'restore'
-            ? ` ${$_('garden.group_remaining', { default: 'Other photos in this group still need review.' })}`
+            ? ` ${$_('garden.group_remaining', { default: 'Other photos in this group still need your call.' })}`
             : '';
         return act(() => reviewGarden(capture.id, action), message + remaining);
     }
