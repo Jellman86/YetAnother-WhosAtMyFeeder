@@ -82,7 +82,7 @@
                     <caption class="sr-only">{title}</caption>
                     <thead class="sticky top-0 bg-surface">
                         <tr class="border-b border-line-soft">
-                            {#each table.columns as column (column)}
+                            {#each table.columns as column, columnIndex (columnIndex)}
                                 <th scope="col" class="py-1.5 pr-4 font-semibold text-muted">{column}</th>
                             {/each}
                         </tr>
@@ -90,8 +90,13 @@
                     <tbody class="divide-y divide-line-soft">
                         {#each table.rows as row, rowIndex (rowIndex)}
                             <tr>
+                                <!-- The first cell names the row (a date, an hour, a species), so each figure is read with it. -->
                                 {#each row as cell, cellIndex (cellIndex)}
-                                    <td class="py-1.5 pr-4 tabular-nums text-ink">{cell}</td>
+                                    {#if cellIndex === 0}
+                                        <th scope="row" class="py-1.5 pr-4 font-semibold text-ink">{cell}</th>
+                                    {:else}
+                                        <td class="py-1.5 pr-4 tabular-nums text-ink">{cell}</td>
+                                    {/if}
                                 {/each}
                             </tr>
                         {/each}

@@ -10,18 +10,19 @@ describe('species page header layout', () => {
 });
 
 describe('leaderboard span bar', () => {
-    const opening = speciesPageSource.lastIndexOf('<div', speciesPageSource.indexOf('data-leaderboard-span-bar'));
-    const spanBar = speciesPageSource.slice(opening, speciesPageSource.indexOf('</div>', opening));
+    const options = speciesPageSource.slice(speciesPageSource.indexOf('const spanOptions'), speciesPageSource.indexOf('const sourceOptions'));
+    const spanBar = speciesPageSource.slice(speciesPageSource.lastIndexOf('<Segmented', speciesPageSource.indexOf('data-leaderboard-span-bar')), speciesPageSource.indexOf('data-leaderboard-span-bar'));
 
     it('runs from the shortest window to the longest, as the standard lists it', () => {
-        const order = ['sort_by_day', 'sort_by_week', 'sort_by_month', 'sort_by_total'].map((key) => spanBar.indexOf(key));
+        const order = ['sort_by_day', 'sort_by_week', 'sort_by_month', 'sort_by_total'].map((key) => options.indexOf(key));
         expect(order.every((at) => at > -1)).toBe(true);
         expect([...order].sort((a, b) => a - b)).toEqual(order);
     });
 
     it('is a named group of tabs, so the name is read', () => {
-        expect(spanBar).toContain('role="group"');
-        expect(spanBar).toContain("aria-label={$_('leaderboard.span_group'");
+        // The shared control is a named group; on a phone the same choice is a labelled select.
+        expect(spanBar).toContain("label={$_('leaderboard.span_group'");
+        expect(speciesPageSource).toMatch(/<span class="sr-only">\{\$_\('leaderboard\.span_group'[^<]*<\/span>\s*<select[^>]*bind:value=\{span\}/);
         expect(speciesPageSource).not.toContain("aria-label={$_('leaderboard.title')}");
     });
 });

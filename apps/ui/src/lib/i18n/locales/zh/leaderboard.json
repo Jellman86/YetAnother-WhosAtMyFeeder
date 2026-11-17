@@ -67,7 +67,6 @@
   "ai_summary": "AI 洞察",
   "species_compare_title": "物种对比",
   "species_compare_subtitle": "主要物种时间趋势",
-  "activity_heatmap_title": "活动热力图",
   "activity_heatmap_subtitle": "按小时和星期的活动",
   "no_compare_data": "当前还没有足够的数据可用于对比。",
   "compare_zero_activity": "已选择对比物种，但该时间窗口内当前活动为零。",
@@ -95,7 +94,6 @@
   "weather_overlay_range_limited": "天气叠加仅适用于日、周或月范围。",
   "weather_overlays": "天气叠加",
   "detection_breakdown_subtitle": "物种构成",
-  "detection_breakdown_title": "检测细分",
   "other_species": "其他",
   "podium_title": "本期榜首",
   "audio_unavailable_title": "BirdNET 结果不可用",
@@ -168,7 +166,7 @@
   "wall_seen": "拍摄时间",
   "wall_camera": "摄像头",
   "wall_visit": "到访",
-  "wall_frames": "{count, plural, other {# 帧}}",
+  "wall_frames": "{count, plural, other {# 次拍摄}}",
   "wall_eyebrow": "{unit}最多 · {window}",
   "check": {
     "entry_title": "{count, plural, other {# 个物种可能命名有误}}",
@@ -218,5 +216,8 @@
     "kept_bird_skipped": "{count, plural, other {# 条记录无法移动，仍保留在鸟类历史中。}}",
     "kept_bird_remaining": "{count, plural, other {还有 # 条记录等待移动；请再次执行此操作。}}"
   },
-  "span_group": "时间范围"
+  "span_group": "时间范围",
+  "more_options": "更多",
+  "table_share": "占比",
+  "standing_heading": "本时段概况"
 }

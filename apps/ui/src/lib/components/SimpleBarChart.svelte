@@ -34,17 +34,13 @@
 
 {#snippet barContent(value: number, i: number)}
     {#if hoveredIndex === i}
-        <div class="absolute -top-7 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-xs font-medium text-white shadow-lg pointer-events-none before:absolute before:left-1/2 before:top-full before:-translate-x-1/2 before:border-4 before:border-transparent before:border-t-slate-900 dark:bg-slate-700 dark:before:border-t-slate-700">
+        <div class="absolute -top-7 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded-md bg-strong px-2 py-1 text-xs font-medium text-surface shadow-lg pointer-events-none before:absolute before:left-1/2 before:top-full before:-translate-x-1/2 before:border-4 before:border-transparent before:border-t-strong">
             {labels[i]}: {value}
         </div>
     {/if}
 
     <div
-        class="w-full rounded-xs transition-all duration-150 {hoveredIndex === i ? 'ring-2 ring-brand-400 ring-offset-1' : ''}"
-        class:bg-brand-500={value > 0 && hoveredIndex !== i}
-        class:bg-brand-400={value > 0 && hoveredIndex === i}
-        class:bg-slate-200={value === 0}
-        class:dark:bg-slate-600={value === 0}
+        class="w-full rounded-xs transition-all duration-150 motion-reduce:transition-none {value === 0 ? 'bg-track' : hoveredIndex === i ? 'bg-accent ring-2 ring-accent-line ring-offset-1 ring-offset-surface' : 'bg-accent-line'}"
         style="height: {value > 0 ? Math.max((value / maxValue) * 100, 8) : 4}%"
     ></div>
 {/snippet}
@@ -52,9 +48,9 @@
 <div class="w-full overflow-hidden">
     <div class="mb-2 flex items-center {title ? 'justify-between' : 'justify-end'}">
         {#if title}
-            <h4 class="text-sm font-medium text-slate-700 dark:text-slate-300">{title}</h4>
+            <h4 class="text-sm font-medium text-ink">{title}</h4>
         {/if}
-        <span class="text-xs text-slate-600 dark:text-slate-400">{$_('common.chart_total', { values: { count: total }, default: 'Total: {count}' })}</span>
+        <span class="text-xs text-muted">{$_('common.chart_total', { values: { count: total }, default: 'Total: {count}' })}</span>
     </div>
 
     <!-- Chart container with proper overflow handling -->
@@ -95,8 +91,8 @@
                      than its bar never runs out of the chart and loses its end. -->
                 <div class="flex min-w-0 flex-1 {i === 0 ? 'justify-start' : i === labels.length - 1 ? 'justify-end' : 'justify-center'}">
                     {#if shouldShowLabel(i)}
-                        <span class="whitespace-nowrap text-xs leading-none text-slate-600 dark:text-slate-400
-                                     {hoveredIndex === i ? 'text-slate-700 dark:text-slate-300 font-medium' : ''}">
+                        <span class="whitespace-nowrap text-xs leading-none text-muted
+                                     {hoveredIndex === i ? 'text-ink font-medium' : ''}">
                             {label}
                         </span>
                     {/if}

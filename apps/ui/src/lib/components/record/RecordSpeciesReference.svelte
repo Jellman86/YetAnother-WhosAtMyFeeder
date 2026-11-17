@@ -9,6 +9,8 @@
     import { summaryInAnotherLanguage } from '../../utils/summary-language';
     import { formatDistance, type WeatherUnitSystem } from '../../utils/weather-units';
     import Map from '../Map.svelte';
+    import { toAppPath } from '../../app/url-base';
+    import { settingsPartPath } from '../../settings/settings-route';
 
     /**
      * What the record can say about the species beyond this sighting: a few lines to recognise it by,
@@ -166,7 +168,7 @@
                 {#if !ebirdEnabled}
                     <p class="text-xs text-muted">
                         {$_('detection.ebird_enable_sightings')}
-                        <a href="/settings/integrations" class="ml-1 inline-flex min-h-6 items-center rounded-sm font-semibold text-accent-ink underline underline-offset-2 focus-ring">{$_('detection.ebird_configure_settings')}</a>
+                        <a href={toAppPath(settingsPartPath('integrations'))} class="ml-1 inline-flex min-h-6 items-center rounded-sm font-semibold text-accent-ink underline underline-offset-2 focus-ring">{$_('detection.ebird_configure_settings')}</a>
                     </p>
                 {:else if sightingsLoading}
                     <div class="space-y-3" role="status" aria-label={$_('common.loading', { default: 'Loading' })}>

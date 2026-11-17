@@ -468,12 +468,22 @@ shows grouping, not divergence.
 ### Standing (Leaderboard)
 
 ```
-span bar: day, week, month, total · seen, heard, both
+span and source: one compact row (on a phone the span is a select and "Include Unknown bird" is under More)
 wall: the leader named, the share bar as its navigation, then a contact sheet of this feeder's own visits
 flagged species: probable misidentifications, named apart for a person to check
 standing band: species, visits (captures in the all-time view), busiest hour, heard or confirmed, rising, most recent
-rankings (with evidence), then analytics
+  (beside the wall in a side column from 1280 px; under it on narrower screens)
+rankings (with evidence, each row with this feeder's own crop), then analytics, both at full width
 ```
+
+Use of the width: from 1280 px the standing figures, which summarise rather than ask for anything,
+stand in a side column beside the wall and its checks; the rankings table and the charts take the
+page's full width, so a wider screen shows more of the table's columns rather than wider cells. A
+ranking row's picture is this feeder's own newest crop of the species (its portrait, else its newest
+visit on the wall), then the species' reference picture, and otherwise an empty slot: never a
+stand-in icon. Each chart is a `ChartFigure` with one heading; the window is said once for the
+section, each chart's total sits in its caption, and its data is a table that follows what the chart
+draws (the visible series and any weather overlay).
 
 A leaderboard is only as good as its identifications, so the rankings say what stands behind each
 species besides the classifier: confirmed by the owner, heard by BirdNET in the same window, or the

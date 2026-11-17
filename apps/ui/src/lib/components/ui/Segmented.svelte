@@ -47,7 +47,7 @@
             disabled={option.disabled}
             data-segment={String(option.value)}
             {...optionAttribute ? { [optionAttribute]: String(option.value) } : {}}
-            class="focus-ring flex min-h-11 min-w-0 items-center justify-center gap-1.5 rounded-lg px-3 transition-colors disabled:cursor-not-allowed disabled:opacity-60
+            class="focus-ring flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-lg px-3 transition-colors disabled:cursor-not-allowed disabled:opacity-60
                 {width === 'content' ? '' : layout === 'wrap' ? 'grow' : 'flex-1'}
                 {size === 'sm' ? 'text-xs' : 'text-sm'}
                 {chosen ? 'bg-surface font-semibold text-strong shadow-xs ring-1 ring-line' : 'font-medium text-muted hover:text-strong'}"

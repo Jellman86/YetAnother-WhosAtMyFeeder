@@ -21,6 +21,8 @@ describe('the Leaderboard heading order', () => {
 
     it('never skips from a section to an h4', () => {
         expect(template.match(/<h[4-6]\b/g) ?? []).toEqual([]);
-        expect(template.match(/<h3\b/g)?.length).toBeGreaterThan(0);
+        // Each chart is a figure headed at h3 (ChartFigure's level unless told otherwise).
+        expect(template.match(/<ChartFigure\b/g)?.length).toBeGreaterThan(0);
+        expect(template).not.toMatch(/<ChartFigure[^>]*headingLevel=\{4\}/);
     });
 });

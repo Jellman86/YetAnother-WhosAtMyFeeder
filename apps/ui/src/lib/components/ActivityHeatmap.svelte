@@ -66,10 +66,10 @@
         if (subject) {
             return $_('leaderboard.heatmap_subject_many', {
                 values: { count, subject },
-                default: '{count, plural, one {# {subject} detection} other {# {subject} detections}}'
+                default: '{count, plural, one {# {subject} capture} other {# {subject} captures}}'
             });
         }
-        return $_('leaderboard.heatmap_count_many', { values: { count }, default: '{count, plural, one {# detection} other {# detections}}' });
+        return $_('leaderboard.heatmap_count_many', { values: { count }, default: '{count, plural, one {# capture} other {# captures}}' });
     }
 
     // What a screen reader hears on each cell: the same sentence the tooltip shows.
@@ -164,7 +164,7 @@
      growing on a wide screen, so an hour never stretches into a bar. -->
 <div class="relative w-full max-w-fit" bind:this={root} data-activity-heatmap>
     <div
-        class="grid gap-1 rounded-md focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-950"
+        class="grid gap-1 rounded-md focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
         style="grid-template-columns: 2.25rem repeat(24, minmax(0, 3rem)) 2.5rem; grid-template-rows: 2.5rem 1.25rem repeat(7, auto);"
         role="grid"
         tabindex="0"
@@ -182,7 +182,7 @@
         {#each HOURS as hour}
             <span class="flex items-end" aria-hidden="true">
                 <span
-                    class="block w-full rounded-t-xs {active?.hour === hour ? 'bg-brand-500' : 'bg-slate-300 dark:bg-slate-600'}"
+                    class="block w-full rounded-t-xs {active?.hour === hour ? 'bg-accent-line' : 'bg-line'}"
                     style="height: {Math.round((hourTotals[hour] / busiestHourTotal) * 100)}%"
                     data-heatmap-hour-bar={hour}
                 ></span>
@@ -193,23 +193,23 @@
         <span aria-hidden="true"></span>
         {#each HOURS as hour}
             <span
-                class="self-end whitespace-nowrap text-center text-xs tabular-nums {active?.hour === hour ? 'font-semibold text-slate-900 dark:text-white' : 'text-slate-600 dark:text-slate-400'} {hour % 6 === 0 || active?.hour === hour ? '' : hour % 3 === 0 ? 'invisible sm:visible' : 'invisible'}"
+                class="self-end whitespace-nowrap text-center text-xs tabular-nums {active?.hour === hour ? 'font-semibold text-strong' : 'text-muted'} {hour % 6 === 0 || active?.hour === hour ? '' : hour % 3 === 0 ? 'invisible sm:visible' : 'invisible'}"
                 aria-hidden="true"
             >{String(hour).padStart(2, '0')}</span>
         {/each}
-        <span class="self-end text-right text-xs text-slate-600 dark:text-slate-400" aria-hidden="true">{$_('leaderboard.heatmap_total_short', { default: 'Total' })}</span>
+        <span class="self-end text-right text-xs text-muted" aria-hidden="true">{$_('leaderboard.heatmap_total_short', { default: 'Total' })}</span>
 
         {#each DAY_ORDER as dayOfWeek, row}
             <div class="contents" role="row" aria-label={dayLabel(dayOfWeek)}>
             <span
-                class="self-center text-xs {active?.row === row ? 'font-bold text-slate-900 dark:text-white' : 'font-semibold text-slate-600 dark:text-slate-400'}"
+                class="self-center text-xs {active?.row === row ? 'font-bold text-strong' : 'font-semibold text-muted'}"
                 aria-hidden="true"
             >{dayLabel(dayOfWeek)}</span>
             {#each HOURS as hour}
                 {@const count = counts.get(`${dayOfWeek}-${hour}`) ?? 0}
                 {@const current = active?.row === row && active?.hour === hour}
                 <span
-                    class="aspect-square min-h-6 w-full rounded-xs {current ? 'ring-2 ring-brand-500 ring-offset-1 ring-offset-white dark:ring-brand-300 dark:ring-offset-slate-950' : isPeak({ row, hour }) ? 'ring-2 ring-slate-900 ring-offset-1 ring-offset-white dark:ring-white dark:ring-offset-slate-950' : ''}"
+                    class="aspect-square min-h-6 w-full rounded-xs {current ? 'ring-2 ring-focus ring-offset-1 ring-offset-surface' : isPeak({ row, hour }) ? 'ring-2 ring-strong ring-offset-1 ring-offset-surface' : ''}"
                     style="background-color: {heatmapFill(count, maxCellCount, dark)}"
                     id={cellId(row, hour)}
                     role="gridcell"
@@ -218,36 +218,36 @@
                     data-heatmap-hour={hour}
                 ></span>
             {/each}
-            <span class="self-center text-right text-xs tabular-nums text-slate-600 dark:text-slate-400" aria-hidden="true">{weekdayTotals[dayOfWeek].toLocaleString()}</span>
+            <span class="self-center text-right text-xs tabular-nums text-muted" aria-hidden="true">{weekdayTotals[dayOfWeek].toLocaleString()}</span>
             </div>
         {/each}
     </div>
 
     {#if active && tooltipAt}
         <div
-            class="pointer-events-none absolute z-20 w-44 -translate-x-1/2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs shadow-lg dark:border-slate-700 dark:bg-slate-900 {tooltipAt.below ? '' : '-translate-y-full'}"
+            class="pointer-events-none absolute z-20 w-44 -translate-x-1/2 rounded-lg border border-line bg-surface px-3 py-2 text-xs shadow-lg {tooltipAt.below ? '' : '-translate-y-full'}"
             style="left: {tooltipAt.left}px; top: {tooltipAt.top}px"
             aria-hidden="true"
             data-heatmap-tooltip
         >
-            <p class="font-semibold text-slate-900 dark:text-white">{slotLabel(active)}</p>
-            <p class="mt-0.5 tabular-nums text-slate-600 dark:text-slate-300">{countLabel(countAt(active))}</p>
+            <p class="font-semibold text-strong">{slotLabel(active)}</p>
+            <p class="mt-0.5 tabular-nums text-muted">{countLabel(countAt(active))}</p>
             {#if isPeak(active)}
-                <p class="mt-0.5 font-semibold text-slate-900 dark:text-white">{$_('leaderboard.heatmap_busiest_slot', { default: 'Busiest slot' })}</p>
+                <p class="mt-0.5 font-semibold text-strong">{$_('leaderboard.heatmap_busiest_slot', { default: 'Busiest slot' })}</p>
             {/if}
         </div>
     {/if}
 
-    <div class="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-xs text-slate-600 dark:text-slate-400">
+    <div class="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-xs text-muted">
         <span class="inline-flex items-center gap-2 tabular-nums">
             0
             <span class="inline-block h-2 w-24 rounded-full" style="background-image: {heatmapLegendGradient(dark)}"></span>
             {maxCellCount.toLocaleString()}
-            <span>{$_('leaderboard.heatmap_per_hour', { default: 'detections in one hour slot' })}</span>
+            <span>{$_('leaderboard.heatmap_per_hour', { default: 'captures in one hour slot' })}</span>
         </span>
         {#if peak}
             <span class="inline-flex items-center gap-1.5">
-                <span class="inline-block h-2.5 w-2.5 rounded-xs ring-2 ring-slate-900 dark:ring-white" aria-hidden="true"></span>
+                <span class="inline-block h-2.5 w-2.5 rounded-xs ring-2 ring-strong" aria-hidden="true"></span>
                 {$_('leaderboard.heatmap_peak', { values: { day: dayLabel(peak.day_of_week), time: formatHour(peak.hour), count: peak.count.toLocaleString() }, default: 'Busiest: {day} {time}, {count}' })}
             </span>
         {/if}

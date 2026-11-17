@@ -252,5 +252,6 @@
   "confidence_low": "Больше предложений",
   "confidence_high": "Меньше предложений",
   "naming_low": "Называет чаще",
-  "naming_high": "Называет реже"
+  "naming_high": "Называет реже",
+  "capture_label": "Снимок из сада"
 }

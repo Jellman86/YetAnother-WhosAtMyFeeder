@@ -7,6 +7,7 @@
 </script>
 
 <script lang="ts">
+    import DialogHeader from './ui/DialogHeader.svelte';
     /**
      * The leaderboard's check sheet: for each species flagged as probably misnamed, the visits'
      * own crops and the likeliest answer, one species after another.
@@ -298,10 +299,10 @@
     const count = $derived(selected.length);
 </script>
 
-<div class="fixed inset-0 z-60 flex items-end justify-center bg-slate-950/70 sm:items-start sm:overflow-y-auto sm:p-6 lg:p-10" use:portal role="presentation" onclick={(event) => { if (event.target === event.currentTarget) onclose(); }}>
+<div class="fixed inset-0 z-60 flex items-end justify-center bg-media/70 sm:items-start sm:overflow-y-auto sm:p-6 lg:p-10" use:portal role="presentation" onclick={(event) => { if (event.target === event.currentTarget) onclose(); }}>
     <div
         bind:this={dialog}
-        class="flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-3xl border border-line bg-surface text-slate-900 shadow-2xl sm:max-h-none sm:max-w-5xl sm:rounded-3xl dark:text-slate-100"
+        class="flex max-h-sheet w-full flex-col overflow-hidden rounded-t-3xl border border-line bg-surface text-strong shadow-2xl sm:max-h-none sm:max-w-5xl sm:rounded-3xl"
         role="dialog"
         aria-modal="true"
         aria-labelledby="species-check-title"
@@ -313,38 +314,37 @@
             <div class="p-8 text-center" data-species-check-done>
                 <p class="eyebrow">{$_('leaderboard.spotlight_needs_check', { default: 'Needs a check' })}</p>
                 <h2 id="species-check-title" class="mt-2 font-display text-3xl font-bold">{$_('leaderboard.check.all_done', { default: 'All checked' })}</h2>
-                <p class="mt-2 text-base text-slate-600 dark:text-slate-300">{$_('leaderboard.check.all_done_body', { values: { count: handled }, default: '{count} species checked. The rankings now show your answers.' })}</p>
+                <p class="mt-2 text-base text-muted">{$_('leaderboard.check.all_done_body', { values: { count: handled }, default: '{count} species checked. The rankings now show your answers.' })}</p>
                 <button type="button" class="btn btn-primary mt-6 min-h-11 px-6" onclick={onclose}>{$_('common.close', { default: 'Close' })}</button>
             </div>
         {:else}
-            <div class="flex items-start justify-between gap-4 border-b border-line-soft px-5 pb-4 pt-5 sm:px-8 sm:pt-7">
-                <div class="min-w-0">
-                    <p class="flex items-center gap-2 text-sm font-bold text-attention-700 dark:text-attention-300">
-                        <span class="h-2 w-2 rounded-full bg-attention-500" aria-hidden="true"></span>
+            <!-- The shared dialog header: the species in question, why it is asked about, and how far through the checks this is. -->
+            <DialogHeader title={current.displayName} titleId="species-check-title" onClose={onclose}>
+                {#snippet details()}
+                    <p class="flex items-center gap-2 text-sm font-semibold text-status-attention">
+                        <span class="h-2 w-2 rounded-full bg-status-attention-line" aria-hidden="true"></span>
                         {$_('leaderboard.check.position', { values: { at: handled + 1, total }, default: 'Needs a check · {at} of {total}' })}
                     </p>
-                    <h2 id="species-check-title" class="mt-1 font-display text-2xl font-bold leading-tight sm:text-4xl sm:leading-10">{current.displayName}</h2>
                     {#if current.scientificName && current.scientificName !== current.displayName}
-                        <p class="mt-1 text-base italic text-slate-600 dark:text-slate-400">{current.scientificName}</p>
+                        <p class="text-sm italic text-muted">{current.scientificName}</p>
                     {/if}
-                    <p class="mt-3 text-base text-slate-700 dark:text-slate-300">
+                    <p class="max-w-prose text-sm text-ink">
                         {#if isBird === false}
                             {$_('leaderboard.check.why_not_bird', { values: { count: visitTotal }, default: '{count} visits. Birders report birds, so the nearby check cannot speak for this one.' })}
                         {:else}
                             {$_('leaderboard.check.why', { values: { count: visitTotal }, default: '{count} visits, all from the camera alone.' })}
-                            {#if nearbyRadiusKm}<strong class="font-semibold text-attention-800 dark:text-attention-200">{' '}{$_('leaderboard.check.why_nearby', { values: { distance: displayDistance(nearbyRadiusKm, $_) }, default: 'No birder has reported it within {distance}.' })}</strong>{/if}
+                            {#if nearbyRadiusKm}<strong class="font-semibold text-status-attention">{' '}{$_('leaderboard.check.why_nearby', { values: { distance: displayDistance(nearbyRadiusKm, $_) }, default: 'No birder has reported it within {distance}.' })}</strong>{/if}
                         {/if}
                     </p>
-                </div>
-                <div class="flex shrink-0 flex-col items-end gap-3">
-                    <button type="button" class="btn btn-secondary min-h-11 px-4" onclick={onclose}>{$_('common.close', { default: 'Close' })}</button>
+                {/snippet}
+                {#snippet actions()}
                     <div class="flex gap-1.5" aria-hidden="true">
                         {#each Array.from({ length: total }, (_, index) => index) as index (index)}
-                            <span class="h-1.5 w-6 rounded-full {index < handled ? 'bg-success-500' : index === handled ? 'bg-attention-500' : 'bg-slate-200 dark:bg-slate-700'}"></span>
+                            <span class="h-1.5 w-6 rounded-full {index < handled ? 'bg-status-ok-line' : index === handled ? 'bg-status-attention-line' : 'bg-track'}"></span>
                         {/each}
                     </div>
-                </div>
-            </div>
+                {/snippet}
+            </DialogHeader>
 
             <div bind:this={scroller} class="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] overflow-y-auto lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] lg:overflow-visible">
                 <div class="px-5 py-5 sm:px-8 lg:border-r lg:border-line-soft" aria-busy={loading}>
@@ -359,7 +359,7 @@
                             <button type="button" class="btn btn-secondary min-h-11 px-4" onclick={() => current && load(current)}>{$_('common.retry', { default: 'Retry' })}</button>
                         </div>
                     {:else if visits.length === 0}
-                        <p class="text-base text-slate-600 dark:text-slate-300">{$_('leaderboard.check.no_visits', { default: 'No visits of this species are left in this window. It may already have been renamed.' })}</p>
+                        <p class="text-base text-muted">{$_('leaderboard.check.no_visits', { default: 'No visits of this species are left in this window. It may already have been renamed.' })}</p>
                     {:else}
                         <!-- A strip on a phone, so the answers stay within reach of the first photograph. -->
                         <ul class="flex snap-x gap-3 overflow-x-auto pb-1 sm:grid sm:grid-cols-[repeat(auto-fill,minmax(10rem,1fr))] sm:overflow-visible sm:pb-0">
@@ -374,22 +374,22 @@
                                         onclick={() => toggle(entry.visit.visit_id)}
                                         data-species-check-visit
                                     >
-                                        <span class="relative block aspect-square overflow-hidden rounded-2xl bg-surface-raised transition group-focus-visible:ring-4 group-focus-visible:ring-focus {on ? 'ring-[3px] ring-brand-500' : 'opacity-50 ring-1 ring-line'}">
+                                        <span class="relative block aspect-square overflow-hidden rounded-2xl bg-surface-raised transition group-focus-visible:ring-4 group-focus-visible:ring-focus {on ? 'ring-3 ring-accent-line' : 'opacity-50 ring-1 ring-line'}">
                                             <img src={entry.crop} alt="" loading="lazy" class="h-full w-full object-cover" />
-                                            <span class="absolute left-2 top-2 flex h-7 w-7 items-center justify-center rounded-full {on ? 'bg-brand-700 text-white' : 'bg-slate-950/60 text-slate-300'} ring-2 ring-surface" aria-hidden="true">
+                                            <span class="absolute left-2 top-2 flex h-7 w-7 items-center justify-center rounded-full {on ? 'bg-accent text-accent-fg' : 'bg-media/60 text-on-media/90'} ring-2 ring-surface" aria-hidden="true">
                                                 {#if on}<svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.6"><path d="m5 10.5 3.2 3.2L15 7" stroke-linecap="round" stroke-linejoin="round" /></svg>{/if}
                                             </span>
-                                            <span class="absolute bottom-2 right-2 rounded-full bg-slate-950/75 px-2 py-0.5 font-display text-sm font-bold text-brand-200">{Math.round((entry.visit.best_score ?? 0) * 100)}%</span>
+                                            <span class="absolute bottom-2 right-2 photo-chip rounded-full px-2 py-0.5 font-display text-sm font-bold">{Math.round((entry.visit.best_score ?? 0) * 100)}%</span>
                                         </span>
                                         <span class="mt-2 block text-sm font-semibold">{when(entry.visit)}</span>
-                                        <span class="block text-sm text-slate-600 dark:text-slate-400">
+                                        <span class="block text-sm text-muted">
                                             {entry.visit.representative.camera_name} · {$_('visits.captures', { values: { count: entry.visit.capture_count }, default: '{count} captures' })}
                                         </span>
                                     </button>
                                 </li>
                             {/each}
                         </ul>
-                        <div class="mt-4 flex flex-wrap items-center justify-between gap-2 text-base text-slate-600 dark:text-slate-300">
+                        <div class="mt-4 flex flex-wrap items-center justify-between gap-2 text-base text-muted">
                             <span>
                                 {left.size === 0
                                     ? $_('leaderboard.check.all_selected', { values: { count: visits.length }, default: 'All {count} visits selected. Tap a photo to leave it out.' })
@@ -407,7 +407,7 @@
                     {#if suggestion}
                         <button
                             type="button"
-                            class="flex w-full items-center gap-3 rounded-2xl border-2 p-4 text-left transition disabled:opacity-50 {suggestion.kind === 'confirm' ? 'border-success-500 bg-success-500/10' : 'border-brand-500 bg-brand-500/10'}"
+                            class="flex w-full items-center gap-3 rounded-2xl border-2 p-4 text-left transition disabled:opacity-50 {suggestion.kind === 'confirm' ? 'border-status-ok-line bg-status-ok-soft' : 'border-accent-line bg-accent-soft'}"
                             disabled={busy || count === 0 || loading}
                             onclick={primary}
                             data-species-check-primary
@@ -418,7 +418,7 @@
                                     {:else if suggestion.kind === 'confirm'}{$_('leaderboard.check.really', { values: { species: current.displayName }, default: 'It really is a {species}' })}
                                     {:else}{$_('leaderboard.check.not_bird', { default: 'Not a bird' })}{/if}
                                 </span>
-                                <span class="mt-0.5 block text-sm text-slate-600 dark:text-slate-300">
+                                <span class="mt-0.5 block text-sm text-muted">
                                     {#if suggestion.kind === 'rename' && suggestion.reason === 'other_reads'}
                                         {$_('leaderboard.check.reason_reads', { values: { count: suggestion.visits, species: speciesPickerNames(suggestion.target).primary }, default: 'Another crop of {count} of these visits reads {species}.' })}
                                     {:else if suggestion.kind === 'rename'}
@@ -430,11 +430,11 @@
                                     {/if}
                                 </span>
                             </span>
-                            <span class="shrink-0 rounded-xl px-3 py-2 text-sm font-bold text-white {suggestion.kind === 'confirm' ? 'bg-success-700' : 'bg-brand-700'}">
+                            <span class="shrink-0 rounded-xl bg-accent px-3 py-2 text-sm font-bold text-accent-fg">
                                 {#if suggestion.kind === 'rename'}{$_('leaderboard.check.rename_count', { values: { count }, default: 'Rename {count} visits' })}
                                 {:else if suggestion.kind === 'confirm'}{$_('leaderboard.check.confirm_short', { default: 'Confirm' })}
                                 {:else}{$_('leaderboard.check.hide_short', { default: 'Hide' })}{/if}
-                                <kbd class="ml-1.5 hidden rounded-sm border border-white/40 px-1.5 font-mono text-xs sm:inline">1</kbd>
+                                <kbd class="ml-1.5 hidden rounded-sm border border-accent-fg/40 px-1.5 font-mono text-xs sm:inline">1</kbd>
                             </span>
                         </button>
                     {/if}
@@ -445,7 +445,7 @@
                             {@const names = speciesPickerNames(choice)}
                             <button
                                 type="button"
-                                class="min-h-12 rounded-xl border px-3 py-2 text-left text-base font-semibold transition {picked?.id === choice.id ? 'border-brand-500 bg-brand-500/15' : 'border-line bg-surface hover:border-brand-400'}"
+                                class="min-h-12 rounded-xl border px-3 py-2 text-left text-base font-semibold transition {picked?.id === choice.id ? 'border-accent-line bg-accent-soft' : 'border-line bg-surface hover:border-accent-line'}"
                                 aria-pressed={picked?.id === choice.id}
                                 onclick={() => (picked = picked?.id === choice.id ? null : choice)}
                             >{names.primary}</button>
@@ -460,9 +460,9 @@
                             {#each searchResults as result (result.id)}
                                 {@const names = speciesPickerNames(result)}
                                 <li>
-                                    <button type="button" class="flex min-h-12 w-full flex-col items-start justify-center px-3 py-1.5 text-left hover:bg-surface-raised {picked?.id === result.id ? 'bg-brand-500/15' : ''}" aria-pressed={picked?.id === result.id} onclick={() => (picked = result)}>
+                                    <button type="button" class="flex min-h-12 w-full flex-col items-start justify-center px-3 py-1.5 text-left hover:bg-surface-raised {picked?.id === result.id ? 'bg-accent-soft' : ''}" aria-pressed={picked?.id === result.id} onclick={() => (picked = result)}>
                                         <span class="text-base font-semibold">{names.primary}</span>
-                                        {#if names.secondary}<span class="text-sm italic text-slate-600 dark:text-slate-400">{names.secondary}</span>{/if}
+                                        {#if names.secondary}<span class="text-sm italic text-muted">{names.secondary}</span>{/if}
                                     </button>
                                 </li>
                             {/each}

@@ -8,7 +8,6 @@
     "empty": "No hay actividad en este período.",
     "other_species": "Otras especies",
     "unavailable": "No disponible mientras no se pueda leer el historial.",
-    "show_numbers": "Mostrar las cifras",
     "col_day": "Día",
     "col_hour": "Hora",
     "col_calls": "Cantos",
@@ -76,5 +75,6 @@
     "empty": "Aún no hay fuentes."
   },
   "not_shared_title": "El audio no se comparte públicamente",
-  "not_shared_body": "El propietario de esta instancia ha desactivado el audio para visitantes."
+  "not_shared_body": "El propietario de esta instancia ha desactivado el audio para invitados.",
+  "summary_title": "Este periodo"
 }

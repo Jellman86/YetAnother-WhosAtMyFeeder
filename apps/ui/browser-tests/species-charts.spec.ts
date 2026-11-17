@@ -83,7 +83,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('trend, composition and heatmap render and respond to controls', async ({ page }, testInfo) => {
-    const trend = page.locator('canvas[aria-label^="Detections over time"]');
+    const trend = page.locator('canvas[aria-label^="Captures over time"]');
     const donut = page.locator('canvas[aria-label="Species composition"]');
     await expect(trend).toBeVisible();
     await expect(donut).toBeVisible();
@@ -96,7 +96,7 @@ test('trend, composition and heatmap render and respond to controls', async ({ p
         return chart?.data.datasets.length;
     })).toBe(4);
     await expect(page.getByRole('grid', { name: /Activity by weekday and hour/ }).getByRole('gridcell')).toHaveCount(168);
-    await expect(page.getByRole('gridcell', { name: 'Mon 08:00 to 09:00: 12 detections. Busiest slot', exact: true })).toBeVisible();
+    await expect(page.getByRole('gridcell', { name: 'Mon 08:00 to 09:00: 12 captures. Busiest slot', exact: true })).toBeVisible();
 
     await page.getByRole('group', { name: 'Species composition' }).getByRole('button', { name: 'Hide Robin' }).focus();
     await page.keyboard.press('Enter');
@@ -119,7 +119,7 @@ test('AI analysis receives a PNG capture of the chart', async ({ page }) => {
 });
 
 test('weather overlays and reduced motion preserve an understandable trend', async ({ page }) => {
-    const trend = page.locator('canvas[aria-label^="Detections over time"]');
+    const trend = page.locator('canvas[aria-label^="Captures over time"]');
     await expect(trend).toBeVisible();
     await page.getByText('Weather overlays', { exact: true }).click();
     await page.getByRole('button', { name: 'Temperature' }).click();
@@ -160,13 +160,13 @@ test('weather overlays and reduced motion preserve an understandable trend', asy
 
 test('heatmap keyboard reading starts at the peak and follows grid navigation', async ({ page }) => {
     const grid = page.getByRole('grid', { name: /Activity by weekday and hour/ });
-    const peak = grid.getByRole('gridcell', { name: 'Mon 08:00 to 09:00: 12 detections. Busiest slot', exact: true });
+    const peak = grid.getByRole('gridcell', { name: 'Mon 08:00 to 09:00: 12 captures. Busiest slot', exact: true });
     await page.keyboard.press('Tab');
     await grid.focus();
     await expect(grid).toBeFocused();
     await expect.poll(() => grid.getAttribute('aria-activedescendant')).toBe(await peak.getAttribute('id'));
     const tooltip = page.locator('[data-heatmap-tooltip]');
-    await expect(tooltip).toContainText('12 detections');
+    await expect(tooltip).toContainText('12 captures');
     for (const [key, slot] of [['ArrowRight', 'Mon 09:00'], ['ArrowLeft', 'Mon 08:00'], ['ArrowDown', 'Tue 08:00'], ['Home', 'Tue 00:00'], ['End', 'Tue 23:00'], ['ArrowUp', 'Mon 23:00']] as const) {
         await page.keyboard.press(key);
         await expect(tooltip).toContainText(slot);
@@ -180,19 +180,19 @@ test('heatmap keyboard reading starts at the peak and follows grid navigation', 
 
 test('heatmap pointer and touch reading show the selected slot and dismiss cleanly', async ({ page, isMobile }) => {
     const grid = page.getByRole('grid', { name: /Activity by weekday and hour/ });
-    const peak = grid.getByRole('gridcell', { name: 'Mon 08:00 to 09:00: 12 detections. Busiest slot', exact: true });
+    const peak = grid.getByRole('gridcell', { name: 'Mon 08:00 to 09:00: 12 captures. Busiest slot', exact: true });
     const tooltip = page.locator('[data-heatmap-tooltip]');
     if (isMobile) {
         await peak.tap();
-        await expect(tooltip).toContainText('12 detections');
+        await expect(tooltip).toContainText('12 captures');
         await peak.tap();
         await expect(tooltip).toHaveCount(0);
-        await grid.getByRole('gridcell', { name: 'Sat 17:00 to 18:00: 5 detections', exact: true }).tap();
-        await expect(tooltip).toContainText('5 detections');
+        await grid.getByRole('gridcell', { name: 'Sat 17:00 to 18:00: 5 captures', exact: true }).tap();
+        await expect(tooltip).toContainText('5 captures');
         await page.getByRole('button', { name: 'Toggle theme' }).tap();
     } else {
         await peak.hover();
-        await expect(tooltip).toContainText('12 detections');
+        await expect(tooltip).toContainText('12 captures');
         await page.getByRole('button', { name: 'Toggle theme' }).hover();
     }
     await expect(tooltip).toHaveCount(0);
@@ -309,7 +309,7 @@ async function rainPixels(canvas: Locator): Promise<number[][] | null> {
 
 test('the trend chart keeps its set height on a wide screen', async ({ page }) => {
     await page.setViewportSize({ width: 2560, height: 1440 });
-    const trend = page.locator('canvas[aria-label^="Detections over time"]');
+    const trend = page.locator('canvas[aria-label^="Captures over time"]');
     await expect(trend).toBeVisible();
     await expect.poll(() => trend.evaluate(node => Boolean((node as HTMLCanvasElement & { __chartjs?: unknown }).__chartjs))).toBe(true);
     // Chart.js sizes the canvas to its box; a box that grows with the canvas balloons to half the width.

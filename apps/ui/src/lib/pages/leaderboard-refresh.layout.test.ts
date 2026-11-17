@@ -33,8 +33,8 @@ describe('leaderboard field-journal layout', () => {
         // One rule decides which is built: no container query also shows or hides either, which at a
         // fractional width a pixel either side of the ruler could disagree with and hide both.
         expect(leaderboardSource).not.toMatch(/@4xl:(?:hidden|block)/);
-        expect(leaderboardSource).toMatch(/dark:border-slate-700" data-leaderboard-stacked-rankings/);
-        expect(leaderboardSource).toMatch(/dark:border-slate-700" data-leaderboard-table-rankings/);
+        expect(leaderboardSource).toMatch(/border-y border-line" data-leaderboard-stacked-rankings/);
+        expect(leaderboardSource).toMatch(/border-y border-line" data-leaderboard-table-rankings/);
         // A column that appears by window width would stay while doubled text squeezed it.
         expect(leaderboardSource).not.toMatch(/\b(?:md|lg|xl):table-cell/);
         expect(leaderboardSource).not.toContain('min-w-[900px]');
@@ -56,21 +56,23 @@ describe('leaderboard field-journal layout', () => {
         expect(leaderboardSource).not.toContain('topSpecies');
     });
 
-    it('uses accessible section icons and touch-sized controls', () => {
-        expect(leaderboardSource.match(/data-leaderboard-section-icon/g) ?? []).toHaveLength(2);
-        expect(leaderboardSource.match(/data-leaderboard-section-icon[^>]+aria-hidden="true"/g) ?? []).toHaveLength(2);
+    it('heads its sections in words alone, with touch-sized controls', () => {
+        // The icon tiles beside each heading repeated it; one heading per section says enough.
+        expect(leaderboardSource).not.toContain('data-leaderboard-section-icon');
         expect(leaderboardSource).toContain('min-h-11');
         expect(leaderboardSource).toContain('focus-visible:ring-2 focus-visible:ring-focus');
     });
 
-    it('uses round species portraits throughout the ranking surface', () => {
-        expect(leaderboardSource.match(/data-leaderboard-species-portrait/g) ?? []).toHaveLength(2);
-        expect(leaderboardSource.match(/data-leaderboard-species-portrait[^>]+rounded-full/g) ?? []).toHaveLength(2);
+    it('uses one round portrait for every ranking row, in both arrangements', () => {
+        expect(leaderboardSource.match(/data-leaderboard-species-portrait/g) ?? []).toHaveLength(1);
+        expect(leaderboardSource).toMatch(/data-leaderboard-species-portrait[^>]+rounded-full/);
+        expect(leaderboardSource.match(/\{@render rowPortrait\(index, item, /g) ?? []).toHaveLength(2);
     });
 
     it('exposes toggle state and table headings to assistive technology', () => {
-        expect(leaderboardSource).toContain("aria-pressed={span === 'month'}");
-        expect(leaderboardSource).toContain("aria-pressed={sourceMode === 'seen'}");
+        // The span and the source are the shared choose-one control, which says which is chosen.
+        expect(leaderboardSource).toMatch(/<Segmented\s+value=\{span \?\? 'month'\}/);
+        expect(leaderboardSource).toMatch(/<Segmented\s+value=\{sourceMode\}/);
         expect(leaderboardSource.match(/scope="col"/g)?.length ?? 0).toBeGreaterThanOrEqual(6);
         expect(leaderboardSource).toContain('tabular-nums');
     });
@@ -134,7 +136,7 @@ describe('leaderboard field-journal layout', () => {
         expect(leaderboardSource).toContain('data-leaderboard-unlikely-note');
         expect(leaderboardSource).toContain('data-leaderboard-unlikely-reason');
         // Wash, dot and words together, never a coloured rule on the row's edge.
-        expect(leaderboardSource).toContain("bg-attention-50/70 dark:bg-attention-500/10");
+        expect(leaderboardSource).toContain("unlikelyHere(item) ? 'bg-status-attention-soft' : ''");
         expect(leaderboardSource).not.toMatch(/border-l-(2|4)[^"]*attention/);
     });
 

@@ -8,7 +8,6 @@
     "empty": "この期間にアクティビティはありません。",
     "other_species": "その他の種",
     "unavailable": "履歴を読み込めない間は表示できません。",
-    "show_numbers": "数値を表示",
     "col_day": "日",
     "col_hour": "時刻",
     "col_calls": "鳴き声",
@@ -76,5 +75,6 @@
     "empty": "音源はまだありません。"
   },
   "not_shared_title": "音声は公開されていません",
-  "not_shared_body": "このインスタンスの所有者は訪問者向けの音声をオフにしています。"
+  "not_shared_body": "このインスタンスの所有者はゲスト向けの音声をオフにしています。",
+  "summary_title": "この期間"
 }

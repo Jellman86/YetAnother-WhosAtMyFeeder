@@ -22,15 +22,15 @@ describe('weather units helpers', () => {
     });
 
     it('formats precipitation in metric units from stored millimetres', () => {
-        expect(formatPrecipitation(0.45, 'metric')).toBe('0.5mm');
+        expect(formatPrecipitation(0.45, 'metric')).toBe('0.5\u00a0mm');
     });
 
     it('formats precipitation in imperial units from stored millimetres', () => {
-        expect(formatPrecipitation(25.4, 'imperial')).toBe('1.0in');
+        expect(formatPrecipitation(25.4, 'imperial')).toBe('1.0\u00a0in');
     });
 
     it('formats precipitation in british units from stored millimetres', () => {
-        expect(formatPrecipitation(25.4, 'british')).toBe('25mm');
+        expect(formatPrecipitation(25.4, 'british')).toBe('25\u00a0mm');
     });
 
     it.each([

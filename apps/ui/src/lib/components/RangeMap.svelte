@@ -10,7 +10,7 @@
   export let opacity: number = 0.65;
   export let zoom: number = 1;
   export let center: [number, number] = [0, 20];
-  export let heightClass: string = 'h-[220px]';
+  export let heightClass: string = 'h-55';
 
   let mapElement: HTMLElement;
   let map: LeafletMap | null = null;
@@ -84,7 +84,7 @@
   }
 </script>
 
-<div class={`relative w-full ${heightClass} rounded-2xl overflow-hidden border border-slate-200/60 dark:border-slate-700/60 bg-slate-100 dark:bg-slate-800`}>
+<div class={`relative w-full ${heightClass} rounded-2xl overflow-hidden border border-line bg-surface-raised`}>
   <div bind:this={mapElement} class="w-full h-full z-0"></div>
   <MapCredit />
   <div class="absolute top-3 right-3 z-20 flex flex-col gap-2 pointer-events-auto">

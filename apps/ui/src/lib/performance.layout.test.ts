@@ -78,7 +78,8 @@ describe('the Leaderboard does its work when it is looked at', () => {
     });
 
     it('reads a ranking row\'s reference picture when the row comes near the viewport', () => {
-        expect(speciesSource.match(/use:whenNearViewport=\{\(\) => void loadSpeciesInfo\(item\.species\)\}/g) ?? []).toHaveLength(2);
+        // One portrait snippet draws both arrangements' rows.
+        expect(speciesSource.match(/use:whenNearViewport=\{\(\) => void loadSpeciesInfo\(item\.species\)\}/g) ?? []).toHaveLength(1);
         expect(speciesSource).not.toContain('for (const row of showcaseRows) void loadSpeciesInfo(row.key);');
         expect(speciesSource).not.toContain('sortedSpecies().slice(0, 20)');
     });

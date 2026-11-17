@@ -17,8 +17,8 @@ describe('BirdNET history listening-log layout', () => {
 
     it('uses one semantic table that reflows for phones without horizontal scrolling', () => {
         expect(audioHistorySource).toContain('data-audio-history-table');
-        expect(audioHistorySource).toContain('md:table-row');
-        expect(audioHistorySource).toContain('md:table-cell');
+        expect(audioHistorySource).toContain('@2xl:table-row');
+        expect(audioHistorySource).toContain('@2xl:table-cell');
         expect(audioHistorySource).toContain('scope="col"');
         expect(audioHistorySource).not.toContain('overflow-x-auto');
     });
@@ -29,9 +29,9 @@ describe('BirdNET history listening-log layout', () => {
         expect(audioHistorySource).not.toMatch(/[🐦🥇🥈🥉]/u);
     });
 
-    it('uses restrained icons and accessible interaction states', () => {
-        expect(audioHistorySource.match(/data-audio-section-icon/g) ?? []).toHaveLength(2);
-        expect(audioHistorySource.match(/data-audio-section-icon[^>]+aria-hidden="true"/g) ?? []).toHaveLength(2);
+    it('heads its sections in words alone, with accessible interaction states', () => {
+        // The icon beside each heading repeated it.
+        expect(audioHistorySource).not.toContain('data-audio-section-icon');
         expect(audioHistorySource).toContain('min-h-11');
         expect(audioHistorySource).toContain('focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus');
         expect(audioHistorySource).toContain('role="alert"');

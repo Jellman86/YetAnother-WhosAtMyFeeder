@@ -32,5 +32,7 @@
   "visits_day": "Visite, ultime 24 ore",
   "visits_week": "Visite, ultimi 7 giorni",
   "visits_month": "Visite, ultimi 30 giorni",
-  "detections_note": "Ogni fotogramma identificato conta una volta. Una visita può contenere più fotogrammi, quindi i conteggi delle visite in classifica sono più bassi."
+  "detections_note": "Ogni cattura identificata conta una volta. Una visita può contenere più catture, quindi i conteggi delle visite in classifica sono più bassi.",
+  "recent_captures": "Catture recenti",
+  "unknown_bird_actions": "Non identificato fino alla specie. Esegui di nuovo il modello sulla sua foto o clip, oppure aprilo in Esplora per rinominarlo."
 }

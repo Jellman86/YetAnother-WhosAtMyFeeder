@@ -252,5 +252,6 @@
   "confidence_low": "Più proposte",
   "confidence_high": "Meno proposte",
   "naming_low": "Nomina di più",
-  "naming_high": "Nomina di meno"
+  "naming_high": "Nomina di meno",
+  "capture_label": "Cattura del giardino"
 }

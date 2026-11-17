@@ -45,13 +45,13 @@
     <section class="panel flex flex-col gap-5" aria-labelledby="spotlight-checks-title" data-spotlight-checks>
         <div class="flex flex-col gap-5 lg:flex-row lg:items-center">
             <div class="min-w-0 lg:w-96 lg:shrink-0">
-                <p class="flex items-center gap-2 text-sm font-bold text-attention-700 dark:text-attention-300">
-                    <span class="h-2 w-2 rounded-full bg-attention-500" aria-hidden="true"></span>{$_('leaderboard.spotlight_needs_check', { default: 'Needs a check' })}
+                <p class="flex items-center gap-2 text-sm font-bold text-status-attention">
+                    <span class="h-2 w-2 rounded-full bg-status-attention-line" aria-hidden="true"></span>{$_('leaderboard.spotlight_needs_check', { default: 'Needs a check' })}
                 </p>
-                <h2 id="spotlight-checks-title" class="mt-1 font-display text-2xl font-bold text-slate-900 dark:text-white">
+                <h2 id="spotlight-checks-title" class="mt-1 font-display text-2xl font-bold text-strong">
                     {$_('leaderboard.check.entry_title', { values: { count: checks.length }, default: '{count} species may be misnamed' })}
                 </h2>
-                <p class="mt-1 text-base text-slate-600 dark:text-slate-300">
+                <p class="mt-1 text-base text-muted">
                     {nearbyRadiusKm
                         ? $_('leaderboard.check.entry_body', { values: { distance: displayDistance(nearbyRadiusKm, $_) }, default: 'Each rests on the camera alone, and no birder has reported it within {distance}.' })
                         : $_('leaderboard.check.entry_body_plain', { default: 'Each rests on the camera alone.' })}
@@ -71,12 +71,12 @@
                             onclick={() => (oncheck ? oncheck(row.key) : onopen(row.key))}
                         >
                             {#if thumb}
-                                <img src={thumb.url} alt="" loading="lazy" decoding="async" class="h-28 w-28 rounded-2xl object-cover ring-1 ring-line transition group-hover:ring-2 group-hover:ring-brand-400 group-focus-visible:ring-4 group-focus-visible:ring-focus" onerror={() => markFailed(thumb.raw)} />
+                                <img src={thumb.url} alt="" loading="lazy" decoding="async" class="h-28 w-28 rounded-2xl object-cover ring-1 ring-line transition group-hover:ring-2 group-hover:ring-accent-line group-focus-visible:ring-4 group-focus-visible:ring-focus" onerror={() => markFailed(thumb.raw)} />
                             {:else}
                                 <span class="block h-28 w-28 rounded-2xl bg-surface-raised ring-1 ring-line" aria-hidden="true"></span>
                             {/if}
-                            <span class="mt-2 block text-sm font-semibold leading-snug text-slate-900 dark:text-white">{row.displayName}</span>
-                            <span class="block text-sm tabular-nums text-slate-600 dark:text-slate-400">{row.count.toLocaleString()} {countLabel(row.count)}</span>
+                            <span class="mt-2 block text-sm font-semibold leading-snug text-strong">{row.displayName}</span>
+                            <span class="block text-sm tabular-nums text-muted">{row.count.toLocaleString()} {countLabel(row.count)}</span>
                         </button>
                     </li>
                 {/each}

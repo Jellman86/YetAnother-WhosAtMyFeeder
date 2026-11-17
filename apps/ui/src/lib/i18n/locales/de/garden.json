@@ -252,5 +252,6 @@
   "confidence_low": "Mehr Vorschläge",
   "confidence_high": "Weniger Vorschläge",
   "naming_low": "Benennt mehr",
-  "naming_high": "Benennt weniger"
+  "naming_high": "Benennt weniger",
+  "capture_label": "Gartenaufnahme"
 }

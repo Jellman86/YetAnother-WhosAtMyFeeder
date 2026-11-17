@@ -1,9 +1,13 @@
 <script lang="ts">
     import Separator from '../components/Separator.svelte';
+    import Segmented from '../components/ui/Segmented.svelte';
+    import Disclosure from '../components/ui/Disclosure.svelte';
+    import ChartFigure from '../components/ui/ChartFigure.svelte';
+    import { bucketPrecipitation, chartTable, shareTable, type ChartSeries } from '../utils/chart-table';
     import CaptureWall from '../components/CaptureWall.svelte';
     import SpeciesChecks from '../components/SpeciesChecks.svelte';
     import SpeciesCheckSheet from '../components/SpeciesCheckSheet.svelte';
-    import { buildShowcaseRows, SPOTLIGHT_PORTRAITS } from '../leaderboard/showcase';
+    import { buildShowcaseRows, RANKING_PORTRAITS } from '../leaderboard/showcase';
     import { DomesticBirdOffers } from '../utils/domestic-bird-offers.svelte';
     import { wallTiles } from '../leaderboard/wall';
     import { distinctSeriesLabels, type SeriesName } from '../utils/distinct-series-labels';
@@ -16,6 +20,7 @@
         fetchDetectionsTimelineSpan,
         fetchLeaderboardAnalysis,
         fetchLeaderboardPortraits,
+        getReelImageUrl,
         fetchLeaderboardSpecies,
         type LeaderboardPortrait,
         fetchSpecies,
@@ -28,6 +33,7 @@
         type SpeciesCount,
         type SpeciesInfo
     } from '../api';
+    import { withAuthParams } from '../api/core';
     import { chartjsWhenNear, toggleChartSlice, type CanvasChartConfig, type MixedCanvasChartConfig } from '../actions/chartjs';
     import { whenNearViewport } from '../actions/near-viewport';
     import { roomFor } from '../actions/box-width';
@@ -53,6 +59,7 @@
     import { getErrorMessage, isTransientRequestError } from '../utils/error-handling';
     import {
         convertWindSpeed,
+        formatPrecipitation,
         getTemperatureUnitForSystem,
         resolveWeatherUnitSystem
     } from '../utils/weather-units';
@@ -143,7 +150,27 @@
             && trendMeasured(sourceMode, { seen: previousWindowComplete, heard: audioPreviousWindowComplete })
     );
     let hiddenTimelineSeries = $state<string[]>([]);
+    /**
+     * The rain bands are the `--rain-band` token, drawn by the chart (read from the page, as a canvas
+     * cannot use a class) and by the key's swatches at the strengths their classes name.
+     */
+    const RAIN_KEY = ['bg-rain-band/10', 'bg-rain-band/20', 'bg-rain-band/30'] as const;
+    function rainBand(alpha: number): string {
+        const channels = typeof document === 'undefined' ? '' : getComputedStyle(document.documentElement).getPropertyValue('--rain-band').trim();
+        return channels ? `rgb(${channels} / ${alpha.toFixed(3)})` : 'transparent';
+    }
     let includeUnknownBird = $state(false);
+    const spanOptions = $derived<{ value: NonNullable<LeaderboardSpan>; label: string }[]>([
+        { value: 'day', label: $_('leaderboard.sort_by_day') },
+        { value: 'week', label: $_('leaderboard.sort_by_week') },
+        { value: 'month', label: $_('leaderboard.sort_by_month') },
+        { value: 'all', label: $_('leaderboard.sort_by_total') }
+    ]);
+    const sourceOptions = $derived<{ value: SourceMode; label: string }[]>([
+        { value: 'seen', label: $_('leaderboard.source_seen', { default: 'Seen' }) },
+        { value: 'heard', label: $_('leaderboard.source_heard', { default: 'Heard' }) },
+        { value: 'both', label: $_('leaderboard.source_both', { default: 'Both' }) }
+    ]);
     let selectedSpecies = $state<string | null>(null);
     /** The flagged species the owner opened the check sheet on, or null when it is closed. */
     let checkStart = $state<string | null>(null);
@@ -251,6 +278,8 @@
 
     let leaderboardRows = $derived(leaderboardTableRows(sourceMode));
     let sourceLeader = $derived(leaderboardRows[0] ?? null);
+    /** The wall shows the camera's visits, so it stands for Seen and Both when there is a leader to show. */
+    const showsWall = $derived(sourceMode !== 'heard' && sourceLeader !== null && sourceLeader.count > 0);
     // This feeder's own photograph of each leading species, fetched beside the standings and
     // never blocking them; a species without one shows its reference image, labelled.
     let portraits = $state.raw<LeaderboardPortrait[]>([]);
@@ -260,7 +289,7 @@
         void publicVersion;
         const controller = new AbortController();
         portraits = [];
-        void fetchLeaderboardPortraits(requestedSpan, controller.signal, SPOTLIGHT_PORTRAITS)
+        void fetchLeaderboardPortraits(requestedSpan, controller.signal, RANKING_PORTRAITS)
             .then((response) => {
                 if (!controller.signal.aborted) portraits = response.portraits;
             })
@@ -291,7 +320,7 @@
         if (sourceMode === 'both') {
             return countsAreVisits
                 ? $_('leaderboard.showcase_visits_and_calls', { values: { count }, default: 'visits and calls' })
-                : $_('leaderboard.showcase_detections_and_calls', { values: { count }, default: 'detections and calls' });
+                : $_('leaderboard.showcase_detections_and_calls', { values: { count }, default: 'captures and calls' });
         }
         if (countsAreVisits) {
             return count === 1
@@ -299,8 +328,8 @@
                 : $_('leaderboard.showcase_visits', { values: { count }, default: 'visits' });
         }
         return count === 1
-            ? $_('leaderboard.showcase_detection', { default: 'detection' })
-            : $_('leaderboard.showcase_detections', { values: { count }, default: 'detections' });
+            ? $_('leaderboard.showcase_detection', { default: 'capture' })
+            : $_('leaderboard.showcase_detections', { values: { count }, default: 'captures' });
     }
     // The opener: a contact sheet of this feeder's own visits in the window. It loads beside the
     // standings and never blocks them; a failed load simply leaves the wall out.
@@ -372,6 +401,21 @@
         // row reads its reference when it comes near the viewport, not for the whole table at load.
         for (const row of showcaseRows) if (row.flagged) void loadSpeciesInfo(row.key);
     });
+    // A ranking row's picture: this feeder's own newest crop of the species (its portrait, else its
+    // newest visit on the wall), then the species' reference image, else nothing at all.
+    let failedRowPictures = $state(new Set<string>());
+    function rowPicture(index: number, species: string): string | null {
+        const row = showcaseRows[index];
+        const visit = row && !row.photo ? leaderboardWall.find((tile) => tile.speciesKey === row.key) : undefined;
+        // A circle of 40 to 48 px needs the tile, not the card: the visit names it either way.
+        const ownEvent = row?.photoEvent ?? visit?.frigateEvent ?? null;
+        const own = ownEvent ? getReelImageUrl(ownEvent, 'tile') : row?.photo ? withAuthParams(row.photo) : null;
+        const candidates = [own, getCachedSpeciesInfo(species)?.thumbnail_url ?? null];
+        return candidates.find((url): url is string => Boolean(url) && !failedRowPictures.has(url as string)) ?? null;
+    }
+    function rowPictureFailed(url: string): void {
+        failedRowPictures = new Set([...failedRowPictures, url]);
+    }
     function scrollToChecks(): void {
         const checks = document.querySelector<HTMLElement>('[data-spotlight-checks]');
         if (!checks) return;
@@ -904,8 +948,22 @@
         return `${formatShortDate(start)}-${formatShortDate(end)}`;
     }
 
+    /** The timeline's caption: how it is bucketed, its total, peak and average, and what it leaves out. */
+    function timelineCaption(): string {
+        const parts = [
+            bucketLabel(timeline?.bucket),
+            $_('common.chart_total', { values: { count: (timeline?.total_count ?? 0).toLocaleString() }, default: 'Total: {count}' }),
+            `${$_('leaderboard.metric_peak', { default: 'Peak' })}: ${formatMetricValue(metricPeak())}`,
+            `${$_('leaderboard.metric_avg', { default: 'Avg' })}: ${formatMetricValue(metricAvg())}`
+        ];
+        if (unidentifiedCount > 0 && !includeUnknownBird) {
+            parts.push($_('leaderboard.includes_unidentified', { values: { count: unidentifiedCount.toLocaleString() }, default: 'including {count} not identified to species' }));
+        }
+        return parts.join(' · ');
+    }
+
     function metricLabel(): string {
-        return $_('leaderboard.metric_detections', { default: 'Detections' });
+        return $_('leaderboard.metric_detections', { default: 'Captures' });
     }
 
     function metricValueFromPoint(point: DetectionsTimelineSpanResponse['points'][number]): number {
@@ -1014,18 +1072,16 @@
             if (!Number.isFinite(start)) continue;
             const next = points[i + 1]?.bucket_start ? Date.parse(points[i + 1].bucket_start) : NaN;
             const end = Number.isFinite(next) ? next : (start + duration);
-            const rain = Math.max(0, weatherValue(bucketStart, 'rain_total') ?? 0);
-            const snow = Math.max(0, weatherValue(bucketStart, 'snow_total') ?? 0);
-            const precip = Math.max(0, weatherValue(bucketStart, 'precip_total') ?? 0);
-            const intensity = Math.max(rain + snow, precip);
+            const intensity = bucketPrecipitation(weatherValue(bucketStart, 'rain_total'), weatherValue(bucketStart, 'snow_total'), weatherValue(bucketStart, 'precip_total'));
             if (intensity <= 0) continue;
-            const alpha = Math.min(0.28, 0.08 + (intensity * 0.12));
+            // From the key's Low (0.1) to its High (0.3), so a band reads against the swatch beside it.
+            const alpha = Math.min(0.3, 0.1 + (intensity * 0.1));
             annotations.push({
                 x: start,
                 x2: end,
-                fillColor: `rgba(56, 189, 248, ${alpha.toFixed(3)})`,
+                fillColor: rainBand(alpha),
                 opacity: 0.85,
-                borderColor: 'rgba(56, 189, 248, 0.12)'
+                borderColor: rainBand(0.12)
             });
         }
         return annotations;
@@ -1238,7 +1294,7 @@
         scale.width = 64;
     }
 
-    type WeatherPanel = { key: 'temperature' | 'wind'; title: string; config: CanvasChartConfig };
+    type WeatherPanel = { key: 'temperature' | 'wind'; title: string; config: CanvasChartConfig; format: (value: number) => string };
     // Weather gets its own small charts under the detections rather than a second y-axis on them:
     // two scales on one plot invite reading a coincidence of heights as a relationship.
     let weatherPanels = $derived((): WeatherPanel[] => {
@@ -1259,6 +1315,7 @@
             return {
                 key,
                 title,
+                format,
                 config: {
                     type: 'line',
                     data: {
@@ -1311,7 +1368,7 @@
                     'wind',
                     $_('leaderboard.wind_avg'),
                     points.map((point) => convertWindSpeed(weatherValue(point.bucket_start, 'wind_avg'), weatherUnitSystem)),
-                    (value) => `${Math.round(value)} ${windUnitLabel}`
+                    (value) => `${Math.round(value)}\u00a0${windUnitLabel}`
                 )
                 : null
         ].filter((item): item is WeatherPanel => item !== null);
@@ -1369,6 +1426,53 @@
         }
         return { labels: distinctSeriesLabels(names), series: values };
     });
+    // Each chart as a table, built from what the chart draws (its labels, visible series and
+    // weather), so the equivalent record follows the window, the series shown and the overlays.
+    const figureValue = (value: number): string => value.toLocaleString(undefined, { maximumFractionDigits: 1 });
+    const timelineTable = $derived.by(() => {
+        if (!timeline?.points?.length) return { columns: [], rows: [] };
+        const config = chartOptions();
+        const series: ChartSeries[] = config.data.datasets.map((dataset) => ({ label: String(dataset.label ?? ''), data: dataset.data, hidden: Boolean(dataset.hidden) }));
+        const weather: ChartSeries[] = weatherPanels().map((panel) => ({ label: panel.title, data: (panel.config.data.datasets[0]?.data ?? []) as number[], format: panel.format }));
+        // The rain bands as a column, from the same per-bucket readings, on the chart's own buckets.
+        if (showPrecip && hasWeather()) {
+            const buckets = timelinePoints().filter((point) => Number.isFinite(Date.parse(point.bucket_start)));
+            weather.push({
+                label: $_('leaderboard.show_precip', { default: 'Precipitation' }),
+                data: buckets.map((point) => {
+                    const readings = [weatherValue(point.bucket_start, 'rain_total'), weatherValue(point.bucket_start, 'snow_total'), weatherValue(point.bucket_start, 'precip_total')];
+                    return readings.every((reading) => reading === null) ? Number.NaN : bucketPrecipitation(readings[0], readings[1], readings[2]);
+                }),
+                format: (value) => formatPrecipitation(value, weatherUnitSystem, { metric: $_('common.unit_mm', { default: 'mm' }), imperial: $_('common.unit_in', { default: 'in' }) })
+            });
+        }
+        return chartTable($_('common.period', { default: 'Period' }), (config.data.labels ?? []).map(String), [...series, ...weather], figureValue);
+    });
+    const heatmapTable = $derived.by(() => {
+        const cells = shownHeatmap?.cells ?? [];
+        if (!cells.length) return { columns: [], rows: [] };
+        const counts = new Map(cells.map((cell) => [`${cell.day_of_week}-${cell.hour}`, Math.max(0, cell.count)] as const));
+        const hours = Array.from({ length: 24 }, (_, hour) => hour);
+        return {
+            columns: [$_('leaderboard.sort_by_day', { default: 'Day' }), ...hours.map((hour) => formatHour(hour))],
+            rows: [1, 2, 3, 4, 5, 6, 0].map((day) => [weekdayLabel(day), ...hours.map((hour) => (counts.get(`${day}-${hour}`) ?? 0).toLocaleString())])
+        };
+    });
+    const compositionTable = $derived.by(() => {
+        const { labels, series } = donutSeries();
+        return shareTable(
+            [
+                $_('leaderboard.species', { default: 'Species' }),
+                countsAreVisits ? $_('leaderboard.metric_visits', { default: 'Visits' }) : $_('leaderboard.metric_detections', { default: 'Captures' }),
+                $_('leaderboard.table_share', { default: 'Share' })
+            ],
+            labels,
+            series,
+            hiddenDonutSpecies,
+            (value) => value.toLocaleString()
+        );
+    });
+
     function donutColor(index: number): string {
         return index < DONUT_MAX_SLICES ? speciesSeriesColor(index, isDark()) : otherSeriesColor(isDark());
     }
@@ -1377,7 +1481,7 @@
         const { labels, series } = donutSeries();
         const totalLabel = countsAreVisits
             ? $_('leaderboard.metric_visits', { default: 'Visits' })
-            : $_('leaderboard.metric_detections', { default: 'Detections' });
+            : $_('leaderboard.metric_detections', { default: 'Captures' });
         const centerTotal = doughnutInsightPlugin('leaderboardCenterTotal', series, totalLabel, isDark());
         return {
             type: 'doughnut',
@@ -1419,9 +1523,9 @@
 
     function trendTone(row: LeaderboardTableRow): string {
         const delta = deltaForMode(row, sourceMode) ?? 0;
-        if (delta > 0) return 'text-success-700 dark:text-success-400';
-        if (delta < 0) return 'text-rose-700 dark:text-rose-400';
-        return 'text-slate-600 dark:text-slate-400';
+        if (delta > 0) return 'text-status-ok';
+        if (delta < 0) return 'text-status-fail';
+        return 'text-muted';
     }
     function trendGlyph(row: LeaderboardTableRow): string {
         const delta = deltaForMode(row, sourceMode) ?? 0;
@@ -1587,134 +1691,93 @@
 </script>
 
 {#snippet unlikelyReason(radiusKm: number)}
-    <span class="mt-1 flex items-center gap-1.5 text-xs font-semibold text-attention-800 dark:text-attention-300" data-leaderboard-unlikely-reason>
-        <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-attention-500" aria-hidden="true"></span>
+    <span class="mt-1 flex items-center gap-1.5 text-xs font-semibold text-status-attention" data-leaderboard-unlikely-reason>
+        <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-status-attention-line" aria-hidden="true"></span>
         {$_('leaderboard.unlikely_reason', { values: { distance: displayDistance(radiusKm, $_) }, default: 'Not reported within {distance}' })}
+    </span>
+{/snippet}
+
+{#snippet rowPortrait(index: number, item: LeaderboardTableRow, size: string)}
+    {@const picture = rowPicture(index, item.species)}
+    <!-- The same box with or without a picture, so names stay in line; no stand-in icon. -->
+    <span data-leaderboard-species-portrait={picture ? 'photo' : 'none'} class="{size} shrink-0 overflow-hidden rounded-full bg-surface-raised" use:whenNearViewport={() => void loadSpeciesInfo(item.species)}>
+        {#if picture}<img src={picture} alt="" class="h-full w-full object-cover" loading="lazy" onerror={() => rowPictureFailed(picture)} />{/if}
     </span>
 {/snippet}
 
 {#snippet evidenceGlyph(evidence: SpeciesEvidence)}
     {#if evidence === 'confirmed'}
-        <svg class="h-3.5 w-3.5 shrink-0 text-success-600 dark:text-success-400" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m5 10.5 3.2 3L15 6.5" /></svg>
+        <svg class="h-3.5 w-3.5 shrink-0 text-status-ok" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m5 10.5 3.2 3L15 6.5" /></svg>
     {:else if evidence === 'seen_and_heard' || evidence === 'heard_only'}
-        <svg class="h-3.5 w-3.5 shrink-0 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 12v2m4-5v8m4-13v16m4-13v10m4-7v4" /></svg>
+        <svg class="h-3.5 w-3.5 shrink-0 text-accent-ink" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 12v2m4-5v8m4-13v16m4-13v10m4-7v4" /></svg>
     {:else}
-        <svg class="h-3.5 w-3.5 shrink-0 text-slate-500 dark:text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8a2 2 0 0 1 2-2h2l1.5-2h7L17 6h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8z" /><circle cx="12" cy="13" r="3.5" /></svg>
+        <svg class="h-3.5 w-3.5 shrink-0 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8a2 2 0 0 1 2-2h2l1.5-2h7L17 6h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8z" /><circle cx="12" cy="13" r="3.5" /></svg>
     {/if}
 {/snippet}
 
 <div class="space-y-10" data-leaderboard-page bind:this={pageElement} style:min-height={refreshHeight ? `${refreshHeight}px` : undefined}>
-    <!-- Ranking controls -->
-    <div class="border-y border-slate-200/80 py-4 dark:border-slate-700/70">
-        <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div class="flex flex-wrap gap-2" role="group" aria-label={$_('leaderboard.span_group', { default: 'Time span' })} data-leaderboard-span-bar>
-            <button
-                type="button"
-                aria-pressed={span === 'day'}
-                onclick={() => span = 'day'}
-                class="tab-button {span === 'day' ? 'tab-button-active' : 'tab-button-inactive'}"
-            >
-                <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
-                    <circle cx="10" cy="10" r="4.2"></circle>
-                    <path d="M10 2.8v2.1M10 15.1v2.1M2.8 10h2.1M15.1 10h2.1"></path>
-                </svg>
-                {$_('leaderboard.sort_by_day')}
-            </button>
-            <button
-                type="button"
-                aria-pressed={span === 'week'}
-                onclick={() => span = 'week'}
-                class="tab-button {span === 'week' ? 'tab-button-active' : 'tab-button-inactive'}"
-            >
-                <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
-                    <path d="M4 6h12M4 10h12M4 14h8"></path>
-                </svg>
-                {$_('leaderboard.sort_by_week')}
-            </button>
-            <button
-                type="button"
-                aria-pressed={span === 'month'}
-                onclick={() => span = 'month'}
-                class="tab-button {span === 'month' ? 'tab-button-active' : 'tab-button-inactive'}"
-            >
-                <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
-                    <rect x="3" y="4" width="14" height="13" rx="2"></rect>
-                    <path d="M3 8h14"></path>
-                </svg>
-                {$_('leaderboard.sort_by_month')}
-            </button>
-            <button
-                type="button"
-                aria-pressed={span === 'all'}
-                onclick={() => span = 'all'}
-                class="tab-button {span === 'all' ? 'tab-button-active' : 'tab-button-inactive'}"
-            >
-                <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
-                    <path d="M4 10c0-2.8 2.2-5 5-5h2c2.8 0 5 2.2 5 5s-2.2 5-5 5H9c-2.8 0-5-2.2-5-5z"></path>
-                </svg>
-                {$_('leaderboard.sort_by_total')}
-            </button>
-            </div>
-
-        <div class="flex flex-wrap items-center gap-3">
-            {#if birdnetEnabled}
-                <div class="inline-flex max-w-full flex-wrap rounded-xl bg-slate-100 p-0.5 dark:bg-slate-800/70" role="group" aria-label={$_('leaderboard.source_toggle', { default: 'Detection source' })}>
-                    <button
-                        type="button"
-                        aria-pressed={sourceMode === 'seen'}
-                        onclick={() => sourceMode = 'seen'}
-                        class="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold transition focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus {sourceMode === 'seen' ? 'bg-white dark:bg-slate-700 text-brand-700 dark:text-brand-300 shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}"
-                    >
-                        <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M2.5 12S5.5 5.5 12 5.5 21.5 12 21.5 12 18.5 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.5"/></svg>
-                        {$_('leaderboard.source_seen', { default: 'Seen' })}
-                    </button>
-                    <button
-                        type="button"
-                        aria-pressed={sourceMode === 'heard'}
-                        onclick={() => sourceMode = 'heard'}
-                        class="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold transition focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus {sourceMode === 'heard' ? 'bg-white dark:bg-slate-700 text-brand-700 dark:text-brand-300 shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}"
-                    >
-                        <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/></svg>
-                        {$_('leaderboard.source_heard', { default: 'Heard' })}
-                    </button>
-                    <button
-                        type="button"
-                        aria-pressed={sourceMode === 'both'}
-                        onclick={() => sourceMode = 'both'}
-                        class="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold transition focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus {sourceMode === 'both' ? 'bg-white dark:bg-slate-700 text-slate-800 dark:text-white shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}"
-                    >
-                        {$_('leaderboard.source_both', { default: 'Both' })}
-                    </button>
-                </div>
-            {/if}
-
-            <label class="inline-flex min-h-11 items-center gap-2 text-sm text-slate-600 dark:text-slate-300 select-none">
-                <input
-                    type="checkbox"
-                    class="h-4 w-4 rounded-sm accent-brand-700 focus-ring dark:accent-brand-400"
-                    bind:checked={includeUnknownBird}
-                />
-                {$_('leaderboard.include_unknown')}
+    <!-- Ranking controls: on a phone one compact row (the span as a select, the source as a switch)
+         with the rarer choice under More, so the leader is on the first screen. -->
+    <div class="border-y border-line py-3 sm:py-4" data-leaderboard-controls>
+        <div class="flex flex-wrap items-center gap-x-4 gap-y-3 lg:justify-between">
+            <label class="sm:hidden">
+                <span class="sr-only">{$_('leaderboard.span_group', { default: 'Time span' })}</span>
+                <select class="select-base min-h-11 w-auto py-2 text-sm" bind:value={span} data-leaderboard-span-select>
+                    {#each spanOptions as option (option.value)}<option value={option.value}>{option.label}</option>{/each}
+                </select>
             </label>
-        </div>
+            <div class="hidden sm:block">
+            <Segmented
+                value={span ?? 'month'}
+                options={spanOptions}
+                onchange={(next) => (span = next)}
+                label={$_('leaderboard.span_group', { default: 'Time span' })}
+                width="content"
+                size="sm"
+                data-leaderboard-span-bar
+            />
+            </div>
+            <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
+                {#if birdnetEnabled}
+                    <Segmented
+                        value={sourceMode}
+                        options={sourceOptions}
+                        onchange={(next) => (sourceMode = next)}
+                        label={$_('leaderboard.source_toggle', { default: 'Seen or heard' })}
+                        width="content"
+                        size="sm"
+                        optionAttribute="data-leaderboard-source"
+                    />
+                {/if}
+                <label class="hidden min-h-11 items-center gap-2 text-sm text-ink select-none sm:inline-flex">
+                    <input type="checkbox" class="h-4 w-4 rounded-sm accent-accent focus-ring" bind:checked={includeUnknownBird} />
+                    {$_('leaderboard.include_unknown')}
+                </label>
+                <Disclosure class="sm:hidden" label={$_('leaderboard.more_options', { default: 'More' })} data-leaderboard-more-controls>
+                    <label class="inline-flex min-h-11 items-center gap-2 text-sm text-ink select-none">
+                        <input type="checkbox" class="h-4 w-4 rounded-sm accent-accent focus-ring" bind:checked={includeUnknownBird} />
+                        {$_('leaderboard.include_unknown')}
+                    </label>
+                </Disclosure>
+            </div>
         </div>
     </div>
 
     {#if error}
-        <div class="p-4 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800">
+        <div class="rounded-lg border border-status-fail-line bg-status-fail-soft p-4 text-status-fail" role="alert">
             {error}
-            <button onclick={loadLeaderboard} class="ml-2 underline">{$_('common.retry')}</button>
+            <button type="button" onclick={loadLeaderboard} class="btn btn-secondary ml-2 min-h-11 px-3 text-xs">{$_('common.retry')}</button>
         </div>
     {/if}
 
     {#if loading && leaderboardRows.length === 0}
         <div class="space-y-3" role="status" aria-label={$_('common.loading', { default: 'Loading…' })}>
             {#each [1, 2, 3, 4, 5, 6] as _}
-                <div class="h-16 rounded-xl bg-slate-100 motion-safe:animate-pulse dark:bg-slate-800" aria-hidden="true"></div>
+                <div class="h-16 rounded-xl bg-surface-raised motion-safe:animate-pulse" aria-hidden="true"></div>
             {/each}
         </div>
     {:else if sourceMode !== 'seen' && audioLoadState === 'error'}
-        <div class="border-y border-rose-200 bg-rose-50/60 px-4 py-6 text-rose-800 dark:border-rose-900/70 dark:bg-rose-950/20 dark:text-rose-200" role="status">
+        <div class="border-y border-status-fail-line bg-status-fail-soft px-4 py-6 text-status-fail" role="status">
             <h2 class="font-semibold">{$_('leaderboard.audio_unavailable_title', { default: 'BirdNET results unavailable' })}</h2>
             <p class="mt-1 text-sm">{$_('leaderboard.audio_unavailable_desc', { default: 'The listening leaderboard could not be loaded. Seen results are still available.' })}</p>
             <button class="btn btn-secondary mt-3 min-h-11 px-3 py-2 text-xs" onclick={loadLeaderboard}>
@@ -1722,24 +1785,23 @@
             </button>
         </div>
     {:else if leaderboardRows.length === 0}
-        <div class="border-y border-slate-200 py-14 text-center dark:border-slate-700">
-            <span class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-500/10 text-brand-600 dark:text-brand-400" aria-hidden="true">
-                <svg class="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M20.24 4.24a6 6 0 0 0-8.49 0L5 11v9h9l6.24-6.24a6 6 0 0 0 0-8.49Z" />
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M16 8 2 22M17.5 15H9" />
-                </svg>
-            </span>
-            <h2 class="text-lg font-semibold text-slate-900 dark:text-white mb-2">{$_('leaderboard.no_species')}</h2>
-            <p class="text-slate-600 dark:text-slate-400">
+        <div class="border-y border-line py-14 text-center">
+            <h2 class="text-lg font-semibold text-strong mb-2">{$_('leaderboard.no_species')}</h2>
+            <p class="text-muted">
                 {sourceMode === 'heard'
-                    ? $_('leaderboard.no_audio_species', { default: 'No BirdNET detections were recorded in this period.' })
+                    ? $_('leaderboard.no_audio_species', { default: 'No calls were heard in this window.' })
                     : species.length > 0 && !includeUnknownBird
                     ? $_('leaderboard.only_unknown_desc')
                     : $_('leaderboard.no_species_desc')}
             </p>
         </div>
     {:else}
-        {#if sourceMode !== 'heard' && sourceLeader && sourceLeader.count > 0}
+        <!-- The page uses the width it has: at 1280 px and wider the standing figures, which summarise
+             rather than ask for anything, stand in a side column beside the wall; the rankings table
+             and the charts below take the full width. -->
+        <div class="grid grid-cols-1 gap-10 xl:grid-cols-12 xl:gap-x-10" data-leaderboard-layout>
+        {#if showsWall}
+        <div class="min-w-0 space-y-10 xl:col-span-8 2xl:col-span-9">
             <CaptureWall
                 tiles={leaderboardWall}
                 rows={showcaseRows}
@@ -1765,90 +1827,95 @@
                     void loadLeaderboard();
                 }}
             />
+        </div>
         {/if}
-
+        <!-- Beside the wall on a wide screen; with no wall (Heard), the figures take the full width. -->
+        <aside class="min-w-0 {showsWall ? 'xl:col-span-4 2xl:col-span-3' : 'xl:col-span-12'}" aria-labelledby="leaderboard-standing-title" data-leaderboard-side>
+            <div class={showsWall ? 'xl:sticky xl:top-6' : ''}>
+            <h2 id="leaderboard-standing-title" class="sr-only">{$_('leaderboard.standing_heading', { default: 'How the window stands' })}</h2>
         <div class="@container">
-        <dl class="grid grid-cols-1 gap-x-6 gap-y-5 border-y border-slate-200 py-5 dark:border-slate-700 @xs:grid-cols-2 @2xl:grid-cols-3 @6xl:grid-cols-6" data-leaderboard-standing>
+        <dl class="grid grid-cols-1 gap-x-6 gap-y-5 border-y border-line py-5 @xs:grid-cols-2 @2xl:grid-cols-3 @6xl:grid-cols-6" data-leaderboard-standing>
             <div class="min-w-0">
-                <dt class="text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('leaderboard.standing_species', { default: 'Species' })}</dt>
-                <dd class="mt-1 font-display text-2xl font-bold tabular-nums text-slate-900 dark:text-white">{leaderboardRows.length.toLocaleString()}</dd>
+                <dt class="text-xs font-semibold text-muted">{$_('leaderboard.standing_species', { default: 'Species' })}</dt>
+                <dd class="mt-1 font-display text-2xl font-bold tabular-nums text-strong">{leaderboardRows.length.toLocaleString()}</dd>
             </div>
             <div class="min-w-0">
-                <dt class="text-xs font-semibold text-slate-600 dark:text-slate-400">
+                <dt class="text-xs font-semibold text-muted">
                     {sourceMode === 'heard'
                         ? $_('leaderboard.standing_calls', { default: 'Calls heard' })
                         : sourceMode === 'both'
                           ? countsAreVisits
                             ? $_('leaderboard.standing_visits_and_calls', { default: 'Visits and calls' })
-                            : $_('leaderboard.standing_detections_and_calls', { default: 'Detections and calls' })
+                            : $_('leaderboard.standing_detections_and_calls', { default: 'Captures and calls' })
                           : countsAreVisits
                             ? $_('leaderboard.metric_visits', { default: 'Visits' })
-                            : $_('leaderboard.metric_detections', { default: 'Detections' })}
+                            : $_('leaderboard.metric_detections', { default: 'Captures' })}
                 </dt>
-                <dd class="mt-1 font-display text-2xl font-bold tabular-nums text-slate-900 dark:text-white">{sourceTotal.toLocaleString()}</dd>
+                <dd class="mt-1 font-display text-2xl font-bold tabular-nums text-strong">{sourceTotal.toLocaleString()}</dd>
             </div>
             <div class="min-w-0">
-                <dt class="text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('leaderboard.standing_busiest_hour', { default: 'Busiest hour' })}</dt>
-                <dd class="mt-1 font-display text-2xl font-bold tabular-nums text-slate-900 dark:text-white">{busiestHour ? formatHour(busiestHour.hour) : '—'}</dd>
-                {#if busiestHour}<dd class="text-xs text-slate-600 dark:text-slate-400">{$_('leaderboard.standing_busiest_hour_count', { values: { count: busiestHour.count }, default: '{count, plural, one {# detection} other {# detections}} on camera' })}</dd>{/if}
+                <dt class="text-xs font-semibold text-muted">{$_('leaderboard.standing_busiest_hour', { default: 'Busiest hour' })}</dt>
+                <dd class="mt-1 font-display text-2xl font-bold tabular-nums text-strong">{busiestHour ? formatHour(busiestHour.hour) : '—'}</dd>
+                {#if busiestHour}<dd class="text-xs text-muted">{$_('leaderboard.standing_busiest_hour_count', { values: { count: busiestHour.count }, default: '{count, plural, one {# capture} other {# captures}} on camera' })}</dd>{/if}
             </div>
             <div class="min-w-0" data-leaderboard-corroboration>
-                <dt class="text-xs font-semibold text-slate-600 dark:text-slate-400">{audioKnown ? $_('leaderboard.standing_corroborated', { default: 'Heard or confirmed' }) : $_('leaderboard.standing_confirmed', { default: 'Confirmed by you' })}</dt>
+                <dt class="text-xs font-semibold text-muted">{audioKnown ? $_('leaderboard.standing_corroborated', { default: 'Heard or confirmed' }) : $_('leaderboard.standing_confirmed', { default: 'Confirmed by you' })}</dt>
                 {#if evidenceKnown}
-                    <dd class="mt-1 font-display text-2xl font-bold tabular-nums text-slate-900 dark:text-white">{corroboratedCount}<span class="text-base font-semibold text-slate-600 dark:text-slate-400"> / {leaderboardRows.length}</span></dd>
-                    <dd class="text-xs text-slate-600 dark:text-slate-400">{$_('leaderboard.standing_corroborated_hint', { default: 'species, the rest are the camera alone' })}</dd>
+                    <dd class="mt-1 font-display text-2xl font-bold tabular-nums text-strong">{corroboratedCount}<span class="text-base font-semibold text-muted"> / {leaderboardRows.length}</span></dd>
+                    <dd class="text-xs text-muted">{$_('leaderboard.standing_corroborated_hint', { default: 'species, the rest are the camera alone' })}</dd>
                 {:else}
-                    <dd class="mt-1 font-display text-2xl font-bold text-slate-600 dark:text-slate-400">—</dd>
-                    <dd class="text-xs text-slate-600 dark:text-slate-400">{$_('leaderboard.standing_corroborated_unknown', { default: 'Counted for the day, week and month' })}</dd>
+                    <dd class="mt-1 font-display text-2xl font-bold text-muted">—</dd>
+                    <dd class="text-xs text-muted">{$_('leaderboard.standing_corroborated_unknown', { default: 'Counted for the day, week and month' })}</dd>
                 {/if}
             </div>
             <div class="min-w-0">
-                <dt class="flex items-center gap-1.5 text-xs font-semibold text-slate-600 dark:text-slate-400">
-                    <svg class="h-3.5 w-3.5 text-success-600 dark:text-success-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m4 17 5-5 4 4 7-9m-5 0h5v5" /></svg>
+                <dt class="flex items-center gap-1.5 text-xs font-semibold text-muted">
+                    <svg class="h-3.5 w-3.5 text-status-ok" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m4 17 5-5 4 4 7-9m-5 0h5v5" /></svg>
                     {$_('leaderboard.rising')}
                 </dt>
                 {#if topByTrend}
-                    <dd class="mt-1 wrap-break-word text-base font-semibold text-slate-900 dark:text-white">{topByTrend.displayName}</dd>
-                    <dd class="text-xs tabular-nums text-success-700 dark:text-success-400">{trendForMode(topByTrend, sourceMode)}</dd>
+                    <dd class="mt-1 wrap-break-word text-base font-semibold text-strong">{topByTrend.displayName}</dd>
+                    <dd class="text-xs tabular-nums text-status-ok">{trendForMode(topByTrend, sourceMode)}</dd>
                 {:else}
-                    <dd class="mt-1 text-base font-semibold text-slate-600 dark:text-slate-400">—</dd>
-                    <dd class="text-xs text-slate-600 dark:text-slate-400">{span === 'all' ? $_('leaderboard.rising_all_time', { default: 'No earlier window for all time' }) : !trendAvailable ? $_('leaderboard.rising_no_history', { default: 'Needs a full earlier window' }) : $_('leaderboard.rising_none', { default: 'Nothing up on the window before' })}</dd>
+                    <dd class="mt-1 text-base font-semibold text-muted">—</dd>
+                    <dd class="text-xs text-muted">{span === 'all' ? $_('leaderboard.rising_all_time', { default: 'No earlier window for all time' }) : !trendAvailable ? $_('leaderboard.rising_no_history', { default: 'Needs a full earlier window' }) : $_('leaderboard.rising_none', { default: 'Nothing up on the window before' })}</dd>
                 {/if}
             </div>
             <div class="min-w-0">
-                <dt class="flex items-center gap-1.5 text-xs font-semibold text-slate-600 dark:text-slate-400">
-                    <svg class="h-3.5 w-3.5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="8" /><path stroke-linecap="round" d="M12 8v4l3 2" /></svg>
+                <dt class="flex items-center gap-1.5 text-xs font-semibold text-muted">
+                    <svg class="h-3.5 w-3.5 text-accent-ink" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="8" /><path stroke-linecap="round" d="M12 8v4l3 2" /></svg>
                     {$_('leaderboard.most_recent')}
                 </dt>
                 {#if mostRecent}
-                    <dd class="mt-1 wrap-break-word text-base font-semibold text-slate-900 dark:text-white">{mostRecent.displayName}</dd>
-                    <dd class="text-xs text-slate-600 dark:text-slate-400" title={formatDate(activityTimestampForMode(mostRecent, sourceMode))}>{formatRelative(activityTimestampForMode(mostRecent, sourceMode))}</dd>
+                    <dd class="mt-1 wrap-break-word text-base font-semibold text-strong">{mostRecent.displayName}</dd>
+                    <dd class="text-xs text-muted" title={formatDate(activityTimestampForMode(mostRecent, sourceMode))}>{formatRelative(activityTimestampForMode(mostRecent, sourceMode))}</dd>
                 {:else}
-                    <dd class="mt-1 text-base font-semibold text-slate-600 dark:text-slate-400">—</dd>
+                    <dd class="mt-1 text-base font-semibold text-muted">—</dd>
                 {/if}
             </div>
         </dl>
         </div>
+            </div>
+        </aside>
+        </div>
+
         <section class="space-y-5" data-leaderboard-rankings>
             <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                 <div class="flex items-center gap-3">
-                    <svg data-leaderboard-section-icon aria-hidden="true" class="h-8 w-8 rounded-xl border border-brand-200 bg-brand-50 p-1.5 text-brand-700 dark:border-brand-800 dark:bg-brand-950/40 dark:text-brand-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
-                        <path stroke-linecap="round" d="M6 4v16M18 4v16" /><path stroke-linecap="round" stroke-linejoin="round" d="m9 8 3-3 3 3m-6 8 3 3 3-3" />
-                    </svg>
                     <div>
-                        <h2 class="text-xl font-bold text-slate-950 dark:text-white">{$_('leaderboard.full_rankings', { default: 'Full rankings' })}</h2>
-                        <p class="text-sm text-slate-600 dark:text-slate-400">{spanLabel()} · {span === 'all' ? $_('leaderboard.all_species') : formatRangeCompact(leaderboardWindow?.start, leaderboardWindow?.end)}</p>
+                        <h2 class="text-xl font-bold text-strong">{$_('leaderboard.full_rankings', { default: 'Full rankings' })}</h2>
+                        <p class="text-sm text-muted">{spanLabel()} · {span === 'all' ? $_('leaderboard.all_species') : formatRangeCompact(leaderboardWindow?.start, leaderboardWindow?.end)}</p>
                     </div>
                 </div>
             </div>
             {#if span !== 'all' && !trendAvailable && trendHistoryStart}
-                <p class="text-sm text-slate-600 dark:text-slate-400" data-leaderboard-trend-note>
+                <p class="text-sm text-muted" data-leaderboard-trend-note>
                     {$_('leaderboard.trend_needs_history', { values: { date: formatShortDate(trendHistoryStart) }, default: 'No trend yet. Records start {date}, so there is no complete earlier window to compare with.' })}
                 </p>
             {/if}
             {#if unlikelyRows.length > 0 && nearbyCheck}
-                <div class="flex items-start gap-3 rounded-xl bg-attention-50 px-4 py-3 text-sm text-attention-900 dark:bg-attention-500/10 dark:text-attention-100" role="note" data-leaderboard-unlikely-note>
-                    <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-attention-500" aria-hidden="true"></span>
+                <div class="flex items-start gap-3 rounded-xl bg-status-attention-soft px-4 py-3 text-sm text-status-attention" role="note" data-leaderboard-unlikely-note>
+                    <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-status-attention-line" aria-hidden="true"></span>
                     <p>
                         {$_('leaderboard.unlikely_note', {
                             values: { count: unlikelyRows.length, distance: displayDistance(nearbyCheck.radiusKm, $_), days: nearbyCheck.daysBack },
@@ -1866,82 +1933,74 @@
                 <div class="@container relative" data-leaderboard-ranking-frame use:roomFor={(fits) => (rankingTableFits = fits)}>
                 <div class="pointer-events-none invisible absolute inset-x-0 top-0 h-0 overflow-hidden" aria-hidden="true"><div class="h-0 w-4xl" data-room-ruler></div></div>
                 {#if rankingTableFits === false}
-                <div class="divide-y divide-slate-200 border-y border-slate-200 dark:divide-slate-700 dark:border-slate-700" data-leaderboard-stacked-rankings>
+                <div class="divide-y divide-line border-y border-line" data-leaderboard-stacked-rankings>
                 {#each leaderboardRows as item, index (`mobile-${item.species}|${item.audio_only}|${index}`)}
                     {@const evidence = evidenceOf(item)}
                     <button
                         type="button"
                         onclick={() => selectedSpecies = item.species}
-                        class="group flex min-h-20 w-full flex-wrap items-center gap-x-3 gap-y-1 py-3 text-left transition hover:bg-slate-50 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus dark:hover:bg-slate-800/40 {unlikelyHere(item) ? 'bg-attention-50/70 dark:bg-attention-500/10' : ''}"
+                        class="group flex min-h-20 w-full flex-wrap items-center gap-x-3 gap-y-1 py-3 text-left transition hover:bg-surface-raised focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus {unlikelyHere(item) ? 'bg-status-attention-soft' : ''}"
                         title={item.species === "Unknown Bird" ? $_('leaderboard.unidentified_desc') : ""}
                     >
-                        <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold tabular-nums {index < 3 ? 'bg-brand-100 text-brand-800 dark:bg-brand-900/50 dark:text-brand-200' : 'text-slate-600 dark:text-slate-400'}" aria-label={`${$_('leaderboard.rank')} ${index + 1}`}>{index + 1}</span>
-                        <span data-leaderboard-species-portrait class="hidden h-12 w-12 shrink-0 overflow-hidden rounded-full @sm:block border-2 border-white bg-slate-100 shadow-xs ring-1 ring-brand-200 dark:border-slate-800 dark:bg-slate-800 dark:ring-brand-800" use:whenNearViewport={() => void loadSpeciesInfo(item.species)}>
-                            {#if getCachedSpeciesInfo(item.species)?.thumbnail_url}
-                                <img src={getCachedSpeciesInfo(item.species)?.thumbnail_url ?? undefined} alt="" class="h-full w-full object-cover" loading="lazy" />
-                            {:else}
-                                <span class="flex h-full w-full items-center justify-center text-slate-600 dark:text-slate-400"><svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M20.24 4.24a6 6 0 0 0-8.49 0L5 11v9h9l6.24-6.24a6 6 0 0 0 0-8.49ZM16 8 2 22M17.5 15H9" /></svg></span>
-                            {/if}
-                        </span>
+                        <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold tabular-nums {index < 3 ? 'bg-accent-soft text-accent-ink' : 'text-muted'}" aria-label={`${$_('leaderboard.rank')} ${index + 1}`}>{index + 1}</span>
+                        <span class="hidden @sm:block">{@render rowPortrait(index, item, 'h-12 w-12')}</span>
                         <span class="min-w-0 flex-1 basis-32">
                             <span class="flex items-center gap-2">
-                                <span class="wrap-break-word font-semibold text-slate-900 dark:text-white">{item.displayName}</span>
+                                <span class="wrap-break-word font-semibold text-strong">{item.displayName}</span>
                             </span>
-                            {#if item.subName}<span class="mt-0.5 block wrap-break-word text-xs italic text-slate-600 dark:text-slate-400">{item.subName}</span>{/if}
+                            {#if item.subName}<span class="mt-0.5 block wrap-break-word text-xs italic text-muted">{item.subName}</span>{/if}
                             {#if unlikelyHere(item) && nearbyCheck}{@render unlikelyReason(nearbyCheck.radiusKm)}{/if}
-                            <span class="mt-1 flex flex-wrap items-center gap-x-2 text-xs text-slate-600 dark:text-slate-400">
-                                {#if evidence !== 'unknown'}<span class="inline-flex items-center gap-1 font-semibold {evidence === 'camera_only' || evidence === 'unconfirmed' ? '' : 'text-slate-700 dark:text-slate-200'}" data-leaderboard-evidence={evidence}>{@render evidenceGlyph(evidence)}{evidenceLabel(evidence)}</span><span class="hidden @sm:inline"><Separator /></span>{/if}
+                            <span class="mt-1 flex flex-wrap items-center gap-x-2 text-xs text-muted">
+                                {#if evidence !== 'unknown'}<span class="inline-flex items-center gap-1 font-semibold {evidence === 'camera_only' || evidence === 'unconfirmed' ? '' : 'text-ink'}" data-leaderboard-evidence={evidence}>{@render evidenceGlyph(evidence)}{evidenceLabel(evidence)}</span><span class="hidden @sm:inline"><Separator /></span>{/if}
                                 <span title={formatDate(activityTimestampForMode(item, sourceMode))}>{formatRelative(activityTimestampForMode(item, sourceMode))}</span>
                             </span>
                         </span>
                         <span class="ml-auto shrink-0 text-right">
-                            <span class="block text-base font-bold tabular-nums text-slate-900 dark:text-white">{countForMode(item, sourceMode).toLocaleString()}</span>
+                            <span class="block text-base font-bold tabular-nums text-strong">{countForMode(item, sourceMode).toLocaleString()}</span>
                             {#if trendAvailable}<span class="block text-xs font-semibold tabular-nums {trendTone(item)}">{trendGlyph(item)} {trendForMode(item, sourceMode)}</span>{/if}
                         </span>
-                        <svg class="hidden h-4 w-4 shrink-0 text-slate-500 transition group-hover:translate-x-0.5 @sm:block dark:text-slate-400" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m8 5 5 5-5 5" /></svg>
+                        <svg class="hidden h-4 w-4 shrink-0 text-muted transition group-hover:translate-x-0.5 @sm:block" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m8 5 5 5-5 5" /></svg>
                     </button>
                 {/each}
                 </div>
                 {/if}
 
                 {#if rankingTableFits === true}
-                <div class="overflow-hidden border-y border-slate-200 dark:border-slate-700" data-leaderboard-table-rankings>
+                <div class="overflow-hidden border-y border-line" data-leaderboard-table-rankings>
                 <table class="w-full table-fixed text-left text-sm" data-testid="leaderboard-table">
-                    <thead class="border-b border-slate-200 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:text-slate-400">
+                    <thead class="border-b border-line text-xs font-semibold text-muted">
                         <tr>
                             <th scope="col" class="w-14 px-3 py-3 text-center">{$_('leaderboard.rank')}</th>
-                            <th scope="col" class="w-[32%] px-3 py-3">{$_('leaderboard.species')}</th>
-                            <th scope="col" class="px-3 py-3 text-right">{countsAreVisits ? $_('leaderboard.metric_visits', { default: 'Visits' }) : $_('leaderboard.metric_detections', { default: 'Detections' })}</th>
+                            <th scope="col" class="w-1/3 px-3 py-3">{$_('leaderboard.species')}</th>
+                            <th scope="col" class="px-3 py-3 text-right">{countsAreVisits ? $_('leaderboard.metric_visits', { default: 'Visits' }) : $_('leaderboard.metric_detections', { default: 'Captures' })}</th>
                             {#if birdnetEnabled}<th scope="col" class="px-3 py-3 text-right">{$_('leaderboard.source_heard', { default: 'Heard' })}</th>{/if}
-                            <th scope="col" class="hidden w-52 px-3 py-3 @5xl:table-cell" title={$_('leaderboard.evidence_hint', { default: 'Camera only: BirdNET did not hear this species in the same window and no detection of it has been confirmed. Worth a look before you trust it.' })}>{$_('leaderboard.evidence', { default: 'Evidence' })}</th>
+                            <th scope="col" class="hidden w-52 px-3 py-3 @5xl:table-cell" title={$_('leaderboard.evidence_hint', { default: 'Camera only: BirdNET did not hear this species in the same window and none of its visits has been confirmed. Worth a look before you trust it.' })}>{$_('leaderboard.evidence', { default: 'Evidence' })}</th>
                             {#if trendAvailable}<th scope="col" class="hidden px-3 py-3 text-right @5xl:table-cell">{$_('leaderboard.trend')}</th>{/if}
                             {#if showCameraColumn}<th scope="col" class="hidden px-3 py-3 text-right @6xl:table-cell">{$_('leaderboard.cameras')}</th>{/if}
                             <th scope="col" class="hidden px-3 py-3 text-right @6xl:table-cell">{$_('leaderboard.avg_confidence')}</th>
                             <th scope="col" class="hidden w-32 px-3 py-3 text-right @5xl:table-cell">{sourceMode === 'heard' ? $_('audio.card.last_heard') : sourceMode === 'both' ? $_('leaderboard.most_recent') : $_('leaderboard.last_seen')}</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+                    <tbody class="divide-y divide-line-soft">
                         {#each leaderboardRows as item, index (`desktop-${item.species}|${item.audio_only}|${index}`)}
                             {@const rowCountPct = maxCount > 0 ? Math.round((item.count / maxCount) * 100) : 0}
                             {@const rowHeardPct = maxHeard > 0 ? Math.round((item.heard_count / maxHeard) * 100) : 0}
                             {@const evidence = evidenceOf(item)}
-                            <tr class="transition hover:bg-slate-50/80 dark:hover:bg-slate-800/35 {unlikelyHere(item) ? 'bg-attention-50/70 dark:bg-attention-500/10' : ''}" data-leaderboard-unlikely={unlikelyHere(item) ? 'true' : undefined}>
-                                <td class="px-3 py-3 text-center"><span class="inline-flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold tabular-nums {index < 3 ? 'bg-brand-100 text-brand-800 dark:bg-brand-900/50 dark:text-brand-200' : 'text-slate-600 dark:text-slate-400'}" aria-label={`${$_('leaderboard.rank')} ${index + 1}`}>{index + 1}</span></td>
+                            <tr class="transition hover:bg-surface-raised {unlikelyHere(item) ? 'bg-status-attention-soft' : ''}" data-leaderboard-unlikely={unlikelyHere(item) ? 'true' : undefined}>
+                                <td class="px-3 py-3 text-center"><span class="inline-flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold tabular-nums {index < 3 ? 'bg-accent-soft text-accent-ink' : 'text-muted'}" aria-label={`${$_('leaderboard.rank')} ${index + 1}`}>{index + 1}</span></td>
                                 <td class="px-3 py-3">
                                     <button type="button" onclick={() => selectedSpecies = item.species} class="group flex min-h-11 max-w-full items-center gap-3 text-left focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus">
-                                        <span data-leaderboard-species-portrait class="h-10 w-10 shrink-0 overflow-hidden rounded-full border-2 border-white bg-slate-100 shadow-xs ring-1 ring-brand-200 dark:border-slate-800 dark:bg-slate-800 dark:ring-brand-800" use:whenNearViewport={() => void loadSpeciesInfo(item.species)}>
-                                            {#if getCachedSpeciesInfo(item.species)?.thumbnail_url}<img src={getCachedSpeciesInfo(item.species)?.thumbnail_url ?? undefined} alt="" class="h-full w-full object-cover" loading="lazy" />{:else}<span class="flex h-full w-full items-center justify-center text-slate-600 dark:text-slate-400"><svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M20.24 4.24a6 6 0 0 0-8.49 0L5 11v9h9l6.24-6.24a6 6 0 0 0 0-8.49ZM16 8 2 22M17.5 15H9" /></svg></span>{/if}
-                                        </span>
-                                        <span class="min-w-0"><span class="block wrap-break-word font-semibold text-slate-900 group-hover:text-brand-700 dark:text-white dark:group-hover:text-brand-300">{item.displayName}</span>{#if item.subName}<span class="block wrap-break-word text-xs italic text-slate-600 dark:text-slate-400">{item.subName}</span>{/if}</span>
+                                        {@render rowPortrait(index, item, 'h-10 w-10')}
+                                        <span class="min-w-0"><span class="block wrap-break-word font-semibold text-strong group-hover:text-accent-ink">{item.displayName}</span>{#if item.subName}<span class="block wrap-break-word text-xs italic text-muted">{item.subName}</span>{/if}</span>
                                     </button>
                                 </td>
-                                <td class="px-3 py-3 text-right">{#if item.audio_only}<span class="text-slate-600 dark:text-slate-400">—</span>{:else}<span class="font-semibold tabular-nums text-slate-700 dark:text-slate-200">{item.count.toLocaleString()}</span><span class="ml-auto mt-1 block h-1 w-14 overflow-hidden rounded-full bg-track"><span class="block h-full rounded-full bg-status-info-line" style="width: {rowCountPct}%"></span></span>{/if}</td>
-                                {#if birdnetEnabled}<td class="px-3 py-3 text-right">{#if audioLoadState === 'ready'}<span class="font-semibold tabular-nums text-slate-700 dark:text-slate-200">{item.heard_count.toLocaleString()}</span><span class="ml-auto mt-1 block h-1 w-14 overflow-hidden rounded-full bg-track"><span class="block h-full rounded-full bg-status-neutral-line" style="width: {rowHeardPct}%"></span></span>{:else}<span class="text-slate-600 dark:text-slate-400" title={$_('common.unavailable')}>—</span>{/if}</td>{/if}
-                                <td class="hidden px-3 py-3 @5xl:table-cell">{#if evidence === 'unknown'}<span class="text-slate-600 dark:text-slate-400">—</span>{:else}<span class="inline-flex items-center gap-1.5 text-xs font-semibold {evidence === 'camera_only' || evidence === 'unconfirmed' ? 'text-slate-600 dark:text-slate-400' : 'text-slate-700 dark:text-slate-200'}" data-leaderboard-evidence={evidence}>{@render evidenceGlyph(evidence)}{evidenceLabel(evidence)}</span>{/if}{#if unlikelyHere(item) && nearbyCheck}{@render unlikelyReason(nearbyCheck.radiusKm)}{/if}</td>
+                                <td class="px-3 py-3 text-right">{#if item.audio_only}<span class="text-muted">—</span>{:else}<span class="font-semibold tabular-nums text-ink">{item.count.toLocaleString()}</span><span class="ml-auto mt-1 block h-1 w-14 overflow-hidden rounded-full bg-track"><span class="block h-full rounded-full bg-status-info-line" style="width: {rowCountPct}%"></span></span>{/if}</td>
+                                {#if birdnetEnabled}<td class="px-3 py-3 text-right">{#if audioLoadState === 'ready'}<span class="font-semibold tabular-nums text-ink">{item.heard_count.toLocaleString()}</span><span class="ml-auto mt-1 block h-1 w-14 overflow-hidden rounded-full bg-track"><span class="block h-full rounded-full bg-status-neutral-line" style="width: {rowHeardPct}%"></span></span>{:else}<span class="text-muted" title={$_('common.unavailable')}>—</span>{/if}</td>{/if}
+                                <td class="hidden px-3 py-3 @5xl:table-cell">{#if evidence === 'unknown'}<span class="text-muted">—</span>{:else}<span class="inline-flex items-center gap-1.5 text-xs font-semibold {evidence === 'camera_only' || evidence === 'unconfirmed' ? 'text-muted' : 'text-ink'}" data-leaderboard-evidence={evidence}>{@render evidenceGlyph(evidence)}{evidenceLabel(evidence)}</span>{/if}{#if unlikelyHere(item) && nearbyCheck}{@render unlikelyReason(nearbyCheck.radiusKm)}{/if}</td>
                                 {#if trendAvailable}<td class="hidden px-3 py-3 text-right font-semibold tabular-nums @5xl:table-cell {trendTone(item)}"><span aria-hidden="true" class="mr-0.5 text-xs">{trendGlyph(item)}</span>{trendForMode(item, sourceMode)}</td>{/if}
-                                {#if showCameraColumn}<td class="hidden px-3 py-3 text-right tabular-nums text-slate-600 dark:text-slate-300 @6xl:table-cell">{(item.camera_count ?? 0).toLocaleString()}</td>{/if}
-                                <td class="hidden px-3 py-3 text-right tabular-nums text-slate-600 dark:text-slate-300 @6xl:table-cell">{item.avg_confidence != null ? `${Math.round(item.avg_confidence * 100)}%` : '—'}</td>
-                                <td class="hidden px-3 py-3 text-right text-slate-600 dark:text-slate-400 @5xl:table-cell" title={formatDate(activityTimestampForMode(item, sourceMode))}>{formatRelative(activityTimestampForMode(item, sourceMode))}</td>
+                                {#if showCameraColumn}<td class="hidden px-3 py-3 text-right tabular-nums text-muted @6xl:table-cell">{(item.camera_count ?? 0).toLocaleString()}</td>{/if}
+                                <td class="hidden px-3 py-3 text-right tabular-nums text-muted @6xl:table-cell">{item.avg_confidence != null ? `${Math.round(item.avg_confidence * 100)}%` : '—'}</td>
+                                <td class="hidden px-3 py-3 text-right text-muted @5xl:table-cell" title={formatDate(activityTimestampForMode(item, sourceMode))}>{formatRelative(activityTimestampForMode(item, sourceMode))}</td>
                             </tr>
                         {/each}
                     </tbody>
@@ -1953,27 +2012,19 @@
         </section>
 
 
-        <section class="space-y-6 border-t border-slate-200 pt-8 dark:border-slate-700" data-leaderboard-analytics>
-            <div class="flex items-center gap-3">
-                <svg data-leaderboard-section-icon aria-hidden="true" class="h-8 w-8 rounded-xl border border-brand-200 bg-brand-50 p-1.5 text-brand-700 dark:border-brand-800 dark:bg-brand-950/40 dark:text-brand-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path stroke-linecap="round" d="M4 19V9m5 10V5m5 14v-7m5 7V3" /></svg>
-                <div><h2 class="text-xl font-bold text-slate-950 dark:text-white">{$_('leaderboard.analytics_section', { default: 'Analytics' })}</h2><p class="text-sm text-slate-600 dark:text-slate-400">{spanLabel()} · {formatRangeCompact(timeline?.window_start, timeline?.window_end)}</p></div>
-            </div>
-
-        <div class="border-y border-slate-200 py-6 dark:border-slate-700 md:py-8">
-            <div class="relative flex flex-col flex-1">
-                <div class="flex flex-col gap-4">
-                    <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-                        <div>
-                            <h3 class="text-lg font-bold text-slate-900 dark:text-white md:text-xl">{$_('leaderboard.detections_over_time')}</h3>
-                            <p class="mt-1 text-xs text-slate-600 dark:text-slate-400">
-                                {spanLabel()} · {formatRangeCompact(timeline?.window_start, timeline?.window_end)} · {bucketLabel(timeline?.bucket)} · {(timeline?.total_count ?? 0).toLocaleString()} {metricLabel().toLowerCase()}{#if unidentifiedCount > 0 && !includeUnknownBird}, {$_('leaderboard.includes_unidentified', { values: { count: unidentifiedCount.toLocaleString() }, default: 'including {count} not identified to species' })}{/if}
-                            </p>
-                        </div>
-                        <div class="flex flex-wrap items-center gap-2">
+        <!-- One heading per chart, the window said once for the section, totals in each caption, and
+             every chart with its data as a table. Charts take the page's full width. -->
+        <section class="space-y-8 border-t border-line pt-8" data-leaderboard-analytics aria-labelledby="leaderboard-analytics-title">
+            <header class="flex flex-wrap items-end justify-between gap-3">
+                <div>
+                    <h2 id="leaderboard-analytics-title" class="text-xl font-bold text-strong">{$_('leaderboard.analytics_section', { default: 'Analytics' })}</h2>
+                    <p class="text-sm text-muted" data-leaderboard-analytics-window>{spanLabel()} · {span === 'all' ? $_('leaderboard.all_species') : formatRangeCompact(timeline?.window_start, timeline?.window_end)}</p>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
                             {#if canUseLeaderboardAnalysis}
                                 <button
                                     type="button"
-                                    class="inline-flex min-h-11 items-center rounded-xl border border-brand-200 bg-brand-50 px-3 py-2 text-xs font-semibold text-brand-700 transition hover:bg-brand-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-not-allowed disabled:opacity-60 dark:border-brand-800 dark:bg-brand-950/30 dark:text-brand-300 dark:hover:bg-brand-950/50"
+                                    class="btn btn-secondary min-h-11 px-3 text-xs"
                                     disabled={!timeline?.points?.length || leaderboardAnalysisLoading}
                                     onclick={() => runLeaderboardAnalysis(!!leaderboardAnalysis)}
                                 >
@@ -1984,12 +2035,15 @@
                                             : $_('leaderboard.ai_analyze', { default: 'Analyze chart' })}
                                 </button>
                             {/if}
-                        </div>
-                    </div>
                 </div>
+            </header>
 
-                <!-- A fixed box, not a flex-grown one: Chart.js sizes the canvas to its parent, so a parent
-                     that grows with its content lets the chart balloon to half the page width. -->
+            <ChartFigure
+                title={$_('leaderboard.detections_over_time')}
+                description={timelineCaption()}
+                table={timelineTable}
+                class="border-y border-line py-6"
+            >
                 <div class="mt-6 w-full shrink-0 {isStackedChart() ? 'chart-h-tall' : 'chart-h'}">
                     {#if timeline?.points?.length}
                         {#key `${span}-${timeline.total_count}-${timeline.bucket}-${showPrecip}-${isDark()}-${themeStore.colorTheme}`}
@@ -1998,12 +2052,12 @@
                             </div>
                         {/key}
                     {:else}
-                        <div class="h-full w-full rounded-2xl bg-slate-100 dark:bg-slate-800/60 animate-pulse"></div>
+                        <div class="h-full w-full rounded-2xl bg-surface-raised animate-pulse"></div>
                     {/if}
                 </div>
                 {#each weatherPanels() as panel (panel.key)}
                     <div class="mt-3" data-leaderboard-weather-panel={panel.key}>
-                        <p class="mb-1 text-xs font-semibold text-slate-600 dark:text-slate-400">{panel.title}</p>
+                        <p class="mb-1 text-xs font-semibold text-muted">{panel.title}</p>
                         <div class="h-24 w-full">
                             {#key `${span}-${timeline?.total_count}-${timeline?.bucket}-${isDark()}-${panel.key}`}
                                 <canvas use:chartjsWhenNear={panel.config} aria-label={panel.title}></canvas>
@@ -2028,30 +2082,25 @@
                     </div>
                 {/if}
 
-                <p class="mt-3 text-xs font-semibold text-slate-600 dark:text-slate-400">
-                    {$_('leaderboard.total', { default: 'Total' })}: {timeline?.total_count?.toLocaleString() || '0'}
-                    · {$_('leaderboard.metric_peak', { default: 'Peak' })}: {formatMetricValue(metricPeak())}
-                    · {$_('leaderboard.metric_avg', { default: 'Avg' })}: {formatMetricValue(metricAvg())}
-                </p>
                 {#if canUseLeaderboardAnalysis && (leaderboardAnalysisLoading || leaderboardAnalysisError || leaderboardAnalysis)}
-                    <div class="mt-4 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-600 dark:bg-slate-800/40 dark:text-slate-300">
-                        <div class="flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-slate-600 dark:text-slate-400">
+                    <div class="mt-4 rounded-xl bg-surface-raised px-4 py-3 text-sm text-muted">
+                        <div class="flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-muted">
                             <span>{$_('leaderboard.ai_summary', { default: 'AI insight' })}</span>
                             {#if leaderboardAnalysisTimestamp}
                                 <span class="font-semibold normal-case tracking-normal">{formatDateTime(leaderboardAnalysisTimestamp)}</span>
                             {/if}
                         </div>
                         {#if leaderboardAnalysisLoading}
-                            <p class="mt-2 text-xs text-slate-600 dark:text-slate-400">{$_('leaderboard.ai_analyzing', { default: 'Analyzing…' })}</p>
+                            <p class="mt-2 text-xs text-muted">{$_('leaderboard.ai_analyzing', { default: 'Analyzing…' })}</p>
                         {:else if leaderboardAnalysisError}
-                            <p class="mt-2 text-xs text-rose-500">{leaderboardAnalysisError}</p>
+                            <p class="mt-2 text-xs text-status-fail" role="alert">{leaderboardAnalysisError}</p>
                         {:else if leaderboardAnalysis}
                             <div class="mt-2 space-y-2">
                                 {#each leaderboardAiBlocks() as block}
                                     {#if block.type === 'heading'}
-                                        <p class="text-xs font-semibold text-slate-800 dark:text-slate-200">{block.text}</p>
+                                        <p class="text-xs font-semibold text-strong">{block.text}</p>
                                     {:else}
-                                        <p class="text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">{block.text}</p>
+                                        <p class="text-sm text-ink leading-relaxed whitespace-pre-wrap">{block.text}</p>
                                     {/if}
                                 {/each}
                             </div>
@@ -2060,7 +2109,7 @@
                 {/if}
                 <!-- Weather overlays -->
                 <details class="mt-3 group/weather">
-                    <summary class="flex min-h-11 w-fit max-w-full cursor-pointer list-none select-none flex-wrap items-center gap-x-2 gap-y-1 rounded-xl px-2 py-2 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus dark:text-slate-300 dark:hover:bg-slate-800/40 [&::-webkit-details-marker]:hidden">
+                    <summary class="flex min-h-11 w-fit max-w-full cursor-pointer list-none select-none flex-wrap items-center gap-x-2 gap-y-1 rounded-xl px-2 py-2 text-xs font-semibold text-muted transition-colors hover:bg-surface-raised focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus [&::-webkit-details-marker]:hidden">
                         <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
                             <path d="M6 9a4 4 0 1 1 7.5-1.8A2.8 2.8 0 1 1 14 13H6.5"></path>
                             <path d="M7 14.5v2M10 14.5v2M13 14.5v2"></path>
@@ -2070,10 +2119,10 @@
                             <path d="M6 8l4 4 4-4"></path>
                         </svg>
                         {#if timeline?.sunrise_range}
-                            <span class="font-semibold normal-case tracking-normal text-slate-700 dark:text-slate-300">{$_('leaderboard.sunrise')} {timeline.sunrise_range}</span>
+                            <span class="font-semibold normal-case tracking-normal text-ink">{$_('leaderboard.sunrise')} {timeline.sunrise_range}</span>
                         {/if}
                         {#if timeline?.sunset_range}
-                            <span class="font-semibold normal-case tracking-normal text-slate-700 dark:text-slate-300">{$_('leaderboard.sunset')} {timeline.sunset_range}</span>
+                            <span class="font-semibold normal-case tracking-normal text-ink">{$_('leaderboard.sunset')} {timeline.sunset_range}</span>
                         {/if}
                     </summary>
                     <div class="mt-2 flex flex-wrap items-center gap-2 text-xs">
@@ -2083,7 +2132,7 @@
                             onclick={() => showTemperature = !showTemperature}
                             disabled={!hasWeather()}
                             class="inline-flex min-h-11 items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-not-allowed disabled:opacity-45
-                                {showTemperature ? 'border-brand-300 dark:border-brand-600 bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300' : 'border-slate-200/70 dark:border-slate-700/60 text-slate-600 dark:text-slate-400'}"
+                                {showTemperature ? 'border-accent-line bg-accent-soft text-accent-ink' : 'border-line text-muted'}"
                         >
                             <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
                                 <path d="M10 4a2 2 0 0 0-4 0v6.4a3.5 3.5 0 1 0 4 0V4z"></path>
@@ -2097,7 +2146,7 @@
                             onclick={() => showWind = !showWind}
                             disabled={!hasWeather()}
                             class="inline-flex min-h-11 items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-not-allowed disabled:opacity-45
-                                {showWind ? 'border-brand-300 dark:border-brand-600 bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300' : 'border-slate-200/70 dark:border-slate-700/60 text-slate-600 dark:text-slate-400'}"
+                                {showWind ? 'border-accent-line bg-accent-soft text-accent-ink' : 'border-line text-muted'}"
                         >
                             <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
                                 <path d="M3 8h9a2 2 0 1 0-2-2"></path>
@@ -2111,7 +2160,7 @@
                             onclick={() => showPrecip = !showPrecip}
                             disabled={!hasWeather()}
                             class="inline-flex min-h-11 items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-not-allowed disabled:opacity-45
-                                {showPrecip ? 'border-brand-300 dark:border-brand-600 bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300' : 'border-slate-200/70 dark:border-slate-700/60 text-slate-600 dark:text-slate-400'}"
+                                {showPrecip ? 'border-accent-line bg-accent-soft text-accent-ink' : 'border-line text-muted'}"
                         >
                             <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
                                 <path d="M6 9a4 4 0 1 1 7.5-1.8A2.8 2.8 0 1 1 14 13H6.5"></path>
@@ -2120,14 +2169,14 @@
                             {$_('leaderboard.show_precip', { default: 'Precipitation' })}
                         </button>
                         {#if showPrecip && hasWeather()}
-                            <span class="inline-flex items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-400">
-                                <span class="h-2 w-2 rounded-xs bg-sky-300/45 border border-sky-300/60"></span>{$_('leaderboard.band_low', { default: 'Low' })}
-                                <span class="h-2 w-2 rounded-xs bg-sky-300/65 border border-sky-300/75"></span>{$_('leaderboard.band_medium', { default: 'Med' })}
-                                <span class="h-2 w-2 rounded-xs bg-sky-300/85 border border-sky-300/90"></span>{$_('leaderboard.band_high', { default: 'High' })}
+                            <span class="inline-flex items-center gap-2 text-xs font-semibold text-muted">
+                                {#each [$_('leaderboard.band_low', { default: 'Low' }), $_('leaderboard.band_medium', { default: 'Med' }), $_('leaderboard.band_high', { default: 'High' })] as band, index (band)}
+                                    <span class="h-2.5 w-2.5 rounded-xs {RAIN_KEY[index]}" aria-hidden="true"></span>{band}
+                                {/each}
                             </span>
                         {/if}
                         {#if !hasWeather()}
-                            <span class="text-xs text-slate-600 dark:text-slate-400">
+                            <span class="text-xs text-muted">
                                 {weatherOverlayEligible()
                                     ? $_('leaderboard.weather_overlay_no_data', { default: 'No weather data in this range yet.' })
                                     : $_('leaderboard.weather_overlay_range_limited', { default: 'Weather overlays are available for the day, week and month spans.' })}
@@ -2135,62 +2184,29 @@
                         {/if}
                     </div>
                 </details>
-            </div>
-        </div>
+            </ChartFigure>
 
-        <div class="grid grid-cols-1 divide-y divide-slate-200 border-b border-slate-200 dark:divide-slate-700 dark:border-slate-700 xl:grid-cols-5 xl:divide-x xl:divide-y-0">
-            <div class="py-6 xl:col-span-3 xl:pr-8">
-                <div class="relative">
-                    <div class="flex items-start justify-between gap-3">
-                        <div class="flex items-start gap-2.5">
-                            <div class="h-8 w-8 rounded-xl border border-brand-200/80 dark:border-brand-700/60 bg-brand-100/80 dark:bg-brand-900/30 flex items-center justify-center text-brand-700 dark:text-brand-300">
-                                <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                                    <rect x="3" y="4" width="14" height="12" rx="2"></rect>
-                                    <path d="M3 9h14M8 4v12M13 4v12"></path>
-                                </svg>
-                            </div>
-                            <div>
-                                <p class="text-xs font-semibold text-brand-700 dark:text-brand-300">
-                                    {$_('leaderboard.activity_heatmap_title', { default: 'Activity heatmap' })}
-                                </p>
-                                <h3 class="mt-1 text-lg font-bold text-slate-900 dark:text-white md:text-xl">
-                                    {$_('leaderboard.activity_heatmap_subtitle', { default: 'Activity by hour and weekday' })}
-                                </h3>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="mt-3 flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-300">
-                        <span class="inline-flex items-center gap-1 rounded-full border border-slate-200/80 dark:border-slate-700/70 bg-white/80 dark:bg-slate-900/40 px-2 py-1">
-                            <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
-                                <rect x="3" y="4" width="14" height="13" rx="2"></rect>
-                                <path d="M3 8h14"></path>
-                            </svg>
-                            {formatRangeCompact(activityHeatmap?.window_start, activityHeatmap?.window_end)}
-                        </span>
-                        <span class="inline-flex items-center gap-1 rounded-full border border-slate-200/80 dark:border-slate-700/70 bg-white/80 dark:bg-slate-900/40 px-2 py-1">
-                            <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
-                                <path d="M4 14h12"></path>
-                                <path d="M7 14V9M10 14V6M13 14v-3"></path>
-                            </svg>
-                            {$_('leaderboard.total', { default: 'Total' })}: {formatMetricValue(shownHeatmap?.total_count ?? 0)}
-                        </span>
-                    </div>
-
+            <div class="grid grid-cols-1 gap-8 xl:grid-cols-5">
+                <ChartFigure
+                    title={$_('leaderboard.activity_heatmap_subtitle', { default: 'Activity by hour and weekday' })}
+                    description={$_('common.chart_total', { values: { count: formatMetricValue(shownHeatmap?.total_count ?? 0) }, default: 'Total: {count}' })}
+                    table={heatmapTable}
+                    class="xl:col-span-3"
+                >
                     {#if heatmapSpeciesOptions.length > 1}
                         <div class="-mx-1 mt-3 flex gap-1 overflow-x-auto px-1 pb-1 sm:flex-wrap sm:overflow-visible" role="group" aria-label={$_('leaderboard.heatmap_species_picker', { default: 'Show the activity of' })} data-leaderboard-heatmap-species>
-                            <button type="button" class="btn btn-ghost min-h-11 shrink-0 whitespace-nowrap px-2.5 text-xs {heatmapSpecies === null ? 'bg-slate-100 font-semibold text-slate-900 dark:bg-slate-800 dark:text-white' : ''}" aria-pressed={heatmapSpecies === null} onclick={() => (heatmapChoice = null)}>
+                            <button type="button" class="btn btn-ghost min-h-11 shrink-0 whitespace-nowrap px-2.5 text-xs {heatmapSpecies === null ? 'bg-surface-raised font-semibold text-strong' : ''}" aria-pressed={heatmapSpecies === null} onclick={() => (heatmapChoice = null)}>
                                 {$_('leaderboard.heatmap_all_species', { default: 'All species' })}
                             </button>
                             {#each heatmapSpeciesOptions as option, index (`${option.heatmapKey}|${index}`)}
-                                <button type="button" class="btn btn-ghost min-h-11 shrink-0 whitespace-nowrap px-2.5 text-xs {heatmapSpecies === option.heatmapKey ? 'bg-slate-100 font-semibold text-slate-900 dark:bg-slate-800 dark:text-white' : ''}" aria-pressed={heatmapSpecies === option.heatmapKey} onclick={() => (heatmapChoice = option.heatmapKey)}>
+                                <button type="button" class="btn btn-ghost min-h-11 shrink-0 whitespace-nowrap px-2.5 text-xs {heatmapSpecies === option.heatmapKey ? 'bg-surface-raised font-semibold text-strong' : ''}" aria-pressed={heatmapSpecies === option.heatmapKey} onclick={() => (heatmapChoice = option.heatmapKey)}>
                                     {option.displayName}
                                 </button>
                             {/each}
                         </div>
                     {/if}
 
-                    <div class="mt-4 min-h-[260px]" aria-busy={speciesHeatmapLoading}>
+                    <div class="mt-4 min-h-64" aria-busy={speciesHeatmapLoading}>
                         {#if shownHeatmap && (shownHeatmap.total_count ?? 0) > 0}
                             <div class="transition-opacity {speciesHeatmapLoading ? 'opacity-50' : ''}">
                                 <ActivityHeatmap
@@ -2202,61 +2218,29 @@
                                 />
                             </div>
                         {:else if heatmapSpecies && speciesHeatmapFailed}
-                            <div class="h-[260px] w-full rounded-2xl border border-dashed border-slate-300/80 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-900/35 flex items-center justify-center px-6 text-center text-sm text-slate-600 dark:text-slate-400" role="status">
+                            <div class="h-64 w-full rounded-2xl border border-dashed border-line bg-surface-raised flex items-center justify-center px-6 text-center text-sm text-muted" role="status">
                                 {$_('leaderboard.heatmap_species_failed', { default: 'That species\u2019 activity could not be loaded. Choose it again to retry.' })}
                             </div>
                         {:else if heatmapSpecies && shownHeatmap}
-                            <div class="h-[260px] w-full rounded-2xl border border-dashed border-slate-300/80 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-900/35 flex items-center justify-center px-6 text-center text-sm text-slate-600 dark:text-slate-400">
-                                {$_('leaderboard.heatmap_species_empty', { values: { species: heatmapSubject ?? '' }, default: 'No {species} detections in this window.' })}
+                            <div class="h-64 w-full rounded-2xl border border-dashed border-line bg-surface-raised flex items-center justify-center px-6 text-center text-sm text-muted">
+                                {$_('leaderboard.heatmap_species_empty', { values: { species: heatmapSubject ?? '' }, default: 'No {species} captures in this window.' })}
                             </div>
                         {:else if activityHeatmap && !heatmapSpecies}
-                            <div class="h-[260px] w-full rounded-2xl border border-dashed border-slate-300/80 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-900/35 flex items-center justify-center text-sm text-slate-600 dark:text-slate-400">
+                            <div class="h-64 w-full rounded-2xl border border-dashed border-line bg-surface-raised flex items-center justify-center text-sm text-muted">
                                 {$_('leaderboard.no_activity_data', { default: 'No activity captured in this window yet.' })}
                             </div>
                         {:else}
-                            <div class="h-[260px] w-full rounded-2xl bg-slate-100 dark:bg-slate-800/60 animate-pulse"></div>
+                            <div class="h-64 w-full rounded-2xl bg-surface-raised animate-pulse"></div>
                         {/if}
                     </div>
-                </div>
-            </div>
-            <div class="py-6 xl:col-span-2 xl:pl-8">
-                <div class="relative">
-                    <div class="flex items-start justify-between gap-3">
-                        <div class="flex items-start gap-2.5">
-                            <div class="h-8 w-8 rounded-xl border border-brand-200/80 dark:border-brand-700/60 bg-brand-100/80 dark:bg-brand-900/30 flex items-center justify-center text-brand-700 dark:text-brand-300">
-                                <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                                    <circle cx="10" cy="10" r="7"></circle>
-                                    <circle cx="10" cy="10" r="3"></circle>
-                                    <path d="M10 3v4M10 13v4M3 10h4M13 10h4" stroke-width="1.4"></path>
-                                </svg>
-                            </div>
-                            <div>
-                                <p class="text-xs font-semibold text-brand-700 dark:text-brand-300">
-                                    {$_('leaderboard.detection_breakdown_title', { default: 'Detection breakdown' })}
-                                </p>
-                                <h3 class="mt-1 text-lg font-bold text-slate-900 dark:text-white md:text-xl">
-                                    {$_('leaderboard.detection_breakdown_subtitle', { default: 'Species composition' })}
-                                </h3>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="mt-3 flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-300">
-                        <span class="inline-flex items-center gap-1 rounded-full border border-slate-200/80 dark:border-slate-700/70 bg-white/80 dark:bg-slate-900/40 px-2 py-1">
-                            <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
-                                <path d="M4 10h12M4 6h12M4 14h7"></path>
-                            </svg>
-                            {selectedCountLabel()}
-                        </span>
-                        <span class="inline-flex items-center gap-1 rounded-full border border-slate-200/80 dark:border-slate-700/70 bg-white/80 dark:bg-slate-900/40 px-2 py-1">
-                            <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
-                                <path d="M10 4v8l4 2"></path><circle cx="10" cy="10" r="7"></circle>
-                            </svg>
-                            {totalCount.toLocaleString()} {countsAreVisits ? $_('leaderboard.showcase_visits', { default: 'visits' }) : $_('leaderboard.showcase_detections', { default: 'detections' })}
-                        </span>
-                    </div>
-
-                    <div class="mt-4 min-h-[260px]">
+                </ChartFigure>
+                <ChartFigure
+                    title={$_('leaderboard.detection_breakdown_subtitle', { default: 'Species composition' })}
+                    description={`${selectedCountLabel()} · ${totalCount.toLocaleString()} ${countsAreVisits ? $_('leaderboard.showcase_visits', { default: 'visits' }) : $_('leaderboard.showcase_detections', { default: 'captures' })}`}
+                    table={compositionTable}
+                    class="xl:col-span-2"
+                >
+                    <div class="min-h-64">
                         {#if donutHasData()}
                             {#key `${span}-${donutSeries().series.join(',')}-${isDark()}-${themeStore.colorTheme}`}
                                 <div class="relative chart-h w-full"><canvas use:chartjsWhenNear={donutChartOptions()} bind:this={donutChartEl} aria-label={$_('leaderboard.detection_breakdown_subtitle', { default: 'Species composition' })}></canvas></div>
@@ -2270,16 +2254,13 @@
                                 </div>
                             {/key}
                         {:else}
-                            <div class="h-[260px] w-full rounded-2xl border border-dashed border-slate-300/80 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-900/35 flex items-center justify-center text-sm text-slate-600 dark:text-slate-400">
+                            <div class="h-64 w-full rounded-2xl border border-dashed border-line bg-surface-raised flex items-center justify-center text-sm text-muted">
                                 {$_('leaderboard.no_compare_data', { default: 'Not enough data for comparison yet.' })}
                             </div>
                         {/if}
                     </div>
-                </div>
+                </ChartFigure>
             </div>
-
-        </div>
-
         </section>
     {/if}
 </div>

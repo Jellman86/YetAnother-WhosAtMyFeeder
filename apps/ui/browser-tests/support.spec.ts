@@ -137,6 +137,8 @@ test('Health says an empty list in one plain sentence and lists every sample it 
     await page.getByText('Show the data as a table').click();
     const rows = page.locator('[data-system-health] figure table tbody tr');
     await expect(rows).toHaveCount(1);
-    await expect(rows.first().locator('td').nth(1)).toHaveText('25.0%');
-    await expect(rows.first().locator('td').nth(2)).toHaveText('Not measured');
+    // The first cell names the row (its time), so the figures follow it as data cells.
+    await expect(rows.first().locator('th[scope="row"]')).toHaveCount(1);
+    await expect(rows.first().locator('td').nth(0)).toHaveText('25.0%');
+    await expect(rows.first().locator('td').nth(1)).toHaveText('Not measured');
 });
