@@ -41,7 +41,7 @@
     import { usesSavedFeederLocation } from '../../pages/models/model_location_input';
     import { feederCoordinates, regionMessage, validationRecommendation } from './model-choices';
     import { BIRD_MODEL_REGION_OVERRIDE_VALUES, normalizeBirdModelRegionOverride, type BirdModelRegionOverride } from '../../settings/bird-model-region-override';
-    import { identificationModelName, modelFactsLine } from '../../settings/identification-models';
+    import { identificationModelLabel, identificationModelName, modelFactsLine } from '../../settings/identification-models';
     import IdentificationStatusLine from '../IdentificationStatusLine.svelte';
 
     let status = $state<ClassifierStatus | null>(null);
@@ -400,8 +400,7 @@
 
     // Purpose first, with the catalogue's code name after it so it still matches Model evaluation.
     function optionLabel(model: ModelMetadata): string {
-        const names = identificationModelName(model, translate);
-        const name = names.technical ? `${names.name} (${names.technical})` : names.name;
+        const name = identificationModelLabel(model, translate);
         return installedIds.has(model.id) ? name : `${name} · ${$_('setup.model.download_needed', { default: 'download needed' })}`;
     }
 

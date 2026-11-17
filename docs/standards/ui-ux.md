@@ -20,7 +20,8 @@ The baseline checklist for every screen, feature, and flow:
    internal jargon or implementation terms.
 3. **User control and freedom** — clear cancel/undo/exit; and never imply an irreversible action
    is reversible (ties to [`CLAUDE.md`](../../CLAUDE.md) §1).
-4. **Consistency and standards** — the same word and control for the same thing everywhere; use
+4. **Consistency and standards** — the same word and control for the same thing everywhere (the
+   words are in [`glossary.md`](glossary.md)); use
    the shared UI kit (`apps/ui/src/app.css`) rather than one-off Tailwind.
 5. **Error prevention** — prevent the problem (confirm destructive actions, constrain inputs,
    disable the impossible) rather than only reporting it after.

@@ -137,7 +137,8 @@ Configuration exports contain real secrets and must be protected.
 
 Use [the API reference](docs/api.md), [configuration reference](docs/setup/configuration.md),
 [code quality standard](docs/standards/code-quality.md),
-[UI standard](docs/standards/ui-ux.md), and
+[UI standard](docs/standards/ui-ux.md),
+[glossary](docs/standards/glossary.md), and
 [layout patterns](docs/standards/layout-patterns.md) rather than copying old endpoint
 examples or building a separate control style.
 

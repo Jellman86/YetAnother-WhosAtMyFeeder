@@ -381,8 +381,13 @@ test('the page names each thing once, in sentence case, with the kit and plain w
     // The page's own sections: the shell's sidebar has a heading of its own at this level.
     await expect(page.locator('[data-model-evaluation]').getByRole('heading', { level: 2 })).toHaveText(['Start an evaluation', 'Results', 'Provider checks']);
     const table = page.getByRole('region', { name: 'Results' }).getByRole('table');
-    // Models carry the names Settings shows; the identifier is in the downloaded files only.
-    await expect(table.getByRole('rowheader').first()).toHaveText('ConvNeXt Large (High Accuracy)');
+    // The identifier is in the downloaded files only.
+    // A model is named as Settings › Models names it: what it is for, then its technical name,
+    // without the catalogue's bracketed claim.
+    const firstModel = table.getByRole('rowheader').first();
+    await expect(firstModel).toContainText('Birds and wildlife, high accuracy');
+    await expect(firstModel.locator('[data-model-technical-name]')).toHaveText('ConvNeXt Large');
+    await expect(firstModel).not.toContainText('High Accuracy');
     await expect(page.locator('[data-model-evaluation]')).not.toContainText(/convnext_large_inat21|small_birds/);
     await expect(table.getByRole('columnheader')).toHaveText([
         'Model', 'First guess right', 'Right in top three', 'Common feeder birds', 'Birds near you',
@@ -393,7 +398,11 @@ test('the page names each thing once, in sentence case, with the kit and plain w
     await expect(table).toContainText('Worth a check');
     await expect(table).toContainText('Cannot name 26 of the 141 test species');
     await expect(page.locator('[data-model-eval-facts]')).toHaveText('141 species · 423 photos · Region GB-ENG · 16 minutes');
-    await expect(page.locator('[data-model-eval-skipped]')).toContainText('EVA-02 Large (Elite Accuracy)');
+    const skipped = page.locator('[data-model-eval-skipped]');
+    await expect(skipped).toContainText('Birds and wildlife, most accurate');
+    await expect(skipped.locator('[data-model-technical-name]')).toHaveText('EVA-02 Large');
+    // An untested model makes no accuracy claim.
+    await expect(skipped).not.toContainText('Elite Accuracy');
     await expect(page.locator('[data-model-eval-skipped]')).toContainText('Use Repair download for this model in Settings → Models.');
     await expect(page.getByLabel('Evaluation', { exact: true }).locator('option')).toHaveText(['14/11/2026 08:15', '10/11/2026 07:00, stopped early']);
 
@@ -403,11 +412,12 @@ test('the page names each thing once, in sentence case, with the kit and plain w
     await expect(checks.getByRole('row', { name: /Bird Crop Detector/ })).toContainText('Same boxes on all 27 photos');
     await expect(checks.getByRole('row', { name: /Bird Crop Detector/ })).toContainText('Not tested');
 
-    // At this width every model is one line, so the rows keep one height.
+    // At this width every model is two lines, its purpose name over its technical name, so the
+    // rows keep one height.
     const heights = await table.locator('tbody tr').filter({ has: page.getByRole('rowheader') }).evaluateAll((rows) => rows.map((row) => Math.round(row.getBoundingClientRect().height)));
     // A row without a note carries the hairline that its note row otherwise does: one pixel.
     expect(Math.max(...heights) - Math.min(...heights), JSON.stringify(heights)).toBeLessThanOrEqual(1);
-    expect(Math.max(...heights)).toBeLessThan(40);
+    expect(Math.max(...heights), JSON.stringify(heights)).toBeLessThan(56);
     // The downloads are quiet text actions on one line.
     const tops = await page.getByRole('group', { name: 'Download the results' }).getByRole('button').evaluateAll((buttons) => buttons.map((button) => Math.round(button.getBoundingClientRect().top)));
     expect(tops).toHaveLength(5);

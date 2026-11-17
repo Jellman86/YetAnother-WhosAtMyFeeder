@@ -178,6 +178,11 @@ sources — is [`docs/standards/code-quality.md`](docs/standards/code-quality.md
   are proxied so no token reaches the browser, must degrade silently to a
   placeholder, must never imply state, and must never shift layout (fixed aspect,
   lazy-loaded).
+- **One word for each thing.** A visit, a capture, a record, the naming threshold, Unknown bird,
+  Health, Explorer: [`docs/standards/glossary.md`](docs/standards/glossary.md) names each concept
+  once, with the words not to use, the form of address per language (German "Sie") and the rules
+  for dates, numbers and units. The copy lint in `npm test` fails on a forbidden synonym, a vague
+  or raw error, an em dash, informal German or a missing translation; its baseline may only fall.
 - User-facing strings go through i18n (`svelte-i18n`); new keys land in
   the English domain file they belong to, `apps/ui/src/lib/i18n/locales/en/<domain>.json` (for example
   `locales/en/settings.json` for `settings.*` keys), with `{ default: '…' }` fallbacks in code.
@@ -294,7 +299,7 @@ looser.
   ([`backend/scripts/ci_migration_path_check.py`](backend/scripts/ci_migration_path_check.py)),
   single-Alembic-head check, and `pytest`. **frontend**: `npm ci` → `npm run check`
   → `npm run lint:dead` (knip: no unused files, exports, or packages) → `npm run lint:tokens`
-  (the design-token ratchet and contrast proof) → `npm test` → `npm run build` → `npm run check:cache`
+  (the design-token ratchet and contrast proof) → `npm test` (which includes the copy lint, with a second step that refuses a raised copy baseline) → `npm run build` → `npm run check:cache`
   (chunk names stable across a one-page change).
   **production bundle**: `npm run build`, then `npm run test:browser:production`, a Chromium smoke of
   the built bundle served from `dist`. It checks every page, every chunk, German and the lazy features,

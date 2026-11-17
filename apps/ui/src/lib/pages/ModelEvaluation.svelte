@@ -22,6 +22,7 @@
     } from '../api/model_eval';
     import { confirmAction } from '../stores/confirm_dialog.svelte';
     import { pageRefreshAction } from '../stores/page_refresh_action.svelte';
+    import { identificationModelName } from '../settings/identification-models';
     import { formatDateTime } from '../utils/datetime';
     import { isCompatibilityOnlyRun, modelEvalScores } from '../utils/model-eval-scores';
     import {
@@ -59,7 +60,7 @@
 
     interface Cell { text: string | null; tone?: Tone; dot?: boolean }
     interface Note { tone: Tone; label: string; text: string }
-    interface Row { id: string; name: string; kind?: string; cells: Cell[]; notes: Note[] }
+    interface Row { id: string; name: string; technical: string | null; kind?: string; cells: Cell[]; notes: Note[] }
     interface Column { label: string; numeric?: boolean; nowrap?: boolean }
     interface ModelTable { columns: Column[]; rows: Row[] }
 
@@ -156,8 +157,15 @@
         });
     }
 
+    const translate = (key: string, options?: { default?: string; values?: Record<string, string | number> }): string => $_(key, options);
+
+    /** The names Settings › Models gives the model: what it is for, then its technical name. */
+    function namesFor(modelId: string): { name: string; technical: string | null } {
+        return identificationModelName({ id: modelId, name: modelNames.get(modelId) }, translate);
+    }
+
     function modelRow(model: ModelEvalModelSummary, cells: Cell[]): Row {
-        return { id: model.model_id, name: modelNames.get(model.model_id) ?? model.model_id, cells, notes: warningNotes(model) };
+        return { id: model.model_id, ...namesFor(model.model_id), cells, notes: warningNotes(model) };
     }
 
     let resultsTable = $derived.by((): ModelTable | null => {
@@ -246,7 +254,7 @@
             columns: providers.map((provider) => ({ label: providerName(provider) ?? provider })),
             rows: entries.map(([modelId, row]) => ({
                 id: `${row.comparison_kind ?? 'classifier'}:${modelId}`,
-                name: modelNames.get(modelId) ?? modelId,
+                ...namesFor(modelId),
                 kind: row.comparison_kind === 'crop_box' ? $_('model_eval.checks.finder', { default: 'Bird finder' }) : undefined,
                 cells: providers.map((provider) => checkCell(providerCheck(row, provider))),
                 // The row's own text may be what an exception said; only its code is read.
@@ -259,7 +267,7 @@
 
     let skippedModels = $derived((selectedRun?.skipped_models ?? []).map((skipped) => ({
         id: skipped.model_id,
-        name: modelNames.get(skipped.model_id) ?? skipped.model_id,
+        ...namesFor(skipped.model_id),
         reason: $_(`model_eval.skipped.${skipReason(skipped.reason)}`),
     })));
     let stopped = $derived(stopCause(selectedRun?.error_code));
@@ -502,7 +510,7 @@
 
     onMount(() => {
         void refresh();
-        // The registry gives each model the name Settings shows; without it a row keeps its identifier.
+        // The registry gives each model its catalogue name; without it a row keeps its identifier.
         fetchAvailableModels()
             .then((registry) => { modelNames = new Map(registry.map((model) => [model.id, model.name])); })
             .catch(() => { modelNames = new Map(); });
@@ -531,6 +539,9 @@
 
 {#snippet modelName(row: Row)}
     <span class="block">{row.name}</span>
+    {#if row.technical}
+        <span class="block text-xs font-normal text-muted" data-model-technical-name>{row.technical}</span>
+    {/if}
     {#if row.kind}
         <span class="block text-xs font-normal text-slate-600 dark:text-slate-400">{row.kind}</span>
     {/if}
@@ -867,6 +878,9 @@
                                         <span class="mt-2 inline-block h-1.5 w-1.5 shrink-0 rounded-full {TONE_DOT.attention}" aria-hidden="true"></span>
                                         <span class="min-w-0 text-slate-700 dark:text-slate-300">
                                             <span class="block font-semibold text-slate-900 dark:text-white">{skipped.name}</span>
+                                            {#if skipped.technical}
+                                                <span class="block text-xs text-muted" data-model-technical-name>{skipped.technical}</span>
+                                            {/if}
                                             <span class="block">{skipped.reason}</span>
                                         </span>
                                     </li>

@@ -112,9 +112,10 @@ test('About quick links and credit links clear the touch floor', async ({ page }
     const credits = page.locator('section[aria-labelledby="about-credits-heading"]');
     await expect(credits).toBeVisible({ timeout: 15000 });
     await targetHeights(credits.getByRole('link'));
-    // The step names the model as the Models tab does, with its runtime beneath; the file id is not shown here.
+    // The step names the model as the Models tab does, purpose first and its technical name after,
+    // with its runtime beneath; the file id is not shown here.
     const modelStep = page.locator('[data-about-pipeline] li').filter({ hasText: 'DINOv2 B/14 with location' });
-    await expect(modelStep).toBeVisible();
+    await expect(modelStep).toContainText('Birds and wildlife, uses your location (DINOv2 B/14 with location)');
     await expect(modelStep.locator('[data-pipeline-note]')).toHaveText('ONNX Runtime');
     await expect(page.locator('[data-about-pipeline]')).not.toContainText('dinov2_b14_inat21_metadata_336');
     expect(await modelStep.evaluate(node => node.scrollWidth <= node.clientWidth)).toBe(true);

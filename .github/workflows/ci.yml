@@ -146,6 +146,17 @@ jobs:
           npm run tokens:check-base -- FETCH_HEAD
         working-directory: apps/ui
 
+      # The copy lint (docs/standards/glossary.md) runs inside `npm test`. Its baseline may only
+      # fall: the local updater refuses a rise, and this catches a hand-edited one.
+      - name: Copy-lint baseline does not rise
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          git fetch --no-tags --depth=1 origin "$BASE_REF"
+          npm run copy:check-base -- FETCH_HEAD
+        working-directory: apps/ui
+
       - name: Frontend unit tests
         run: npm test
         working-directory: apps/ui

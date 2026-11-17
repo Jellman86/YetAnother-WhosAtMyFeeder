@@ -691,6 +691,9 @@ The product's voice is dry, first person where a person is speaking, and underst
 sets it: *"A personal project built with AI-assisted coding... I saw an opportunity to learn and
 build something better."*
 
+- **One word for each thing.** [`glossary.md`](glossary.md) lists the term for every concept, the
+  words it replaces, each language's form of address and the rules for units. `copy-lint.test.ts`
+  holds every locale file to it.
 - **No em dashes.** Use a comma, a colon, a semicolon or a full stop. The locale test covers all
   nine languages and `dialog-close-and-copy.layout.test.ts` covers English fallbacks in the code.
 - **Sentence case.** Buttons, headings and labels capitalise their first word and names only:
