@@ -7,6 +7,7 @@
         birdDeliveryChannels,
         deliverableChannels,
         gardenAlertChannels,
+        leadsOutboundList,
         outboundRequests,
         type OutboundFacts,
         type OutboundRequest,
@@ -87,17 +88,18 @@
         locationAutomatic: settings ? Boolean(settings.location_automatic) : null
     });
     const outbound = $derived(outboundRequests(facts));
-    // The reader's own situation comes first: what is being sent now. Everything else YA-WAMF can
-    // contact (switched off, made only when someone starts it, or the owner's to see) waits behind one
-    // disclosure, so the full list is a click away and never a wall of rows.
-    const sendingNow = (state: OutboundState): boolean => state === 'on' || state === 'always';
+    // The reader's own situation comes first: what is or may be sent now. A setting the viewer cannot
+    // read stays in that list as Owner only, never folded away as if it were off. What is certainly not
+    // sent now (Off) or made only when someone starts it waits behind one disclosure.
     const byOrigin = (requests: typeof outbound) =>
         (['server', 'browser', 'on_demand'] as const)
             .map((group) => ({ group, requests: requests.filter((request) => request.group === group) }))
             .filter((group) => group.requests.length > 0);
-    const nowGroups = $derived(byOrigin(outbound.filter((request) => sendingNow(request.state))));
-    const restGroups = $derived(byOrigin(outbound.filter((request) => !sendingNow(request.state))));
+    const nowGroups = $derived(byOrigin(outbound.filter((request) => leadsOutboundList(request.state))));
+    const restGroups = $derived(byOrigin(outbound.filter((request) => !leadsOutboundList(request.state))));
     const restCount = $derived(restGroups.reduce((count, group) => count + group.requests.length, 0));
+    // When some rows follow settings this viewer cannot read, the heading says the list may hold them.
+    const nowIncludesUnknown = $derived(outbound.some((request) => request.state === 'unknown'));
     const groupTitle = $derived<Record<OutboundRequest['group'], string>>({
         server: $_('about.outbound.from_server', { default: 'Sent by this server' }),
         browser: $_('about.outbound.from_browser', { default: 'Sent by each viewer’s browser' }),
@@ -116,7 +118,7 @@
 
 {#snippet requestGroups(list: typeof nowGroups)}
     {#each list as group (group.group)}
-        <h4 class="eyebrow mt-3" data-outbound-origin={group.group}>{groupTitle[group.group]}</h4>
+        <h5 class="eyebrow mt-3" data-outbound-origin={group.group}>{groupTitle[group.group]}</h5>
         <dl class="mt-1 divide-y divide-line-soft text-xs">
             {#each group.requests as item (item.key)}
                 <!-- Each group is a term and two descriptions (what it is for and sends, and whether it
@@ -172,15 +174,22 @@
             {$_('about.outbound.intro', { default: 'Each request, who makes it and what it sends. Features you add later may make others.' })}
         </p>
         <div data-outbound-now>
+            <h4 class="mt-3 text-xs font-semibold text-strong" data-outbound-now-heading>
+                {nowIncludesUnknown
+                    ? $_('about.outbound.now_heading_unknown', { default: 'Sending now, or depends on the owner’s settings' })
+                    : $_('about.outbound.now_heading', { default: 'Sending now' })}
+            </h4>
             {@render requestGroups(nowGroups)}
         </div>
         {#if restCount > 0}
             <Disclosure
                 class="mt-3"
                 label={$_('about.outbound.show_everything', { default: 'Show everything YA-WAMF can contact' })}
-                note={$_('about.outbound.show_everything_note', { values: { count: restCount }, default: '{count} more' })}
+                note={$_('about.outbound.show_everything_note', { values: { count: restCount }, default: '{count}\u00a0more' })}
                 data-outbound-everything
             >
+                <!-- Names this part for a heading list, where the origins below would otherwise repeat the ones above. -->
+                <h4 class="sr-only">{$_('about.outbound.rest_heading', { default: 'Off, or only when someone starts it' })}</h4>
                 {@render requestGroups(restGroups)}
             </Disclosure>
         {/if}

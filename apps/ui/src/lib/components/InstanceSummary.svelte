@@ -176,13 +176,15 @@
             {/if}
         </div>
 
-        <div class="grid min-w-0 gap-6 sm:grid-cols-4">
-            <div class="min-w-0" data-instance-runtime>
+        <!-- Bird identification takes the whole row: its sentence can be long (a model to download) and in a
+             narrow first column it ran to seven lines beside two short ones. -->
+        <div class="grid min-w-0 gap-6 sm:grid-cols-3">
+            <div class="min-w-0 sm:col-span-3" data-instance-runtime>
                 <p class="text-2xs font-semibold text-muted wrap-anywhere">
                     {$_('about.instance.runtime', { default: 'Bird identification' })}
                 </p>
                 <!-- The same sentence Settings › Models and the setup wizard show, from the same report. -->
-                <div class="mt-1">
+                <div class="mt-1 max-w-prose">
                     <IdentificationStatusLine classifierStatus={classifier} context="about" />
                 </div>
             </div>

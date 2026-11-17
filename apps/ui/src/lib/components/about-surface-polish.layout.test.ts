@@ -9,6 +9,10 @@ import enSubtitle from '../i18n/locales/en/page_subtitle.json';
 import portraitSource from './FeederPortrait.svelte?raw';
 
 const en = { about: enAbout };
+const notes = Object.fromEntries(
+    Object.entries(import.meta.glob<{ outbound: { show_everything_note: string } }>('../i18n/locales/*/about.json', { eager: true, import: 'default' }))
+        .map(([path, about]) => [path, about.outbound.show_everything_note])
+);
 
 describe('About surface polish', () => {
     it('describes the page it titles and carries no trivia', () => {
@@ -130,6 +134,10 @@ describe('About surface polish', () => {
         expect(instanceSource).toContain('data-instance-uptime class="min-w-0"');
         expect(instanceSource).toContain('class="mt-2 flex w-full min-w-0 max-w-full gap-0.5"');
         expect(instanceSource).toContain('class="min-w-0 sm:col-span-2" data-instance-report');
+        // The identification sentence has the whole row, at a reading measure, above the two short columns.
+        expect(instanceSource).toContain('class="grid min-w-0 gap-6 sm:grid-cols-3"');
+        expect(instanceSource).toContain('class="min-w-0 sm:col-span-3" data-instance-runtime');
+        expect(instanceSource).toContain('<div class="mt-1 max-w-prose">');
         expect(instanceSource).toContain('flex min-w-0 flex-col items-stretch gap-2');
         // The report line breaks between its parts, never inside a model name.
         expect(instanceSource).not.toContain('break-all');
@@ -176,16 +184,24 @@ describe('About surface polish', () => {
         expect(instanceSource).not.toContain('about.instance.acceleration');
     });
 
-    it('leads the network list with what is sending now, and keeps the rest one disclosure away', () => {
+    it('leads the network list with what is or may be sent now, and keeps the rest one disclosure away', () => {
         // About 28 rows put a first-time owner's own situation below a wall of switched-off features.
-        expect(privacySummarySource).toContain("state === 'on' || state === 'always'");
+        // The rule itself is the pure leadsOutboundList, tested in utils/outbound-requests.test.ts.
+        expect(privacySummarySource).toContain('outbound.filter((request) => leadsOutboundList(request.state))');
+        expect(privacySummarySource).toContain('outbound.filter((request) => !leadsOutboundList(request.state))');
         expect(privacySummarySource).toContain('<div data-outbound-now>');
         expect(privacySummarySource).toContain('{@render requestGroups(nowGroups)}');
         expect(privacySummarySource).toMatch(/<Disclosure[^>]*about\.outbound\.show_everything[^>]*data-outbound-everything/s);
         expect(privacySummarySource).toContain('{@render requestGroups(restGroups)}');
         expect(en.about.outbound.show_everything).toBe('Show everything YA-WAMF can contact');
-        // The count and its word stay on one line.
-        expect(en.about.outbound.show_everything_note).toBe('{count}\u00a0more');
+        // The count and its word stay on one line, in every language.
+        expect(Object.keys(notes)).toHaveLength(9);
+        for (const note of Object.values(notes)) expect(note).not.toContain(' ');
+        // The two parts are told apart in a heading list: the lead has its heading, the rest an sr-only one,
+        // and the origins sit a level below both.
+        expect(privacySummarySource).toContain("about.outbound.now_heading");
+        expect(privacySummarySource).toContain('<h4 class="sr-only">{$_(\'about.outbound.rest_heading\'');
+        expect(privacySummarySource).toContain('<h5 class="eyebrow mt-3" data-outbound-origin={group.group}>');
         // An origin with nothing in a part gets no heading there.
         expect(privacySummarySource).toContain('.filter((group) => group.requests.length > 0)');
     });

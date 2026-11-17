@@ -34,8 +34,9 @@ test('the list names the browser and server requests, and the map tiles do not f
     await settled(page);
 
     await expect(page.getByText('Nothing leaves your network except the calls listed below.')).toHaveCount(0);
-    // What is sending now comes first, and only that: every row there is On or Always.
+    // What is sending now comes first, and only that: for the owner every row there is On or Always.
     const now = section.locator('[data-outbound-now]');
+    await expect(now.locator('[data-outbound-now-heading]')).toHaveText('Sending now');
     await expect(now.locator('[data-outbound-origin="server"]')).toHaveText('Sent by this server');
     await expect(now.locator('[data-outbound-origin="browser"]')).toHaveText('Sent by each viewer’s browser');
     for (const state of await now.locator('[data-outbound]').evaluateAll((rows) => rows.map((row) => row.getAttribute('data-outbound-state')))) {
@@ -106,12 +107,16 @@ test('a guest is not told that settings they cannot read are off', async ({ page
     await page.goto('/about');
     const section = page.locator('section[aria-labelledby="about-outbound-title"]');
     await expect(section).toBeVisible({ timeout: 15_000 });
-    // What the guest cannot read is never listed as sending now.
-    await expect(section.locator('[data-outbound-now] [data-outbound-state="unknown"]')).toHaveCount(0);
-    await section.locator('[data-outbound-everything] summary').click();
+    // What the guest cannot read may be sending, so it leads, visible and marked Owner only, under a
+    // heading that says the list depends on settings the guest cannot see. Nothing of it is folded away.
+    const now = section.locator('[data-outbound-now]');
+    await expect(now.locator('[data-outbound-now-heading]')).toHaveText('Sending now, or depends on the owner’s settings');
     for (const key of ['telemetry', 'telemetry_health', 'birdweather', 'notify', 'garden_notify', 'weather']) {
-        await expect(section.locator(`[data-outbound="${key}"]`)).toHaveAttribute('data-outbound-state', 'unknown');
-        await expect(section.locator(`[data-outbound="${key}"]`)).toContainText('Owner only');
+        const row = now.locator(`[data-outbound="${key}"]`);
+        await expect(row).toBeVisible();
+        await expect(row).toHaveAttribute('data-outbound-state', 'unknown');
+        await expect(row).toContainText('Owner only');
     }
+    await expect(section.locator('[data-outbound-everything] [data-outbound-state="unknown"]')).toHaveCount(0);
     await expect(section.locator('[data-outbound="fonts"]')).toHaveAttribute('data-outbound-state', 'always');
 });
