@@ -121,7 +121,8 @@ interface DetectionsStoreLike {
     ): void;
 }
 
-interface SettingsStoreLike {
+/** What applies on this device, of which the coordinator needs whether to speak new visits. */
+interface AccessibilityLike {
     liveAnnouncements: boolean;
 }
 
@@ -200,7 +201,7 @@ interface LiveUpdateDeps {
     notificationCenter: NotificationCenterLike;
     jobProgress: JobProgressLike;
     detectionsStore: DetectionsStoreLike;
-    settingsStore: SettingsStoreLike;
+    accessibility: AccessibilityLike;
     announcer: { announce(message: string): void };
     logger: LoggerLike;
     diagnostics?: JobDiagnosticsLike;
@@ -457,7 +458,7 @@ export class LiveUpdateCoordinator {
                 }
                 const newDetection = toDetection(payload.data);
                 this.deps.detectionsStore.addDetection(newDetection);
-                if (this.deps.settingsStore.liveAnnouncements) {
+                if (this.deps.accessibility.liveAnnouncements) {
                     this.deps.announcer.announce(`New bird detected: ${newDetection.display_name} at ${newDetection.camera_name}`);
                 }
                 this.addDetectionNotification(newDetection);

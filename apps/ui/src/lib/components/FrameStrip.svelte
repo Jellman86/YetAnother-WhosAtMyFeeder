@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { prefersReducedMotion } from '../stores/accessibility_applied.svelte';
     import { tick, untrack } from 'svelte';
     import { _ } from 'svelte-i18n';
     import { portal } from '../utils/portal';
@@ -399,7 +400,7 @@
     }
 
     function scrollBehavior(): ScrollBehavior {
-        return window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+        return prefersReducedMotion() ? 'auto' : 'smooth';
     }
 
     function scrollAlong(direction: -1 | 1): void {

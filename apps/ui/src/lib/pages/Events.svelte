@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { prefersReducedMotion } from '../stores/accessibility_applied.svelte';
     import { formatCalendarDay } from '../utils/datetime';
     import Separator from '../components/Separator.svelte';
     import VisitCaptures from '../components/VisitCaptures.svelte';
@@ -532,7 +533,7 @@
     function revealResultsTop(): void {
         const count = countElement;
         if (!count) return;
-        const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+        const reduceMotion = prefersReducedMotion();
         count.scrollIntoView({ block: 'start', behavior: reduceMotion ? 'auto' : 'smooth' });
         count.focus({ preventScroll: true });
     }

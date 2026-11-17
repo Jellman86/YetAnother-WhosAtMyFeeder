@@ -121,7 +121,7 @@ function buildCoordinator(options?: {
             failReclassification: (...args: any[]) => calls.failReclassification.push(args),
             markReclassificationStrategyChanged: (...args: any[]) => calls.markReclassificationStrategyChanged.push(args)
         },
-        settingsStore: {
+        accessibility: {
             liveAnnouncements: false
         },
         announcer: {
@@ -303,7 +303,7 @@ describe('LiveUpdateCoordinator reclassify fallback', () => {
                 failReclassification: () => undefined,
                 markReclassificationStrategyChanged: () => undefined
             },
-            settingsStore: { liveAnnouncements: false },
+            accessibility: { liveAnnouncements: false },
             announcer: { announce: () => undefined },
             logger: { warn: () => undefined, error: () => undefined, sseEvent: () => undefined },
             diagnostics: { recordError: () => undefined }

@@ -35,7 +35,7 @@
         >
             <span class="min-w-0">
                 <span class="block wrap-break-word">{$_('settings.more.title', { default: 'More options' })}</span>
-                <span class="block text-sm font-normal text-muted wrap-break-word">{summary}</span>
+                <span class="block max-w-prose text-sm font-normal text-muted wrap-break-word">{summary}</span>
             </span>
             <svg class="h-5 w-5 shrink-0 text-muted transition-transform motion-reduce:transition-none {open ? 'rotate-180' : ''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
         </button>

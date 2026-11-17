@@ -284,7 +284,7 @@
     "in_this_section": "In this section",
     "not_read": "Not measured yet: the status has not been read.",
     "stale": "This reading is out of date: no newer one has arrived.",
-    "display_note": "Nothing here depends on another service. Theme, text size and language change at once on this device. Units wait for Save and apply to everyone.",
+    "display_note": "Nothing here depends on another service. Theme, text size, language and the accessibility choices on this device change at once. Units and the defaults for everyone wait for Save.",
     "state": {
       "ok": "working",
       "degraded": "under strain",
@@ -319,7 +319,7 @@
     "alerts": "Cooldown, language, the link and the species filter",
     "alerts_garden": "Cooldown, language, the link, the species filter and Garden animal alerts",
     "storage": "When Frigate loses a visit, and the jobs that repair or fill in the history",
-    "display": "Date and time format, how birds are named, the Explorer layout, fonts and colours, and units"
+    "display": "Date and time format, how birds are named, the Explorer layout, fonts and colours, accessibility defaults for everyone, and units"
   },
   "debug": {
     "llm_prompt_style_label": "Prompt style",
@@ -614,11 +614,21 @@
     "high_contrast_desc": "A black background with white and yellow text, in place of the light or dark theme.",
     "dyslexia_font": "Reading font: OpenDyslexic",
     "dyslexia_font_desc": "Sets all text in the OpenDyslexic typeface.",
+    "dyslexia_font_latin_only": "It has Latin letters only, so text in this language stays as it is.",
     "reduced_motion": "Reduced motion",
     "reduced_motion_desc": "Stops animations and transitions. Your device's reduce-motion setting is always followed as well.",
     "live_announcements": "Live announcements",
     "live_announcements_desc": "Announce new detections with screen reader alerts.",
-    "scope": "These apply to everyone who uses this install, guests included, once you save. Until then they show here as a preview."
+    "device_title": "Accessibility on this device",
+    "device_scope": "These change at once, in this browser only, and need no saving. Until you set one here, this device follows the default for everyone under More options.",
+    "defaults_title": "Defaults for everyone",
+    "defaults_scope": "Guests and devices with no choice of their own follow these, once you save. A device with its own choice keeps it. Until you save, this device previews the ones it follows.",
+    "follows_default": "Follows the default for everyone ({state})",
+    "previewing_default": "Previewing the unsaved default for everyone ({state})",
+    "own_choice": "Set on this device. The default for everyone is {state}.",
+    "use_default": "Use the default",
+    "state_on": "on",
+    "state_off": "off"
   },
   "frigate": {
     "title": "Frigate NVR",

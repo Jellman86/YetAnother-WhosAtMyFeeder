@@ -8,9 +8,9 @@
     import { loadAccessibilitySettings, loadAppearanceSettings, loadUnitsSettings } from './part-loaders';
     import SectionMore from './SectionMore.svelte';
 
-    // Display: theme, text size, language and accessibility first; dates, names, the Explorer
-    // layout, fonts and colours, and units under More options. Holds what were the Appearance and
-    // Accessibility tabs.
+    // Display: theme, text size, language and this device's accessibility first; dates, names,
+    // the Explorer layout, fonts and colours, the accessibility defaults and units under More
+    // options. Holds what were the Appearance and Accessibility tabs.
     interface Props {
         currentTheme: Theme;
         currentLocale: string;
@@ -58,13 +58,14 @@
             loader={loadAccessibilitySettings}
             label={$_('settings.tabs.accessibility')}
             props={{
+                region: 'main',
                 draft: accessibilityDraft,
                 onchange: onAccessibilityChange
             }}
         />
     </div>
 
-    <SectionMore section="display" summary={$_('settings.more.display', { default: 'Date and time format, how birds are named, the Explorer layout, fonts and colours, and units' })}>
+    <SectionMore section="display" summary={$_('settings.more.display', { default: 'Date and time format, how birds are named, the Explorer layout, fonts and colours, accessibility defaults for everyone, and units' })}>
         <LazyRoute
             loader={loadAppearanceSettings}
             label={$_('settings.tabs.appearance')}
@@ -76,6 +77,16 @@
                 onchange: onAppearanceChange,
                 setTheme,
                 setLanguage
+            }}
+        />
+        <!-- What guests and new devices follow sits with the other saved-for-everyone choices. -->
+        <LazyRoute
+            loader={loadAccessibilitySettings}
+            label={$_('settings.tabs.accessibility')}
+            props={{
+                region: 'more',
+                draft: accessibilityDraft,
+                onchange: onAccessibilityChange
             }}
         />
         <!-- Units are how numbers read, so they sit with the rest of how YA-WAMF looks; they are

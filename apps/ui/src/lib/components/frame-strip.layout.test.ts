@@ -126,7 +126,7 @@ describe('the frame strip is one ordered set of moments (#256)', () => {
         expect(stripSource).toContain("$_('detection.frame_strip_scroll_right', { default: 'Scroll right' })");
         // A hidden end control never catches a tap while it fades out.
         expect(stripSource).toContain("'pointer-events-none invisible opacity-0'");
-        expect(stripSource).toContain("window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'");
+        expect(stripSource).toContain("prefersReducedMotion() ? 'auto' : 'smooth'");
         for (const key of ["'ArrowLeft'", "'ArrowRight'", "'Home'", "'End'"]) {
             expect(stripSource).toContain(`key === ${key}`);
         }
