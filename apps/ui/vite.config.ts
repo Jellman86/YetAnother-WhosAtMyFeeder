@@ -159,10 +159,13 @@ export default defineConfig(({ mode }) => ({
                 // formerly `advancedChunks`.
                 codeSplitting: {
                     groups: [
-                        // The entry (index.html and main.ts) stays its own chunk: it awaits its locale
-                        // before it draws, and every lazily loaded chunk imports the shell, so the shell
-                        // must not hold the entry's code (enforceScriptsPerView checks this).
-                        { name: 'shell', tags: ['$initial'], test: (id) => !/[\\/](index\.html|src[\\/]main\.ts)$/.test(id), priority: 2 },
+                        // The entry (index.html, main.ts and App.svelte) stays its own chunk. It awaits
+                        // its locale before it draws, and every lazily loaded chunk imports the shell, so
+                        // the shell must not hold the entry's code (enforceScriptsPerView checks this).
+                        // App.svelte holds the page loaders, so it names every page's file: kept out of
+                        // the shell, a change to one page renames that page and the entry, and the shell
+                        // and every other chunk keep their names and stay cached (npm run check:cache).
+                        { name: 'shell', tags: ['$initial'], test: (id) => !/[\\/](index\.html|src[\\/]main\.ts|src[\\/]App\.svelte)$/.test(id), priority: 2 },
                         // A shared chunk takes only the modules named for it, not their dependencies too:
                         // otherwise `dialogs` and `setup` pull in code every view needs, and each view
                         // then loads them. The chunks stay acyclic: shell, then shared, then the rest.

@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { pointerMayPrefetch } from '../app/route-prefetch';
     import { avatarStore } from '../stores/avatar.svelte';
     import { onMount } from 'svelte';
     import { themeStore } from '../stores/theme.svelte';
@@ -22,7 +23,7 @@
     let { currentRoute, onNavigate, onPrefetch, isMobile = false, mobileSidebarOpen = false, onMobileClose, status }: {
         currentRoute: string;
         onNavigate: (path: string) => void;
-        /** A link is pointed at or focused: its page's code can start loading ahead of the click. */
+        /** A link is hovered with a mouse or pen, or focused: its page's code can start loading ahead of the click. */
         onPrefetch?: (path: string) => void;
         /** On a phone the sidebar is a drawer over the page. */
         isMobile?: boolean;
@@ -209,7 +210,7 @@
                             class:sidebar-nav-active={isRouteActive(item)}
                             class:sidebar-nav-inactive={!isRouteActive(item)}
                             onclick={() => handleNavClick(item)}
-                            onpointerenter={() => onPrefetch?.(item.path)}
+                            onpointerenter={(event) => { if (pointerMayPrefetch(event.pointerType)) onPrefetch?.(item.path); }}
                             onfocus={() => onPrefetch?.(item.path)}
                             title={collapsed ? item.label : ''}
                             aria-label={item.label}
@@ -245,7 +246,7 @@
                         data-sidebar-status-link
                         data-health-attention={health.needsAttention}
                         onclick={openHealth}
-                        onpointerenter={() => onPrefetch?.('/system-health')}
+                        onpointerenter={(event) => { if (pointerMayPrefetch(event.pointerType)) onPrefetch?.('/system-health'); }}
                         onfocus={() => onPrefetch?.('/system-health')}
                     >
                         <span class="sr-only">{healthLinkName}</span>
@@ -279,7 +280,7 @@
                         data-sidebar-status-link
                         data-health-attention={health.needsAttention}
                         onclick={openHealth}
-                        onpointerenter={() => onPrefetch?.('/system-health')}
+                        onpointerenter={(event) => { if (pointerMayPrefetch(event.pointerType)) onPrefetch?.('/system-health'); }}
                         onfocus={() => onPrefetch?.('/system-health')}
                     >
                         {#if health.needsAttention}

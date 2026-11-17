@@ -36,6 +36,22 @@ describe('viewScriptCounts', () => {
         );
     });
 
+    it('counts the costliest way a view is reached, not only the first importer found', () => {
+        // The map library is opened from the shell, cheaply, and from a page with four chunks of its own.
+        const twoWays: OutputChunks = {
+            'entry.js': { isEntry: true, imports: ['shell.js'], dynamicImports: ['page.js'] },
+            'shell.js': { isEntry: false, imports: [], dynamicImports: ['map.js'] },
+            'page.js': { isEntry: false, imports: ['p1.js', 'p2.js', 'p3.js', 'p4.js'], dynamicImports: ['map.js'] },
+            'p1.js': { isEntry: false, imports: [], dynamicImports: [] },
+            'p2.js': { isEntry: false, imports: [], dynamicImports: [] },
+            'p3.js': { isEntry: false, imports: [], dynamicImports: [] },
+            'p4.js': { isEntry: false, imports: [], dynamicImports: [] },
+            'map.js': { isEntry: false, imports: [], dynamicImports: [] }
+        };
+        // entry, shell, then page and its four chunks, then the map: 8, not the 3 of the shell's way.
+        expect(viewScriptCounts(twoWays).find((entry) => entry.view === 'map.js')?.scripts).toBe(8);
+    });
+
     it('ends on an import cycle between lazily loaded chunks', () => {
         const cyclic: OutputChunks = {
             'entry.js': { isEntry: true, imports: [], dynamicImports: ['a.js'] },

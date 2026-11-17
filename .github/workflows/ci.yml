@@ -154,6 +154,52 @@ jobs:
         run: npm run build
         working-directory: apps/ui
 
+      # Two builds a page apart: only that page's chunk and the entry may be renamed, so a release
+      # that changes one page leaves every other file cached in browsers.
+      - name: Chunk names stay stable across a one-page change
+        run: npm run check:cache
+        working-directory: apps/ui
+
+  production-bundle:
+    name: Production bundle (Chromium)
+    runs-on: ubuntu-latest
+    # The fixture suite runs on the dev server, which does not split code; this serves the built
+    # bundle from dist and checks that every page, chunk and lazily loaded feature starts.
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: apps/ui
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/ui/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Smoke-test the production bundle
+        run: npm run test:browser:production
+
+      - name: Retain failure screenshots and traces
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: production-bundle-failure-evidence
+          path: apps/ui/playwright-results/production
+          retention-days: 7
+
   browser:
     name: Browser regressions (Chromium, part ${{ matrix.shard }} of 2)
     runs-on: ubuntu-latest

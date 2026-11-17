@@ -39,3 +39,38 @@ test('reaching a page link with the keyboard loads that page before it is chosen
     await expect.poll(explorerRequests).toBeGreaterThan(0);
     await expect.poll(() => new URL(page.url()).pathname).toBe('/about');
 });
+
+test('a finger crossing a page link while scrolling loads nothing; a mouse over it does', async ({ page }) => {
+    await replayFeeder(page, 'light');
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const speciesRequests = requestsFor(page, '/src/lib/pages/Species.svelte');
+    await page.goto('/about');
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 15_000 });
+    const link = navLink(page, 'Leaderboard');
+    await link.dispatchEvent('pointerenter', { pointerType: 'touch' });
+    await page.waitForTimeout(1_000);
+    expect(speciesRequests()).toBe(0);
+    await link.dispatchEvent('pointerenter', { pointerType: 'mouse' });
+    await expect.poll(speciesRequests).toBeGreaterThan(0);
+});
+
+for (const [name, setUp] of [
+    ['Save-Data', () => Object.defineProperty(navigator, 'connection', { value: { saveData: true }, configurable: true })],
+    ['prefers-reduced-data', () => {
+        const original = window.matchMedia.bind(window);
+        window.matchMedia = (query: string) => (query === '(prefers-reduced-data: reduce)' ? { ...original(query), matches: true } : original(query));
+    }]
+] as const) {
+    test(`with ${name} on, neither pointing at nor focusing a page link loads it ahead`, async ({ page }) => {
+        await page.addInitScript(setUp);
+        await replayFeeder(page, 'light');
+        await page.setViewportSize({ width: 1440, height: 900 });
+        const speciesRequests = requestsFor(page, '/src/lib/pages/Species.svelte');
+        await page.goto('/about');
+        await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 15_000 });
+        await navLink(page, 'Leaderboard').hover();
+        await navLink(page, 'Leaderboard').focus();
+        await page.waitForTimeout(1_000);
+        expect(speciesRequests()).toBe(0);
+    });
+}
