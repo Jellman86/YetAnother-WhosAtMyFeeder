@@ -4,6 +4,7 @@ import type { BackfillJobStatus } from '../api/backfill';
 import { jobProgressStore } from '../stores/job_progress.svelte';
 
 import {
+    describeBackfillProgress,
     formatBackfillProgressSummary,
     resolveRunningBackfillMessage,
     updateScopedBackfillProgress,
@@ -17,6 +18,19 @@ function t(key: string, fallback: string): string {
         return get(_)(key, { default: fallback });
     } catch {
         return fallback;
+    }
+}
+
+function counted(key: string, values: Record<string, number>): string {
+    return get(_)(key, { values });
+}
+
+/** The worded summary; the plain English one only before a language has loaded. */
+function progressSummary(processed: number, total: number, updated: number, skipped: number, errors: number, added?: number): string {
+    try {
+        return describeBackfillProgress(counted, processed, total, updated, skipped, errors, added);
+    } catch {
+        return formatBackfillProgressSummary(processed, total, updated, skipped, errors, added);
     }
 }
 
@@ -35,7 +49,7 @@ function settleObsoleteBackfillJobs(prefix: string, keepId?: string) {
             title: item.title,
             message: t(
                 'jobs.backfill_status_unavailable',
-                'Status unavailable after a backend restart or session change. The job may have been interrupted.'
+                'The status was lost when YA-WAMF restarted or your sign-in changed, so the job may have been interrupted. Start it again if its result is missing.'
             ),
             route: item.route,
             current: item.current,
@@ -72,14 +86,14 @@ export function syncBackfillJobProgress(
         ? normalizedTotal
         : (status.status === 'running' ? 0 : processed);
     const title = kind === 'weather'
-        ? t('jobs.kind_weather_backfill', 'Weather backfill')
-        : t('jobs.kind_backfill', 'Detection backfill');
+        ? t('jobs.kind_weather_backfill', 'Missing weather')
+        : t('jobs.kind_backfill', 'Import of missed visits');
     const message = status.status === 'running'
         ? resolveRunningBackfillMessage(
             status,
-            formatBackfillProgressSummary(processed, normalizedTotal, updated, skipped, errors, newDetections)
+            progressSummary(processed, normalizedTotal, updated, skipped, errors, newDetections)
         )
-        : (status.message || formatBackfillProgressSummary(processed, normalizedTotal, updated, skipped, errors, newDetections));
+        : progressSummary(processed, normalizedTotal, updated, skipped, errors, newDetections);
 
     if (status.status === 'completed') {
         jobProgressStore.markCompleted({

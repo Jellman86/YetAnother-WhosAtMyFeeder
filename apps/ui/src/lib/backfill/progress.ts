@@ -76,6 +76,37 @@ export function resolveRunningBackfillMessage(
     return normalizeMessage(status.message) || fallback;
 }
 
+export type TranslateCounts = (key: string, values: Record<string, number>) => string;
+
+/**
+ * How far a backfill has got, in words: how many Frigate events were checked, then what happened
+ * to them. The count of added visits is left out for weather, which adds none.
+ */
+export function describeBackfillProgress(
+    translate: TranslateCounts,
+    processed: number,
+    total: number,
+    updated: number,
+    skipped: number,
+    errors: number,
+    newDetections?: number
+): string {
+    const checked = safeCount(processed);
+    const of = safeCount(total);
+    const counts = { updated: safeCount(updated), skipped: safeCount(skipped), errors: safeCount(errors) };
+    const progress = of > 0
+        ? translate('jobs.backfill_checked', { processed: checked, total: of })
+        : translate('jobs.backfill_checked_so_far', { processed: checked });
+    const outcome = newDetections === undefined
+        ? translate('jobs.backfill_counts_weather', counts)
+        : translate('jobs.backfill_counts_visits', { added: safeCount(newDetections), ...counts });
+    return `${progress} · ${outcome}`;
+}
+
+/**
+ * The older, English-only summary, still used by the Settings page. New callers use
+ * `describeBackfillProgress`, which is worded in the reader's language.
+ */
 export function formatBackfillProgressSummary(
     processed: number,
     total: number,

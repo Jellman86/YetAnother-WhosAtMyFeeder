@@ -298,6 +298,7 @@
     "nav.toggle_menu",
     "notifications.center_history",
     "notifications.center_title",
+    "notifications.count_events",
     "notifications.event_detection_desc",
     "notifications.event_reclassify_desc",
     "pagination.navigation",

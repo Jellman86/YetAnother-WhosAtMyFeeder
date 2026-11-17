@@ -131,7 +131,7 @@ function resolveSummarySubline(
 ): string {
     const label = kindLabel(job.kind);
     if (supportsReclassifyQueueStatus(job.kind) && analysisStatus?.circuit_open) {
-        return t('jobs.global_summary_circuit_open', { kind: label }, '{kind} paused by circuit breaker');
+        return t('jobs.global_summary_circuit_open', { kind: label }, '{kind} paused after repeated failures');
     }
     if (job.kind === 'model_download' && job.title.trim().length > 0) {
         return job.title;
@@ -167,13 +167,13 @@ function resolveActivityLabel(
     }
     if (job.kind === 'reclassify') {
         if (analysisStatus?.circuit_open) {
-            return t('jobs.activity_circuit_open', undefined, 'Paused by circuit breaker');
+            return t('jobs.activity_circuit_open', undefined, 'Paused after repeated failures');
         }
         if (row?.throttledForLivePressure && job.current <= 0) {
             return t('jobs.activity_waiting_live_priority', undefined, 'Waiting for live detections');
         }
         if (row?.throttledForMqttPressure && job.current <= 0) {
-            return t('jobs.activity_waiting_slots', undefined, 'Waiting for classifier slots');
+            return t('jobs.activity_waiting_slots', undefined, 'Waiting for the model to be free');
         }
         return t('jobs.activity_reclassify_running', undefined, 'Analyzing clips');
     }
@@ -285,13 +285,13 @@ function resolveBlockerLabel(
     t: JobsTranslateFn
 ): string | null {
     if (row && supportsReclassifyQueueStatus(row.kind) && analysisStatus?.circuit_open) {
-        return t('jobs.blocker_circuit_open', undefined, 'Recent failures paused reclassification work');
+        return t('jobs.blocker_circuit_open', undefined, 'Repeated failures paused the analysis');
     }
     if (row && supportsReclassifyQueueStatus(row.kind) && row.throttledForLivePressure) {
         return t('jobs.blocker_live_priority', undefined, 'Live detections have priority');
     }
     if (row && supportsReclassifyQueueStatus(row.kind) && row.throttledForMqttPressure) {
-        return t('jobs.blocker_mqtt_pressure', undefined, 'MQTT pressure reduced background capacity');
+        return t('jobs.blocker_mqtt_pressure', undefined, 'Background work is slowed while camera events are busy');
     }
     return null;
 }
@@ -303,7 +303,7 @@ export function presentPipelineKindRow(
 ): PresentedPipelineKindRow {
     const queueStatusApplies = supportsReclassifyQueueStatus(row.kind);
     const activityLabel = queueStatusApplies && analysisStatus?.circuit_open
-        ? t('jobs.activity_circuit_open', undefined, 'Paused by circuit breaker')
+        ? t('jobs.activity_circuit_open', undefined, 'Paused after repeated failures')
         : row.running > 0
             ? t('jobs.activity_processing', undefined, 'Processing work')
             : t('jobs.activity_queued', undefined, 'Waiting in queue');

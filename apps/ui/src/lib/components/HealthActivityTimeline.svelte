@@ -74,7 +74,7 @@
         </span>
         <span class="inline-flex items-center gap-1.5">
             <span class="h-2 w-2 rounded-full bg-status-fail-line" aria-hidden="true"></span>
-            {$_('jobs.errors_activity_fault', { default: 'Pipeline fault' })}
+            {$_('jobs.errors_activity_fault', { default: 'Fault' })}
         </span>
     </div>
 
@@ -184,21 +184,21 @@
                             label={drop.label}
                             previewLabel={isFault
                                 ? $_('jobs.errors_fault_preview', {
-                                    values: { species: drop.label ?? $_('jobs.errors_activity_unidentified', { default: 'Unidentified detection' }) },
+                                    values: { species: drop.label ?? $_('jobs.errors_activity_unidentified', { default: 'Unknown bird' }) },
                                     default: 'Preview the failed detection frame for {species}'
                                 })
                                 : null}
                         />
                         <div class="min-w-0">
                             <p class="flex min-w-0 items-baseline justify-between gap-2 text-sm font-semibold {isFault ? 'text-strong' : 'italic text-ink'}">
-                                <span class="truncate">{drop.label ?? $_('jobs.errors_activity_unidentified', { default: 'Unidentified detection' })}</span>
+                                <span class="truncate">{drop.label ?? $_('jobs.errors_activity_unidentified', { default: 'Unknown bird' })}</span>
                                 {#if drop.score !== null}
                                     <span class="shrink-0 text-xs font-bold not-italic tabular-nums text-muted sm:hidden">{Math.round(drop.score * 100)}%</span>
                                 {/if}
                             </p>
                             <p class="flex flex-wrap items-center gap-x-1.5 text-2xs font-medium leading-4 {isFault ? 'text-status-fail' : 'text-muted'}">
                                 {#if isFault}
-                                    <span class="font-semibold">{$_('jobs.errors_activity_fault', { default: 'Pipeline fault' })}</span>
+                                    <span class="font-semibold">{$_('jobs.errors_activity_fault', { default: 'Fault' })}</span>
                                     <Separator />
                                     <span>{$_(`jobs.errors_drop_reason.${drop.reason}`, { default: reasonFallback(drop.reason) })}</span>
                                 {:else}

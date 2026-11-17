@@ -65,11 +65,9 @@ const COUNT_BEFORE_INVARIANT_WORD = new Set([
     'jobs.global_not_responding',
     'jobs.lane_queued_count',
     'jobs.lane_running_count',
-    'jobs.stale_hint',
     'leaderboard.check.some_selected',
     'leaderboard.includes_unidentified',
     'notifications.bell_unread',
-    'notifications.global_progress_stale',
     'settings.data.archive_failed_count',
     'settings.data.archive_usage_detail',
     'settings.detection.band_needs_attention',
@@ -153,9 +151,8 @@ describe('counted strings', () => {
         const several = { groups: 2, events: 14, snapshots: 3 };
         expect(format(en as LocaleRoot, 'jobs.error_bundles_stats', one)).toBe('1 group · 1 event · 1 snapshot');
         expect(format(en as LocaleRoot, 'jobs.error_bundles_stats', several)).toBe('2 groups · 14 events · 3 snapshots');
-        expect(format(en as LocaleRoot, 'jobs.errors_summary', one)).toBe('1 group · 1 event · 1 health snapshot');
         for (const [localeName, messages] of LOCALES) {
-            for (const key of ['jobs.error_bundles_stats', 'jobs.errors_summary']) {
+            for (const key of ['jobs.error_bundles_stats']) {
                 const message = new Map(leaves(messages)).get(key) ?? '';
                 expect(plurals(message).map((use) => use.name), `${localeName} ${key}`).toEqual(['groups', 'events', 'snapshots']);
                 expect(message, `${localeName} ${key}`).not.toContain('•');

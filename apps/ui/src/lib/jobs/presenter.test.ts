@@ -63,8 +63,8 @@ describe('jobs presenter', () => {
 
         const presented = presentPipelineKindRow(makeRow({ running: 0 }), analysisStatus, t);
 
-        expect(presented.activityLabel).toBe('Paused by circuit breaker');
-        expect(presented.blockerLabel).toBe('Recent failures paused reclassification work');
+        expect(presented.activityLabel).toBe('Paused after repeated failures');
+        expect(presented.blockerLabel).toBe('Repeated failures paused the analysis');
     });
 
     it('surfaces queue depth and free-capacity labels for throughput rows', () => {

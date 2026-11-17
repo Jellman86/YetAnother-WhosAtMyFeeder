@@ -4,10 +4,10 @@ import { formatTerminalBackfillMessage, isBackfillTerminalTransition } from './t
 describe('formatTerminalBackfillMessage', () => {
     it('prefixes backend terminal messages with the completed backfill kind', () => {
         expect(formatTerminalBackfillMessage('detections', 'Backfill complete', 'Detection backfill complete')).toBe(
-            'Detection backfill: Backfill complete'
+            'Import of missed visits: Backfill complete'
         );
         expect(formatTerminalBackfillMessage('weather', 'Backfill complete', 'Weather backfill complete')).toBe(
-            'Weather backfill: Backfill complete'
+            'Missing weather: Backfill complete'
         );
     });
 
