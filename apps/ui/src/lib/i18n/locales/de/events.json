@@ -51,7 +51,7 @@
   "empty_title": "Noch keine Ereignisse",
   "empty_desc": "Besuche erscheinen hier, sobald Ihre Kameras Vögel erkennen. Um ältere Frigate-Ereignisse zu übernehmen, starten Sie einen Abgleich unter Einstellungen → Speicher & Wartung.",
   "load_failed": "Die Besuche konnten nicht geladen werden. Ihr Verlauf ist unverändert.",
-  "bulk_tag_partial": "{count, plural, one {# ausgewähltes Ereignis wurde nicht aktualisiert.} other {# ausgewählte Ereignisse wurden nicht aktualisiert.}}",
+  "bulk_tag_partial": "{count, plural, one {# ausgewählter Eintrag wurde nicht aktualisiert.} other {# ausgewählte Einträge wurden nicht aktualisiert.}}",
   "bulk_delete_confirm": "{count, plural, one {# Eintrag} other {# Einträge}} löschen? Das lässt sich nicht rückgängig machen.",
   "bulk_delete_success": "{count, plural, one {# Eintrag} other {# Einträge}} gelöscht.",
   "bulk_delete_missing": "{count, plural, one {# Eintrag wurde nicht gefunden.} other {# Einträge wurden nicht gefunden.}}",

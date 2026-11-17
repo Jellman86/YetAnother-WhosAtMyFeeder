@@ -83,7 +83,7 @@
     "loading": "still loading",
     "unavailable": "not available",
     "birds_scope_short": "from {count, plural, one {# analysed capture} other {# analysed captures}}",
-    "nothing_to_review": "nothing to review",
+    "nothing_to_review": "nothing needs your call",
     "seen_and_heard": "seen and heard"
   },
   "desk": {

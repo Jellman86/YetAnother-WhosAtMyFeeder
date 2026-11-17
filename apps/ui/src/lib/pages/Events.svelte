@@ -1372,7 +1372,7 @@
                 toastStore.warning(
                     $_('events.bulk_tag_partial', {
                         values: { count: result.failed_count + result.missing_count },
-                        default: '{count, plural, one {# selected event was not updated.} other {# selected events were not updated.}}'
+                        default: '{count, plural, one {# selected record was not updated.} other {# selected records were not updated.}}'
                     })
                 );
             }

@@ -50,7 +50,7 @@ export function reviewReasonMessage(reason: ReviewReason, sightings: number): Re
     if (reason === 'new_species') {
         return {
             key: 'dashboard.review_queue.new_species_tag',
-            default: 'New species · {count, plural, one {# sighting} other {# sightings}}',
+            default: 'New species · {count, plural, one {seen once} other {seen # times}}',
             values: { count: sightings }
         };
     }

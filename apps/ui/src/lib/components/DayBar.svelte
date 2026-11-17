@@ -10,7 +10,7 @@
         countedCaptures: number | null;
         speciesCount: number | null;
         unresolvedCount: number | null;
-        /** Other work may wait on a person (a species check), so zero unresolved is not "nothing to review". */
+        /** Other work may wait on a person (a species check), so zero unresolved is not "nothing needs your call". */
         othersAwaitReview?: boolean;
         audioCalls: number | null;
         audioConfirmations: number | null;
@@ -148,7 +148,7 @@
             unresolvedCount,
             loading,
             unresolvedCount !== null && unresolvedCount > 0 ? 'attention' : 'clear',
-            unresolvedCount === 0 && !othersAwaitReview ? $_('dashboard.day_bar.nothing_to_review', { default: 'nothing to review' }) : '',
+            unresolvedCount === 0 && !othersAwaitReview ? $_('dashboard.day_bar.nothing_to_review', { default: 'nothing needs your call' }) : '',
             '',
             true
         )}

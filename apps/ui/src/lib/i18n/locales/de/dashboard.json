@@ -83,7 +83,7 @@
     "loading": "wird noch geladen",
     "unavailable": "nicht verfügbar",
     "birds_scope_short": "aus {count, plural, one {# analysierten Aufnahme} other {# analysierten Aufnahmen}}",
-    "nothing_to_review": "nichts zu prüfen",
+    "nothing_to_review": "nichts erfordert Ihre Entscheidung",
     "seen_and_heard": "gesehen und gehört"
   },
   "desk": {

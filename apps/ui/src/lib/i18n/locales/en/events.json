@@ -51,7 +51,7 @@
   "empty_title": "No events yet",
   "empty_desc": "Visits appear here as your cameras identify birds. To bring in older Frigate events, run a backfill from Settings → Storage & upkeep.",
   "load_failed": "The visits could not be loaded. Your history is unchanged.",
-  "bulk_tag_partial": "{count, plural, one {# selected event was not updated.} other {# selected events were not updated.}}",
+  "bulk_tag_partial": "{count, plural, one {# selected record was not updated.} other {# selected records were not updated.}}",
   "bulk_delete_confirm": "Delete {count, plural, one {# record} other {# records}}? This cannot be undone.",
   "bulk_delete_success": "Deleted {count, plural, one {# record} other {# records}}.",
   "bulk_delete_missing": "{count, plural, one {# record was not found.} other {# records were not found.}}",

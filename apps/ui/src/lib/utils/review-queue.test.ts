@@ -208,7 +208,7 @@ describe('reviewReasonMessage', () => {
         });
         expect(reviewReasonMessage('new_species', 3)).toEqual({
             key: 'dashboard.review_queue.new_species_tag',
-            default: 'New species · {count, plural, one {# sighting} other {# sightings}}',
+            default: 'New species · {count, plural, one {seen once} other {seen # times}}',
             values: { count: 3 }
         });
     });
