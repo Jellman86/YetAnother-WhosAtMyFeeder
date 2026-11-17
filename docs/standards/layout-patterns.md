@@ -369,7 +369,15 @@ slim bar: subject, camera, time, close
 [ media, 1.1fr ]               [ decision rail, 1fr ]
   photograph                     identification, stated once
   frame strip                    confirm / pick a different species / score again
-                                 supporting analysis, facts, then Details
+                                 supporting analysis, facts, then the reference and Details
+from 1280px the record widens; where it is at least 72 rem wide (1280px at the usual text size, not at
+double text) the reference gets a column of its own:
+[ media, 2/5 ]   [ identification, actions, facts, 3/10 ]   [ lineage, reference, AI, Details, 3/10 ]
+on a phone, one column: the photograph with its star and play buttons on its lower edge (no band
+under it), then the identification and its actions, then the finder and the visit's frames; held
+sideways (a short screen below 1024px) the photograph and the identification stand side by side, so
+the identification is on the first screen. From 1024px the record is side by side at any height, and
+the photograph keeps its shape at the top of its column
 ```
 
 The rail's "Identified as" heading names the bird once and titles the dialog. The photograph does
