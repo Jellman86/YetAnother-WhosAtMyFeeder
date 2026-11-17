@@ -31,7 +31,6 @@
   "dismiss_suggestion": "候補を却下",
   "group_only": "動物のグループのみ判明し、種は未確定です。",
   "identification_confirmed": "あなたが承認した識別",
-  "identification_needs_review": "識別候補 · 確認が必要",
   "identification_unknown": "信頼できる識別がありません。未識別のままにするか、新しい候補を取得してください。",
   "model": "庭用モデル",
   "model_crop": "SpeciesNet 4.0.3a · 追跡対象の切り抜き",

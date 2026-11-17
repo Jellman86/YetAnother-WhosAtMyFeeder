@@ -184,13 +184,13 @@
             return $_('detection.video_analysis.frigate_fallback_desc', { default: "Local image analysis did not clear policy, so YA-WAMF retained Frigate's trusted species label." });
         }
         if (classificationInputKind === 'snapshot_crop' || classificationInputKind === 'snapshot_full') {
-            return $_('detection.video_analysis.fallback_desc', { default: 'Video analysis was unavailable, so this detection was classified from a single frame. Confidence may be lower.' });
+            return $_('detection.video_analysis.fallback_desc', { default: 'Video analysis was not available, so this capture was named from a single frame. The score may be lower.' });
         }
         return $_('detection.video_analysis.verified_desc');
     });
     let hideActionLabel = $derived(
         detection.is_hidden
-            ? $_('actions.unhide_detection', { default: 'Unhide detection' })
+            ? $_('actions.unhide_detection', { default: 'Unhide record' })
             : $_('actions.hide_detection')
     );
 
@@ -1014,7 +1014,7 @@
         if (error) {
             return $_(
                 `detection.reclassification.snapshot_fallback_reason.${error}`,
-                { default: $_('detection.video_analysis.fallback_desc', { default: 'Video analysis was unavailable, so this detection was classified from a single frame. Confidence may be lower.' }) }
+                { default: $_('detection.video_analysis.fallback_desc', { default: 'Video analysis was not available, so this capture was named from a single frame. The score may be lower.' }) }
             );
         }
         // No error code: say what was learned about the event in Frigate, and no more than that.
@@ -1268,7 +1268,7 @@
             await onHideSuccess?.(detection.frigate_event, detection.detection_time, true);
             onClose();
         } catch (e) {
-            toastStore.error($_('detection.move_to_garden_failed', { default: 'Could not move this record to Garden: {message}', values: { message: getErrorMessage(e) } }));
+            toastStore.error($_('detection.move_to_garden_failed', { default: 'This record could not be moved to Garden. Try again; if it keeps failing, open Health.', values: { message: getErrorMessage(e) } }));
         } finally {
             movingToGarden = false;
         }
@@ -1535,7 +1535,7 @@
         <!-- The shared dialog header, so nothing scrolls under the close button. The record's heading is
              the species name below, so the strip carries a quiet label rather than a second heading. -->
         <DialogHeader
-            label={$_('detection.record_label', { default: 'Detection record' })}
+            label={$_('detection.record_label', { default: 'Record' })}
             onClose={onClose}
             closeData={{ 'data-detection-modal-close': true }}
             data-detection-modal-header
@@ -2099,7 +2099,7 @@
                             </span>
                             <span class="text-2xs font-semibold leading-snug">
                                 {$_('detection.video_analysis.gated_desc', {
-                                    default: 'Auto-promotion was held back because the video score is below your minimum-confidence floor. Run reclassify to apply this result, or lower the floor in Settings → Detection.',
+                                    default: 'The video result was not applied because its score is below your minimum confidence floor. Choose Reclassify to apply it anyway, or lower the floor in Settings → Identifying birds.',
                                 })}
                             </span>
                         </div>

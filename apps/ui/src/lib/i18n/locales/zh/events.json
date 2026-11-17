@@ -55,7 +55,7 @@
   "bulk_delete_confirm": "{count, plural, other {删除 # 条检测？此操作无法撤销。}}",
   "bulk_delete_success": "{count, plural, other {已删除 # 条检测。}}",
   "bulk_delete_missing": "{count, plural, other {未找到 # 条检测。}}",
-  "bulk_delete_failed": "删除失败：{message}",
+  "bulk_delete_failed": "无法删除所选记录。请重试；如果仍然失败，请打开“运行状况”。",
   "bulk_reclassify_success": "{count, plural, other {已将 # 条检测加入视频分析队列。}}",
   "bulk_reclassify_partial": "已加入队列 {queued} 条；{failed} 条加入失败。",
   "timeline_scope": "本页的日期",

@@ -80,7 +80,7 @@ test('retained previous findings and unavailable detector are explained', async 
     await page.goto('/browser-tests/bird-scan.html');
     await expect(page.getByText('The previous bird count and your corrections are kept.')).toBeVisible();
     await page.getByRole('button', { name: 'Next photograph' }).click();
-    await expect(page.getByText('Install a crop detector to find additional birds.')).toBeVisible();
+    await expect(page.getByText('Install the bird finder to look for more birds in this photo.')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Find more birds' })).toBeDisabled();
 });
 

@@ -47,7 +47,7 @@
     "help": "可能な限り元のファイルを使用してください。YA-WAMF が保存し、分類に最適な入力を選びます。",
     "change": "別のファイルを選択",
     "drop": "ここにメディアをドロップするかファイルを選択",
-    "formats": "JPEG、PNG、WebP は25 MBまで · MP4、MOV、WebM は250 MB／3分まで",
+    "formats": "JPEG、PNG、WebP は25 MBまで · MP4、MOV、WebM は250 MB／3分まで",
     "uploading": "元ファイルを安全に保存中…",
     "analyse": "アップロードして解析"
   },

@@ -200,7 +200,7 @@
             toastStore.show(
                 $_('dashboard.review_session.species_blocked', {
                     values: { species: $birdNames(detection, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary).primary },
-                    default: '{species} blocked. Future detections will be dropped.'
+                    default: '{species} blocked. It will not be recorded from now on.'
                 }),
                 'success'
             );
@@ -801,7 +801,10 @@
             />
         </div>
 
-        <aside class="grid min-w-0 grid-cols-1 items-start gap-6 xl:col-start-2 3xl:grid-cols-2 {needsCall.visible ? 'xl:row-start-2' : 'xl:row-start-1'}">
+        <!-- Under the log on a tablet or small laptop (768 to 1279px) the rail's two groups stand side by
+             side rather than as full-width cards; beside the log from 1280px they stack, and from 1920px
+             they split again. -->
+        <aside class="grid min-w-0 grid-cols-1 items-start gap-6 md:grid-cols-2 xl:col-start-2 xl:grid-cols-1 3xl:grid-cols-2 {needsCall.visible ? 'xl:row-start-2' : 'xl:row-start-1'}">
             <!-- What is happening now. -->
             <div class="flex min-w-0 flex-col gap-6" data-dashboard-rail-now>
                 <DeskContextCards

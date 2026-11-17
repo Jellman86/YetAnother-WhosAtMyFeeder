@@ -956,7 +956,7 @@
                                         class="flex items-baseline justify-between gap-3"
                                         title={`${filteredReasonLabel(entry.reason)}${entry.timestamp ? ` · ${formatDateTime(Date.parse(entry.timestamp))}` : ''} · ${entry.eventId}`}
                                     >
-                                        <span class="min-w-0 wrap-break-word italic text-strong">{entry.label ?? $_('common.unknown_species', { default: 'Unknown species' })}</span>
+                                        <span class="min-w-0 wrap-break-word italic text-strong">{entry.label ?? $_('common.unknown_species', { default: 'Species not named' })}</span>
                                         <span class="shrink-0 tabular-nums text-ink">{filteredScoreLabel(entry.score)}</span>
                                     </li>
                                 {/each}

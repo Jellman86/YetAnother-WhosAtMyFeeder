@@ -30,12 +30,12 @@ async function openRecord(page: Page, analyse: (route: Route) => Promise<void>):
 test('a failed analysis is dropped when the species changes, and a fresh one is offered', async ({ page }) => {
     await openRecord(page, (route) => route.fulfill({ status: 500, json: { detail: 'The model is offline' } }));
     await page.getByRole('button', { name: 'Ask the AI naturalist' }).click();
-    await expect(page.getByText(/^Error:/)).toBeVisible();
+    await expect(page.getByText(/^The AI did not return an analysis/)).toBeVisible();
     await expect(page.getByRole('button', { name: 'Regenerate analysis' })).toBeVisible();
 
     await page.locator('[data-detection-confirm]').click();
     await expect(page.locator('#detection-modal-title')).toHaveText('Dunnock');
-    await expect(page.getByText(/^Error:/)).toHaveCount(0);
+    await expect(page.getByText(/^The AI did not return an analysis/)).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Regenerate analysis' })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Ask the AI naturalist' })).toBeVisible();
 });
@@ -51,7 +51,7 @@ test('an analysis still on its way when the species changes is not shown for the
         answer?.();
     });
     await page.getByRole('button', { name: 'Ask the AI naturalist' }).click();
-    await expect(page.getByRole('status').filter({ hasText: 'Analyzing behavior' })).toBeVisible();
+    await expect(page.getByRole('status').filter({ hasText: 'Analysing behaviour' })).toBeVisible();
 
     await page.locator('[data-detection-confirm]').click();
     await expect(page.locator('#detection-modal-title')).toHaveText('Dunnock');

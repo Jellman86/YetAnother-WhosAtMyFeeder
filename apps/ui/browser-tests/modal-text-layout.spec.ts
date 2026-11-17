@@ -42,7 +42,7 @@ for (const font of ['system', 'wide fallback'] as const) {
         await expect(modal.locator('[data-counted-birds-state="not-counted"]')).toBeVisible();
         await modal.locator('[data-detection-more-actions]').click();
         await expect(modal.getByRole('button', { name: 'Diesen Besuch dauerhaft löschen' })).toHaveCount(1);
-        await expect(modal.getByRole('button', { name: /^(Erkennung ausblenden|Ausblenden)$/ })).toHaveCount(1);
+        await expect(modal.getByRole('button', { name: /^(Eintrag ausblenden|Ausblenden)$/ })).toHaveCount(1);
         const technical = modal.locator('[data-detection-technical-identity]');
         await technical.locator('summary').click();
         await expect(technical).toHaveAttribute('open', '');
@@ -246,7 +246,7 @@ test('the record is walked by keyboard in the order it is read', async ({ page }
         expect(column[index].top, `"${column[index].name}" follows "${column[index - 1].name}"`).toBeGreaterThanOrEqual(column[index - 1].top - 1);
     }
     // The identifiers are the last thing read and the last thing reached.
-    expect(column.at(-1)!.name).toContain('Detection ID');
+    expect(column.at(-1)!.name).toContain('Record ID');
 });
 
 for (const [language, noted] of [['de', true], ['en', false]] as const) {

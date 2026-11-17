@@ -10,7 +10,7 @@
         countedCaptures: number | null;
         speciesCount: number | null;
         unresolvedCount: number | null;
-        /** Other work may wait on a person (a species check), so zero unresolved is not "nothing to review". */
+        /** Other work may wait on a person (a species check), so zero unresolved is not "nothing needs your call". */
         othersAwaitReview?: boolean;
         audioCalls: number | null;
         audioConfirmations: number | null;
@@ -136,8 +136,8 @@
                 countedBirds,
                 loading,
                 'plain',
-                countedCaptures === null ? '' : $_('dashboard.day_bar.birds_scope_short', { values: { count: countedCaptures }, default: 'from {count, plural, one {# analyzed capture} other {# analyzed captures}}' }),
-                countedCaptures === null ? '' : $_('dashboard.day_bar.birds_scope', { values: { count: countedCaptures }, default: 'From {count, plural, one {# analyzed capture} other {# analyzed captures}}; birds may be missed' }),
+                countedCaptures === null ? '' : $_('dashboard.day_bar.birds_scope_short', { values: { count: countedCaptures }, default: 'from {count, plural, one {# analysed capture} other {# analysed captures}}' }),
+                countedCaptures === null ? '' : $_('dashboard.day_bar.birds_scope', { values: { count: countedCaptures }, default: 'From {count, plural, one {# analysed capture} other {# analysed captures}}; birds may be missed' }),
                 true
             )}
         {/if}
@@ -148,7 +148,7 @@
             unresolvedCount,
             loading,
             unresolvedCount !== null && unresolvedCount > 0 ? 'attention' : 'clear',
-            unresolvedCount === 0 && !othersAwaitReview ? $_('dashboard.day_bar.nothing_to_review', { default: 'nothing to review' }) : '',
+            unresolvedCount === 0 && !othersAwaitReview ? $_('dashboard.day_bar.nothing_to_review', { default: 'nothing needs your call' }) : '',
             '',
             true
         )}

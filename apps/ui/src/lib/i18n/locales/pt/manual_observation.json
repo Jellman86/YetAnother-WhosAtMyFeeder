@@ -36,8 +36,8 @@
   "errors": {
     "load": "Não foi possível carregar o estado da análise.",
     "type": "Escolha um arquivo JPEG, PNG, WebP, MP4, MOV ou WebM.",
-    "image_size": "Escolha uma imagem com no máximo 25 MB.",
-    "video_size": "Escolha um vídeo com no máximo 250 MB.",
+    "image_size": "Escolha uma imagem com no máximo 25 MB.",
+    "video_size": "Escolha um vídeo com no máximo 250 MB.",
     "upload": "Não foi possível enviar o arquivo.",
     "retry": "Não foi possível reiniciar a análise.",
     "save": "Não foi possível salvar a observação."
@@ -47,7 +47,7 @@
     "help": "Use o arquivo original sempre que possível. O YA-WAMF vai preservá-lo e escolher a melhor entrada para classificação.",
     "change": "Escolher outro arquivo",
     "drop": "Solte o arquivo aqui ou escolha um",
-    "formats": "JPEG, PNG, WebP até 25 MB · MP4, MOV, WebM até 250 MB / 3 minutos",
+    "formats": "JPEG, PNG, WebP até 25 MB · MP4, MOV, WebM até 250 MB / 3 minutos",
     "uploading": "A proteger o original…",
     "analyse": "Carregar e analisar"
   },

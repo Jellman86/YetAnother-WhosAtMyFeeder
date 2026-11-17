@@ -50,12 +50,12 @@ export function reviewReasonMessage(reason: ReviewReason, sightings: number): Re
     if (reason === 'new_species') {
         return {
             key: 'dashboard.review_queue.new_species_tag',
-            default: 'New species · {count, plural, one {# sighting} other {# sightings}}',
+            default: 'New species · {count, plural, one {seen once} other {seen # times}}',
             values: { count: sightings }
         };
     }
     if (reason === 'unknown_species') {
-        return { key: 'dashboard.review_queue.reason_unknown_species', default: 'Unknown species' };
+        return { key: 'dashboard.review_queue.reason_unknown_species', default: 'No species reached the naming threshold' };
     }
     return { key: 'dashboard.review_queue.reason_low_score', default: 'Below the naming threshold' };
 }

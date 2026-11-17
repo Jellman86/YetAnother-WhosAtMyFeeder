@@ -67,7 +67,7 @@
                         onfocus={() => hoveredIndex = i}
                         onblur={() => hoveredIndex = null}
                         onclick={() => onclick(i)}
-                        aria-label="{labels[i]}: {value} {$_('common.detections', { default: 'detections' })}"
+                        aria-label="{labels[i]}: {value} {$_('common.detections', { default: 'Captures' })}"
                     >
                         {@render barContent(value, i)}
                     </button>
@@ -108,7 +108,7 @@
             <thead>
                 <tr>
                     <th>{$_('common.period', { default: 'Period' })}</th>
-                    <th>{$_('common.detections', { default: 'Detections' })}</th>
+                    <th>{$_('common.detections', { default: 'Captures' })}</th>
                 </tr>
             </thead>
             <tbody>

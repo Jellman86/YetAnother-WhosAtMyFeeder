@@ -860,7 +860,7 @@
                  whether it is playing, so the header carries no second status. -->
             <DialogHeader
                 tone="media"
-                title={heading?.name ?? $_('video_player.detection_clip_title', { default: 'Detection clip' })}
+                title={heading?.name ?? $_('video_player.detection_clip_title', { default: 'Capture clip' })}
                 titleId="video-player-title"
                 titleHint={heading ? undefined : frigateEvent}
                 subtitle={`${clipVariantLabel}${heading?.at ? ` · ${formatDateTime(heading.at)}` : ''}`}

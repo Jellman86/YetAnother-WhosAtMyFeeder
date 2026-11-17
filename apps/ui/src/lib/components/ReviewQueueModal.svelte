@@ -571,7 +571,7 @@
                             sources={photographSources}
                             alt={$_('dashboard.review_session.image_alt', {
                                 values: { camera: current.camera_name },
-                                default: 'Unidentified detection on {camera}'
+                                default: 'Unknown bird on {camera}'
                             })}
                             class="absolute inset-0 h-full w-full object-contain"
                             placeholderClass="text-slate-700"
@@ -686,7 +686,7 @@
                                 emptyText={candidates.some((candidate) => candidate.crop_box)
                                     ? null
                                     : $_('dashboard.review_session.no_crop', {
-                                          default: 'No crop stored for this detection. Open the full record to scan for one.'
+                                          default: 'No crop stored for this capture. Open the full record to scan for one.'
                                       })}
                                 eventId={current.frigate_event}
                                 onremove={removePhotoChoice}

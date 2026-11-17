@@ -172,7 +172,8 @@
       "no_results": "ビデオ分析で結果が得られませんでした。",
       "event_missing": "Frigate にイベントが見つかりません。",
       "unknown": "ビデオ分析に失敗しました。スナップショット解析を使用します。",
-      "clip_not_retained": "クリップはFrigateに保持されていません（保持期間外）。"
+      "clip_not_retained": "クリップはFrigateに保持されていません（保持期間外）。",
+      "event_missing_media_cached": "Frigate にはこのイベントがもうありませんが、YA-WAMF にはメディアが残っています。"
     },
     "error_details": {
       "why": "発生する可能性がある理由",
@@ -202,7 +203,9 @@
         "unknown_1": "メディア取得またはビデオ処理で予期しないエラーが発生しました。",
         "unknown_2": "分析中にイベントの状態が変わりました。",
         "video_timeout_large_clip": "クリップ処理が設定されたタイムアウトより長くかかりました。",
-        "video_timeout_resource": "推論中にGPU/CPUリソースが飽和していました。"
+        "video_timeout_resource": "推論中にGPU/CPUリソースが飽和していました。",
+        "event_missing_media_cached": "YA-WAMF はこのキャプチャのメディアをすでに保存していたため、Frigate にイベントがなくなっても再生できます。",
+        "event_missing_media_cached_retention": "保持期間が過ぎて Frigate がイベントを削除した可能性があります。YA-WAMF はスナップショットまたは訪問全体のクリップを保持しています。"
       },
       "checks_items": {
         "api_health": "FrigateのAPIヘルスエンドポイントと認証設定を確認する。",
@@ -222,7 +225,9 @@
         "retention_settings": "Frigateの保持設定とストレージの状態を確認する。",
         "retry_manual": "サービスが安定した後に手動再分類を再試行する。",
         "retry_snapshot": "後で手動スナップショットまたはビデオ再分類を試みる。",
-        "video_timeout_setting": "ビデオ分析タイムアウトを増やすかサンプリングフレーム数を減らす。"
+        "video_timeout_setting": "ビデオ分析タイムアウトを増やすかサンプリングフレーム数を減らす。",
+        "use_cached_media": "YA-WAMF にあるスナップショットまたはクリップを使用してください。再生できれば、何もする必要はありません。",
+        "frigate_retention_if_unexpected": "想定より早く起きた場合は、Frigate がイベントを保持する期間を確認してください。"
       }
     },
     "fallback_title": "スナップショットからの結果",
@@ -303,7 +308,7 @@
     "analyzing": "行動を分析中…",
     "regenerating": "再生成中…",
     "regenerate": "分析を再生成",
-    "error": "エラー: {message}",
+    "error": "AI から分析が返されませんでした。設定でプロバイダーとキーを確認してから、もう一度お試しください。",
     "conversation_title": "会話",
     "conversation_loading": "会話を読み込み中…",
     "conversation_empty": "まだ会話はありません。AI に追加の質問をしてください。",
@@ -503,7 +508,7 @@
   },
   "identified_by_owner": "所有者が判定",
   "moved_to_garden": "庭に移動しました。鳥の記録は非表示です。「非表示」から再表示すると元に戻せます。",
-  "move_to_garden_failed": "この記録を庭に移動できませんでした: {message}",
+  "move_to_garden_failed": "この記録をガーデンに移動できませんでした。もう一度お試しください。解決しない場合は「稼働状況」を開いてください。",
   "domestic_bird_declared": "これは飼っている家禽 ({bird}) です。庭に移動すると庭の動物として記録されます。この鳥の記録は削除されず、非表示になります。",
   "move_to_garden": "庭に移動",
   "range_fallback": "分布域フィルター：モデルは最初に {original}（{score}%）と答えましたが、eBird は {region} で一度も記録していないため、分布域内の次の候補を採用しました。",

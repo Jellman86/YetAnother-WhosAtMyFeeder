@@ -1372,7 +1372,7 @@
                 toastStore.warning(
                     $_('events.bulk_tag_partial', {
                         values: { count: result.failed_count + result.missing_count },
-                        default: '{count, plural, one {# selected event was not updated.} other {# selected events were not updated.}}'
+                        default: '{count, plural, one {# selected record was not updated.} other {# selected records were not updated.}}'
                     })
                 );
             }
@@ -1391,7 +1391,7 @@
             title: $_('actions.delete_selected', { default: 'Delete selected' }),
             message: $_('events.bulk_delete_confirm', {
                 values: { count },
-                default: 'Delete {count, plural, one {# detection} other {# detections}}? This cannot be undone.'
+                default: 'Delete {count, plural, one {# record} other {# records}}? This cannot be undone.'
             }),
             confirmLabel: $_('actions.delete_selected', { default: 'Delete selected' })
         });
@@ -1404,13 +1404,13 @@
                 events = events.filter(e => !result.deleted_event_ids.includes(e.frigate_event));
                 toastStore.success($_('events.bulk_delete_success', {
                     values: { count: result.deleted_count },
-                    default: 'Deleted {count, plural, one {# detection} other {# detections}}.'
+                    default: 'Deleted {count, plural, one {# record} other {# records}}.'
                 }));
             }
             if (result.missing_count > 0) {
                 toastStore.warning($_('events.bulk_delete_missing', {
                     values: { count: result.missing_count },
-                    default: '{count, plural, one {# detection was not found.} other {# detections were not found.}}'
+                    default: '{count, plural, one {# record was not found.} other {# records were not found.}}'
                 }));
             }
             selectedEventIds = [];
@@ -1445,7 +1445,7 @@
             if (failed === 0) {
                 toastStore.success($_('events.bulk_reclassify_success', {
                     values: { count: queued },
-                    default: 'Queued {count, plural, one {# detection} other {# detections}} for video analysis.'
+                    default: 'Queued {count, plural, one {# record} other {# records}} for video analysis.'
                 }));
             } else {
                 toastStore.warning($_('events.bulk_reclassify_partial', {
@@ -1810,7 +1810,7 @@
         } catch (failure) {
             if (signal.aborted) return;
             console.error('Failed to open the searched detection', failure);
-            toastStore.warning($_('events.search.record_open_failed', { default: 'This detection could not be opened. It may have been removed.' }));
+            toastStore.warning($_('events.search.record_open_failed', { default: 'This record could not be opened. It may have been removed.' }));
         }
     }
 
@@ -1907,7 +1907,7 @@
         try {
             const result = await reviewGardenBatch(undo.ids, 'restore');
             gardenUndo = null;
-            toastStore.success($_('garden.batch_restored', { default: '{count, plural, one {# photo returned to review.} other {# photos returned to review.}}', values: { count: result.updated_ids.length } }));
+            toastStore.success($_('garden.batch_restored', { default: '{count, plural, one {# photo returned to Needs your call.} other {# photos returned to Needs your call.}}', values: { count: result.updated_ids.length } }));
             await loadEvents();
         } catch (failure) {
             toastStore.error(failure instanceof Error ? failure.message : $_('garden.save_error', { default: 'Could not save your review. Try again.' }));
@@ -2425,11 +2425,11 @@
                     {$_('garden.batch_dismissed', { default: '{count, plural, one {# photo dismissed.} other {# photos dismissed.}}', values: { count: gardenUndo.ids.length } })}
                     {#if gardenUndo.skipped > 0}{' '}{$_('garden.batch_skipped', { default: '{count, plural, one {# photo was unchanged because its review or availability changed.} other {# photos were unchanged because their review or availability changed.}}', values: { count: gardenUndo.skipped } })}{/if}
                     {' '}{gardenUndo.returnToReview
-                        ? $_('garden.visit_return_help', { default: 'Returning photos to review does not reconfirm presence or the species name. Dismissed photos may make room for new captures.' })
+                        ? $_('garden.visit_return_help', { default: 'Returning photos to Needs your call does not reconfirm presence or the species name. Dismissed photos may make room for new captures.' })
                         : $_('garden.batch_undo_help', { default: 'Undo is available while photos remain. Dismissed photos may make room for new captures.' })}
                 </span>
                 <button type="button" class="btn btn-secondary min-h-11 whitespace-normal px-3 text-xs" onclick={undoGardenGroup}>{gardenUndo.returnToReview
-                    ? $_('garden.visit_return', { default: 'Return captures to review' })
+                    ? $_('garden.visit_return', { default: 'Return captures to Needs your call' })
                     : $_('garden.batch_undo', { default: 'Undo group dismissal' })}</button>
             </div>
         {/if}
@@ -2476,14 +2476,14 @@
         {:else if pane.state === 'empty' && gardenOnly && authStore.hasOwnerAccess && gardenCameraCount === 0}
             <div class="border-y border-dashed border-line py-12 text-center" data-explorer-garden-empty>
                 <h2 class="text-lg font-semibold text-strong">{$_('garden.explorer.no_cameras_title', { default: 'No camera has Garden animals turned on' })}</h2>
-                <p class="mt-2 text-sm text-muted">{$_('garden.explorer.no_cameras_desc', { default: 'Turn Garden animals on for a camera, and its confirmed animals and captures waiting for review appear here.' })}</p>
+                <p class="mt-2 text-sm text-muted">{$_('garden.explorer.no_cameras_desc', { default: 'Turn Garden animals on for a camera, and its confirmed animals and the captures that need your call appear here.' })}</p>
                 <a href={toAppPath('/settings/beta')} class="btn btn-secondary mt-4 inline-flex min-h-11 items-center px-4">{$_('garden.open_settings', { default: 'Garden settings' })}</a>
             </div>
         {:else if pane.state === 'empty' && gardenOnly}
             <div class="border-y border-dashed border-line py-12 text-center" data-explorer-garden-empty>
                 <h2 class="text-lg font-semibold text-strong">
                     {gardenReview === 'pending'
-                        ? $_('garden.explorer.empty_pending', { default: 'No Garden captures need review' })
+                        ? $_('garden.explorer.empty_pending', { default: 'No Garden captures need your call' })
                         : gardenReview === 'confirmed'
                           ? $_('garden.explorer.empty_confirmed', { default: 'No confirmed animals yet' })
                           : gardenReview === 'dismissed'
@@ -2496,7 +2496,7 @@
                     </p>
                 {/if}
                 <p class="mt-2 text-sm text-muted">{authStore.hasOwnerAccess
-                    ? $_('garden.explorer.empty_desc', { default: 'Confirmed animals and captures waiting for review appear here. Dismissed captures are under Review, Dismissed.' })
+                    ? $_('garden.explorer.empty_desc', { default: 'Confirmed animals and captures that need your call appear here. Dismissed captures are under Garden status, Dismissed.' })
                     : $_('garden.explorer.empty_guest_desc', { default: 'Animals confirmed on the Garden cameras appear here.' })}</p>
             </div>
         {:else if pane.state === 'empty' || pane.state === 'empty-filtered'}

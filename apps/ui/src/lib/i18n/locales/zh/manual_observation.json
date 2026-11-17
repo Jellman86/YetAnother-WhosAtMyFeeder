@@ -36,8 +36,8 @@
   "errors": {
     "load": "无法加载分析状态。",
     "type": "请选择 JPEG、PNG、WebP、MP4、MOV 或 WebM 文件。",
-    "image_size": "请选择不超过 25 MB 的图片。",
-    "video_size": "请选择不超过 250 MB 的视频。",
+    "image_size": "请选择不超过 25 MB 的图片。",
+    "video_size": "请选择不超过 250 MB 的视频。",
     "upload": "无法上传媒体。",
     "retry": "无法重新启动分析。",
     "save": "无法保存观察记录。"
@@ -47,7 +47,7 @@
     "help": "请尽量使用原始文件。YA-WAMF 会保留原文件，并选择最适合分类的输入。",
     "change": "选择其他文件",
     "drop": "将媒体拖放到此处或选择文件",
-    "formats": "JPEG、PNG、WebP 最大 25 MB · MP4、MOV、WebM 最大 250 MB／3 分钟",
+    "formats": "JPEG、PNG、WebP 最大 25 MB · MP4、MOV、WebM 最大 250 MB／3 分钟",
     "uploading": "正在安全保存原文件…",
     "analyse": "上传并分析"
   },
