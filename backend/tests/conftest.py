@@ -288,6 +288,19 @@ def restore_media_storage_availability():
 
 
 @pytest.fixture(autouse=True)
+def forget_sealed_daily_totals():
+    """A test that seals a day in the shared history (cleanup, or Frigate losing an event) must not
+    change what every later test counts on that day: a sealed day is read from its totals only."""
+    yield
+    with closing(sqlite3.connect(os.environ["DB_PATH"], timeout=10)) as db:
+        tables = {row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
+        if {"species_daily_totals", "daily_totals_days"} <= tables:
+            db.execute("DELETE FROM species_daily_totals")
+            db.execute("DELETE FROM daily_totals_days")
+            db.commit()
+
+
+@pytest.fixture(autouse=True)
 def clear_species_alias_cache_between_tests():
     """Each test owns its rows; a cached alias set from another test's data
     would leak across the per-test DELETE."""
