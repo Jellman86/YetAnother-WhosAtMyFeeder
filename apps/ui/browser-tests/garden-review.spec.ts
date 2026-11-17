@@ -91,6 +91,9 @@ async function nextPhoto(page: Page) {
 async function openFirst(page: Page) {
     await page.locator('[data-garden-card]').first().getByRole('button', { name: /^Open Garden capture/ }).click();
     await expect(record(page)).toBeVisible();
+    // The manual override is drawn only once Garden's status has been read; until then the record
+    // says it is checking. Decide whether to open it after that read, not before it lands.
+    await expect(record(page).locator('[data-garden-manual-closed="reading"]')).toHaveCount(0);
     const override = record(page).locator('[data-garden-manual-override]');
     if (await override.count() && !(await override.evaluate(node => (node as HTMLDetailsElement).open))) {
         await override.locator('summary').click();
