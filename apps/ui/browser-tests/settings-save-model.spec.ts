@@ -36,7 +36,7 @@ test('Integrations opens with nothing unsaved, even when the place lookup names 
     // Moving the pin is an edit: the looked-up region now belongs to the draft.
     await page.locator('#location-lat').fill('52.2');
     await expect(saveBar(page)).toBeVisible();
-    await expect(saveBar(page)).toContainText('Integrations');
+    await expect(saveBar(page)).toContainText('Sharing & integrations');
 });
 
 test('the save bar counts the changes, names their sections, and Discard restores every saved value', async ({ page }) => {

@@ -216,7 +216,7 @@ test.describe('a kept draft meets a newer saved copy', () => {
         await expect(page.locator('[data-field-conflict="mqtt_server"]')).toContainText('The saved value changed elsewhere');
         await expect(page.locator('#mqtt-server')).toHaveAccessibleDescription(/saved value changed elsewhere/);
         await expect(page.locator('[data-draft-conflicts]')).toContainText('A setting you changed was also changed elsewhere');
-        await expect(conflictRow(page)).toContainText('Connection');
+        await expect(conflictRow(page)).toContainText('Cameras & connection');
         // Both values are on screen, so the choice can be made without opening the field.
         await expect(conflictRow(page).locator('[data-conflict-values]')).toHaveText('Saved elsewhere: mqtt.elsewhere · Yours: broker.lan');
         await expect(saveButton(page)).toBeDisabled();
