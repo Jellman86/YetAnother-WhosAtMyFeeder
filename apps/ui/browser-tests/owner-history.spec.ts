@@ -121,7 +121,7 @@ test('incoming capture refresh waits for the current visit read and updates memb
 });
 
 for (const opened of ['row', 'elsewhere'] as const) {
-    test(`species dialog opened from ${opened === 'row' ? 'a Leaderboard row leads with the visits that row showed' : 'elsewhere leads with detections'}`, async ({ page }, testInfo) => {
+    test(`species dialog opened from ${opened === 'row' ? 'a Leaderboard row leads with the visits that row showed' : 'elsewhere leads with captures'}`, async ({ page }, testInfo) => {
         await page.setViewportSize({ width: 1440, height: 900 });
         await page.route('https://fonts.googleapis.com/**', route => route.fulfill({ contentType: 'text/css', body: '' }));
         await page.route('https://fonts.gstatic.com/**', route => route.abort());
@@ -139,16 +139,16 @@ for (const opened of ['row', 'elsewhere'] as const) {
         });
         await page.goto(`/browser-tests/owner-history.html?surface=species${opened === 'row' ? '&row=123' : ''}`);
         const summary = page.locator('[data-species-record-summary]');
-        await expect(summary.locator('[data-species-detections-label]')).toHaveText('Detections, all time');
+        await expect(summary.locator('[data-species-detections-label]')).toHaveText('Captures, all time');
         const figures = summary.locator('dt');
         if (opened === 'row') {
             // The row said 123 visits, so that is the first figure the dialog states, with its window.
             await expect(figures.first()).toHaveText('Visits, last 30 days');
             await expect(summary.locator('[data-species-row-figure] dd')).toHaveText('123');
-            await expect(figures.nth(1)).toHaveText('Detections, all time');
+            await expect(figures.nth(1)).toHaveText('Captures, all time');
         } else {
             await expect(summary.locator('[data-species-row-figure]')).toHaveCount(0);
-            await expect(figures.first()).toHaveText('Detections, all time');
+            await expect(figures.first()).toHaveText('Captures, all time');
         }
         await summary.screenshot({ path: testInfo.outputPath(`species-dialog-${opened}.png`) });
     });

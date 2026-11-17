@@ -1063,7 +1063,7 @@ for (const [checkModel, installed, extra] of [
             // then (offline, or a download that keeps failing) the owner can still decide by hand.
             await expect(status).toHaveText('Waiting: the automatic check model is not downloaded, so nothing can identify this yet.');
             await expect(setup).toHaveText('Set up the automatic check model');
-            await expect(setup).toHaveAttribute('href', '/settings/beta');
+            await expect(setup).toHaveAttribute('href', '/settings/identification#beta');
             await expect(byHand).toHaveText(BY_HAND);
             await page.screenshot({ path: testInfo.outputPath('garden-pending-model-missing.png') });
         }
