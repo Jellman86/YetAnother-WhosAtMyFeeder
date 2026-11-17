@@ -29,7 +29,7 @@ describe('About surface polish', () => {
     });
 
     it('gives the quick links and credit links a full touch target', () => {
-        expect(aboutSource).toContain('class="group inline-flex min-h-11 items-center gap-1.5 text-brand-700 focus-ring');
+        expect(aboutSource).toContain('class="group inline-flex min-h-11 items-center gap-1.5 text-accent-ink focus-ring');
         expect(aboutSource).toMatch(/<a href=\{credit\.href\}[^>]*class="inline-flex min-h-11 items-center/);
     });
 
@@ -128,8 +128,8 @@ describe('About surface polish', () => {
         // whole card, carrying both the report row and the 24-hour strip past the viewport.
         expect(instanceSource).toContain('class="grid min-w-0 gap-6');
         expect(instanceSource).toContain('data-instance-uptime class="min-w-0"');
-        expect(instanceSource).toContain('class="mt-2 flex w-full min-w-0 max-w-full gap-[2px]"');
-        expect(instanceSource).toContain('class="min-w-0" data-instance-report');
+        expect(instanceSource).toContain('class="mt-2 flex w-full min-w-0 max-w-full gap-0.5"');
+        expect(instanceSource).toContain('class="min-w-0 sm:col-span-2" data-instance-report');
         expect(instanceSource).toContain('flex min-w-0 flex-col items-stretch gap-2');
         // The report line breaks between its parts, never inside a model name.
         expect(instanceSource).not.toContain('break-all');
@@ -145,7 +145,7 @@ describe('About surface polish', () => {
 
     it('sizes the external link arrow in the icon, not the display font', () => {
         expect(aboutSource).not.toContain('↗');
-        expect(aboutSource).toContain('h-2.5 w-2.5 shrink-0 text-slate-500');
+        expect(aboutSource).toContain('h-2.5 w-2.5 shrink-0 text-muted');
     });
 
     it('speaks in the first person and drops the title case', () => {
@@ -174,5 +174,27 @@ describe('About surface polish', () => {
     it('names the runtime and its device rather than a bare runtime token', () => {
         expect(instanceSource).toContain('describeRuntime(classifier)');
         expect(instanceSource).not.toContain('about.instance.acceleration');
+    });
+
+    it('leads the network list with what is sending now, and keeps the rest one disclosure away', () => {
+        // About 28 rows put a first-time owner's own situation below a wall of switched-off features.
+        expect(privacySummarySource).toContain("state === 'on' || state === 'always'");
+        expect(privacySummarySource).toContain('<div data-outbound-now>');
+        expect(privacySummarySource).toContain('{@render requestGroups(nowGroups)}');
+        expect(privacySummarySource).toMatch(/<Disclosure[^>]*about\.outbound\.show_everything[^>]*data-outbound-everything/s);
+        expect(privacySummarySource).toContain('{@render requestGroups(restGroups)}');
+        expect(en.about.outbound.show_everything).toBe('Show everything YA-WAMF can contact');
+        // An origin with nothing in a part gets no heading there.
+        expect(privacySummarySource).toContain('.filter((group) => group.requests.length > 0)');
+    });
+
+    it('puts the reference in a side column from 1280 px, after the main column in reading order', () => {
+        expect(aboutSource).toContain('<div class="grid gap-6 xl:grid-cols-12 xl:items-start">');
+        expect(aboutSource).toContain('xl:col-span-8" data-about-main');
+        expect(aboutSource).toContain('xl:col-span-4" aria-labelledby="about-close-heading" data-about-side');
+        expect(aboutSource.indexOf('data-about-main')).toBeLessThan(aboutSource.indexOf('data-about-side'));
+        // The pipeline lays out by the width it is given, not the window's, now it shares the row.
+        expect(pipelineSource).toContain('<div class="@container space-y-4" data-about-pipeline>');
+        expect(pipelineSource).not.toMatch(/[\s"](sm|md|lg|xl):grid-cols/);
     });
 });

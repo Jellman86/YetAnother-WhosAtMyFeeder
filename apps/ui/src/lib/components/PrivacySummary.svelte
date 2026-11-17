@@ -2,12 +2,14 @@
     import { settingsStore } from '../stores/settings.svelte';
     import { authStore } from '../stores/auth.svelte';
     import { _ } from 'svelte-i18n';
+    import Disclosure from './ui/Disclosure.svelte';
     import {
         birdDeliveryChannels,
         deliverableChannels,
         gardenAlertChannels,
         outboundRequests,
         type OutboundFacts,
+        type OutboundRequest,
         type OutboundState
     } from '../utils/outbound-requests';
 
@@ -85,10 +87,18 @@
         locationAutomatic: settings ? Boolean(settings.location_automatic) : null
     });
     const outbound = $derived(outboundRequests(facts));
-    const groups = $derived(
-        (['server', 'browser', 'on_demand'] as const).map((group) => ({ group, requests: outbound.filter((request) => request.group === group) }))
-    );
-    const groupTitle = $derived<Record<(typeof groups)[number]['group'], string>>({
+    // The reader's own situation comes first: what is being sent now. Everything else YA-WAMF can
+    // contact (switched off, made only when someone starts it, or the owner's to see) waits behind one
+    // disclosure, so the full list is a click away and never a wall of rows.
+    const sendingNow = (state: OutboundState): boolean => state === 'on' || state === 'always';
+    const byOrigin = (requests: typeof outbound) =>
+        (['server', 'browser', 'on_demand'] as const)
+            .map((group) => ({ group, requests: requests.filter((request) => request.group === group) }))
+            .filter((group) => group.requests.length > 0);
+    const nowGroups = $derived(byOrigin(outbound.filter((request) => sendingNow(request.state))));
+    const restGroups = $derived(byOrigin(outbound.filter((request) => !sendingNow(request.state))));
+    const restCount = $derived(restGroups.reduce((count, group) => count + group.requests.length, 0));
+    const groupTitle = $derived<Record<OutboundRequest['group'], string>>({
         server: $_('about.outbound.from_server', { default: 'Sent by this server' }),
         browser: $_('about.outbound.from_browser', { default: 'Sent by each viewer’s browser' }),
         on_demand: $_('about.outbound.on_demand', { default: 'When you connect, test or run diagnostics' })
@@ -104,6 +114,33 @@
     }
 </script>
 
+{#snippet requestGroups(list: typeof nowGroups)}
+    {#each list as group (group.group)}
+        <h4 class="eyebrow mt-3" data-outbound-origin={group.group}>{groupTitle[group.group]}</h4>
+        <dl class="mt-1 divide-y divide-line-soft text-xs">
+            {#each group.requests as item (item.key)}
+                <!-- Each group is a term and two descriptions (what it is for and sends, and whether it
+                     happens) as direct children, which is the only shape a definition list reads correctly in. -->
+                <div class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 py-1.5" data-outbound={item.key} data-outbound-state={item.state}>
+                    <dt class="col-start-1 min-w-0 font-semibold text-strong wrap-break-word">
+                        {$_(`about.outbound.${item.key}`)}
+                    </dt>
+                    <dd class="col-start-1 min-w-0 text-muted wrap-break-word">
+                        {$_(`about.outbound.${item.key}_desc`)}
+                    </dd>
+                    <dd
+                        class="col-start-2 row-span-2 row-start-1 shrink-0 rounded-sm px-1.5 py-0.5 text-3xs font-bold {item.state === 'on'
+                            ? 'bg-status-ok-soft text-status-ok'
+                            : 'bg-surface-raised text-muted'}"
+                    >
+                        {stateLabel(item.state)}
+                    </dd>
+                </div>
+            {/each}
+        </dl>
+    {/each}
+{/snippet}
+
     <section aria-labelledby="about-stores-title">
         <h3 id="about-stores-title" class="text-sm font-bold text-strong">
             {$_('about.storage.title', { default: 'What it stores' })}
@@ -111,7 +148,7 @@
         <dl class="mt-2 divide-y divide-line-soft text-xs">
             {#each storageTables as row (row.key)}
                 <div class="py-1.5">
-                    <dt class="font-mono text-2xs font-semibold text-slate-800 dark:text-slate-100">
+                    <dt class="font-mono text-2xs font-semibold text-strong">
                         {row.table}
                     </dt>
                     <dd class="text-muted">
@@ -134,30 +171,19 @@
         <p class="mt-1 text-xs text-muted" data-outbound-intro>
             {$_('about.outbound.intro', { default: 'Each request, who makes it and what it sends. Features you add later may make others.' })}
         </p>
-        {#each groups as group (group.group)}
-            <h4 class="eyebrow mt-3" data-outbound-origin={group.group}>{groupTitle[group.group]}</h4>
-            <dl class="mt-1 divide-y divide-line-soft text-xs">
-                {#each group.requests as item (item.key)}
-                    <!-- Each group is a term and two descriptions (what it is for and sends, and whether it
-                         happens) as direct children, which is the only shape a definition list reads correctly in. -->
-                    <div class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 py-1.5" data-outbound={item.key} data-outbound-state={item.state}>
-                        <dt class="col-start-1 min-w-0 font-semibold text-strong wrap-break-word">
-                            {$_(`about.outbound.${item.key}`)}
-                        </dt>
-                        <dd class="col-start-1 min-w-0 text-muted wrap-break-word">
-                            {$_(`about.outbound.${item.key}_desc`)}
-                        </dd>
-                        <dd
-                            class="col-start-2 row-span-2 row-start-1 shrink-0 rounded-sm px-1.5 py-0.5 text-3xs font-bold {item.state === 'on'
-                                ? 'bg-success-100 text-success-800 dark:bg-success-950/50 dark:text-success-300'
-                                : 'bg-surface-raised text-muted'}"
-                        >
-                            {stateLabel(item.state)}
-                        </dd>
-                    </div>
-                {/each}
-            </dl>
-        {/each}
+        <div data-outbound-now>
+            {@render requestGroups(nowGroups)}
+        </div>
+        {#if restCount > 0}
+            <Disclosure
+                class="mt-3"
+                label={$_('about.outbound.show_everything', { default: 'Show everything YA-WAMF can contact' })}
+                note={$_('about.outbound.show_everything_note', { values: { count: restCount }, default: '{count} more' })}
+                data-outbound-everything
+            >
+                {@render requestGroups(restGroups)}
+            </Disclosure>
+        {/if}
         {#if !isOwner}
             <p class="mt-2 text-2xs text-muted">
                 {$_('about.outbound.guest_note', {

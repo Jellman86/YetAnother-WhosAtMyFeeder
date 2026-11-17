@@ -564,6 +564,13 @@ credits
 Sections are ordered by reader: visitor, then anyone, then owner. Do not add a feature grid; the
 readme and `docs/` hold the feature list.
 
+Use of the width: from 1280 px what a reader looks up rather than reads through (what it stores,
+what leaves the network and the credits) stands in a side column beside the portrait, the pipeline
+and this instance; below that it follows them, in the same order. The pipeline lays its steps out by
+the room it is given (a container query), not by the window. "What leaves your network" lists what
+is sending now (On and Always) first; everything else it can contact waits behind one disclosure,
+**Show everything YA-WAMF can contact**, with a count of the rest.
+
 The portrait (`FeederPortrait`, `/api/about/portrait`) is one calm block of facts the feeder has
 measured: when it started, its visits (the shared 60-second visit rule) and species to date, its
 busiest day in the viewer's own calendar days, and its newest arrival, which must have been seen at

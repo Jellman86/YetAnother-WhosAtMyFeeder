@@ -56,6 +56,8 @@
   "outbound": {
     "title": "O que sai da sua rede",
     "intro": "Os serviços externos que esta instalação contata, quem faz cada solicitação e o que ela envia. Serviços em endereços que você mesmo informa, como o Frigate, seu broker MQTT ou o BirdNET-Go, não estão listados.",
+    "show_everything": "Mostrar tudo o que o YA-WAMF pode contatar",
+    "show_everything_note": "mais {count}",
     "from_server": "Enviado por este servidor",
     "from_browser": "Enviado pelo navegador de cada visitante",
     "on_demand": "Ao conectar, testar ou executar diagnósticos",

@@ -34,8 +34,19 @@ test('the list names the browser and server requests, and the map tiles do not f
     await settled(page);
 
     await expect(page.getByText('Nothing leaves your network except the calls listed below.')).toHaveCount(0);
-    await expect(section.locator('[data-outbound-origin="server"]')).toHaveText('Sent by this server');
-    await expect(section.locator('[data-outbound-origin="browser"]')).toHaveText('Sent by each viewer’s browser');
+    // What is sending now comes first, and only that: every row there is On or Always.
+    const now = section.locator('[data-outbound-now]');
+    await expect(now.locator('[data-outbound-origin="server"]')).toHaveText('Sent by this server');
+    await expect(now.locator('[data-outbound-origin="browser"]')).toHaveText('Sent by each viewer’s browser');
+    for (const state of await now.locator('[data-outbound]').evaluateAll((rows) => rows.map((row) => row.getAttribute('data-outbound-state')))) {
+        expect(['on', 'always']).toContain(state);
+    }
+    await expect(now.locator('[data-outbound="ebird"]')).toHaveCount(0);
+    // Everything else is one disclosure away, closed until asked for.
+    const everything = section.locator('[data-outbound-everything]');
+    await expect(everything.locator('[data-outbound="ebird"]')).toBeHidden();
+    await everything.locator('summary').filter({ hasText: 'Show everything YA-WAMF can contact' }).click();
+    await expect(everything.locator('[data-outbound="ebird"]')).toBeVisible();
 
     const state = (key: string) => section.locator(`[data-outbound="${key}"]`);
     // Requests the old list left out, on every install.
@@ -95,6 +106,9 @@ test('a guest is not told that settings they cannot read are off', async ({ page
     await page.goto('/about');
     const section = page.locator('section[aria-labelledby="about-outbound-title"]');
     await expect(section).toBeVisible({ timeout: 15_000 });
+    // What the guest cannot read is never listed as sending now.
+    await expect(section.locator('[data-outbound-now] [data-outbound-state="unknown"]')).toHaveCount(0);
+    await section.locator('[data-outbound-everything] summary').click();
     for (const key of ['telemetry', 'telemetry_health', 'birdweather', 'notify', 'garden_notify', 'weather']) {
         await expect(section.locator(`[data-outbound="${key}"]`)).toHaveAttribute('data-outbound-state', 'unknown');
         await expect(section.locator(`[data-outbound="${key}"]`)).toContainText('Owner only');

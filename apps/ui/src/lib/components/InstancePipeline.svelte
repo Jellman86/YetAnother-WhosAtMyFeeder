@@ -250,19 +250,19 @@
     ]);
 
     function toneClass(tone: Tone): string {
-        if (tone === 'ok') return 'text-success-700 dark:text-success-300';
-        if (tone === 'off') return 'text-slate-600 dark:text-slate-400';
-        return 'text-slate-600 dark:text-slate-400';
+        if (tone === 'ok') return 'text-status-ok';
+        if (tone === 'off') return 'text-muted';
+        return 'text-muted';
     }
 
     /** The dot beside the state word: filled when measured working, a ring otherwise. The word carries the meaning. */
     function toneDot(tone: Tone): string {
-        return tone === 'ok' ? 'bg-success-500' : 'border border-slate-400 dark:border-slate-500';
+        return tone === 'ok' ? 'bg-status-ok' : 'border border-line-strong';
     }
 </script>
 
-<div class="space-y-4" data-about-pipeline>
-    <ol class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+<div class="@container space-y-4" data-about-pipeline>
+    <ol class="grid grid-cols-1 gap-2 @lg:grid-cols-2 @2xl:grid-cols-4 @6xl:grid-cols-7">
         {#each steps as step, index (step.key)}
             <li
                 class="pipeline-step relative overflow-hidden rounded-xl border border-line-soft p-3"
@@ -274,7 +274,7 @@
                 <span class="pipeline-flow pointer-events-none absolute inset-0" aria-hidden="true"></span>
                 {#if index > 0}
                     <span
-                        class="pipeline-arrow absolute left-[-9px] top-1/2 hidden -translate-y-1/2 text-slate-300 xl:block dark:text-slate-500"
+                        class="pipeline-arrow absolute -left-2.5 top-1/2 hidden -translate-y-1/2 text-subtle @6xl:block"
                         aria-hidden="true"
                     >
                         <svg class="h-3 w-3" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6">
@@ -289,14 +289,14 @@
                         {step.state}
                     </span>
                 {/if}
-                <span class="relative mt-0.5 block text-sm font-semibold text-slate-900 wrap-anywhere dark:text-white">
+                <span class="relative mt-0.5 block text-sm font-semibold text-strong wrap-anywhere">
                     {$_(`about.pipeline.${step.key}`)}
                 </span>
-                <span class="relative mt-0.5 block text-2xs leading-snug text-slate-600 wrap-anywhere dark:text-slate-400">
+                <span class="relative mt-0.5 block text-2xs leading-snug text-muted wrap-anywhere">
                     {step.detail}
                 </span>
                 {#if step.note}
-                    <span class="relative block text-2xs leading-snug text-slate-600 wrap-anywhere dark:text-slate-400" data-pipeline-note>{step.note}</span>
+                    <span class="relative block text-2xs leading-snug text-muted wrap-anywhere" data-pipeline-note>{step.note}</span>
                 {/if}
                 {#if step.health}
                     <span class="relative block text-2xs font-medium leading-snug text-ink wrap-anywhere" data-pipeline-health>{step.health}</span>
@@ -305,7 +305,7 @@
         {/each}
     </ol>
 
-    <p class="text-2xs text-slate-600 dark:text-slate-400">
+    <p class="text-2xs text-muted">
         {$_('about.pipeline.legend_note', { default: 'What leaves your network is listed below.' })}
     </p>
 

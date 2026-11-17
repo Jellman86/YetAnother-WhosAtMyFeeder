@@ -62,7 +62,7 @@
     {#if latest}
         <button
             type="button"
-            class="group relative block aspect-video w-full overflow-hidden rounded-2xl border border-slate-200/80 bg-slate-900 text-left shadow-card transition-[translate,box-shadow] duration-200 ease-out hover:-translate-y-0.5 hover:shadow-xl focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus motion-reduce:translate-none dark:border-slate-700/60 dark:shadow-card-dark"
+            class="group relative block aspect-video w-full overflow-hidden rounded-2xl border border-line bg-media text-left shadow-card transition duration-200 ease-out hover:-translate-y-0.5 hover:shadow-xl focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus motion-reduce:translate-none"
             aria-busy={opening}
             data-feeder-portrait-visit
             onclick={() => onopenvisit(latest.frigate_event)}
@@ -76,56 +76,56 @@
                 class="h-full w-full"
             />
             <!-- The caption is the button's name, so what is read out starts with what is shown. -->
-            <span class="pointer-events-none absolute inset-x-0 bottom-0 bg-linear-to-t/srgb from-slate-950/80 to-transparent px-4 pb-3 pt-10">
-                <span class="block text-xs font-semibold text-white/75">{$_('about.portrait.latest', { default: 'Latest visit' })}</span>
-                <span class="block wrap-break-word text-base font-semibold text-white">{name(latest)}</span>
-                <span class="block text-xs text-white/75">{formatDateTime(latest.detection_time)}</span>
+            <span class="pointer-events-none absolute inset-x-0 bottom-0 bg-linear-to-t/srgb from-media/80 to-transparent px-4 pb-3 pt-10">
+                <span class="block text-xs font-semibold text-on-media/80">{$_('about.portrait.latest', { default: 'Latest visit' })}</span>
+                <span class="block wrap-break-word text-base font-semibold text-on-media">{name(latest)}</span>
+                <span class="block text-xs text-on-media/80">{formatDateTime(latest.detection_time)}</span>
                 <span class="sr-only">{$_('about.portrait.open_this_visit', { default: 'Open this visit' })}</span>
             </span>
             {#if opening}
-                <span class="absolute inset-0 flex items-center justify-center bg-slate-950/45" aria-hidden="true">
-                    <span class="inline-block h-6 w-6 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+                <span class="absolute inset-0 flex items-center justify-center bg-media/45" aria-hidden="true">
+                    <span class="inline-block h-6 w-6 animate-spin rounded-full border-2 border-on-media border-t-transparent"></span>
                 </span>
             {/if}
         </button>
     {/if}
 
     <div class="min-w-0 space-y-4">
-        <h3 id="about-portrait-heading" class="font-display text-xl font-semibold leading-snug text-slate-900 dark:text-white">
+        <h3 id="about-portrait-heading" class="font-display text-xl font-semibold leading-snug text-strong">
             {heading}
         </h3>
         {#if portrait.visits > 0}
             <dl class="grid grid-cols-2 gap-x-6 gap-y-4 {latest ? '' : 'sm:grid-cols-4'}" data-feeder-portrait-facts>
                 <div>
-                    <dd class="font-display text-2xl font-bold tabular-nums text-slate-900 dark:text-white">{portrait.visits.toLocaleString()}</dd>
-                    <dt class="text-xs text-slate-600 dark:text-slate-400">{$_('about.portrait.visits', { default: 'visits' })}</dt>
+                    <dd class="font-display text-2xl font-bold tabular-nums text-strong">{portrait.visits.toLocaleString()}</dd>
+                    <dt class="text-xs text-muted">{$_('about.portrait.visits', { default: 'visits' })}</dt>
                 </div>
                 <div>
-                    <dd class="font-display text-2xl font-bold tabular-nums text-slate-900 dark:text-white">{portrait.species.toLocaleString()}</dd>
-                    <dt class="text-xs text-slate-600 dark:text-slate-400">{$_('about.portrait.species', { default: 'species' })}</dt>
+                    <dd class="font-display text-2xl font-bold tabular-nums text-strong">{portrait.species.toLocaleString()}</dd>
+                    <dt class="text-xs text-muted">{$_('about.portrait.species', { default: 'species' })}</dt>
                 </div>
                 {#if portrait.busiest_day && busiestDate}
                     <div class="min-w-0">
-                        <dt class="text-xs text-slate-600 dark:text-slate-400">{$_('about.portrait.busiest_day', { default: 'Busiest day' })}</dt>
-                        <dd class="mt-0.5 wrap-break-word text-sm font-semibold text-slate-900 dark:text-white">{busiestDate}</dd>
-                        <dd class="text-xs tabular-nums text-slate-600 dark:text-slate-400">{visits(portrait.busiest_day.visits)}</dd>
+                        <dt class="text-xs text-muted">{$_('about.portrait.busiest_day', { default: 'Busiest day' })}</dt>
+                        <dd class="mt-0.5 wrap-break-word text-sm font-semibold text-strong">{busiestDate}</dd>
+                        <dd class="text-xs tabular-nums text-muted">{visits(portrait.busiest_day.visits)}</dd>
                     </div>
                 {/if}
                 {#if portrait.newest_arrival}
                     {@const arrival = portrait.newest_arrival}
                     <div class="min-w-0">
-                        <dt class="text-xs text-slate-600 dark:text-slate-400">{$_('about.portrait.newest_arrival', { default: 'Newest arrival' })}</dt>
+                        <dt class="text-xs text-muted">{$_('about.portrait.newest_arrival', { default: 'Newest arrival' })}</dt>
                         <dd class="mt-0.5 wrap-break-word text-sm font-semibold">
                             <button
                                 type="button"
-                                class="min-h-[44px] min-w-[44px] max-w-full wrap-break-word text-left text-brand-700 hover:underline focus-ring dark:text-brand-400"
+                                class="min-h-11 min-w-11 max-w-full wrap-break-word text-left text-accent-ink hover:underline focus-ring"
                                 data-feeder-portrait-arrival
                                 onclick={() => onopenspecies(arrival.species)}
                             >
                                 {name(arrival)}
                             </button>
                         </dd>
-                        <dd class="text-xs text-slate-600 dark:text-slate-400">
+                        <dd class="text-xs text-muted">
                             {$_('about.portrait.first_seen', { values: { date: formatDate(arrival.first_seen) }, default: 'first seen {date}' })}
                         </dd>
                     </div>
@@ -133,7 +133,7 @@
             </dl>
         {/if}
         {#if communityInstalls !== null}
-            <p class="text-xs text-slate-600 dark:text-slate-400" data-about-community>
+            <p class="text-xs text-muted" data-about-community>
                 {$_('about.portrait.community', {
                     values: { count: communityInstalls },
                     default: '{count, plural, one {# feeder ran YA-WAMF this week.} other {# feeders ran YA-WAMF this week.}}'

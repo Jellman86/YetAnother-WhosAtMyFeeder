@@ -56,6 +56,8 @@
   "outbound": {
     "title": "ネットワークの外に出る通信",
     "intro": "このインストールが接続する外部サービスと、各リクエストの送信元、送信する内容です。Frigate、MQTT ブローカー、BirdNET-Go など、自分で入力したアドレスのサービスは含まれません。",
+    "show_everything": "YA-WAMF が接続しうる宛先をすべて表示",
+    "show_everything_note": "ほか {count} 件",
     "from_server": "このサーバーが送信",
     "from_browser": "各閲覧者のブラウザが送信",
     "on_demand": "接続、テスト、診断を行うとき",
