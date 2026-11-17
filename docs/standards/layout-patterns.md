@@ -328,16 +328,21 @@ thumbnail, a chip per species with its count and **Show species**, and no single
 day bar: eyebrow, the window as the page heading (the page's only h1), live indicator
          then every figure for that window in one ruled band (label above figure, scope beneath)
 [ primary log, 1.55fr ]        [ context rail, 0.75fr ]
-                                what needs you and what is happening:
-                                  queue card (the work), at the feeder now, heard
+                                Needs your call (the work), heading the rail
+                                what is happening:
+                                  at the feeder now, heard
                                 reference:
                                   activity pulse, notable nearby, top visitors
-from 1920px the rail splits into those two columns:
-[ primary log, 1.4fr ]  [ needs you / happening, 1fr ]  [ reference, 1fr ]
+from 1920px the rail splits into those two columns, under the card that spans both:
+[ primary log, 1.4fr ]  [ Needs your call, across both          ]
+                        [ happening, 1fr ]  [ reference, 1fr ]
+on a phone, one column: the day bar, Needs your call, the log, then the rail
 ```
 
 The rail is ordered by urgency, not by data source: what needs you, then what is running, then
-what is merely interesting. On a very wide screen the rail becomes two columns so the log keeps a
+what is merely interesting. Needs your call comes first in the page itself, so on a phone the work
+sits above the log, before anything secondary; from 1280px the grid places it at the head of the
+rail, beside the top of the log. On a very wide screen the rail becomes two columns so the log keeps a
 readable row; the order inside each holds. Every desk section is a panel (`panel`) that opens the
 same way, a display heading with an icon and a muted line naming the window (the desk's rolling 24
 hours, which the day bar names too). Counts there are visits, from the day summary, never the

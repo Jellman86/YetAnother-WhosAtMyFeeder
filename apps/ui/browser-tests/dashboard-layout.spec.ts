@@ -210,3 +210,42 @@ test('the field log names the desk window and says that its earlier visits open 
     await more.click();
     await expect.poll(() => new URL(page.url()).pathname).toBe('/events');
 });
+
+test('on a phone Needs your call comes before the field log; on a desktop it heads the rail beside the log', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await openDashboard(page, { status: owner });
+    await settled(page);
+    const card = page.locator('[data-dashboard-needs-call]');
+    const log = page.locator('[data-dashboard-field-log-column]');
+    await expect(card).toBeVisible();
+    let cardBox = await card.boundingBox();
+    let logBox = await log.boundingBox();
+    expect(cardBox && logBox && cardBox.y + cardBox.height <= logBox.y + 1).toBe(true);
+    // The rest of the rail still follows the log on a phone.
+    const rail = await page.locator('[data-dashboard-rail-now]').boundingBox();
+    expect(rail && logBox && rail.y >= logBox.y + logBox.height - 1).toBe(true);
+
+    await page.setViewportSize({ width: 1440, height: 900 });
+    // The shell trades its phone bar for the sidebar as the window widens; measure once it has.
+    await expect(page.locator('#app-sidebar')).toBeInViewport();
+    await expect.poll(async () => {
+        const [cardNow, logNow] = await Promise.all([card.boundingBox(), log.boundingBox()]);
+        return Boolean(cardNow && logNow && cardNow.x >= logNow.x + logNow.width - 1);
+    }).toBe(true);
+    cardBox = await card.boundingBox();
+    logBox = await log.boundingBox();
+    const aside = await page.locator('[data-dashboard-field-desk] aside').boundingBox();
+    expect(cardBox && logBox && Math.abs(cardBox.y - logBox.y)).toBeLessThan(2);
+    // The rail continues straight under the card, with only the grid's gap between them.
+    expect(cardBox && aside && aside.y - (cardBox.y + cardBox.height)).toBeLessThan(30);
+
+    await page.setViewportSize({ width: 1920, height: 1080 });
+    await expect.poll(async () => {
+        const [cardNow, asideNow] = await Promise.all([card.boundingBox(), page.locator('[data-dashboard-field-desk] aside').boundingBox()]);
+        return Boolean(cardNow && asideNow && Math.abs(cardNow.width - asideNow.width) < 2);
+    }).toBe(true);
+    const wideCard = await card.boundingBox();
+    const wideAside = await page.locator('[data-dashboard-field-desk] aside').boundingBox();
+    // From 1920px the rail has two columns and the card spans both.
+    expect(wideCard && wideAside && Math.abs(wideCard.width - wideAside.width)).toBeLessThan(2);
+});
