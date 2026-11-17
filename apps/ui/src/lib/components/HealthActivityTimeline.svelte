@@ -204,7 +204,7 @@
                                 {:else}
                                     {$_(`jobs.errors_drop_reason_row.${drop.reason}`, {
                                         default: $_('jobs.errors_drop_reason_row.filter_low_confidence', {
-                                            default: 'Not recorded, below your naming threshold'
+                                            default: 'Not recorded, below your minimum confidence floor'
                                         })
                                     })}
                                 {/if}
