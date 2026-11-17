@@ -8,8 +8,10 @@ from app.utils.calendar_day import (
     calendar_window,
     clamp_window,
     instance_timezone,
+    zone_named,
     local_date,
     resolve_calendar_day,
+    resolve_zone,
     today_so_far,
 )
 
@@ -103,3 +105,44 @@ def test_local_date_reads_a_stored_instant_on_the_instance_clock() -> None:
     assert local_date(datetime(2026, 11, 16, 23, 30), zone=BERLIN) == date(2026, 11, 17)
     assert local_date(datetime(2026, 11, 16, 23, 30), zone=timezone.utc) == date(2026, 11, 16)
     assert local_date(None, zone=BERLIN) is None
+
+
+def test_a_zone_name_must_be_a_real_iana_zone() -> None:
+    assert zone_named("Europe/Madrid") == ZoneInfo("Europe/Madrid")
+    assert zone_named("America/Argentina/Buenos_Aires") == ZoneInfo("America/Argentina/Buenos_Aires")
+    assert zone_named("UTC") is not None
+    for junk in ("", "   ", "Not/AZone", "../../etc/passwd", "/etc/localtime", "Europe/Madrid\x00", "E" * 80, None):
+        assert zone_named(junk) is None, junk
+
+
+def test_the_viewers_zone_wins_then_the_instances_then_utc() -> None:
+    madrid = ZoneInfo("Europe/Madrid")
+    assert resolve_zone("Europe/Madrid", {"TZ": "Europe/London"}) == madrid
+    # A missing or junk header is not a reason to ignore the instance's own zone.
+    assert resolve_zone(None, {"TZ": "Europe/London"}) == LONDON
+    assert resolve_zone("Mars/Olympus_Mons", {"TZ": "Europe/London"}) == LONDON
+    assert resolve_zone("../../etc/passwd", {}) == timezone.utc
+    assert resolve_zone(None, {}) == timezone.utc
+
+
+def test_an_autumn_daylight_saving_day_is_twenty_five_hours_long() -> None:
+    start, end = calendar_window(date(2026, 10, 25), date(2026, 10, 25), now=NOW, zone=LONDON)
+    assert start == datetime(2026, 10, 24, 23, 0)
+    assert end == datetime(2026, 10, 25, 23, 59, 59, 999999)
+    assert end - start == timedelta(hours=25) - timedelta(microseconds=1)
+
+
+def test_an_unresolvable_zone_is_reported_once_per_source(monkeypatch) -> None:
+    from structlog.testing import capture_logs
+
+    from app.utils import calendar_day
+
+    monkeypatch.setattr(calendar_day, "_warned", set())
+    with capture_logs() as logs:
+        for _ in range(3):
+            instance_timezone({"TZ": "Not/AZone"})
+            resolve_zone("junk/../zone", {})
+    assert [(entry["event"], entry["source"]) for entry in logs] == [
+        ("timezone_unresolved", "TZ"),
+        ("timezone_unresolved", "X-Timezone"),
+    ]

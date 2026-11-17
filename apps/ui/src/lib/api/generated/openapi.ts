@@ -838,8 +838,8 @@ export interface components {
     total_count: number;
     visit_count?: number;
     window?: "rolling" | "today";
-    window_end?: string | null;
-    window_start?: string | null;
+    window_end: string;
+    window_start: string;
 };
     DailyWeatherSummary: {
     am_cloud?: number | null;

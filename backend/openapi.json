@@ -5677,29 +5677,17 @@
             "type": "string"
           },
           "window_end": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Window End"
+            "title": "Window End",
+            "type": "string"
           },
           "window_start": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Window Start"
+            "title": "Window Start",
+            "type": "string"
           }
         },
         "required": [
+          "window_start",
+          "window_end",
           "hourly_distribution",
           "top_species",
           "latest_detection",
@@ -29468,7 +29456,7 @@
             }
           },
           {
-            "description": "First day (inclusive): an ISO date or `today`, read as a calendar day in the instance's timezone (`TZ`; UTC when unset)",
+            "description": "First day (inclusive): an ISO date or `today`, read as a calendar day in the zone `X-Timezone` names, else the instance's `TZ`, else UTC",
             "in": "query",
             "name": "start_date",
             "required": false,
@@ -29486,12 +29474,12 @@
                   "type": "null"
                 }
               ],
-              "description": "First day (inclusive): an ISO date or `today`, read as a calendar day in the instance's timezone (`TZ`; UTC when unset)",
+              "description": "First day (inclusive): an ISO date or `today`, read as a calendar day in the zone `X-Timezone` names, else the instance's `TZ`, else UTC",
               "title": "Start Date"
             }
           },
           {
-            "description": "Last day (inclusive): an ISO date or `today`, read as a calendar day in the instance's timezone (`TZ`; UTC when unset)",
+            "description": "Last day (inclusive): an ISO date or `today`, read as a calendar day in the zone `X-Timezone` names, else the instance's `TZ`, else UTC",
             "in": "query",
             "name": "end_date",
             "required": false,
@@ -29509,7 +29497,7 @@
                   "type": "null"
                 }
               ],
-              "description": "Last day (inclusive): an ISO date or `today`, read as a calendar day in the instance's timezone (`TZ`; UTC when unset)",
+              "description": "Last day (inclusive): an ISO date or `today`, read as a calendar day in the zone `X-Timezone` names, else the instance's `TZ`, else UTC",
               "title": "End Date"
             }
           },
@@ -29717,7 +29705,16 @@
                 }
               }
             },
-            "description": "Full DetectionResponse[] by default. With fields=list, returns DetectionListItemResponse[]. Custom comma-separated fields return a partial event projection plus required navigation fields."
+            "description": "Full DetectionResponse[] by default. With fields=list, returns DetectionListItemResponse[]. Custom comma-separated fields return a partial event projection plus required navigation fields.",
+            "headers": {
+              "X-Next-Offset": {
+                "description": "The `offset` of the next page. Present only while more events match.",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer"
+                }
+              }
+            }
           },
           "422": {
             "content": {
@@ -29849,7 +29846,7 @@
         "operationId": "get_events_count_api_events_count_get",
         "parameters": [
           {
-            "description": "First day (inclusive): an ISO date or `today`, read as a calendar day in the instance's timezone (`TZ`; UTC when unset)",
+            "description": "First day (inclusive): an ISO date or `today`, read as a calendar day in the zone `X-Timezone` names, else the instance's `TZ`, else UTC",
             "in": "query",
             "name": "start_date",
             "required": false,
@@ -29867,12 +29864,12 @@
                   "type": "null"
                 }
               ],
-              "description": "First day (inclusive): an ISO date or `today`, read as a calendar day in the instance's timezone (`TZ`; UTC when unset)",
+              "description": "First day (inclusive): an ISO date or `today`, read as a calendar day in the zone `X-Timezone` names, else the instance's `TZ`, else UTC",
               "title": "Start Date"
             }
           },
           {
-            "description": "Last day (inclusive): an ISO date or `today`, read as a calendar day in the instance's timezone (`TZ`; UTC when unset)",
+            "description": "Last day (inclusive): an ISO date or `today`, read as a calendar day in the zone `X-Timezone` names, else the instance's `TZ`, else UTC",
             "in": "query",
             "name": "end_date",
             "required": false,
@@ -29890,7 +29887,7 @@
                   "type": "null"
                 }
               ],
-              "description": "Last day (inclusive): an ISO date or `today`, read as a calendar day in the instance's timezone (`TZ`; UTC when unset)",
+              "description": "Last day (inclusive): an ISO date or `today`, read as a calendar day in the zone `X-Timezone` names, else the instance's `TZ`, else UTC",
               "title": "End Date"
             }
           },
@@ -37807,13 +37804,13 @@
         "operationId": "get_daily_summary_api_stats_daily_summary_get",
         "parameters": [
           {
-            "description": "`rolling`: the last 24 hours. `today`: from local midnight to now, on the instance's timezone (`TZ`; UTC when unset).",
+            "description": "`rolling`: the last 24 hours. `today`: from local midnight to now, in the zone `X-Timezone` names, else the instance's `TZ`, else UTC.",
             "in": "query",
             "name": "window",
             "required": false,
             "schema": {
               "default": "rolling",
-              "description": "`rolling`: the last 24 hours. `today`: from local midnight to now, on the instance's timezone (`TZ`; UTC when unset).",
+              "description": "`rolling`: the last 24 hours. `today`: from local midnight to now, in the zone `X-Timezone` names, else the instance's `TZ`, else UTC.",
               "enum": [
                 "rolling",
                 "today"
@@ -38933,7 +38930,7 @@
             }
           },
           {
-            "description": "First day (inclusive): an ISO date or `today`, read as a calendar day in the instance's timezone (`TZ`; UTC when unset)",
+            "description": "First day (inclusive): an ISO date or `today`, read as a calendar day in the zone `X-Timezone` names, else the instance's `TZ`, else UTC",
             "in": "query",
             "name": "start_date",
             "required": false,
@@ -38951,12 +38948,12 @@
                   "type": "null"
                 }
               ],
-              "description": "First day (inclusive): an ISO date or `today`, read as a calendar day in the instance's timezone (`TZ`; UTC when unset)",
+              "description": "First day (inclusive): an ISO date or `today`, read as a calendar day in the zone `X-Timezone` names, else the instance's `TZ`, else UTC",
               "title": "Start Date"
             }
           },
           {
-            "description": "Last day (inclusive): an ISO date or `today`, read as a calendar day in the instance's timezone (`TZ`; UTC when unset)",
+            "description": "Last day (inclusive): an ISO date or `today`, read as a calendar day in the zone `X-Timezone` names, else the instance's `TZ`, else UTC",
             "in": "query",
             "name": "end_date",
             "required": false,
@@ -38974,7 +38971,7 @@
                   "type": "null"
                 }
               ],
-              "description": "Last day (inclusive): an ISO date or `today`, read as a calendar day in the instance's timezone (`TZ`; UTC when unset)",
+              "description": "Last day (inclusive): an ISO date or `today`, read as a calendar day in the zone `X-Timezone` names, else the instance's `TZ`, else UTC",
               "title": "End Date"
             }
           },
@@ -39195,7 +39192,7 @@
             }
           },
           {
-            "description": "First day (inclusive): an ISO date or `today`, read as a calendar day in the instance's timezone (`TZ`; UTC when unset)",
+            "description": "First day (inclusive): an ISO date or `today`, read as a calendar day in the zone `X-Timezone` names, else the instance's `TZ`, else UTC",
             "in": "query",
             "name": "start_date",
             "required": false,
@@ -39213,12 +39210,12 @@
                   "type": "null"
                 }
               ],
-              "description": "First day (inclusive): an ISO date or `today`, read as a calendar day in the instance's timezone (`TZ`; UTC when unset)",
+              "description": "First day (inclusive): an ISO date or `today`, read as a calendar day in the zone `X-Timezone` names, else the instance's `TZ`, else UTC",
               "title": "Start Date"
             }
           },
           {
-            "description": "Last day (inclusive): an ISO date or `today`, read as a calendar day in the instance's timezone (`TZ`; UTC when unset)",
+            "description": "Last day (inclusive): an ISO date or `today`, read as a calendar day in the zone `X-Timezone` names, else the instance's `TZ`, else UTC",
             "in": "query",
             "name": "end_date",
             "required": false,
@@ -39236,7 +39233,7 @@
                   "type": "null"
                 }
               ],
-              "description": "Last day (inclusive): an ISO date or `today`, read as a calendar day in the instance's timezone (`TZ`; UTC when unset)",
+              "description": "Last day (inclusive): an ISO date or `today`, read as a calendar day in the zone `X-Timezone` names, else the instance's `TZ`, else UTC",
               "title": "End Date"
             }
           },

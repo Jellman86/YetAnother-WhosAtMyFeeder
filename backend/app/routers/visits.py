@@ -17,6 +17,7 @@ from app.routers.events import (
 )
 from app.utils.api_datetime import utc_naive_datetime
 from app.utils.calendar_day import CalendarDay
+from app.utils.timezone import calendar_timezone
 from app.ratelimit import guest_rate_limit
 from app.services.explorer_search import bird_taxon_members
 from app.services.visit_grouping import VISIT_GAP_SECONDS
@@ -29,6 +30,7 @@ MAX_VISITS_PAGE = 500
 
 
 def visible_visit_window(
+    request: Request,
     auth: AuthContext,
     start_day: CalendarDay | None,
     end_day: CalendarDay | None,
@@ -36,10 +38,11 @@ def visible_visit_window(
     end_time: datetime | None,
 ) -> tuple[datetime | None, datetime | None]:
     """Exact instants win over calendar days; the viewer's allowance narrows either."""
-    day_start, day_end = requested_calendar_window(start_day, end_day)
+    zone = calendar_timezone(request)
+    day_start, day_end = requested_calendar_window(start_day, end_day, zone)
     start = utc_naive_datetime(start_time) if start_time else day_start
     end = utc_naive_datetime(end_time) if end_time else day_end
-    return visible_history_window(auth, start, end)
+    return visible_history_window(auth, start, end, zone)
 
 
 @router.get("/visits", response_model=DetectionVisitsResponse)
@@ -62,7 +65,7 @@ async def get_visits(
     taxon: int | None = Query(None, ge=1, description="Catalogue taxon: only species at or beneath it"),
     auth: AuthContext = Depends(get_auth_context_with_legacy),
 ) -> DetectionVisitsResponse:
-    start, end = visible_visit_window(auth, start_date, end_date, start_time, end_time)
+    start, end = visible_visit_window(request, auth, start_date, end_date, start_time, end_time)
     if not auth.is_owner:
         only_hidden = False
         limit = min(limit, 50)
@@ -101,7 +104,16 @@ async def get_visits(
             )
         )
         events = await repo.get_by_frigate_events(event_ids)
-    presented = await present_events([events[event_id] for event_id in event_ids if event_id in events], request, auth)
+    # Frigate is asked about each visit's photo only. Three checks per visit at 500 visits a page
+    # would be 1,500 Frigate calls; the latest and busiest captures report what is held here.
+    presented = await present_events(
+        [events[event_id] for event_id in event_ids if event_id in events],
+        request,
+        auth,
+        ask_frigate_about={
+            str(header["representative_event"]) for header in headers if header.get("representative_event")
+        },
+    )
     by_id = {event.frigate_event: event for event in presented}
     visits = []
     for header in headers:
@@ -144,7 +156,7 @@ async def get_visit_captures(
     only_hidden: bool = False,
     auth: AuthContext = Depends(get_auth_context_with_legacy),
 ) -> VisitCapturesResponse:
-    start, end = visible_visit_window(auth, start_date, end_date, start_time, end_time)
+    start, end = visible_visit_window(request, auth, start_date, end_date, start_time, end_time)
     async with get_db() as db:
         captures, total = await VisitRepository(db).visit_captures(
             visit_id,

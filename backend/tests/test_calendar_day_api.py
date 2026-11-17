@@ -16,6 +16,8 @@ from app.repositories.detection_repository import DetectionRepository
 from app.routers import events, stats
 from app.utils import public_access
 
+REAL_BATCH_CHECK_CLIPS = events.batch_check_clips
+
 pytestmark = pytest.mark.usefixtures("history_pool")
 
 # 23:45 UTC on 10 March is 00:45 on 11 March in Berlin (UTC+1 before daylight saving).
@@ -208,3 +210,130 @@ async def test_visit_pages_read_their_captures_in_one_batch(client):
         found = await DetectionRepository(db).get_by_frigate_events(["cal-1", "cal-3", "cal-missing", "cal-1"])
     assert set(found) == {"cal-1", "cal-3"}
     assert found["cal-3"].display_name == "Turdus merula"
+
+
+NEW_YORK = {"X-Timezone": "America/New_York"}  # 18:45 on 10 March there (UTC-5 until 12 March).
+
+
+@pytest.mark.asyncio
+async def test_a_viewers_zone_outranks_the_instance_zone(client):
+    # The SPA sends the browser's zone; its "today" and its dates are the viewer's days.
+    assert _event_ids(await client.get("/api/events?start_date=today&end_date=today", headers=NEW_YORK)) == {
+        "cal-1",
+        "cal-2",
+        "cal-3",
+        "cal-4",
+    }
+    visits = await client.get("/api/visits?start_date=2034-03-10&end_date=2034-03-10", headers=NEW_YORK)
+    assert _visit_events(visits) == {"cal-1", "cal-2", "cal-3", "cal-4"}
+    count = await client.get("/api/events/count?start_date=today&end_date=today", headers=NEW_YORK)
+    assert count.json()["count"] == 4
+    summary = (await client.get("/api/stats/daily-summary?window=today", headers=NEW_YORK)).json()
+    assert summary["window_start"] == "2034-03-10T05:00:00Z"
+    assert summary["total_count"] == 4
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("junk", ["Mars/Olympus_Mons", "../../etc/localtime", "Europe/Berlin; DROP TABLE", "x" * 200])
+async def test_a_header_that_names_no_zone_falls_back_to_the_instance_zone(client, junk):
+    response = await client.get("/api/events?start_date=today&end_date=today", headers={"X-Timezone": junk})
+    assert _event_ids(response) == {"cal-3", "cal-4"}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("zone", ["Pacific/Pago_Pago", "Pacific/Kiritimati", "America/New_York", "Asia/Kolkata"])
+async def test_no_viewer_zone_lets_a_guest_see_more_than_their_window(client, monkeypatch, zone):
+    # The guest's day is 10 March UTC. A zone whose 9 or 10 March starts earlier cannot pull in cal-0.
+    _as_guest(monkeypatch, days=0)
+    headers = {"X-Timezone": zone}
+    for route in (
+        "/api/events?start_date=2034-03-09&end_date=2034-03-10",
+        "/api/events?start_date=today",
+    ):
+        assert "cal-0" not in _event_ids(await client.get(route, headers=headers)), (zone, route)
+    assert "cal-0" not in _visit_events(await client.get("/api/visits?start_date=2034-03-09", headers=headers))
+    count = await client.get("/api/events/count?start_date=2034-03-09", headers=headers)
+    assert count.json()["count"] <= 4
+    summary = (await client.get("/api/stats/daily-summary?window=today", headers=headers)).json()
+    assert summary["window_start"] >= "2034-03-10T00:00:00Z"
+
+
+@pytest.mark.asyncio
+async def test_a_visits_page_asks_frigate_only_about_each_visits_representative(client, monkeypatch):
+    # A second, weaker Blackbird capture 20 s later joins cal-3's visit as its latest capture.
+    async with get_db() as db:
+        await db.execute(
+            """INSERT INTO detections (detection_time, detection_index, score, display_name, category_name,
+                frigate_event, camera_name, is_hidden, manual_tagged, scientific_name, common_name)
+            VALUES ('2034-03-10 23:30:20', 1, 0.5, 'Turdus merula', 'Turdus merula', 'cal-5', 'birdcam', 0, 0,
+                'Turdus merula', 'Turdus merula')"""
+        )
+        await db.commit()
+    asked: list[str] = []
+
+    async def frigate_event(event_id, timeout=None):
+        asked.append(event_id)
+        return {"has_clip": True, "has_snapshot": True}, None
+
+    monkeypatch.setattr(events, "batch_check_clips", REAL_BATCH_CHECK_CLIPS)
+    monkeypatch.setattr(events.frigate_client, "get_event_with_error", frigate_event)
+    body = (await client.get("/api/visits?start_date=today&end_date=today&limit=500")).json()
+    representatives = {visit["representative"]["frigate_event"] for visit in body["visits"]}
+    latest = {visit["latest"]["frigate_event"] for visit in body["visits"]}
+    assert latest - representatives == {"cal-5"}
+    assert sorted(asked) == sorted(representatives)
+    # The capture Frigate was not asked about says so, rather than claiming it is gone.
+    joined = next(visit for visit in body["visits"] if visit["latest"]["frigate_event"] == "cal-5")
+    assert joined["representative"]["frigate_event_check"] == "found"
+    assert joined["latest"]["frigate_event_check"] == "not_checked"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "sort,expected", [("newest", ["cal-tie-b", "cal-tie-a"]), ("oldest", ["cal-tie-a", "cal-tie-b"])]
+)
+async def test_captures_with_the_same_time_page_in_a_fixed_order(client, sort, expected):
+    async with get_db() as db:
+        for event in ("cal-tie-a", "cal-tie-b"):
+            await db.execute(
+                """INSERT INTO detections (detection_time, detection_index, score, display_name, category_name,
+                    frigate_event, camera_name, is_hidden, manual_tagged)
+                VALUES ('2034-03-12 08:00:00', 1, 0.9, 'Parus major', 'Parus major', ?, 'birdcam', 0, 0)""",
+                (event,),
+            )
+        await db.commit()
+    pages = [
+        (
+            await client.get(f"/api/events?start_date=2034-03-12&end_date=2034-03-12&sort={sort}&limit=1&offset={n}")
+        ).json()
+        for n in (0, 1)
+    ]
+    assert [page[0]["frigate_event"] for page in pages] == expected
+    assert (await client.get(f"/api/events?start_date=2034-03-12&species=Parus%20major&sort={sort}")).json()[0][
+        "frigate_event"
+    ] == expected[0]
+
+
+@pytest.mark.asyncio
+async def test_a_batch_lookup_spans_its_chunks_and_ignores_repeats(client):
+    async with get_db() as db:
+        await db.executemany(
+            """INSERT INTO detections (detection_time, detection_index, score, display_name, category_name,
+                frigate_event, camera_name, is_hidden, manual_tagged)
+            VALUES ('2034-03-13 08:00:00', 1, 0.9, 'Parus major', 'Parus major', ?, 'birdcam', 0, 0)""",
+            [(f"cal-bulk-{n}",) for n in range(1203)],
+        )
+        await db.commit()
+        # 1,203 ids with one repeated across the 500-id chunk boundary and one that does not exist.
+        wanted = [f"cal-bulk-{n}" for n in range(1203)] + ["cal-bulk-3", "cal-bulk-missing"]
+        found = await DetectionRepository(db).get_by_frigate_events(wanted)
+    assert len(found) == 1203
+    assert set(found) == {f"cal-bulk-{n}" for n in range(1203)}
+
+
+def test_the_contract_declares_the_next_offset_and_the_summary_window():
+    schema = app.openapi()
+    headers = schema["paths"]["/api/events"]["get"]["responses"]["200"]["headers"]
+    assert headers["X-Next-Offset"]["schema"] == {"type": "integer", "minimum": 1}
+    required = schema["components"]["schemas"]["DailySummaryResponse"]["required"]
+    assert {"window_start", "window_end"} <= set(required)

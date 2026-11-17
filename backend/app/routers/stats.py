@@ -32,8 +32,8 @@ from app.utils.public_access import (
     effective_public_events_days,
 )
 from app.utils.api_datetime import serialize_api_datetime, utc_naive_now
-from app.utils.timezone import get_user_timezone
-from app.utils.calendar_day import instance_timezone, today_so_far
+from app.utils.timezone import calendar_timezone, get_user_timezone
+from app.utils.calendar_day import today_so_far
 
 router = APIRouter()
 
@@ -314,8 +314,8 @@ class DailyCameraVisits(APIModel):
 class DailySummaryResponse(APIModel):
     # The window every count below covers: the rolling 24 hours, or today on the instance's clock.
     window: Literal["rolling", "today"] = "rolling"
-    window_start: Optional[str] = None
-    window_end: Optional[str] = None
+    window_start: str
+    window_end: str
     hourly_distribution: List[int]
     top_species: List[DailySpeciesSummary]
     latest_detection: Optional[DetectionResponse]
@@ -506,8 +506,8 @@ async def get_daily_summary(
     window: Literal["rolling", "today"] = Query(
         default="rolling",
         description=(
-            "`rolling`: the last 24 hours. `today`: from local midnight to now, on the instance's timezone "
-            "(`TZ`; UTC when unset)."
+            "`rolling`: the last 24 hours. `today`: from local midnight to now, in the zone `X-Timezone` "
+            "names, else the instance's `TZ`, else UTC."
         ),
     ),
     auth: AuthContext = Depends(get_auth_context_with_legacy),
@@ -520,7 +520,7 @@ async def get_daily_summary(
     user_tz = get_user_timezone(request)
     end_dt = utc_naive_now()
     if window == "today":
-        start_dt, _ = today_so_far(now=end_dt.replace(tzinfo=timezone.utc), zone=instance_timezone())
+        start_dt, _ = today_so_far(now=end_dt.replace(tzinfo=timezone.utc), zone=calendar_timezone(request))
     else:
         start_dt = end_dt - timedelta(hours=24)
     if not auth.is_owner:

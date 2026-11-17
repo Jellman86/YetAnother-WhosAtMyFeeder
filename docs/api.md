@@ -294,22 +294,35 @@ fresh day. This does not cache sharing preferences.
 
 `start_date` and `end_date` on `GET /api/events`, `GET /api/events/count`, `GET /api/visits`
 and `GET /api/visits/{visit_id}/captures` take an ISO date (`2026-11-17`) or the keyword
-`today`. Both are calendar days in the instance's timezone: the zone named by the container's
-`TZ` environment variable, or UTC when `TZ` is unset or unknown. A day runs from local midnight
+`today`. Both are calendar days in one zone, chosen in this order:
+
+1. the IANA zone the request's `X-Timezone` header names (`Europe/Madrid`); the web interface
+   sends the browser's zone, so its dates are the viewer's days, as backfill dates and hourly
+   charts already are;
+2. otherwise the container's `TZ` environment variable, so curl and Home Assistant, which send
+   no header, get the instance's day;
+3. otherwise UTC.
+
+A header or `TZ` that does not name a real zone is ignored (and logged once), never an error.
+`daily-summary?window=today` uses the same zone. A guest's shared window is applied after the zone
+is resolved, so no header can widen it. A day runs from local midnight
 to the last instant before the next local midnight, so a capture at 23:30 local time belongs to
 that day even when it is already the next day in UTC, and a day that changes the clock is 23 or
 25 hours long. Both bounds are inclusive. The range may span at most 365 days. Any other word
 is rejected with `422`.
 
 ```bash
-# Everything from today, in pages of 500, then today's visits in one request.
-curl -fsS "http://localhost:9852/api/events?start_date=today&end_date=today&limit=500"
+# Everything from today, oldest first in pages of 500, then today's visits in one request.
+curl -fsS "http://localhost:9852/api/events?start_date=today&end_date=today&sort=oldest&limit=500"
 curl -fsS "http://localhost:9852/api/visits?start_date=today&end_date=today&limit=500"
 ```
 
 - `GET /api/events` Returns one page of events (`limit` 1 to 500, 50 by default; `offset` skips
   that many). While more events match, the response carries an `X-Next-Offset` header with the
-  `offset` for the next page; the last page has none. Guests get at most 50 per page.
+  `offset` for the next page; the last page has none. Guests get at most 50 per page. Captures
+  saved in the same instant keep one order (by id). To collect a day while birds are still
+  arriving, page with `sort=oldest`: new captures only add to the end, whereas newest-first pages
+  shift by one for each capture that arrives between requests.
 - `GET /api/events/count` Counts every event matching the same filters, for clients that want
   the total before paging.
 
@@ -340,7 +353,9 @@ measurement, never derived, and is not rewritten later. Live `detection` and
   exact UTC `start_time`/`end_time`, which take precedence, `species`, `camera`, `favorites`,
   `audio_confirmed_only`, `only_hidden`, `multiple_species_only` and `sort` (`newest`, `oldest`,
   `confidence`). Returns `visits`, `total` (every matching visit, so a client can tell how many
-  pages remain) and `gap_seconds`. Each visit includes
+  pages remain) and `gap_seconds`. Frigate is asked about each visit's `representative` capture
+  only, at most one call per visit on the page. `latest` and `peak_capture` report the photo and
+  clip this server holds, with `frigate_event_check: "not_checked"`. Each visit includes
   `visit_id` (its first accessible capture ID), start/end, full `capture_count`, best score, review/audio/owner-confirmation
   state, representative/latest records and owner-only busiest counted capture. Grouping uses
   canonical species, actual camera and a 60-second inactivity gap after the running latest
@@ -1093,7 +1108,7 @@ stores it (parentheses included when the source writes them), or null when unrec
 ### Statistics
 
 - `GET /api/stats/daily-summary` Covers the last 24 hours by default (`window=rolling`). With
-  `window=today` it covers today so far: from local midnight in the instance's timezone (see
+  `window=today` it covers today so far: from local midnight (in the zone chosen as in
   [Calendar days](#calendar-days-and-today)) to now. The response names the window it used in
   `window`, `window_start` and `window_end` (UTC). A guest's history window still applies, so
   `window_start` can be later than midnight. Every count below covers that window. It

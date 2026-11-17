@@ -2569,7 +2569,7 @@ class DetectionRepository:
         def _branch(where: str, value: int | str) -> None:
             branches.append(
                 f"SELECT id FROM (SELECT id FROM detections WHERE {where} AND {hidden_clause} "
-                f"ORDER BY detection_time {direction} LIMIT {branch_limit})"
+                f"ORDER BY detection_time {direction}, id {direction} LIMIT {branch_limit})"
             )
             params.append(value)
 
@@ -2591,7 +2591,7 @@ class DetectionRepository:
         query = (
             f"SELECT {DETECTION_SELECT_COLUMNS} FROM detections d "
             "LEFT JOIN detection_favorites f ON f.detection_id = d.id "
-            f"WHERE d.id IN ({union}) ORDER BY d.detection_time {direction} LIMIT ? OFFSET ?"
+            f"WHERE d.id IN ({union}) ORDER BY d.detection_time {direction}, d.id {direction} LIMIT ? OFFSET ?"
         )
         params.extend([limit, offset])
         return query, params
@@ -2747,12 +2747,13 @@ class DetectionRepository:
             query += " WHERE " + " AND ".join(conditions)
 
         # Apply sort order
+        # The id breaks ties, so captures saved in the same instant keep one order across pages.
         if sort == "oldest":
-            query += " ORDER BY d.detection_time ASC"
+            query += " ORDER BY d.detection_time ASC, d.id ASC"
         elif sort == "confidence":
-            query += " ORDER BY d.score DESC, d.detection_time DESC"
+            query += " ORDER BY d.score DESC, d.detection_time DESC, d.id DESC"
         else:  # newest (default)
-            query += " ORDER BY d.detection_time DESC"
+            query += " ORDER BY d.detection_time DESC, d.id DESC"
 
         query += " LIMIT ? OFFSET ?"
         params.extend([limit, offset])

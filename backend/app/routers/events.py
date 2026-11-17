@@ -1,9 +1,10 @@
 import asyncio
 import time
 import unicodedata
+from collections.abc import Collection
 from fastapi import APIRouter, HTTPException, Query, Request, Response, Depends
 from typing import List, Optional, Literal
-from datetime import datetime, date, timedelta, timezone
+from datetime import datetime, date, timedelta, timezone, tzinfo
 from pydantic import BaseModel, Field
 import structlog
 from PIL import Image
@@ -45,7 +46,8 @@ from app.utils.public_access import (
     public_events_cutoff,
     public_events_window,
 )
-from app.utils.calendar_day import CalendarDay, calendar_window, clamp_window, instance_timezone, local_date
+from app.utils.calendar_day import CalendarDay, calendar_window, clamp_window, local_date
+from app.utils.timezone import calendar_timezone
 from app.utils.api_datetime import serialize_api_datetime, utc_naive_now
 from app.utils.canonical_species import (
     hidden_species_exact_labels,
@@ -134,28 +136,26 @@ def _enforce_max_date_range(start_date: Optional[date], end_date: Optional[date]
 
 
 _LAST_INSTANT = timedelta(microseconds=1)
-CALENDAR_DAY_HELP = "an ISO date or `today`, read as a calendar day in the instance's timezone (`TZ`; UTC when unset)"
+CALENDAR_DAY_HELP = (
+    "an ISO date or `today`, read as a calendar day in the zone `X-Timezone` names, else the instance's `TZ`, else UTC"
+)
 NEXT_OFFSET_HEADER = "X-Next-Offset"
 
 
 def requested_calendar_window(
-    start_day: CalendarDay | None, end_day: CalendarDay | None
+    start_day: CalendarDay | None, end_day: CalendarDay | None, zone: tzinfo
 ) -> tuple[Optional[datetime], Optional[datetime]]:
-    """Naive-UTC bounds for the calendar days a request names, on the instance's clock."""
-    return calendar_window(
-        start_day,
-        end_day,
-        now=utc_naive_now().replace(tzinfo=timezone.utc),
-        zone=instance_timezone(),
-    )
+    """Naive-UTC bounds for the calendar days a request names, on the viewer's clock."""
+    return calendar_window(start_day, end_day, now=utc_naive_now().replace(tzinfo=timezone.utc), zone=zone)
 
 
 def visible_history_window(
-    auth: AuthContext, start: Optional[datetime], end: Optional[datetime]
+    auth: AuthContext, start: Optional[datetime], end: Optional[datetime], zone: tzinfo
 ) -> tuple[Optional[datetime], Optional[datetime]]:
     """Narrow a naive-UTC window to what this viewer may see, then bound its length.
 
-    A guest's allowance is intersected with the request, so no date or keyword can widen it.
+    A guest's allowance is intersected with the request after the zone is resolved, so no
+    date, keyword or ``X-Timezone`` can widen it.
     """
     if not auth.is_owner and settings.public_access.enabled:
         floor, ceiling = public_events_window()
@@ -165,7 +165,6 @@ def visible_history_window(
             floor=floor.replace(tzinfo=None),
             ceiling=None if ceiling is None else ceiling.replace(tzinfo=None) - _LAST_INSTANT,
         )
-    zone = instance_timezone()
     _enforce_max_date_range(local_date(start, zone=zone), local_date(end, zone=zone))
     return start, end
 
@@ -274,6 +273,29 @@ def _get_active_model_id_for_feedback() -> str:
     return configured_model or "unknown"
 
 
+async def cached_media_flags(event_id: str) -> dict[str, bool]:
+    from app.services.archive_service import archive_service
+
+    cached_snapshot = media_cache.has_snapshot(event_id)
+    cached_clip = media_cache.has_clip(event_id) or media_cache.has_recording_clip(event_id)
+    return {
+        "has_clip": bool(cached_clip or await archive_service.video_path(event_id)),
+        "has_snapshot": bool(cached_snapshot or await archive_service.snapshot_path(event_id)),
+    }
+
+
+async def local_media_availability(event_ids: list[str]) -> dict[str, EventAvailability]:
+    """What this server holds for each event, without asking Frigate, and saying it did not ask."""
+    return {
+        event_id: {
+            "has_frigate_event": False,
+            "frigate_event_check": "not_checked",
+            **await cached_media_flags(event_id),
+        }
+        for event_id in event_ids
+    }
+
+
 async def batch_check_clips(event_ids: list[str]) -> dict[str, EventAvailability]:
     """
     Check Frigate event/media availability for multiple events.
@@ -284,16 +306,6 @@ async def batch_check_clips(event_ids: list[str]) -> dict[str, EventAvailability
         return {}
 
     semaphore = asyncio.Semaphore(CLIP_CHECK_CONCURRENCY)
-
-    async def cached_media_flags(event_id: str) -> dict[str, bool]:
-        from app.services.archive_service import archive_service
-
-        cached_snapshot = media_cache.has_snapshot(event_id)
-        cached_clip = media_cache.has_clip(event_id) or media_cache.has_recording_clip(event_id)
-        return {
-            "has_clip": bool(cached_clip or await archive_service.video_path(event_id)),
-            "has_snapshot": bool(cached_snapshot or await archive_service.snapshot_path(event_id)),
-        }
 
     async def check(event_id: str) -> tuple[str, EventAvailability]:
         async with semaphore:
@@ -667,6 +679,12 @@ def _filter_event_fields(event: dict, fields: set[str] | None) -> dict:
                 "a partial event projection plus required navigation fields."
             ),
             "model": List[DetectionResponse] | List[DetectionListItemResponse],
+            "headers": {
+                NEXT_OFFSET_HEADER: {
+                    "description": "The `offset` of the next page. Present only while more events match.",
+                    "schema": {"type": "integer", "minimum": 1},
+                }
+            },
         }
     },
 )
@@ -710,7 +728,10 @@ async def get_events(
         not auth.is_owner and settings.public_access.enabled and not settings.public_access.show_camera_names
     )
 
-    start_datetime, end_datetime = visible_history_window(auth, *requested_calendar_window(start_date, end_date))
+    zone = calendar_timezone(request)
+    start_datetime, end_datetime = visible_history_window(
+        auth, *requested_calendar_window(start_date, end_date, zone), zone
+    )
 
     # Apply public access restrictions
     if not auth.is_owner and settings.public_access.enabled:
@@ -763,8 +784,17 @@ async def get_events(
 
 
 async def present_events(
-    events: list[StoredDetection], request: Request, auth: AuthContext, fields: str | None = None
+    events: list[StoredDetection],
+    request: Request,
+    auth: AuthContext,
+    fields: str | None = None,
+    *,
+    ask_frigate_about: Collection[str] | None = None,
 ) -> list[DetectionResponse] | list[dict[str, object]]:
+    """Present stored events; ``ask_frigate_about`` limits the Frigate checks to those ids.
+
+    The rest report the media this server holds and ``frigate_event_check: not_checked``.
+    """
     scope = PresentationScope(language=get_user_language(request), is_owner=auth.is_owner)
     event_ids = [event.frigate_event for event in events]
     async with get_db() as db:
@@ -777,7 +807,14 @@ async def present_events(
     # busy page block everything else needing the database, which is what an
     # owner experienced as the whole interface being slow (#300). The rows are
     # already read, so the connection is given back first.
-    clip_availability = await batch_check_clips(event_ids)
+    if ask_frigate_about is None:
+        clip_availability = await batch_check_clips(event_ids)
+    else:
+        asked = [event_id for event_id in dict.fromkeys(event_ids) if event_id in ask_frigate_about]
+        clip_availability = {
+            **await local_media_availability([event_id for event_id in event_ids if event_id not in asked]),
+            **await batch_check_clips(asked),
+        }
 
     async with get_db() as db:
         response_events = await present_detections(
@@ -981,7 +1018,10 @@ async def get_events_count(
     hide_camera_names = (
         not auth.is_owner and settings.public_access.enabled and not settings.public_access.show_camera_names
     )
-    start_datetime, end_datetime = visible_history_window(auth, *requested_calendar_window(start_date, end_date))
+    zone = calendar_timezone(request)
+    start_datetime, end_datetime = visible_history_window(
+        auth, *requested_calendar_window(start_date, end_date, zone), zone
+    )
     # Apply public access restrictions
     if not auth.is_owner and settings.public_access.enabled:
         include_hidden = False
