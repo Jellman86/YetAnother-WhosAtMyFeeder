@@ -13,7 +13,11 @@ import hardwareSource from './HardwareSettings.svelte?raw';
 import enrichmentSource from './EnrichmentSettings.svelte?raw';
 import integrationSource from './IntegrationSettings.svelte?raw';
 import birdnetSource from './BirdnetSettings.svelte?raw';
-import notificationSource from './NotificationSettings.svelte?raw';
+import notificationRulesSource from './NotificationSettings.svelte?raw';
+import notificationChannelsSource from './NotificationChannelsSettings.svelte?raw';
+
+// Alerts' rules and its channels are two components; these checks read them as one.
+const notificationSource = `${notificationRulesSource}\n${notificationChannelsSource}`;
 import advancedSectionSource from './_primitives/AdvancedSection.svelte?raw';
 import settingsCardSource from './_primitives/SettingsCard.svelte?raw';
 import healthSource from '../../pages/Errors.svelte?raw';

@@ -74,13 +74,8 @@
         motionCameras,
         labels = $bindable(),
         motionConfidence = $bindable(),
-        notificationsEnabled = $bindable(),
-        notificationsUseBirdChannels = $bindable(),
-        notificationChannels = $bindable(),
-        notificationsIncludePhoto = $bindable(),
-        birdChannels,
-        onOpenNotifications,
         onOpenLocation,
+        onOpenAlerts,
         automaticNaming = $bindable(),
         namingThreshold = $bindable(),
         domesticBirds = $bindable(),
@@ -204,13 +199,8 @@
                         {motionCameras}
                         bind:labels
                         bind:motionConfidence
-                        bind:notificationsEnabled
-                        bind:notificationsUseBirdChannels
-                        bind:notificationChannels
-                        bind:notificationsIncludePhoto
-                        {birdChannels}
-                        {onOpenNotifications}
                         {onOpenLocation}
+                        {onOpenAlerts}
                         bind:domesticBirds
                         {onNavigate}
                         {onOpenCameras}

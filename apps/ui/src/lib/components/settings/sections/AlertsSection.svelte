@@ -2,11 +2,28 @@
     import type { ComponentProps } from 'svelte';
     import { _ } from 'svelte-i18n';
     import LazyRoute from '../../LazyRoute.svelte';
+    import StatusChip from '../../ui/StatusChip.svelte';
+    import SectionMore from './SectionMore.svelte';
     import type NotificationSettingsView from '../NotificationSettings.svelte';
-    import { loadNotificationSettings } from './part-loaders';
+    import type NotificationChannelsSettingsView from '../NotificationChannelsSettings.svelte';
+    import type GardenNotificationSettingsView from '../GardenNotificationSettings.svelte';
+    import { policyChannels } from '../../../settings/notification-policy';
+    import { settingsStore } from '../../../stores/settings.svelte';
+    import { loadGardenNotificationSettings, loadNotificationChannelsSettings, loadNotificationSettings } from './part-loaders';
 
-    // Alerts: when you hear about a visit, and where the message goes. Holds what was the
-    // Notifications tab.
+    // Alerts: when you hear about a visit and where the message goes, first; the cooldown,
+    // language, link, species filter and, while Garden animals is on, Garden's own alerts under
+    // More options. Holds what was the Notifications tab, and Garden's alerts from Beta features.
+    type Props = Omit<ComponentProps<typeof NotificationSettingsView>, 'channels' | 'region'>
+        & ComponentProps<typeof NotificationChannelsSettingsView>
+        & {
+            gardenBeta: boolean;
+            gardenNotificationsEnabled: boolean;
+            gardenNotificationsUseBirdChannels: boolean;
+            gardenNotificationChannels: ComponentProps<typeof GardenNotificationSettingsView>['channels'];
+            gardenNotificationsIncludePhoto: boolean;
+        };
+
     let {
         notifyMinConfidence = $bindable(),
         notifyAudioOnly = $bindable(),
@@ -19,6 +36,11 @@
         notifyDelayUntilVideo = $bindable(),
         notifyVideoFallbackTimeout = $bindable(),
         notifyCooldownMinutes = $bindable(),
+        notificationLanguage = $bindable(),
+        instanceUrl = $bindable(),
+        linkTarget = $bindable(),
+        frigateExternalUrl,
+        onOpenConnection,
         discordEnabled = $bindable(),
         discordWebhook = $bindable(),
         discordWebhookSaved = $bindable(),
@@ -35,7 +57,6 @@
         telegramTokenSaved = $bindable(),
         telegramChatId = $bindable(),
         telegramChatIdSaved = $bindable(),
-        notificationLanguage = $bindable(),
         emailEnabled = $bindable(),
         emailUseOAuth = $bindable(),
         emailConnectedEmail = $bindable(),
@@ -56,18 +77,32 @@
         emailFromEmail = $bindable(),
         emailToEmail = $bindable(),
         emailIncludeSnapshot = $bindable(),
-        instanceUrl = $bindable(),
-        linkTarget = $bindable(),
-        frigateExternalUrl,
-        onOpenConnection,
-        gardenBeta,
-        onOpenGarden,
         sendTestEmail,
         initiateGmailOAuth,
         initiateOutlookOAuth,
         disconnectEmailOAuth,
-        onActionFeedback
-    }: ComponentProps<typeof NotificationSettingsView> = $props();
+        onActionFeedback,
+        gardenBeta,
+        gardenNotificationsEnabled = $bindable(),
+        gardenNotificationsUseBirdChannels = $bindable(),
+        gardenNotificationChannels = $bindable(),
+        gardenNotificationsIncludePhoto = $bindable()
+    }: Props = $props();
+
+    // The channels set up, as the delivery sentence and Garden's alerts name them.
+    const channels = $derived(
+        policyChannels(
+            {
+                discord: { enabled: discordEnabled, webhook: discordWebhook, webhookSaved: discordWebhookSaved },
+                pushover: { enabled: pushoverEnabled, user: pushoverUserKey, userSaved: pushoverUserSaved, token: pushoverApiToken, tokenSaved: pushoverTokenSaved },
+                telegram: { enabled: telegramEnabled, token: telegramBotToken, tokenSaved: telegramTokenSaved, chatId: telegramChatId, chatIdSaved: telegramChatIdSaved },
+                email: { enabled: emailEnabled, useOAuth: emailUseOAuth, connectedEmail: emailConnectedEmail, smtpHost: emailSmtpHost, toEmail: emailToEmail }
+            },
+            (id) => $_(`settings.notifications.sentence.channel_${id}`)
+        )
+    );
+    // Garden's alert status is read only once the switch that turns Garden on has been saved.
+    const gardenSaved = $derived(settingsStore.settings?.beta_garden_animals === true);
 </script>
 
 <div class="space-y-8" data-settings-section="alerts">
@@ -75,6 +110,7 @@
         <LazyRoute loader={loadNotificationSettings} label={$_('settings.tabs.notifications')}>
         {#snippet content(NotificationSettings)}
         <NotificationSettings
+            region="main"
             bind:notifyMinConfidence
             bind:notifyAudioOnly
             bind:filterSpeciesMode
@@ -86,6 +122,18 @@
             bind:notifyDelayUntilVideo
             bind:notifyVideoFallbackTimeout
             bind:notifyCooldownMinutes
+            bind:notificationLanguage
+            bind:instanceUrl
+            bind:linkTarget
+            {frigateExternalUrl}
+            {onOpenConnection}
+            {channels}
+        />
+        {/snippet}
+        </LazyRoute>
+        <LazyRoute loader={loadNotificationChannelsSettings} label={$_('settings.notifications.channels_title', { default: 'Channels' })}>
+        {#snippet content(NotificationChannelsSettings)}
+        <NotificationChannelsSettings
             bind:discordEnabled
             bind:discordWebhook
             bind:discordWebhookSaved
@@ -102,7 +150,6 @@
             bind:telegramTokenSaved
             bind:telegramChatId
             bind:telegramChatIdSaved
-            bind:notificationLanguage
             bind:emailEnabled
             bind:emailUseOAuth
             bind:emailConnectedEmail
@@ -123,12 +170,6 @@
             bind:emailFromEmail
             bind:emailToEmail
             bind:emailIncludeSnapshot
-            bind:instanceUrl
-            bind:linkTarget
-            {frigateExternalUrl}
-            {onOpenConnection}
-            {gardenBeta}
-            {onOpenGarden}
             {sendTestEmail}
             {initiateGmailOAuth}
             {initiateOutlookOAuth}
@@ -138,4 +179,57 @@
         {/snippet}
         </LazyRoute>
     </div>
+
+    <SectionMore section="alerts" summary={gardenBeta
+        ? $_('settings.more.alerts_garden', { default: 'Cooldown, language, the link, the species filter and Garden animal alerts' })
+        : $_('settings.more.alerts', { default: 'Cooldown, language, the link and the species filter' })}>
+        <LazyRoute loader={loadNotificationSettings} label={$_('settings.tabs.notifications')}>
+        {#snippet content(NotificationSettings)}
+        <NotificationSettings
+            region="more"
+            bind:notifyMinConfidence
+            bind:notifyAudioOnly
+            bind:filterSpeciesMode
+            bind:filterSpeciesEntries
+            bind:legacySpeciesWhitelist
+            bind:notifyMode
+            bind:notifyOnInsert
+            bind:notifyOnUpdate
+            bind:notifyDelayUntilVideo
+            bind:notifyVideoFallbackTimeout
+            bind:notifyCooldownMinutes
+            bind:notificationLanguage
+            bind:instanceUrl
+            bind:linkTarget
+            {frigateExternalUrl}
+            {onOpenConnection}
+            {channels}
+        />
+        {/snippet}
+        </LazyRoute>
+
+        <!-- Garden's alerts send through the channels above, so they are set here, marked Beta. -->
+        {#if gardenBeta}
+            <section id="garden-section-alerts" class="scroll-mt-24 space-y-3" aria-labelledby="garden-alerts-title" data-garden-alerts>
+                <div class="flex flex-wrap items-center gap-2 pl-1">
+                    <h3 id="garden-alerts-title" class="text-lg font-semibold text-strong">{$_('settings.notifications.garden_title', { default: 'Garden animal alerts' })}</h3>
+                    <StatusChip tone="neutral" label={$_('settings.beta.chip', { default: 'Beta' })} />
+                </div>
+                <div class="card-base settings-section-body">
+                    <LazyRoute loader={loadGardenNotificationSettings} label={$_('settings.notifications.garden_title', { default: 'Garden animal alerts' })}>
+                    {#snippet content(GardenNotificationSettings)}
+                    <GardenNotificationSettings
+                        bind:enabled={gardenNotificationsEnabled}
+                        bind:useBirdChannels={gardenNotificationsUseBirdChannels}
+                        bind:channels={gardenNotificationChannels}
+                        bind:includePhoto={gardenNotificationsIncludePhoto}
+                        birdChannels={channels}
+                        statusAvailable={gardenSaved}
+                    />
+                    {/snippet}
+                    </LazyRoute>
+                </div>
+            </section>
+        {/if}
+    </SectionMore>
 </div>

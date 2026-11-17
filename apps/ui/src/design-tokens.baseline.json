@@ -405,8 +405,8 @@
     "arbitrary": 0
   },
   "lib/components/settings/NotificationSettings.svelte": {
-    "palette": 195,
-    "dark": 94,
+    "palette": 99,
+    "dark": 46,
     "arbitrary": 0
   },
   "lib/components/settings/RangeFilterSettings.svelte": {

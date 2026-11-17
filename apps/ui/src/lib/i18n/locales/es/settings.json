@@ -326,7 +326,9 @@
     "title": "Más opciones",
     "cameras": "Detalles de Frigate, origen de la imagen, clips y BirdNET-Go",
     "sharing": "eBird, iNaturalist, BirdWeather, tiempo de Home Assistant, información de especies, IA y telemetría",
-    "identification": "Especies bloqueadas, filtro de área de distribución, comprobaciones de vídeo, hardware y funciones beta"
+    "identification": "Especies bloqueadas, filtro de área de distribución, comprobaciones de vídeo, hardware y funciones beta",
+    "alerts": "Pausa, idioma, enlace y filtro de especies",
+    "alerts_garden": "Pausa, idioma, enlace, filtro de especies y alertas de animales del jardín"
   },
   "debug": {
     "llm_prompts_title": "Plantillas de prompts de LLM",
@@ -989,10 +991,10 @@
       "status_after_apply": "El estado de entrega aparece cuando el jardín está activado y guardado.",
       "refresh": "Actualizar estado de entrega"
     },
-    "garden_elsewhere": "Los avisos de animales del jardín se configuran con Animales del jardín, en Funciones beta. Se envían por los canales de arriba.",
-    "garden_open": "Abrir avisos del jardín",
     "link_open_connection": "Abrir Conexión",
     "channels_title": "Canales",
+    "details_title": "Ritmo, idioma, enlaces y especies",
+    "garden_title": "Alertas de animales del jardín",
     "channels_desc": "Adónde van los avisos. Active un canal para configurarlo."
   },
   "discord": {
@@ -1548,6 +1550,7 @@
     "garden_motion_toggle": "Recopilar fotos de movimiento para revisar en {camera}",
     "garden_naming_off": "Cada animal espera en Por revisar hasta que lo confirmes y lo nombres.",
     "garden_naming_elsewhere": "El nombrado automático se configura junto al umbral de identificación de las aves, al principio de Identificar aves.",
+    "garden_alerts_elsewhere": "Las alertas de animales del jardín se configuran en Alertas, junto a los canales por los que se envían.",
     "garden_naming_threshold_help": "Es una segunda comprobación, sobre qué animal es. Desde este valor, el animal se confirma y se nombra por usted. Por debajo, su foto va a Descartadas, desde donde puede restaurarla.",
     "garden_naming_threshold": "Nombrar un animal con esta certeza de cuál es",
     "garden_naming": "Nombrar animales automáticamente",
@@ -1594,7 +1597,7 @@
     "garden_cameras_open": "Elegir cámaras en conexión",
     "garden_alerts_on": "Los avisos del jardín están activados. Se configuran en Notificaciones, con sus canales.",
     "garden_alerts_off": "Los avisos del jardín están desactivados. Actívalos en Notificaciones, con sus canales.",
-    "garden_alerts_open": "Configurar avisos",
+    "garden_alerts_open": "Abrir alertas del jardín",
     "garden_domestic_birds": "Aves domésticas que tienes",
     "garden_domestic_birds_help": "Solo para aves que crías. El modelo de aves solo conoce especies silvestres, así que identifica una gallina como gallo bankiva. Las aves añadidas aquí se registran como animales del jardín, no como aves silvestres, y nunca se envían a eBird, BirdWeather ni iNaturalist.",
     "garden_domestic_birds_wild": "Nada cuenta como doméstico hasta que lo añades. Ánades reales, ánsares comunes, pavos salvajes y palomas bravías también viven en libertad, así que después se registran como tus aves en todas las cámaras.",
@@ -1623,7 +1626,6 @@
     "garden_section_cameras": "Cámaras",
     "garden_section_checks": "Comprobaciones automáticas",
     "garden_section_models": "Modelos",
-    "garden_section_alerts": "Alertas",
     "garden_naming_help": "Los animales que alcanzan el umbral de nombre se confirman y se nombran. Las fotos por debajo van a Descartadas, donde puedes restaurarlas.",
     "garden_device_note": "Las comprobaciones automáticas usan el dispositivo elegido en Ajustes › Modelos › Hardware cuando coincide con la CPU, y vuelven a la CPU si falla. Los escaneos de movimiento usan la CPU. El jardín ejecuta una tarea a la vez mientras las aves y las cámaras están inactivas.",
     "garden_status_refresh": "Actualizar estado",
@@ -1643,7 +1645,6 @@
     "garden_fact_unreadable": "No se pudo leer. Actualiza para reintentarlo.",
     "garden_fact_saved_crops": "Recortes guardados",
     "garden_fact_saved_crops_value": "{count, plural, one {# recorte} other {# recortes}} de {limit, number}",
-    "garden_channels_open": "Configurar canales en Notificaciones",
     "garden_sentence_blocked_model": "Aún no hay comprobación: el modelo del jardín no está descargado.",
     "garden_sentence_blocked_camera": "Aún no hay comprobación: ninguna cámara vigila animales del jardín.",
     "garden_sentence_no_check": "Todavía no se ha hecho ninguna comprobación.",

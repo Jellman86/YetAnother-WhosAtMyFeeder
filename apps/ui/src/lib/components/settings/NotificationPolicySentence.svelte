@@ -1,5 +1,8 @@
 <script lang="ts">
+    import { tick } from 'svelte';
     import { settingsScrollBehaviour } from '../../settings/scroll-behaviour';
+    import { useDisclosure } from '../../settings/disclosures.svelte';
+    import { settingsMoreId } from '../../settings/settings-more';
     import { _, locale } from 'svelte-i18n';
     import SettingsToggle from './_primitives/SettingsToggle.svelte';
     import type { NotificationSpeciesFilterMode } from '../../api/settings';
@@ -8,6 +11,7 @@
         formatChannelList,
         presetSentenceKey,
         speciesSummaryKey,
+        NOTIFICATION_CHANNELS_SECTION_ID,
         type NotifyMode,
         type PolicyChannel,
     } from '../../settings/notification-policy';
@@ -77,11 +81,22 @@
         if (preset !== 'final') openSlot = null;
     }
 
-    // Species and channels are each set in one place below; their words here are links to it.
-    function jumpTo(sectionId: string) {
+    // Species and channels are each set in one place; their words here are links to it. The species
+    // filter is under Alerts' More options, which opens first, then the link waits for it to be drawn.
+    const more = useDisclosure(() => ({ id: settingsMoreId('alerts') }));
+    const FIELD_WAIT_FRAMES = 60;
+    async function jumpTo(sectionId: string): Promise<void> {
         openSlot = null;
-        const section = document.getElementById(sectionId);
-        section?.scrollIntoView({ block: 'start', behavior: settingsScrollBehaviour() });
+        if (sectionId !== NOTIFICATION_CHANNELS_SECTION_ID) more.open = true;
+        for (let frame = 0; frame < FIELD_WAIT_FRAMES; frame += 1) {
+            await tick();
+            const section = document.getElementById(sectionId);
+            if (section) {
+                section.scrollIntoView({ block: 'start', behavior: settingsScrollBehaviour() });
+                return;
+            }
+            await new Promise((resolve) => requestAnimationFrame(resolve));
+        }
     }
 
     // Popovers close on outside pointer press or Escape; document listeners are
@@ -254,7 +269,7 @@
                 type="button"
                 class={linkClass}
                 aria-label={$_('settings.notifications.sentence.species_jump', { values: { summary: speciesLabel } })}
-                onclick={() => jumpTo(speciesSectionId)}
+                onclick={() => void jumpTo(speciesSectionId)}
                 data-policy-species-link
             >
                 {speciesLabel}
@@ -264,7 +279,7 @@
                 type="button"
                 class={linkClass}
                 aria-label={$_('settings.notifications.sentence.channels_jump', { values: { channels: channelsLabel }, default: 'Channels: {channels}. Go to the channels' })}
-                onclick={() => jumpTo(channelsSectionId)}
+                onclick={() => void jumpTo(channelsSectionId)}
                 data-policy-channels-link
             >
                 {channelsLabel}
