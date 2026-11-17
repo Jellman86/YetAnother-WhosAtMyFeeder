@@ -262,7 +262,7 @@
                 </h2>
                 <p class="mt-1 text-sm text-muted">
                     {$_('about.pipeline.subtitle', {
-                        default: 'The standard pipeline, showing what this instance is doing.'
+                        default: 'The path a visit takes, and what this instance is doing at each step.'
                     })}
                 </p>
             </div>

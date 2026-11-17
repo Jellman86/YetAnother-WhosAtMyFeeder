@@ -161,7 +161,7 @@
         </dl>
         <p class="mt-2 text-2xs text-muted">
             {$_('about.storage.note', {
-                default: 'SQLite under /data. Schema changes ship reversible migrations.'
+                default: 'One database file in your data folder. An update changes its layout in steps that can be undone.'
             })}
         </p>
     </section>

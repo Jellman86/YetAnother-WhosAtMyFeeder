@@ -46,9 +46,9 @@
 
     function sectionLabel(section: SetupSectionId): string {
         const labels: Record<SetupSectionId, string> = {
-            account: $_('setup.account.title', { default: 'Admin account & access' }),
+            account: $_('setup.account.title', { default: 'Owner account and access' }),
             connection: $_('setup.connection.title', { default: 'Frigate & MQTT connection' }),
-            cameras: $_('setup.cameras.title', { default: 'Cameras & detection' }),
+            cameras: $_('setup.cameras.title', { default: 'Cameras' }),
             model: $_('setup.model.title', { default: 'Classifier model & hardware' }),
             quality: $_('setup.quality.title', { default: 'Best available snapshots' }),
             integrations: $_('setup.integrations.title', { default: 'Integrations' })
@@ -92,9 +92,9 @@
             case 'cameras_all':
                 return $_('setup.review.detail.cameras_all', { default: 'All cameras' });
             case 'model_wrong_kind':
-                return $_('setup.review.detail.model_wrong_kind', { default: 'A crop detector is selected as the classifier' });
+                return $_('setup.review.detail.model_wrong_kind', { default: 'A bird finder is chosen where a model that names birds is needed' });
             case 'model_retired':
-                return $_('setup.review.detail.model_retired', { default: 'The saved classifier has been retired' });
+                return $_('setup.review.detail.model_retired', { default: 'The saved model is no longer offered' });
             case 'model_missing':
                 return text('model')
                     ? $_('setup.review.detail.model_missing', { values: { model: text('model') }, default: '{model} is not on this install, so nothing is naming birds yet.' })
@@ -110,7 +110,7 @@
             case 'model_selected':
                 return text('model');
             case 'model_fallback':
-                return $_('setup.review.detail.model_fallback', { default: 'Bundled fallback' });
+                return $_('setup.review.detail.model_fallback', { default: 'Built-in model, used as a fallback' });
             case 'quality_best':
                 return $_('setup.review.detail.quality_best', { default: 'Best available snapshots' });
             case 'quality_standard':

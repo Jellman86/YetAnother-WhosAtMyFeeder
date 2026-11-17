@@ -96,7 +96,6 @@
     import { settingsMoreId, settingsPartIsInMore } from '../settings/settings-more';
     import {
         loadConnectionSettings,
-        loadGardenBetaSettings,
         SETTINGS_PART_LOADERS
     } from '../components/settings/sections/part-loaders';
     import SettingsPage from '../components/settings/_primitives/SettingsPage.svelte';
@@ -123,7 +122,6 @@
     import { provideSettingsFieldErrors } from '../settings/field-error-context';
     import { unsavedChanges } from '../stores/unsaved-changes';
     import { SettingsDisclosures, provideSettingsDisclosures } from '../settings/disclosures.svelte';
-    import { policyChannels } from '../settings/notification-policy';
     import { RUNTIME_PROBLEM_OPENS, runtimeProblemKey } from '../settings/runtime-problem';
     import { currentAccessIdentity, draftFromForm, mergeDraft, unsavedDraft, type DraftConflict } from '../settings/unsaved-draft';
     import { conflictValueText } from '../settings/conflict-values';
@@ -963,19 +961,6 @@
     const disclosures = new SettingsDisclosures();
     provideSettingsDisclosures(disclosures);
 
-    // The bird channels as the draft holds them, which Garden alerts can follow.
-    const gardenBirdChannels = $derived(
-        policyChannels(
-            {
-                discord: { enabled: discordEnabled, webhook: discordWebhook, webhookSaved: discordWebhookSaved },
-                pushover: { enabled: pushoverEnabled, user: pushoverUser, userSaved: pushoverUserSaved, token: pushoverToken, tokenSaved: pushoverTokenSaved },
-                telegram: { enabled: telegramEnabled, token: telegramToken, tokenSaved: telegramTokenSaved, chatId: telegramChatId, chatIdSaved: telegramChatIdSaved },
-                email: { enabled: emailEnabled, useOAuth: emailUseOAuth, connectedEmail: emailConnectedEmail, smtpHost: emailSmtpHost, toEmail: emailToEmail }
-            },
-            (id) => $_(`settings.notifications.sentence.channel_${id}`)
-        )
-    );
-
     // On every read of the runtime or the settings: the sections that show a runtime problem open
     // for a new one, stay open while it clears, and stay closed on one the owner dismissed.
     function reportRuntimeProblem(): void {
@@ -1478,15 +1463,13 @@
         field?.focus({ preventScroll: true });
     }
 
-    // Garden alerts are set with Garden, under Identifying birds' More options; Notifications links
-    // straight to their section.
+    // Garden's alerts are set in Alerts, under More options; Garden's card links straight to them.
     async function openGardenAlerts(): Promise<void> {
-        disclosures.setOpen(settingsMoreId('identification'), true);
-        disclosures.setOpen('garden-section-alerts', true);
-        openSection(settingsSectionOfPart('beta'));
-        const toggle = await fieldInOpenedPart(loadGardenBetaSettings, () => document.getElementById('garden-section-alerts-toggle'));
-        toggle?.scrollIntoView({ block: 'start' });
-        toggle?.focus({ preventScroll: true });
+        disclosures.setOpen(settingsMoreId('alerts'), true);
+        openSection(settingsSectionOfPart('notifications'));
+        const alerts = await fieldInOpenedPart(SETTINGS_PART_LOADERS.notifications, () => document.querySelector<HTMLElement>('[data-garden-alerts]'));
+        alerts?.scrollIntoView({ block: 'start' });
+        alerts?.querySelector<HTMLElement>('button[aria-checked]')?.focus({ preventScroll: true });
     }
 
     // Drive taxonomy status from the derived active section so router-driven changes
@@ -1517,7 +1500,10 @@
     onDestroy(() => {
         destroyed = true;
         const saved = settingsStore.settings;
-        if (!leftOnPurpose && saved && (isDirty || restoredDraft)) {
+        // Only a form this page has filled can hold edits. Left while it still waited for the saved
+        // copy (a quick Back while a kept draft waits for a fresh read), its fields are empty
+        // defaults, not changes; keeping them would replace the waiting draft with blanks.
+        if (!leftOnPurpose && saved && settingsFormLoads > 0 && (isDirty || restoredDraft)) {
             const identity = currentAccessIdentity();
             const draft = draftFromForm(
                 buildSettingsPayload() as Record<string, unknown>,
@@ -3249,12 +3235,7 @@
                 motionCameras={gardenMotionCameras}
                 bind:labels={gardenLabels}
                 bind:motionConfidence={gardenMotionConfidence}
-                bind:notificationsEnabled={gardenNotificationsEnabled}
-                bind:notificationsUseBirdChannels={gardenNotificationsUseBirdChannels}
-                bind:notificationChannels={gardenNotificationChannels}
-                bind:notificationsIncludePhoto={gardenNotificationsIncludePhoto}
-                birdChannels={gardenBirdChannels}
-                onOpenNotifications={() => openPart('notifications')}
+                onOpenAlerts={() => void openGardenAlerts()}
                 onOpenLocation={() => openSharingField('first screen', '#location-lat', '#setting-location-mode + div input[type="radio"]:not(:checked)')}
                 bind:automaticNaming={gardenAutomaticNaming}
                 bind:namingThreshold={gardenNamingThreshold}
@@ -3318,7 +3299,10 @@
                 {frigateExternalUrl}
                 onOpenConnection={() => void openFrigatePublicUrl()}
                 gardenBeta={betaGardenAnimals}
-                onOpenGarden={() => void openGardenAlerts()}
+                bind:gardenNotificationsEnabled
+                bind:gardenNotificationsUseBirdChannels
+                bind:gardenNotificationChannels
+                bind:gardenNotificationsIncludePhoto
                 {sendTestEmail}
                 {initiateGmailOAuth}
                 {initiateOutlookOAuth}

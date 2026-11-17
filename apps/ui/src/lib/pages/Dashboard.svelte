@@ -758,12 +758,30 @@
 
     <!-- Field desk: the day reads as one chronological log beside a rail. Below 1920px the rail is one
          column; from there it splits in two, what needs you and what is happening beside the
-         reference, so the log keeps a readable row instead of stretching across a wide screen. -->
+         reference, so the log keeps a readable row instead of stretching across a wide screen.
+         Needs your call comes first in the page, so on a phone the work is above the log; from 1280px
+         it heads the rail (across both of its columns from 1920px). -->
     <section
         data-dashboard-field-desk
         class="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,1.55fr)_minmax(18rem,0.75fr)] 3xl:grid-cols-[minmax(0,1.4fr)_minmax(0,2fr)]"
     >
-        <div class="min-w-0" data-dashboard-field-log-column>
+        {#if needsCall.visible}
+            <div class="min-w-0 xl:col-start-2 xl:row-start-1" data-dashboard-needs-call>
+                <ReviewQueueCard
+                    queue={reviewQueue}
+                    status={queueStatus}
+                    checks={checksView}
+                    onretry={retryReviewQueue}
+                    onreview={openRecord}
+                    onreviewall={() => void openReviewSession()}
+                    onopenchecks={() => onnavigate?.(SPECIES_CHECKS_LINK)}
+                    onretrychecks={() => loadSpeciesChecks({ retry: true })}
+                    onkept={speciesKept}
+                />
+            </div>
+        {/if}
+
+        <div class="min-w-0 xl:col-start-1 xl:row-span-2 xl:row-start-1" data-dashboard-field-log-column>
             <FieldLog
                 rows={fieldLogRows}
                 hiddenCount={hiddenVisitCount}
@@ -783,23 +801,9 @@
             />
         </div>
 
-        <aside class="grid min-w-0 grid-cols-1 items-start gap-6 3xl:grid-cols-2">
-            <!-- What needs you, then what is happening now. -->
+        <aside class="grid min-w-0 grid-cols-1 items-start gap-6 xl:col-start-2 3xl:grid-cols-2 {needsCall.visible ? 'xl:row-start-2' : 'xl:row-start-1'}">
+            <!-- What is happening now. -->
             <div class="flex min-w-0 flex-col gap-6" data-dashboard-rail-now>
-                {#if needsCall.visible}
-                    <ReviewQueueCard
-                        queue={reviewQueue}
-                        status={queueStatus}
-                        checks={checksView}
-                        onretry={retryReviewQueue}
-                        onreview={openRecord}
-                        onreviewall={() => void openReviewSession()}
-                        onopenchecks={() => onnavigate?.(SPECIES_CHECKS_LINK)}
-                        onretrychecks={() => loadSpeciesChecks({ retry: true })}
-                        onkept={speciesKept}
-                    />
-                {/if}
-
                 <DeskContextCards
                     detections={deskDetections}
                     visits={allVisits}
@@ -951,3 +955,13 @@
         {/snippet}
     </LazyModal>
 {/if}
+
+<style>
+    /* From 1280px the log spans the rail's two rows: Needs your call, then the rest of the rail. The
+       rail's first row is only as tall as the card, so the log's height never opens a gap under it. */
+    @media (min-width: 1280px) {
+        [data-dashboard-field-desk] {
+            grid-template-rows: auto 1fr;
+        }
+    }
+</style>

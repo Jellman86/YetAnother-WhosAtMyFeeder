@@ -326,7 +326,9 @@
     "title": "Altre opzioni",
     "cameras": "Dettagli di Frigate, origine dell’immagine, clip e BirdNET-Go",
     "sharing": "eBird, iNaturalist, BirdWeather, meteo di Home Assistant, informazioni sulle specie, IA e telemetria",
-    "identification": "Specie bloccate, filtro di areale, controlli video, hardware e funzioni beta"
+    "identification": "Specie bloccate, filtro di areale, controlli video, hardware e funzioni beta",
+    "alerts": "Pausa, lingua, link e filtro delle specie",
+    "alerts_garden": "Pausa, lingua, link, filtro delle specie e avvisi sugli animali del giardino"
   },
   "debug": {
     "llm_prompts_title": "Modelli di prompt LLM",
@@ -989,10 +991,10 @@
       "status_after_apply": "Lo stato di consegna appare quando il giardino è attivato e salvato.",
       "refresh": "Aggiorna stato di consegna"
     },
-    "garden_elsewhere": "Gli avvisi sugli animali del giardino si impostano con Animali del giardino, in Funzioni beta. Vengono inviati tramite i canali qui sopra.",
-    "garden_open": "Apri gli avvisi del giardino",
     "link_open_connection": "Apri Connessione",
     "channels_title": "Canali",
+    "details_title": "Ritmo, lingua, link e specie",
+    "garden_title": "Avvisi sugli animali del giardino",
     "channels_desc": "Dove vanno gli avvisi. Attiva un canale per configurarlo."
   },
   "discord": {
@@ -1548,6 +1550,7 @@
     "garden_motion_toggle": "Raccogli foto di movimento da verificare su {camera}",
     "garden_naming_off": "Ogni animale resta in Da controllare finché non lo confermi e gli assegni un nome.",
     "garden_naming_elsewhere": "La denominazione automatica si imposta con la soglia di identificazione degli uccelli, in cima a Identificare gli uccelli.",
+    "garden_alerts_elsewhere": "Gli avvisi sugli animali del giardino si impostano in Avvisi, con i canali da cui partono.",
     "garden_naming_threshold_help": "È una seconda verifica, su quale animale sia. Da questo valore in su, l’animale viene confermato e nominato per te. Sotto, la sua foto va in Scartate, da dove puoi ripristinarla.",
     "garden_naming_threshold": "Dai un nome a un animale con questa certezza su quale sia",
     "garden_naming": "Assegna i nomi agli animali automaticamente",
@@ -1594,7 +1597,7 @@
     "garden_cameras_open": "Scegli le telecamere in connessione",
     "garden_alerts_on": "Gli avvisi del giardino sono attivi. Si impostano in Notifiche, con i loro canali.",
     "garden_alerts_off": "Gli avvisi del giardino sono disattivati. Attivali in Notifiche, con i loro canali.",
-    "garden_alerts_open": "Imposta gli avvisi",
+    "garden_alerts_open": "Apri gli avvisi del giardino",
     "garden_domestic_birds": "Uccelli domestici che allevi",
     "garden_domestic_birds_help": "Solo per gli uccelli che allevi. Il modello degli uccelli conosce solo specie selvatiche, quindi identifica una gallina come gallo bankiva. Gli uccelli aggiunti qui vengono registrati come animali del giardino, non come uccelli selvatici, e non vengono mai inviati a eBird, BirdWeather o iNaturalist.",
     "garden_domestic_birds_wild": "Nulla conta come domestico finché non lo aggiungi. Germani reali, oche selvatiche, tacchini selvatici e piccioni selvatici vivono anche in natura, quindi da quel momento vengono registrati come tuoi uccelli su ogni telecamera.",
@@ -1623,7 +1626,6 @@
     "garden_section_cameras": "Telecamere",
     "garden_section_checks": "Controlli automatici",
     "garden_section_models": "Modelli",
-    "garden_section_alerts": "Avvisi",
     "garden_naming_help": "Gli animali che raggiungono la soglia di denominazione vengono confermati e nominati. Le foto al di sotto vanno in Scartate, dove puoi ripristinarle.",
     "garden_device_note": "Le verifiche automatiche usano il dispositivo scelto in Impostazioni › Modelli › Hardware quando concorda con la CPU, e tornano alla CPU se non funziona. Le scansioni di movimento usano la CPU. Il giardino esegue un lavoro alla volta mentre uccelli e videocamere sono inattivi.",
     "garden_status_refresh": "Aggiorna stato",
@@ -1643,7 +1645,6 @@
     "garden_fact_unreadable": "Impossibile leggere. Aggiorna per riprovare.",
     "garden_fact_saved_crops": "Ritagli salvati",
     "garden_fact_saved_crops_value": "{count, plural, one {# ritaglio} other {# ritagli}} su {limit, number}",
-    "garden_channels_open": "Configura i canali in Notifiche",
     "garden_sentence_blocked_model": "Nessuna verifica ancora: il modello del giardino non è scaricato.",
     "garden_sentence_blocked_camera": "Nessuna verifica ancora: nessuna videocamera osserva gli animali del giardino.",
     "garden_sentence_no_check": "Non è stata ancora eseguita alcuna verifica.",

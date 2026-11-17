@@ -46,7 +46,7 @@
             }
             setupWizardStore.close();
         } catch (err) {
-            skipError = err instanceof Error ? err.message : $_('setup.skip_failed', { default: 'Skipping failed: the server could not be reached.' });
+            skipError = err instanceof Error ? err.message : $_('setup.skip_failed', { default: 'Setup could not be skipped because YA-WAMF did not answer. Check that it is running, then try again.' });
         } finally {
             skipBusy = false;
         }

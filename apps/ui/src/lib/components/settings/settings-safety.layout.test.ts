@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import dataSource from './DataSettings.svelte?raw';
 import maintenanceSource from './MaintenanceSettings.svelte?raw';
-import notificationSource from './NotificationSettings.svelte?raw';
+import notificationRulesSource from './NotificationSettings.svelte?raw';
+import notificationChannelsSource from './NotificationChannelsSettings.svelte?raw';
+
+// Alerts' rules and its channels are two components; these checks read them as one.
+const notificationSource = `${notificationRulesSource}\n${notificationChannelsSource}`;
 import settingsPageSource from '../../pages/Settings.svelte?raw';
 import sharingSource from './sections/SharingSection.svelte?raw';
 import enSettings from '../../i18n/locales/en/settings.json';

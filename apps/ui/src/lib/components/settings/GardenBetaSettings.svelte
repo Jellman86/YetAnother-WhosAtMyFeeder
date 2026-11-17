@@ -18,9 +18,6 @@
     import SettingsSlider from './_primitives/SettingsSlider.svelte';
     import GardenModelSetup from './GardenModelSetup.svelte';
     import GardenCollectionStatus from './GardenCollectionStatus.svelte';
-    import GardenNotificationSettings from './GardenNotificationSettings.svelte';
-    import type { GardenNotificationChannel } from '../../api/garden';
-    import type { PolicyChannel } from '../../settings/notification-policy';
     import { GardenServiceStatus } from './garden-service-status.svelte';
     import { settingsStore } from '../../stores/settings.svelte';
     import { thresholdPercentText } from '../../utils/garden-threshold';
@@ -39,21 +36,15 @@
         motionCameras: string[];
         labels: string;
         motionConfidence: number;
-        notificationsEnabled?: boolean;
-        notificationsUseBirdChannels?: boolean;
-        notificationChannels?: GardenNotificationChannel[];
-        notificationsIncludePhoto?: boolean;
-        /** The bird channels as the page holds them, which Garden alerts can follow. */
-        birdChannels?: PolicyChannel[];
         /** Domestic birds the owner keeps: Garden animals on every camera, never bird detections. */
         domesticBirds?: DomesticBirdKey[];
         onNavigate?: (path: string) => void;
         /** Opens Connection at its camera list. */
         onOpenCameras?: () => void;
-        /** Opens Notifications, where the channels are set up. */
-        onOpenNotifications?: () => void;
         /** Opens Integrations at the location, which gives Garden its country. */
         onOpenLocation?: () => void;
+        /** Opens Garden's alerts, which are set in Alerts. */
+        onOpenAlerts?: () => void;
     };
 
     let {
@@ -62,16 +53,11 @@
         motionCameras,
         labels = $bindable('cat, dog'),
         motionConfidence = $bindable(0.5),
-        notificationsEnabled = $bindable(false),
-        notificationsUseBirdChannels = $bindable(true),
-        notificationChannels = $bindable<GardenNotificationChannel[]>([]),
-        notificationsIncludePhoto = $bindable(true),
-        birdChannels = [],
         domesticBirds = $bindable([]),
         onNavigate,
         onOpenCameras,
-        onOpenNotifications,
-        onOpenLocation
+        onOpenLocation,
+        onOpenAlerts
     }: Props = $props();
 
     const service = new GardenServiceStatus();
@@ -330,27 +316,17 @@
                 </div>
             </BetaSection>
 
-            <BetaSection
-                id="garden-section-alerts"
-                title={$_('settings.beta.garden_section_alerts', { default: 'Alerts' })}
-                hint={notificationsEnabled ? $_('settings.beta.status_on', { default: 'On' }) : $_('settings.beta.status_off', { default: 'Off' })}
-            >
-                <GardenNotificationSettings
-                    bind:enabled={notificationsEnabled}
-                    bind:useBirdChannels={notificationsUseBirdChannels}
-                    bind:channels={notificationChannels}
-                    bind:includePhoto={notificationsIncludePhoto}
-                    {birdChannels}
-                    statusAvailable={savedEnabled}
-                />
-                {#if onOpenNotifications}
-                    <div>
-                        <button type="button" class="btn btn-secondary min-h-11 max-w-full px-3 py-2 whitespace-normal" onclick={onOpenNotifications}>
-                            {$_('settings.beta.garden_channels_open', { default: 'Set up channels in Notifications' })}
-                        </button>
-                    </div>
+            <!-- Garden's alerts send through the bird alert channels, so they are set in Alerts. -->
+            <div class="flex flex-wrap items-center justify-between gap-3" data-garden-alerts-elsewhere>
+                <p class="min-w-0 flex-1 basis-60 text-sm text-muted">
+                    {$_('settings.beta.garden_alerts_elsewhere', { default: 'Garden animal alerts are set in Alerts, with the channels they send through.' })}
+                </p>
+                {#if onOpenAlerts}
+                    <button type="button" class="btn btn-secondary min-h-11 max-w-full px-3 py-2 whitespace-normal" onclick={onOpenAlerts}>
+                        {$_('settings.beta.garden_alerts_open', { default: 'Open Garden alerts' })}
+                    </button>
                 {/if}
-            </BetaSection>
+            </div>
 
             <BetaSection id="garden-section-outcomes" title={$_('settings.beta.garden_outcomes', { default: 'Where captures go' })}>
                 <div class="space-y-3" data-garden-outcomes>

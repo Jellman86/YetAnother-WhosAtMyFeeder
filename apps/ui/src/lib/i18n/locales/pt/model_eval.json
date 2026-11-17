@@ -177,7 +177,7 @@
     "high_abstention": "Não indicou espécie em {share}% das fotos. Talvez não cubra essas aves, ou a instalação esteja incompleta. Verifique o modelo em Configurações → Identificar aves.",
     "incomplete_install": "Os arquivos dele estão incompletos. Use “Reparar download” para este modelo em Configurações → Identificar aves.",
     "inference_health_unhealthy": "Ocorreram erros ou tempos esgotados enquanto ele rodava. Procure a causa nos logs do contêiner.",
-    "latency_drift_high": "Muito mais lento do que ao ser carregado: {measured, number} ms por foto contra {loaded, number} ms. O provedor em que rodou pode estar falhando. Defina o provedor de inferência como CPU em Configurações → Identificar aves e avalie de novo.",
+    "latency_drift_high": "Muito mais lento do que ao ser carregado: {measured, number} ms por foto contra {loaded, number} ms. O provedor em que rodou pode estar falhando. Defina o provedor de inferência como CPU em Configurações → Identificar aves e avalie de novo.",
     "latency_drift_high_plain": "Muito mais lento do que ao ser carregado. O provedor em que rodou pode estar falhando. Defina o provedor de inferência como CPU em Configurações → Identificar aves e avalie de novo.",
     "low_shared_core": "Nomeou corretamente menos da metade das aves comuns de comedouro, o que costuma indicar uma instalação danificada. Use “Reparar download” para este modelo em Configurações → Identificar aves.",
     "partial_vocabulary": "Não sabe nomear {outside} das {total} espécies de teste, geralmente porque vivem fora da sua região. Suas parcelas cobrem as espécies que ele sabe nomear.",

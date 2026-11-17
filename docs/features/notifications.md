@@ -159,7 +159,8 @@ rejected. Deleted, hidden, blocked and unknown visits are checked again before d
 ## Garden animals
 
 While the Garden animals beta is on, its alerts about named animals are set in
-**Settings → Identifying birds → More options → Garden animals → Alerts**, with the rest of Garden; Notifications links there. By default they use your bird
+**Settings → Alerts → More options → Garden animal alerts**, marked Beta, beside the channels they
+send through; the Garden card links there. By default they use your bird
 channels, meaning the ones switched on and configured, and attach the animal photo.
 You can choose channels for Garden alone instead. Bird filters, notification mode
 and the cooldown above apply to birds only. See

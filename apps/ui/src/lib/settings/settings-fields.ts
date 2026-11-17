@@ -22,6 +22,11 @@ const EXACT_FIELD_PARTS: Readonly<Record<string, SettingsPart>> = {
     // Garden's naming threshold sits in the naming card, beside the birds' one.
     garden_automatic_naming: 'detection',
     garden_naming_threshold: 'detection',
+    // Garden's alerts send through the bird alert channels, so they are set in Alerts.
+    garden_notifications_enabled: 'notifications',
+    garden_notifications_use_bird_channels: 'notifications',
+    garden_notification_channels: 'notifications',
+    garden_notifications_include_photo: 'notifications',
     nest_dedupe_minutes: 'connection',
     classification_image_source: 'connection',
     recording_frame_delay_seconds: 'connection',
@@ -147,6 +152,8 @@ const CAMERAS_MORE = settingsMoreId('cameras');
 const SHARING_MORE = settingsMoreId('sharing');
 // Identifying birds' More options: blocked species, the range filter, video checks, hardware and Beta.
 const IDENTIFICATION_MORE = settingsMoreId('identification');
+// Alerts' More options: the cooldown, language, link, species filter and Garden animal alerts.
+const ALERTS_MORE = settingsMoreId('alerts');
 
 const FIELD_PLACES: Readonly<Record<string, SettingsFieldPlace>> = {
     frigate_url: { labelKey: 'settings.frigate.url', inputId: 'frigate-url' },
@@ -188,7 +195,7 @@ const FIELD_PLACES: Readonly<Record<string, SettingsFieldPlace>> = {
     auth_session_expiry_hours: { labelKey: 'settings.auth.session_expiry', inputId: 'auth-expiry', disclosures: ['auth-session-and-proxy'] },
     public_access_rate_limit_per_minute: { labelKey: 'settings.public_access.rate_limit', inputId: 'public-rate', disclosures: ['public-access-windows'] },
     public_access_external_base_url: { labelKey: 'settings.public_access.share_base_url', inputId: 'public-share-base-url', disclosures: ['public-access-windows'] },
-    notifications_instance_url: { labelKey: 'settings.notifications.instance_url', inputId: 'notification-instance-url' },
+    notifications_instance_url: { labelKey: 'settings.notifications.instance_url', inputId: 'notification-instance-url', disclosures: [ALERTS_MORE] },
     inference_provider: { labelKey: 'settings.detection.inference_provider', inputId: 'inference-provider', disclosures: [IDENTIFICATION_MORE] },
     image_execution_mode: { labelKey: 'settings.detection.execution_mode', inputId: 'image-execution-mode', disclosures: [IDENTIFICATION_MORE, 'detection-memory-advanced'] },
     live_worker_count: { labelKey: 'settings.detection.worker_counts_live', inputId: 'live-worker-count', disclosures: [IDENTIFICATION_MORE, 'detection-memory-advanced'] },
