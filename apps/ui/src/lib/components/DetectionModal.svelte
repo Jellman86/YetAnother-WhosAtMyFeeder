@@ -1522,7 +1522,7 @@
     <div
         bind:this={modalElement}
         data-theme={isDarkMode ? 'dark' : 'light'}
-        class="relative flex max-h-dvh w-full max-w-5xl flex-col overflow-hidden rounded-none border border-line-soft bg-surface shadow-2xl sm:max-h-[92vh] sm:rounded-2xl"
+        class="relative flex max-h-dvh w-full max-w-5xl flex-col overflow-hidden rounded-none border border-line-soft bg-surface shadow-2xl sm:max-h-[92vh] sm:rounded-2xl xl:max-w-7xl"
         role="document"
         tabindex="-1"
     >
@@ -1541,9 +1541,11 @@
             data-detection-modal-header
         />
 
-        <div class="flex-1 overflow-y-auto flex flex-col lg:overflow-hidden lg:grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
-                <div class="flex min-h-0 shrink-0 flex-col bg-media lg:shrink lg:overflow-y-auto lg:border-r lg:border-line">
-                    <div class="relative min-w-0 aspect-4/3 min-h-72 shrink-0 overflow-hidden bg-media sm:aspect-video lg:flex-1" data-detection-photograph>
+        <!-- Side by side from 1024px, and on a phone or tablet held sideways (a short screen), where a
+             photograph above the identification would push it off the first screen. -->
+        <div class="flex-1 overflow-y-auto flex flex-col lg:overflow-hidden lg:grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] xl:grid-cols-5 sm:short:grid sm:short:grid-cols-2 sm:short:overflow-hidden">
+                <div class="flex min-h-0 shrink-0 flex-col bg-media lg:shrink lg:overflow-y-auto lg:border-r lg:border-line xl:col-span-2 sm:short:shrink sm:short:overflow-y-auto sm:short:border-r sm:short:border-line">
+                    <div class="relative min-w-0 aspect-4/3 min-h-72 shrink-0 overflow-hidden bg-media sm:aspect-video lg:flex-1 short:min-h-0 max-sm:short:max-h-half-screen" data-detection-photograph>
                         {#if photographDrawnUrl}
                             <img data-detection-media-ambient src={photographDrawnUrl} alt="" aria-hidden="true" class="absolute inset-0 h-full w-full scale-110 object-cover opacity-25 blur-2xl" />
                         {/if}
@@ -1622,11 +1624,13 @@
                         {/if}
                     </div>
                         <div
-                            class="relative flex shrink-0 flex-col bg-media {mediaFooterHasActions ? 'pt-4' : ''}"
+                            class="relative flex shrink-0 flex-col bg-media {mediaFooterHasActions ? 'sm:pt-4' : ''}"
                             data-detection-media-footer
                         >
                             {#if mediaFooterHasActions}
-                            <div class="flex flex-col gap-3 px-5 {showInlineFramePicker ? 'pb-2' : 'pb-5'}">
+                            <!-- On a phone the star and play buttons sit on the photograph's lower edge rather than in a
+                                 black band of their own under it, so the identification starts a band higher. -->
+                            <div class="flex flex-col gap-3 px-5 {showInlineFramePicker ? 'sm:pb-2' : 'sm:pb-5'} {wholeScene.pinned && wholeSceneReady ? 'max-sm:py-3' : ''}">
                                 {#if wholeScene.pinned && wholeSceneReady}
                                     <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center" data-detection-whole-scene-actions>
                                         <button
@@ -1651,7 +1655,7 @@
                                 {/if}
 
                                 {#if canShowFavoriteAction || canPlayVideo || showFetchFullVisitAction || isManualObservation || frigateIssueBadgeVisible}
-                                    <div class="flex flex-wrap items-center gap-2" data-detection-media-actions>
+                                    <div class="flex flex-wrap items-center gap-2 max-sm:absolute max-sm:inset-x-4 max-sm:bottom-full max-sm:z-30 max-sm:mb-3" data-detection-media-actions>
                                         {#if canShowFavoriteAction}
                                             <button
                                                 type="button"
@@ -1780,7 +1784,9 @@
                         </div>
                 </div>
 
-            <div data-detection-details-column class="flex min-w-0 flex-1 flex-col gap-5 wrap-break-word lg:overflow-y-auto p-5 sm:p-6 {showTagDropdown ? 'blur-xs pointer-events-none select-none' : ''}">
+            <div data-detection-details-column class="flex min-w-0 flex-1 flex-col gap-5 wrap-break-word lg:overflow-y-auto sm:short:overflow-y-auto p-5 sm:p-6 xl:col-span-3 xl:grid xl:grid-cols-2 xl:items-start xl:gap-x-8 {showTagDropdown ? 'blur-xs pointer-events-none select-none' : ''}">
+            <!-- The identification and what it rests on: the decision first. -->
+            <div class="flex min-w-0 flex-col gap-5" data-detection-primary-column>
             {#if isManualObservation && detection.observation_notes}
                 <div class="border-l-2 border-accent-line pl-3">
                     <div class="text-3xs font-bold text-muted">{$_('detection.observation_notes', { default: 'Observation notes' })}</div>
@@ -2298,7 +2304,10 @@
                     />
                 {/key}
             {/if}
+            </div>
 
+            <!-- Reference for the species and the record: beside the identification from 1280px, under it below. -->
+            <div class="flex min-w-0 flex-col gap-5" data-detection-secondary-column>
             {#if !isUnknownSpecies && detection.scientific_name}
                 <TaxonomyLineage scientificName={detection.scientific_name} commonName={detection.common_name} />
             {/if}
@@ -2342,6 +2351,7 @@
                     {/if}
             </RecordTechnicalDetails>
             </div>
+        </div>
         </div>
 
         {#if hasOwnerDetectionActions && showTagDropdown}

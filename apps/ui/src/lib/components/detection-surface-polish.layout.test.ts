@@ -262,4 +262,21 @@ describe('detection surface polish', () => {
         expect(row).not.toContain('aria-label');
         expect(row).toContain("{$_('actions.delete_detection')}");
     });
+
+    it('uses the width it is given: a side column from 1280px, no band under a phone photograph, side by side when held sideways', () => {
+        // The identification and the reference are two columns from 1280px, identification first in reading order.
+        const primary = detectionModalSource.indexOf('data-detection-primary-column');
+        const secondary = detectionModalSource.indexOf('data-detection-secondary-column');
+        expect(primary).toBeGreaterThan(detectionModalSource.indexOf('data-detection-details-column'));
+        expect(secondary).toBeGreaterThan(primary);
+        expect(detectionModalSource.indexOf('<TaxonomyLineage')).toBeGreaterThan(secondary);
+        expect(detectionModalSource.indexOf('data-detection-identity')).toBeLessThan(secondary);
+        expect(detectionModalSource).toContain('xl:col-span-3 xl:grid xl:grid-cols-2 xl:items-start');
+        expect(detectionModalSource).toContain('sm:rounded-2xl xl:max-w-7xl');
+        // On a phone the star and play buttons sit on the photograph's lower edge.
+        expect(detectionModalSource).toContain('max-sm:absolute max-sm:inset-x-4 max-sm:bottom-full max-sm:z-30 max-sm:mb-3" data-detection-media-actions');
+        // Held sideways, photograph and identification stand side by side.
+        expect(detectionModalSource).toContain('sm:short:grid sm:short:grid-cols-2 sm:short:overflow-hidden');
+    });
 });
+
