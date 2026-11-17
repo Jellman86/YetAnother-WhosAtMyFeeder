@@ -1,6 +1,7 @@
 """Every path that deletes captures by age seals their days first, and nothing else can (#949)."""
 
 import ast
+import re
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -97,23 +98,59 @@ async def test_a_failed_seal_deletes_no_capture_but_the_rest_of_cleanup_runs_and
     assert "retention_paused_daily_totals" in reasons
 
 
-def _calls(name: str) -> list[str]:
+def _enclosing_uses(predicate) -> list[str]:
+    """``file:function`` for every call or SQL string in app code that ``predicate`` matches."""
     found = []
     for path in APP.rglob("*.py"):
-        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
-            if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == name:
-                receiver = ast.unparse(node.func.value)
-                found.append(f"{path.relative_to(APP)}:{receiver}")
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+
+        def visit(node, function):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                function = node.name
+            if predicate(node):
+                found.append(f"{path.relative_to(APP)}:{function}")
+            for child in ast.iter_child_nodes(node):
+                visit(child, function)
+
+        visit(tree, "<module>")
     return sorted(found)
 
 
+def _call_to(*names):
+    return lambda node: isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr in names
+
+
+def _deletes_detections(node) -> bool:
+    return (
+        isinstance(node, ast.Constant)
+        and isinstance(node.value, str)
+        and re.search(r"DELETE\s+FROM\s+detections\b", node.value, re.IGNORECASE) is not None
+    )
+
+
+def _detection_delete_by_age(node) -> bool:
+    # Garden keeps its own history, with its own repository's delete by age.
+    return _call_to("delete_older_than")(node) and "Garden" not in ast.unparse(node.func.value)
+
+
 def test_only_the_retention_function_deletes_captures_by_age():
-    # Garden keeps its own history; every detection delete by age goes through sealing.
-    assert [call for call in _calls("delete_older_than") if "Garden" not in call] == [
-        "repositories/daily_totals_repository.py:self"
+    assert _enclosing_uses(_detection_delete_by_age) == [
+        "repositories/daily_totals_repository.py:seal_and_delete_older_than"
     ]
 
 
 def test_only_the_owner_deletes_a_capture_without_keeping_its_count():
     # Deleting a capture by hand is a correction; anything automatic records the loss.
-    assert {call.split(":")[0] for call in _calls("delete_by_frigate_event")} == {"routers/events.py"}
+    assert _enclosing_uses(_call_to("delete_by_frigate_event", "delete_by_frigate_events", "delete_by_id")) == [
+        "routers/events.py:bulk_delete_events",
+        "routers/events.py:delete_event",
+    ]
+
+
+def test_every_statement_that_deletes_detections_is_one_of_the_known_deletes():
+    assert _enclosing_uses(_deletes_detections) == [
+        "repositories/daily_totals_repository.py:delete_lost_capture",
+        "repositories/detection_repository.py:delete_all_if_count_is",
+        "repositories/detection_repository.py:delete_by_frigate_event",
+        "repositories/detection_repository.py:delete_older_than",
+    ]

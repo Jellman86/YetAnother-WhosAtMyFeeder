@@ -289,3 +289,58 @@ async def test_a_guest_never_sees_a_sealed_day_that_began_before_the_shared_wind
     assert _counts(body) == {"2036-02-10": 1, "2036-02-20": 2}
     assert body["daily_totals"]["totals_through"] is None
     assert (await client.get("/api/species/Parus%20major/stats")).status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_a_lost_capture_stored_again_counts_once_live_and_once_sealed(serve):
+    client, db_factory = await serve()
+    async with db_factory() as db:
+        assert await DailyTotalsRepository(db).delete_lost_capture("new-bb-2", zone=timezone.utc, now=NOW)
+        # Backfill or the end-event recovery stores the same Frigate event again.
+        await _capture(db, "new-bb-2", "2036-02-20 12:00:00", "Turdus merula")
+        await db.commit()
+    assert _counts((await client.get("/api/stats/detections/timeline?span=all")).json())["2036-02-20"] == 2
+    async with db_factory() as db:
+        await DailyTotalsRepository(db).seal_and_delete_older_than(
+            datetime(2036, 2, 21, 6, 0), zone=timezone.utc, now=NOW
+        )
+    assert _counts((await client.get("/api/stats/detections/timeline?span=all")).json())["2036-02-20"] == 2
+
+
+@pytest.mark.asyncio
+async def test_the_all_time_chart_starts_at_a_lost_capture_older_than_every_stored_one(serve):
+    client, db_factory = await serve(
+        [
+            ("x1", "2036-02-20 08:00:00", "Turdus merula", False),
+            ("x2", "2036-02-22 08:00:00", "Turdus merula", False),
+        ],
+        cutoff=datetime(2036, 1, 1),
+    )
+    async with db_factory() as db:
+        assert await DailyTotalsRepository(db).delete_lost_capture("x1", zone=timezone.utc, now=NOW)
+    body = (await client.get("/api/stats/detections/timeline?span=all")).json()
+    assert body["total_count"] == 2
+    assert _counts(body) == {"2036-02-20": 1, "2036-02-22": 1}
+
+
+@pytest.mark.asyncio
+async def test_a_live_day_counts_a_species_seen_only_in_lost_captures(serve):
+    client, db_factory = await serve([*DEFAULT_ROWS, ("new-gt", "2036-02-20 09:00:00", "Parus major", False)])
+    async with db_factory() as db:
+        assert await DailyTotalsRepository(db).delete_lost_capture("new-gt", zone=timezone.utc, now=NOW)
+    body = (await client.get("/api/stats/detections/timeline?span=all")).json()
+    day = next(point for point in body["points"] if point["bucket_start"].startswith("2036-02-20"))
+    assert (day["count"], day["unique_species"]) == (3, 2)
+
+
+@pytest.mark.asyncio
+async def test_a_species_whose_own_sealed_days_are_whole_is_not_called_possibly_low(serve):
+    # The 9th began before tracking and may be low; the Great Tit was only seen on the whole 10th.
+    client, _db = await serve(
+        [("early-bb", "2036-02-09 08:00:00", "Turdus merula", False), *DEFAULT_ROWS],
+        tracking_started="2036-02-09 12:00:00",
+    )
+    tit = (await client.get("/api/species/Parus%20major/stats")).json()
+    assert tit["daily_totals"] == {"totals_through": "2036-02-10", "complete_from": None, "partial": False}
+    blackbird = (await client.get("/api/species/Turdus%20merula/stats")).json()
+    assert blackbird["daily_totals"]["partial"] is True

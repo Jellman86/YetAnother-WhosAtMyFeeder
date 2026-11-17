@@ -1132,9 +1132,9 @@ stores it (parentheses included when the source writes them), or null when unrec
 - `GET /api/stats/detections/daily`
 - `GET /api/stats/detections/timeline` With day or month buckets, sealed days are counted from
   their daily totals (and compare lines from each species' totals, matched by catalogue
-  identity), and `span=all` starts at the first sealed day when that is older than every stored
+  identity), and `span=all` starts at the first sealed day (or the oldest capture Frigate lost) when that is older than every stored
   capture. Stored captures inside a sealed day's exact range are left out; captures Frigate lost
-  from live days are counted. Hour buckets use stored captures only. `daily_totals` reports
+  from live days are counted. Hour buckets never use daily totals. `daily_totals` reports
   `totals_through` (the last day counted from totals, or `null`), `partial` (some of those days
   began before daily totals were kept, so they may be low) and `complete_from` (the first day
   whose total is whole, when `partial`). Guests get no sealed day that began before their shared

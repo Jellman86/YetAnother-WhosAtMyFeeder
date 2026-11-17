@@ -183,6 +183,41 @@ async def test_a_capture_frigate_lost_is_kept_as_its_own_record_and_its_day_stay
 
 
 @pytest.mark.asyncio
+async def test_a_lost_capture_stored_again_is_no_longer_counted_as_lost(repo):
+    # The video classifier can delete an event Frigate still has; backfill or the end-event
+    # recovery then stores it again. The record of its loss goes in the same transaction.
+    await blackbird_day(repo)
+    await repo.delete_lost_capture("bb-3", zone=UTC, now=NOW)
+    await capture(repo, "bb-3", "2036-02-10 10:00:00")
+    assert await repo.lost_captures() == []
+    await repo.seal_and_delete_older_than(CUTOFF, zone=UTC, now=NOW)
+    assert by_species(await repo.totals()) == {"Turdus merula": (3, 2), "Parus major": (1, 1)}
+
+
+@pytest.mark.asyncio
+async def test_a_lost_record_whose_event_is_back_is_ignored_when_read_or_folded(repo):
+    # Belt and braces for a row written without the trigger, e.g. restored from an older backup.
+    await blackbird_day(repo)
+    await repo.db.execute(
+        """INSERT INTO lost_captures (frigate_event, detection_time, species_key, scientific_name,
+            display_name, lost_at) VALUES ('bb-3', '2036-02-10 10:00:00', 'name:turdus merula',
+            'Turdus merula', 'Turdus merula', '2036-02-11 00:00:00')"""
+    )
+    await repo.db.commit()
+    assert await repo.lost_captures() == []
+    assert await repo.lost_hourly_counts() == {}
+    await repo.seal_and_delete_older_than(CUTOFF, zone=UTC, now=NOW)
+    assert by_species(await repo.totals()) == {"Turdus merula": (3, 2), "Parus major": (1, 1)}
+
+
+@pytest.mark.asyncio
+async def test_cleanup_never_seals_today(repo):
+    await capture(repo, "today-early", "2036-03-01 06:00:00")
+    await repo.seal_and_delete_older_than(datetime(2036, 3, 1, 9, 0), zone=UTC, now=NOW)
+    assert await repo.sealed_days() == {}
+
+
+@pytest.mark.asyncio
 async def test_a_capture_lost_today_is_kept_too(repo):
     await capture(repo, "today-1", "2036-03-01 08:00:00")
     assert await repo.delete_lost_capture("today-1", zone=UTC, now=NOW) is True

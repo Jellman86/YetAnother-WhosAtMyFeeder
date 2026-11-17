@@ -11,7 +11,8 @@ days with them. Four tables keep the history instead:
   species.
 - ``lost_captures``: one row per capture deleted because Frigate no longer has its event, written
   in the same transaction as the delete. Its day stays live, and the row is counted with it until
-  the day is sealed, when it is folded into the day's total.
+  the day is sealed, when it is folded into the day's total. If the event is stored again, a
+  trigger deletes its loss record in the same transaction, so it is never counted twice.
 - ``daily_totals_tracking``: the one instant tracking started, set by this upgrade.
 
 A live day is read from its rows (and lost captures), a sealed day from its totals, so the two
@@ -88,9 +89,18 @@ def upgrade() -> None:
         """
     )
     op.execute("CREATE INDEX IF NOT EXISTS idx_lost_captures_time ON lost_captures (detection_time)")
+    # An event stored again (backfill, or the end-event recovery after the video classifier deleted
+    # it) is counted from its row; its loss record goes in the same transaction as the insert.
+    op.execute(
+        """
+        CREATE TRIGGER IF NOT EXISTS lost_captures_forget_restored AFTER INSERT ON detections
+        BEGIN DELETE FROM lost_captures WHERE frigate_event = NEW.frigate_event; END
+        """
+    )
 
 
 def downgrade() -> None:
+    op.execute("DROP TRIGGER IF EXISTS lost_captures_forget_restored")
     op.execute("DROP INDEX IF EXISTS idx_lost_captures_time")
     op.execute("DROP TABLE IF EXISTS lost_captures")
     op.execute("DROP INDEX IF EXISTS idx_species_daily_totals_species")

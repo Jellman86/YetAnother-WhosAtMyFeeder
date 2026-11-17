@@ -865,10 +865,21 @@ async def get_detection_timeline_span(
 
         else:
             oldest, newest = await repo.get_detection_time_bounds(**bounds)
+            # History reaches back to the first sealed day or the oldest capture Frigate lost, if
+            # either is older than every stored capture.
             first_sealed = await totals_repo.first_sealed_day(history_floor)
-            if first_sealed is not None:
-                sealed_start = local_midnight_utc(first_sealed, zone)
-                oldest = sealed_start if not oldest else min(oldest.replace(tzinfo=None), sealed_start)
+            earliest = [
+                instant
+                for instant in (
+                    oldest.replace(tzinfo=None) if oldest else None,
+                    local_midnight_utc(first_sealed, zone) if first_sealed is not None else None,
+                    await totals_repo.oldest_lost_capture(
+                        bounds["start_date"].replace(tzinfo=None) if bounds else None
+                    ),
+                )
+                if instant is not None
+            ]
+            oldest = min(earliest) if earliest else None
             if not oldest:
                 return DetectionsTimelineSpanResponse(
                     span="all",
@@ -942,8 +953,13 @@ async def get_detection_timeline_span(
             await in_ranges(repo.get_timebucket_counts_hourly),
         )
         # A capture Frigate lost still counts on its live day.
+        lost_buckets: set[str] = set()
         for key, count in (await totals_repo.lost_hourly_counts(window_start, window_end)).items():
             hourly_counts[key] = hourly_counts.get(key, 0) + count
+            lost_key, _label = _localized_bucket_key_and_label(
+                _parse_utc_bucket_key(key), bucket, user_tz, detailed_hour_label=(bucket == "hour" and span == "all")
+            )
+            lost_buckets.add(lost_key)
         hourly_metrics = await repo.get_timebucket_metrics(window_start, window_end, "hour")
         metric_rollups: dict[str, dict[str, float | int]] = {}
 
@@ -983,8 +999,9 @@ async def get_detection_timeline_span(
             metrics = metric_rollups.get(point.bucket_start, {})
             species_here = sealed_species.get(point.bucket_start, set())
             live_unique = int(metrics.get("unique_species") or 0)
-            if species_here and point.count > 0:
-                # A bucket that mixes sealed and live days counts each species once across both.
+            if (species_here or point.bucket_start in lost_buckets) and point.count > 0:
+                # A bucket that mixes sealed days, stored captures and lost captures counts each
+                # species once across all of them.
                 bucket_end = (
                     _parse_utc_bucket_key(ordered[index + 1].bucket_start) if index + 1 < len(ordered) else window_end
                 )

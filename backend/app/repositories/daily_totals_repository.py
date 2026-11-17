@@ -41,6 +41,7 @@ _VISIT_LOOKBACK = timedelta(days=1)
 # lock, and with it ingest, for the whole run. Each day is still written whole.
 SEAL_BATCH_DAYS = 7
 _HOUR_BUCKET = "strftime('%Y-%m-%dT%H:00:00Z', detection_time)"
+_NOT_STORED_AGAIN = "NOT EXISTS (SELECT 1 FROM detections d WHERE d.frigate_event = lost_captures.frigate_event)"
 
 
 @dataclass(frozen=True)
@@ -201,6 +202,12 @@ class DailyTotalsRepository(DetectionRepository):
             for event, at, key, scientific, display in rows
         ]
 
+    async def oldest_lost_capture(self, start: datetime | None = None) -> datetime | None:
+        where, params = self._lost_filter(start, None, None)
+        async with self.db.execute(f"SELECT MIN(detection_time) FROM lost_captures WHERE {where}", params) as cursor:
+            row = await cursor.fetchone()
+        return datetime.fromisoformat(str(row[0])) if row and row[0] else None
+
     async def lost_hourly_counts(
         self, start: datetime | None = None, end: datetime | None = None, *, species_keys: Collection[str] | None = None
     ) -> dict[str, int]:
@@ -217,7 +224,9 @@ class DailyTotalsRepository(DetectionRepository):
     def _lost_filter(
         start: datetime | None, end: datetime | None, species_keys: Collection[str] | None
     ) -> tuple[str | None, list]:
-        conditions, params = ["1 = 1"], []
+        # A record whose event is stored again is counted from its row (belt and braces for the
+        # trigger that deletes it on insert).
+        conditions, params = [_NOT_STORED_AGAIN], []
         if start is not None:
             conditions.append("detection_time >= ?")
             params.append(_stamp(start))
@@ -364,9 +373,10 @@ class DailyTotalsRepository(DetectionRepository):
         ) as cursor:
             rows = await cursor.fetchall()
         async with self.db.execute(
-            """SELECT species_key, MAX(species_id), MAX(taxa_id), MAX(scientific_name), MAX(common_name),
+            f"""SELECT species_key, MAX(species_id), MAX(taxa_id), MAX(scientific_name), MAX(common_name),
                     MAX(display_name), COUNT(*)
-                FROM lost_captures WHERE detection_time >= ? AND detection_time < ? GROUP BY species_key""",
+                FROM lost_captures WHERE detection_time >= ? AND detection_time < ? AND {_NOT_STORED_AGAIN}
+                GROUP BY species_key""",
             bounds,
         ) as cursor:
             lost = await cursor.fetchall()

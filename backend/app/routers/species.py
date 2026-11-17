@@ -14,7 +14,7 @@ from app.database import get_db
 from app.repositories.audio_history_repository import AudioHistoryRepository
 from app.repositories.daily_totals_repository import DailyTotalsRepository
 from app.repositories.detection_repository import DetectionRepository
-from app.services.daily_history import coverage, first_whole_day, sealed_ranges
+from app.services.daily_history import DayCoverage, coverage, first_whole_day, sealed_ranges
 from app.services.daily_totals_lookup import species_history_keys
 from app.utils.calendar_day import instance_timezone, local_date
 from app.repositories.species_repository import SpeciesRepository
@@ -1329,8 +1329,17 @@ async def get_species_stats(
             ),
             default=None,
         )
-        # The note under this species' charts speaks only when its own counts come from totals.
-        covered = coverage({day: seal.complete for day, seal in sealed.items()} if species_totals else {})
+        # The note under this species' charts speaks only when its own counts come from totals, and
+        # calls them possibly low only when one of its own sealed days is.
+        if species_totals:
+            own = coverage({total.day: sealed[total.day].complete for total in species_totals if total.day in sealed})
+            covered = DayCoverage(
+                totals_through=coverage({day: seal.complete for day, seal in sealed.items()}).totals_through,
+                complete_from=own.complete_from,
+                partial=own.partial,
+            )
+        else:
+            covered = coverage({})
 
         if total_stats["total"] == 0:
             raise HTTPException(status_code=404, detail=i18n_service.translate("errors.detection_not_found", lang=lang))

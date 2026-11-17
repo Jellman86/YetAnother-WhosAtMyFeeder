@@ -1955,13 +1955,6 @@ class DetectionRepository:
         ]
         return entries, len(waiting)
 
-    async def delete_by_id(self, detection_id: int) -> bool:
-        """Delete a detection by ID. Returns True if deleted."""
-        await self.db.execute("DELETE FROM detections WHERE id = ?", (detection_id,))
-        changed = await self._last_statement_changes()
-        await self.db.commit()
-        return changed > 0
-
     async def delete_by_frigate_event(self, frigate_event: str, *, preserve_favorites: bool = False) -> bool:
         """Delete a detection by Frigate event ID. Returns True if deleted."""
         query = "DELETE FROM detections WHERE frigate_event = ?"
@@ -3212,21 +3205,6 @@ class DetectionRepository:
         ) as cursor:
             rows = await cursor.fetchall()
             return {row[0] for row in rows}
-
-    async def delete_by_frigate_events(self, event_ids: list[str]) -> int:
-        """Delete detections by a list of Frigate event IDs."""
-        if not event_ids:
-            return 0
-        total_deleted = 0
-        chunk_size = 500
-        for i in range(0, len(event_ids), chunk_size):
-            chunk = event_ids[i : i + chunk_size]
-            placeholders = ",".join(["?"] * len(chunk))
-            query = f"DELETE FROM detections WHERE frigate_event IN ({placeholders})"
-            async with self.db.execute(query, chunk) as cursor:
-                total_deleted += cursor.rowcount or 0
-                await self.db.commit()
-        return total_deleted
 
     # The scan re-checks what might have changed and skips what cannot have.
     # `manual_%` events are an owner's own records with no Frigate event behind

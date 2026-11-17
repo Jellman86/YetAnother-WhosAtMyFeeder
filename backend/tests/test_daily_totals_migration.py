@@ -64,6 +64,17 @@ def test_daily_totals_migration_round_trips_without_touching_history(tmp_path):
         )
         with pytest.raises(sqlite3.IntegrityError):
             db.execute("INSERT INTO daily_totals_tracking(id, started_at) VALUES (2, '2026-01-01')")
+        # A lost capture whose event is stored again stops being counted as lost, in the same insert.
+        db.execute(
+            """INSERT INTO lost_captures(frigate_event,detection_time,species_key,display_name,lost_at)
+            VALUES ('back','2026-01-03 08:00:00','label:robin','Robin','2026-01-04 00:00:00')"""
+        )
+        db.execute(
+            """INSERT INTO detections(detection_time,detection_index,score,display_name,category_name,
+            frigate_event,camera_name) VALUES ('2026-01-03 08:00:00',0,0.9,'Robin','Robin','back','feeder')"""
+        )
+        assert db.execute("SELECT COUNT(*) FROM lost_captures").fetchone() == (0,)
+        db.execute("DELETE FROM detections WHERE frigate_event = 'back'")
 
     # Re-running the head is a no-op and keeps what it holds.
     migrate(REVISION)
