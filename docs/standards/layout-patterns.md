@@ -589,6 +589,13 @@ off with update checks, and absent rather than zero when unknown.
 
 ---
 
+### Health
+
+The System card (the verdict, the host's chart and the resource table) keeps the page's full width
+in every band. From 1280px what happened (`HealthActivityTimeline`) takes the main column and the
+history (earlier incidents, backend warnings and errors) and the diagnostics export stand in a side
+column beside it; below that they follow it, the two history lists side by side from 1024px.
+
 ## 3. Components and where they belong
 
 | Component | Use for | Do not |

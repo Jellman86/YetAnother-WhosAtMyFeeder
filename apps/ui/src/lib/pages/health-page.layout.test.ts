@@ -156,4 +156,18 @@ describe('Health page', () => {
         expect(panelSource).toContain('sm:hidden');
         expect(panelSource).toContain('hidden overflow-x-auto rounded-lg focus-ring sm:block');
     });
+
+    it('puts the history and the export in a side column from 1280px, beside what happened', () => {
+        const main = errorsSource.indexOf('data-health-main');
+        const side = errorsSource.indexOf('data-health-side');
+        expect(errorsSource).toContain('<div class="grid grid-cols-1 gap-6 xl:grid-cols-12 xl:items-start">');
+        expect(main).toBeGreaterThan(-1);
+        expect(errorsSource.indexOf('data-health-timeline')).toBeGreaterThan(main);
+        expect(side).toBeGreaterThan(errorsSource.indexOf('data-health-timeline'));
+        expect(errorsSource.indexOf('data-health-earlier-incidents')).toBeGreaterThan(side);
+        expect(errorsSource.indexOf('data-diagnostics-export')).toBeGreaterThan(side);
+        // The two history lists sit side by side at 1024px and stack in the side column from 1280px.
+        expect(errorsSource).toContain('<div class="grid grid-cols-1 gap-6 lg:grid-cols-2 xl:grid-cols-1">');
+    });
 });
+

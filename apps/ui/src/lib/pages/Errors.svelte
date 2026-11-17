@@ -1084,222 +1084,231 @@
          beneath it, so it is shown with that reading: the verdict's length then moves nothing.
          ── What happened: one thread of kept visits and filtered frames ── -->
     {#if readState !== 'reading'}
-    <Panel
-        title={$_('jobs.errors_activity_title', { default: 'What happened' })}
-        description={$_('jobs.errors_activity_subtitle', {
-            default: 'Recorded visits, filtered events and faults, in the order they happened'
-        })}
-        data-health-timeline
-    >
-        {#snippet actions()}
-            <span class="min-w-0 rounded-2xl border border-line px-2.5 py-1 text-xs font-semibold tabular-nums text-muted">
-                {$_('jobs.errors_activity_window', {
-                    values: { started: startedAgoText() },
-                    default: 'Since this instance started, {started}'
+    <!-- From 1280px what happened takes the main column, and the history and the export, looked up
+         rather than read through, stand in a side column beside it. -->
+    <div class="grid grid-cols-1 gap-6 xl:grid-cols-12 xl:items-start">
+        <div class="min-w-0 xl:col-span-8" data-health-main>
+            <Panel
+                title={$_('jobs.errors_activity_title', { default: 'What happened' })}
+                description={$_('jobs.errors_activity_subtitle', {
+                    default: 'Recorded visits, filtered events and faults, in the order they happened'
                 })}
-            </span>
-        {/snippet}
+                data-health-timeline
+            >
+                {#snippet actions()}
+                    <span class="min-w-0 rounded-2xl border border-line px-2.5 py-1 text-xs font-semibold tabular-nums text-muted">
+                        {$_('jobs.errors_activity_window', {
+                            values: { started: startedAgoText() },
+                            default: 'Since this instance started, {started}'
+                        })}
+                    </span>
+                {/snippet}
 
-        {#if !workspacePayload}
-            <!-- Shown only after the first reading failed: without it the start time is unknown. -->
-            <StateBlock class="mt-4" state="not-measured" cause={$_('jobs.errors_activity_unread', { default: 'Activity cannot be shown until a health reading has loaded.' })} />
-        {:else if instanceWindow === null}
-            <StateBlock
-                class="mt-4"
-                compact
-                state="not-measured"
-                cause={$_('jobs.errors_activity_no_window', {
-                    default: 'This instance has not reported when it started, so activity cannot be placed in a window yet.'
-                })}
-            />
-        {:else}
-            <div class="mt-3">
-                <HealthActivityTimeline
-                    rows={timelineRows}
-                    emptyMessage={$_('jobs.errors_activity_empty', {
-                        values: { started: startedAgoText() },
-                        default: 'No visits, filtered events or faults have been reported since this instance started {started} ago.'
-                    })}
-                    hiddenCount={timelineHidden}
-                    hiddenLabel={$_('jobs.errors_activity_earlier', {
-                        values: { count: timelineHidden },
-                        default: '{count, plural, one {# earlier event in this window} other {# earlier events in this window}}'
-                    })}
-                    loading={refreshing && timelineRows.length === 0}
-                    onselect={(detection) => goToDetection(detection.frigate_event)}
-                />
-            </div>
-        {/if}
-    </Panel>
-
-    <!-- ── Earlier incidents + backend warnings ────────────────────── -->
-    <div class="grid grid-cols-1 gap-6 xl:grid-cols-2">
-        <Panel
-            title={$_('jobs.earlier_incidents_title', { default: 'Earlier incidents' })}
-            description={$_('jobs.earlier_incidents_desc', { default: 'Problems that have since cleared. What is open now is listed with the system status above.' })}
-            data-health-earlier-incidents
-        >
-            <!-- The clearing action sits with the history it clears, not above the live status. -->
-            {#snippet actions()}
-                <button
-                    type="button"
-                    class="btn btn-secondary min-h-11 px-3 py-2 text-xs"
-                    onclick={clearWorkspace}
-                    disabled={clearing || refreshing}
-                    aria-describedby="health-clear-effect"
-                    data-health-clear
-                >
-                    {clearing ? $_('jobs.errors_clearing', { default: 'Clearing…' }) : $_('jobs.errors_clear', { default: 'Clear error history' })}
-                </button>
-                <span id="health-clear-effect" class="sr-only">{$_('jobs.errors_clear_effect', { default: 'Removes recorded errors and incidents now. Live checks carry on.' })}</span>
-            {/snippet}
-            {#if clearError}
-                <p class="mt-4 text-sm font-semibold text-status-fail" role="alert">{$_('jobs.errors_clear_failed', { default: 'The error history could not be cleared. Try again; if it keeps failing, check that YA-WAMF is running.' })}</p>
-            {/if}
-            {#if recentIncidents.length === 0}
-                <StateBlock class="mt-4" state="empty" cause={$_('jobs.earlier_incidents_empty', { default: 'Nothing has cleared since the error history was last cleared.' })} />
-            {:else}
-                <ul class="mt-4 divide-y divide-line-soft">
-                    {#each recentIncidents.slice(0, 6) as incident (incident.id)}
-                        <li class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-2.5">
-                            <p class="min-w-0 flex-1 basis-48 text-sm font-semibold text-strong">{diagnosticWords(incident.primaryReasonCode).title}</p>
-                            <span class="text-xs tabular-nums text-muted">{formatDateTime(incident.lastSeenAt)}</span>
-                        </li>
-                    {/each}
-                </ul>
-            {/if}
-        </Panel>
-
-        <Panel
-            title={$_('jobs.errors_backend_diagnostics_title', { default: 'Backend warnings and errors' })}
-            description={$_('jobs.errors_backend_diagnostics_desc', { default: 'The newest the backend has recorded since the error history was last cleared.' })}
-            data-health-backend-diagnostics
-        >
-            {#if backendEvents.length === 0}
-                <StateBlock class="mt-4" state="empty" cause={$_('jobs.errors_backend_empty', { default: 'The backend has recorded no warnings or errors since the error history was last cleared. Connection problems are listed at the top of this page, not here.' })} />
-            {:else}
-                <!-- One ruled row per diagnostic: the state in a worded chip, the cause in the reader's
-                     language where it is known, and the backend's own words under Technical details. -->
-                <ul class="mt-4 divide-y divide-line-soft">
-                    {#each backendEvents.slice(0, 8) as event (event.id)}
-                        {@const worded = diagnosticWords(event.reason_code)}
-                        <li class="py-3" data-health-diagnostic>
-                            <div class="flex flex-wrap items-center justify-between gap-2">
-                                <StatusChip tone={STATUS_TONE[statusTone(event.severity ?? 'warning')]} label={statusLabel(event.severity ?? 'warning')} title={event.severity} />
-                                <span class="text-xs tabular-nums text-ink">{formatDateTime(Date.parse(event.timestamp))}</span>
-                            </div>
-                            <p class="mt-2 wrap-break-word text-sm font-semibold text-strong" data-health-diagnostic-title>{worded.title}</p>
-                            {#if worded.next}
-                                <p class="mt-0.5 text-sm text-ink">{worded.next}</p>
-                            {/if}
-                            {#if (event.count ?? 1) > 1 && event.first_seen && event.last_seen}
-                                <!-- The backend keeps repeats of one fault as one entry; this says how often and over what span. -->
-                                <p class="mt-1 text-xs tabular-nums text-ink" data-diagnostic-repeats>
-                                    {$_('jobs.errors_repeated', {
-                                        values: {
-                                            count: (event.count ?? 1).toLocaleString(),
-                                            first: formatDateTime(Date.parse(event.first_seen)),
-                                            last: formatDateTime(Date.parse(event.last_seen))
-                                        },
-                                        default: '×{count}, first {first}, last {last}'
-                                    })}
-                                </p>
-                            {/if}
-                            {@render technicalDetails([
-                                `${event.component} · ${event.reason_code}`,
-                                event.message,
-                                ...(event.event_id ? [`event ${event.event_id}`] : []),
-                                ...(event.correlation_key ? [event.correlation_key] : [])
-                            ])}
-                        </li>
-                    {/each}
-                </ul>
-            {/if}
-        </Panel>
-    </div>
-
-    <!-- ── Diagnostics export ──────────────────────────────────────
-         Engineer-facing plumbing: useful when reporting a problem, noise on a
-         page whose job is to say whether the feeder is working. It sits behind
-         the same disclosure the subsystem detail uses. -->
-    <details class="panel" data-diagnostics-export>
-        <summary class="group flex min-h-11 cursor-pointer flex-wrap items-center justify-between gap-3 text-xs font-bold text-muted focus-ring">
-            <span class="flex items-center gap-2">
-                <svg class="h-4 w-4 shrink-0 text-muted transition-transform duration-200 group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
-                {$_('jobs.errors_export_title', { default: 'Diagnostics export' })}
-            </span>
-            <span class="font-semibold normal-case tracking-normal text-muted">
-                {$_('jobs.errors_export_count', {
-                    values: { count: bundles.length.toLocaleString() },
-                    default: '{count} saved'
-                })}
-            </span>
-        </summary>
-
-        <p class="mt-4 max-w-2xl text-sm text-muted">
-            {$_('jobs.errors_export_desc', {
-                default: 'A bundle captures this page, the backend’s warnings and errors, the model’s status, start-up warnings and incidents as one JSON file. Attach one when you report a problem.'
-            })}
-        </p>
-
-        <textarea
-            class="input-base mt-4 min-h-16 w-full text-sm"
-            rows="2"
-            bind:value={reportNotes}
-            placeholder={$_('jobs.errors_export_notes_placeholder', { default: 'What went wrong? Included in the bundle.' })}
-            aria-label={$_('jobs.errors_export_notes_placeholder', { default: 'What went wrong? Included in the bundle.' })}
-        ></textarea>
-
-        <div class="mt-3 flex flex-wrap items-center gap-2">
-            <input
-                class="input-base h-11 min-w-0 flex-1 text-sm sm:max-w-sm"
-                type="text"
-                bind:value={captureLabel}
-                placeholder={$_('jobs.error_bundles_label_placeholder', { default: 'Optional bundle label' })}
-                aria-label={$_('jobs.error_bundles_label_placeholder', { default: 'Optional bundle label' })}
-            />
-            <button type="button" class="btn btn-primary min-h-11 px-4 text-xs" onclick={() => exportCurrent(true)} disabled={exporting || refreshing || clearing}>
-                {$_('jobs.error_bundles_capture', { default: 'Capture Bundle' })}
-            </button>
-            <button type="button" class="btn btn-secondary min-h-11 px-4 text-xs" onclick={() => exportCurrent(false)} disabled={exporting || refreshing || clearing}>
-                {$_('jobs.errors_export_download_now', { default: 'Download without saving' })}
-            </button>
+                {#if !workspacePayload}
+                    <!-- Shown only after the first reading failed: without it the start time is unknown. -->
+                    <StateBlock class="mt-4" state="not-measured" cause={$_('jobs.errors_activity_unread', { default: 'Activity cannot be shown until a health reading has loaded.' })} />
+                {:else if instanceWindow === null}
+                    <StateBlock
+                        class="mt-4"
+                        compact
+                        state="not-measured"
+                        cause={$_('jobs.errors_activity_no_window', {
+                            default: 'This instance has not reported when it started, so activity cannot be placed in a window yet.'
+                        })}
+                    />
+                {:else}
+                    <div class="mt-3">
+                        <HealthActivityTimeline
+                            rows={timelineRows}
+                            emptyMessage={$_('jobs.errors_activity_empty', {
+                                values: { started: startedAgoText() },
+                                default: 'No visits, filtered events or faults have been reported since this instance started {started} ago.'
+                            })}
+                            hiddenCount={timelineHidden}
+                            hiddenLabel={$_('jobs.errors_activity_earlier', {
+                                values: { count: timelineHidden },
+                                default: '{count, plural, one {# earlier event in this window} other {# earlier events in this window}}'
+                            })}
+                            loading={refreshing && timelineRows.length === 0}
+                            onselect={(detection) => goToDetection(detection.frigate_event)}
+                        />
+                    </div>
+                {/if}
+            </Panel>
         </div>
 
-        {#if exportError}
-            <p class="mt-3 text-sm text-status-fail" role="alert">{exportError}</p>
-        {/if}
+        <div class="min-w-0 space-y-6 xl:col-span-4" data-health-side>
 
-        {#if bundles.length === 0}
-            <StateBlock class="mt-4" variant="inline" state="empty" cause={$_('jobs.errors_no_bundles', { default: 'No captured bundles available yet.' })} />
-        {:else}
-            <ul class="mt-5 divide-y divide-line border-t border-line">
-                {#each bundles as bundle (bundle.id)}
-                    <li class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 py-3">
-                        <div class="min-w-0 flex-1">
-                            <p class="wrap-break-word text-sm font-semibold text-strong">{bundle.label}</p>
-                            <p class="mt-0.5 text-xs tabular-nums text-muted">
-                                {formatDateTime(bundle.createdAt)} · {bundleSummaryText(bundle)}
-                            </p>
-                            {#if bundleNotesPreview(bundle)}
-                                <p class="mt-1 wrap-break-word text-xs text-muted">{bundleNotesPreview(bundle)}</p>
-                            {/if}
-                        </div>
-                        <div class="flex shrink-0 items-center gap-1">
-                            <button type="button" class="btn btn-ghost min-h-11 px-3 text-xs" onclick={() => downloadBundle(bundle)}>
-                                {$_('jobs.error_bundles_download', { default: 'Download' })}
-                            </button>
-                            <button type="button" class="btn btn-ghost min-h-11 px-3 text-xs" onclick={() => jobDiagnosticsStore.removeBundle(bundle.id)}>
-                                {$_('jobs.error_bundles_delete', { default: 'Delete' })}
-                            </button>
-                        </div>
-                    </li>
-                {/each}
-            </ul>
-            <button type="button" class="btn btn-ghost mt-3 min-h-11 px-3 text-xs" onclick={() => jobDiagnosticsStore.clearBundles()}>
-                {$_('jobs.error_bundles_clear', { default: 'Clear Bundles' })}
-            </button>
-        {/if}
-    </details>
+            <!-- ── Earlier incidents + backend warnings ────────────────────── -->
+            <div class="grid grid-cols-1 gap-6 lg:grid-cols-2 xl:grid-cols-1">
+                <Panel
+                    title={$_('jobs.earlier_incidents_title', { default: 'Earlier incidents' })}
+                    description={$_('jobs.earlier_incidents_desc', { default: 'Problems that have since cleared. What is open now is listed with the system status above.' })}
+                    data-health-earlier-incidents
+                >
+                    <!-- The clearing action sits with the history it clears, not above the live status. -->
+                    {#snippet actions()}
+                        <button
+                            type="button"
+                            class="btn btn-secondary min-h-11 px-3 py-2 text-xs"
+                            onclick={clearWorkspace}
+                            disabled={clearing || refreshing}
+                            aria-describedby="health-clear-effect"
+                            data-health-clear
+                        >
+                            {clearing ? $_('jobs.errors_clearing', { default: 'Clearing…' }) : $_('jobs.errors_clear', { default: 'Clear error history' })}
+                        </button>
+                        <span id="health-clear-effect" class="sr-only">{$_('jobs.errors_clear_effect', { default: 'Removes recorded errors and incidents now. Live checks carry on.' })}</span>
+                    {/snippet}
+                    {#if clearError}
+                        <p class="mt-4 text-sm font-semibold text-status-fail" role="alert">{$_('jobs.errors_clear_failed', { default: 'The error history could not be cleared. Try again; if it keeps failing, check that YA-WAMF is running.' })}</p>
+                    {/if}
+                    {#if recentIncidents.length === 0}
+                        <StateBlock class="mt-4" state="empty" cause={$_('jobs.earlier_incidents_empty', { default: 'Nothing has cleared since the error history was last cleared.' })} />
+                    {:else}
+                        <ul class="mt-4 divide-y divide-line-soft">
+                            {#each recentIncidents.slice(0, 6) as incident (incident.id)}
+                                <li class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-2.5">
+                                    <p class="min-w-0 flex-1 basis-48 text-sm font-semibold text-strong">{diagnosticWords(incident.primaryReasonCode).title}</p>
+                                    <span class="text-xs tabular-nums text-muted">{formatDateTime(incident.lastSeenAt)}</span>
+                                </li>
+                            {/each}
+                        </ul>
+                    {/if}
+                </Panel>
+
+                <Panel
+                    title={$_('jobs.errors_backend_diagnostics_title', { default: 'Backend warnings and errors' })}
+                    description={$_('jobs.errors_backend_diagnostics_desc', { default: 'The newest the backend has recorded since the error history was last cleared.' })}
+                    data-health-backend-diagnostics
+                >
+                    {#if backendEvents.length === 0}
+                        <StateBlock class="mt-4" state="empty" cause={$_('jobs.errors_backend_empty', { default: 'The backend has recorded no warnings or errors since the error history was last cleared. Connection problems are listed at the top of this page, not here.' })} />
+                    {:else}
+                        <!-- One ruled row per diagnostic: the state in a worded chip, the cause in the reader's
+                             language where it is known, and the backend's own words under Technical details. -->
+                        <ul class="mt-4 divide-y divide-line-soft">
+                            {#each backendEvents.slice(0, 8) as event (event.id)}
+                                {@const worded = diagnosticWords(event.reason_code)}
+                                <li class="py-3" data-health-diagnostic>
+                                    <div class="flex flex-wrap items-center justify-between gap-2">
+                                        <StatusChip tone={STATUS_TONE[statusTone(event.severity ?? 'warning')]} label={statusLabel(event.severity ?? 'warning')} title={event.severity} />
+                                        <span class="text-xs tabular-nums text-ink">{formatDateTime(Date.parse(event.timestamp))}</span>
+                                    </div>
+                                    <p class="mt-2 wrap-break-word text-sm font-semibold text-strong" data-health-diagnostic-title>{worded.title}</p>
+                                    {#if worded.next}
+                                        <p class="mt-0.5 text-sm text-ink">{worded.next}</p>
+                                    {/if}
+                                    {#if (event.count ?? 1) > 1 && event.first_seen && event.last_seen}
+                                        <!-- The backend keeps repeats of one fault as one entry; this says how often and over what span. -->
+                                        <p class="mt-1 text-xs tabular-nums text-ink" data-diagnostic-repeats>
+                                            {$_('jobs.errors_repeated', {
+                                                values: {
+                                                    count: (event.count ?? 1).toLocaleString(),
+                                                    first: formatDateTime(Date.parse(event.first_seen)),
+                                                    last: formatDateTime(Date.parse(event.last_seen))
+                                                },
+                                                default: '×{count}, first {first}, last {last}'
+                                            })}
+                                        </p>
+                                    {/if}
+                                    {@render technicalDetails([
+                                        `${event.component} · ${event.reason_code}`,
+                                        event.message,
+                                        ...(event.event_id ? [`event ${event.event_id}`] : []),
+                                        ...(event.correlation_key ? [event.correlation_key] : [])
+                                    ])}
+                                </li>
+                            {/each}
+                        </ul>
+                    {/if}
+                </Panel>
+            </div>
+
+            <!-- ── Diagnostics export ──────────────────────────────────────
+                 Engineer-facing plumbing: useful when reporting a problem, noise on a
+                 page whose job is to say whether the feeder is working. It sits behind
+                 the same disclosure the subsystem detail uses. -->
+            <details class="panel" data-diagnostics-export>
+                <summary class="group flex min-h-11 cursor-pointer flex-wrap items-center justify-between gap-3 text-xs font-bold text-muted focus-ring">
+                    <span class="flex items-center gap-2">
+                        <svg class="h-4 w-4 shrink-0 text-muted transition-transform duration-200 group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
+                        {$_('jobs.errors_export_title', { default: 'Diagnostics export' })}
+                    </span>
+                    <span class="font-semibold normal-case tracking-normal text-muted">
+                        {$_('jobs.errors_export_count', {
+                            values: { count: bundles.length.toLocaleString() },
+                            default: '{count} saved'
+                        })}
+                    </span>
+                </summary>
+
+                <p class="mt-4 max-w-prose text-sm text-muted">
+                    {$_('jobs.errors_export_desc', {
+                        default: 'A bundle captures this page, the backend’s warnings and errors, the model’s status, start-up warnings and incidents as one JSON file. Attach one when you report a problem.'
+                    })}
+                </p>
+
+                <textarea
+                    class="input-base mt-4 min-h-16 w-full text-sm"
+                    rows="2"
+                    bind:value={reportNotes}
+                    placeholder={$_('jobs.errors_export_notes_placeholder', { default: 'What went wrong? Included in the bundle.' })}
+                    aria-label={$_('jobs.errors_export_notes_placeholder', { default: 'What went wrong? Included in the bundle.' })}
+                ></textarea>
+
+                <div class="mt-3 flex flex-wrap items-center gap-2">
+                    <input
+                        class="input-base h-11 min-w-0 flex-1 text-sm sm:max-w-sm"
+                        type="text"
+                        bind:value={captureLabel}
+                        placeholder={$_('jobs.error_bundles_label_placeholder', { default: 'Optional bundle label' })}
+                        aria-label={$_('jobs.error_bundles_label_placeholder', { default: 'Optional bundle label' })}
+                    />
+                    <button type="button" class="btn btn-primary min-h-11 px-4 text-xs" onclick={() => exportCurrent(true)} disabled={exporting || refreshing || clearing}>
+                        {$_('jobs.error_bundles_capture', { default: 'Capture Bundle' })}
+                    </button>
+                    <button type="button" class="btn btn-secondary min-h-11 px-4 text-xs" onclick={() => exportCurrent(false)} disabled={exporting || refreshing || clearing}>
+                        {$_('jobs.errors_export_download_now', { default: 'Download without saving' })}
+                    </button>
+                </div>
+
+                {#if exportError}
+                    <p class="mt-3 text-sm text-status-fail" role="alert">{exportError}</p>
+                {/if}
+
+                {#if bundles.length === 0}
+                    <StateBlock class="mt-4" variant="inline" state="empty" cause={$_('jobs.errors_no_bundles', { default: 'No captured bundles available yet.' })} />
+                {:else}
+                    <ul class="mt-5 divide-y divide-line border-t border-line">
+                        {#each bundles as bundle (bundle.id)}
+                            <li class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 py-3">
+                                <div class="min-w-0 flex-1">
+                                    <p class="wrap-break-word text-sm font-semibold text-strong">{bundle.label}</p>
+                                    <p class="mt-0.5 text-xs tabular-nums text-muted">
+                                        {formatDateTime(bundle.createdAt)} · {bundleSummaryText(bundle)}
+                                    </p>
+                                    {#if bundleNotesPreview(bundle)}
+                                        <p class="mt-1 wrap-break-word text-xs text-muted">{bundleNotesPreview(bundle)}</p>
+                                    {/if}
+                                </div>
+                                <div class="flex shrink-0 items-center gap-1">
+                                    <button type="button" class="btn btn-ghost min-h-11 px-3 text-xs" onclick={() => downloadBundle(bundle)}>
+                                        {$_('jobs.error_bundles_download', { default: 'Download' })}
+                                    </button>
+                                    <button type="button" class="btn btn-ghost min-h-11 px-3 text-xs" onclick={() => jobDiagnosticsStore.removeBundle(bundle.id)}>
+                                        {$_('jobs.error_bundles_delete', { default: 'Delete' })}
+                                    </button>
+                                </div>
+                            </li>
+                        {/each}
+                    </ul>
+                    <button type="button" class="btn btn-ghost mt-3 min-h-11 px-3 text-xs" onclick={() => jobDiagnosticsStore.clearBundles()}>
+                        {$_('jobs.error_bundles_clear', { default: 'Clear Bundles' })}
+                    </button>
+                {/if}
+            </details>
+        </div>
+    </div>
     {/if}
 </div>
