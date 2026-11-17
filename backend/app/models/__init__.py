@@ -1,6 +1,6 @@
 from app.models.classification_evidence import ClassificationEvidence
 from pydantic import BaseModel, Field, PrivateAttr, computed_field, field_serializer, field_validator
-from datetime import datetime
+from datetime import date, datetime
 from urllib.parse import urlparse
 from typing import Literal
 from app.utils.api_datetime import serialize_api_datetime
@@ -212,6 +212,20 @@ class CameraStats(APIModel):
     percentage: float
 
 
+class DailyTotalsCoverage(BaseModel):
+    """How far back a chart's counts come from sealed daily totals instead of stored captures (#949).
+
+    `totals_through` is the last such day (null when the chart reads only stored captures).
+    `partial` is true when some of those days were sealed after older captures were already
+    removed, before daily totals were kept; `complete_from` is then the first day whose total is
+    whole, if any.
+    """
+
+    totals_through: date | None = None
+    complete_from: date | None = None
+    partial: bool = False
+
+
 class SpeciesStats(APIModel):
     species_name: str
     scientific_name: str | None = None
@@ -228,6 +242,9 @@ class SpeciesStats(APIModel):
     max_confidence: float
     min_confidence: float
     recent_sightings: list[Detection]
+    # The first day this species is counted on, from stored captures or sealed daily totals.
+    history_first_day: date | None = None
+    daily_totals: DailyTotalsCoverage = Field(default_factory=DailyTotalsCoverage)
 
 
 class SpeciesInfo(APIModel):

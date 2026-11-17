@@ -7,11 +7,12 @@ from typing import List, Optional, Literal
 from collections import Counter
 from app.database import get_db
 from app.repositories.audio_history_repository import AudioHistoryRepository
+from app.repositories.daily_totals_repository import DailyTotalsRepository
 from app.repositories.detection_repository import DetectionRepository
 from app.repositories.bird_observation_repository import BirdObservationRepository
 from app.repositories.health_repository import HealthRepository
 from app.services.uptime import HEARTBEAT_INTERVAL_MINUTES, build_uptime_window
-from app.models import APIModel, DetectionResponse
+from app.models import APIModel, DailyTotalsCoverage, DetectionResponse
 from app.config import settings
 from app.services.accelerator_telemetry import DrmProbeSnapshot
 from app.services.host_facts import collect_host_facts
@@ -33,7 +34,16 @@ from app.utils.public_access import (
 )
 from app.utils.api_datetime import serialize_api_datetime, utc_naive_now
 from app.utils.timezone import calendar_timezone, get_user_timezone
-from app.utils.calendar_day import today_so_far
+from app.utils.calendar_day import instance_timezone, local_date, today_so_far
+from app.services.daily_history import (
+    coverage,
+    first_whole_day,
+    local_midnight_utc,
+    local_noon_utc,
+    sealed_ranges,
+    subtract_counts,
+)
+from app.services.daily_totals_lookup import species_history_keys
 
 router = APIRouter()
 
@@ -407,6 +417,7 @@ class DetectionsTimelineSpanResponse(APIModel):
     weather: Optional[list[DetectionsTimelineWeatherPoint]] = None
     sunrise_range: Optional[str] = None
     sunset_range: Optional[str] = None
+    daily_totals: DailyTotalsCoverage = Field(default_factory=DailyTotalsCoverage)
 
 
 class DetectionsActivityHeatmapCell(APIModel):
@@ -818,7 +829,11 @@ async def get_detection_timeline_span(
     # slow or unreachable weather host cannot hold pool capacity.
     async with get_db() as db:
         repo = DetectionRepository(db)
+        totals_repo = DailyTotalsRepository(db)
         bounds = {} if auth.is_owner else public_event_query_bounds(now.replace(tzinfo=timezone.utc))
+        zone = instance_timezone()
+        # A guest sees no sealed day that began before their window, not even its boundary day.
+        history_floor = None if auth.is_owner else first_whole_day(bounds["start_date"].replace(tzinfo=None), zone)
 
         if span == "day":
             window_start = now - timedelta(hours=24)
@@ -850,6 +865,21 @@ async def get_detection_timeline_span(
 
         else:
             oldest, newest = await repo.get_detection_time_bounds(**bounds)
+            # History reaches back to the first sealed day or the oldest capture Frigate lost, if
+            # either is older than every stored capture.
+            first_sealed = await totals_repo.first_sealed_day(history_floor)
+            earliest = [
+                instant
+                for instant in (
+                    oldest.replace(tzinfo=None) if oldest else None,
+                    local_midnight_utc(first_sealed, zone) if first_sealed is not None else None,
+                    await totals_repo.oldest_lost_capture(
+                        bounds["start_date"].replace(tzinfo=None) if bounds else None
+                    ),
+                )
+                if instant is not None
+            ]
+            oldest = min(earliest) if earliest else None
             if not oldest:
                 return DetectionsTimelineSpanResponse(
                     span="all",
@@ -891,7 +921,45 @@ async def get_detection_timeline_span(
                 )
 
         points_by_key = {point.bucket_start: point for point in points}
-        hourly_counts = await repo.get_timebucket_counts_hourly(window_start, window_end)
+        # A sealed day is counted from its daily totals alone; an hour bucket cannot hold a day's total.
+        sealed: dict = {}
+        if bucket != "hour":
+            # Only days wholly inside the window: a rolling window that opens mid-day keeps that
+            # day's stored captures rather than gaining its whole total.
+            first_day = first_whole_day(window_start, zone)
+            if history_floor is not None:
+                first_day = max(first_day, history_floor)
+            last_day = local_date(window_end, zone=zone)
+            sealed = await totals_repo.sealed_days(first_day, last_day) if last_day else {}
+        # Stored captures inside a sealed day's exact UTC range are already in its total.
+        ranges = [
+            (max(range_start, window_start), min(range_end, window_end))
+            for range_start, range_end in sealed_ranges(sealed, zone)
+        ]
+
+        def bucket_of_day(day) -> str:
+            key, _label = _localized_bucket_key_and_label(local_noon_utc(day, zone), bucket, user_tz)
+            return key
+
+        async def in_ranges(read) -> dict:
+            found: dict = {}
+            for range_start, range_end in ranges:
+                for key, value in (await read(range_start, range_end)).items():
+                    found[key] = found.get(key, 0) + value
+            return found
+
+        hourly_counts = subtract_counts(
+            await repo.get_timebucket_counts_hourly(window_start, window_end),
+            await in_ranges(repo.get_timebucket_counts_hourly),
+        )
+        # A capture Frigate lost still counts on its live day.
+        lost_buckets: set[str] = set()
+        for key, count in (await totals_repo.lost_hourly_counts(window_start, window_end)).items():
+            hourly_counts[key] = hourly_counts.get(key, 0) + count
+            lost_key, _label = _localized_bucket_key_and_label(
+                _parse_utc_bucket_key(key), bucket, user_tz, detailed_hour_label=(bucket == "hour" and span == "all")
+            )
+            lost_buckets.add(lost_key)
         hourly_metrics = await repo.get_timebucket_metrics(window_start, window_end, "hour")
         metric_rollups: dict[str, dict[str, float | int]] = {}
 
@@ -917,9 +985,33 @@ async def get_detection_timeline_span(
                 rollup["confidence_sum"] = float(rollup["confidence_sum"]) + (float(avg_confidence) * weight)
                 rollup["weight"] = int(rollup["weight"]) + weight
 
-        for point in points:
+        sealed_species: dict[str, set[str]] = {}
+        sealed_counts: dict[str, int] = {}
+        for total in await totals_repo.totals(min(sealed), max(sealed)) if sealed else []:
+            point = points_by_key.get(bucket_of_day(total.day))
+            if point is None:
+                continue
+            sealed_counts[point.bucket_start] = sealed_counts.get(point.bucket_start, 0) + total.capture_count
+            sealed_species.setdefault(point.bucket_start, set()).add(total.species_key)
+
+        ordered = sorted(points, key=lambda item: item.bucket_start)
+        for index, point in enumerate(ordered):
             metrics = metric_rollups.get(point.bucket_start, {})
-            point.unique_species = int(metrics.get("unique_species") or 0)
+            species_here = sealed_species.get(point.bucket_start, set())
+            live_unique = int(metrics.get("unique_species") or 0)
+            if (species_here or point.bucket_start in lost_buckets) and point.count > 0:
+                # A bucket that mixes sealed days, stored captures and lost captures counts each
+                # species once across all of them.
+                bucket_end = (
+                    _parse_utc_bucket_key(ordered[index + 1].bucket_start) if index + 1 < len(ordered) else window_end
+                )
+                live_keys = await totals_repo.live_species_keys(
+                    max(_parse_utc_bucket_key(point.bucket_start), window_start), bucket_end, exclude=ranges
+                )
+                point.unique_species = len(species_here | live_keys)
+            else:
+                point.unique_species = max(live_unique, len(species_here))
+            point.count += sealed_counts.get(point.bucket_start, 0)
             weight = int(metrics.get("weight") or 0)
             point.avg_confidence = (
                 float(metrics["confidence_sum"]) / weight
@@ -939,16 +1031,23 @@ async def get_detection_timeline_span(
                     break
 
             if sanitized_compare:
-                compare_counts = await repo.get_timebucket_species_counts_for_names(
-                    start=window_start,
-                    end=window_end,
-                    bucket="hour",
-                    species_names=sanitized_compare,
-                    language=lang,
+
+                async def compare_counts_between(range_start: datetime, range_end: datetime) -> dict:
+                    found = await repo.get_timebucket_species_counts_for_names(
+                        start=range_start,
+                        end=range_end,
+                        bucket="hour",
+                        species_names=sanitized_compare,
+                        language=lang,
+                    )
+                    return {(key, name): count for key, row in found.items() for name, count in row.items()}
+
+                live_compare = subtract_counts(
+                    await compare_counts_between(window_start, window_end), await in_ranges(compare_counts_between)
                 )
                 localized_compare_counts: dict[str, dict[str, int]] = {}
-                for bucket_key, species_counts in compare_counts.items():
-                    utc_bucket = _parse_utc_bucket_key(bucket_key)
+
+                def add_compare(utc_bucket: datetime, selected: str, count: int) -> None:
                     local_key, _label = _localized_bucket_key_and_label(
                         utc_bucket,
                         bucket,
@@ -956,8 +1055,20 @@ async def get_detection_timeline_span(
                         detailed_hour_label=(bucket == "hour" and span == "all"),
                     )
                     row = localized_compare_counts.setdefault(local_key, {})
-                    for selected, count in species_counts.items():
-                        row[selected] = row.get(selected, 0) + int(count)
+                    row[selected] = row.get(selected, 0) + int(count)
+
+                for (bucket_key, selected), count in live_compare.items():
+                    add_compare(_parse_utc_bucket_key(bucket_key), selected, count)
+                for selected in sanitized_compare:
+                    keys = await species_history_keys(db, selected)
+                    lost = await totals_repo.lost_hourly_counts(window_start, window_end, species_keys=keys)
+                    for bucket_key, count in lost.items():
+                        add_compare(_parse_utc_bucket_key(bucket_key), selected, count)
+                    for total in (
+                        await totals_repo.totals(min(sealed), max(sealed), species_keys=keys) if sealed else []
+                    ):
+                        row = localized_compare_counts.setdefault(bucket_of_day(total.day), {})
+                        row[selected] = row.get(selected, 0) + total.capture_count
                 compare_series = []
                 for selected in sanitized_compare:
                     compare_series.append(
@@ -1094,12 +1205,16 @@ async def get_detection_timeline_span(
                 sunset_range = None
 
     total_count = sum(p.count for p in points)
+    covered = coverage({day: seal.complete for day, seal in sealed.items()})
     return DetectionsTimelineSpanResponse(
         span=span,
         bucket=bucket,
         window_start=window_start.replace(tzinfo=timezone.utc).isoformat(),
         window_end=window_end.replace(tzinfo=timezone.utc).isoformat(),
         total_count=total_count,
+        daily_totals=DailyTotalsCoverage(
+            totals_through=covered.totals_through, complete_from=covered.complete_from, partial=covered.partial
+        ),
         points=points,
         compare_series=compare_series,
         weather=weather_points,

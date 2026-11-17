@@ -219,5 +219,7 @@
   "span_group": "Periodo",
   "more_options": "Altro",
   "table_share": "Quota",
-  "standing_heading": "Situazione del periodo"
+  "standing_heading": "Situazione del periodo",
+  "no_activity_daily_totals": "Questi giorni provengono dai totali giornalieri, che conservano il numero di acquisizioni ma non l’orario.",
+  "heatmap_stored_only": "Ora e giorno della settimana contano solo le acquisizioni conservate: un totale giornaliero non ha orario."
 }

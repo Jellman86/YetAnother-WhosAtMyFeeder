@@ -34,5 +34,6 @@
   "visits_month": "Visits, last 30 days",
   "detections_note": "Every identified capture counts once. One visit can hold several captures, so the Leaderboard’s visit counts are lower.",
   "recent_captures": "Recent captures",
-  "unknown_bird_actions": "Not identified to species. Run the model again on its photo or clip, or open it in Explorer to rename it."
+  "unknown_bird_actions": "Not identified to species. Run the model again on its photo or clip, or open it in Explorer to rename it.",
+  "daily_totals_time_of_day": "Time of day counts stored captures only, because a daily total has no time."
 }
