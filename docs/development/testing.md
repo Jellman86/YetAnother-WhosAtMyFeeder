@@ -81,6 +81,32 @@ and traces for seven days, one artifact per half. The same command works locally
 whole or in halves: `npm run test:browser -- --project=chromium` from `apps/ui`, or
 add `--shard=1/2` and `--shard=2/2`.
 
+### Production bundle
+
+The fixture suite above runs on the Vite dev server, which loads every module separately, so
+it cannot see how the production build splits code. A second Chromium check serves the built
+bundle from `dist` with `vite preview` and replays the same API fixtures. It checks that:
+- every page and Settings tab draws its own content;
+- every chunk the build emitted loads;
+- the German locale works;
+- charts, the map and a record's markdown analysis draw from their lazily loaded code;
+- no script fails and the console stays free of errors.
+
+It runs in CI as **Production bundle (Chromium)**, on one worker, in well under a minute.
+Locally, from `apps/ui`:
+
+```bash
+npm run build
+npm run test:browser:production
+```
+
+The frontend job also runs `npm run check:cache`. It builds twice with the same metadata, adding
+one line to the About page between the builds, and fails unless only About's chunk and the entry
+are renamed. Browsers then keep every other file cached across a release that changes one page.
+The build itself fails in two cases (`vite.config.ts`):
+- a page needs more than 10 scripts before it draws;
+- a chunk imports the entry's code, which would deadlock start-up.
+
 For the wider local matrix:
 
 From `apps/ui`:

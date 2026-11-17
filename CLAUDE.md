@@ -249,7 +249,9 @@ npm run dev        # dev server; proxy target is set in vite.config.ts
 npm run check      # svelte-check: zero errors, zero warnings
 npm test           # vitest unit/layout tests
 npm run lint:dead  # knip: no unused files, exports, or packages
-npm run build      # production build
+npm run build      # production build (fails a page over 10 scripts, or a chunk importing the entry)
+npm run test:browser:production  # Chromium smoke of the built bundle from dist (after build)
+npm run check:cache              # two builds a page apart rename only that page and the entry
 ```
 
 The dev proxy target in `vite.config.ts` points at the container service host; set
@@ -292,7 +294,11 @@ looser.
   ([`backend/scripts/ci_migration_path_check.py`](backend/scripts/ci_migration_path_check.py)),
   single-Alembic-head check, and `pytest`. **frontend**: `npm ci` → `npm run check`
   → `npm run lint:dead` (knip: no unused files, exports, or packages) → `npm run lint:tokens`
-  (the design-token ratchet and contrast proof) → `npm test` → `npm run build`.
+  (the design-token ratchet and contrast proof) → `npm test` → `npm run build` → `npm run check:cache`
+  (chunk names stable across a one-page change).
+  **production bundle**: `npm run build`, then `npm run test:browser:production`, a Chromium smoke of
+  the built bundle served from `dist`. It checks every page, every chunk, German and the lazy features,
+  with no console errors. The fixture suite runs on the dev server, which does not split code.
   **browser**: the complete Chromium fixture suite, with failure screenshots and traces retained.
   **intel image**: when the Dockerfile, `docker/`, the Intel requirements or the motion decoder
   change, builds the Intel image without publishing it and runs the flavor smoke test, including

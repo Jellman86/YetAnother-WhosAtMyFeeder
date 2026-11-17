@@ -67,6 +67,7 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
   import { pageRefreshAction } from './lib/stores/page_refresh_action.svelte';
   import { appApiPath, fromAppPath, toAppPath } from './lib/app/url-base';
   import { documentTitle, routeIdFor, routeOffersRefresh, type RouteId } from './lib/app/route-title';
+  import { createRoutePrefetch } from './lib/app/route-prefetch';
 
   // Card analyses are spoken once for the page, aggregated, through the shared announcer below.
   installAnalysisAnnouncements();
@@ -84,6 +85,19 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
   // The setup wizard runs once per install, so every later visit skips downloading it.
   const loadFirstRunWizard = lazyComponent(() => import('./lib/pages/FirstRunWizard.svelte'));
   const loadWizardShell = lazyComponent(() => import('./lib/components/setup/WizardShell.svelte'));
+  // Pointing at a page's link starts loading its code, so the click shows it without a wait.
+  const prefetchRoute = createRoutePrefetch({
+      dashboard: loadDashboardPage,
+      explorer: loadEventsPage,
+      add_observation: loadManualObservationPage,
+      leaderboard: loadSpeciesPage,
+      audio_history: loadAudioHistoryPage,
+      settings: loadSettingsPage,
+      notifications: loadNotificationsPage,
+      health: loadHealthPage,
+      model_evaluation: loadModelEvaluationPage,
+      about: loadAboutPage
+  });
 
   let isSidebarCollapsed = $derived(layoutStore.sidebarCollapsed);
   let isMobile = $state(false);
@@ -832,7 +846,7 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
 
       {/if}
 
-      <Sidebar {currentRoute} onNavigate={navigate} {isMobile} {mobileSidebarOpen} onMobileClose={() => mobileSidebarOpen = false}>
+      <Sidebar {currentRoute} onNavigate={navigate} onPrefetch={(path) => void prefetchRoute(path)} {isMobile} {mobileSidebarOpen} onMobileClose={() => mobileSidebarOpen = false}>
           {#snippet status(collapsed: boolean)}
               <ConnectionStatus
                   birdnetEnabled={Boolean(settingsStore.birdnetEnabled)}
