@@ -46,6 +46,8 @@
 
     let selectedCamera = $derived(cameras[selectedIndex] ?? '');
     let selectedFrame = $derived(selectedCamera ? frames[selectedCamera] : undefined);
+    /** No picture and none on its way: the viewer shows words instead of a frame. */
+    let frameMessage = $derived(!selectedFrame?.url && !selectedFrame?.loading);
     let selectedHealth = $derived(selectedCamera ? cameraHealth[selectedCamera] : undefined);
     let selectedHealthState = $derived<HealthState>(selectedHealth?.status ?? 'unknown');
     let onlineCount = $derived(cameras.reduce((count, camera) => count + (cameraHealth[camera]?.status === 'online' ? 1 : 0), 0));
@@ -358,7 +360,7 @@
     {#if popoverOpen}
         <div
             bind:this={viewerEl}
-            class="group/viewer fixed inset-x-4 top-35 w-auto overflow-hidden rounded-2xl border border-line bg-slate-950 shadow-2xl shadow-slate-950/25 z-60 animate-in fade-in zoom-in-95 md:absolute md:left-auto md:right-0 md:top-full md:mt-2 md:w-[min(34rem,calc(100vw-2rem))]"
+            class="group/viewer fixed inset-x-4 top-35 w-auto max-h-[calc(100dvh-9.75rem)] overflow-y-auto rounded-2xl border border-line bg-slate-950 shadow-2xl shadow-slate-950/25 z-60 animate-in fade-in zoom-in-95 md:absolute md:left-auto md:right-0 md:top-full md:mt-2 md:w-[min(34rem,calc(100vw-2rem))]"
             id={menuId}
             role="dialog"
             aria-modal="false"
@@ -366,7 +368,7 @@
             tabindex="-1"
         >
             {#if cameras.length === 0}
-                <div class="flex aspect-video max-h-[calc(100dvh-9.75rem)] flex-col items-center justify-center gap-3 px-6 text-center text-slate-300">
+                <div class="flex aspect-video flex-col items-center justify-center gap-3 px-6 text-center text-slate-300">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                     </svg>
@@ -375,7 +377,13 @@
                     </p>
                 </div>
             {:else}
-                <div class="relative aspect-video max-h-[calc(100dvh-9.75rem)] w-full bg-slate-950">
+                <!-- A frame is 16:9 with its labels laid over it. A message has no picture to lay them over:
+                     the camera's name, the message and the counter stack in flow, so the box is as tall as
+                     its words at any text size and nothing is clipped or covered. -->
+                <div
+                    class="relative flex w-full flex-col bg-slate-950 {frameMessage ? '' : 'aspect-video max-h-[calc(100dvh-9.75rem)] justify-center'}"
+                    data-camera-frame={frameMessage ? 'message' : 'picture'}
+                >
                     {#if selectedFrame?.url}
                         <img
                             src={selectedFrame.url}
@@ -387,20 +395,15 @@
                             <div class="h-7 w-7 animate-spin rounded-full border-2 border-white/30 border-t-white motion-reduce:animate-none"></div>
                         </div>
                     {:else}
-                        <div class="absolute inset-0 flex flex-col items-center justify-center gap-2 pt-12 text-slate-300 sm:gap-3 sm:pt-0">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="hidden h-8 w-8 text-muted sm:block" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                        <div class="flex flex-col items-center gap-2 px-4 pb-3 text-slate-300 sm:gap-3">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="hidden h-8 w-8 shrink-0 text-muted sm:block" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M3 3l18 18M10.73 5H5a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-3m0-4l2.553-1.276A1 1 0 0121 9.618v4.764a1 1 0 01-.553.894M15 8v-.999a2 2 0 00-2-2h-1" />
                             </svg>
-                            <span class="text-xs font-bold">
+                            <span class="text-center text-xs font-bold">
                                 {selectedFrame?.error
                                     ? $_('header.cameras_frame_unavailable', { default: 'This frame could not be loaded' })
                                     : $_('header.cameras_no_frame', { default: 'No frame' })}
                             </span>
-                            {#if selectedFrame?.error}
-                                <p class="max-w-xs px-4 text-center text-xs leading-snug" data-camera-frame-help>
-                                    {$_('header.cameras_frame_help', { default: 'Retry asks Frigate for the frame again. If it keeps failing, Health shows whether Frigate is answering.' })}
-                                </p>
-                            {/if}
                             <button
                                 type="button"
                                 onclick={() => void refreshSelectedFrame()}
@@ -408,6 +411,11 @@
                             >
                                 {$_('header.cameras_retry', { default: 'Retry' })}
                             </button>
+                            {#if selectedFrame?.error}
+                                <p class="max-w-xs text-center text-xs leading-snug" data-camera-frame-help>
+                                    {$_('header.cameras_frame_help', { default: 'Retry asks Frigate for the frame again. If it keeps failing, Health shows whether Frigate is answering.' })}
+                                </p>
+                            {/if}
                         </div>
                     {/if}
 
@@ -415,7 +423,7 @@
                         <div class="absolute right-16 top-4 h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white motion-reduce:animate-none" aria-label={$_('common.loading')}></div>
                     {/if}
 
-                    <div class="absolute left-3 top-3 flex max-w-[calc(100%-4.5rem)] items-center gap-2 rounded-full border border-white/15 bg-slate-950/70 px-3 py-2 text-white shadow-lg backdrop-blur-md" aria-live="polite">
+                    <div class="flex max-w-[calc(100%-4.5rem)] {frameMessage ? 'order-first m-3 flex-wrap self-start' : 'absolute left-3 top-3'} items-center gap-2 rounded-full border border-white/15 bg-slate-950/70 px-3 py-2 text-white shadow-lg backdrop-blur-md" aria-live="polite">
                         <span class="h-2 w-2 shrink-0 rounded-full {selectedDotClass}" aria-hidden="true"></span>
                         <span class="wrap-break-word text-xs font-bold">{selectedCamera}</span>
                         <span class="text-3xs font-semibold text-slate-300">
@@ -456,7 +464,7 @@
                         </button>
                     {/if}
 
-                    <div class="absolute bottom-3 right-3 rounded-full border border-white/10 bg-slate-950/65 px-2.5 py-1 text-3xs font-bold tabular-nums text-slate-200 backdrop-blur-md">
+                    <div class="{frameMessage ? 'mb-3 mr-3 self-end' : 'absolute bottom-3 right-3'} rounded-full border border-white/10 bg-slate-950/65 px-2.5 py-1 text-3xs font-bold tabular-nums text-slate-200 backdrop-blur-md">
                         {selectedIndex + 1} / {cameras.length}
                     </div>
                 </div>
