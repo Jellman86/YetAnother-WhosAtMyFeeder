@@ -10,6 +10,8 @@
 
 interface OutputChunk {
     readonly isEntry: boolean;
+    /** The chunk holds an entry module's code; an entry chunk does unless that code was grouped elsewhere. */
+    readonly holdsEntryCode?: boolean;
     readonly imports: readonly string[];
     readonly dynamicImports: readonly string[];
 }
@@ -40,4 +42,21 @@ export function viewScriptCounts(chunks: OutputChunks): Array<{ view: string; sc
         }
         return { view, scripts: scripts.size };
     });
+}
+
+/**
+ * Chunks that statically import the chunk holding the entry's code. The entry awaits its locale
+ * before it draws, so a chunk the entry is waiting for that imports the entry's code back can
+ * never finish: the page stays blank with no error. The entry chunk itself may import it (it is
+ * a stub when the entry's code was grouped elsewhere). The build fails on any other such import.
+ */
+export function chunksImportingAnEntry(chunks: OutputChunks): string[] {
+    const holding = new Set(
+        Object.entries(chunks).filter(([, chunk]) => chunk.holdsEntryCode ?? chunk.isEntry).map(([fileName]) => fileName)
+    );
+    return Object.entries(chunks)
+        .filter(([, chunk]) => !chunk.isEntry)
+        .flatMap(([fileName, chunk]) =>
+            chunk.imports.filter((target) => holding.has(target) && target !== fileName).map((target) => `${fileName} imports ${target}`)
+        );
 }

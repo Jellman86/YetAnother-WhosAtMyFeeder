@@ -1,6 +1,6 @@
 import { defineConfig, type Plugin } from 'vite'
 import { composeAppVersion } from './src/lib/app/app-version.ts';
-import { viewScriptCounts, type OutputChunks } from './src/lib/app/bundle-shape.ts';
+import { chunksImportingAnEntry, viewScriptCounts, type OutputChunks } from './src/lib/app/bundle-shape.ts';
 import { sharedChunkFor } from './src/lib/app/chunk-groups.ts';
 import { svelte } from '@sveltejs/vite-plugin-svelte'
 import tailwindcss from '@tailwindcss/vite'
@@ -56,10 +56,26 @@ function enforceScriptsPerView(maxScripts: number): Plugin {
         name: 'yawamf-scripts-per-view',
         apply: 'build',
         generateBundle(_options, bundle) {
+            const entryModules = new Set<string>();
+            for (const output of Object.values(bundle)) {
+                if (output.type === 'chunk' && output.isEntry && output.facadeModuleId) entryModules.add(output.facadeModuleId);
+            }
             const chunks: Record<string, OutputChunks[string]> = {};
             for (const output of Object.values(bundle)) {
                 if (output.type !== 'chunk') continue;
-                chunks[output.fileName] = { isEntry: output.isEntry, imports: output.imports, dynamicImports: output.dynamicImports };
+                chunks[output.fileName] = {
+                    isEntry: output.isEntry,
+                    holdsEntryCode: output.moduleIds.some((id) => entryModules.has(id)),
+                    imports: output.imports,
+                    dynamicImports: output.dynamicImports
+                };
+            }
+            const backwards = chunksImportingAnEntry(chunks);
+            if (backwards.length > 0) {
+                this.error(
+                    `A chunk imports the entry, which awaits its locale before it draws, so the page would never load: ${backwards.join(', ')}. ` +
+                    'Keep the entry module out of the shell group (vite.config.ts).'
+                );
             }
             const over = viewScriptCounts(chunks).filter((view) => view.scripts > maxScripts);
             if (over.length > 0) {
@@ -143,7 +159,10 @@ export default defineConfig(({ mode }) => ({
                 // formerly `advancedChunks`.
                 codeSplitting: {
                     groups: [
-                        { name: 'shell', tags: ['$initial'], priority: 2 },
+                        // The entry (index.html and main.ts) stays its own chunk: it awaits its locale
+                        // before it draws, and every lazily loaded chunk imports the shell, so the shell
+                        // must not hold the entry's code (enforceScriptsPerView checks this).
+                        { name: 'shell', tags: ['$initial'], test: (id) => !/[\\/](index\.html|src[\\/]main\.ts)$/.test(id), priority: 2 },
                         // A shared chunk takes only the modules named for it, not their dependencies too:
                         // otherwise `dialogs` and `setup` pull in code every view needs, and each view
                         // then loads them. The chunks stay acyclic: shell, then shared, then the rest.

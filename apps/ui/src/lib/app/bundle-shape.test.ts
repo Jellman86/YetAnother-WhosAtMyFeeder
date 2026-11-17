@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { viewScriptCounts, type OutputChunks } from './bundle-shape';
+import { chunksImportingAnEntry, viewScriptCounts, type OutputChunks } from './bundle-shape';
 
 const chunks: OutputChunks = {
     'entry.js': { isEntry: true, imports: ['shell.js'], dynamicImports: ['dashboard.js', 'settings.js', 'locale-en.js'] },
@@ -43,5 +43,31 @@ describe('viewScriptCounts', () => {
             'b.js': { isEntry: false, imports: [], dynamicImports: ['a.js'] }
         };
         expect(viewScriptCounts(cyclic).find((entry) => entry.view === 'b.js')?.scripts).toBe(3);
+    });
+});
+
+describe('chunksImportingAnEntry', () => {
+    it('finds none when every chunk imports only the shared code below the entry', () => {
+        expect(chunksImportingAnEntry(chunks)).toEqual([]);
+    });
+
+    it('finds a chunk that imports the chunk the entry\'s code went into, when the entry chunk is only a stub', () => {
+        // How the deadlock first appeared: the entry module was grouped into `shell`, leaving the
+        // entry chunk a stub that imports it, and the locale imported `shell`.
+        const merged: OutputChunks = {
+            'index.js': { isEntry: true, imports: ['shell.js'], dynamicImports: ['locale-en.js'] },
+            'shell.js': { isEntry: false, holdsEntryCode: true, imports: [], dynamicImports: [] },
+            'locale-en.js': { isEntry: false, imports: ['shell.js'], dynamicImports: [] }
+        };
+        expect(chunksImportingAnEntry(merged)).toEqual(['locale-en.js imports shell.js']);
+    });
+
+    it("finds a chunk that imports the entry back, which deadlocks while the entry awaits it", () => {
+        // The entry awaits its locale at the top level; a locale that imports the entry waits on it in turn.
+        const deadlocked: OutputChunks = {
+            'shell.js': { isEntry: true, imports: [], dynamicImports: ['locale-en.js'] },
+            'locale-en.js': { isEntry: false, imports: ['shell.js'], dynamicImports: [] }
+        };
+        expect(chunksImportingAnEntry(deadlocked)).toEqual(['locale-en.js imports shell.js']);
     });
 });
