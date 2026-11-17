@@ -195,7 +195,8 @@
       "frigate_unavailable": "Frigate is unavailable. Using snapshot analysis instead.",
       "no_results": "No species had enough consistent evidence across the video.",
       "event_missing": "Event not found in Frigate.",
-      "unknown": "Video analysis failed. Using snapshot analysis instead."
+      "unknown": "Video analysis failed. Using snapshot analysis instead.",
+      "event_missing_media_cached": "Frigate no longer has this event, but YA-WAMF still has its media."
     },
     "error_details": {
       "show": "Show error details",
@@ -225,7 +226,9 @@
         "pipeline_guard": "Safety guard/circuit breaker paused background video jobs after repeated failures.",
         "pipeline_exception": "The analysis was interrupted before it finished.",
         "unknown_1": "Fetching the media or analysing the video failed in a way YA-WAMF does not recognise.",
-        "unknown_2": "The event state changed while analysis was in progress."
+        "unknown_2": "The event state changed while analysis was in progress.",
+        "event_missing_media_cached": "YA-WAMF had already stored the media for this capture, so it can still be played although Frigate no longer has the event.",
+        "event_missing_media_cached_retention": "Frigate may have removed the event when its retention ran out, while YA-WAMF kept the snapshot or the full-visit clip."
       },
       "checks_items": {
         "frigate_event_page": "Open the same event in Frigate and verify it still exists.",
@@ -245,7 +248,9 @@
         "retry_snapshot": "Run the snapshot or video analysis again by hand.",
         "camera_quality": "Review camera focus/exposure around feeder area.",
         "backend_logs": "Check YA-WAMF’s log around this time for the exact error.",
-        "retry_manual": "Run the analysis again once Health shows everything working."
+        "retry_manual": "Run the analysis again once Health shows everything working.",
+        "use_cached_media": "Use the snapshot or clip YA-WAMF has. Nothing needs doing if it plays.",
+        "frigate_retention_if_unexpected": "If this happened sooner than you expected, check how long Frigate keeps events."
       }
     },
     "blocked_label": "Matched a blocked species: not applied"

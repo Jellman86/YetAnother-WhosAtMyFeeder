@@ -172,7 +172,8 @@
       "no_results": "Análise de vídeo não retornou resultados.",
       "event_missing": "Evento não encontrado no Frigate.",
       "unknown": "Análise de vídeo falhou. Usando análise de snapshot.",
-      "clip_not_retained": "O clipe não está mais retido no Frigate (fora da janela de retenção)."
+      "clip_not_retained": "O clipe não está mais retido no Frigate (fora da janela de retenção).",
+      "event_missing_media_cached": "O Frigate já não tem este evento, mas o YA-WAMF ainda tem a mídia."
     },
     "error_details": {
       "why": "Por que isso pode acontecer",
@@ -202,7 +203,9 @@
         "unknown_1": "Ocorreu um erro inesperado na recuperação de mídia ou no processamento de vídeo.",
         "unknown_2": "O estado do evento mudou durante a análise.",
         "video_timeout_large_clip": "O processamento do clipe demorou mais do que o timeout configurado.",
-        "video_timeout_resource": "Os recursos de GPU/CPU estavam saturados durante a inferência."
+        "video_timeout_resource": "Os recursos de GPU/CPU estavam saturados durante a inferência.",
+        "event_missing_media_cached": "O YA-WAMF já tinha guardado a mídia desta captura, por isso ainda pode ser reproduzida embora o Frigate já não tenha o evento.",
+        "event_missing_media_cached_retention": "O Frigate pode ter removido o evento quando a retenção terminou, enquanto o YA-WAMF manteve o instantâneo ou o clipe da visita completa."
       },
       "checks_items": {
         "api_health": "Verificar o endpoint de saúde da API do Frigate e a configuração de autenticação.",
@@ -222,7 +225,9 @@
         "retention_settings": "Revisar as configurações de retenção do Frigate e a integridade do armazenamento.",
         "retry_manual": "Tentar reclassificação manual novamente após a estabilização do serviço.",
         "retry_snapshot": "Tentar reclassificação manual de snapshot ou vídeo mais tarde.",
-        "video_timeout_setting": "Aumentar o timeout de análise de vídeo ou reduzir os frames amostrados."
+        "video_timeout_setting": "Aumentar o timeout de análise de vídeo ou reduzir os frames amostrados.",
+        "use_cached_media": "Use o instantâneo ou o clipe que o YA-WAMF tem. Se for reproduzido, não é preciso fazer nada.",
+        "frigate_retention_if_unexpected": "Se aconteceu mais cedo do que esperava, verifique por quanto tempo o Frigate guarda os eventos."
       }
     },
     "fallback_title": "Resultado a partir de captura",

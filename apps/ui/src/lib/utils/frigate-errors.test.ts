@@ -31,7 +31,7 @@ describe('frigate media error insights', () => {
         expect(hasFrigateMediaIssue(detection)).toBe(false);
 
         const insight = getVideoFailureInsight(detection, t);
-        expect(insight.summary).toBe('Frigate event metadata is gone, but cached media is still available in YA-WAMF.');
+        expect(insight.summary).toBe('Frigate no longer has this event, but YA-WAMF still has its media.');
         expect(insight.isFrigateRelated).toBe(true);
     });
 

@@ -70,22 +70,22 @@ export function getVideoFailureInsight(detection: Detection, t: Translate): Vide
         return {
             errorCode: code,
             summary: t('detection.video_analysis.errors.event_missing_media_cached', {
-                default: 'Frigate event metadata is gone, but cached media is still available in YA-WAMF.'
+                default: 'Frigate no longer has this event, but YA-WAMF still has its media.'
             }),
             causes: [
                 t('detection.video_analysis.error_details.causes.event_missing_media_cached', {
-                    default: 'YA-WAMF already cached media for this detection, so playback can still work even though the Frigate event no longer resolves.'
+                    default: 'YA-WAMF had already stored the media for this capture, so it can still be played although Frigate no longer has the event.'
                 }),
                 t('detection.video_analysis.error_details.causes.event_missing_media_cached_retention', {
-                    default: 'Frigate may have rotated event metadata out of retention while YA-WAMF kept the derived snapshot or full-visit clip.'
+                    default: 'Frigate may have removed the event when its retention ran out, while YA-WAMF kept the snapshot or the full-visit clip.'
                 })
             ],
             checks: [
                 t('detection.video_analysis.error_details.checks_items.use_cached_media', {
-                    default: 'Use the available snapshot or full clip in YA-WAMF; no immediate action is required if playback works.'
+                    default: 'Use the snapshot or clip YA-WAMF has. Nothing needs doing if it plays.'
                 }),
                 t('detection.video_analysis.error_details.checks_items.frigate_retention_if_unexpected', {
-                    default: 'If this happened sooner than expected, review Frigate event retention settings.'
+                    default: 'If this happened sooner than you expected, check how long Frigate keeps events.'
                 })
             ],
             isFrigateRelated: true

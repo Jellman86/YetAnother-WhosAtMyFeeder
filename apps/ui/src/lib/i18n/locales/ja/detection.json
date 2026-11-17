@@ -172,7 +172,8 @@
       "no_results": "ビデオ分析で結果が得られませんでした。",
       "event_missing": "Frigate にイベントが見つかりません。",
       "unknown": "ビデオ分析に失敗しました。スナップショット解析を使用します。",
-      "clip_not_retained": "クリップはFrigateに保持されていません（保持期間外）。"
+      "clip_not_retained": "クリップはFrigateに保持されていません（保持期間外）。",
+      "event_missing_media_cached": "Frigate にはこのイベントがもうありませんが、YA-WAMF にはメディアが残っています。"
     },
     "error_details": {
       "why": "発生する可能性がある理由",
@@ -202,7 +203,9 @@
         "unknown_1": "メディア取得またはビデオ処理で予期しないエラーが発生しました。",
         "unknown_2": "分析中にイベントの状態が変わりました。",
         "video_timeout_large_clip": "クリップ処理が設定されたタイムアウトより長くかかりました。",
-        "video_timeout_resource": "推論中にGPU/CPUリソースが飽和していました。"
+        "video_timeout_resource": "推論中にGPU/CPUリソースが飽和していました。",
+        "event_missing_media_cached": "YA-WAMF はこのキャプチャのメディアをすでに保存していたため、Frigate にイベントがなくなっても再生できます。",
+        "event_missing_media_cached_retention": "保持期間が過ぎて Frigate がイベントを削除した可能性があります。YA-WAMF はスナップショットまたは訪問全体のクリップを保持しています。"
       },
       "checks_items": {
         "api_health": "FrigateのAPIヘルスエンドポイントと認証設定を確認する。",
@@ -222,7 +225,9 @@
         "retention_settings": "Frigateの保持設定とストレージの状態を確認する。",
         "retry_manual": "サービスが安定した後に手動再分類を再試行する。",
         "retry_snapshot": "後で手動スナップショットまたはビデオ再分類を試みる。",
-        "video_timeout_setting": "ビデオ分析タイムアウトを増やすかサンプリングフレーム数を減らす。"
+        "video_timeout_setting": "ビデオ分析タイムアウトを増やすかサンプリングフレーム数を減らす。",
+        "use_cached_media": "YA-WAMF にあるスナップショットまたはクリップを使用してください。再生できれば、何もする必要はありません。",
+        "frigate_retention_if_unexpected": "想定より早く起きた場合は、Frigate がイベントを保持する期間を確認してください。"
       }
     },
     "fallback_title": "スナップショットからの結果",

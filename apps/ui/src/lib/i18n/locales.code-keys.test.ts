@@ -24,12 +24,6 @@ const LITERAL_KEY = /(?:\$_|(?<![\w$])t|\.t|(?<![\w$])translate)\(\s*['"]([a-z]\
  * rewording. They render their English fallback until then. Nothing may be added here.
  */
 const NOT_YET_IN_ANY_LOCALE = new Set([
-    // The record's cached-media explanations (utils/frigate-errors.ts): with the record's copy pass.
-    'detection.video_analysis.errors.event_missing_media_cached',
-    'detection.video_analysis.error_details.causes.event_missing_media_cached',
-    'detection.video_analysis.error_details.causes.event_missing_media_cached_retention',
-    'detection.video_analysis.error_details.checks_items.use_cached_media',
-    'detection.video_analysis.error_details.checks_items.frigate_retention_if_unexpected',
     // The model test dialog's skipped step (pages/models/ModelManager.svelte): with the Settings copy pass.
     'diagnostics.step_skipped'
 ]);

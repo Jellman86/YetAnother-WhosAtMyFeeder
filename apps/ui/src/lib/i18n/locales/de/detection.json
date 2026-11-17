@@ -172,7 +172,8 @@
       "no_results": "Videoanalyse lieferte keine Ergebnisse.",
       "event_missing": "Ereignis in Frigate nicht gefunden.",
       "unknown": "Videoanalyse fehlgeschlagen. Snapshot-Analyse wird genutzt.",
-      "clip_not_retained": "Clip wird von Frigate nicht mehr gespeichert (außerhalb des Aufbewahrungsfensters)."
+      "clip_not_retained": "Clip wird von Frigate nicht mehr gespeichert (außerhalb des Aufbewahrungsfensters).",
+      "event_missing_media_cached": "Frigate hat dieses Ereignis nicht mehr, aber YA-WAMF hat dessen Medien noch."
     },
     "error_details": {
       "why": "Warum das passieren kann",
@@ -202,7 +203,9 @@
         "unknown_1": "Der Medienabruf oder die Videoanalyse ist auf eine Weise fehlgeschlagen, die YA-WAMF nicht erkennt.",
         "unknown_2": "Der Ereigniszustand änderte sich, während die Analyse lief.",
         "video_timeout_large_clip": "Die Clip-Verarbeitung dauerte länger als der konfigurierte Timeout.",
-        "video_timeout_resource": "GPU/CPU-Ressourcen waren während der Inferenz ausgelastet."
+        "video_timeout_resource": "GPU/CPU-Ressourcen waren während der Inferenz ausgelastet.",
+        "event_missing_media_cached": "YA-WAMF hatte die Medien zu dieser Aufnahme bereits gespeichert, daher lassen sie sich weiter abspielen, obwohl Frigate das Ereignis nicht mehr hat.",
+        "event_missing_media_cached_retention": "Frigate hat das Ereignis möglicherweise nach Ablauf seiner Aufbewahrungsfrist entfernt, während YA-WAMF den Snapshot oder den Clip des ganzen Besuchs behalten hat."
       },
       "checks_items": {
         "api_health": "Frigate-API-Zustand und Authentifizierungskonfiguration prüfen.",
@@ -222,7 +225,9 @@
         "retention_settings": "Frigate-Aufbewahrungseinstellungen und Speicherzustand prüfen.",
         "retry_manual": "Starten Sie die Analyse erneut, sobald „Zustand“ zeigt, dass alles funktioniert.",
         "retry_snapshot": "Starten Sie die Snapshot- oder Videoanalyse von Hand erneut.",
-        "video_timeout_setting": "Videoanalyse-Timeout erhöhen oder gesampelte Frames reduzieren."
+        "video_timeout_setting": "Videoanalyse-Timeout erhöhen oder gesampelte Frames reduzieren.",
+        "use_cached_media": "Verwenden Sie den Snapshot oder Clip, den YA-WAMF hat. Wenn er abgespielt wird, ist nichts zu tun.",
+        "frigate_retention_if_unexpected": "Geschah das früher als erwartet, prüfen Sie, wie lange Frigate Ereignisse aufbewahrt."
       }
     },
     "fallback_title": "Ergebnis aus Snapshot",
