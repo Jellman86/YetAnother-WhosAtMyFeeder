@@ -92,6 +92,7 @@
     import SharingSection from '../components/settings/sections/SharingSection.svelte';
     import StorageSection from '../components/settings/sections/StorageSection.svelte';
     import DisplaySection from '../components/settings/sections/DisplaySection.svelte';
+    import SectionAside from '../components/settings/sections/SectionAside.svelte';
     import {
         loadConnectionSettings,
         loadGardenBetaSettings,
@@ -954,7 +955,7 @@
     provideSettingsFieldErrors({
         errorFor: (field) => standingErrors.find((error) => error.field === field)
             ?? (draftConflicts.some((conflict) => conflict.field === field)
-                ? { field, key: 'settings.save_bar.conflict_field', fallback: 'The saved value changed elsewhere since you edited this. Choose which to keep in the bar below.', conflict: true }
+                ? { field, key: 'settings.save_bar.conflict_field', fallback: 'The saved value changed elsewhere since you edited this. Choose which to keep under Changes waiting to be saved, at the end of this section.', conflict: true }
                 : undefined)
     });
 
@@ -3097,6 +3098,10 @@
 
 </script>
 
+{#snippet sectionAside()}
+    <SectionAside section={activeSection} onOpenPart={openPart} onOpenHealth={onNavigate ? () => onNavigate('/system-health') : undefined} />
+{/snippet}
+
 {#snippet pageNavigation()}
     <SettingsTabs {activeSection} onsectionchange={openSection} unsavedSections={unsavedSummary.sections} {refusedSections} contentId="settings-content" />
 {/snippet}
@@ -3125,6 +3130,7 @@
         ? $_('settings.save_bar.retype_secrets', { values: { fields: restoredSecretNames }, default: 'Type {fields} again: secrets are not kept when you leave Settings.' })
         : null}
     tabs={pageNavigation}
+    aside={sectionAside}
 >
     {#snippet children()}
         {#if activeSection === 'cameras'}

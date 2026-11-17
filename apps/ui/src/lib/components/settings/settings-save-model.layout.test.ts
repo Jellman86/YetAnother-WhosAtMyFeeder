@@ -34,9 +34,11 @@ describe('the save bar announcements', () => {
         const summaryAt = pageSource.indexOf('aria-live="polite" data-save-summary');
         const problemAt = pageSource.indexOf('role="alert" data-save-problem');
         expect(summaryAt).toBeGreaterThan(-1);
-        expect(problemAt).toBeGreaterThan(summaryAt);
-        // The summary paragraph closes before the problem opens, and only one polite region exists.
-        expect(pageSource.slice(summaryAt, problemAt)).toContain('</p>');
+        expect(problemAt).toBeGreaterThan(-1);
+        // The problem is in the save details and the running count in the bar: two sections, neither
+        // inside the other, and only one polite region.
+        expect(problemAt).toBeLessThan(pageSource.indexOf('data-settings-save-bar'));
+        expect(pageSource.slice(problemAt, summaryAt)).toContain('</section>');
         expect(pageSource.match(/aria-live=/g)).toHaveLength(1);
     });
 });

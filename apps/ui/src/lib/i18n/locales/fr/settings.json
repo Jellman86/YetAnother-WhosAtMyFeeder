@@ -296,6 +296,31 @@
     "storage": "Stockage et entretien",
     "display": "Affichage"
   },
+  "status": {
+    "title": "État",
+    "chip": "{name} : {state}",
+    "open_health": "Détails dans État",
+    "in_this_section": "Dans cette section",
+    "not_read": "Pas encore mesuré : l’état n’a pas été lu.",
+    "stale": "Cette mesure est périmée : aucune plus récente n’est arrivée.",
+    "display_note": "Rien ici ne dépend d’un autre service. Le thème, la taille du texte et la langue changent aussitôt sur cet appareil.",
+    "state": {
+      "ok": "fonctionne",
+      "degraded": "sous tension",
+      "error": "ne fonctionne pas",
+      "off": "désactivé",
+      "unknown": "non mesuré"
+    },
+    "subsystem": {
+      "frigate": "Frigate",
+      "mqtt": "Broker MQTT",
+      "classifier": "Modèle d’identification",
+      "finder": "Détecteur d’oiseaux",
+      "audio": "BirdNET-Go",
+      "storage": "Stockage",
+      "notifications": "Alertes"
+    }
+  },
   "debug": {
     "llm_prompts_title": "Modèles de prompt LLM",
     "llm_prompts_subtitle": "Personnalisez la structure Markdown et le ton pour l'analyse IA et les conversations.",
@@ -1739,16 +1764,21 @@
     "conflicts": "{count, plural, one {Un paramètre que vous avez modifié a aussi été modifié ailleurs. Choisissez la valeur à garder avant d'enregistrer :} other {# paramètres que vous avez modifiés ont aussi été modifiés ailleurs. Choisissez la valeur à garder avant d'enregistrer :}}",
     "use_saved": "Utiliser la valeur enregistrée",
     "use_mine": "Utiliser ma modification",
-    "conflict_field": "La valeur enregistrée a changé ailleurs depuis votre modification. Choisissez laquelle garder dans la barre ci-dessous.",
+    "conflict_field": "La valeur enregistrée a changé ailleurs depuis votre modification. Choisissez laquelle garder dans « Modifications en attente d’enregistrement », à la fin de cette section.",
     "conflict_choice_for": "pour {field}",
-    "how_saving_works": "Comment fonctionne l’enregistrement",
     "conflict_values": "Enregistré ailleurs : {saved} · Le vôtre : {mine}",
     "value_on": "Activé",
     "value_off": "Désactivé",
     "value_not_set": "Non défini",
     "value_other": "Une autre valeur",
     "discard_short": "Annuler",
-    "save_short": "Enregistrer"
+    "save_short": "Enregistrer",
+    "details": "Détails",
+    "details_title": "Modifications en attente d’enregistrement",
+    "line": "{count, plural, one {# modification non enregistrée} other {# modifications non enregistrées}}",
+    "line_conflicts": "{count, plural, one {# modification à trancher} other {# modifications à trancher}}",
+    "line_not_saved": "Non enregistré",
+    "line_short": "{count, plural, one {# en attente} other {# en attente}}"
   },
   "leave": {
     "title": "Quitter sans enregistrer ?",

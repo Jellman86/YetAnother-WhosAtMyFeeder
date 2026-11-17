@@ -296,6 +296,31 @@
     "storage": "Speicher & Wartung",
     "display": "Anzeige"
   },
+  "status": {
+    "title": "Status",
+    "chip": "{name}: {state}",
+    "open_health": "Details unter Zustand",
+    "in_this_section": "In diesem Bereich",
+    "not_read": "Noch nicht gemessen: Der Status wurde noch nicht gelesen.",
+    "stale": "Diese Messung ist veraltet: Es ist keine neuere eingetroffen.",
+    "display_note": "Hier hängt nichts von einem anderen Dienst ab. Design, Textgröße und Sprache ändern sich sofort auf diesem Gerät.",
+    "state": {
+      "ok": "funktioniert",
+      "degraded": "unter Last",
+      "error": "funktioniert nicht",
+      "off": "aus",
+      "unknown": "nicht gemessen"
+    },
+    "subsystem": {
+      "frigate": "Frigate",
+      "mqtt": "MQTT-Broker",
+      "classifier": "Bestimmungsmodell",
+      "finder": "Vogelfinder",
+      "audio": "BirdNET-Go",
+      "storage": "Speicher",
+      "notifications": "Benachrichtigungen"
+    }
+  },
   "debug": {
     "llm_prompts_title": "LLM-Promptvorlagen",
     "llm_prompts_subtitle": "Passen Sie die Markdown-Struktur und den Ton für KI-Analysen und Gespräche an.",
@@ -1739,16 +1764,21 @@
     "conflicts": "{count, plural, one {Eine Einstellung, die Sie geändert haben, wurde auch anderswo geändert. Wählen Sie vor dem Speichern, welcher Wert gilt:} other {# Einstellungen, die Sie geändert haben, wurden auch anderswo geändert. Wählen Sie vor dem Speichern, welcher Wert gilt:}}",
     "use_saved": "Gespeicherten Wert verwenden",
     "use_mine": "Meine Änderung verwenden",
-    "conflict_field": "Der gespeicherte Wert wurde anderswo geändert, seit Sie dies bearbeitet haben. Wählen Sie unten in der Leiste, welcher Wert gilt.",
+    "conflict_field": "Der gespeicherte Wert wurde anderswo geändert, seit Sie dies bearbeitet haben. Wählen Sie unter „Änderungen, die auf das Speichern warten“ am Ende dieses Bereichs, welcher Wert gilt.",
     "conflict_choice_for": "für {field}",
-    "how_saving_works": "So funktioniert das Speichern",
     "conflict_values": "Anderswo gespeichert: {saved} · Ihrer: {mine}",
     "value_on": "An",
     "value_off": "Aus",
     "value_not_set": "Nicht gesetzt",
     "value_other": "Ein anderer Wert",
     "discard_short": "Verwerfen",
-    "save_short": "Speichern"
+    "save_short": "Speichern",
+    "details": "Details",
+    "details_title": "Änderungen, die auf das Speichern warten",
+    "line": "{count, plural, one {# ungespeicherte Änderung} other {# ungespeicherte Änderungen}}",
+    "line_conflicts": "{count, plural, one {# Änderung zu entscheiden} other {# Änderungen zu entscheiden}}",
+    "line_not_saved": "Nicht gespeichert",
+    "line_short": "{count, plural, one {# offen} other {# offen}}"
   },
   "leave": {
     "title": "Ohne Speichern verlassen?",

@@ -65,8 +65,9 @@
 >{$_('settings.tabs.skip_to_content', { default: 'Skip to the settings' })}</a>
 
 <!-- Phones, narrow windows and enlarged text: one select that names the current section, and the wizard beside it. -->
-<div class="flex flex-wrap items-end gap-3 @4xl:hidden" data-settings-compact-navigation>
-    <div class="min-w-0 flex-1 basis-48">
+<div class="flex flex-wrap items-end gap-3 @2xl:hidden" data-settings-compact-navigation>
+    <!-- Wide enough for the longest section name in every language; the wizard wraps below it on a phone. -->
+    <div class="min-w-0 flex-1 basis-64">
         <label for="settings-tab-select" class="mb-1.5 block text-sm font-semibold text-ink">{$_('settings.tabs.section_label', { default: 'Settings section' })}</label>
         <select
             id="settings-tab-select"
@@ -89,8 +90,8 @@
 <span id="settings-tab-unsaved-note" class="sr-only">{$_('settings.tabs.unsaved_note', { default: 'Has unsaved changes' })}</span>
 <span id="settings-tab-refused-note" class="sr-only">{$_('settings.tabs.refused_note', { default: 'Has a value the last save refused' })}</span>
 
-<!-- Room for it (56rem, so it scales with the text): a compact rail beside the settings, so they start at the top of the page. -->
-<nav data-settings-navigation class="hidden @4xl:block" aria-label={$_('settings.tabs.navigation_label', { default: 'Settings sections' })}>
+<!-- Room for it (42rem, so it scales with the text): a compact rail beside the settings, so they start at the top of the page. -->
+<nav data-settings-navigation class="hidden @2xl:block" aria-label={$_('settings.tabs.navigation_label', { default: 'Settings sections' })}>
     <div class="space-y-5">
         <ul class="space-y-0.5">
             {#each sections as section (section.id)}

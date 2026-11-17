@@ -296,6 +296,31 @@
     "storage": "Archiviazione e manutenzione",
     "display": "Visualizzazione"
   },
+  "status": {
+    "title": "Stato",
+    "chip": "{name}: {state}",
+    "open_health": "Dettagli in Stato",
+    "in_this_section": "In questa sezione",
+    "not_read": "Non ancora misurato: lo stato non è stato letto.",
+    "stale": "Questa lettura è superata: non ne è arrivata una più recente.",
+    "display_note": "Qui nulla dipende da un altro servizio. Tema, dimensione del testo e lingua cambiano subito su questo dispositivo.",
+    "state": {
+      "ok": "funziona",
+      "degraded": "sotto sforzo",
+      "error": "non funziona",
+      "off": "spento",
+      "unknown": "non misurato"
+    },
+    "subsystem": {
+      "frigate": "Frigate",
+      "mqtt": "Broker MQTT",
+      "classifier": "Modello di identificazione",
+      "finder": "Rilevatore di uccelli",
+      "audio": "BirdNET-Go",
+      "storage": "Archiviazione",
+      "notifications": "Avvisi"
+    }
+  },
   "debug": {
     "llm_prompts_title": "Modelli di prompt LLM",
     "llm_prompts_subtitle": "Personalizza la struttura Markdown e il tono per analisi IA e conversazioni.",
@@ -1739,16 +1764,21 @@
     "conflicts": "{count, plural, one {Un'impostazione che hai modificato è stata cambiata anche altrove. Scegli quale valore tenere prima di salvare:} other {# impostazioni che hai modificato sono state cambiate anche altrove. Scegli quale valore tenere prima di salvare:}}",
     "use_saved": "Usa il valore salvato",
     "use_mine": "Usa la mia modifica",
-    "conflict_field": "Il valore salvato è cambiato altrove da quando hai modificato questo campo. Scegli quale tenere nella barra qui sotto.",
+    "conflict_field": "Il valore salvato è cambiato altrove da quando hai modificato questo campo. Scegli quale tenere in «Modifiche in attesa di salvataggio», alla fine di questa sezione.",
     "conflict_choice_for": "per {field}",
-    "how_saving_works": "Come funziona il salvataggio",
     "conflict_values": "Salvato altrove: {saved} · Il tuo: {mine}",
     "value_on": "Attivo",
     "value_off": "Disattivo",
     "value_not_set": "Non impostato",
     "value_other": "Un valore diverso",
     "discard_short": "Scarta",
-    "save_short": "Salva"
+    "save_short": "Salva",
+    "details": "Dettagli",
+    "details_title": "Modifiche in attesa di salvataggio",
+    "line": "{count, plural, one {# modifica non salvata} other {# modifiche non salvate}}",
+    "line_conflicts": "{count, plural, one {# modifica da decidere} other {# modifiche da decidere}}",
+    "line_not_saved": "Non salvato",
+    "line_short": "{count, plural, one {# da salvare} other {# da salvare}}"
   },
   "leave": {
     "title": "Uscire senza salvare?",

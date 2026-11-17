@@ -296,6 +296,31 @@
     "storage": "存储与维护",
     "display": "显示"
   },
+  "status": {
+    "title": "状态",
+    "chip": "{name}：{state}",
+    "open_health": "在“运行状况”中查看详情",
+    "in_this_section": "本分区内容",
+    "not_read": "尚未测量：还未读取状态。",
+    "stale": "此读数已过时：没有更新的读数。",
+    "display_note": "这里没有依赖其他服务的内容。主题、文字大小和语言会在此设备上立即生效。",
+    "state": {
+      "ok": "正常",
+      "degraded": "负载较高",
+      "error": "不工作",
+      "off": "关闭",
+      "unknown": "未测量"
+    },
+    "subsystem": {
+      "frigate": "Frigate",
+      "mqtt": "MQTT 代理",
+      "classifier": "识别模型",
+      "finder": "鸟类检测器",
+      "audio": "BirdNET-Go",
+      "storage": "存储",
+      "notifications": "提醒"
+    }
+  },
   "debug": {
     "llm_prompts_title": "LLM 提示模板",
     "llm_prompts_subtitle": "自定义 AI 分析与对话的 Markdown 结构和语气。",
@@ -1739,16 +1764,21 @@
     "conflicts": "{count, plural, other {你更改的 # 项设置也在其他地方被更改了。保存前请选择要保留的值：}}",
     "use_saved": "使用已保存的值",
     "use_mine": "使用我的更改",
-    "conflict_field": "你编辑之后，已保存的值在其他地方被更改了。请在下方栏中选择要保留的值。",
+    "conflict_field": "你编辑之后，已保存的值在其他地方被更改了。请在本分区末尾的“等待保存的更改”中选择要保留的值。",
     "conflict_choice_for": "（{field}）",
-    "how_saving_works": "保存方式说明",
     "conflict_values": "其他地方保存的：{saved} · 你的：{mine}",
     "value_on": "开",
     "value_off": "关",
     "value_not_set": "未设置",
     "value_other": "不同的值",
     "discard_short": "放弃",
-    "save_short": "保存"
+    "save_short": "保存",
+    "details": "详情",
+    "details_title": "等待保存的更改",
+    "line": "{count, plural, other {# 项未保存的更改}}",
+    "line_conflicts": "{count, plural, other {# 项更改需要决定}}",
+    "line_not_saved": "未保存",
+    "line_short": "{count, plural, other {# 项未保存}}"
   },
   "leave": {
     "title": "不保存就离开？",

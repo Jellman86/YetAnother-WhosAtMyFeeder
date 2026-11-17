@@ -296,6 +296,31 @@
     "storage": "ストレージとメンテナンス",
     "display": "表示"
   },
+  "status": {
+    "title": "状態",
+    "chip": "{name}: {state}",
+    "open_health": "詳細は「稼働状況」で",
+    "in_this_section": "このセクション",
+    "not_read": "まだ測定されていません: 状態をまだ読み取っていません。",
+    "stale": "この測定は古くなっています: 新しい測定が届いていません。",
+    "display_note": "ここにはほかのサービスに依存するものはありません。テーマ、文字サイズ、言語はこのデバイスですぐに変わります。",
+    "state": {
+      "ok": "動作中",
+      "degraded": "負荷あり",
+      "error": "動作していません",
+      "off": "オフ",
+      "unknown": "未測定"
+    },
+    "subsystem": {
+      "frigate": "Frigate",
+      "mqtt": "MQTT ブローカー",
+      "classifier": "識別モデル",
+      "finder": "鳥検出器",
+      "audio": "BirdNET-Go",
+      "storage": "ストレージ",
+      "notifications": "アラート"
+    }
+  },
   "debug": {
     "llm_prompts_title": "LLMプロンプトテンプレート",
     "llm_prompts_subtitle": "AI解析と会話のMarkdown構成とトーンをカスタマイズします。",
@@ -1739,16 +1764,21 @@
     "conflicts": "{count, plural, other {変更した設定のうち # 件が、別の場所でも変更されました。保存する前に、残す値を選んでください:}}",
     "use_saved": "保存済みの値を使う",
     "use_mine": "自分の変更を使う",
-    "conflict_field": "編集した後に、保存済みの値が別の場所で変更されました。下のバーで、残す値を選んでください。",
+    "conflict_field": "編集した後に、保存済みの値が別の場所で変更されました。このセクションの最後にある「保存を待っている変更」で、残す値を選んでください。",
     "conflict_choice_for": "（{field}）",
-    "how_saving_works": "保存のしくみ",
     "conflict_values": "別の場所で保存: {saved} · あなたの変更: {mine}",
     "value_on": "オン",
     "value_off": "オフ",
     "value_not_set": "未設定",
     "value_other": "別の値",
     "discard_short": "破棄",
-    "save_short": "保存"
+    "save_short": "保存",
+    "details": "詳細",
+    "details_title": "保存を待っている変更",
+    "line": "{count, plural, other {未保存の変更 # 件}}",
+    "line_conflicts": "{count, plural, other {判断が必要な変更 # 件}}",
+    "line_not_saved": "保存されていません",
+    "line_short": "{count, plural, other {未保存 #}}"
   },
   "leave": {
     "title": "保存せずに移動しますか?",

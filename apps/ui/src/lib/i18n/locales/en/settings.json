@@ -296,6 +296,31 @@
     "storage": "Storage & upkeep",
     "display": "Display"
   },
+  "status": {
+    "title": "Status",
+    "chip": "{name}: {state}",
+    "open_health": "Details in Health",
+    "in_this_section": "In this section",
+    "not_read": "Not measured yet: the status has not been read.",
+    "stale": "This reading is out of date: no newer one has arrived.",
+    "display_note": "Nothing here depends on another service. Theme, text size and language change at once on this device.",
+    "state": {
+      "ok": "working",
+      "degraded": "under strain",
+      "error": "not working",
+      "off": "off",
+      "unknown": "not measured"
+    },
+    "subsystem": {
+      "frigate": "Frigate",
+      "mqtt": "MQTT broker",
+      "classifier": "Identification model",
+      "finder": "Bird finder",
+      "audio": "BirdNET-Go",
+      "storage": "Storage",
+      "notifications": "Alerts"
+    }
+  },
   "debug": {
     "llm_prompts_title": "LLM prompt templates",
     "llm_prompts_subtitle": "Customise the Markdown structure and tone for AI analysis and conversations.",
@@ -1739,16 +1764,21 @@
     "conflicts": "{count, plural, one {A setting you changed was also changed elsewhere. Choose which value to keep before saving:} other {# settings you changed were also changed elsewhere. Choose which value to keep before saving:}}",
     "use_saved": "Use the saved value",
     "use_mine": "Use my change",
-    "conflict_field": "The saved value changed elsewhere since you edited this. Choose which to keep in the bar below.",
+    "conflict_field": "The saved value changed elsewhere since you edited this. Choose which to keep under Changes waiting to be saved, at the end of this section.",
     "conflict_choice_for": "for {field}",
-    "how_saving_works": "How saving works",
     "conflict_values": "Saved elsewhere: {saved} · Yours: {mine}",
     "value_on": "On",
     "value_off": "Off",
     "value_not_set": "Not set",
     "value_other": "A different value",
     "discard_short": "Discard",
-    "save_short": "Save"
+    "save_short": "Save",
+    "details": "Details",
+    "details_title": "Changes waiting to be saved",
+    "line": "{count, plural, one {# unsaved change} other {# unsaved changes}}",
+    "line_conflicts": "{count, plural, one {# change to decide} other {# changes to decide}}",
+    "line_not_saved": "Not saved",
+    "line_short": "{count, plural, one {# unsaved} other {# unsaved}}"
   },
   "leave": {
     "title": "Leave without saving?",

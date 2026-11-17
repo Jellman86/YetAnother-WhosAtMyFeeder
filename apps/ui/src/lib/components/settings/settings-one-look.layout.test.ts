@@ -140,15 +140,23 @@ describe('Settings has one look across tabs', () => {
         expect(pageSource).toContain('ResizeObserver');
     });
 
-    it('says that buttons act at once and fields wait for Save in the unsaved-changes bar, not above every tab', () => {
+    it('says that buttons act at once and fields wait for Save in the save details, not above every tab', () => {
+        const details = pageSource.indexOf('data-settings-save-details\n');
         const rule = pageSource.indexOf('data-settings-save-rule>');
-        expect(rule).toBeGreaterThan(pageSource.indexOf('data-settings-save-bar'));
+        expect(rule).toBeGreaterThan(details);
+        expect(rule).toBeLessThan(pageSource.indexOf('data-settings-save-bar'));
         expect(pageSource.indexOf('data-settings-save-rule>', rule + 1)).toBe(-1);
     });
 
-    it('keeps the save bar to one line and the buttons: the save rule waits behind its own toggle', () => {
-        // The rule repeated in full on every change filled two thirds of a phone at 200% text.
-        expect(pageSource).toContain('aria-controls="settings-save-rule"');
-        expect(pageSource).toMatch(/\{#if saveRuleOpen\}\s*<p[^>]*id="settings-save-rule"/);
+    it('keeps the save bar to one line: the count, Details, Discard and Save; everything else waits in the details', () => {
+        // The rule, the sections, conflicts and refusals filled two thirds of a phone at 200% text in the bar.
+        const bar = pageSource.slice(pageSource.indexOf('data-settings-save-bar'), pageSource.indexOf('</section>', pageSource.indexOf('data-settings-save-bar')));
+        expect(bar).toContain('data-save-summary');
+        expect(bar).toContain('aria-controls="settings-save-details"');
+        for (const kept of ['data-settings-save-rule', 'data-draft-conflicts', 'data-save-problem', 'data-restored-draft', 'onOpenTab?.(tab.id)']) {
+            expect(bar, kept).not.toContain(kept);
+        }
+        // The details open by themselves for anything that needs a decision.
+        expect(pageSource).toContain('const detailsShown = $derived(detailsOpen || conflicts.length > 0 || problemShown || Boolean(restoredNotice));');
     });
 });

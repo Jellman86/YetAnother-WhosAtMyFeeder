@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { discardButton, openSettings, saveBar, saveButton } from './settings-page-mock';
+import { discardButton, openSaveDetails, openSettings, saveBar, saveButton, saveDetails } from './settings-page-mock';
 
 // Settings keeps one draft with one Save. The save bar must be honest about it: present only while
 // a saved value would change, naming where the changes are, able to throw them away, and putting a
@@ -36,7 +36,8 @@ test('Integrations opens with nothing unsaved, even when the place lookup names 
     // Moving the pin is an edit: the looked-up region now belongs to the draft.
     await page.locator('#location-lat').fill('52.2');
     await expect(saveBar(page)).toBeVisible();
-    await expect(saveBar(page)).toContainText('Sharing & integrations');
+    await openSaveDetails(page);
+    await expect(saveDetails(page)).toContainText('Sharing & integrations');
 });
 
 test('the save bar counts the changes, names their sections, and Discard restores every saved value', async ({ page }) => {
@@ -60,10 +61,11 @@ test('the save bar counts the changes, names their sections, and Discard restore
     // Frigate URL and MQTT broker in Cameras & connection; provider and the model it brings in
     // Sharing & integrations.
     await expect(saveBar(page)).toContainText('4 unsaved changes');
-    await expect(saveBar(page).getByRole('button', { name: 'Cameras & connection', exact: true })).toBeVisible();
-    await expect(saveBar(page).getByRole('button', { name: 'Sharing & integrations', exact: true })).toBeVisible();
+    await openSaveDetails(page);
+    await expect(saveDetails(page).getByRole('button', { name: 'Cameras & connection', exact: true })).toBeVisible();
+    await expect(saveDetails(page).getByRole('button', { name: 'Sharing & integrations', exact: true })).toBeVisible();
 
-    await saveBar(page).getByRole('button', { name: 'Cameras & connection', exact: true }).click();
+    await saveDetails(page).getByRole('button', { name: 'Cameras & connection', exact: true }).click();
     await expect(page.locator('#mqtt-server')).toHaveValue('broker.lan');
 
     await discardButton(page).click();
@@ -105,9 +107,10 @@ test('a refused save puts each reason on its own field, in plain words, until th
     await expect(reason).toHaveText('Start the address with http:// or https://, for example http://frigate:5000.');
 
     // The bar says nothing was saved and lists each refused field by its label, with its tab.
-    await expect(saveBar(page)).toContainText('Nothing was saved');
-    await expect(saveBar(page).getByRole('button', { name: 'Server URL (Cameras & connection)', exact: true })).toBeVisible();
-    await expect(saveBar(page).getByRole('button', { name: 'Port (Cameras & connection)', exact: true })).toBeVisible();
+    await expect(saveBar(page)).toContainText('Not saved');
+    await expect(saveDetails(page)).toContainText('Nothing was saved');
+    await expect(saveDetails(page).getByRole('button', { name: 'Server URL (Cameras & connection)', exact: true })).toBeVisible();
+    await expect(saveDetails(page).getByRole('button', { name: 'Port (Cameras & connection)', exact: true })).toBeVisible();
     // No backend field key or validator wording reaches the screen, and the reason is shown once.
     await expect(page.locator('body')).not.toContainText('frigate_url');
     await expect(page.locator('body')).not.toContainText('Input should be');
@@ -115,15 +118,16 @@ test('a refused save puts each reason on its own field, in plain words, until th
 
     await url.fill('http://frigate.lan:5000');
     await expect(url).not.toHaveAttribute('aria-invalid', 'true');
-    await expect(saveBar(page).getByRole('button', { name: 'Server URL (Cameras & connection)', exact: true })).toHaveCount(0);
+    await expect(saveDetails(page).getByRole('button', { name: 'Server URL (Cameras & connection)', exact: true })).toHaveCount(0);
 });
 
 test('a save that fails on the server says nothing was saved and what to try, once', async ({ page }) => {
     await openSettings(page, {}, { refuseWrite: () => ({ status: 500, json: { detail: 'Internal Server Error' } }) });
     await page.locator('#mqtt-server').fill('broker.lan');
     await saveButton(page).click();
-    await expect(saveBar(page)).toContainText('Nothing was saved');
-    await expect(saveBar(page)).toContainText('try Save changes again');
+    await expect(saveBar(page)).toContainText('Not saved');
+    await expect(saveDetails(page)).toContainText('Nothing was saved');
+    await expect(saveDetails(page)).toContainText('try Save changes again');
     await expect(page.getByText('Internal Server Error')).toHaveCount(0);
     await expect(page.locator('[data-toast]')).toHaveCount(0);
 });
@@ -194,7 +198,8 @@ test('the save summary and a save problem are announced by separate regions, nev
     await openSettings(page, {}, { refuseWrite: () => ({ status: 500, json: { detail: 'Internal Server Error' } }) });
     await page.locator('#mqtt-server').fill('broker.lan');
     await saveButton(page).click();
-    const problem = saveBar(page).locator('[data-save-problem]');
+    // The problem opens the details by itself; the running count stays in the bar.
+    const problem = saveDetails(page).locator('[data-save-problem]');
     await expect(problem).toHaveAttribute('role', 'alert');
     const nested = await problem.evaluate((element) => Boolean(element.parentElement?.closest('[aria-live], [role="alert"], [role="status"]')));
     expect(nested).toBe(false);

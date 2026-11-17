@@ -296,6 +296,31 @@
     "storage": "Almacenamiento y mantenimiento",
     "display": "Visualización"
   },
+  "status": {
+    "title": "Estado",
+    "chip": "{name}: {state}",
+    "open_health": "Detalles en Estado",
+    "in_this_section": "En esta sección",
+    "not_read": "Aún sin medir: el estado no se ha leído.",
+    "stale": "Esta lectura está desactualizada: no ha llegado ninguna más reciente.",
+    "display_note": "Nada aquí depende de otro servicio. El tema, el tamaño del texto y el idioma cambian al momento en este dispositivo.",
+    "state": {
+      "ok": "funciona",
+      "degraded": "bajo presión",
+      "error": "no funciona",
+      "off": "apagado",
+      "unknown": "sin medir"
+    },
+    "subsystem": {
+      "frigate": "Frigate",
+      "mqtt": "Broker MQTT",
+      "classifier": "Modelo de identificación",
+      "finder": "Buscador de aves",
+      "audio": "BirdNET-Go",
+      "storage": "Almacenamiento",
+      "notifications": "Alertas"
+    }
+  },
   "debug": {
     "llm_prompts_title": "Plantillas de prompts de LLM",
     "llm_prompts_subtitle": "Personaliza la estructura Markdown y el tono para el análisis de IA y las conversaciones.",
@@ -1739,16 +1764,21 @@
     "conflicts": "{count, plural, one {Un ajuste que cambió también se cambió en otro lugar. Elija qué valor conservar antes de guardar:} other {# ajustes que cambió también se cambiaron en otro lugar. Elija qué valor conservar antes de guardar:}}",
     "use_saved": "Usar el valor guardado",
     "use_mine": "Usar mi cambio",
-    "conflict_field": "El valor guardado cambió en otro lugar desde que editó esto. Elija cuál conservar en la barra de abajo.",
+    "conflict_field": "El valor guardado cambió en otro lugar desde que editó esto. Elija cuál conservar en «Cambios pendientes de guardar», al final de esta sección.",
     "conflict_choice_for": "para {field}",
-    "how_saving_works": "Cómo se guarda",
     "conflict_values": "Guardado en otro lugar: {saved} · El suyo: {mine}",
     "value_on": "Activado",
     "value_off": "Desactivado",
     "value_not_set": "Sin valor",
     "value_other": "Un valor distinto",
     "discard_short": "Descartar",
-    "save_short": "Guardar"
+    "save_short": "Guardar",
+    "details": "Detalles",
+    "details_title": "Cambios pendientes de guardar",
+    "line": "{count, plural, one {# cambio sin guardar} other {# cambios sin guardar}}",
+    "line_conflicts": "{count, plural, one {# cambio por decidir} other {# cambios por decidir}}",
+    "line_not_saved": "No guardado",
+    "line_short": "{count, plural, one {# sin guardar} other {# sin guardar}}"
   },
   "leave": {
     "title": "¿Salir sin guardar?",

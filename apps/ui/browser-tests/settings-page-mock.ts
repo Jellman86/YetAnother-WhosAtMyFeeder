@@ -70,5 +70,13 @@ export async function openSettings(page: Page, saved: FixtureSettings = {}, opti
 
 /** The save bar, present only while the draft differs from what is saved. */
 export const saveBar = (page: Page) => page.getByRole('region', { name: 'Unsaved changes' });
+/** What waits, in full, just above the bar: section names, the save rule, conflicts and refusals. */
+export const saveDetails = (page: Page) => page.locator('[data-settings-save-details]');
+/** Opens the save details from the bar, as a person would. */
+export async function openSaveDetails(page: Page): Promise<void> {
+    const toggle = saveBar(page).getByRole('button', { name: 'Details', exact: true });
+    if ((await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click();
+    await expect(saveDetails(page)).toBeVisible();
+}
 export const saveButton = (page: Page) => saveBar(page).getByRole('button', { name: 'Save changes', exact: true });
 export const discardButton = (page: Page) => saveBar(page).getByRole('button', { name: 'Discard changes', exact: true });

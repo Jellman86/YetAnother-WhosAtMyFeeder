@@ -510,8 +510,8 @@
     "arbitrary": 0
   },
   "lib/components/settings/_primitives/SettingsPage.svelte": {
-    "palette": 39,
-    "dark": 19,
+    "palette": 10,
+    "dark": 5,
     "arbitrary": 0
   },
   "lib/components/settings/_primitives/SettingsRow.svelte": {
