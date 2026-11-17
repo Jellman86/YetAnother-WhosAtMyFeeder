@@ -125,7 +125,8 @@ test('Back and Forward never ask; the draft is waiting on return, and Discard dr
     await expect.poll(() => pathname(page)).toBe('/settings/cameras');
     await expect(page.locator('#mqtt-server')).toHaveValue('broker.lan');
     await expect(restoredNotice(page)).toBeVisible();
-    await expect(page.getByRole('region', { name: 'Unsaved changes' })).toContainText('1 unsaved change in');
+    // Changes kept from before open the save details by themselves.
+    await expect(page.locator('[data-settings-save-details]')).toContainText('1 unsaved change in');
 
     await page.getByRole('button', { name: 'Discard changes', exact: true }).click();
     await expect(page.locator('#mqtt-server')).toHaveValue('mqtt');

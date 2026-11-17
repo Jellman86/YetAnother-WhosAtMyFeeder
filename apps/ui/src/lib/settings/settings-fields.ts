@@ -1,4 +1,5 @@
 import { SETTINGS_SECTION_ORDER, settingsSectionOfPart, type SettingsPart, type SettingsSection } from './settings-route';
+import { settingsMoreId } from './settings-more';
 
 /**
  * Where each saved setting lives in Settings: the part that shows it, and so the section. The save
@@ -35,7 +36,7 @@ const EXACT_FIELD_PARTS: Readonly<Record<string, SettingsPart>> = {
     inference_provider: 'models',
     blocked_labels: 'detection',
     blocked_species: 'detection',
-    camera_audio_mapping: 'integrations',
+    camera_audio_mapping: 'connection',
     trusted_proxy_hosts: 'security',
     notification_language: 'notifications',
     strict_non_finite_output: 'models',
@@ -56,8 +57,8 @@ const PREFIX_FIELD_PARTS: ReadonlyArray<readonly [string, SettingsPart]> = [
     ['bird_crop_', 'models'],
     ['notifications_', 'notifications'],
     ['garden_', 'beta'],
-    ['birdnet_', 'integrations'],
-    ['audio_', 'integrations'],
+    ['birdnet_', 'connection'],
+    ['audio_', 'connection'],
     ['birdweather_', 'integrations'],
     ['ha_weather_', 'integrations'],
     ['ebird_', 'integrations'],
@@ -133,16 +134,19 @@ export interface SettingsFieldPlace {
     disclosures?: readonly string[];
 }
 
+// Cameras & connection's More options, which holds the Frigate details and BirdNET-Go.
+const CAMERAS_MORE = settingsMoreId('cameras');
+
 const FIELD_PLACES: Readonly<Record<string, SettingsFieldPlace>> = {
     frigate_url: { labelKey: 'settings.frigate.url', inputId: 'frigate-url' },
-    frigate_ingest_labels: { labelKey: 'settings.frigate.ingest_labels', inputId: 'frigate-ingest-labels' },
-    frigate_external_url: { labelKey: 'settings.frigate.external_url', inputId: 'frigate-external-url' },
+    frigate_ingest_labels: { labelKey: 'settings.frigate.ingest_labels', inputId: 'frigate-ingest-labels', disclosures: [CAMERAS_MORE] },
+    frigate_external_url: { labelKey: 'settings.frigate.external_url', inputId: 'frigate-external-url', disclosures: [CAMERAS_MORE] },
     mqtt_server: { labelKey: 'settings.frigate.mqtt_broker', inputId: 'mqtt-server' },
     mqtt_port: { labelKey: 'settings.frigate.mqtt_port', inputId: 'mqtt-port' },
     mqtt_username: { labelKey: 'settings.frigate.mqtt_user', inputId: 'mqtt-username' },
-    recording_frame_delay_seconds: { labelKey: 'settings.frigate.recording_frame_delay', inputId: 'recording-frame-delay' },
-    recording_clip_before_seconds: { labelKey: 'settings.frigate.full_visit_before', inputId: 'recording-clip-before', disclosures: ['connection-full-visit'] },
-    recording_clip_after_seconds: { labelKey: 'settings.frigate.full_visit_after', inputId: 'recording-clip-after', disclosures: ['connection-full-visit'] },
+    recording_frame_delay_seconds: { labelKey: 'settings.frigate.recording_frame_delay', inputId: 'recording-frame-delay', disclosures: [CAMERAS_MORE] },
+    recording_clip_before_seconds: { labelKey: 'settings.frigate.full_visit_before', inputId: 'recording-clip-before', disclosures: [CAMERAS_MORE, 'connection-full-visit'] },
+    recording_clip_after_seconds: { labelKey: 'settings.frigate.full_visit_after', inputId: 'recording-clip-after', disclosures: [CAMERAS_MORE, 'connection-full-visit'] },
     video_classification_delay: { labelKey: 'settings.detection.video_delay', inputId: 'video-delay', disclosures: ['detection-frigate-video'] },
     video_classification_max_retries: { labelKey: 'settings.detection.video_retries', inputId: 'video-retries', disclosures: ['detection-frigate-video'] },
     video_classification_frames: { labelKey: 'settings.detection.video_frames', inputId: 'video-frames', disclosures: ['detection-frigate-video'] },
@@ -151,11 +155,11 @@ const FIELD_PLACES: Readonly<Record<string, SettingsFieldPlace>> = {
     garden_labels: { labelKey: 'garden.labels', inputId: 'garden-labels', disclosures: ['garden-section-cameras'] },
     garden_motion_confidence: { labelKey: 'garden.confidence', inputId: 'garden-motion-confidence', disclosures: ['garden-section-cameras'] },
     garden_naming_threshold: { labelKey: 'settings.beta.garden_naming_threshold', inputId: 'garden-naming-threshold', disclosures: ['garden-section-checks'] },
-    birdnet_url: { labelKey: 'settings.integrations.birdnet.internal_url_label', inputId: 'birdnet-url' },
-    birdnet_external_url: { labelKey: 'settings.integrations.birdnet.external_url_label', inputId: 'birdnet-external-url' },
-    audio_topic: { labelKey: 'settings.integrations.birdnet.mqtt_topic', inputId: 'audio-topic' },
-    audio_buffer_hours: { labelKey: 'settings.integrations.birdnet.audio_buffer_hours', inputId: 'audio-buffer', disclosures: ['integrations-birdnet-advanced'] },
-    audio_correlation_window_seconds: { labelKey: 'settings.integrations.birdnet.match_window_seconds', inputId: 'correlation-window', disclosures: ['integrations-birdnet-advanced'] },
+    birdnet_url: { labelKey: 'settings.integrations.birdnet.internal_url_label', inputId: 'birdnet-url', disclosures: [CAMERAS_MORE] },
+    birdnet_external_url: { labelKey: 'settings.integrations.birdnet.external_url_label', inputId: 'birdnet-external-url', disclosures: [CAMERAS_MORE] },
+    audio_topic: { labelKey: 'settings.integrations.birdnet.mqtt_topic', inputId: 'audio-topic', disclosures: [CAMERAS_MORE] },
+    audio_buffer_hours: { labelKey: 'settings.integrations.birdnet.audio_buffer_hours', inputId: 'audio-buffer', disclosures: [CAMERAS_MORE, 'integrations-birdnet-advanced'] },
+    audio_correlation_window_seconds: { labelKey: 'settings.integrations.birdnet.match_window_seconds', inputId: 'correlation-window', disclosures: [CAMERAS_MORE, 'integrations-birdnet-advanced'] },
     inaturalist_default_latitude: { labelKey: 'settings.integrations.inaturalist.default_latitude', inputId: 'inat-lat', disclosures: ['integrations-inat-advanced'] },
     inaturalist_default_longitude: { labelKey: 'settings.integrations.inaturalist.default_longitude', inputId: 'inat-lon', disclosures: ['integrations-inat-advanced'] },
     inaturalist_default_place_guess: { labelKey: 'settings.integrations.inaturalist.default_place_guess', inputId: 'inat-place', disclosures: ['integrations-inat-advanced'] },

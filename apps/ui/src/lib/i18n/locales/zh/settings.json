@@ -252,7 +252,7 @@
     "frigate_success": "已连接到位于 {url} 的 Frigate v{version}",
     "frigate_unexpected": "Frigate 返回了意外状态",
     "frigate_error": "连接 Frigate 失败",
-    "mqtt_title": "Frigate 发布事件的代理服务器。YA-WAMF 在此接收新的检测。",
+    "mqtt_title": "Frigate 发布事件的代理服务器。YA-WAMF 在此接收新的到访。",
     "simulating": "模拟中…",
     "advanced_title": "调优",
     "full_visit_advanced_title": "完整到访剪辑",
@@ -295,6 +295,36 @@
     "sharing": "共享与集成",
     "storage": "存储与维护",
     "display": "显示"
+  },
+  "status": {
+    "title": "状态",
+    "chip": "{name}：{state}",
+    "open_health": "在“运行状况”中查看详情",
+    "in_this_section": "本分区内容",
+    "not_read": "尚未测量：还未读取状态。",
+    "stale": "此读数已过时：没有更新的读数。",
+    "display_note": "这里没有依赖其他服务的内容。主题、文字大小和语言会在此设备上立即生效。",
+    "state": {
+      "ok": "正常",
+      "degraded": "负载较高",
+      "error": "不工作",
+      "off": "关闭",
+      "unknown": "未测量"
+    },
+    "subsystem": {
+      "frigate": "Frigate",
+      "mqtt": "MQTT 代理",
+      "classifier": "识别模型",
+      "finder": "鸟类检测器",
+      "audio": "BirdNET-Go",
+      "storage": "存储",
+      "notifications": "提醒"
+    },
+    "sharing_note": "下面每个服务都会显示是否已开启。登录和访客访问也在这里设置。"
+  },
+  "more": {
+    "title": "更多选项",
+    "cameras": "Frigate 详情、图像来源、剪辑和 BirdNET-Go"
   },
   "debug": {
     "llm_prompts_title": "LLM 提示模板",
@@ -407,6 +437,8 @@
       "source_discovery_mapping_value": "映射值",
       "source_discovery_sample_id": "示例ID",
       "source_discovery_seen": "已见",
+      "source_discovery_add": "选择一个以添加",
+      "source_discovery_add_to": "{source}，{time}听到。选择后添加到 {camera}。",
       "advanced_title": "音频缓冲与传感器映射",
       "test_subtitle": "确认 BirdNET-Go 可访问、MQTT 代理接受发布，并且模拟检测能走完整个处理流程。",
       "test_title": "BirdNET-Go 连接测试"
@@ -685,7 +717,8 @@
     "test_connection_both": "测试 Frigate 和 MQTT",
     "test_again": "再次测试",
     "stage_frigate_next": "请检查此标签页中的 Frigate 服务器 URL，并确认 Frigate 正在运行。",
-    "stage_mqtt_next": "请检查此标签页中的代理服务器地址、端口和登录信息。"
+    "stage_mqtt_next": "请检查此标签页中的代理服务器地址、端口和登录信息。",
+    "more_title": "Frigate 详情"
   },
   "cameras": {
     "title": "要监视的摄像头",
@@ -1739,16 +1772,22 @@
     "conflicts": "{count, plural, other {你更改的 # 项设置也在其他地方被更改了。保存前请选择要保留的值：}}",
     "use_saved": "使用已保存的值",
     "use_mine": "使用我的更改",
-    "conflict_field": "你编辑之后，已保存的值在其他地方被更改了。请在下方栏中选择要保留的值。",
+    "conflict_field": "你编辑之后，已保存的值在其他地方被更改了。请在本分区末尾的“等待保存的更改”中选择要保留的值。",
     "conflict_choice_for": "（{field}）",
-    "how_saving_works": "保存方式说明",
     "conflict_values": "其他地方保存的：{saved} · 你的：{mine}",
     "value_on": "开",
     "value_off": "关",
     "value_not_set": "未设置",
     "value_other": "不同的值",
     "discard_short": "放弃",
-    "save_short": "保存"
+    "save_short": "保存",
+    "details": "详情",
+    "go_to_details": "转到详情",
+    "details_title": "等待保存的更改",
+    "line": "{count, plural, other {# 项未保存的更改}}",
+    "line_conflicts": "{count, plural, other {# 项更改需要决定}}",
+    "line_not_saved": "未保存",
+    "line_short": "{count, plural, other {# 项未保存}}"
   },
   "leave": {
     "title": "不保存就离开？",

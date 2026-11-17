@@ -400,8 +400,8 @@
     "arbitrary": 0
   },
   "lib/components/settings/IntegrationSettings.svelte": {
-    "palette": 75,
-    "dark": 36,
+    "palette": 34,
+    "dark": 17,
     "arbitrary": 2
   },
   "lib/components/settings/MaintenanceSettings.svelte": {
@@ -470,8 +470,8 @@
     "arbitrary": 0
   },
   "lib/components/settings/_primitives/SettingsPage.svelte": {
-    "palette": 39,
-    "dark": 19,
+    "palette": 10,
+    "dark": 5,
     "arbitrary": 0
   },
   "lib/components/settings/_primitives/SettingsRow.svelte": {

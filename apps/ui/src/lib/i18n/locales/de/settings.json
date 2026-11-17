@@ -252,7 +252,7 @@
     "frigate_success": "Mit Frigate v{version} unter {url} verbunden",
     "frigate_unexpected": "Frigate hat einen unerwarteten Status zurückgegeben",
     "frigate_error": "Verbindung zu Frigate fehlgeschlagen",
-    "mqtt_title": "Der Broker, an den Frigate seine Ereignisse sendet. YA-WAMF empfängt dort neue Erkennungen.",
+    "mqtt_title": "Der Broker, an den Frigate seine Ereignisse sendet. YA-WAMF empfängt dort neue Besuche.",
     "simulating": "Simulation läuft…",
     "advanced_title": "Feineinstellungen",
     "full_visit_advanced_title": "Vollbesuch-Clips",
@@ -295,6 +295,36 @@
     "sharing": "Teilen & Integrationen",
     "storage": "Speicher & Wartung",
     "display": "Anzeige"
+  },
+  "status": {
+    "title": "Status",
+    "chip": "{name}: {state}",
+    "open_health": "Details unter Zustand",
+    "in_this_section": "In diesem Bereich",
+    "not_read": "Noch nicht gemessen: Der Status wurde noch nicht gelesen.",
+    "stale": "Diese Messung ist veraltet: Es ist keine neuere eingetroffen.",
+    "display_note": "Hier hängt nichts von einem anderen Dienst ab. Design, Textgröße und Sprache ändern sich sofort auf diesem Gerät.",
+    "state": {
+      "ok": "funktioniert",
+      "degraded": "unter Last",
+      "error": "funktioniert nicht",
+      "off": "aus",
+      "unknown": "nicht gemessen"
+    },
+    "subsystem": {
+      "frigate": "Frigate",
+      "mqtt": "MQTT-Broker",
+      "classifier": "Bestimmungsmodell",
+      "finder": "Vogelfinder",
+      "audio": "BirdNET-Go",
+      "storage": "Speicher",
+      "notifications": "Benachrichtigungen"
+    },
+    "sharing_note": "Jeder Dienst unten zeigt, ob er eingeschaltet ist. Anmeldung und Gastzugang werden ebenfalls hier eingestellt."
+  },
+  "more": {
+    "title": "Weitere Optionen",
+    "cameras": "Frigate-Details, Bildquelle, Clips und BirdNET-Go"
   },
   "debug": {
     "llm_prompts_title": "LLM-Promptvorlagen",
@@ -407,6 +437,8 @@
       "source_discovery_mapping_value": "Zuordnungswert",
       "source_discovery_sample_id": "Beispiel-ID",
       "source_discovery_seen": "Gesehen",
+      "source_discovery_add": "Zum Hinzufügen auswählen",
+      "source_discovery_add_to": "{source}, gehört {time}. Wählen Sie die Quelle aus, um sie {camera} zuzuordnen.",
       "advanced_title": "Audiopuffer & Sensor-Zuordnung",
       "test_subtitle": "Bestätigt, dass BirdNET-Go erreichbar ist, der MQTT-Broker eine Veröffentlichung annimmt und eine simulierte Erkennung die Pipeline durchläuft.",
       "test_title": "BirdNET-Go-Verbindungstest"
@@ -685,7 +717,8 @@
     "test_connection_both": "Frigate und MQTT testen",
     "test_again": "Erneut testen",
     "stage_frigate_next": "Prüfen Sie die Frigate-Server-URL auf diesem Tab und ob Frigate läuft.",
-    "stage_mqtt_next": "Prüfen Sie Broker-Adresse, Port und Anmeldung auf diesem Tab."
+    "stage_mqtt_next": "Prüfen Sie Broker-Adresse, Port und Anmeldung auf diesem Tab.",
+    "more_title": "Frigate-Details"
   },
   "cameras": {
     "title": "Beobachtete Kameras",
@@ -1739,16 +1772,22 @@
     "conflicts": "{count, plural, one {Eine Einstellung, die Sie geändert haben, wurde auch anderswo geändert. Wählen Sie vor dem Speichern, welcher Wert gilt:} other {# Einstellungen, die Sie geändert haben, wurden auch anderswo geändert. Wählen Sie vor dem Speichern, welcher Wert gilt:}}",
     "use_saved": "Gespeicherten Wert verwenden",
     "use_mine": "Meine Änderung verwenden",
-    "conflict_field": "Der gespeicherte Wert wurde anderswo geändert, seit Sie dies bearbeitet haben. Wählen Sie unten in der Leiste, welcher Wert gilt.",
+    "conflict_field": "Der gespeicherte Wert wurde anderswo geändert, seit Sie dies bearbeitet haben. Wählen Sie unter „Änderungen, die auf das Speichern warten“ am Ende dieses Bereichs, welcher Wert gilt.",
     "conflict_choice_for": "für {field}",
-    "how_saving_works": "So funktioniert das Speichern",
     "conflict_values": "Anderswo gespeichert: {saved} · Ihrer: {mine}",
     "value_on": "An",
     "value_off": "Aus",
     "value_not_set": "Nicht gesetzt",
     "value_other": "Ein anderer Wert",
     "discard_short": "Verwerfen",
-    "save_short": "Speichern"
+    "save_short": "Speichern",
+    "details": "Details",
+    "go_to_details": "Zu den Details",
+    "details_title": "Änderungen, die auf das Speichern warten",
+    "line": "{count, plural, one {# ungespeicherte Änderung} other {# ungespeicherte Änderungen}}",
+    "line_conflicts": "{count, plural, one {# Änderung zu entscheiden} other {# Änderungen zu entscheiden}}",
+    "line_not_saved": "Nicht gespeichert",
+    "line_short": "{count, plural, one {# offen} other {# offen}}"
   },
   "leave": {
     "title": "Ohne Speichern verlassen?",

@@ -18,10 +18,12 @@
         id?: string;
         /** The heading's id, so a switch in the header can be named by the section's own title. */
         titleId?: string;
+        /** 3 for a card inside a section's More options, under its heading. */
+        level?: 2 | 3;
         children: Snippet;
     }
 
-    let { title, description, actions, collapsible = false, openByDefault = false, id, titleId, children }: Props = $props();
+    let { title, description, actions, collapsible = false, openByDefault = false, id, titleId, level = 2, children }: Props = $props();
 
     const uid = $props.id();
     markInsideCard();
@@ -41,7 +43,7 @@
 <section class="space-y-3" {id} aria-labelledby={headingId} data-settings-section>
     <header class="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 pl-1 pr-4 md:pr-6">
         <div class="min-w-0 flex-1 basis-48">
-            <h2 id={headingId} class="text-lg font-semibold text-slate-900 dark:text-white">
+            <svelte:element this={level === 3 ? 'h3' : 'h2'} id={headingId} class="text-lg font-semibold text-slate-900 dark:text-white">
                 {#if collapsible}
                     <button
                         type="button"
@@ -56,7 +58,7 @@
                 {:else}
                     {title}
                 {/if}
-            </h2>
+            </svelte:element>
             {#if description}
                 <p class="mt-1 max-w-prose text-sm leading-relaxed text-slate-600 dark:text-slate-400">{description}</p>
             {/if}

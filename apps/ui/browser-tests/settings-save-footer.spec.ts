@@ -54,7 +54,7 @@ for (const width of [320, 393]) {
             const apply = page.getByRole('button', { name: 'Save changes', exact: true });
             await expect(apply).toBeInViewport({ ratio: 1 });
             await expectInsideViewport(page, apply);
-            await expect(page.getByRole('region', { name: 'Unsaved changes' }).getByText('1 unsaved change in')).toBeInViewport({ ratio: 1 });
+            await expect(page.getByRole('region', { name: 'Unsaved changes' }).locator('[data-save-summary]')).toBeInViewport({ ratio: 1 });
             const discard = page.getByRole('button', { name: 'Discard changes', exact: true });
             await expect(discard).toBeInViewport({ ratio: 1 });
             await expectInsideViewport(page, discard);
@@ -67,21 +67,35 @@ for (const width of [320, 393]) {
             expect(saves[0].mqtt_server).toBe('mqtt-broker');
         });
 
-        test('the save bar takes well under half the phone, with the save rule one tap away', async ({ page }) => {
+        test('the save bar is a small strip of the phone, with what waits and the save rule one tap away', async ({ page }) => {
             await openConnectionSettings(page);
             await page.locator('#mqtt-server').fill('mqtt-broker');
             const bar = page.getByRole('region', { name: 'Unsaved changes' });
             await expect(bar).toBeVisible();
             const height = (await bar.boundingBox())?.height ?? Infinity;
-            // About two thirds of a 390px phone before; under half there now. At 320px the column is
-            // too narrow for both buttons on one row, so they stack, and the bar stays under two thirds.
-            expect(height).toBeLessThan(740 * (width === 320 ? 0.65 : 0.45));
-            // The rule is not repeated on every change; it opens in place and says what waits.
-            await expect(bar.locator('[data-settings-save-rule]')).toHaveCount(0);
-            const how = bar.getByRole('button', { name: 'How saving works', exact: true });
-            await expect(how).toHaveAttribute('aria-expanded', 'false');
-            await how.click();
-            await expect(bar.locator('#settings-save-rule')).toContainText('Changes to settings wait until you choose Save changes.');
+            // Two short lines at most with doubled text: the count and its details, then Discard and Save.
+            // It took two thirds of a 390px phone when the rule and the sections lived in it.
+            expect(height).toBeLessThan(740 * (width === 320 ? 0.3 : 0.25));
+            // The rule and the sections wait in the details, opened from the bar.
+            await expect(page.locator('[data-settings-save-rule]')).toHaveCount(0);
+            const details = bar.getByRole('button', { name: 'Details', exact: true });
+            await expect(details).toHaveAttribute('aria-expanded', 'false');
+            await details.click();
+            await expect(page.locator('#settings-save-rule')).toContainText('Changes to settings wait until you choose Save changes.');
+            await expect(page.locator('[data-settings-save-details]')).toBeFocused();
+            // Opening them leaves the bar as it was.
+            expect((await bar.boundingBox())?.height ?? Infinity).toBeLessThan(740 * (width === 320 ? 0.3 : 0.25));
+            await expectNoHorizontalOverflow(page);
+        });
+
+        test('the save bar keeps its height with a wider font', async ({ page }) => {
+            // Fonts differ between machines; a wider one must not add a row to the bar.
+            await openConnectionSettings(page);
+            await page.addStyleTag({ content: '[data-settings-save-bar], [data-settings-save-bar] * { letter-spacing: 0.2em !important; }' });
+            await page.locator('#mqtt-server').fill('mqtt-broker');
+            const bar = page.getByRole('region', { name: 'Unsaved changes' });
+            await expect(bar).toBeVisible();
+            expect((await bar.boundingBox())?.height ?? Infinity).toBeLessThan(740 * (width === 320 ? 0.3 : 0.25));
             await expectNoHorizontalOverflow(page);
         });
 

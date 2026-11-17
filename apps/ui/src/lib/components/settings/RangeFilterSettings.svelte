@@ -381,7 +381,7 @@
                 </div>
             </dl>
 
-            <ul class="space-y-1.5 text-xs leading-relaxed text-slate-600 dark:text-slate-300" data-range-filter-notes>
+            <ul class="space-y-1.5 text-xs leading-relaxed text-slate-600 dark:text-slate-300" data-range-filter-notes data-settings-prose>
                 <li>{$_('settings.range_filter.freshness', { values: { days: MAX_AGE_DAYS }, default: 'Refreshed weekly in the background. A list older than {days, plural, one {# day} other {# days}} stops filtering until it is refreshed.' })}</li>
                 {#if status.last_error && status.region && status.reason === 'active'}
                     <li data-range-filter-last-error>{$_('settings.range_filter.last_refresh_failed', { values: { problem: problemText() }, default: 'The last refresh failed. {problem} The current list is still used until it is too old.' })}</li>
