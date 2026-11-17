@@ -103,6 +103,15 @@ describe('canonicalSettingsPath', () => {
         }
     });
 
+    it('keeps the part a loose section address names, so a reload lands on it again', () => {
+        expect(canonicalSettingsPath('/settings/sharing/', 'security')).toBe('/settings/sharing#security');
+        expect(canonicalSettingsPath('/settings/identification/', 'debug')).toBe('/settings/identification#models');
+        // A fragment that names no part of that section is not kept.
+        expect(canonicalSettingsPath('/settings/sharing/', 'models')).toBe('/settings/sharing');
+        expect(canonicalSettingsPath('/settings/sharing/', '')).toBe('/settings/sharing');
+        expect(canonicalSettingsPath('/settings/sharing', 'security')).toBeNull();
+    });
+
     it('ignores the fragment a navigation carries, so a part address is already canonical', () => {
         expect(canonicalSettingsPath('/settings/identification#models', '')).toBeNull();
     });

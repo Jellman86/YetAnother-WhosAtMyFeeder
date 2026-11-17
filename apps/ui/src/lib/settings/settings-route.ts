@@ -136,8 +136,9 @@ export function canonicalSettingsPath(pathname: string, hash: string): string | 
     if (!match) return null;
     const slug = match[1];
     if (isSettingsSection(slug)) {
-        const canonical = settingsSectionPath(slug);
-        return canonical === path ? null : canonical;
+        // A loose address (a trailing slash) keeps the part it names, so a reload lands there again.
+        if (settingsSectionPath(slug) === path) return null;
+        return settingsSectionPath(slug, settingsPartFromAnchor(slug, hash) ?? undefined);
     }
     const part = partNamed(slug);
     return part ? settingsPartPath(part) : settingsSectionPath('cameras');

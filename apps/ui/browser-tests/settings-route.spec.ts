@@ -13,7 +13,8 @@ async function openOwnerShell(page: Page): Promise<string[]> {
         const path = new URL(route.request().url()).pathname;
         const responses: Record<string, unknown> = {
             '/api/auth/status': { auth_required: false, is_authenticated: true, needs_initial_setup: false },
-            '/api/settings': { frigate_url: 'http://frigate:5000', mqtt_server: 'mqtt', mqtt_port: 1883, mqtt_auth: false, cameras: ['patio'] },
+            // The backend always sends the naming threshold; Identifying birds binds it.
+            '/api/settings': { frigate_url: 'http://frigate:5000', mqtt_server: 'mqtt', mqtt_port: 1883, mqtt_auth: false, cameras: ['patio'], classification_threshold: 0.7 },
             '/api/update-status': { update_available: false },
         };
         if (path in responses) return route.fulfill({ json: responses[path] });
@@ -61,6 +62,52 @@ test('a former tab\'s address lands on its part inside the section, below the pa
     await expect(part.getByRole('heading', { level: 2 }).first()).toBeVisible();
     // Scrolled to: the part starts at or near the top of the window, not below the Data part.
     await expect.poll(async () => Math.round((await part.boundingBox())?.y ?? 9999)).toBeLessThan(200);
+});
+
+/** The part is where the window was scrolled to: at its top, or as far as the page can scroll. */
+async function expectAtPart(page: Page, part: string): Promise<void> {
+    await expect.poll(() => page.evaluate((name) => {
+        const element = document.querySelector(`[data-settings-part="${name}"]`);
+        if (!element) return 'missing';
+        const top = element.getBoundingClientRect().top;
+        const atBottom = Math.ceil(window.scrollY + window.innerHeight) >= document.documentElement.scrollHeight - 2;
+        // A few pixels either way: the sticky save bar's scroll padding and late image sizes nudge it.
+        return top > -16 && (top < 120 || atBottom) ? 'there' : `top at ${Math.round(top)}`;
+    }, part), { timeout: 10_000 }).toBe('there');
+}
+
+test('one part after another in a section lands on each, and Back and Forward land on them again', async ({ page }) => {
+    const errors = await openOwnerShell(page);
+    await page.goto('/settings/identification#models');
+    await expectSection(page, '/settings/identification', 'Identifying birds', '#models');
+    await expectAtPart(page, 'models');
+
+    // A fragment followed on the page (a link, or typed), then back to the first.
+    await page.evaluate(() => { location.hash = '#beta'; });
+    await expectAtPart(page, 'beta');
+    await page.evaluate(() => { location.hash = '#models'; });
+    await expectAtPart(page, 'models');
+
+    await page.goBack();
+    await expect.poll(() => hash(page)).toBe('#beta');
+    await expectAtPart(page, 'beta');
+    await page.goForward();
+    await expect.poll(() => hash(page)).toBe('#models');
+    await expectAtPart(page, 'models');
+    // The section's first part is the top of the page.
+    await page.evaluate(() => { location.hash = '#detection'; });
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
+    expect(errors).toEqual([]);
+});
+
+test('a loose address keeps its part when it is rewritten, so a reload lands there again', async ({ page }) => {
+    await openOwnerShell(page);
+    await page.goto('/settings/sharing/#security');
+    await expectSection(page, '/settings/sharing', 'Sharing & integrations', '#security');
+    await expectAtPart(page, 'security');
+    await page.reload();
+    await expectSection(page, '/settings/sharing', 'Sharing & integrations', '#security');
+    await expectAtPart(page, 'security');
 });
 
 test('Health is a page of its own, and the old Settings addresses open it', async ({ page }) => {

@@ -140,10 +140,13 @@
 
     let {
         onNavigate,
-        currentRoute
+        currentRoute,
+        currentHash
     }: {
         onNavigate?: (path: string, opts?: { replace?: boolean }) => void;
         currentRoute?: string;
+        /** The address's fragment (`#models`), which names a part. Without it, a fragment in the route is used. */
+        currentHash?: string;
     } = $props();
 
     function normalizeFrigateMissingBehavior(value: unknown): 'mark_missing' | 'keep' | 'delete' {
@@ -1396,7 +1399,10 @@
     async function revealPart(part: SettingsPart): Promise<void> {
         const section = settingsSectionOfPart(part);
         const parts = SETTINGS_SECTION_PARTS[section];
-        if (parts[0] === part) return;
+        if (parts[0] === part) {
+            window.scrollTo({ top: 0 });
+            return;
+        }
         const above = parts.slice(0, parts.indexOf(part) + 1).map((each) => SETTINGS_PART_LOADERS[each]);
         const target = await fieldInOpenedPart(
             () => Promise.all(above.map((load) => load())),
@@ -1405,13 +1411,15 @@
         target?.scrollIntoView({ block: 'start' });
     }
 
-    // An address that names a part (a former tab's link, redirected here) lands on that part. An
-    // in-app navigation carries the anchor in the route; a reload or Back keeps it in the address.
+    // The fragment that names a part. The app follows it through navigation, Back and Forward and a
+    // fragment followed on the page; a host without that passes it in the route.
+    const anchor = $derived(currentHash ?? (currentRoute?.includes('#') ? currentRoute.slice(currentRoute.indexOf('#')) : ''));
+
+    // An address that names a part (a former tab's link, redirected here, or one part after another
+    // within a section) lands on that part.
     $effect(() => {
         if (typeof window === 'undefined' || !currentRoute?.startsWith('/settings')) return;
-        const section = activeSection;
-        const anchor = currentRoute.includes('#') ? currentRoute.slice(currentRoute.indexOf('#')) : window.location.hash;
-        const part = settingsPartFromAnchor(section, anchor);
+        const part = settingsPartFromAnchor(activeSection, anchor);
         if (part) untrack(() => void revealPart(part));
     });
 
@@ -1471,7 +1479,7 @@
     $effect(() => {
         if (typeof window === 'undefined') return;
         if (!currentRoute || !currentRoute.startsWith('/settings')) return;
-        const canonical = canonicalSettingsPath(currentRoute.replace(/#.*$/, ''), window.location.hash.slice(1));
+        const canonical = canonicalSettingsPath(currentRoute.replace(/#.*$/, ''), anchor.replace(/^#/, ''));
         if (canonical && canonical !== currentRoute) {
             if (onNavigate) onNavigate(canonical, { replace: true });
             else window.history.replaceState(null, '', toAppPath(canonical));
