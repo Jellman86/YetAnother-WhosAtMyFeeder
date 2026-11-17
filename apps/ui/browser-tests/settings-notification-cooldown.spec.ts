@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { openMoreOptions } from './settings-page-mock';
 
 // The cooldown saves whole minutes, at least one. The field must show what will be saved, not what
 // was typed: on leaving it, "0", "-5" or "2.5" become the minutes the save will carry.
@@ -32,6 +33,8 @@ async function openNotifications(page: Page): Promise<Settings[]> {
     });
     await page.goto('/browser-tests/settings-backfill.html');
     await page.getByRole('link', { name: 'Alerts', exact: true }).click();
+    // The cooldown is under Alerts' More options.
+    await openMoreOptions(page);
     return writes;
 }
 

@@ -326,7 +326,9 @@
     "title": "More options",
     "cameras": "Frigate details, image source, clips and BirdNET-Go",
     "sharing": "eBird, iNaturalist, BirdWeather, Home Assistant weather, species information, AI and telemetry",
-    "identification": "Blocked species, the range filter, video checks, hardware and Beta features"
+    "identification": "Blocked species, the range filter, video checks, hardware and Beta features",
+    "alerts": "Cooldown, language, the link and the species filter",
+    "alerts_garden": "Cooldown, language, the link, the species filter and Garden animal alerts"
   },
   "debug": {
     "llm_prompts_title": "LLM prompt templates",
@@ -989,10 +991,10 @@
       "status_after_apply": "Delivery status appears once Garden is switched on and saved.",
       "refresh": "Refresh delivery status"
     },
-    "garden_elsewhere": "Garden animal alerts are set with Garden animals, in Beta features. They send through the channels above.",
-    "garden_open": "Open Garden alerts",
     "link_open_connection": "Open Connection",
     "channels_title": "Channels",
+    "details_title": "Pacing, language, links and species",
+    "garden_title": "Garden animal alerts",
     "channels_desc": "Where alerts go. Turn a channel on to set it up."
   },
   "discord": {
@@ -1548,6 +1550,7 @@
     "garden_motion_toggle": "Collect motion review photos on {camera}",
     "garden_naming_off": "Every animal waits in Needs review for you to confirm and name it.",
     "garden_naming_elsewhere": "Automatic naming is set with the birds’ naming threshold, at the top of Identifying birds.",
+    "garden_alerts_elsewhere": "Garden animal alerts are set in Alerts, with the channels they send through.",
     "garden_naming_threshold_help": "This is a second check, on which animal it is. At or above it, the animal is confirmed and named for you. Below it, its photo goes to Dismissed, where you can restore it.",
     "garden_naming_threshold": "Name an animal when this sure which one it is",
     "garden_naming": "Name animals automatically",
@@ -1594,7 +1597,7 @@
     "garden_cameras_open": "Choose cameras in Connection",
     "garden_alerts_on": "Garden alerts are on. They are set up in Notifications, with their channels.",
     "garden_alerts_off": "Garden alerts are off. Turn them on in Notifications, with their channels.",
-    "garden_alerts_open": "Set up alerts",
+    "garden_alerts_open": "Open Garden alerts",
     "garden_domestic_birds": "Domestic birds you keep",
     "garden_domestic_birds_help": "Only for birds you keep. The bird model knows only wild species, so it names a hen as a Red Junglefowl. Birds added here are recorded as Garden animals, not wild birds, and are never sent to eBird, BirdWeather or iNaturalist.",
     "garden_domestic_birds_wild": "Nothing counts as domestic until you add it. Mallards, Greylag Geese, Wild Turkeys and Rock Doves also live wild, so on every camera they are then recorded as your birds.",
@@ -1623,7 +1626,6 @@
     "garden_section_cameras": "Cameras",
     "garden_section_checks": "Automatic checks",
     "garden_section_models": "Models",
-    "garden_section_alerts": "Alerts",
     "garden_naming_help": "Animals that reach the naming threshold are confirmed and named. Photos below it go to Dismissed, where you can restore them.",
     "garden_device_note": "Automatic checks use the device chosen under Settings › Models › Hardware once it agrees with the CPU, and fall back to the CPU if it fails. Motion scans use the CPU. Garden runs one job at a time while birds and cameras are idle.",
     "garden_status_refresh": "Refresh status",
@@ -1643,7 +1645,6 @@
     "garden_fact_unreadable": "Could not be read. Refresh to try again.",
     "garden_fact_saved_crops": "Saved crops",
     "garden_fact_saved_crops_value": "{count, plural, one {# crop} other {# crops}} of {limit, number}",
-    "garden_channels_open": "Set up channels in Notifications",
     "garden_sentence_blocked_model": "No check yet: the Garden model is not downloaded.",
     "garden_sentence_blocked_camera": "No check yet: no camera watches for Garden animals.",
     "garden_sentence_no_check": "No check has run yet.",

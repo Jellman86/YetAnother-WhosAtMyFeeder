@@ -11,6 +11,8 @@ export const loadHardwareSettings = lazyComponent(() => import('../HardwareSetti
 export const loadNamingSettings = lazyComponent(() => import('../NamingSettings.svelte'));
 export const loadGardenBetaSettings = lazyComponent(() => import('../GardenBetaSettings.svelte'));
 export const loadNotificationSettings = lazyComponent(() => import('../NotificationSettings.svelte'));
+export const loadNotificationChannelsSettings = lazyComponent(() => import('../NotificationChannelsSettings.svelte'));
+export const loadGardenNotificationSettings = lazyComponent(() => import('../GardenNotificationSettings.svelte'));
 export const loadIntegrationSettings = lazyComponent(() => import('../IntegrationSettings.svelte'));
 export const loadEnrichmentSettings = lazyComponent(() => import('../EnrichmentSettings.svelte'));
 export const loadHaWeatherSettings = lazyComponent(() => import('../HaWeatherSettings.svelte'));
@@ -30,7 +32,7 @@ export const SETTINGS_PART_LOADERS: Readonly<Record<SettingsPart, () => Promise<
     detection: () => Promise.all([loadNamingSettings(), loadDetectionSettings()]),
     models: () => Promise.all([loadModelSettings(), loadHardwareSettings()]),
     beta: loadGardenBetaSettings,
-    notifications: loadNotificationSettings,
+    notifications: () => Promise.all([loadNotificationSettings(), loadNotificationChannelsSettings()]),
     integrations: () => Promise.all([loadIntegrationSettings(), loadHaWeatherSettings(), loadEnrichmentSettings()]),
     ai: () => Promise.all([loadAiSettings(), loadTelemetrySettings()]),
     security: () => Promise.all([loadLocationSettings(), loadAuthenticationSettings()]),

@@ -13,7 +13,11 @@ import authenticationSource from './AuthenticationSettings.svelte?raw';
 import modelManagerSource from '../../pages/models/ModelManager.svelte?raw';
 import telemetrySource from './TelemetrySettings.svelte?raw';
 import connectionSource from './ConnectionSettings.svelte?raw';
-import notificationSource from './NotificationSettings.svelte?raw';
+import notificationRulesSource from './NotificationSettings.svelte?raw';
+import notificationChannelsSource from './NotificationChannelsSettings.svelte?raw';
+
+// Alerts' rules and its channels are two components; these checks read them as one.
+const notificationSource = `${notificationRulesSource}\n${notificationChannelsSource}`;
 import rangeFilterSource from './RangeFilterSettings.svelte?raw';
 // @ts-expect-error -- node:fs resolves at runtime, not in the app tsconfig
 import { readFileSync } from 'node:fs';

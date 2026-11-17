@@ -64,6 +64,8 @@ Some settings have since moved within that map:
 | eBird, iNaturalist, BirdWeather, Home Assistant weather, species information sources, AI, telemetry | Sharing & integrations | Sharing & integrations, under **More options** |
 | Garden's **Name animals automatically** and its naming threshold | Beta features (Garden, Automatic checks) | Identifying birds, **Naming threshold** card, marked Beta |
 | Blocked labels, range filter, Frigate and video, **Hardware** (with the runtime report), Beta features | Identifying birds | Identifying birds, under **More options** |
+| Garden animal alerts | Beta features (Garden, Alerts) | Alerts, under **More options**, marked Beta |
+| Notification cooldown, language, link and species filter | Alerts | Alerts, under **More options** |
 
 Edits wait in one draft across every section. While anything differs from what is saved, a short
 bar at the bottom of the page counts the changes, with **Discard changes** (puts every saved value
@@ -303,7 +305,10 @@ When you hear about a visit, and the channels the message goes to.
 
 ### Notifications
 
-Where alerts go, and which detections earn one.
+Which visits earn an alert, then where alerts go. The delivery sentence and the **Channels** card
+come first. **More options** holds the cooldown, the notification language, the link and the
+species filter, and while Garden animals is on, Garden's own alerts. The sentence's species words
+open More options at the species filter.
 
 ![Settings → Alerts: the Global Notification Filters card reading "Tell me about new visits that are at least 70% sure of any species on no channel yet", with the notification cooldown, language, and the three species filter modes beneath](../images/settings-notifications.png)
 
@@ -312,23 +317,24 @@ of **any species** on **Discord*** — and each highlighted part is a control.
 
 | Control | Default | Description |
 |---|---|---|
+| **Channels** | Off | Discord, Pushover, Telegram and Email, each with its switch and a test that sends one real message. |
 | **Notification mode** | Standard | `Final-only`, `Standard`, `Realtime`, `Silent`, or `Advanced (custom)` triggers. |
 | **Minimum confidence** | `0.7` | Only notify at or above this score. Raise it to reduce alerts for lower-confidence identifications. |
 | **Audio confirmed only** | Off | Notify only when BirdNET-Go heard the same species within the configured correlation window. |
-| **Species filter** | No species filter | `No species filter`, `Block selected species`, or `Only selected species`. |
-| **Notification cooldown** | Off | A switch; when on, the minutes to wait after an alert before sending another (saved as `0` when off). |
-| **Notification language** | English | The language used in message text, independent of the UI language. |
-| **Instance address** | _(blank)_ | The address you use to open YA-WAMF. When set, every notification links to the detection it announces; blank means no link. |
-| **Notification link opens** | This YA-WAMF | `This YA-WAMF` opens the detection here; `Frigate` opens the tracked object in Frigate's Explore page via **Public Frigate URL** under **Connection** (Frigate 0.15+). |
+| **Species filter** | No species filter | Under More options. `No species filter`, `Block selected species`, or `Only selected species`. The sentence states the filter in words; this is the one control. |
+| **Notification cooldown** | Off | Under More options. A switch; when on, the minutes to wait after an alert before sending another (saved as `0` when off). |
+| **Notification language** | English | Under More options. The language used in message text, independent of the UI language. |
+| **Instance address** | _(blank)_ | Under More options. The address you use to open YA-WAMF. When set, every notification links to the detection it announces; blank means no link. |
+| **Notification link opens** | This YA-WAMF | Under More options. `This YA-WAMF` opens the detection here; `Frigate` opens the tracked object in Frigate's Explore page via **Public Frigate URL** under **Connection** (Frigate 0.15+). |
 
 Destinations are Discord, Pushover, Telegram, and Email (Gmail/Outlook OAuth or plain SMTP).
 See [Notifications](../features/notifications.md) for per-platform setup.
 
 ### Garden notifications
 
-Garden alerts are off by default and are set with the rest of Garden, under
-**Settings → Identifying birds → More options → Garden animals → Alerts**; Notifications links there while the beta
-is on. The channels themselves are set up once, in Notifications. They follow
+Garden alerts are off by default. While the beta is on they are set in **Settings → Alerts → More
+options → Garden animal alerts**, marked Beta, beside the channels they send through; the Garden
+card links there. The channels themselves are set up once, in Alerts. They follow
 the bird channels that are switched on and configured, or channels you choose;
 save with **Save changes**. See
 [Garden notifications](../features/garden-animals.md#send-garden-notifications)

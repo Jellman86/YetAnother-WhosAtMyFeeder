@@ -326,7 +326,9 @@
     "title": "更多选项",
     "cameras": "Frigate 详情、图像来源、剪辑和 BirdNET-Go",
     "sharing": "eBird、iNaturalist、BirdWeather、Home Assistant 天气、物种信息、AI 和遥测",
-    "identification": "屏蔽的物种、分布范围筛选、视频检查、硬件和测试版功能"
+    "identification": "屏蔽的物种、分布范围筛选、视频检查、硬件和测试版功能",
+    "alerts": "冷却时间、语言、链接和物种筛选",
+    "alerts_garden": "冷却时间、语言、链接、物种筛选和花园动物提醒"
   },
   "debug": {
     "llm_prompts_title": "LLM 提示模板",
@@ -989,10 +991,10 @@
       "status_after_apply": "开启并保存花园后，这里会显示发送状态。",
       "refresh": "刷新发送状态"
     },
-    "garden_elsewhere": "花园动物提醒在“测试功能”的“花园动物”中设置，通过上方的渠道发送。",
-    "garden_open": "打开花园提醒",
     "link_open_connection": "打开“连接”",
     "channels_title": "渠道",
+    "details_title": "间隔、语言、链接和物种",
+    "garden_title": "花园动物提醒",
     "channels_desc": "通知发送到的地方。开启某个渠道即可进行设置。"
   },
   "discord": {
@@ -1548,6 +1550,7 @@
     "garden_motion_toggle": "在 {camera} 收集待审核的移动照片",
     "garden_naming_off": "每个动物都会留在“待审核”中，等你确认并命名。",
     "garden_naming_elsewhere": "自动命名与鸟类的命名阈值一起设置，位于“识别鸟类”的顶部。",
+    "garden_alerts_elsewhere": "花园动物提醒在“提醒”中设置，与发送它们的渠道放在一起。",
     "garden_naming_threshold_help": "这是判断是哪种动物的第二道检查。达到或高于此值时，会为你确认并命名该动物。低于此值时，照片进入“已忽略”，你可以从那里恢复。",
     "garden_naming_threshold": "对动物种类有这么确定时命名",
     "garden_naming": "自动为动物命名",
@@ -1594,7 +1597,7 @@
     "garden_cameras_open": "在“连接”中选择摄像头",
     "garden_alerts_on": "花园提醒已开启，在“通知”中与其渠道一起设置。",
     "garden_alerts_off": "花园提醒已关闭，请在“通知”中与其渠道一起开启。",
-    "garden_alerts_open": "设置提醒",
+    "garden_alerts_open": "打开花园提醒",
     "garden_domestic_birds": "您饲养的家禽",
     "garden_domestic_birds_help": "仅用于你饲养的鸟。鸟类模型只认识野生物种，因此会把母鸡识别为原鸡。在此添加的鸟会被记录为花园动物，而不是野鸟，并且绝不会发送到 eBird、BirdWeather 或 iNaturalist。",
     "garden_domestic_birds_wild": "在您添加之前，任何鸟都不算家禽。绿头鸭、灰雁、野火鸡和原鸽也有野生种群，添加后它们在所有摄像头上都会被记录为您的鸟。",
@@ -1623,7 +1626,6 @@
     "garden_section_cameras": "摄像头",
     "garden_section_checks": "自动检查",
     "garden_section_models": "模型",
-    "garden_section_alerts": "提醒",
     "garden_naming_help": "达到命名阈值的动物会被确认并命名。低于阈值的照片进入“已忽略”，你可以在那里恢复。",
     "garden_device_note": "自动检查在与 CPU 结果一致后使用 设置 › 模型 › 硬件 中选择的设备，失败时回退到 CPU。运动扫描使用 CPU。花园在鸟类和摄像头空闲时一次运行一项任务。",
     "garden_status_refresh": "刷新状态",
@@ -1643,7 +1645,6 @@
     "garden_fact_unreadable": "无法读取。请刷新后重试。",
     "garden_fact_saved_crops": "已保存的裁剪",
     "garden_fact_saved_crops_value": "{count, plural, other {# 张裁剪}}，上限 {limit, number}",
-    "garden_channels_open": "在“通知”中设置渠道",
     "garden_sentence_blocked_model": "尚未检查：花园模型尚未下载。",
     "garden_sentence_blocked_camera": "尚未检查：没有摄像头在关注花园动物。",
     "garden_sentence_no_check": "尚未运行任何检查。",

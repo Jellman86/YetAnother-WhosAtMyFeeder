@@ -1,8 +1,8 @@
 <script lang="ts">
     /**
      * Garden alerts, set up with the channels they use. By default they follow the bird channels
-     * switched on in Notifications; an explicit choice uses saved credentials while the bird switch
-     * stays off. Shown in Garden, with the rest of the feature.
+     * switched on in Alerts; an explicit choice uses saved credentials while the bird switch stays
+     * off. Shown in Alerts under More options, marked Beta, beside the channels they send through.
      * Bird filters, mode and cooldown are bird rules and do not apply here.
      */
     import { _, locale } from 'svelte-i18n';
@@ -18,9 +18,9 @@
         channels?: GardenNotificationChannel[];
         includePhoto?: boolean;
         /** The bird channels as the page holds them now, saved or not. */
-        birdChannels: PolicyChannel[];
+        birdChannels?: PolicyChannel[];
         /** Whether the saved settings have Garden on, so its delivery status can be read. */
-        statusAvailable: boolean;
+        statusAvailable?: boolean;
     }
 
     let {
@@ -28,8 +28,8 @@
         useBirdChannels = $bindable(true),
         channels = $bindable<GardenNotificationChannel[]>([]),
         includePhoto = $bindable(true),
-        birdChannels,
-        statusAvailable
+        birdChannels = [],
+        statusAvailable = false
     }: Props = $props();
 
     let status = $state.raw<GardenNotificationStatus | null>(null);

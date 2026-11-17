@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import policySource from '../../settings/notification-policy.ts?raw';
 import sentenceSource from './NotificationPolicySentence.svelte?raw';
 import settingsSource from './NotificationSettings.svelte?raw';
+import channelsSource from './NotificationChannelsSettings.svelte?raw';
 
 describe('Notification policy sentence', () => {
     it('replaces the preset grid and the standalone confidence slider', () => {
@@ -28,7 +29,9 @@ describe('Notification policy sentence', () => {
         expect(sentenceSource).not.toContain('type="checkbox"');
         expect(sentenceSource).not.toContain('onChannelToggle');
         expect(sentenceSource).toContain('jumpTo(channelsSectionId)');
-        expect(settingsSource).toContain('id={channelsSectionId}');
+        // The Channels card is its own component, with the id the sentence links to.
+        expect(channelsSource).toContain('id={CHANNELS_SECTION_ID}');
+        expect(settingsSource).toContain('channelsSectionId={NOTIFICATION_CHANNELS_SECTION_ID}');
         expect(policySource).toContain("id: 'discord'");
         for (const id of ['pushover', 'telegram', 'email']) {
             expect(policySource).toContain(`id: '${id}'`);
