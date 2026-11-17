@@ -5666,9 +5666,28 @@
             "default": 0,
             "title": "Visit Count",
             "type": "integer"
+          },
+          "window": {
+            "default": "rolling",
+            "enum": [
+              "rolling",
+              "today"
+            ],
+            "title": "Window",
+            "type": "string"
+          },
+          "window_end": {
+            "title": "Window End",
+            "type": "string"
+          },
+          "window_start": {
+            "title": "Window Start",
+            "type": "string"
           }
         },
         "required": [
+          "window_start",
+          "window_end",
           "hourly_distribution",
           "top_species",
           "latest_detection",
@@ -29424,20 +29443,20 @@
             }
           },
           {
-            "description": "Number of events to skip",
+            "description": "Number of events to skip. While more events match, the response carries X-Next-Offset.",
             "in": "query",
             "name": "offset",
             "required": false,
             "schema": {
               "default": 0,
-              "description": "Number of events to skip",
+              "description": "Number of events to skip. While more events match, the response carries X-Next-Offset.",
               "minimum": 0,
               "title": "Offset",
               "type": "integer"
             }
           },
           {
-            "description": "Filter events from this date (inclusive)",
+            "description": "First day (inclusive): an ISO date or `today`, read as a calendar day in the zone `X-Timezone` names, else the instance's `TZ`, else UTC",
             "in": "query",
             "name": "start_date",
             "required": false,
@@ -29448,15 +29467,19 @@
                   "type": "string"
                 },
                 {
+                  "const": "today",
+                  "type": "string"
+                },
+                {
                   "type": "null"
                 }
               ],
-              "description": "Filter events from this date (inclusive)",
+              "description": "First day (inclusive): an ISO date or `today`, read as a calendar day in the zone `X-Timezone` names, else the instance's `TZ`, else UTC",
               "title": "Start Date"
             }
           },
           {
-            "description": "Filter events until this date (inclusive)",
+            "description": "Last day (inclusive): an ISO date or `today`, read as a calendar day in the zone `X-Timezone` names, else the instance's `TZ`, else UTC",
             "in": "query",
             "name": "end_date",
             "required": false,
@@ -29467,10 +29490,14 @@
                   "type": "string"
                 },
                 {
+                  "const": "today",
+                  "type": "string"
+                },
+                {
                   "type": "null"
                 }
               ],
-              "description": "Filter events until this date (inclusive)",
+              "description": "Last day (inclusive): an ISO date or `today`, read as a calendar day in the zone `X-Timezone` names, else the instance's `TZ`, else UTC",
               "title": "End Date"
             }
           },
@@ -29678,7 +29705,16 @@
                 }
               }
             },
-            "description": "Full DetectionResponse[] by default. With fields=list, returns DetectionListItemResponse[]. Custom comma-separated fields return a partial event projection plus required navigation fields."
+            "description": "Full DetectionResponse[] by default. With fields=list, returns DetectionListItemResponse[]. Custom comma-separated fields return a partial event projection plus required navigation fields.",
+            "headers": {
+              "X-Next-Offset": {
+                "description": "The `offset` of the next page. Present only while more events match.",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer"
+                }
+              }
+            }
           },
           "422": {
             "content": {
@@ -29810,7 +29846,7 @@
         "operationId": "get_events_count_api_events_count_get",
         "parameters": [
           {
-            "description": "Filter events from this date (inclusive)",
+            "description": "First day (inclusive): an ISO date or `today`, read as a calendar day in the zone `X-Timezone` names, else the instance's `TZ`, else UTC",
             "in": "query",
             "name": "start_date",
             "required": false,
@@ -29821,15 +29857,19 @@
                   "type": "string"
                 },
                 {
+                  "const": "today",
+                  "type": "string"
+                },
+                {
                   "type": "null"
                 }
               ],
-              "description": "Filter events from this date (inclusive)",
+              "description": "First day (inclusive): an ISO date or `today`, read as a calendar day in the zone `X-Timezone` names, else the instance's `TZ`, else UTC",
               "title": "Start Date"
             }
           },
           {
-            "description": "Filter events until this date (inclusive)",
+            "description": "Last day (inclusive): an ISO date or `today`, read as a calendar day in the zone `X-Timezone` names, else the instance's `TZ`, else UTC",
             "in": "query",
             "name": "end_date",
             "required": false,
@@ -29840,10 +29880,14 @@
                   "type": "string"
                 },
                 {
+                  "const": "today",
+                  "type": "string"
+                },
+                {
                   "type": "null"
                 }
               ],
-              "description": "Filter events until this date (inclusive)",
+              "description": "Last day (inclusive): an ISO date or `today`, read as a calendar day in the zone `X-Timezone` names, else the instance's `TZ`, else UTC",
               "title": "End Date"
             }
           },
@@ -37756,8 +37800,26 @@
     },
     "/api/stats/daily-summary": {
       "get": {
-        "description": "Get a summary of detections for today.",
+        "description": "Summarise detections over the last 24 hours, or over today so far.",
         "operationId": "get_daily_summary_api_stats_daily_summary_get",
+        "parameters": [
+          {
+            "description": "`rolling`: the last 24 hours. `today`: from local midnight to now, in the zone `X-Timezone` names, else the instance's `TZ`, else UTC.",
+            "in": "query",
+            "name": "window",
+            "required": false,
+            "schema": {
+              "default": "rolling",
+              "description": "`rolling`: the last 24 hours. `today`: from local midnight to now, in the zone `X-Timezone` names, else the instance's `TZ`, else UTC.",
+              "enum": [
+                "rolling",
+                "today"
+              ],
+              "title": "Window",
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -37768,6 +37830,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "security": [
@@ -38838,24 +38910,27 @@
             "required": false,
             "schema": {
               "default": 24,
-              "maximum": 100,
+              "maximum": 500,
               "minimum": 1,
               "title": "Limit",
               "type": "integer"
             }
           },
           {
+            "description": "Visits to skip; `total` counts every matching visit",
             "in": "query",
             "name": "offset",
             "required": false,
             "schema": {
               "default": 0,
+              "description": "Visits to skip; `total` counts every matching visit",
               "minimum": 0,
               "title": "Offset",
               "type": "integer"
             }
           },
           {
+            "description": "First day (inclusive): an ISO date or `today`, read as a calendar day in the zone `X-Timezone` names, else the instance's `TZ`, else UTC",
             "in": "query",
             "name": "start_date",
             "required": false,
@@ -38866,13 +38941,19 @@
                   "type": "string"
                 },
                 {
+                  "const": "today",
+                  "type": "string"
+                },
+                {
                   "type": "null"
                 }
               ],
+              "description": "First day (inclusive): an ISO date or `today`, read as a calendar day in the zone `X-Timezone` names, else the instance's `TZ`, else UTC",
               "title": "Start Date"
             }
           },
           {
+            "description": "Last day (inclusive): an ISO date or `today`, read as a calendar day in the zone `X-Timezone` names, else the instance's `TZ`, else UTC",
             "in": "query",
             "name": "end_date",
             "required": false,
@@ -38883,13 +38964,19 @@
                   "type": "string"
                 },
                 {
+                  "const": "today",
+                  "type": "string"
+                },
+                {
                   "type": "null"
                 }
               ],
+              "description": "Last day (inclusive): an ISO date or `today`, read as a calendar day in the zone `X-Timezone` names, else the instance's `TZ`, else UTC",
               "title": "End Date"
             }
           },
           {
+            "description": "Exact start instant; overrides start_date",
             "in": "query",
             "name": "start_time",
             "required": false,
@@ -38903,10 +38990,12 @@
                   "type": "null"
                 }
               ],
+              "description": "Exact start instant; overrides start_date",
               "title": "Start Time"
             }
           },
           {
+            "description": "Exact end instant; overrides end_date",
             "in": "query",
             "name": "end_time",
             "required": false,
@@ -38920,6 +39009,7 @@
                   "type": "null"
                 }
               ],
+              "description": "Exact end instant; overrides end_date",
               "title": "End Time"
             }
           },
@@ -39102,6 +39192,7 @@
             }
           },
           {
+            "description": "First day (inclusive): an ISO date or `today`, read as a calendar day in the zone `X-Timezone` names, else the instance's `TZ`, else UTC",
             "in": "query",
             "name": "start_date",
             "required": false,
@@ -39112,13 +39203,19 @@
                   "type": "string"
                 },
                 {
+                  "const": "today",
+                  "type": "string"
+                },
+                {
                   "type": "null"
                 }
               ],
+              "description": "First day (inclusive): an ISO date or `today`, read as a calendar day in the zone `X-Timezone` names, else the instance's `TZ`, else UTC",
               "title": "Start Date"
             }
           },
           {
+            "description": "Last day (inclusive): an ISO date or `today`, read as a calendar day in the zone `X-Timezone` names, else the instance's `TZ`, else UTC",
             "in": "query",
             "name": "end_date",
             "required": false,
@@ -39129,13 +39226,19 @@
                   "type": "string"
                 },
                 {
+                  "const": "today",
+                  "type": "string"
+                },
+                {
                   "type": "null"
                 }
               ],
+              "description": "Last day (inclusive): an ISO date or `today`, read as a calendar day in the zone `X-Timezone` names, else the instance's `TZ`, else UTC",
               "title": "End Date"
             }
           },
           {
+            "description": "Exact start instant; overrides start_date",
             "in": "query",
             "name": "start_time",
             "required": false,
@@ -39149,10 +39252,12 @@
                   "type": "null"
                 }
               ],
+              "description": "Exact start instant; overrides start_date",
               "title": "Start Time"
             }
           },
           {
+            "description": "Exact end instant; overrides end_date",
             "in": "query",
             "name": "end_time",
             "required": false,
@@ -39166,6 +39271,7 @@
                   "type": "null"
                 }
               ],
+              "description": "Exact end instant; overrides end_date",
               "title": "End Time"
             }
           },

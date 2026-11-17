@@ -23,7 +23,6 @@ import struct
 from collections.abc import Mapping
 from datetime import datetime, timedelta, timezone, tzinfo
 from typing import BinaryIO
-from zoneinfo import ZoneInfo
 
 from PIL import Image
 
@@ -44,17 +43,6 @@ _MP4_EPOCH = datetime(1904, 1, 1, tzinfo=timezone.utc)
 _MAX_TOP_LEVEL_BOXES = 64
 _MAX_MOOV_CHILDREN = 256
 _MAX_MVHD_BYTES = 4096
-
-
-def configured_timezone(environ: Mapping[str, str] | None = None) -> tzinfo:
-    """The zone a capture time without an offset is read in: ``TZ``, or UTC when unset or unknown."""
-    name = (os.environ if environ is None else environ).get("TZ", "").strip().lstrip(":")
-    if not name:
-        return timezone.utc
-    try:
-        return ZoneInfo(name)
-    except (ValueError, OSError, KeyError):
-        return timezone.utc
 
 
 def _text(value: object) -> str | None:
