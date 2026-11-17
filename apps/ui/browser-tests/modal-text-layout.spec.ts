@@ -42,7 +42,7 @@ for (const font of ['system', 'wide fallback'] as const) {
         await expect(modal.locator('[data-counted-birds-state="not-counted"]')).toBeVisible();
         await modal.locator('[data-detection-more-actions]').click();
         await expect(modal.getByRole('button', { name: 'Diesen Besuch dauerhaft löschen' })).toHaveCount(1);
-        await expect(modal.getByRole('button', { name: /^(Erkennung ausblenden|Ausblenden)$/ })).toHaveCount(1);
+        await expect(modal.getByRole('button', { name: /^(Eintrag ausblenden|Ausblenden)$/ })).toHaveCount(1);
         const technical = modal.locator('[data-detection-technical-identity]');
         await technical.locator('summary').click();
         await expect(technical).toHaveAttribute('open', '');
