@@ -10,7 +10,7 @@ interface ShellOptions {
 }
 
 // `saved` is read on every request, so a test can change it to stand for a save made elsewhere.
-async function openOwnerShell(page: Page, start = '/settings/connection', saved: Record<string, unknown> = {}, options: ShellOptions = {}): Promise<void> {
+async function openOwnerShell(page: Page, start = '/settings/cameras', saved: Record<string, unknown> = {}, options: ShellOptions = {}): Promise<void> {
     let sessions = 0;
     let signedIn = !options.signIn;
     await page.route('https://fonts.googleapis.com/**', route => route.fulfill({ contentType: 'text/css', body: '' }));
@@ -69,19 +69,19 @@ test('choosing another page with unsaved changes asks first; Cancel keeps the ed
     await openOwnerShell(page);
     await page.locator('#mqtt-server').fill('broker.lan');
 
-    // Another Settings tab keeps the draft and does not ask.
+    // Another Settings section keeps the draft and does not ask.
     await page.locator('[data-settings-navigation]').getByRole('link', { name: 'Sharing & integrations', exact: true }).click();
-    await expect.poll(() => pathname(page)).toBe('/settings/security');
+    await expect.poll(() => pathname(page)).toBe('/settings/sharing');
     await expect(leaveDialog(page)).toHaveCount(0);
     await page.locator('[data-settings-navigation]').getByRole('link', { name: 'Cameras & connection', exact: true }).click();
     await expect(page.locator('#mqtt-server')).toHaveValue('broker.lan');
 
     await dashboardLink(page).click();
     await expect(leaveDialog(page)).toBeVisible();
-    await expect(leaveDialog(page)).toContainText('Connection');
+    await expect(leaveDialog(page)).toContainText('Cameras & connection');
     await leaveDialog(page).getByRole('button', { name: 'Cancel', exact: true }).click();
     await expect(leaveDialog(page)).toHaveCount(0);
-    expect(pathname(page)).toBe('/settings/connection');
+    expect(pathname(page)).toBe('/settings/cameras');
     await expect(page.locator('#mqtt-server')).toHaveValue('broker.lan');
 
     await dashboardLink(page).click();
@@ -122,7 +122,7 @@ test('Back and Forward never ask; the draft is waiting on return, and Discard dr
     await expect(leaveDialog(page)).toHaveCount(0);
 
     await page.goForward();
-    await expect.poll(() => pathname(page)).toBe('/settings/connection');
+    await expect.poll(() => pathname(page)).toBe('/settings/cameras');
     await expect(page.locator('#mqtt-server')).toHaveValue('broker.lan');
     await expect(restoredNotice(page)).toBeVisible();
     await expect(page.getByRole('region', { name: 'Unsaved changes' })).toContainText('1 unsaved change in');
@@ -146,7 +146,7 @@ test('rapid Back and Forward never block or misroute, and keep the draft', async
     await expect.poll(() => pathname(page)).toBe('/');
     await expect(page.getByRole('heading', { level: 1 })).not.toHaveText('Settings');
     await page.goForward();
-    await expect.poll(() => pathname(page)).toBe('/settings/connection');
+    await expect.poll(() => pathname(page)).toBe('/settings/cameras');
     await expect(leaveDialog(page)).toHaveCount(0);
     await expect(page.locator('#mqtt-server')).toHaveValue('broker.lan');
 });
@@ -197,7 +197,7 @@ test.describe('a kept draft meets a newer saved copy', () => {
         await expect.poll(() => pathname(page)).toBe('/');
         Object.assign(saved, elsewhere);
         await page.goForward();
-        await expect.poll(() => pathname(page)).toBe('/settings/connection');
+        await expect.poll(() => pathname(page)).toBe('/settings/cameras');
         await expect(restoredNotice(page)).toBeVisible();
     }
 
@@ -229,13 +229,13 @@ test.describe('a kept draft meets a newer saved copy', () => {
         await expect.poll(() => pathname(page)).toBe('/');
         await page.goForward();
         await expect(conflictRow(page)).toBeVisible();
-        await conflictRow(page).getByRole('button', { name: 'Use my change for MQTT broker (Connection)', exact: true }).click();
+        await conflictRow(page).getByRole('button', { name: 'Use my change for MQTT broker (Cameras & connection)', exact: true }).click();
         await expect(page.locator('#mqtt-server')).toHaveValue('broker.lan');
     });
 
     test('Use the saved value keeps the value saved elsewhere and leaves nothing to save', async ({ page }) => {
         await leaveEditAndReturn(page, {}, { mqtt_server: 'mqtt.elsewhere' });
-        await conflictRow(page).getByRole('button', { name: 'Use the saved value for MQTT broker (Connection)', exact: true }).click();
+        await conflictRow(page).getByRole('button', { name: 'Use the saved value for MQTT broker (Cameras & connection)', exact: true }).click();
         await expect(page.locator('[data-draft-conflicts]')).toHaveCount(0);
         await expect(page.locator('[data-field-conflict]')).toHaveCount(0);
         await expect(page.locator('#mqtt-server')).toHaveValue('mqtt.elsewhere');
@@ -244,7 +244,7 @@ test.describe('a kept draft meets a newer saved copy', () => {
 
     test('Use my change puts the edit back and Save can send it', async ({ page }) => {
         await leaveEditAndReturn(page, {}, { mqtt_server: 'mqtt.elsewhere' });
-        await conflictRow(page).getByRole('button', { name: 'Use my change for MQTT broker (Connection)', exact: true }).click();
+        await conflictRow(page).getByRole('button', { name: 'Use my change for MQTT broker (Cameras & connection)', exact: true }).click();
         await expect(page.locator('[data-draft-conflicts]')).toHaveCount(0);
         await expect(page.locator('#mqtt-server')).toHaveValue('broker.lan');
         await expect(saveButton(page)).toBeEnabled();
@@ -268,7 +268,7 @@ test.describe('a kept draft meets a newer saved copy', () => {
         const saved: Record<string, unknown> = { mqtt_auth: true, mqtt_username: 'feeder', mqtt_password: '***REDACTED***' };
         await leaveEditAndReturn(page, saved, { mqtt_server: 'mqtt.elsewhere' });
         await page.locator('#mqtt-password').fill('typed-again');
-        await conflictRow(page).getByRole('button', { name: 'Use my change for MQTT broker (Connection)', exact: true }).click();
+        await conflictRow(page).getByRole('button', { name: 'Use my change for MQTT broker (Cameras & connection)', exact: true }).click();
         await expect(page.locator('#mqtt-server')).toHaveValue('broker.lan');
         await expect(page.locator('#mqtt-password')).toHaveValue('typed-again');
     });
@@ -293,9 +293,9 @@ test('reloading with unsaved changes asks the browser to confirm, and without th
     expect(asked).toEqual(['beforeunload']);
 });
 
-test('every Settings tab opens with nothing unsaved on a sparse saved copy', async ({ page }) => {
+test('every Settings section opens with nothing unsaved on a sparse saved copy', async ({ page }) => {
     await openOwnerShell(page);
-    const tabs = ['Connection', 'Detection', 'Integrations', 'AI', 'Notifications', 'Security', 'Beta features', 'Data', 'Appearance', 'Accessibility'];
+    const tabs = ['Cameras & connection', 'Identifying birds', 'Alerts', 'Sharing & integrations', 'Storage & upkeep', 'Display'];
     for (const tab of tabs) {
         await page.locator('[data-settings-navigation]').getByRole('link', { name: tab, exact: true }).click();
         await expect(page.locator('[data-settings-navigation] [aria-current="page"]')).toHaveText(tab);

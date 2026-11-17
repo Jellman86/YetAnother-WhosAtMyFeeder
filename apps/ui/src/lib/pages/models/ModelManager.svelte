@@ -877,12 +877,13 @@
 <!-- At the narrowest widths with enlarged text a long word may break, rather than push the page sideways. -->
 <div class="space-y-6 wrap-anywhere">
     {#if loading && !firstLoadSettled}
-        <!-- The first read only: a refresh keeps the list in place while Refresh spins. -->
+        <!-- The first read only: a refresh keeps the list in place while Refresh spins. The bars never
+             outgrow a narrow column with enlarged text. -->
         <div class="min-h-80 space-y-4" role="status" data-model-manager-loading>
             <span class="sr-only">{$_('common.loading', { default: 'Loading…' })}</span>
-            <div class="h-5 w-48 rounded-sm bg-slate-200/70 motion-safe:animate-pulse dark:bg-slate-700/60" aria-hidden="true"></div>
-            <div class="h-32 rounded-xl bg-slate-200/50 motion-safe:animate-pulse dark:bg-slate-700/40" aria-hidden="true"></div>
-            <div class="h-11 w-44 rounded-xl bg-slate-200/50 motion-safe:animate-pulse dark:bg-slate-700/40" aria-hidden="true"></div>
+            <div class="h-5 w-48 max-w-full rounded-sm bg-surface-sunken motion-safe:animate-pulse" aria-hidden="true"></div>
+            <div class="h-32 rounded-xl bg-surface-sunken motion-safe:animate-pulse" aria-hidden="true"></div>
+            <div class="h-11 w-44 max-w-full rounded-xl bg-surface-sunken motion-safe:animate-pulse" aria-hidden="true"></div>
         </div>
     {:else if error}
         <div class="text-sm font-semibold text-red-700 dark:text-red-300" role="alert">

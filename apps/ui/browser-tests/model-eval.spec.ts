@@ -607,7 +607,7 @@ test('a German owner gets a German page that fits a phone without scrolling side
     await page.getByRole('button', { name: 'Optionen für die Bewertung anzeigen', exact: true }).click();
     await page.getByRole('switch', { name: 'Jedes Modell auf jedem Anbieter prüfen' }).click();
     await expect(page.locator('[data-model-eval-download]')).toContainText('2 Modelle sind noch nicht installiert: ein Download von etwa 1,3 GB.');
-    await expect(page.locator('[data-model-eval-download]')).toContainText('Heruntergeladene Modelle bleiben auf der Festplatte, bis Sie ihre Dateien unter Einstellungen → Modelle löschen.');
+    await expect(page.locator('[data-model-eval-download]')).toContainText('Heruntergeladene Modelle bleiben auf der Festplatte, bis Sie ihre Dateien unter Einstellungen → Vögel bestimmen löschen.');
     const content = page.locator('[data-model-evaluation]');
     await expect(content.getByRole('heading', { level: 2 })).toHaveText(['Bewertung starten', 'Ergebnisse', 'Anbieterprüfungen']);
     // On a phone the figures are a labelled list, not a table to scroll.

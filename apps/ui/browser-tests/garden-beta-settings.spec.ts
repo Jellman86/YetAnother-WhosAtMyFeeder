@@ -653,11 +653,12 @@ test('saved domestic birds show as chips on a narrow screen', async ({ page }) =
 // The Beta page: one card per feature, an on/off switch that stages in the draft, a status line in
 // words, next steps while setup is unfinished, and the settings only while the feature is on.
 
-test('the Beta page lists Garden animals as a card, without repeating the tab\'s intro line', async ({ page }) => {
+test('the Beta part lists Garden animals as a card under one line that says what Beta promises', async ({ page }) => {
     await openSettings(page, { beta_garden_animals: false });
     await openBeta(page);
-    // The page header's line for the tab says what beta features are; the page does not say it again.
-    await expect(page.locator('[data-beta-intro]')).toHaveCount(0);
+    // Beta shares its section with Detection and Models, so the part says once what Beta features are.
+    await expect(page.locator('[data-beta-intro]')).toHaveCount(1);
+    await expect(page.locator('[data-beta-intro]')).toContainText('Each is off until you turn it on');
     const list = page.getByRole('list', { name: 'Beta features' });
     await expect(list.getByRole('listitem')).toHaveCount(1);
     await expect(list.getByRole('article', { name: 'Garden animals' })).toBeVisible();

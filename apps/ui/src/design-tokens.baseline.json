@@ -680,8 +680,8 @@
     "arbitrary": 0
   },
   "lib/pages/models/ModelManager.svelte": {
-    "palette": 162,
-    "dark": 74,
+    "palette": 156,
+    "dark": 71,
     "arbitrary": 0
   },
   "lib/utils/explanation.ts": {

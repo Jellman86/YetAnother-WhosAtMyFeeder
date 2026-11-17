@@ -113,13 +113,13 @@ test('a recording-support answer from before a save never replaces the answer af
 test("leaving Connection cancels its recording-support read while the body is still arriving", async ({ page }) => {
     await stallBodies(page, '/api/frigate/recording-clip-capability');
     await openSettings(page, { recording_clip_enabled: true });
-    await expectCancelledOnLeaving(page, () => tabLink(page, 'Appearance').click());
+    await expectCancelledOnLeaving(page, () => tabLink(page, 'Display').click());
 });
 
 test('leaving Integrations cancels its BirdNET-Go sources read while the body is still arriving', async ({ page }) => {
     await stallBodies(page, '/api/audio/sources');
     await openSettings(page, {}, { route: '/settings/integrations' });
-    await expectCancelledOnLeaving(page, () => tabLink(page, 'Appearance').click());
+    await expectCancelledOnLeaving(page, () => tabLink(page, 'Display').click());
 });
 
 test('leaving Settings altogether cancels the open tab\'s helper read', async ({ page }) => {

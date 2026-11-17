@@ -26,7 +26,7 @@ test('Integrations opens with nothing unsaved, even when the place lookup names 
             return { json: { place_guess: 'Westminster, England', state: 'England', country: 'United Kingdom' } };
         }
     });
-    await tabLink(page, 'Integrations').click();
+    await tabLink(page, 'Sharing & integrations').click();
     await expect(page.locator('#birdnet-url')).toBeVisible();
     await expect.poll(() => lookups).toBeGreaterThan(0);
     // Give a late effect the chance to write into the draft before asserting nothing did.
@@ -39,7 +39,7 @@ test('Integrations opens with nothing unsaved, even when the place lookup names 
     await expect(saveBar(page)).toContainText('Integrations');
 });
 
-test('the save bar counts the changes, names their tabs, and Discard restores every saved value', async ({ page }) => {
+test('the save bar counts the changes, names their sections, and Discard restores every saved value', async ({ page }) => {
     const harness = await openSettings(page, {
         mqtt_auth: true,
         mqtt_username: 'feeder',
@@ -53,29 +53,30 @@ test('the save bar counts the changes, names their tabs, and Discard restores ev
 
     await page.locator('#mqtt-server').fill('broker.lan');
     await page.locator('#frigate-url').fill('http://frigate.lan:5000');
-    await tabLink(page, 'AI').click();
+    await tabLink(page, 'Sharing & integrations').click();
     await page.getByRole('combobox', { name: /^Provider/ }).selectOption({ label: 'Claude' });
     await expect(page.locator('#llm-model')).toHaveValue('claude-opus-4-8');
 
-    // Frigate URL and MQTT broker on Connection; provider and the model it brings on AI.
+    // Frigate URL and MQTT broker in Cameras & connection; provider and the model it brings in
+    // Sharing & integrations.
     await expect(saveBar(page)).toContainText('4 unsaved changes');
-    await expect(saveBar(page).getByRole('button', { name: 'Connection', exact: true })).toBeVisible();
-    await expect(saveBar(page).getByRole('button', { name: 'AI', exact: true })).toBeVisible();
+    await expect(saveBar(page).getByRole('button', { name: 'Cameras & connection', exact: true })).toBeVisible();
+    await expect(saveBar(page).getByRole('button', { name: 'Sharing & integrations', exact: true })).toBeVisible();
 
-    await saveBar(page).getByRole('button', { name: 'Connection', exact: true }).click();
+    await saveBar(page).getByRole('button', { name: 'Cameras & connection', exact: true }).click();
     await expect(page.locator('#mqtt-server')).toHaveValue('broker.lan');
 
     await discardButton(page).click();
     await expect(saveBar(page)).toHaveCount(0);
     await expect(page.locator('#mqtt-server')).toHaveValue('mqtt');
     await expect(page.locator('#frigate-url')).toHaveValue('http://frigate:5000');
-    await tabLink(page, 'AI').click();
+    await tabLink(page, 'Sharing & integrations').click();
     await expect(page.locator('#llm-model')).toHaveValue('gemini-3.1-pro-preview');
     expect(harness.writes).toEqual([]);
 
     // A save after Discard sends the saved values, and a stored secret stays stored: its field is
     // empty and the redaction placeholder is never written back.
-    await tabLink(page, 'Connection').click();
+    await tabLink(page, 'Cameras & connection').click();
     await page.locator('#mqtt-server').fill('broker.lan');
     await saveButton(page).click();
     await expect.poll(() => harness.writes.length).toBe(1);
@@ -105,8 +106,8 @@ test('a refused save puts each reason on its own field, in plain words, until th
 
     // The bar says nothing was saved and lists each refused field by its label, with its tab.
     await expect(saveBar(page)).toContainText('Nothing was saved');
-    await expect(saveBar(page).getByRole('button', { name: 'Server URL (Connection)', exact: true })).toBeVisible();
-    await expect(saveBar(page).getByRole('button', { name: 'Port (Connection)', exact: true })).toBeVisible();
+    await expect(saveBar(page).getByRole('button', { name: 'Server URL (Cameras & connection)', exact: true })).toBeVisible();
+    await expect(saveBar(page).getByRole('button', { name: 'Port (Cameras & connection)', exact: true })).toBeVisible();
     // No backend field key or validator wording reaches the screen, and the reason is shown once.
     await expect(page.locator('body')).not.toContainText('frigate_url');
     await expect(page.locator('body')).not.toContainText('Input should be');
@@ -114,7 +115,7 @@ test('a refused save puts each reason on its own field, in plain words, until th
 
     await url.fill('http://frigate.lan:5000');
     await expect(url).not.toHaveAttribute('aria-invalid', 'true');
-    await expect(saveBar(page).getByRole('button', { name: 'Server URL (Connection)', exact: true })).toHaveCount(0);
+    await expect(saveBar(page).getByRole('button', { name: 'Server URL (Cameras & connection)', exact: true })).toHaveCount(0);
 });
 
 test('a save that fails on the server says nothing was saved and what to try, once', async ({ page }) => {
@@ -161,15 +162,15 @@ test('a value refused here opens its tab and puts focus on it, wherever Save was
             json: { detail: [{ type: 'less_than_equal', loc: ['body', 'garden_naming_threshold'], msg: 'Input should be less than or equal to 0.95', ctx: { le: 0.95 } }] }
         })
     });
-    await tabLink(page, 'Beta features').click();
+    await tabLink(page, 'Identifying birds').click();
     await page.getByRole('switch', { name: 'Garden animals' }).click();
     const naming = page.getByRole('slider', { name: 'Name an animal when this sure which one it is' });
     await naming.fill('0.97');
-    await tabLink(page, 'Connection').click();
+    await tabLink(page, 'Cameras & connection').click();
     await expect(page.locator('#mqtt-server')).toBeVisible();
 
     await saveButton(page).click();
-    await expect(tabLink(page, 'Beta features')).toHaveAttribute('aria-current', 'page');
+    await expect(tabLink(page, 'Identifying birds')).toHaveAttribute('aria-current', 'page');
     await expect(naming).toBeFocused();
     await expect(naming).toHaveAttribute('aria-invalid', 'true');
 });
@@ -182,9 +183,9 @@ test('a value the server refuses opens its tab and puts focus on it', async ({ p
         })
     });
     await page.locator('#frigate-url').fill('frigate.lan');
-    await tabLink(page, 'Security').click();
+    await tabLink(page, 'Sharing & integrations').click();
     await saveButton(page).click();
-    await expect(tabLink(page, 'Connection')).toHaveAttribute('aria-current', 'page');
+    await expect(tabLink(page, 'Cameras & connection')).toHaveAttribute('aria-current', 'page');
     await expect(page.locator('#frigate-url')).toBeFocused();
     await expect(page.locator('#frigate-url')).toHaveAttribute('aria-invalid', 'true');
 });
@@ -225,7 +226,7 @@ test('a refused value inside a collapsed section opens that section and focuses 
             json: { detail: [{ type: 'less_than_equal', loc: ['body', 'garden_naming_threshold'], msg: 'Input should be less than or equal to 0.95', ctx: { le: 0.95 } }] }
         })
     });
-    await tabLink(page, 'Beta features').click();
+    await tabLink(page, 'Identifying birds').click();
     await page.getByRole('switch', { name: 'Garden animals' }).click();
     const naming = page.getByRole('slider', { name: 'Name an animal when this sure which one it is' });
     await naming.fill('0.97');
@@ -253,8 +254,8 @@ test('a refused value inside a collapsed Advanced section on another tab opens i
         })
     });
     await page.locator('#mqtt-server').fill('broker.lan');
-    await tabLink(page, 'Security').click();
+    await tabLink(page, 'Sharing & integrations').click();
     await saveButton(page).click();
-    await expect(tabLink(page, 'Connection')).toHaveAttribute('aria-current', 'page');
+    await expect(tabLink(page, 'Cameras & connection')).toHaveAttribute('aria-current', 'page');
     await expect(page.locator('#recording-clip-before')).toBeFocused();
 });
