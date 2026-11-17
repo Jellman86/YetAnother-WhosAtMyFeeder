@@ -32,7 +32,7 @@ async function hiddenPlaces(page: Page): Promise<string[]> {
     });
 }
 
-for (const size of [{ width: 1920, height: 900 }, { width: 1440, height: 800 }]) {
+for (const size of [{ width: 1920, height: 900 }, { width: 1440, height: 800 }, { width: 1280, height: 720 }, { width: 1024, height: 768 }]) {
     for (const options of [{}, { german: true }, { german: true, readingFont: true }]) {
         const name = [options.german ? 'German' : 'English', options.readingFont ? 'the reading font' : ''].filter(Boolean).join(' with ');
         test(`at ${size.width} × ${size.height} in ${name} every place in the navigation is in view`, async ({ page }) => {
@@ -55,7 +55,9 @@ for (const size of [{ width: 1920, height: 900 }, { width: 1440, height: 800 }])
             } else {
                 // With the much wider reading font the places and the status scroll together, and the link
                 // is reached by scrolling that column, never hidden inside the card.
-                await link.scrollIntoViewIfNeeded();
+                // Scrolled to the middle of the column, as a reader would bring it into view, not flush with
+                // its edge where a fraction of a pixel can stay under the clip.
+                await link.evaluate((node) => node.scrollIntoView({ block: 'center' }));
                 await expect(link).toBeInViewport({ ratio: 1 });
             }
         });

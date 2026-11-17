@@ -288,7 +288,7 @@ What holds in every band:
   and About's pipeline do.
 - **Short screens:** a phone or small tablet held sideways (up to 640 px tall, the `short` variant)
   tightens dialog chrome so the actions stay in view. On a desktop window that is wide but not tall
-  (up to 900 px, the `compact-height` variant: 1920 × 900, 1440 × 800) every place in the sidebar and
+  (up to 900 px, the `compact-height` variant: 1920 × 900, 1440 × 800, 1280 × 720, 1024 × 768) every place in the sidebar and
   System status's way to Health stay in view without scrolling: the wordmark sits beside its mark, and
   the status readings give way inside their card under the pinned Health link. At a much larger text
   size the places and the status scroll together instead; the controls below never scroll.
