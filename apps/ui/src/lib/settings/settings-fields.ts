@@ -55,7 +55,8 @@ const EXACT_FIELD_PARTS: Readonly<Record<string, SettingsPart>> = {
 const PREFIX_FIELD_PARTS: ReadonlyArray<readonly [string, SettingsPart]> = [
     ['mqtt_', 'connection'],
     ['recording_clip_', 'connection'],
-    ['telemetry_', 'security'],
+    // Telemetry sits under Sharing's More options, after AI.
+    ['telemetry_', 'ai'],
     ['video_classification_', 'detection'],
     ['range_filter_', 'detection'],
     ['bird_model_region_', 'models'],
@@ -68,7 +69,8 @@ const PREFIX_FIELD_PARTS: ReadonlyArray<readonly [string, SettingsPart]> = [
     ['ha_weather_', 'integrations'],
     ['ebird_', 'integrations'],
     ['inaturalist_', 'integrations'],
-    ['location_', 'integrations'],
+    // The feeder's location is on Sharing's first screen, above sign-in, never under More options.
+    ['location_', 'security'],
     ['enrichment_', 'integrations'],
     ['llm_', 'ai'],
     ['ai_', 'ai'],

@@ -31,7 +31,8 @@ describe('Model Manager location guidance', () => {
     });
 
     it('links to the real Location settings tab without a full reload', () => {
-        expect(modelManagerSource).toContain("href={toAppPath('/settings/integrations')}");
+        // The location is Sharing & integrations' first card, so a new tab lands on the section's top.
+        expect(modelManagerSource).toContain("href={toAppPath('/settings/sharing')}");
         expect(modelManagerSource).toContain('settings.detection.model_manager_location_link');
         // Plain left clicks stay in the app so unsaved settings edits survive;
         // modified clicks fall through to the browser (new tab, etc.).
@@ -39,7 +40,7 @@ describe('Model Manager location guidance', () => {
         expect(modelManagerSource).toContain('onopenlocationsettings();');
         expect(modelSettingsSource).toMatch(/<ModelManager[^>]*\{onopenlocationsettings\}\s*\/>/);
         // Both the model guidance and the range filter land on the location field itself.
-        expect(settingsSource).toContain("onopenlocationsettings={() => openIntegrationField('#location-lat'");
+        expect(settingsSource).toContain("onopenlocationsettings={() => openSharingField('first screen', '#location-lat'");
         expect(settingsSource).toContain("openSection(settingsSectionOfPart('integrations'));");
     });
 });

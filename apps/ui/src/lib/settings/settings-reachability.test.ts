@@ -48,6 +48,15 @@ const MOVED: Readonly<Record<string, SettingsPart>> = {
     // Units are how numbers read, so they are set in Display with the rest of how YA-WAMF looks.
     location_weather_unit_system: 'appearance',
     'weather-unit-system': 'appearance',
+    // The feeder's location has its own card on Sharing's first screen, so it belongs to the
+    // first part there; telemetry sits under More options, after AI. Both stay in Sharing.
+    location_automatic: 'security',
+    location_country: 'security',
+    location_latitude: 'security',
+    location_longitude: 'security',
+    location_state: 'security',
+    telemetry_enabled: 'ai',
+    telemetry_health_enabled: 'ai',
     // Garden's automatic naming and its threshold sit in the naming card, beside the birds' threshold.
     garden_automatic_naming: 'detection',
     garden_naming_threshold: 'detection',
@@ -66,14 +75,17 @@ const MOVED_ACTIONS: ReadonlyArray<{ what: string; from: SettingsPart; to: Setti
  * Controls that still render, but whose effect on a saved field now runs through a module the
  * analysis does not read (it follows Svelte files). Each names the file that still renders it.
  */
-const THROUGH_MODULES: ReadonlyArray<{ section: SettingsSection; entry: string; files: readonly string[]; why: string }> = [
+const THROUGH_MODULES: ReadonlyArray<{ section: SettingsSection; entry: string; starts: ReadonlyArray<{ file: string; button: string }> }> = [
     {
         section: 'identification',
         entry: 'inference_provider',
-        // Hardware's device check and the bird finder's one start the shared check in
-        // settings/device-check.svelte.ts, which reloads the runtime and so may save a new provider.
-        files: ['../components/settings/HardwareSettings.svelte', '../pages/models/FinderDevicePanel.svelte'],
-        why: 'the device check'
+        // Hardware's "Check devices for every installed model" and the bird finder's "Check devices"
+        // start the shared check in settings/device-check.svelte.ts, which reloads the runtime and so
+        // may save a new provider. Each button is named by the handler that starts the check.
+        starts: [
+            { file: '../components/settings/HardwareSettings.svelte', button: '<button type="button" onclick={() => deviceCheck.run()}' },
+            { file: '../pages/models/FinderDevicePanel.svelte', button: '<button type="button" onclick={oncheck}' }
+        ]
     }
 ];
 
@@ -175,11 +187,14 @@ describe('every control the twelve tabs rendered', () => {
             was.set(left, (was.get(left) ?? 0) - 1);
             was.set(arrived, (was.get(arrived) ?? 0) + 1);
         }
-        for (const { section, entry, files } of THROUGH_MODULES) {
+        for (const { section, entry, starts } of THROUGH_MODULES) {
             const key = `${section} | ${entry}`;
-            was.set(key, (was.get(key) ?? 0) - files.length);
-            // Each is still rendered in its section.
-            for (const file of files) expect(current.controls.some((control) => control.file === file && control.areas.includes(section)), file).toBe(true);
+            was.set(key, (was.get(key) ?? 0) - starts.length);
+            // Each button that starts the check is still in its file, and its file still renders in the section.
+            for (const { file, button } of starts) {
+                expect(sources[file], file).toContain(button);
+                expect(current.controls.some((control) => control.file === file && control.areas.includes(section)), file).toBe(true);
+            }
         }
         const now = countBySectionAndEntry(current.controls, (_control, area) => area);
         const fewer = [...was].filter(([key, count]) => (now.get(key) ?? 0) < count).map(([key, count]) => `${key}: ${count} -> ${now.get(key) ?? 0}`);

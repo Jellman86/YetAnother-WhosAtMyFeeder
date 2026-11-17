@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import detectionSource from './DetectionSettings.svelte?raw';
 import modelsSource from './ModelSettings.svelte?raw';
+import providerWarningSource from '../ProviderWarning.svelte?raw';
 import hardwareSource from './HardwareSettings.svelte?raw';
 import namingSource from './NamingSettings.svelte?raw';
 import settingsSource from '../../pages/Settings.svelte?raw';
@@ -46,6 +47,10 @@ describe('Detection and Models', () => {
         expect(modelsSource).toContain('/diagnostics/model-eval');
         // The link is the kit's secondary button, not a hand-made black one.
         expect(modelsSource).not.toContain('bg-slate-900 px-4 py-2 text-xs font-bold text-white');
+    });
+
+    it('sends the dashboard\'s provider warning to the models, whose status line leads to the runtime report', () => {
+        expect(providerWarningSource).toContain("onnavigate?.('/settings/models')");
     });
 
     it('puts Detection under More options below Models, so it needs no link to them', () => {

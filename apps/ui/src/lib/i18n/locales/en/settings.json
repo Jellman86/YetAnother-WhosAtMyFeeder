@@ -303,7 +303,7 @@
     "in_this_section": "In this section",
     "not_read": "Not measured yet: the status has not been read.",
     "stale": "This reading is out of date: no newer one has arrived.",
-    "display_note": "Nothing here depends on another service. Theme, text size and language change at once on this device.",
+    "display_note": "Nothing here depends on another service. Theme, text size and language change at once on this device. Units wait for Save and apply to everyone.",
     "state": {
       "ok": "working",
       "degraded": "under strain",

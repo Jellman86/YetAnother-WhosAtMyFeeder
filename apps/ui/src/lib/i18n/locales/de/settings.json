@@ -303,7 +303,7 @@
     "in_this_section": "In diesem Bereich",
     "not_read": "Noch nicht gemessen: Der Status wurde noch nicht gelesen.",
     "stale": "Diese Messung ist veraltet: Es ist keine neuere eingetroffen.",
-    "display_note": "Hier hängt nichts von einem anderen Dienst ab. Design, Textgröße und Sprache ändern sich sofort auf diesem Gerät.",
+    "display_note": "Hier hängt nichts von einem anderen Dienst ab. Design, Textgröße und Sprache ändern sich sofort auf diesem Gerät. Einheiten warten auf Speichern und gelten für alle.",
     "state": {
       "ok": "funktioniert",
       "degraded": "unter Last",

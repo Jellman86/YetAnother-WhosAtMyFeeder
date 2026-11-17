@@ -192,7 +192,7 @@ test('a value refused here opens its tab and puts focus on it, wherever Save was
     // Garden's switch is under More options; its naming threshold then joins the naming card.
     await openMoreOptions(page);
     await page.getByRole('switch', { name: 'Garden animals' }).click();
-    const naming = page.getByRole('slider', { name: 'Name an animal when this sure which one it is' });
+    const naming = page.locator('[data-naming-garden]').getByRole('slider', { name: 'Name an animal when this sure which one it is' });
     await naming.fill('0.97');
     await tabLink(page, 'Cameras & connection').click();
     await expect(page.locator('#mqtt-server')).toBeVisible();
@@ -274,6 +274,23 @@ test('a refused value inside a collapsed section opens that section and focuses 
     await expect(section).toHaveAttribute('aria-expanded', 'true');
     await expect(proposal).toBeFocused();
     await expect(proposal).toHaveAttribute('aria-invalid', 'true');
+});
+
+test('a refused eBird value opens Sharing\'s More options and eBird\'s advanced options, and focuses it', async ({ page }) => {
+    await openSettings(page, { ebird_enabled: true, ebird_api_key: '***REDACTED***', ebird_max_results: 25 }, {
+        refuseWrite: () => ({
+            status: 422,
+            json: { detail: [{ type: 'less_than_equal', loc: ['body', 'ebird_max_results'], msg: 'Input should be less than or equal to 200', ctx: { le: 200 } }] }
+        })
+    });
+    await page.locator('#mqtt-server').fill('broker.lan');
+    await saveButton(page).click();
+
+    await expect(tabLink(page, 'Sharing & integrations')).toHaveAttribute('aria-current', 'page');
+    await expect(page.locator('[data-settings-more] > h2 > button')).toHaveAttribute('aria-expanded', 'true');
+    const maxResults = page.locator('#ebird-max-results');
+    await expect(maxResults).toBeFocused();
+    await expect(maxResults).toHaveAttribute('aria-invalid', 'true');
 });
 
 test('a refused value inside a collapsed Advanced section on another tab opens it and focuses the value', async ({ page }) => {

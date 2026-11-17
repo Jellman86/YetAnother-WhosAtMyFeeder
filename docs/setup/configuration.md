@@ -185,7 +185,9 @@ and wildlife, balanced on Intel GPU.", "… will name birds on CPU. It loads wit
 detection." before a worker has loaded it, or "Nothing is naming birds yet: … is not on this
 install." when the chosen model's files are missing. The first-run wizard's model step and About
 show the same sentence. When the runtime has something to report, a link under it says how many
-things to check and opens More options at the **Runtime report**, inside **Hardware**. Then:
+things to check and opens More options at the **Runtime report**, inside **Hardware**. A new
+runtime problem opens More options and the report by itself; closed on that problem, they stay
+closed until a different one appears. Then:
 
 - **Models**: **Bird model region**, then the **Identification model**: the model in use (or the
   chosen one, when its files are missing), and at most one **Recommended next** model when the

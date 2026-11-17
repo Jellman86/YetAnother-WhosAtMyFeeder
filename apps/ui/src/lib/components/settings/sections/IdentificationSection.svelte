@@ -100,7 +100,7 @@
 <div class="space-y-8" data-settings-section="identification">
     <!-- Video checks are under More options, but a paused one needs a look, so its alert is here. -->
     {#if autoVideoClassification && videoCircuitOpen}
-        <div role="alert" class="rounded-2xl border border-status-attention-line bg-status-attention-soft px-4 py-3 text-status-attention" data-video-circuit>
+        <div role="alert" class="rounded-2xl border border-status-attention-line bg-status-attention-soft px-4 py-3 text-status-attention" data-video-circuit data-settings-lead>
             <p class="mb-2 text-sm font-semibold">{$_('settings.video_circuit.title')}</p>
             <p class="text-sm font-bold leading-relaxed">{$_('settings.video_circuit.message', { values: { failures: videoCircuitFailures } })}</p>
             {#if circuitUntil}

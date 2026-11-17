@@ -303,7 +303,7 @@
     "in_this_section": "Dans cette section",
     "not_read": "Pas encore mesuré : l’état n’a pas été lu.",
     "stale": "Cette mesure est périmée : aucune plus récente n’est arrivée.",
-    "display_note": "Rien ici ne dépend d’un autre service. Le thème, la taille du texte et la langue changent aussitôt sur cet appareil.",
+    "display_note": "Rien ici ne dépend d’un autre service. Le thème, la taille du texte et la langue changent aussitôt sur cet appareil. Les unités attendent Enregistrer et s’appliquent à tous.",
     "state": {
       "ok": "fonctionne",
       "degraded": "sous tension",

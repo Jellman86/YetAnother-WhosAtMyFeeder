@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { RUNTIME_DISCLOSURES } from './runtime-problem';
+import { settingsMoreId, settingsPartIsInMore } from './settings-more';
+import type { SettingsSection } from './settings-route';
 import { changedFields, firstRefusedField, settingsFieldPart, settingsFieldPlace, settingsFieldPlaces, settingsFieldSection, summarizeUnsaved } from './settings-fields';
 
 // Every Settings part's markup, to check each refused field's place against what is really there.
@@ -47,7 +49,18 @@ describe('where a saved setting lives', () => {
         expect(settingsFieldPart('auto_purge_missing_clips')).toBe('data');
         expect(settingsFieldPart('maintenance_max_concurrent')).toBe('maintenance');
         expect(settingsFieldPart('auto_analyze_unknowns')).toBe('maintenance');
-        expect(settingsFieldPart('telemetry_enabled')).toBe('security');
+        // Telemetry is under Sharing's More options, after AI.
+        expect(settingsFieldPart('telemetry_enabled')).toBe('ai');
+        expect(settingsFieldSection('telemetry_enabled')).toBe('sharing');
+    });
+
+    it('keeps the feeder\'s location on Sharing\'s first screen, never in a part under More options', () => {
+        for (const field of ['location_latitude', 'location_longitude', 'location_automatic', 'location_state', 'location_country']) {
+            const part = settingsFieldPart(field);
+            expect(part, field).toBe('security');
+            expect(settingsPartIsInMore(part ?? 'security'), field).toBe(false);
+        }
+        expect(settingsPartIsInMore(settingsFieldPart('telemetry_enabled') ?? 'security')).toBe(true);
     });
 
     it('has no home for a field Settings never shows', () => {
@@ -139,6 +152,7 @@ describe('where a refused field is shown', () => {
                 if (more) {
                     const opened = Object.values(settingsMarkup).some((markup) => markup.includes(`<SectionMore section="${more[1]}"`));
                     if (!opened) problems.push(`${field}: no section draws ${disclosure}`);
+                    if (more[1] !== settingsFieldSection(field)) problems.push(`${field}: opens ${disclosure}, but lives in ${settingsFieldSection(field)}`);
                     continue;
                 }
                 // The runtime sections take their ids from one shared list (runtime-problem.ts).
@@ -153,7 +167,37 @@ describe('where a refused field is shown', () => {
         expect(problems).toEqual([]);
     });
 
+    it('opens More options for every field drawn only inside it', () => {
+        // The components each section draws inside its More options, and what they draw in turn.
+        // A component drawn both inside and outside (one with a main and a more region) is left to
+        // the cases below, since which region holds an input is not in the markup alone.
+        const fileOf = (component: string): string | undefined =>
+            Object.keys(settingsMarkup).find((file) => file.endsWith(`/${component}.svelte`));
+        const drawn = (source: string): string[] => [...source.matchAll(/<([A-Z]\w+)[\s>]/g)].map((match) => match[1]);
+        const problems: string[] = [];
+        for (const [sectionFile, source] of Object.entries(settingsMarkup)) {
+            const block = /<SectionMore section="(\w+)"[\s\S]*?<\/SectionMore>/.exec(source);
+            if (!block) continue;
+            const section = block[1];
+            const outside = new Set(drawn(source.replace(block[0], '')));
+            const inside = new Set(drawn(block[0]).filter((component) => !outside.has(component) && fileOf(component)));
+            for (const component of [...inside]) {
+                for (const nested of drawn(settingsMarkup[fileOf(component) ?? ''] ?? '')) if (fileOf(nested)) inside.add(nested);
+            }
+            const files = new Set([...inside].map(fileOf));
+            for (const [field, place] of settingsFieldPlaces()) {
+                if (!files.has(fileWithId(place.inputId) ?? '')) continue;
+                if (!(place.disclosures ?? []).includes(settingsMoreId(section as SettingsSection))) {
+                    problems.push(`${field}: drawn inside ${section}'s More options (${sectionFile}) without opening it`);
+                }
+            }
+        }
+        expect(problems).toEqual([]);
+    });
+
     it('opens More options only for a field inside it', () => {
+        expect(settingsFieldPlace('location_latitude')?.disclosures ?? []).toEqual([]);
+        expect(settingsFieldPlace('ebird_max_results')?.disclosures).toEqual(['settings-more-sharing', 'integrations-ebird-advanced']);
         expect(settingsFieldPlace('frigate_url')?.disclosures ?? []).toEqual([]);
         expect(settingsFieldPlace('mqtt_server')?.disclosures ?? []).toEqual([]);
         expect(settingsFieldPlace('frigate_external_url')?.disclosures).toEqual(['settings-more-cameras']);

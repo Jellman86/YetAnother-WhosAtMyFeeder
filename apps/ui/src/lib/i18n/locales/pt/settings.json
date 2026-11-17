@@ -303,7 +303,7 @@
     "in_this_section": "Nesta seção",
     "not_read": "Ainda não medido: o estado não foi lido.",
     "stale": "Esta leitura está desatualizada: nenhuma mais recente chegou.",
-    "display_note": "Nada aqui depende de outro serviço. Tema, tamanho do texto e idioma mudam na hora neste dispositivo.",
+    "display_note": "Nada aqui depende de outro serviço. Tema, tamanho do texto e idioma mudam na hora neste dispositivo. As unidades esperam por Salvar e valem para todos.",
     "state": {
       "ok": "funcionando",
       "degraded": "sob pressão",
