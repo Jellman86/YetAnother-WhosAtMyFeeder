@@ -26,3 +26,14 @@ describe('leaderboard span bar', () => {
         expect(speciesPageSource).not.toContain("aria-label={$_('leaderboard.title')}");
     });
 });
+
+describe('one window for the Leaderboard', () => {
+    it('names the window the wall, the rankings and the composition count over one way', () => {
+        // The wall said "Last 30 days" beside rankings that said "Month · 18 Oct-17 Nov" for the same span.
+        expect(speciesPageSource).not.toMatch(/leaderboard\.last_(?:7|30)_days/);
+        expect(speciesPageSource).toContain("return `${spanLabel()} · ${formatRangeCompact(leaderboardWindow?.start, leaderboardWindow?.end)}`;");
+        // The composition sits under the Analytics window, so it states its total, not the window again.
+        expect(speciesPageSource).not.toMatch(/description=\{`\$\{selectedCountLabel\(\)\}/);
+    });
+});
+
