@@ -297,7 +297,15 @@
       "storage": "Armazenamento",
       "notifications": "Alertas"
     },
-    "sharing_note": "Nada aqui depende de uma conexão medida. O login e o acesso de convidados são definidos aqui; cada serviço em Mais opções indica se está ligado."
+    "sharing_note": "Nada aqui depende de uma conexão medida. O login e o acesso de convidados são definidos aqui; cada serviço em Mais opções indica se está ligado.",
+    "cause": {
+      "classifier": {
+        "model_missing": "não está nesta instalação"
+      },
+      "finder": {
+        "not_downloaded": "não baixado"
+      }
+    }
   },
   "more": {
     "title": "Mais opções",

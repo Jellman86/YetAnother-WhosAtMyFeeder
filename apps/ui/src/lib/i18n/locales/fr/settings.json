@@ -297,7 +297,15 @@
       "storage": "Stockage",
       "notifications": "Alertes"
     },
-    "sharing_note": "Rien ici ne dépend d’une connexion mesurée. La connexion et l’accès invité se règlent ici ; chaque service sous Plus d’options indique s’il est activé."
+    "sharing_note": "Rien ici ne dépend d’une connexion mesurée. La connexion et l’accès invité se règlent ici ; chaque service sous Plus d’options indique s’il est activé.",
+    "cause": {
+      "classifier": {
+        "model_missing": "absent de cette installation"
+      },
+      "finder": {
+        "not_downloaded": "non téléchargé"
+      }
+    }
   },
   "more": {
     "title": "Plus d’options",

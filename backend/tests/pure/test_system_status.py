@@ -6,6 +6,7 @@ from dataclasses import replace
 from datetime import datetime, timezone
 
 import pytest
+from pathlib import Path
 
 from app.models.analysis_status import AnalysisStatusResponse
 from app.models.jobs import JobLaneSnapshot, JobSnapshotItem, JobsSnapshotResponse
@@ -21,6 +22,9 @@ from app.services.system_status import (
 )
 
 NOW = datetime(2026, 11, 16, 9, 0, tzinfo=timezone.utc)
+READINESS_CASES = json.loads((Path(__file__).parent.parent / "fixtures" / "model_readiness_cases.json").read_text())[
+    "cases"
+]
 
 
 def connections(mqtt: str = "connected", frigate: str = "reachable") -> ServiceConnectionsResponse:
@@ -119,6 +123,36 @@ def test_a_finder_on_the_cpu_is_the_finders_verdict_not_the_classifiers():
 def test_a_model_that_did_not_load_is_named():
     inputs = healthy(classifier_health={"status": "error", "models": {"bird": {"loaded": False, "error": "x"}}})
     assert verdicts(inputs)["classifier"] == ("error", "model_not_loaded")
+
+
+def test_a_chosen_model_not_on_this_install_is_an_error_the_status_line_also_states():
+    # The worker loads the model on its first visit, so runtime health alone still reads "ok".
+    inputs = healthy(classifier_status={"active_model_id": "small", "active_model_installed": False})
+    assert verdicts(inputs)["classifier"] == ("error", "model_missing")
+    assert overall(inputs) == ("degraded", "model_missing", "classifier")
+
+
+def test_the_classifier_verdict_and_the_models_readiness_agree_on_every_shared_case():
+    # The same reports the SPA's status line and the setup review read: a model the readiness rule
+    # calls missing is never a working classifier chip, and nothing else is called missing.
+    for case in READINESS_CASES:
+        inputs = healthy(classifier_status=case["status"] or {})
+        state, cause = verdicts(inputs)["classifier"]
+        if case["readiness"] == "missing":
+            assert (state, cause) == ("error", "model_missing"), case["name"]
+        else:
+            assert cause != "model_missing", case["name"]
+
+
+def test_a_chosen_finder_not_downloaded_needs_a_look_rather_than_reading_as_ready():
+    inputs = healthy(
+        classifier_status={"active_model_id": "small", "crop_detector": {"model_id": "yolox", "installed": False}}
+    )
+    assert verdicts(inputs)["finder"] == ("degraded", "not_downloaded")
+    downloaded = healthy(
+        classifier_status={"active_model_id": "small", "crop_detector": {"model_id": "yolox", "installed": True}}
+    )
+    assert verdicts(downloaded)["finder"] == ("ok", "ready")
 
 
 def test_parts_switched_off_are_off_and_do_not_degrade():

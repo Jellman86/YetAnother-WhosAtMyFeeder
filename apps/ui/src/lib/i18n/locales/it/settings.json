@@ -297,7 +297,15 @@
       "storage": "Archiviazione",
       "notifications": "Avvisi"
     },
-    "sharing_note": "Qui nulla dipende da una connessione misurata. L’accesso e l’accesso ospite si impostano qui; ogni servizio in Altre opzioni indica se è attivo."
+    "sharing_note": "Qui nulla dipende da una connessione misurata. L’accesso e l’accesso ospite si impostano qui; ogni servizio in Altre opzioni indica se è attivo.",
+    "cause": {
+      "classifier": {
+        "model_missing": "non presente in questa installazione"
+      },
+      "finder": {
+        "not_downloaded": "non scaricato"
+      }
+    }
   },
   "more": {
     "title": "Altre opzioni",

@@ -297,7 +297,15 @@
       "storage": "存储",
       "notifications": "提醒"
     },
-    "sharing_note": "这里没有需要测量的连接。登录和访客访问在这里设置；“更多选项”中的每个服务都会显示是否已开启。"
+    "sharing_note": "这里没有需要测量的连接。登录和访客访问在这里设置；“更多选项”中的每个服务都会显示是否已开启。",
+    "cause": {
+      "classifier": {
+        "model_missing": "不在此安装中"
+      },
+      "finder": {
+        "not_downloaded": "未下载"
+      }
+    }
   },
   "more": {
     "title": "更多选项",

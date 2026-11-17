@@ -25,6 +25,7 @@ from app.utils.diagnostic_redaction import redact_connection_error
 from app.models.analysis_status import AnalysisStatusResponse
 from app.models.jobs import JobsSnapshotResponse
 from app.models.service_connections import ServiceConnectionsResponse
+from app.services.model_readiness import identification_readiness
 from app.models.system_status import (
     CameraHealthReading,
     JobsProgress,
@@ -124,6 +125,11 @@ def _finder_health(inputs: SystemStatusInputs) -> dict[str, Any]:
 
 def _classifier_verdict(inputs: SystemStatusInputs) -> SubsystemVerdict:
     health = inputs.classifier_health
+    # A chosen model whose files are not on this install names nothing, whatever the runtime's own
+    # health says: workers load it only on the first visit. The same rule words the Models status
+    # line (identification_readiness), so the status chip and the page cannot disagree.
+    if identification_readiness(inputs.classifier_status) == "missing":
+        return SubsystemVerdict(key="classifier", state="error", cause="model_missing")
     if not health:
         return SubsystemVerdict(key="classifier", state="unknown", cause="unmeasured")
     status = str(health.get("status") or "").lower()
@@ -152,6 +158,10 @@ def _finder_verdict(inputs: SystemStatusInputs) -> SubsystemVerdict:
         return SubsystemVerdict(key="finder", state="degraded", cause="cpu_fallback")
     if not str(finder.get("model_id") or ""):
         return SubsystemVerdict(key="finder", state="off", cause="none_selected")
+    # A chosen finder that is not downloaded runs nowhere until someone downloads it.
+    crop = inputs.classifier_status.get("crop_detector")
+    if isinstance(crop, dict) and crop.get("installed") is False:
+        return SubsystemVerdict(key="finder", state="degraded", cause="not_downloaded")
     return SubsystemVerdict(key="finder", state="ok", cause="ready")
 
 

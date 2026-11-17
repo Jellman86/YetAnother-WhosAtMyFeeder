@@ -297,7 +297,15 @@
       "storage": "Almacenamiento",
       "notifications": "Alertas"
     },
-    "sharing_note": "Nada de aquí depende de una conexión medida. Aquí se configuran el inicio de sesión y el acceso de invitados; cada servicio en Más opciones indica si está activado."
+    "sharing_note": "Nada de aquí depende de una conexión medida. Aquí se configuran el inicio de sesión y el acceso de invitados; cada servicio en Más opciones indica si está activado.",
+    "cause": {
+      "classifier": {
+        "model_missing": "no está en esta instalación"
+      },
+      "finder": {
+        "not_downloaded": "no descargado"
+      }
+    }
   },
   "more": {
     "title": "Más opciones",

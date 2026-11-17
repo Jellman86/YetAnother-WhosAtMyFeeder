@@ -201,7 +201,10 @@ curl -N "http://localhost:9852/api/sse?ticket=$TICKET"
     `storage` and `notifications`, with `state` (`ok`, `degraded`, `error`, `off` for a part
     switched off, `unknown` for one not yet measured) and a `cause` code the page words, such as
     `disconnected`, `unreachable`, `cameras_offline`, `cpu_fallback`, `not_writable`,
-    `nothing_heard` or `none_enabled`.
+    `nothing_heard` or `none_enabled`. A chosen identification model whose files are not on the
+    install is `classifier` `error` `model_missing` (the same rule as the Models status line,
+    `identification_readiness`), and a chosen bird finder that is not downloaded is `finder`
+    `degraded` `not_downloaded`.
   - `jobs_summary`: the prominent work as one count (`running`, `queued`, from the lane totals,
     which count every job) and `progress`, set only when every running job counts the same unit
     towards a known total; the banner shows these counts. `jobs` is the

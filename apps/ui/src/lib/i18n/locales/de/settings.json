@@ -297,7 +297,15 @@
       "storage": "Speicher",
       "notifications": "Benachrichtigungen"
     },
-    "sharing_note": "Hier hängt nichts von einer gemessenen Verbindung ab. Anmeldung und Gastzugang werden hier eingestellt; jeder Dienst unter Weitere Optionen zeigt, ob er eingeschaltet ist."
+    "sharing_note": "Hier hängt nichts von einer gemessenen Verbindung ab. Anmeldung und Gastzugang werden hier eingestellt; jeder Dienst unter Weitere Optionen zeigt, ob er eingeschaltet ist.",
+    "cause": {
+      "classifier": {
+        "model_missing": "nicht auf dieser Installation"
+      },
+      "finder": {
+        "not_downloaded": "nicht heruntergeladen"
+      }
+    }
   },
   "more": {
     "title": "Weitere Optionen",
