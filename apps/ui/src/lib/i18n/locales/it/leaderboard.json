@@ -166,7 +166,7 @@
   "wall_seen": "Visto",
   "wall_camera": "Telecamera",
   "wall_visit": "Visita",
-  "wall_frames": "{count, plural, one {# fotogramma} other {# fotogrammi}}",
+  "wall_frames": "{count, plural, one {# cattura} other {# catture}}",
   "wall_eyebrow": "Più {unit} · {window}",
   "check": {
     "entry_title": "{count, plural, one {# specie potrebbe avere il nome sbagliato} other {# specie potrebbero avere il nome sbagliato}}",

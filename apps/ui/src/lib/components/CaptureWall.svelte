@@ -599,7 +599,7 @@
                         {/if}
                         <dt class="text-muted">{$_('leaderboard.wall_visit', { default: 'Visit' })}</dt>
                         <dd class="text-strong">
-                            {$_('leaderboard.wall_frames', { values: { count: open.captures }, default: '{count, plural, one {# frame} other {# frames}}' })}
+                            {$_('leaderboard.wall_frames', { values: { count: open.captures }, default: '{count, plural, one {# capture} other {# captures}}' })}
                         </dd>
                     </dl>
                     {#if open.speciesKey}

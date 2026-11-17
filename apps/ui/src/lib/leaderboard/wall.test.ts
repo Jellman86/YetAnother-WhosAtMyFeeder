@@ -25,6 +25,7 @@ const row = (displayName: string, rank: number, extra: Partial<ShowcaseRow> = {}
     subName: null,
     count: 10,
     photo: null,
+    photoEvent: null,
     scientificName: null,
     taxaId: null,
     reference: null,

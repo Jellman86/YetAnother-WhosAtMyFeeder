@@ -407,7 +407,9 @@
     function rowPicture(index: number, species: string): string | null {
         const row = showcaseRows[index];
         const visit = row && !row.photo ? leaderboardWall.find((tile) => tile.speciesKey === row.key) : undefined;
-        const own = row?.photo ? withAuthParams(row.photo) : visit ? getReelImageUrl(visit.frigateEvent, 'tile') : null;
+        // A circle of 40 to 48 px needs the tile, not the card: the visit names it either way.
+        const ownEvent = row?.photoEvent ?? visit?.frigateEvent ?? null;
+        const own = ownEvent ? getReelImageUrl(ownEvent, 'tile') : row?.photo ? withAuthParams(row.photo) : null;
         const candidates = [own, getCachedSpeciesInfo(species)?.thumbnail_url ?? null];
         return candidates.find((url): url is string => Boolean(url) && !failedRowPictures.has(url as string)) ?? null;
     }

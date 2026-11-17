@@ -33,5 +33,6 @@
   "visits_week": "Visits, last 7 days",
   "visits_month": "Visits, last 30 days",
   "detections_note": "Every identified capture counts once. One visit can hold several captures, so the Leaderboard’s visit counts are lower.",
-  "recent_captures": "Recent captures"
+  "recent_captures": "Recent captures",
+  "unknown_bird_actions": "Not identified to species. Run the model again on its photo or clip, or open it in Explorer to rename it."
 }

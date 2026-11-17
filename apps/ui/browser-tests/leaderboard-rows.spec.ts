@@ -7,7 +7,7 @@ import { replayFeeder, settled } from './accessibility-mock';
  * nothing: never a stand-in feather that says nothing about the bird.
  */
 const READY = { timeout: 15_000 };
-const PORTRAIT = '/api/leaderboard/portraits/blue-tit-crop.jpg';
+const PORTRAIT = '/api/about/showcase/blue-tit-visit.jpg';
 
 test('ranking rows show the feeder\'s own crop, and no stand-in icon where there is no picture', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 1100 });
@@ -22,9 +22,9 @@ test('ranking rows show the feeder\'s own crop, and no stand-in icon where there
     await expect(portraits.first()).toBeVisible(READY);
     await settled(page);
 
-    // The leader's row shows its own crop from the portraits route.
+    // The leader's row shows its own crop, the portrait's visit, at the tile size its small circle needs.
     const leader = page.locator('[data-leaderboard-table-rankings] tbody tr').first();
-    await expect(leader.locator('[data-leaderboard-species-portrait="photo"] img')).toHaveAttribute('src', /\/api\/leaderboard\/portraits\/blue-tit-crop\.jpg/);
+    await expect(leader.locator('[data-leaderboard-species-portrait="photo"] img')).toHaveAttribute('src', /\/api\/about\/showcase\/blue-tit-visit\.jpg\?size=tile/);
 
     // No row draws an icon in place of a picture.
     await expect(page.locator('[data-leaderboard-species-portrait] svg')).toHaveCount(0);

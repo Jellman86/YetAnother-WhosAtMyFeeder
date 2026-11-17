@@ -33,5 +33,6 @@
   "visits_week": "访问次数，最近 7 天",
   "visits_month": "访问次数，最近 30 天",
   "detections_note": "每个已识别的拍摄计一次。一次到访可能包含多个拍摄，因此排行榜中的到访次数会更少。",
-  "recent_captures": "最近拍摄"
+  "recent_captures": "最近拍摄",
+  "unknown_bird_actions": "未识别到物种。请用其照片或片段重新运行模型，或在“探索”中打开以重新命名。"
 }

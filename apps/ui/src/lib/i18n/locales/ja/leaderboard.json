@@ -166,7 +166,7 @@
   "wall_seen": "確認日時",
   "wall_camera": "カメラ",
   "wall_visit": "訪問",
-  "wall_frames": "{count, plural, other {# フレーム}}",
+  "wall_frames": "{count, plural, other {# 件の撮影}}",
   "wall_eyebrow": "{unit}の多い順、{window}",
   "check": {
     "entry_title": "{count, plural, other {# 種の名前が誤っている可能性があります}}",

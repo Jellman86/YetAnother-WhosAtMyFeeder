@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { MediaQuery } from 'svelte/reactivity';
     import { onMount, untrack } from 'svelte';
     import { _, locale } from 'svelte-i18n';
     import {
@@ -56,6 +57,10 @@
         audioHistoryFiltersDiffer({ days, species: speciesFilter, source: sourceFilter, minConfidence }, applied)
     );
     let filterSheetOpen = $state(false);
+    // A phone's sheet. From the md breakpoint the fields stand inline, so the sheet, and the scroll
+    // lock it holds, go away with the width; a draft then stays in the inline form beside its Apply.
+    const inlineFilters = new MediaQuery('min-width: 768px', false);
+    const filterSheetShown = $derived(filterSheetOpen && !inlineFilters.current);
     // What the list shows, in words, beside the phone's Filters button.
     const appliedSummary = $derived(
         [
@@ -248,6 +253,15 @@
         applied = settledAudioHistoryFilters({ days, species: speciesFilter, source: sourceFilter, minConfidence });
         offset = 0;
         void loadAudioHistory();
+    }
+
+    /** Leaving the sheet without Apply leaves the list as it was, so the fields go back to what it shows. */
+    function dismissFilterSheet(): void {
+        days = applied.days;
+        speciesFilter = applied.species;
+        sourceFilter = applied.source;
+        minConfidence = applied.minConfidence;
+        filterSheetOpen = false;
     }
 
     function clearFilters() {
@@ -511,7 +525,7 @@
         <!-- A phone gets one Filters button and a sheet; a wider window has the fields in a row. -->
         <div class="flex flex-wrap items-center justify-between gap-3 md:hidden">
             <p class="min-w-0 text-sm text-muted" data-audio-filters-summary>{appliedSummary}</p>
-            <button type="button" class="btn btn-secondary min-h-11 px-4" aria-haspopup="dialog" aria-expanded={filterSheetOpen} aria-controls="audio-filter-sheet" onclick={() => (filterSheetOpen = true)} data-audio-filters-open>
+            <button type="button" class="btn btn-secondary min-h-11 px-4" aria-haspopup="dialog" aria-expanded={filterSheetShown} aria-controls="audio-filter-sheet" onclick={() => (filterSheetOpen = true)} data-audio-filters-open>
                 {$_('events.filters.title', { default: 'Filters' })}
             </button>
         </div>
@@ -521,8 +535,8 @@
         </form>
         <p class="{filtersChanged ? 'mt-3' : ''} text-sm font-semibold text-status-attention" role="status" data-audio-filters-changed>{filtersChanged ? $_('audio.filter.changed', { default: 'Filters changed. Apply to update the list.' }) : ''}</p>
     </section>
-    {#if filterSheetOpen}
-        <FilterSheet title={$_('events.filters.title', { default: 'Filters' })} id="audio-filter-sheet" onclose={() => (filterSheetOpen = false)} data-audio-filter-sheet>
+    {#if filterSheetShown}
+        <FilterSheet title={$_('events.filters.title', { default: 'Filters' })} id="audio-filter-sheet" onclose={dismissFilterSheet} data-audio-filter-sheet>
             <form class="grid gap-4" onsubmit={(event) => { applyFilters(event); filterSheetOpen = false; }}>
                 {@render filterFields()}
                 {@render filterActions(() => (filterSheetOpen = false))}

@@ -114,3 +114,37 @@ test('every Audio history chart has its data as a table', async ({ page }) => {
         await expect(figure.locator('table tbody tr').first()).toBeVisible();
     }
 });
+
+test('the Audio filter sheet goes with the phone width, and lets the page scroll again', async ({ page }) => {
+    await open(page, '/audio', '[data-audio-top-species-button]', WIDTHS[0]);
+    await page.locator('[data-audio-filters-open]').click();
+    const sheet = page.getByRole('dialog', { name: 'Filters' });
+    await expect(sheet).toBeVisible();
+    await sheet.getByPlaceholder('Any species').fill('Robin');
+    await expect.poll(() => page.evaluate(() => document.body.style.position)).toBe('fixed');
+    // A tablet turned to landscape: the fields now stand inline, so the modal and its lock go.
+    await page.setViewportSize(WIDTHS[1]);
+    await expect(sheet).toHaveCount(0);
+    await expect.poll(() => page.evaluate(() => document.body.style.position)).toBe('');
+    // The draft is kept in the inline form, beside the Apply it needs.
+    const inline = page.locator('[data-audio-history-filters] form');
+    await expect(inline.getByPlaceholder('Any species')).toHaveValue('Robin');
+    await expect(page.locator('[data-audio-filters-changed]')).toContainText('Apply');
+    await expect(inline.getByRole('button', { name: 'Apply' })).toBeVisible();
+});
+
+test('leaving the Audio filter sheet without Apply puts the fields back to what the list shows', async ({ page }) => {
+    await open(page, '/audio', '[data-audio-top-species-button]', WIDTHS[0]);
+    const opener = page.locator('[data-audio-filters-open]');
+    await opener.click();
+    const sheet = page.getByRole('dialog', { name: 'Filters' });
+    await sheet.getByPlaceholder('Any species').fill('Robin');
+    await expect.poll(() => page.evaluate(() => Boolean(document.activeElement?.closest('[role="dialog"]')))).toBe(true);
+    await page.keyboard.press('Escape');
+    await expect(sheet).toHaveCount(0);
+    // Nothing waits on an Apply the reader can no longer see.
+    await expect(page.locator('[data-audio-filters-changed]')).toHaveText('');
+    await opener.click();
+    await expect(page.getByRole('dialog', { name: 'Filters' }).getByPlaceholder('Any species')).toHaveValue('');
+});
+

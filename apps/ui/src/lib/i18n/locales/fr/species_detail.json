@@ -33,5 +33,6 @@
   "visits_week": "Visites, 7 derniers jours",
   "visits_month": "Visites, 30 derniers jours",
   "detections_note": "Chaque capture identifiée compte une fois. Une visite peut contenir plusieurs captures, les nombres de visites du classement sont donc plus faibles.",
-  "recent_captures": "Captures récentes"
+  "recent_captures": "Captures récentes",
+  "unknown_bird_actions": "Non identifié jusqu'à l'espèce. Relancez le modèle sur sa photo ou son clip, ou ouvrez-le dans l'Explorateur pour le renommer."
 }

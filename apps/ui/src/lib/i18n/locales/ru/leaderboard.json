@@ -166,7 +166,7 @@
   "wall_seen": "Замечена",
   "wall_camera": "Камера",
   "wall_visit": "Визит",
-  "wall_frames": "{count, plural, one {# кадр} few {# кадра} many {# кадров} other {# кадра}}",
+  "wall_frames": "{count, plural, one {# снимок} few {# снимка} many {# снимков} other {# снимка}}",
   "wall_eyebrow": "Больше всего: {unit} · {window}",
   "check": {
     "entry_title": "{count, plural, one {# вид, возможно, назван неверно} few {# вида, возможно, названы неверно} many {# видов, возможно, названы неверно} other {# вида, возможно, названы неверно}}",

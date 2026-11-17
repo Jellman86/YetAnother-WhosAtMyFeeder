@@ -534,8 +534,9 @@
                                 <h3 class="text-xl font-bold text-status-attention mb-2">
                                     {$_('leaderboard.needs_review')}
                                 </h3>
+                                <!-- Inside the record already, so it names the actions below rather than "open it". -->
                                 <p class="text-sm text-status-attention mb-4">
-                                    {$_('leaderboard.unidentified_desc')}
+                                    {$_('species_detail.unknown_bird_actions', { default: 'Not identified to species. Run the model again on its photo or clip, or open it in Explorer to rename it.' })}
                                 </p>
 
                                 <!-- Reclassify Buttons -->

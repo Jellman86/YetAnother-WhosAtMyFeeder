@@ -166,7 +166,7 @@
   "wall_seen": "拍摄时间",
   "wall_camera": "摄像头",
   "wall_visit": "到访",
-  "wall_frames": "{count, plural, other {# 帧}}",
+  "wall_frames": "{count, plural, other {# 次拍摄}}",
   "wall_eyebrow": "{unit}最多 · {window}",
   "check": {
     "entry_title": "{count, plural, other {# 个物种可能命名有误}}",

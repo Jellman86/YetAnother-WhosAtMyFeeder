@@ -33,5 +33,6 @@
   "visits_week": "Besuche, letzte 7 Tage",
   "visits_month": "Besuche, letzte 30 Tage",
   "detections_note": "Jede bestimmte Aufnahme zählt einmal. Ein Besuch kann mehrere Aufnahmen enthalten, daher sind die Besuchszahlen in der Bestenliste niedriger.",
-  "recent_captures": "Letzte Aufnahmen"
+  "recent_captures": "Letzte Aufnahmen",
+  "unknown_bird_actions": "Nicht bis zur Art bestimmt. Lassen Sie das Modell Foto oder Clip erneut prüfen, oder öffnen Sie den Eintrag im Explorer, um ihn umzubenennen."
 }
