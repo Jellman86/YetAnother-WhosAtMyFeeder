@@ -174,7 +174,7 @@
   "errors_filtered_title": "フィルターされた検出",
   "errors_filtered_none": "まだ何もフィルターされていません。",
   "errors_filtered_summary": "{count, plural, other {#件の検出が検出設定を満たしませんでした。これは障害ではなくフィルターの動作です。}}",
-  "errors_filtered_hint": "さらに残すには、設定 → 検出で識別のしきい値を調整してください。",
+  "errors_filtered_hint": "さらに残すには、設定 → 鳥の識別で識別のしきい値を調整してください。",
   "errors_filtered_recent": "最新",
   "errors_activity_title": "これまでの動き",
   "errors_activity_subtitle": "記録された訪問、フィルターで除外された検出、パイプライン障害を発生順に表示します",
@@ -283,13 +283,13 @@
   "errors_pipeline_idle": "このインスタンスの起動以降、処理に届いた検出はありません。",
   "errors_problem": {
     "mqtt_down": "{server} のMQTTブローカーに接続していないため、新しい検出は届きません。",
-    "mqtt_down_next": "設定 → 接続 でアドレスを確認し、ブローカーが動作していることを確認してください。",
+    "mqtt_down_next": "設定 → カメラと接続 でアドレスを確認し、ブローカーが動作していることを確認してください。",
     "mqtt_not_configured": "MQTTブローカーが設定されていないため、検出は届きません。",
-    "mqtt_not_configured_next": "設定 → 接続 で追加してください。",
+    "mqtt_not_configured_next": "設定 → カメラと接続 で追加してください。",
     "mqtt_stopped": "MQTTサービスが動作していないため、新しい検出は届きません。",
     "mqtt_stopped_next": "YA-WAMFを再起動すると再開します。",
     "frigate_down": "{url} のFrigateが応答しないため、新しい検出を保存できません。",
-    "frigate_down_next": "設定 → 接続 でアドレスを確認し、Frigateが動作していることを確認してください。"
+    "frigate_down_next": "設定 → カメラと接続 でアドレスを確認し、Frigateが動作していることを確認してください。"
   },
   "errors_clear_effect": "記録されたエラーとインシデントを今すぐ削除します。ライブのチェックは続きます。",
   "earlier_incidents_title": "過去のインシデント",
@@ -333,11 +333,11 @@
   "diagnostic_words": {
     "classify_snapshot_timeout": {
       "title": "スナップショットの判定に時間がかかりすぎたため、検出が破棄されました。",
-      "next": "分類器が過負荷の可能性があります。上のリソース使用状況を確認するか、設定 → モデル でより軽いモデルを選んでください。"
+      "next": "分類器が過負荷の可能性があります。上のリソース使用状況を確認するか、設定 → 鳥の識別 でより軽いモデルを選んでください。"
     },
     "classify_snapshot_overloaded": {
       "title": "分類器が混雑していたため、検出が破棄されました。",
-      "next": "上のリソース使用状況を確認してください。頻繁に起こる場合は、設定 → モデル でより軽いモデルを選んでください。"
+      "next": "上のリソース使用状況を確認してください。頻繁に起こる場合は、設定 → 鳥の識別 でより軽いモデルを選んでください。"
     },
     "classify_snapshot_unavailable": {
       "title": "Frigate にスナップショットがなかったため、検出が破棄されました。",
@@ -345,7 +345,7 @@
     },
     "classifier_empty_results": {
       "title": "分類器が結果を返さなかったため、検出が破棄されました。",
-      "next": "設定 → モデル でモデルが読み込まれていることを確認してください。"
+      "next": "設定 → 鳥の識別 でモデルが読み込まれていることを確認してください。"
     },
     "save_and_notify_failed": {
       "title": "検出の種は判定されましたが、保存できませんでした。",

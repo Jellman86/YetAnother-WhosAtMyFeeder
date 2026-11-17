@@ -244,7 +244,7 @@
         {#if !connected}
             <!-- The way past a Frigate or broker that is not up yet, with exactly what waits on it. -->
             <p class="text-xs leading-relaxed text-slate-600 dark:text-slate-400" data-setup-connection-later>
-                {$_('setup.connection.later_note', { default: 'No Frigate or broker to hand? Choose “Set up later”. Until both are connected under Settings → Connection, no visits arrive, no photos or clips can be fetched, and the cameras step cannot list your cameras.' })}
+                {$_('setup.connection.later_note', { default: 'No Frigate or broker to hand? Choose “Set up later”. Until both are connected under Settings → Cameras & connection, no visits arrive, no photos or clips can be fetched, and the cameras step cannot list your cameras.' })}
             </p>
         {/if}
     </WizardLoadState>

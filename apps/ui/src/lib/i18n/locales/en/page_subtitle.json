@@ -7,19 +7,13 @@
   "notifications": "Visits, alerts and background work, newest first.",
   "species": "Which birds visit most, how often, and when.",
   "health": "Whether YA-WAMF is working, what the host is doing, and what happened.",
-  "settings_tab": {
-    "connection": "Where events come from: Frigate, its MQTT broker and the cameras to watch.",
-    "detection": "How sure an identification must be before a visit is named, and what is never saved.",
-    "models": "Which models find and name birds, and the hardware they run on.",
-    "integrations": "Other services YA-WAMF reads from or reports to, and your location.",
-    "ai": "An optional AI provider that describes what a bird was doing.",
-    "notifications": "When you hear about a visit, and the channels the message goes to.",
-    "security": "Who can open YA-WAMF, what guests see, and what leaves this install.",
-    "data": "What is kept, for how long, and a backup of these settings.",
-    "maintenance": "Jobs that repair or fill in the history, and deleting it.",
-    "beta": "Features still being tested. Each is off until you turn it on, and may change or be removed. Turning one off keeps what it has already recorded.",
-    "appearance": "How YA-WAMF looks and names birds.",
-    "accessibility": "Contrast, a reading font, motion and spoken updates."
+  "settings_section": {
+    "cameras": "Where events come from: Frigate, its MQTT broker and the cameras to watch.",
+    "identification": "How sure a name must be, the models that find and name birds and their hardware, and features still in Beta.",
+    "alerts": "When you hear about a visit, and the channels the message goes to.",
+    "sharing": "Other services YA-WAMF reads from or reports to, your location, AI descriptions, and who can open this install.",
+    "storage": "What is kept and for how long, a backup of these settings, and the jobs that repair or fill in the history.",
+    "display": "How YA-WAMF looks and names birds, and contrast, a reading font, motion and spoken updates."
   },
   "model_evaluation": "How often each installed model names a bird correctly, and how fast."
 }

@@ -87,7 +87,7 @@
     "seen_and_heard": "既见又闻"
   },
   "desk": {
-    "cameras_empty": "还没有摄像头上报。请在“设置 → 连接”中添加。",
+    "cameras_empty": "还没有摄像头上报。请在“设置 → 摄像头与连接”中添加。",
     "camera_no_visits": "无到访",
     "no_cross_confirmation": "{count, plural, other {共听到 # 次鸣叫，但没有一次与摄像头到访对应。麦克风与摄像头覆盖的范围可能不同。}}",
     "temperature_span": "到访时气温介于 {low} 至 {high}",

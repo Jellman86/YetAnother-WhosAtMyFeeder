@@ -277,12 +277,6 @@
     "accessibility": "Accessibilità",
     "enrichment": "Arricchimento",
     "ai": "IA",
-    "groups": {
-      "pipeline": "Flusso della mangiatoia",
-      "intelligence": "Analisi e condivisione",
-      "operations": "Operazioni",
-      "interface": "Interfaccia"
-    },
     "beta": "Funzioni beta",
     "unsaved": "non salvato",
     "skip_to_content": "Vai alle impostazioni",
@@ -293,6 +287,14 @@
     "maintenance": "Manutenzione",
     "refused": "da correggere",
     "refused_note": "Contiene un valore rifiutato dall’ultimo salvataggio"
+  },
+  "sections": {
+    "cameras": "Telecamere e connessione",
+    "identification": "Identificare gli uccelli",
+    "alerts": "Avvisi",
+    "sharing": "Condivisione e integrazioni",
+    "storage": "Archiviazione e manutenzione",
+    "display": "Visualizzazione"
   },
   "debug": {
     "llm_prompts_title": "Modelli di prompt LLM",
@@ -709,7 +711,7 @@
     "every_camera_on": "Ogni telecamera di Frigate è osservata per gli uccelli, comprese quelle aggiunte a Frigate in seguito.",
     "every_camera_off": "Solo le telecamere scelte qui sono osservate per gli uccelli. Una telecamera aggiunta a Frigate in seguito non è osservata finché non la scegli.",
     "watch_every_camera": "Osserva tutte le telecamere per gli uccelli",
-    "garden_beta_hint": "Per osservare anche gli animali del giardino, attiva Animali del giardino in Impostazioni → Funzioni beta.",
+    "garden_beta_hint": "Per osservare anche gli animali del giardino, attiva Animali del giardino in Impostazioni → Identificare gli uccelli.",
     "list_loading": "Lettura dell’elenco delle telecamere da Frigate…",
     "list_unread": "Non è stato possibile leggere l’elenco delle telecamere da Frigate. Sono mostrate le telecamere salvate; scegli Sincronizza Telecamere per riprovare.",
     "none_found_help": "Frigate non ha segnalato telecamere. Controlla l’URL di Frigate qui sopra, poi scegli Sincronizza Telecamere.",
@@ -890,7 +892,7 @@
     "link_opens_yawamf_req": "Usa l'indirizzo dell'istanza qui sopra.",
     "link_opens_frigate": "Frigate",
     "link_opens_frigate_desc": "Lo stesso oggetto tracciato nella pagina Explore di Frigate.",
-    "link_opens_frigate_req": "Richiede Frigate 0.15 o successivo e l’URL pubblico di Frigate, da impostare in Impostazioni → Connessione.",
+    "link_opens_frigate_req": "Richiede Frigate 0.15 o successivo e l’URL pubblico di Frigate, da impostare in Impostazioni → Telecamere e connessione.",
     "link_frigate_url_missing": "L'URL pubblico di Frigate non è impostato; le notifiche non avranno alcun link finché non lo sarà.",
     "link_preview_telegram": "Link sul pulsante di Telegram:",
     "link_preview_others": "Il titolo Discord, Pushover e l'e-mail usano lo stesso indirizzo.",
@@ -1328,7 +1330,7 @@
     "model_manager_repair_download": "Riscarica per riparare",
     "model_manager_repair_needed": "L’installazione di questo modello è incompleta. Scaricalo di nuovo per ripristinare i nomi delle specie o la configurazione del modello mancanti prima dell’attivazione.",
     "model_manager_location_title": "Usa la posizione della tua mangiatoia",
-    "model_manager_location_desc": "Questo modello usa anche le coordinate della mangiatoia salvate in Impostazioni → Integrazioni → Posizione. Se non sono salvate coordinate valide, identifica gli uccelli senza posizione. Non usa la data né un raggio di precisione della posizione.",
+    "model_manager_location_desc": "Questo modello usa anche le coordinate della mangiatoia salvate in Impostazioni → Condivisione e integrazioni → Posizione. Se non sono salvate coordinate valide, identifica gli uccelli senza posizione. Non usa la data né un raggio di precisione della posizione.",
     "model_manager_location_link": "Apri le impostazioni della posizione",
     "provider_intel_npu": "NPU Intel (OpenVINO)",
     "bird_finder_title": "Rilevatore di uccelli",
@@ -1613,7 +1615,8 @@
     "garden_sentence_motion_on": "Le foto di movimento vengono raccolte su {cameras}.",
     "garden_sentence_motion_off": "Le foto di movimento sono disattivate.",
     "garden_sentence_motion_unread": "Non è stato possibile leggere lo stato delle foto di movimento. Aggiorna per riprovare.",
-    "garden_sentence_saved_crops": "{count, plural, one {# ritaglio salvato} other {# ritagli salvati}} su {limit, number} consentiti."
+    "garden_sentence_saved_crops": "{count, plural, one {# ritaglio salvato} other {# ritagli salvati}} su {limit, number} consentiti.",
+    "part_intro": "Funzioni ancora in prova. Ognuna è spenta finché non la attivi, e può cambiare o essere rimossa. Spegnerla conserva ciò che ha già registrato."
   },
   "native_revalidation": {
     "title": "Verifica profilo in quarantena",

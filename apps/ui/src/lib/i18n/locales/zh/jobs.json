@@ -174,7 +174,7 @@
   "errors_filtered_title": "已过滤的检测",
   "errors_filtered_none": "目前没有任何内容被过滤。",
   "errors_filtered_summary": "{count, plural, other {有#项检测未达到您的检测设置。这是过滤器在工作，并非故障。}}",
-  "errors_filtered_hint": "在“设置 → 检测”中调整命名阈值可保留更多结果。",
+  "errors_filtered_hint": "在“设置 → 识别鸟类”中调整命名阈值可保留更多结果。",
   "errors_filtered_recent": "最近",
   "errors_activity_title": "发生了什么",
   "errors_activity_subtitle": "按发生顺序显示已记录的到访、已过滤的检测和处理流程故障",
@@ -283,13 +283,13 @@
   "errors_pipeline_idle": "自本实例启动以来，没有检测进入处理流程。",
   "errors_problem": {
     "mqtt_down": "位于 {server} 的MQTT代理未连接，因此不会有新的检测到达。",
-    "mqtt_down_next": "请在 设置 → 连接 中检查地址，并确认代理正在运行。",
+    "mqtt_down_next": "请在 设置 → 摄像头与连接 中检查地址，并确认代理正在运行。",
     "mqtt_not_configured": "未设置MQTT代理，因此不会有检测到达。",
-    "mqtt_not_configured_next": "请在 设置 → 连接 中添加一个。",
+    "mqtt_not_configured_next": "请在 设置 → 摄像头与连接 中添加一个。",
     "mqtt_stopped": "MQTT服务未运行，因此不会有新的检测到达。",
     "mqtt_stopped_next": "重启YA-WAMF即可重新启动它。",
     "frigate_down": "位于 {url} 的Frigate无响应，因此新的检测无法保存。",
-    "frigate_down_next": "请在 设置 → 连接 中检查地址，并确认Frigate正在运行。"
+    "frigate_down_next": "请在 设置 → 摄像头与连接 中检查地址，并确认Frigate正在运行。"
   },
   "errors_clear_effect": "立即删除已记录的错误和事件。实时检查会继续。",
   "earlier_incidents_title": "以往的事件",
@@ -333,11 +333,11 @@
   "diagnostic_words": {
     "classify_snapshot_timeout": {
       "title": "由于识别快照耗时过长，一次检测被丢弃。",
-      "next": "分类器可能过载。请查看上方的资源使用情况，或在 设置 → 模型 中选择更轻量的模型。"
+      "next": "分类器可能过载。请查看上方的资源使用情况，或在 设置 → 识别鸟类 中选择更轻量的模型。"
     },
     "classify_snapshot_overloaded": {
       "title": "由于分类器过于繁忙，一次检测被丢弃。",
-      "next": "请查看上方的资源使用情况。如果经常发生，请在 设置 → 模型 中选择更轻量的模型。"
+      "next": "请查看上方的资源使用情况。如果经常发生，请在 设置 → 识别鸟类 中选择更轻量的模型。"
     },
     "classify_snapshot_unavailable": {
       "title": "由于 Frigate 没有对应快照，一次检测被丢弃。",
@@ -345,7 +345,7 @@
     },
     "classifier_empty_results": {
       "title": "由于分类器没有给出结果，一次检测被丢弃。",
-      "next": "请在 设置 → 模型 中检查是否已加载模型。"
+      "next": "请在 设置 → 识别鸟类 中检查是否已加载模型。"
     },
     "save_and_notify_failed": {
       "title": "一次检测已识别，但无法保存。",

@@ -3,6 +3,7 @@ import dataSource from './DataSettings.svelte?raw';
 import maintenanceSource from './MaintenanceSettings.svelte?raw';
 import notificationSource from './NotificationSettings.svelte?raw';
 import settingsPageSource from '../../pages/Settings.svelte?raw';
+import sharingSource from './sections/SharingSection.svelte?raw';
 import enSettings from '../../i18n/locales/en/settings.json';
 
 const en = { settings: enSettings };
@@ -88,12 +89,13 @@ describe('notification test buttons', () => {
 });
 
 describe('the HTTPS warning', () => {
-    it('is translated and has a dark style', () => {
-        const band = settingsPageSource.slice(settingsPageSource.indexOf('{#if authStore.httpsWarning}'));
+    it('is translated and takes the attention tone in every mode', () => {
+        const band = sharingSource.slice(sharingSource.indexOf('{#if authStore.httpsWarning}'));
         const markup = band.slice(0, band.indexOf('{/if}'));
         expect(markup).not.toContain('Security Warning:');
         expect(markup).toContain("settings.security.https_warning'");
-        expect(markup).toContain('dark:bg-attention-950/30');
+        expect(markup).toContain('bg-status-attention-soft');
+        expect(markup).not.toContain('dark:');
         expect(en.settings.security.https_warning).toContain('Serve YA-WAMF over HTTPS, for example behind your reverse proxy.');
     });
 });

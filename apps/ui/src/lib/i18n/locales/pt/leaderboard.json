@@ -30,7 +30,7 @@
   "species": "Espécie",
   "view_species": "Ver {species}",
   "no_species": "Ainda não há aves registadas",
-  "no_species_desc": "O ranking é preenchido à medida que as câmeras identificam aves. Se nada chegar, verifique Configurações → Conexão.",
+  "no_species_desc": "O ranking é preenchido à medida que as câmeras identificam aves. Se nada chegar, verifique Configurações → Câmeras e conexão.",
   "only_unknown_desc": "No momento, só há detecções \"Ave desconhecida\". Ative \"Incluir \\\"Ave desconhecida\\\"\" para exibi-las no ranking.",
   "all_species": "Todas as Espécies",
   "percentage_of_total": "{percentage}% do total",

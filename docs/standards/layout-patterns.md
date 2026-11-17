@@ -201,7 +201,7 @@ reading everywhere: `identificationStatus()` words the sentence, and `settings/m
 names the state in one vocabulary (checking, missing, queued, validating, failed, loading, ready,
 running, unknown) with one word and one tone each (`readinessLabel`, `readinessTone`). The server
 reads the same runtime report through `services/model_readiness.py`, and both are held to
-`tests/fixtures/model_readiness_cases.json`. Settings › Models, the wizard's review, About's
+`tests/fixtures/model_readiness_cases.json`. Settings › Identifying birds, the wizard's review, About's
 pipeline and a Garden capture's wait all call that one rule (`classifierReadiness`); none derives
 its own. Three things keep them agreeing:
 
@@ -231,7 +231,7 @@ is known not to be able to run here, with a note that the owner decides by hand.
 failed it stays closed, says so and offers a retry, because nothing was measured. Reassurance needs a reading too: the
 backend-down screens say nothing about the data they could not ask about.
 
-An amount needs a price as well as a count. Settings → AI shows a cost only for usage that has a
+An amount needs a price as well as a count. Settings → Sharing & integrations shows a cost only for usage that has a
 rate (`settings/ai-cost.ts`): a model without one is "Not priced", usage with no prices is "Cost not
 estimated: add prices", and a total over part of the usage states the requests it covers. About's
 list of what leaves the network is built from the features that send each request
@@ -584,8 +584,8 @@ off with update checks, and absent rather than zero when unknown.
 | `InstancePipeline` | Deployment state as a flow | Use it as a settings surface |
 | `ReviewQueueModal` | Working a queue item by item | Use for viewing one record; that is `DetectionModal` |
 | `ActivityHeatmap` | A weekday by hour grid that reads a slot on hover, tap or arrow keys, with hour and day totals in its margins | Rely on native `title` tooltips; they arrive late and never on touch |
-| `CameraWatchRow` | One Frigate camera in **Settings → Connection → Cameras to watch**, shaped as a settings row: the camera's name and Preview on the left; "Watch for" (Off, Birds, Garden animals or Both, as one select) and, while it watches birds, its role (select) in the control column; motion photos below while it watches Garden animals | Add a second camera list for one subject elsewhere; link to this list and summarise instead |
-| `BetaFeatureCard` | One feature on **Settings → Beta features**: name, one-line description, its switch (staged, applied with the page), a worded status line with an amber dot only when the owner must act, its settings only while on, and what off means while off | Add a feature's settings outside its card, or invent a beta feature to fill the list |
+| `CameraWatchRow` | One Frigate camera in **Settings → Cameras & connection → Cameras to watch**, shaped as a settings row: the camera's name and Preview on the left; "Watch for" (Off, Birds, Garden animals or Both, as one select) and, while it watches birds, its role (select) in the control column; motion photos below while it watches Garden animals | Add a second camera list for one subject elsewhere; link to this list and summarise instead |
+| `BetaFeatureCard` | One feature on **Settings → Identifying birds**: name, one-line description, its switch (staged, applied with the page), a worded status line with an amber dot only when the owner must act, its settings only while on, and what off means while off | Add a feature's settings outside its card, or invent a beta feature to fill the list |
 | `BetaSection` | A collapsible group of one beta feature's settings: the heading is the disclosure button, and a closed section stays mounted but hidden so a download or status read inside keeps running | Nest cards inside it; sections are separated by hairlines |
 
 Server grouping lives in `backend/app/repositories/visit_repository.py`, shared with statistics.
@@ -696,7 +696,7 @@ build something better."*
 - **Sentence case.** Buttons, headings and labels capitalise their first word and names only:
   "Clear history", "Test AI connection", "Keyboard shortcuts". Names are products (Frigate,
   BirdNET-Go, eBird, iNaturalist, BirdWeather, Home Assistant, YA-WAMF), places, models, and the
-  app's own pages and tabs where a sentence cites them ("Settings → Connection"). The editorial
+  app's own pages and tabs where a sentence cites them ("Settings → Cameras & connection"). The editorial
   locale test fails a short Title Case label in English, Spanish, French, Italian, Portuguese and
   Russian; German keeps its capitalised nouns, and Japanese and Chinese have no case.
 - An error states the cause and the next step. "This page stopped working … Reload the page; if it
@@ -783,8 +783,9 @@ build something better."*
   may wrap on the track; four or more long options, or options that need a sentence each, become a
   select or a radio list instead. So the Explorer's filter rail has two selected styles, not four:
   the segmented track for short choices and `.choice-active` rows for lists.
-- **Settings rows**: every Settings tab is a column of sections no wider than `max-w-3xl`. A
-  section is a plain `h2` (no icon, no coloured band) over one card of rows separated by hairlines,
+- **Settings rows**: every Settings section (one of the six task sections in the rail) is a column of
+  cards no wider than `max-w-3xl`, each former tab a part with an anchor of its own. A card is a
+  plain `h2` (no icon, no coloured band) over one card of rows separated by hairlines,
   and nothing inside the card is boxed again. From 768px a row puts its label (medium weight) and
   hint (regular, muted, one size smaller) on the left and its control in a 20rem column on the
   right, so every field, select and switch ends on the card's right edge, a section's own switch

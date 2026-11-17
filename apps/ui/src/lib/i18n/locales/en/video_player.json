@@ -2,7 +2,7 @@
   "aria_label": "Video player",
   "close": "Close video",
   "clip_fetching_disabled": "Clip fetching is off",
-  "clip_fetching_disabled_hint": "Turn on “Fetch video clips” in Settings → Connection to watch this recording.",
+  "clip_fetching_disabled_hint": "Turn on “Fetch video clips” in Settings → Cameras & connection to watch this recording.",
   "video_unavailable": "Video unavailable",
   "video_unavailable_hint": "The recording could not be loaded from Frigate. It may have been deleted or is not yet available.",
   "preparing": "Preparing player…",

@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { openSettings, saveBar as unsaved, type FixtureSettings } from './settings-page-mock';
 
-// Settings → Appearance holds its choices in the one Settings draft and loads its tab body on
+// Settings → Display holds its choices in the one Settings draft and loads its tab body on
 // first use. The saved choices must load into the tab, an edit must survive leaving the tab, and
 // Apply must send the Appearance fields with the rest of the form.
 
@@ -21,7 +21,7 @@ test('Appearance loads on first open, shows the saved choices and saves edits wi
     const harness = await openSettings(page, SAVED_APPEARANCE);
     expect(harness.moduleRequests('AppearanceSettings.svelte')).toBe(0);
 
-    await page.getByRole('link', { name: 'Appearance' }).click();
+    await page.getByRole('link', { name: 'Display', exact: true }).click();
     await expect(page.locator('#date-format-select')).toHaveValue('ymd');
     expect(harness.moduleRequests('AppearanceSettings.svelte')).toBe(1);
     await expect(page.locator('#time-format-select')).toHaveValue('12h');
@@ -35,10 +35,10 @@ test('Appearance loads on first open, shows the saved choices and saves edits wi
     await expect(unsaved(page)).toBeVisible();
 
     // Leaving the tab unmounts its body; the draft is the page's, so the edit is still there.
-    await page.getByRole('link', { name: 'Connection' }).click();
+    await page.getByRole('link', { name: 'Cameras & connection', exact: true }).click();
     await expect(page.locator('#mqtt-server')).toBeVisible();
     await expect(unsaved(page)).toBeVisible();
-    await page.getByRole('link', { name: 'Appearance' }).click();
+    await page.getByRole('link', { name: 'Display', exact: true }).click();
     await expect(page.locator('#time-format-select')).toHaveValue('24h');
 
     await page.getByRole('button', { name: 'Save changes', exact: true }).click();
@@ -55,7 +55,7 @@ test('Appearance loads on first open, shows the saved choices and saves edits wi
 
 test('switching the naming style back to the saved one leaves nothing to apply', async ({ page }) => {
     await openSettings(page, SAVED_APPEARANCE);
-    await page.getByRole('link', { name: 'Appearance' }).click();
+    await page.getByRole('link', { name: 'Display', exact: true }).click();
     const scientific = page.getByRole('radiogroup', { name: /Bird naming style/ }).getByRole('radio', { name: /^Strictly scientific/i });
     const hobbyist = page.getByRole('radiogroup', { name: /Bird naming style/ }).getByRole('radio', { name: /^Scientific name first/ });
     await expect(hobbyist).toBeChecked();

@@ -55,7 +55,7 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
   import { createPublicHistoryRefresh } from './lib/app/public-history-refresh';
   import { createDeployRecovery } from './lib/app/deploy-recovery';
   import { lazyComponent } from './lib/app/lazy-component';
-  import { settingsTabFromRoute } from './lib/settings/settings-route';
+  import { settingsSectionFromRoute } from './lib/settings/settings-route';
   import {
       canonicalizeNotificationRouteForAccess,
       getCanonicalNotificationRoute,
@@ -102,8 +102,10 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
   let isSidebarCollapsed = $derived(layoutStore.sidebarCollapsed);
   let isMobile = $state(false);
 
-  // Router state
+  // Router state. The fragment is kept beside the route, not in it, so every route comparison stays
+  // on the path; a page that has places inside it (Settings' parts) follows it.
   let currentRoute = $state('/');
+  let currentHash = $state('');
   let dashboardRefreshKey = $state(0);
   let globalProgressHasScrolled = $state(false);
 
@@ -134,7 +136,7 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
           case 'notifications': return $_('page_subtitle.notifications', { default: 'Visits, alerts and background work, newest first.' });
           case 'health': return $_('page_subtitle.health', { default: 'Whether YA-WAMF is working, what the host is doing, and what happened.' });
           // One line about the open tab, not a list of every tab.
-          case 'settings': return $_(`page_subtitle.settings_tab.${settingsTabFromRoute(currentRoute)}`);
+          case 'settings': return $_(`page_subtitle.settings_section.${settingsSectionFromRoute(currentRoute)}`);
           case 'model_evaluation': return $_('page_subtitle.model_evaluation', { default: 'How often each installed model names a bird correctly, and how fast.' });
           case 'about': return $_('page_subtitle.about', { default: 'What this feeder has recorded, how YA-WAMF works, and what it stores and sends.' });
           default: return '';
@@ -221,7 +223,9 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
   });
 
   function navigate(path: string, opts: { replace?: boolean } = {}) {
-      const targetPath = normalizeRouteForCurrentAccess(path);
+      const hashAt = path.indexOf('#');
+      const fragment = hashAt < 0 ? '' : path.slice(hashAt);
+      const targetPath = normalizeRouteForCurrentAccess(hashAt < 0 ? path : path.slice(0, hashAt)) + fragment;
       // A page holding unsaved work is asked before an in-app navigation; nothing has moved yet.
       // Back and Forward are never held: the page keeps its draft for the return instead.
       if (unsavedChanges.warningFor(targetPath)) {
@@ -238,8 +242,10 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
       if (isDashboardRefresh) {
           dashboardRefreshKey += 1;
       }
-      currentRoute = targetPath;
-      const browserPath = toAppPath(targetPath);
+      const hashAt = targetPath.indexOf('#');
+      currentRoute = hashAt < 0 ? targetPath : targetPath.slice(0, hashAt);
+      currentHash = hashAt < 0 ? '' : targetPath.slice(hashAt);
+      const browserPath = toAppPath(currentRoute) + currentHash;
       if (opts.replace) window.history.replaceState(null, '', browserPath);
       else window.history.pushState(null, '', browserPath);
       refreshCoordinator.onNavigate();
@@ -490,9 +496,15 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
 
           const handlePopState = () => {
               currentRoute = normalizeRouteForCurrentAccess(fromAppPath(window.location.pathname));
+              currentHash = window.location.hash;
               refreshCoordinator.onNavigate();
           };
           window.addEventListener('popstate', handlePopState);
+          // A fragment typed or followed on the same page moves within it without a popstate.
+          const handleHashChange = () => {
+              currentHash = window.location.hash;
+          };
+          window.addEventListener('hashchange', handleHashChange);
 
           // Surface actionable diagnostics for production-minified runtime exceptions.
           const handleWindowError = (event: ErrorEvent) => {
@@ -541,8 +553,9 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
           const resolvedPath = path === '' ? '/' : path;
           const canonicalPath = normalizeSettingsRoute(getCanonicalNotificationRoute(resolvedPath) ?? resolvedPath);
           currentRoute = canonicalPath;
+          currentHash = window.location.hash;
           if (canonicalPath !== resolvedPath) {
-              window.history.replaceState(null, '', toAppPath(canonicalPath));
+              window.history.replaceState(null, '', toAppPath(canonicalPath) + currentHash);
           }
 
           await authStore.loadStatus();
@@ -595,6 +608,7 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
           // Store cleanup function to return
           cleanupFn = () => {
               window.removeEventListener('popstate', handlePopState);
+              window.removeEventListener('hashchange', handleHashChange);
               window.removeEventListener('error', handleWindowError);
               window.removeEventListener('unhandledrejection', handleUnhandledRejection);
               document.removeEventListener('visibilitychange', handleVisibilityChange);
@@ -942,7 +956,7 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
                    {#if authStore.showSettings}
                        <LazyRoute
                            loader={loadSettingsPage}
-                           props={{ onNavigate: navigate, currentRoute }}
+                           props={{ onNavigate: navigate, currentRoute, currentHash }}
                            label={pageTitle}
                            onLoadError={handleRouteLoadError}
                        />

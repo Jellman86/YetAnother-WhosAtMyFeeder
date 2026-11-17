@@ -193,10 +193,14 @@ const LOCALE_NAMES: Record<string, string[]> = {
     ru: ['Сад', 'Северная', 'Америка', 'Википедии', 'Европы', 'Израиля', 'Аравийского']
 };
 
-/** A page or tab is a name in every language, so its own label may be capitalised where it is cited. */
+/** A page or Settings section is a name in every language, so its own label may be capitalised where it is cited. */
 function interfaceNames(locale: LocaleRoot): Set<string> {
     const settings = (locale.settings ?? {}) as LocaleRoot;
-    const labels = [...stringLeaves((locale.nav ?? {}) as LocaleRoot), ...stringLeaves((settings.tabs ?? {}) as LocaleRoot)].map(([, value]) => value);
+    const labels = [
+        ...stringLeaves((locale.nav ?? {}) as LocaleRoot),
+        ...stringLeaves((settings.tabs ?? {}) as LocaleRoot),
+        ...stringLeaves((settings.sections ?? {}) as LocaleRoot)
+    ].map(([, value]) => value);
     return new Set(labels.flatMap((label) => label.match(/[\p{L}][\p{L}\p{N}'’.-]*/gu) ?? []));
 }
 

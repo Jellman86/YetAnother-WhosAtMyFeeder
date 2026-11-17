@@ -277,12 +277,6 @@
     "accessibility": "Accessibilité",
     "enrichment": "Enrichissement",
     "ai": "IA",
-    "groups": {
-      "pipeline": "Chaîne de la mangeoire",
-      "intelligence": "Analyse et partage",
-      "operations": "Exploitation",
-      "interface": "Interface"
-    },
     "beta": "Fonctions bêta",
     "unsaved": "non enregistré",
     "skip_to_content": "Aller aux paramètres",
@@ -293,6 +287,14 @@
     "maintenance": "Entretien",
     "refused": "à corriger",
     "refused_note": "Contient une valeur refusée lors du dernier enregistrement"
+  },
+  "sections": {
+    "cameras": "Caméras et connexion",
+    "identification": "Identifier les oiseaux",
+    "alerts": "Alertes",
+    "sharing": "Partage et intégrations",
+    "storage": "Stockage et entretien",
+    "display": "Affichage"
   },
   "debug": {
     "llm_prompts_title": "Modèles de prompt LLM",
@@ -709,7 +711,7 @@
     "every_camera_on": "Toutes les caméras Frigate sont surveillées pour les oiseaux, y compris celles ajoutées plus tard à Frigate.",
     "every_camera_off": "Seules les caméras choisies ici sont surveillées pour les oiseaux. Une caméra ajoutée plus tard à Frigate n’est surveillée qu’une fois choisie.",
     "watch_every_camera": "Surveiller toutes les caméras pour les oiseaux",
-    "garden_beta_hint": "Pour surveiller aussi les animaux du jardin, activez Animaux du jardin dans Paramètres → Fonctions bêta.",
+    "garden_beta_hint": "Pour surveiller aussi les animaux du jardin, activez Animaux du jardin dans Paramètres → Identifier les oiseaux.",
     "list_loading": "Lecture de la liste des caméras depuis Frigate…",
     "list_unread": "La liste des caméras n’a pas pu être lue depuis Frigate. Les caméras enregistrées sont affichées ; choisissez Synchroniser les caméras pour réessayer.",
     "none_found_help": "Frigate n’a signalé aucune caméra. Vérifiez l’URL de Frigate ci-dessus, puis choisissez Synchroniser les caméras.",
@@ -890,7 +892,7 @@
     "link_opens_yawamf_req": "Utilise l'adresse de l'instance ci-dessus.",
     "link_opens_frigate": "Frigate",
     "link_opens_frigate_desc": "Le même objet suivi dans la page Explore de Frigate.",
-    "link_opens_frigate_req": "Nécessite Frigate 0.15 ou plus récent et l’URL publique de Frigate, à régler dans Paramètres → Connexion.",
+    "link_opens_frigate_req": "Nécessite Frigate 0.15 ou plus récent et l’URL publique de Frigate, à régler dans Paramètres → Caméras et connexion.",
     "link_frigate_url_missing": "L'URL publique de Frigate n'est pas définie ; les notifications ne contiendront aucun lien tant qu'elle ne l'est pas.",
     "link_preview_telegram": "Lien du bouton Telegram :",
     "link_preview_others": "Le titre Discord, Pushover et l'e-mail utilisent la même adresse.",
@@ -1328,7 +1330,7 @@
     "model_manager_repair_download": "Réparer le téléchargement",
     "model_manager_repair_needed": "L’installation de ce modèle est incomplète. Téléchargez-le à nouveau pour restaurer les noms d’espèces ou la configuration du modèle manquants avant l’activation.",
     "model_manager_location_title": "Utilise l’emplacement de votre mangeoire",
-    "model_manager_location_desc": "Ce modèle utilise aussi les coordonnées de la mangeoire enregistrées dans Paramètres → Intégrations → Emplacement. Si aucune coordonnée valide n’est enregistrée, il identifie les oiseaux sans emplacement. Il n’utilise ni la date ni un rayon de précision de l’emplacement.",
+    "model_manager_location_desc": "Ce modèle utilise aussi les coordonnées de la mangeoire enregistrées dans Paramètres → Partage et intégrations → Emplacement. Si aucune coordonnée valide n’est enregistrée, il identifie les oiseaux sans emplacement. Il n’utilise ni la date ni un rayon de précision de l’emplacement.",
     "model_manager_location_link": "Ouvrir les paramètres d’emplacement",
     "provider_intel_npu": "NPU Intel (OpenVINO)",
     "bird_finder_title": "Détecteur d’oiseaux",
@@ -1613,7 +1615,8 @@
     "garden_sentence_motion_on": "Les photos de mouvement sont collectées sur {cameras}.",
     "garden_sentence_motion_off": "Les photos de mouvement sont désactivées.",
     "garden_sentence_motion_unread": "L’état des photos de mouvement n’a pas pu être lu. Actualisez pour réessayer.",
-    "garden_sentence_saved_crops": "{count, plural, one {# recadrage enregistré} other {# recadrages enregistrés}} sur {limit, number} autorisés."
+    "garden_sentence_saved_crops": "{count, plural, one {# recadrage enregistré} other {# recadrages enregistrés}} sur {limit, number} autorisés.",
+    "part_intro": "Fonctions encore en test. Chacune reste désactivée jusqu’à ce que vous l’activiez, et peut changer ou disparaître. La désactiver garde ce qu’elle a déjà enregistré."
   },
   "native_revalidation": {
     "title": "Vérifier le profil en quarantaine",

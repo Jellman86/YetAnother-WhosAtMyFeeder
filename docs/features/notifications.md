@@ -72,7 +72,7 @@ Send rich HTML emails with optional snapshots.
 
 ## Linking back to the detection
 
-Set **Instance address** under **Settings → Notifications** to the address you use to open
+Set **Instance address** under **Settings → Alerts** to the address you use to open
 YA-WAMF, for example `https://feeder.example.com`. Every notification then links to the detection
 it announces, at `<address>/events?event=<id>`:
 
@@ -84,7 +84,7 @@ it announces, at `<address>/events?event=<id>`:
 **Notification link opens** chooses the target. **This YA-WAMF** (the default) opens the detection
 as above. **Frigate** opens the same tracked object in Frigate's Explore page instead, at
 `<Frigate public URL>/explore?event_id=<id>`, using the public URL saved under
-**Settings → Connection**; it needs Frigate 0.15 or newer. With Frigate chosen and no public URL
+**Settings → Cameras & connection**; it needs Frigate 0.15 or newer. With Frigate chosen and no public URL
 saved, notifications carry no link and the settings card says so, with a shortcut to Connection.
 A preview line under the choice shows the exact address the next notification will carry.
 
@@ -101,12 +101,12 @@ honoured when the newer one is unset.
 
 ## Filtering
 
-**Settings → Notifications** states your filter as a sentence, and every highlighted part of it is
+**Settings → Alerts** states your filter as a sentence, and every highlighted part of it is
 a control:
 
 > Tell me about **new visits** that are at least **70% sure** of **any species** on **Discord**
 
-![Settings → Notifications: the Global Notification Filters card reading "Tell me about new visits that are at least 70% sure of any species on nowhere yet", with the notification cooldown, notification language, and the three species filter modes beneath](../images/settings-notifications.png)
+![Settings → Alerts: the Global Notification Filters card reading "Tell me about new visits that are at least 70% sure of any species on nowhere yet", with the notification cooldown, notification language, and the three species filter modes beneath](../images/settings-notifications.png)
 
 ### Minimum confidence
 Only alert at or above this score (default `0.7`). Raise it to reduce alerts for lower-confidence
@@ -143,7 +143,7 @@ it cannot guarantee whether a remote service accepted a request interrupted in t
 
 ## Notification Modes
 
-Choose a delivery mode in **Settings → Notifications**:
+Choose a delivery mode in **Settings → Alerts**:
 
 - **Final-only:** Notify only when Frigate ends the event and video analysis (if enabled) completes.
 - **Standard:** Notify when a confirmed detection is created.
@@ -159,7 +159,7 @@ rejected. Deleted, hidden, blocked and unknown visits are checked again before d
 ## Garden animals
 
 While the Garden animals beta is on, its alerts about named animals are set in
-**Settings → Beta features → Garden animals → Alerts**, with the rest of Garden; Notifications links there. By default they use your bird
+**Settings → Identifying birds → Garden animals → Alerts**, with the rest of Garden; Notifications links there. By default they use your bird
 channels, meaning the ones switched on and configured, and attach the animal photo.
 You can choose channels for Garden alone instead. Bird filters, notification mode
 and the cooldown above apply to birds only. See
@@ -175,6 +175,6 @@ alert is sent, what it contains and who can open its link.
 
 ## Setup
 
-Go to **Settings → Notifications** to configure all of this. Saved webhooks, tokens, and
+Go to **Settings → Alerts** to configure all of this. Saved webhooks, tokens, and
 passwords display as `***REDACTED***` and are preserved when you save other settings, so you never
 have to re-enter a working credential.

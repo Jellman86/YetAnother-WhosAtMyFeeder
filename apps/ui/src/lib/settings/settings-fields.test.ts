@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { RUNTIME_DISCLOSURES } from './runtime-problem';
-import { changedFields, firstRefusedField, settingsFieldPlace, settingsFieldPlaces, settingsFieldTab, summarizeUnsaved } from './settings-fields';
+import { changedFields, firstRefusedField, settingsFieldPart, settingsFieldPlace, settingsFieldPlaces, settingsFieldSection, summarizeUnsaved } from './settings-fields';
 
-// Every Settings tab's markup, to check each refused field's place against what is really there.
-const settingsMarkup = import.meta.glob<string>(['../components/settings/*.svelte', '../pages/Settings.svelte'], {
+// Every Settings part's markup, to check each refused field's place against what is really there.
+const settingsMarkup = import.meta.glob<string>(['../components/settings/*.svelte', '../components/settings/sections/*.svelte', '../pages/Settings.svelte'], {
     query: '?raw',
     import: 'default',
     eager: true
@@ -17,53 +17,74 @@ function fileWithId(id: string): string | null {
 }
 
 describe('where a saved setting lives', () => {
-    it('names the tab that shows each field, preferring an exact entry over a family prefix', () => {
-        expect(settingsFieldTab('frigate_url')).toBe('connection');
-        expect(settingsFieldTab('mqtt_port')).toBe('connection');
-        expect(settingsFieldTab('notifications_discord_webhook_url')).toBe('notifications');
+    it('names the part that shows each field, preferring an exact entry over a family prefix', () => {
+        expect(settingsFieldPart('frigate_url')).toBe('connection');
+        expect(settingsFieldPart('mqtt_port')).toBe('connection');
+        expect(settingsFieldPart('notifications_discord_webhook_url')).toBe('notifications');
         // Garden's alerts are set with the rest of Garden.
-        expect(settingsFieldTab('garden_notifications_enabled')).toBe('beta');
-        expect(settingsFieldTab('garden_cameras')).toBe('connection');
-        expect(settingsFieldTab('garden_naming_threshold')).toBe('beta');
-        expect(settingsFieldTab('inaturalist_default_latitude')).toBe('integrations');
-        expect(settingsFieldTab('llm_api_key')).toBe('ai');
-        expect(settingsFieldTab('media_cache_max_size_mb')).toBe('data');
-        expect(settingsFieldTab('enrichment_sightings_source')).toBe('integrations');
+        expect(settingsFieldPart('garden_notifications_enabled')).toBe('beta');
+        expect(settingsFieldPart('garden_cameras')).toBe('connection');
+        expect(settingsFieldPart('garden_naming_threshold')).toBe('beta');
+        expect(settingsFieldPart('inaturalist_default_latitude')).toBe('integrations');
+        expect(settingsFieldPart('llm_api_key')).toBe('ai');
+        expect(settingsFieldPart('media_cache_max_size_mb')).toBe('data');
+        expect(settingsFieldPart('enrichment_sightings_source')).toBe('integrations');
     });
 
     it('keeps identification rules in Detection and everything about the models in Models', () => {
         for (const field of ['classification_threshold', 'classification_min_confidence', 'blocked_species', 'range_filter_enabled', 'trust_frigate_sublabel', 'auto_video_classification', 'video_classification_frames', 'personalized_rerank_enabled']) {
-            expect(settingsFieldTab(field), field).toBe('detection');
+            expect(settingsFieldPart(field), field).toBe('detection');
         }
         for (const field of ['inference_provider', 'image_execution_mode', 'live_worker_count', 'background_worker_count', 'bird_crop_detector_model_id', 'bird_model_region_override', 'strict_non_finite_output']) {
-            expect(settingsFieldTab(field), field).toBe('models');
+            expect(settingsFieldPart(field), field).toBe('models');
         }
     });
 
     it('keeps what is kept in Data, repair jobs in Maintenance, and what leaves the install in Security', () => {
-        expect(settingsFieldTab('retention_days')).toBe('data');
-        expect(settingsFieldTab('frigate_missing_behavior')).toBe('data');
-        expect(settingsFieldTab('auto_purge_missing_clips')).toBe('data');
-        expect(settingsFieldTab('maintenance_max_concurrent')).toBe('maintenance');
-        expect(settingsFieldTab('auto_analyze_unknowns')).toBe('maintenance');
-        expect(settingsFieldTab('telemetry_enabled')).toBe('security');
+        expect(settingsFieldPart('retention_days')).toBe('data');
+        expect(settingsFieldPart('frigate_missing_behavior')).toBe('data');
+        expect(settingsFieldPart('auto_purge_missing_clips')).toBe('data');
+        expect(settingsFieldPart('maintenance_max_concurrent')).toBe('maintenance');
+        expect(settingsFieldPart('auto_analyze_unknowns')).toBe('maintenance');
+        expect(settingsFieldPart('telemetry_enabled')).toBe('security');
     });
 
     it('has no home for a field Settings never shows', () => {
-        expect(settingsFieldTab('not_a_setting')).toBeNull();
+        expect(settingsFieldPart('not_a_setting')).toBeNull();
+        expect(settingsFieldSection('not_a_setting')).toBeNull();
+    });
+
+    it('names the section that holds each part', () => {
+        expect(settingsFieldSection('frigate_url')).toBe('cameras');
+        expect(settingsFieldSection('classification_threshold')).toBe('identification');
+        expect(settingsFieldSection('inference_provider')).toBe('identification');
+        expect(settingsFieldSection('garden_naming_threshold')).toBe('identification');
+        expect(settingsFieldSection('notifications_discord_webhook_url')).toBe('alerts');
+        expect(settingsFieldSection('llm_api_key')).toBe('sharing');
+        expect(settingsFieldSection('auth_password')).toBe('sharing');
+        expect(settingsFieldSection('retention_days')).toBe('storage');
+        expect(settingsFieldSection('maintenance_max_concurrent')).toBe('storage');
+        expect(settingsFieldSection('accessibility_high_contrast')).toBe('display');
+    });
+
+    it('gives the appearance fields saved under their appearance_ names a home', () => {
+        for (const field of ['appearance_font_theme', 'appearance_color_theme', 'appearance_explorer_view']) {
+            expect(settingsFieldSection(field), field).toBe('display');
+        }
     });
 });
 
 describe('the unsaved-changes summary', () => {
-    it('counts each changed setting once and lists its tabs in navigation order', () => {
-        expect(summarizeUnsaved(['llm_model', 'mqtt_port', 'frigate_url', 'mqtt_port'])).toEqual({
-            count: 3,
-            tabs: ['connection', 'ai']
+    it('counts each changed setting once and lists its sections in navigation order', () => {
+        expect(summarizeUnsaved(['llm_model', 'mqtt_port', 'frigate_url', 'mqtt_port', 'threshold_nope'])).toEqual({
+            count: 4,
+            sections: ['cameras', 'sharing']
         });
+        expect(summarizeUnsaved(['retention_days', 'auto_analyze_unknowns'])).toEqual({ count: 2, sections: ['storage'] });
     });
 
     it('is empty when nothing differs from what is saved', () => {
-        expect(summarizeUnsaved([])).toEqual({ count: 0, tabs: [] });
+        expect(summarizeUnsaved([])).toEqual({ count: 0, sections: [] });
     });
 });
 
@@ -84,24 +105,25 @@ describe('where a refused value is shown', () => {
         expect(settingsFieldPlace('notifications_instance_url')?.inputId).toBe('notification-instance-url');
     });
 
-    it('has no input for a field shown some other way, and every place belongs to a tab', () => {
+    it('has no input for a field shown some other way, and every place belongs to a part', () => {
         expect(settingsFieldPlace('cameras')).toBeNull();
         for (const field of ['frigate_url', 'audio_buffer_hours', 'auth_password', 'garden_naming_threshold']) {
-            expect(settingsFieldTab(field)).not.toBeNull();
+            expect(settingsFieldPart(field)).not.toBeNull();
         }
     });
 });
 
 describe('which refused field is shown first', () => {
-    it('prefers one on the open tab, then the first in navigation order', () => {
-        expect(firstRefusedField(['llm_model', 'mqtt_port'], 'ai')).toBe('llm_model');
-        expect(firstRefusedField(['llm_model', 'garden_naming_threshold', 'mqtt_port'], 'security')).toBe('mqtt_port');
-        expect(firstRefusedField([], 'connection')).toBeNull();
+    it('prefers one in the open section, then the first in navigation order', () => {
+        expect(firstRefusedField(['mqtt_port', 'llm_model'], 'sharing')).toBe('llm_model');
+        expect(firstRefusedField(['llm_model', 'garden_naming_threshold', 'mqtt_port'], 'storage')).toBe('mqtt_port');
+        expect(firstRefusedField(['llm_model', 'garden_naming_threshold'], 'display')).toBe('garden_naming_threshold');
+        expect(firstRefusedField([], 'cameras')).toBeNull();
     });
 });
 
 describe('where a refused field is shown', () => {
-    it('names, for every field, an input and closed sections that exist in the same tab\'s markup', () => {
+    it('names, for every field, an input and closed sections that exist in the same part\'s markup', () => {
         const problems: string[] = [];
         for (const [field, place] of settingsFieldPlaces()) {
             const inputFile = fileWithId(place.inputId);

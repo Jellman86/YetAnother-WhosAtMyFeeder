@@ -87,7 +87,7 @@
     "seen_and_heard": "visti e sentiti"
   },
   "desk": {
-    "cameras_empty": "Nessuna telecamera segnalata. Aggiungile in Impostazioni → Connessione.",
+    "cameras_empty": "Nessuna telecamera segnalata. Aggiungile in Impostazioni → Telecamere e connessione.",
     "camera_no_visits": "nessuna visita",
     "no_cross_confirmation": "{count, plural, one {È stato udito # richiamo, ma non coincide con nessuna visita ripresa.} other {Sono stati uditi # richiami, ma nessuno coincide con una visita ripresa.}} Microfono e telecamere potrebbero coprire zone diverse.",
     "temperature_span": "Visite tra {low} e {high}",

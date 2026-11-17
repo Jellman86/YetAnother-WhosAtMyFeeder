@@ -123,7 +123,7 @@ time with the newest published commit for your channel.
 ## MQTT pipeline
 If detections are not appearing, prove the path from Frigate to the broker:
 
-1. Go to **Settings → Connection**.
+1. Go to **Settings → Cameras & connection**.
 2. Select **Test Connection**. It runs two stages: **Frigate API**, then **MQTT broker publish**.
    The probe uses the values currently in the form, so you can test an edit before saving it.
 3. Check the backend logs. You should see "Published MQTT message".
@@ -139,7 +139,7 @@ container cannot reach the broker on the Docker network. See
 ## 🔊 Audio Correlation Issues
 If camera visits appear but never have the **Audio confirmed** badge:
 
-1.  **Check the mapped source:** Open **Settings → Integrations → BirdNET-Go → Audio buffer &
+1.  **Check the mapped source:** Open **Settings → Sharing & integrations → BirdNET-Go → Audio buffer &
     sensor mapping** and inspect **Recently Detected BirdNET Sources**. Map the camera to the stable
     source name that is actually arriving; multiple names can be comma-separated. A blank mapping
     is not a wildcard, and a different microphone's call does not confirm this camera's visit.
@@ -217,7 +217,7 @@ If step 5 fails, the most common cause is editing one path but mounting a differ
 ## ⚡ Inference acceleration diagnostics
 
 YA-WAMF exposes image, runtime, and device diagnostics under
-**Settings → Models → Runtime diagnostics** and at
+**Settings → Identifying birds → Runtime diagnostics** and at
 `GET /api/classifier/status`.
 
 ### What to check first (UI)
@@ -392,7 +392,7 @@ classification slot. Once admitted, the work keeps its slot until completion or
 the existing lease cleanup; cancellation does not interrupt native inference or
 make its capacity immediately available.
 
-After native-runtime recovery, **Settings → Models** shows the actual execution mode and
+After native-runtime recovery, **Settings → Identifying birds** shows the actual execution mode and
 whether isolated workers have resumed classification. Restart advice remains visible because
 switching to workers cannot release a native thread that is still stalled in the parent process.
 Model changes reload the workers without cleaning up the model that the stalled thread may use.
@@ -531,7 +531,7 @@ CPU results are kept even if the accelerator fails, but that failed accelerator
 is not selected or reloaded. A CPU-selected configuration, an already-current
 accelerator or a consumed attempt does not trigger this startup check.
 
-For an already-saved partial result, use **Settings → Models → Run
+For an already-saved partial result, use **Settings → Identifying birds → Run
 compatibility check** and inspect Intel CPU's result. Leave **test all models**
 off to avoid downloading and testing the entire registry. This check still tests
 installed models and temporarily changes the active model, so run it when the

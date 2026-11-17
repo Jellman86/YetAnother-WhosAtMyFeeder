@@ -36,7 +36,7 @@ async function openDangerZone(page: Page, answer: { status: number; json: unknow
         fixture.resets += 1;
         await route.fulfill({ json: { status: 'completed', message: `Deleted ${fixture.serverCount} detections.`, deleted_count: fixture.serverCount, cache_stats: {} } });
     });
-    await page.getByRole('link', { name: 'Maintenance', exact: true }).click();
+    await page.getByRole('link', { name: 'Storage & upkeep', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Delete data', exact: true })).toBeVisible();
     return fixture;
 }

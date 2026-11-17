@@ -7,15 +7,16 @@ import errorsSource from './Errors.svelte?raw';
 import sidebarSource from '../components/Sidebar.svelte?raw';
 import enSettings from '../i18n/locales/en/settings.json';
 import enStatus from '../i18n/locales/en/status.json';
-import { SETTINGS_TAB_ORDER } from '../settings/settings-route';
+import { SETTINGS_PART_ORDER, SETTINGS_SECTION_ORDER } from '../settings/settings-route';
 
 const en = { settings: enSettings, status: enStatus };
 
 describe('Health page', () => {
-    it('is a page of its own under Manage, not a Settings tab, and old addresses land on it', () => {
-        expect(SETTINGS_TAB_ORDER).not.toContain('health');
+    it('is a page of its own under Manage, not a Settings section, and old addresses land on it', () => {
+        expect(SETTINGS_SECTION_ORDER).not.toContain('health');
+        expect(SETTINGS_PART_ORDER).not.toContain('health');
         expect(tabsSource).not.toContain('settings.tabs.health');
-        expect(settingsSource).not.toContain("activeTab === 'health'");
+        expect(settingsSource).not.toContain("activeSection === 'health'");
         expect(settingsSource).not.toContain('Errors.svelte');
         expect(appSource).toContain("routeId === 'health'");
         expect(appSource).toContain("import('./lib/pages/Errors.svelte')");

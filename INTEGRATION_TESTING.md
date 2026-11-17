@@ -100,9 +100,9 @@ Notes:
 Goal: extend CUDA validation on real NVIDIA hardware beyond the tested accurate crop detector and RoPE ViT-B/14. Use the strict [model/provider gate](docs/development/testing.md#mandatory-local-modelprovider-gate) first; provider compatibility does not measure species accuracy.
 
 Checklist:
-1. Use the unsuffixed full image or the matching `-cuda` image. Confirm **Settings → Models → Runtime diagnostics** shows `cuda` under **Packaged**; the CPU, Intel, and Raspberry Pi images do not contain the CUDA runtime.
+1. Use the unsuffixed full image or the matching `-cuda` image. Confirm **Settings → Identifying birds → Runtime diagnostics** shows `cuda` under **Packaged**; the CPU, Intel, and Raspberry Pi images do not contain the CUDA runtime.
 2. Ensure the container runtime exposes your NVIDIA GPU (`nvidia-smi` works in the backend container). The host must provide NVIDIA driver/runtime passthrough even when CUDA userspace is packaged in the image.
-3. Under **Settings → Models → Hardware → Inference provider**, select **NVIDIA CUDA** (or **Auto** if CUDA is the preferred available path on your host).
+3. Under **Settings → Identifying birds → Hardware → Inference provider**, select **NVIDIA CUDA** (or **Auto** if CUDA is the preferred available path on your host).
 4. Choose an installed model that passed the strict gate and its on-host validation. Test additional families separately; larger models can have different memory and driver requirements.
 5. Confirm `/api/classifier/status` reports `image_flavor` as `full` or `cuda`, lists `cuda` in `packaged_inference_providers`, and reports CUDA as available and active during inference.
 6. Run at least one live detection and one manual reclassification; confirm both complete without fallback errors.

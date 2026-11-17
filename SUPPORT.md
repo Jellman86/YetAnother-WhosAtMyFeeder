@@ -6,7 +6,7 @@ before opening a new report.
 
 For a bug report, include:
 
-- The running build, image family, model and actual provider shown under **Settings → Models**.
+- The running build, image family, model and actual provider shown under **Settings → Identifying birds**.
 - What you expected, what happened, when it happened, and steps that reproduce it.
 - A fresh support bundle from **Health → Diagnostics export**, captured near the failure.
   Review it and any notes for private information before attaching it. A later healthy capture

@@ -78,7 +78,7 @@ create an event for a transient MQTT tracker ID that Frigate never persisted.
 
 YA-WAMF can also mark existing detections as **Frigate event missing** during media integrity checks. This means YA-WAMF kept the local detection, but Frigate no longer had the event, clip, or snapshot at the last check. That can happen after normal Frigate retention cleanup, a Frigate database reset, storage repair, or a retention policy that is intentionally shorter than YA-WAMF's local retention.
 
-You can control this in **Settings → Data → Media integrity**:
+You can control this in **Settings → Storage & upkeep → Media integrity**:
 
 - **Mark missing and keep local data** keeps the detection and cached media, and shows the compact missing-Frigate note in the detection details.
 - **Keep local data unchanged** leaves detections as-is even when Frigate no longer has the event/media.

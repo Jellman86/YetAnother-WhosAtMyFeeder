@@ -30,7 +30,7 @@
   "species": "物种",
   "view_species": "查看 {species}",
   "no_species": "还没有记录到鸟类",
-  "no_species_desc": "当摄像头识别出鸟类时，排行榜会逐渐填充。如果没有任何数据，请检查“设置 → 连接”。",
+  "no_species_desc": "当摄像头识别出鸟类时，排行榜会逐渐填充。如果没有任何数据，请检查“设置 → 摄像头与连接”。",
   "only_unknown_desc": "目前只有 \"未知鸟类\" 的检测。启用 \"包含 \\\"未知鸟类\\\"\" 以在排行榜中显示它们。",
   "all_species": "所有物种",
   "percentage_of_total": "占总数的 {percentage}%",

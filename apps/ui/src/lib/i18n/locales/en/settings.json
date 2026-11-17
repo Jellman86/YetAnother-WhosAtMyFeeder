@@ -277,12 +277,6 @@
     "accessibility": "Accessibility",
     "enrichment": "Enrichment",
     "ai": "AI",
-    "groups": {
-      "pipeline": "Feeder pipeline",
-      "intelligence": "Intelligence & sharing",
-      "operations": "Operations",
-      "interface": "Interface"
-    },
     "beta": "Beta features",
     "unsaved": "unsaved",
     "skip_to_content": "Skip to the settings",
@@ -293,6 +287,14 @@
     "maintenance": "Maintenance",
     "refused": "needs a fix",
     "refused_note": "Has a value the last save refused"
+  },
+  "sections": {
+    "cameras": "Cameras & connection",
+    "identification": "Identifying birds",
+    "alerts": "Alerts",
+    "sharing": "Sharing & integrations",
+    "storage": "Storage & upkeep",
+    "display": "Display"
   },
   "debug": {
     "llm_prompts_title": "LLM prompt templates",
@@ -709,7 +711,7 @@
     "every_camera_on": "Every Frigate camera is watched for birds, including cameras added to Frigate later.",
     "every_camera_off": "Only the cameras chosen here are watched for birds. A camera added to Frigate later is not watched until you choose it.",
     "watch_every_camera": "Watch every camera for birds",
-    "garden_beta_hint": "To watch for Garden animals as well, turn on Garden animals in Settings → Beta features.",
+    "garden_beta_hint": "To watch for Garden animals as well, turn on Garden animals in Settings → Identifying birds.",
     "list_loading": "Reading the camera list from Frigate…",
     "list_unread": "The camera list could not be read from Frigate. Saved cameras are shown; choose Sync cameras to try again.",
     "none_found_help": "Frigate reported no cameras. Check the Frigate URL above, then choose Sync cameras.",
@@ -890,7 +892,7 @@
     "link_opens_yawamf_req": "Uses the instance address above.",
     "link_opens_frigate": "Frigate",
     "link_opens_frigate_desc": "The same tracked object in Frigate's Explore page.",
-    "link_opens_frigate_req": "Needs Frigate 0.15 or newer and the Frigate public URL, set in Settings → Connection.",
+    "link_opens_frigate_req": "Needs Frigate 0.15 or newer and the Frigate public URL, set in Settings → Cameras & connection.",
     "link_frigate_url_missing": "The Frigate public URL is not set, so notifications carry no link until it is.",
     "link_preview_telegram": "Link on Telegram's button:",
     "link_preview_others": "Discord title, Pushover and email use the same address.",
@@ -1328,7 +1330,7 @@
     "model_manager_repair_download": "Repair download",
     "model_manager_repair_needed": "This model install is incomplete. Re-download it to restore the missing species names or model configuration before activation.",
     "model_manager_location_title": "Uses your feeder location",
-    "model_manager_location_desc": "This model also uses the feeder coordinates saved in Settings → Integrations → Location. If no valid coordinates are saved, it identifies birds without location. It does not use the date or a location accuracy radius.",
+    "model_manager_location_desc": "This model also uses the feeder coordinates saved in Settings → Sharing & integrations → Location. If no valid coordinates are saved, it identifies birds without location. It does not use the date or a location accuracy radius.",
     "model_manager_location_link": "Open location settings",
     "provider_intel_npu": "Intel NPU (OpenVINO)",
     "bird_finder_title": "Bird finder",
@@ -1613,7 +1615,8 @@
     "garden_sentence_motion_on": "Motion photos are collected on {cameras}.",
     "garden_sentence_motion_off": "Motion photos are off.",
     "garden_sentence_motion_unread": "Motion photo status could not be read. Refresh to try again.",
-    "garden_sentence_saved_crops": "{count, plural, one {# crop} other {# crops}} saved of {limit, number} allowed."
+    "garden_sentence_saved_crops": "{count, plural, one {# crop} other {# crops}} saved of {limit, number} allowed.",
+    "part_intro": "Features still being tested. Each is off until you turn it on, and may change or be removed. Turning one off keeps what it has already recorded."
   },
   "native_revalidation": {
     "title": "Check quarantined profile",

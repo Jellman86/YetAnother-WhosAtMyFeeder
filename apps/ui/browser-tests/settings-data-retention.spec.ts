@@ -48,7 +48,7 @@ async function openDataSettings(page: Page, savedRetention: number, automaticCle
         return route.fulfill({ json: {} });
     });
     await page.goto('/browser-tests/settings-backfill.html');
-    await page.getByRole('link', { name: 'Data', exact: true }).click();
+    await page.getByRole('link', { name: 'Storage & upkeep', exact: true }).click();
     await expect(page.locator('#retention-days')).toHaveValue(String(savedRetention));
     return fixture;
 }
@@ -112,10 +112,12 @@ test('with automatic cleanup off, saving is not presented as a deletion', async 
     await expect.poll(() => fixture.saves.length).toBe(1);
 });
 
-test('the irreversible actions live in Maintenance, each consequence beside its own button', async ({ page }, testInfo) => {
+test('the irreversible actions end Storage & upkeep, in Maintenance, each consequence beside its own button', async ({ page }, testInfo) => {
     await openDataSettings(page, 30);
-    await expect(page.locator('[data-danger-actions]')).toHaveCount(0);
-    await page.getByRole('link', { name: 'Maintenance', exact: true }).click();
+    await page.getByRole('link', { name: 'Storage & upkeep', exact: true }).click();
+    // Data's own part holds none of them; they come after it, at the bottom of the section.
+    await expect(page.locator('[data-settings-part="data"] [data-danger-actions]')).toHaveCount(0);
+    await expect(page.locator('[data-settings-part="maintenance"] [data-danger-actions]')).toHaveCount(1);
     // The last section, a plain heading: each action asks first in its own confirmation.
     await expect(page.getByRole('heading', { name: 'Delete data', exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Delete corrections' })).toHaveAccessibleDescription(/Detections and photos stay/);

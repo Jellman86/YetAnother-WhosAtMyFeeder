@@ -87,7 +87,7 @@
     "seen_and_heard": "gesehen und gehört"
   },
   "desk": {
-    "cameras_empty": "Noch keine Kameras gemeldet. Fügen Sie sie unter Einstellungen → Verbindung hinzu.",
+    "cameras_empty": "Noch keine Kameras gemeldet. Fügen Sie sie unter Einstellungen → Kameras & Verbindung hinzu.",
     "camera_no_visits": "keine Besuche",
     "no_cross_confirmation": "{count, plural, one {# Ruf wurde gehört, passte aber zu keinem Kamerabesuch.} other {# Rufe wurden gehört, aber keiner passte zu einem Kamerabesuch.}} Mikrofon und Kameras decken möglicherweise unterschiedliche Bereiche ab.",
     "temperature_span": "Besuche zwischen {low} und {high}",

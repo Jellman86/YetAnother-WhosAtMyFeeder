@@ -89,5 +89,5 @@ test('leaving Settings › Models cancels its runtime read while the body is sti
     await replayFeeder(page, 'light');
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto('/settings/models');
-    await expectCancelledOnLeaving(page, () => page.locator('[data-settings-navigation]').getByRole('link', { name: 'Appearance' }).click());
+    await expectCancelledOnLeaving(page, () => page.locator('[data-settings-navigation]').getByRole('link', { name: 'Display', exact: true }).click());
 });

@@ -20,7 +20,7 @@ nothing" apart from "the correlation window missed it":
 ## Setup
 
 ### 1. MQTT Topic
-In **Settings → Integrations → BirdNET-Go**, make sure **MQTT Topic** matches your BirdNET-Go configuration.
+In **Settings → Sharing & integrations → BirdNET-Go**, make sure **MQTT Topic** matches your BirdNET-Go configuration.
 - **Modern BirdNET-Go:** Use the base topic (e.g., `birdnet`).
 - **Legacy / Custom:** Use the specific text topic (e.g., `birdnet/text`).
 
@@ -30,7 +30,7 @@ In **Settings → Integrations → BirdNET-Go**, make sure **MQTT Topic** matche
 
 ### 2. The two URLs
 
-**Settings → Integrations → BirdNET-Go** asks for two addresses, and they do different jobs:
+**Settings → Sharing & integrations → BirdNET-Go** asks for two addresses, and they do different jobs:
 
 | Field | Who uses it | Example |
 |---|---|---|
@@ -42,7 +42,7 @@ the container. **If the links go nowhere** but spectrograms are fine, the browse
 
 ### 3. Sensor Mapping
 For correlation to work, YA-WAMF needs to know which audio sensor belongs to which camera.
-1. Go to **Settings → Integrations → BirdNET-Go → Audio buffer & sensor mapping**.
+1. Go to **Settings → Sharing & integrations → BirdNET-Go → Audio buffer & sensor mapping**.
 2. Check **Recently Detected BirdNET Sources** after audio messages have arrived.
 3. Under **BirdNET Source Mapping (Optional)**, use **Add detected source…** for the corresponding camera, or type the stable source name.
 4. Multiple source names can be mapped to a camera; comma-separated entries are accepted. Choose Save changes to keep the mapping.
@@ -70,7 +70,7 @@ Keep host clocks synchronized and ensure timestamp payloads include the correct 
 ### 5. Test the complete path
 
 Use **Test BirdNET-Go path** in the setup wizard, or **Test Audio detection** under
-**Settings → Integrations → BirdNET-Go**. The staged diagnostic checks, in order:
+**Settings → Sharing & integrations → BirdNET-Go**. The staged diagnostic checks, in order:
 
 1. the BirdNET-Go URL currently shown in the form, when one is set;
 2. an isolated publish through the configured MQTT broker; and

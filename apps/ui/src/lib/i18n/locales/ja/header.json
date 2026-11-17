@@ -2,7 +2,7 @@
   "cameras_all_offline": "すべてのカメラがオフラインです",
   "cameras_all_online": "すべてのカメラがオンラインです",
   "cameras_checking": "カメラを確認中…",
-  "cameras_empty": "カメラが構成されていません。設定 → 接続 でカメラを追加してください。",
+  "cameras_empty": "カメラが構成されていません。設定 → カメラと接続 でカメラを追加してください。",
   "cameras_frame_alt": "{camera} の最新フレーム",
   "cameras_frame_unavailable": "フレームを取得できません",
   "cameras_label": "カメラの状態",

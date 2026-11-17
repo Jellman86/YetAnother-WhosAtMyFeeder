@@ -36,7 +36,7 @@ async function answerLiveTest(page: Page, illuminance: Record<string, unknown>):
 
 async function openHomeAssistantCard(page: Page, saved: Record<string, unknown> = CONNECTED) {
     const harness = await openSettings(page, saved);
-    await page.getByRole('link', { name: 'Integrations', exact: true }).click();
+    await page.getByRole('link', { name: 'Sharing & integrations', exact: true }).click();
     await expect(page.locator('#ha-weather-illuminance')).toBeVisible();
     return harness;
 }

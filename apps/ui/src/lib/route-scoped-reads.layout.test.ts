@@ -19,16 +19,16 @@ describe('each read belongs to the route and task that shows it', () => {
         expect(healthSource).not.toContain('detectionsStore');
     });
 
-    it('loads the Settings form without any tab\'s helper data', () => {
+    it('loads the Settings form without any section\'s helper data', () => {
         const loadSettings = body(settingsSource, 'async function loadSettings(');
         expect(loadSettings).not.toContain('fetchAudioSources');
         expect(loadSettings).not.toContain('loadRecordingClipCapability');
-        expect(settingsSource).toContain("connection: ['cameras', 'recordingClips'],");
-        expect(settingsSource).toContain("integrations: ['cameras', 'audioSources'],");
-        expect(settingsSource).toContain("data: ['classifier', 'storage', 'cache', 'backfill'],");
+        expect(settingsSource).toContain("cameras: ['cameras', 'recordingClips'],");
+        expect(settingsSource).toContain("sharing: ['cameras', 'audioSources', 'version'],");
+        expect(settingsSource).toContain("storage: ['classifier', 'storage', 'cache', 'backfill']");
     });
 
-    it('follows a running backfill from the pushed jobs instead of asking from every tab', () => {
+    it('follows a running backfill from the pushed jobs instead of asking from every section', () => {
         expect(settingsSource).not.toMatch(/Promise\.all\(\[\s*loadSettings\([^)]*\),\s*loadBackfillStatus\(\)/);
         expect(settingsSource).toContain("(job.kind === 'backfill' || job.kind === 'weather_backfill') && job.status === 'running'");
     });

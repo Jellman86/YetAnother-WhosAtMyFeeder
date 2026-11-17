@@ -174,7 +174,7 @@
   "errors_filtered_title": "Détections filtrées",
   "errors_filtered_none": "Rien n’a encore été filtré.",
   "errors_filtered_summary": "{count, plural, one {# détection n’a pas satisfait vos réglages de détection.} other {# détections n’ont pas satisfait vos réglages de détection.}} C’est le filtre qui fonctionne, pas une panne.",
-  "errors_filtered_hint": "Ajustez le seuil d’identification dans Paramètres → Détection pour en conserver davantage.",
+  "errors_filtered_hint": "Ajustez le seuil d’identification dans Paramètres → Identifier les oiseaux pour en conserver davantage.",
   "errors_filtered_recent": "Les plus récentes",
   "errors_activity_title": "Ce qui s’est passé",
   "errors_activity_subtitle": "Visites enregistrées, détections filtrées et défaillances du pipeline, dans l’ordre où elles se sont produites",
@@ -283,13 +283,13 @@
   "errors_pipeline_idle": "Aucune détection n’a atteint le traitement depuis le démarrage de cette instance.",
   "errors_problem": {
     "mqtt_down": "Le broker MQTT à {server} n’est pas connecté, aucune nouvelle détection ne peut donc arriver.",
-    "mqtt_down_next": "Vérifiez son adresse dans Paramètres → Connexion et que le broker fonctionne.",
+    "mqtt_down_next": "Vérifiez son adresse dans Paramètres → Caméras et connexion et que le broker fonctionne.",
     "mqtt_not_configured": "Aucun broker MQTT n’est défini, aucune détection ne peut donc arriver.",
-    "mqtt_not_configured_next": "Ajoutez-en un dans Paramètres → Connexion.",
+    "mqtt_not_configured_next": "Ajoutez-en un dans Paramètres → Caméras et connexion.",
     "mqtt_stopped": "Le service MQTT ne fonctionne pas, aucune nouvelle détection ne peut donc arriver.",
     "mqtt_stopped_next": "Redémarrez YA-WAMF pour le relancer.",
     "frigate_down": "Frigate à {url} ne répond pas, les nouvelles détections ne peuvent donc pas être enregistrées.",
-    "frigate_down_next": "Vérifiez son adresse dans Paramètres → Connexion et que Frigate fonctionne."
+    "frigate_down_next": "Vérifiez son adresse dans Paramètres → Caméras et connexion et que Frigate fonctionne."
   },
   "errors_clear_effect": "Supprime tout de suite les erreurs et incidents enregistrés. Les vérifications en direct continuent.",
   "earlier_incidents_title": "Incidents précédents",
@@ -333,11 +333,11 @@
   "diagnostic_words": {
     "classify_snapshot_timeout": {
       "title": "Une détection a été abandonnée, car l’identification de sa capture a pris trop de temps.",
-      "next": "Le classificateur est peut-être surchargé. Consultez l’utilisation des ressources ci-dessus ou choisissez un modèle plus léger dans Paramètres → Modèles."
+      "next": "Le classificateur est peut-être surchargé. Consultez l’utilisation des ressources ci-dessus ou choisissez un modèle plus léger dans Paramètres → Identifier les oiseaux."
     },
     "classify_snapshot_overloaded": {
       "title": "Une détection a été abandonnée, car le classificateur était trop occupé.",
-      "next": "Consultez l’utilisation des ressources ci-dessus. Si cela arrive souvent, choisissez un modèle plus léger dans Paramètres → Modèles."
+      "next": "Consultez l’utilisation des ressources ci-dessus. Si cela arrive souvent, choisissez un modèle plus léger dans Paramètres → Identifier les oiseaux."
     },
     "classify_snapshot_unavailable": {
       "title": "Une détection a été abandonnée, car Frigate n’avait aucune capture pour elle.",
@@ -345,7 +345,7 @@
     },
     "classifier_empty_results": {
       "title": "Une détection a été abandonnée, car le classificateur n’a donné aucune réponse.",
-      "next": "Vérifiez qu’un modèle est chargé dans Paramètres → Modèles."
+      "next": "Vérifiez qu’un modèle est chargé dans Paramètres → Identifier les oiseaux."
     },
     "save_and_notify_failed": {
       "title": "Une détection a été identifiée, mais n’a pas pu être enregistrée.",

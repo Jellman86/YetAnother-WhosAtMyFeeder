@@ -174,7 +174,7 @@
   "errors_filtered_title": "Rilevamenti filtrati",
   "errors_filtered_none": "Non è ancora stato filtrato nulla.",
   "errors_filtered_summary": "{count, plural, one {# rilevamento non ha soddisfatto le tue impostazioni di rilevamento.} other {# rilevamenti non hanno soddisfatto le tue impostazioni di rilevamento.}} È il filtro che funziona, non un guasto.",
-  "errors_filtered_hint": "Regola la soglia di identificazione in Impostazioni → Rilevamento per conservarne di più.",
+  "errors_filtered_hint": "Regola la soglia di identificazione in Impostazioni → Identificare gli uccelli per conservarne di più.",
   "errors_filtered_recent": "Più recenti",
   "errors_activity_title": "Cosa è successo",
   "errors_activity_subtitle": "Visite registrate, rilevamenti filtrati ed errori della pipeline, nell’ordine in cui sono avvenuti",
@@ -283,13 +283,13 @@
   "errors_pipeline_idle": "Nessun rilevamento è arrivato all’elaborazione dall’avvio di questa istanza.",
   "errors_problem": {
     "mqtt_down": "Il broker MQTT su {server} non è connesso, quindi non possono arrivare nuovi rilevamenti.",
-    "mqtt_down_next": "Controlla l’indirizzo in Impostazioni → Connessione e che il broker sia in esecuzione.",
+    "mqtt_down_next": "Controlla l’indirizzo in Impostazioni → Telecamere e connessione e che il broker sia in esecuzione.",
     "mqtt_not_configured": "Nessun broker MQTT impostato, quindi non possono arrivare rilevamenti.",
-    "mqtt_not_configured_next": "Aggiungine uno in Impostazioni → Connessione.",
+    "mqtt_not_configured_next": "Aggiungine uno in Impostazioni → Telecamere e connessione.",
     "mqtt_stopped": "Il servizio MQTT non è in esecuzione, quindi non possono arrivare nuovi rilevamenti.",
     "mqtt_stopped_next": "Riavvia YA-WAMF per riavviarlo.",
     "frigate_down": "Frigate su {url} non risponde, quindi i nuovi rilevamenti non possono essere salvati.",
-    "frigate_down_next": "Controlla l’indirizzo in Impostazioni → Connessione e che Frigate sia in esecuzione."
+    "frigate_down_next": "Controlla l’indirizzo in Impostazioni → Telecamere e connessione e che Frigate sia in esecuzione."
   },
   "errors_clear_effect": "Rimuove subito errori e incidenti registrati. I controlli in tempo reale continuano.",
   "earlier_incidents_title": "Incidenti precedenti",
@@ -333,11 +333,11 @@
   "diagnostic_words": {
     "classify_snapshot_timeout": {
       "title": "Un rilevamento è stato scartato perché l’identificazione della sua istantanea ha richiesto troppo tempo.",
-      "next": "Il classificatore potrebbe essere sovraccarico. Controlla l’uso delle risorse sopra o scegli un modello più leggero in Impostazioni → Modelli."
+      "next": "Il classificatore potrebbe essere sovraccarico. Controlla l’uso delle risorse sopra o scegli un modello più leggero in Impostazioni → Identificare gli uccelli."
     },
     "classify_snapshot_overloaded": {
       "title": "Un rilevamento è stato scartato perché il classificatore era troppo occupato.",
-      "next": "Controlla l’uso delle risorse sopra. Se succede spesso, scegli un modello più leggero in Impostazioni → Modelli."
+      "next": "Controlla l’uso delle risorse sopra. Se succede spesso, scegli un modello più leggero in Impostazioni → Identificare gli uccelli."
     },
     "classify_snapshot_unavailable": {
       "title": "Un rilevamento è stato scartato perché Frigate non aveva un’istantanea.",
@@ -345,7 +345,7 @@
     },
     "classifier_empty_results": {
       "title": "Un rilevamento è stato scartato perché il classificatore non ha dato risposta.",
-      "next": "Verifica che un modello sia caricato in Impostazioni → Modelli."
+      "next": "Verifica che un modello sia caricato in Impostazioni → Identificare gli uccelli."
     },
     "save_and_notify_failed": {
       "title": "Un rilevamento è stato identificato ma non è stato possibile salvarlo.",

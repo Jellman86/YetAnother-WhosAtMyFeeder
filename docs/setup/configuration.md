@@ -5,29 +5,53 @@ supported [environment overrides](environment-variables.md) take precedence on r
 
 ## How Settings is laid out
 
-On a wide screen the sections are listed in a rail beside the settings, so a section's first
-setting is at the top of the page; a **Skip to the settings** link moves keyboard focus past it.
-On a phone or a narrow window a **Settings section** list names the section you are in. A section
-holding unsaved changes is marked "unsaved" in both. **Setup wizard** is a button under the list.
+Settings is organised by the task you came to do, in six sections. On a wide screen they are listed
+in a rail beside the settings, so a section's first setting is at the top of the page; a **Skip to
+the settings** link moves keyboard focus past it. On a phone or a narrow window a **Settings
+section** list names the section you are in. A section holding unsaved changes is marked "unsaved"
+in both. **Setup wizard** is a button under the list.
 
-| Group | Sections | What lives there |
-|---|---|---|
-| **Feeder pipeline** | Connection, Detection, Models | Where events come from, the rules for naming a species, and the models and hardware that do it. |
-| **Intelligence & sharing** | Integrations, AI, Notifications | Other services YA-WAMF talks to, where species pages get their information, and what it sends out. |
-| **Operations** | Security, Data, Maintenance, Beta features | Running it: access and telemetry, what is kept, repair jobs and deletions, and features still being tested. |
-| **Interface** | Appearance, Accessibility | How the app looks and reads for you. |
+| Section | What lives there |
+|---|---|
+| **Cameras & connection** | Where events come from: Frigate, its MQTT broker and the cameras to watch. |
+| **Identifying birds** | How sure a name must be, the models that find and name birds, the hardware they run on, and features still in Beta. |
+| **Alerts** | When you hear about a visit, and the channels the message goes to. |
+| **Sharing & integrations** | Other services YA-WAMF reads from or reports to, your location, AI descriptions, who can open this install, and what leaves it. |
+| **Storage & upkeep** | What is kept and for how long, a backup of these settings, and the jobs that repair or fill in the history, then deleting it. |
+| **Display** | How YA-WAMF looks and names birds, and contrast, a reading font, motion and spoken updates. |
 
 **Health** is a page of its own under **Manage** in the sidebar, not a Settings section: it reports
 on the system and has nothing to save (see [Health](#health)).
 
-Edits wait in one draft across every tab. While anything differs from what is saved, a bar
-at the bottom of the page counts the changes and names their tabs, with **Discard changes**
+### Where did it go
+
+Settings used to have twelve tabs, one per part of the system. Each is now a part of the section
+for its task, with every setting it held. An older address such as `/settings/models` still works:
+it opens the section, scrolled to that part.
+
+| Former tab | Now in | Address |
+|---|---|---|
+| Connection | Cameras & connection | `/settings/cameras#connection` |
+| Detection | Identifying birds | `/settings/identification#detection` |
+| Models | Identifying birds | `/settings/identification#models` |
+| Beta features | Identifying birds | `/settings/identification#beta` |
+| Notifications | Alerts | `/settings/alerts#notifications` |
+| Integrations (with species information sources) | Sharing & integrations | `/settings/sharing#integrations` |
+| AI | Sharing & integrations | `/settings/sharing#ai` |
+| Security (with telemetry) | Sharing & integrations | `/settings/sharing#security` |
+| Data | Storage & upkeep | `/settings/storage#data` |
+| Maintenance | Storage & upkeep | `/settings/storage#maintenance` |
+| Appearance | Display | `/settings/display#appearance` |
+| Accessibility | Display | `/settings/display#accessibility` |
+
+Edits wait in one draft across every section. While anything differs from what is saved, a bar
+at the bottom of the page counts the changes and names their sections, with **Discard changes**
 (puts every saved value back) and **Save changes**. The bar also says that settings wait for
 **Save changes**, while buttons such as Test, Run and Download act straight away.
 While the bar shows, the page keeps a focused control above it. Choosing another page with unsaved
 changes asks first, offering **Save and leave** (it leaves only once the save goes through) as well
-as **Leave without saving**; reloading or closing the tab asks too, and moving between tabs keeps
-them. A tab holding a refused value is marked **needs a fix** in the navigation. Back and Forward are not
+as **Leave without saving**; reloading or closing the tab asks too, and moving between sections keeps
+them. A section holding a refused value is marked **needs a fix** in the navigation. Back and Forward are not
 held up: the unsaved changes are kept in memory and put back when you return to Settings, with a
 line saying so. Passwords and keys are never kept; that line names any you need to type again.
 Kept changes belong to the session that made them: signing out, an expired session or another
@@ -43,11 +67,15 @@ you want the UI to control that field.
 
 ---
 
-## Connection
+## Cameras & connection
+
+Where events come from: Frigate, its MQTT broker and the cameras to watch.
+
+### Connection
 
 Where bird events come from.
 
-![Settings → Connection: a Frigate NVR card with Server URL, the Frigate labels to act on, and the public Frigate URL, beside a Cameras to watch card where the feeder camera watches for birds as a Feeder](../images/settings-connection.png)
+![Settings → Cameras & connection: a Frigate NVR card with Server URL, the Frigate labels to act on, and the public Frigate URL, beside a Cameras to watch card where the feeder camera watches for birds as a Feeder](../images/settings-connection.png)
 
 | Setting | Description |
 |---------|-------------|
@@ -64,7 +92,7 @@ Where bird events come from.
 | **Full-visit clips** | Ask Frigate for a wider window of recording around each detection. The default window is `30` seconds before and `90` seconds after. |
 | **Test Connection** | One staged diagnostic with two checks: **Frigate API**, then **MQTT broker publish**. It tests the values currently in the form, so you can prove a change before saving it. |
 
-### Cameras to watch
+#### Cameras to watch
 
 Each choice saves to the same lists the server has always used, so existing configurations need no
 migration:
@@ -90,7 +118,11 @@ migration:
 > retention alone can leave the start or end of the requested window missing. Settings
 > checks this coverage and names any camera that needs attention.
 
-## Detection
+## Identifying birds
+
+How sure a name must be, the models that find and name birds and their hardware, and features still in Beta.
+
+### Detection
 
 The rules for accepting an identification. Which model runs, and on what hardware, is set in
 [Models](#models):
@@ -101,7 +133,7 @@ The rules for accepting an identification. Which model runs, and on what hardwar
 - **Frigate and video** (starts closed, and opens when a save refuses a value inside it): sublabel
   trust, sublabel write-back and automatic video analysis.
 
-## Models
+### Models
 
 Which models identify birds and on what hardware. The page opens with one sentence of what names
 birds right now, worded from the classifier's own report: for example "Naming birds with Birds
@@ -126,7 +158,7 @@ things to check and opens the **Runtime report**. Then:
   compute** with the debug interface on) and **Runtime report** sections. The report opens on its
   own when the runtime has something to report, or when a save refuses a value inside it.
 
-![Settings → Models: the status line, then the Models card with the identification model lineup and the two bird finder choices, each showing download size, estimated RAM and the device it runs on](../images/settings-detection.png)
+![Settings → Identifying birds: the status line, then the Models card with the identification model lineup and the two bird finder choices, each showing download size, estimated RAM and the device it runs on](../images/settings-detection.png)
 
 | Setting | Default | Description |
 |---------|---------|-------------|
@@ -146,7 +178,7 @@ things to check and opens the **Runtime report**. Then:
 | **Range filter** | Disabled | Set aside new automatic identifications of species eBird has never recorded in your region, falling back to the model's best in-range answer. Needs a location and an eBird API key; fails open when the list is missing or stale. See [Range filter](../features/range-filter.md). |
 | **Finest region** | `County` | The finest eBird region the range filter uses. An approximate location uses a state list and a country alone uses the country list. |
 
-### 🛠 How the two thresholds work together
+#### 🛠 How the two thresholds work together
 
 1. **Score at or above both the threshold and floor**
    Saved with its species when the label is usable and not blocked. Optional reporting
@@ -162,7 +194,7 @@ local inference cannot name the bird. These scores are model outputs, not calibr
 probabilities: a 70% threshold does not mean every model is correct 70% of the time.
 Keep the floor at or below the threshold for a useful Unknown Bird band.
 
-### 🎯 Personalized re-ranking details
+#### 🎯 Personalized re-ranking details
 
 - **Scope:** feedback is isolated by **camera + active model ID**. Corrections on one camera or
   model never affect another.
@@ -184,12 +216,97 @@ or custom models can still use the file fallback. See the
 and measured tradeoffs. These additions require an application build containing their
 integration; the rolling model release alone does not update an older application.
 
-## Integrations
+### Debug section
+
+Optional developer tools, hidden unless you enable them:
+
+- Environment variable: `SYSTEM__DEBUG_UI_ENABLED=true`
+- Config file: `"system": { "debug_ui_enabled": true }`
+- Compose: `DEBUG_UI_ENABLED=true`
+
+This adds a troubleshooting switch, **Discard results the model could not compute**, to
+**Settings → Identifying birds → Hardware → Memory and isolation**, and shows the iNaturalist submission preview in a
+detection's details. The **Model evaluation** page is linked from the same card for every owner.
+
+### Beta features
+
+Features that are still being tested. Each is a card with its own switch and a status line in
+words. A feature is off until you turn it on, and may change or be removed. A switch is staged
+with the rest of the page and takes effect on **Save changes**; turning a feature off keeps
+what it has already recorded. While Garden animals is on, its settings are grouped into
+collapsible sections (**Cameras**, **Automatic checks and naming**, **Models**, **Domestic birds
+you keep**, **Alerts**, **Where captures go**), and **Still to set up** lists anything it still
+needs.
+
+| Setting | What it does |
+|---------|-------------|
+| **Garden animals** | Off by default (`SYSTEM__BETA_GARDEN_ANIMALS`). Collects non-bird visitors for owner review, separately from bird history. Turning it off stops collection, hides Garden in the Explorer, stops Garden alerts and records kept birds as ordinary birds; saved captures and the settings below are kept and return when it is turned on again. See [Garden animals](../features/garden-animals.md). |
+| **Models** | Status and explicit downloads for Garden's own models: the required 224 MB automatic check model (SpeciesNet 4.0.3a), an optional 224 MB species suggestion model (4.0.3b) and the 101 MB motion detector (MegaDetector v1000 Cedar), required only for motion review photos. Shown after **Save changes** has switched Garden on. A download saves no settings and does not change the bird model. Not a saved setting. |
+| **Cameras to watch** | A summary of the cameras watched for Garden animals, none by default (`frigate.garden_cameras: []`), with **Choose cameras in Connection**. Each camera's **Garden animals** or **Both** choice is made in [Connection → Cameras to watch](#cameras-to-watch), beside its bird role. |
+| **Collect motion review photos** | Set per camera in Connection while it watches for Garden animals, off by default (`frigate.garden_motion_cameras: []`). Requires retained motion recordings and the **Motion detector** under **Models**. Bounded CPU scans create private review candidates. |
+| **Frigate animal labels** | Defaults to `cat, dog`. Animal labels for Garden review; the Frigate detector must already track them. Birds, people and vehicles are excluded; kept birds are declared below. |
+| **Domestic birds you keep** | None by default (`FRIGATE__GARDEN_DOMESTIC_BIRDS`, a JSON list such as `["chicken"]`). Chickens, domestic ducks and geese, turkeys, guineafowl, peafowl, domestic pigeons or doves and quail you add here are recorded as Garden animals on every camera, never as bird detections, and are never sent to eBird, BirdWeather or iNaturalist. Mallards, Greylag Geese, Wild Turkeys and Rock Doves also live wild, so add a bird only if you keep it. See [Domestic birds](../features/garden-animals.md#domestic-birds). |
+| **Animal proposal threshold** | Cedar's minimum animal score for new motion photos, shown as 50% to 95% (default 50%, saved as 0.5 to 0.95, `FRIGATE__GARDEN_MOTION_CONFIDENCE`). Higher values reduce proposals but can miss animals. Existing photos are not reclassified. |
+| **Name animals automatically** | On by default (`FRIGATE__GARDEN_AUTOMATIC_NAMING`). Confirms and names an animal when the automatic check's species score reaches the naming threshold, marked as automatic. Off: every animal waits for your review. |
+| **Naming threshold** | Shown as 70% to 99% (default 80%, saved as 0.7 to 0.99, `FRIGATE__GARDEN_NAMING_THRESHOLD`). Higher values name fewer animals and leave more for you. A photo below it is dismissed and can be restored from Dismissed. Existing captures are not renamed. |
+
+## Alerts
+
+When you hear about a visit, and the channels the message goes to.
+
+### Notifications
+
+Where alerts go, and which detections earn one.
+
+![Settings → Alerts: the Global Notification Filters card reading "Tell me about new visits that are at least 70% sure of any species on no channel yet", with the notification cooldown, language, and the three species filter modes beneath](../images/settings-notifications.png)
+
+The filter reads as a sentence — *Tell me about **new visits** that are at least **70% sure**
+of **any species** on **Discord*** — and each highlighted part is a control.
+
+| Control | Default | Description |
+|---|---|---|
+| **Notification mode** | Standard | `Final-only`, `Standard`, `Realtime`, `Silent`, or `Advanced (custom)` triggers. |
+| **Minimum confidence** | `0.7` | Only notify at or above this score. Raise it to reduce alerts for lower-confidence identifications. |
+| **Audio confirmed only** | Off | Notify only when BirdNET-Go heard the same species within the configured correlation window. |
+| **Species filter** | No species filter | `No species filter`, `Block selected species`, or `Only selected species`. |
+| **Notification cooldown** | Off | A switch; when on, the minutes to wait after an alert before sending another (saved as `0` when off). |
+| **Notification language** | English | The language used in message text, independent of the UI language. |
+| **Instance address** | _(blank)_ | The address you use to open YA-WAMF. When set, every notification links to the detection it announces; blank means no link. |
+| **Notification link opens** | This YA-WAMF | `This YA-WAMF` opens the detection here; `Frigate` opens the tracked object in Frigate's Explore page via **Public Frigate URL** under **Connection** (Frigate 0.15+). |
+
+Destinations are Discord, Pushover, Telegram, and Email (Gmail/Outlook OAuth or plain SMTP).
+See [Notifications](../features/notifications.md) for per-platform setup.
+
+### Garden notifications
+
+Garden alerts are off by default and are set with the rest of Garden, under
+**Settings → Identifying birds → Garden animals → Alerts**; Notifications links there while the beta
+is on. The channels themselves are set up once, in Notifications. They follow
+the bird channels that are switched on and configured, or channels you choose;
+save with **Save changes**. See
+[Garden notifications](../features/garden-animals.md#send-garden-notifications)
+for eligibility, photos, privacy and delivery status.
+
+| Environment override | Default | Meaning |
+|---|---|---|
+| `FRIGATE__GARDEN_NOTIFICATIONS_ENABLED` | `false` | Allow separate Garden alerts while the Garden beta is enabled. |
+| `FRIGATE__GARDEN_NOTIFICATIONS_USE_BIRD_CHANNELS` | _(derived)_ | `true` follows the enabled, configured bird channels; `false` uses the channel array below. Unset, a saved choice wins, otherwise it is `true` unless channels were chosen. |
+| `FRIGATE__GARDEN_NOTIFICATION_CHANNELS` | `[]` | JSON array of `discord`, `telegram`, `pushover`, `email`, for example `["telegram"]`, used when not following the bird channels. |
+| `FRIGATE__GARDEN_NOTIFICATIONS_INCLUDE_PHOTO` | `true` | Attach the saved animal crop or capture photo. |
+
+Environment overrides take precedence on restart. Without overrides, the Garden
+notification choices persist in `/config/config.json`.
+
+## Sharing & integrations
+
+Other services YA-WAMF reads from or reports to, your location, AI descriptions, and who can open this install.
+
+### Integrations
 
 Other services YA-WAMF talks to. Credentials are redacted as `***REDACTED***` once saved, and
 a saved credential can be re-tested without typing it again.
 
-![Settings → Integrations: a BirdNET-Go card with the integration toggled on, its backend-only internal URL and the public browser URL used by dashboard links, beside an iNaturalist card that is switched off](../images/settings-integrations.png)
+![Settings → Sharing & integrations: a BirdNET-Go card with the integration toggled on, its backend-only internal URL and the public browser URL used by dashboard links, beside an iNaturalist card that is switched off](../images/settings-integrations.png)
 
 - **BirdNET-Go** — the audio **MQTT Topic** (default `birdnet/text`), two URLs, the audio buffer
   and match window, and **BirdNET Source Mapping (Optional)**, which ties each audio source to a
@@ -217,7 +334,7 @@ a saved credential can be re-tested without typing it again.
   Saving changed coordinates reloads the classifier workers. This is the same location
   configured in the model step of the setup wizard.
 
-## Species information sources
+### Species information sources
 
 At the end of **Integrations**, a read-only summary of which source currently answers each
 question about a species, so you can see in one place where the description on a species card
@@ -240,7 +357,7 @@ this page: the choices are made with the `ENRICHMENT__*` environment variables o
 source per question) or `single` (one source, named by `ENRICHMENT__SINGLE_PROVIDER`, for
 everything). See [Environment variables](environment-variables.md).
 
-## AI
+### AI
 
 Connect a Large Language Model for the naturalist notes on a detection and the chart analysis
 on the leaderboard.
@@ -256,48 +373,11 @@ on the leaderboard.
   estimate used. A cost is shown only for models that have a price: a model without one reads
   "Not priced", and the total says how many requests it covers and which models it leaves out.
 
-## Notifications
-
-Where alerts go, and which detections earn one.
-
-![Settings → Notifications: the Global Notification Filters card reading "Tell me about new visits that are at least 70% sure of any species on no channel yet", with the notification cooldown, language, and the three species filter modes beneath](../images/settings-notifications.png)
-
-The filter reads as a sentence — *Tell me about **new visits** that are at least **70% sure**
-of **any species** on **Discord*** — and each highlighted part is a control.
-
-| Control | Default | Description |
-|---|---|---|
-| **Notification mode** | Standard | `Final-only`, `Standard`, `Realtime`, `Silent`, or `Advanced (custom)` triggers. |
-| **Minimum confidence** | `0.7` | Only notify at or above this score. Raise it to reduce alerts for lower-confidence identifications. |
-| **Audio confirmed only** | Off | Notify only when BirdNET-Go heard the same species within the configured correlation window. |
-| **Species filter** | No species filter | `No species filter`, `Block selected species`, or `Only selected species`. |
-| **Notification cooldown** | Off | A switch; when on, the minutes to wait after an alert before sending another (saved as `0` when off). |
-| **Notification language** | English | The language used in message text, independent of the UI language. |
-| **Instance address** | _(blank)_ | The address you use to open YA-WAMF. When set, every notification links to the detection it announces; blank means no link. |
-| **Notification link opens** | This YA-WAMF | `This YA-WAMF` opens the detection here; `Frigate` opens the tracked object in Frigate's Explore page via **Public Frigate URL** under **Connection** (Frigate 0.15+). |
-
-Destinations are Discord, Pushover, Telegram, and Email (Gmail/Outlook OAuth or plain SMTP).
-See [Notifications](../features/notifications.md) for per-platform setup.
-
-## Health
-
-**Health** is its own page, under **Manage** in the sidebar (older links to Settings → Health open
-it). Inspect system load, service health, frame decisions, inference and naming sources,
-or download a support bundle. **System** shows the last thirty minutes of load and
-YA-WAMF process usage; unrelated processes are grouped as **Other on this host**.
-Accelerator labels state whether usage covers this app or the whole device.
-An unreadable counter is reported explicitly.
-
-![Health: a System Status card reporting all monitored services healthy, and a "What happened" timeline showing visits recorded and frames filtered out with the reason for each](../images/settings-health.png)
-
-This is the first place to look when detections stop arriving or the interface feels slow. See
-[Diagnostics & Logs](../troubleshooting/diagnostics.md).
-
-## Security
+### Security
 
 Who can reach YA-WAMF, and what a visitor can see.
 
-![Settings → Security: an Authentication card with the enable switch, admin username and a redacted saved password, beside a Public Access card with separate switches for camera names, audio, photographs and video](../images/settings-security.png)
+![Settings → Sharing & integrations: an Authentication card with the enable switch, admin username and a redacted saved password, beside a Public Access card with separate switches for camera names, audio, photographs and video](../images/settings-security.png)
 
 - **Authentication** — enable login, set the owner username and password, and choose the
   session lifetime. Saved passwords display as `***REDACTED***` and are preserved when you
@@ -315,36 +395,18 @@ Who can reach YA-WAMF, and what a visitor can see.
 
 See [Reverse Proxy](reverse-proxy.md) for routing, HTTPS headers and live-stream requirements.
 
-## Beta features
+## Storage & upkeep
 
-Features that are still being tested. Each is a card with its own switch and a status line in
-words. A feature is off until you turn it on, and may change or be removed. A switch is staged
-with the rest of the page and takes effect on **Save changes**; turning a feature off keeps
-what it has already recorded. While Garden animals is on, its settings are grouped into
-collapsible sections (**Cameras**, **Automatic checks and naming**, **Models**, **Domestic birds
-you keep**, **Alerts**, **Where captures go**), and **Still to set up** lists anything it still
-needs.
+What is kept and for how long, a backup of these settings, and the jobs that repair or fill in the history.
 
-| Setting | What it does |
-|---------|-------------|
-| **Garden animals** | Off by default (`SYSTEM__BETA_GARDEN_ANIMALS`). Collects non-bird visitors for owner review, separately from bird history. Turning it off stops collection, hides Garden in the Explorer, stops Garden alerts and records kept birds as ordinary birds; saved captures and the settings below are kept and return when it is turned on again. See [Garden animals](../features/garden-animals.md). |
-| **Models** | Status and explicit downloads for Garden's own models: the required 224 MB automatic check model (SpeciesNet 4.0.3a), an optional 224 MB species suggestion model (4.0.3b) and the 101 MB motion detector (MegaDetector v1000 Cedar), required only for motion review photos. Shown after **Save changes** has switched Garden on. A download saves no settings and does not change the bird model. Not a saved setting. |
-| **Cameras to watch** | A summary of the cameras watched for Garden animals, none by default (`frigate.garden_cameras: []`), with **Choose cameras in Connection**. Each camera's **Garden animals** or **Both** choice is made in [Connection → Cameras to watch](#cameras-to-watch), beside its bird role. |
-| **Collect motion review photos** | Set per camera in Connection while it watches for Garden animals, off by default (`frigate.garden_motion_cameras: []`). Requires retained motion recordings and the **Motion detector** under **Models**. Bounded CPU scans create private review candidates. |
-| **Frigate animal labels** | Defaults to `cat, dog`. Animal labels for Garden review; the Frigate detector must already track them. Birds, people and vehicles are excluded; kept birds are declared below. |
-| **Domestic birds you keep** | None by default (`FRIGATE__GARDEN_DOMESTIC_BIRDS`, a JSON list such as `["chicken"]`). Chickens, domestic ducks and geese, turkeys, guineafowl, peafowl, domestic pigeons or doves and quail you add here are recorded as Garden animals on every camera, never as bird detections, and are never sent to eBird, BirdWeather or iNaturalist. Mallards, Greylag Geese, Wild Turkeys and Rock Doves also live wild, so add a bird only if you keep it. See [Domestic birds](../features/garden-animals.md#domestic-birds). |
-| **Animal proposal threshold** | Cedar's minimum animal score for new motion photos, shown as 50% to 95% (default 50%, saved as 0.5 to 0.95, `FRIGATE__GARDEN_MOTION_CONFIDENCE`). Higher values reduce proposals but can miss animals. Existing photos are not reclassified. |
-| **Name animals automatically** | On by default (`FRIGATE__GARDEN_AUTOMATIC_NAMING`). Confirms and names an animal when the automatic check's species score reaches the naming threshold, marked as automatic. Off: every animal waits for your review. |
-| **Naming threshold** | Shown as 70% to 99% (default 80%, saved as 0.7 to 0.99, `FRIGATE__GARDEN_NAMING_THRESHOLD`). Higher values name fewer animals and leave more for you. A photo below it is dismissed and can be restored from Dismissed. Existing captures are not renamed. |
-
-## Data
+### Data
 
 What YA-WAMF keeps and for how long: retention, photos and video, what happens when Frigate
 loses a visit, and the configuration backup. Repair and fill-in jobs, and the actions that delete
 history, are in [Maintenance](#maintenance). Telemetry, what leaves this installation, is in
 Security (see [Telemetry](../features/telemetry.md)).
 
-![Settings → Data with retention controls and Photos and video settings for locally kept media, Frigate event-clip copies and storage limits](../images/settings-data.png)
+![Settings → Storage & upkeep with retention controls and Photos and video settings for locally kept media, Frigate event-clip copies and storage limits](../images/settings-data.png)
 
 - **Retention Policy** — **History Duration** sets how long sightings are kept
   (`maintenance.retention_days`; **Keep everything** is the default). Cleanup runs once at
@@ -394,7 +456,7 @@ Security (see [Telemetry](../features/telemetry.md)).
 - **Automatically find additional birds** — off by default, including upgrades. Normal target
   identification and photo selection continue; the optional wider search, additional crop
   classifications and count rechecks run only when enabled. Existing counts are kept when you
-  turn this off. Enable it under **Settings → Data → Snapshot quality** to scan retained whole
+  turn this off. Enable it under **Settings → Storage & upkeep → Snapshot quality** to scan retained whole
   frames automatically. This also works with **Best available event snapshots** off when video
   processing retains a whole frame.
   To scan one photograph, open it as the owner and choose **Find more birds**. The action scans
@@ -436,7 +498,7 @@ Security (see [Telemetry](../features/telemetry.md)).
   `MEDIA_CACHE__PER_SPECIES_MAXIMUM=0..10000`, and `MEDIA_CACHE__MAX_SIZE_MB=0..1048576`.
   Models, backups, and archived favourites do not count towards the ordinary cache budget.
 
-## Maintenance
+### Maintenance
 
 Jobs that repair or fill in the history, and the actions that delete it. Every button here acts
 straight away; only **Run automatically (daily)** and **Jobs at once** wait for **Save changes**.
@@ -465,7 +527,7 @@ scan finds something, and says so beside the button.
   `DB_PRE_MIGRATION_BACKUP_RETENTION` to keep more. At least one restore point is always kept,
   and manual backups are never removed.
 
-**Delete data** (the last section of the tab) lists one action per row, narrowest first,
+**Delete data** (the last part of Storage & upkeep) lists one action per row, narrowest first,
 each with its consequence beside its button: **Delete corrections**, **Delete all favourites**,
 then **Delete all history**. Only these buttons are red.
 
@@ -476,7 +538,7 @@ then **Delete all history**. Only these buttons are red.
 > is no automatic backup tied to these actions. Take a backup of `/data` and `/config` before
 > using them; migration restore points may not contain your latest history.
 
-### Jobs at once
+#### Jobs at once
 
 **Jobs at once** sets `maintenance_max_concurrent` (default `1`) controls how many jobs of the *same* maintenance
 kind may overlap — backfill, weather backfill, video classification, taxonomy repair, timezone
@@ -490,7 +552,11 @@ background worker count (`CLASSIFICATION__BACKGROUND_WORKER_COUNT`) — one clip
 `video_classification_max_concurrent` remains readable and writable for compatibility, but is
 ignored.
 
-## Appearance
+## Display
+
+How YA-WAMF looks and names birds, and contrast, a reading font, motion and spoken updates.
+
+### Appearance
 
 How the interface reads.
 
@@ -504,7 +570,7 @@ How the interface reads.
 | **Date format** | Follow browser language (default), United Kingdom (DD/MM/YYYY), United States (MM/DD/YYYY), or Japan/China (YYYY-MM-DD). Date and time choices are saved independently. |
 | **Time format** | 12 hour, 24 hour, or **Follow browser language**. |
 
-## Accessibility
+### Accessibility
 
 - **High contrast** (one black scheme with white and yellow text, used in place of the light or
   dark theme), **Reading font: OpenDyslexic**, and **Reduced motion** for readability and
@@ -519,38 +585,19 @@ returns to the map. Continuing saves that section; it does not reset unrelated s
 check stays saved if you leave, and leaving does not cancel the running backend check.
 See [first-run setup](getting-started.md#4-verify) for provider and location behaviour.
 
-## Debug section
+## Health
 
-Optional developer tools, hidden unless you enable them:
+**Health** is its own page, under **Manage** in the sidebar (older links to Settings → Health open
+it). Inspect system load, service health, frame decisions, inference and naming sources,
+or download a support bundle. **System** shows the last thirty minutes of load and
+YA-WAMF process usage; unrelated processes are grouped as **Other on this host**.
+Accelerator labels state whether usage covers this app or the whole device.
+An unreadable counter is reported explicitly.
 
-- Environment variable: `SYSTEM__DEBUG_UI_ENABLED=true`
-- Config file: `"system": { "debug_ui_enabled": true }`
-- Compose: `DEBUG_UI_ENABLED=true`
+![Health: a System Status card reporting all monitored services healthy, and a "What happened" timeline showing visits recorded and frames filtered out with the reason for each](../images/settings-health.png)
 
-This adds a troubleshooting switch, **Discard results the model could not compute**, to
-**Settings → Models → Hardware → Memory and isolation**, and shows the iNaturalist submission preview in a
-detection's details. The **Model evaluation** page is linked from the same card for every owner.
-
-
-## Garden notifications
-
-Garden alerts are off by default and are set with the rest of Garden, under
-**Settings → Beta features → Garden animals → Alerts**; Notifications links there while the beta
-is on. The channels themselves are set up once, in Notifications. They follow
-the bird channels that are switched on and configured, or channels you choose;
-save with **Save changes**. See
-[Garden notifications](../features/garden-animals.md#send-garden-notifications)
-for eligibility, photos, privacy and delivery status.
-
-| Environment override | Default | Meaning |
-|---|---|---|
-| `FRIGATE__GARDEN_NOTIFICATIONS_ENABLED` | `false` | Allow separate Garden alerts while the Garden beta is enabled. |
-| `FRIGATE__GARDEN_NOTIFICATIONS_USE_BIRD_CHANNELS` | _(derived)_ | `true` follows the enabled, configured bird channels; `false` uses the channel array below. Unset, a saved choice wins, otherwise it is `true` unless channels were chosen. |
-| `FRIGATE__GARDEN_NOTIFICATION_CHANNELS` | `[]` | JSON array of `discord`, `telegram`, `pushover`, `email`, for example `["telegram"]`, used when not following the bird channels. |
-| `FRIGATE__GARDEN_NOTIFICATIONS_INCLUDE_PHOTO` | `true` | Attach the saved animal crop or capture photo. |
-
-Environment overrides take precedence on restart. Without overrides, the Garden
-notification choices persist in `/config/config.json`.
+This is the first place to look when detections stop arriving or the interface feels slow. See
+[Diagnostics & Logs](../troubleshooting/diagnostics.md).
 
 ## Saving settings safely
 

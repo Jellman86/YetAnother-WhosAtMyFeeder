@@ -377,7 +377,7 @@ test('a model that is not downloaded points to Settings instead of downloading f
     page.on('request', request => { if (request.method() === 'POST') posts.push(new URL(request.url()).pathname); });
     await openReview(page, 'confirmed');
     await openFirst(page);
-    await expect(record(page).getByText('This model is not downloaded. Download it under Garden models in Settings → Beta features.')).toBeVisible();
+    await expect(record(page).getByText('This model is not downloaded. Download it under Garden models in Settings → Identifying birds.')).toBeVisible();
     await expect(record(page).getByRole('button', { name: 'Suggest species', exact: true })).toBeDisabled();
     await expect(page.getByRole('button', { name: /^Download/ })).toHaveCount(0);
     expect(posts).toEqual([]);

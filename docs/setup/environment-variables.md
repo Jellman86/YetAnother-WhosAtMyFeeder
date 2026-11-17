@@ -284,7 +284,7 @@ Discord / Pushover / Telegram / Email:
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `SYSTEM__DEBUG_UI_ENABLED` | `false` | Show the developer tools: a troubleshooting switch under **Settings → Models → Hardware → Memory and isolation** and the iNaturalist submission preview. |
+| `SYSTEM__DEBUG_UI_ENABLED` | `false` | Show the developer tools: a troubleshooting switch under **Settings → Identifying birds → Hardware → Memory and isolation** and the iNaturalist submission preview. |
 | `SYSTEM__BETA_GARDEN_ANIMALS` | `false` | Turn on the Garden animals beta feature. |
 | `FRIGATE__GARDEN_NOTIFICATIONS_ENABLED` | `false` | Opt in to separate Garden alerts while the beta is enabled. |
 | `FRIGATE__GARDEN_NOTIFICATIONS_USE_BIRD_CHANNELS` | _(derived)_ | `true` sends Garden alerts on the bird channels that are switched on and configured; `false` uses `FRIGATE__GARDEN_NOTIFICATION_CHANNELS`. Unset, a saved choice wins, otherwise it is `true` unless channels were chosen. |

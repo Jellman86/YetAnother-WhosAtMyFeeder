@@ -64,7 +64,7 @@
   "empty_filtered": "Ничего не соответствует этому фильтру.",
   "clear_notifications": "Очистить уведомления",
   "system_media_storage_unavailable_title": "Хранилище медиа недоступно",
-  "system_media_storage_unavailable_message": "В папку медиа нельзя записывать, поэтому фото и видео не сохраняются. Подробности в Настройки → Данные.",
+  "system_media_storage_unavailable_message": "В папку медиа нельзя записывать, поэтому фото и видео не сохраняются. Подробности в Настройки → Хранение и обслуживание.",
   "bell_unread": "{title}, непрочитанных: {count}",
   "filter_group": "Фильтр уведомлений",
   "count_unread_unit": "{count, plural, one {непрочитанное} few {непрочитанных} many {непрочитанных} other {непрочитанных}}",

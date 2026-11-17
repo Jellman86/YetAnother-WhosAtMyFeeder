@@ -18,7 +18,7 @@ describe('Model Manager location guidance', () => {
         expect(modelManagerSource).toContain('settings.detection.model_manager_location_title');
         expect(modelManagerSource).toContain('settings.detection.model_manager_location_desc');
         const desc = en.settings.detection.model_manager_location_desc;
-        expect(desc).toMatch(/Settings → Integrations → Location/);
+        expect(desc).toMatch(/Settings → Sharing & integrations → Location/);
         expect(desc).toMatch(/without location/i);
         expect(desc).toMatch(/date/i);
         expect(desc).toMatch(/uncertainty|accuracy radius/i);
@@ -40,7 +40,7 @@ describe('Model Manager location guidance', () => {
         expect(modelSettingsSource).toMatch(/<ModelManager[^>]*\{onopenlocationsettings\}\s*\/>/);
         // Both the model guidance and the range filter land on the location field itself.
         expect(settingsSource).toContain("onopenlocationsettings={() => openIntegrationField('#location-lat'");
-        expect(settingsSource).toContain("handleTabChange('integrations');");
+        expect(settingsSource).toContain("openSection(settingsSectionOfPart('integrations'));");
     });
 });
 

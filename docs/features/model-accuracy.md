@@ -355,7 +355,7 @@ rather than preferring an accelerator by name.
 ### Prerequisites
 
 1. **Docker container running**: `docker compose up -d`
-2. **Models installed**: Download at least one model from **Settings → Models**.
+2. **Models installed**: Download at least one model from **Settings → Identifying birds**.
 3. **Fixture images**: Download iNaturalist test images (one-time setup):
 
 ```bash

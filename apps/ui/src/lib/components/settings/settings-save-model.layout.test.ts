@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { settingsFieldTab } from '../../settings/settings-fields';
+import { settingsFieldSection } from '../../settings/settings-fields';
 import settingsPageSource from '../../pages/Settings.svelte?raw';
 import integrationSource from './IntegrationSettings.svelte?raw';
 import aiSource from './AISettings.svelte?raw';
 
 describe('the Settings save model', () => {
-    it('gives every field the draft tracks a tab, so the save bar can name where each change is', () => {
+    it('gives every field the draft tracks a section, so the save bar can name where each change is', () => {
         const tracked = [...settingsPageSource.matchAll(/\{\s*field: '(\w+)', draft:/g)].map((match) => match[1]);
         expect(tracked.length).toBeGreaterThan(150);
-        expect(tracked.filter((field) => settingsFieldTab(field) === null)).toEqual([]);
+        expect(tracked.filter((field) => settingsFieldSection(field) === null)).toEqual([]);
     });
 
     it('never writes a default into the Integrations draft on its own', () => {
