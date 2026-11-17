@@ -250,14 +250,14 @@ for (const [label, enlarge] of [
     });
 }
 
-test('an empty Garden view points to Review, Dismissed, not the retired Garden page', async ({ page }) => {
+test('an empty Garden view points to Garden status, Dismissed, not the retired Garden page', async ({ page }) => {
     const errors = await openExplorer(page, {}, '&garden=1');
     await expect(page.locator('[data-explorer-visit="v0"] [data-detection-card]')).toBeVisible();
     const option = page.locator('[data-explorer-subjects-option="garden"]');
     if (!(await option.isVisible())) await page.locator('[data-explorer-filter-toggle]').click();
     await option.click();
     const empty = page.locator('[data-explorer-garden-empty]');
-    await expect(empty).toContainText('Dismissed captures are under Review, Dismissed.');
+    await expect(empty).toContainText('Dismissed captures are under Garden status, Dismissed.');
     await expect(empty).not.toContainText('Garden page');
     expect(errors).toEqual([]);
 });
