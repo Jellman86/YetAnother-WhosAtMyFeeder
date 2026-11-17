@@ -57,7 +57,7 @@
     "title": "Was Ihr Netzwerk verlässt",
     "intro": "Die externen Dienste, die diese Installation kontaktiert, wer die jeweilige Anfrage stellt und was sie sendet. Dienste unter Adressen, die Sie selbst eintragen, etwa Frigate, Ihr MQTT-Broker oder BirdNET-Go, sind nicht aufgeführt.",
     "show_everything": "Alles anzeigen, was YA-WAMF kontaktieren kann",
-    "show_everything_note": "{count} weitere",
+    "show_everything_note": "{count} weitere",
     "from_server": "Von diesem Server gesendet",
     "from_browser": "Vom Browser jedes Betrachters gesendet",
     "on_demand": "Beim Verbinden, Testen oder bei Diagnosen",

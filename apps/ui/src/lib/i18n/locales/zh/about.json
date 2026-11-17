@@ -57,7 +57,7 @@
     "title": "哪些数据会离开你的网络",
     "intro": "此安装会联系的外部服务、每个请求由谁发出以及发送的内容。你自己填写地址的服务（如 Frigate、你的 MQTT 代理或 BirdNET-Go）不在此列。",
     "show_everything": "显示 YA-WAMF 可能联系的全部服务",
-    "show_everything_note": "另外 {count} 项",
+    "show_everything_note": "另外 {count} 项",
     "from_server": "由此服务器发送",
     "from_browser": "由每位访问者的浏览器发送",
     "on_demand": "连接、测试或运行诊断时",

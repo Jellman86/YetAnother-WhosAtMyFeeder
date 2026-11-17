@@ -184,6 +184,8 @@ describe('About surface polish', () => {
         expect(privacySummarySource).toMatch(/<Disclosure[^>]*about\.outbound\.show_everything[^>]*data-outbound-everything/s);
         expect(privacySummarySource).toContain('{@render requestGroups(restGroups)}');
         expect(en.about.outbound.show_everything).toBe('Show everything YA-WAMF can contact');
+        // The count and its word stay on one line.
+        expect(en.about.outbound.show_everything_note).toBe('{count}\u00a0more');
         // An origin with nothing in a part gets no heading there.
         expect(privacySummarySource).toContain('.filter((group) => group.requests.length > 0)');
     });
