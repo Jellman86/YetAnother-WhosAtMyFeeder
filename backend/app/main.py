@@ -97,6 +97,7 @@ from app.config import settings, _expand_trusted_hosts
 from app.middleware.language import LanguageMiddleware
 from app.middleware.public_calendar import PublicCalendarMiddleware
 from app.utils.tasks import create_background_task
+from app.services.history_retention import RetentionPaused, delete_aged_captures
 from app.utils.diagnostic_redaction import configured_secrets, redact_connection_error, safe_connection_error
 from app.utils.runtime_flavor import get_image_flavor
 from app.services.label_enrichment import start_background_map_refresh
@@ -267,9 +268,14 @@ async def run_cleanup():
             async with get_db() as db:
                 repo = DetectionRepository(db)
                 favorite_event_ids = await repo.get_favorite_frigate_event_ids()
-                deleted_count = await repo.delete_older_than(
-                    cutoff, preserve_favorites=True, species_floor=species_floor
-                )
+                # Seals each day's totals before deleting any of its captures (#949). If sealing
+                # fails nothing is deleted and Health says so; the rest of cleanup still runs.
+                try:
+                    deleted_count = await delete_aged_captures(
+                        db, cutoff, now=now, species_floor=species_floor, source="scheduled_cleanup"
+                    )
+                except RetentionPaused:
+                    deleted_count = 0
                 deleted_audio_count = await repo.delete_audio_detections_older_than(cutoff)
                 await GardenRepository(db).delete_older_than(cutoff)
             if deleted_count > 0:

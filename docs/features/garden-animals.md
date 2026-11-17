@@ -16,10 +16,10 @@ Owner-reviewed, confirmed and dismissed captures keep their reviews. Older pendi
 results without an owner override are reconsidered once under the updated policy.
 
 The required 224 MB tracked-crop model is the **Automatic check model** under
-**Settings → Identifying birds → Garden animals → Models**. Download it there before your first
+**Settings → Identifying birds → More options → Garden animals → Models**. Download it there before your first
 captures arrive; if you have not, it downloads and verifies automatically when an
 enabled Garden camera has a new photo to check. Checks use the device chosen under
-**Settings → Identifying birds → Hardware**, one photo at a time, while birds and Frigate cameras are idle. They use the detector's exact box;
+**Settings → Identifying birds → More options → Hardware**, one photo at a time, while birds and Frigate cameras are idle. They use the detector's exact box;
 missing boxes or unavailable checks stay in **Needs review** for retry. With automatic naming
 enabled, a photo whose species score is below the naming threshold moves to restorable
 **Dismissed**, whether or not the check is confident an animal is there.
@@ -41,7 +41,7 @@ so a real animal is not queued behind them. The deferral lasts at most 30 minute
 candidate; after that it is checked next, even while new candidates keep arriving elsewhere.
 They are never skipped or dismissed without their own check.
 Model, download or runtime failures also stay there and retry no sooner than five
-minutes later. **Collection status** under **Settings → Identifying birds → Garden animals → Automatic checks and naming** describes
+minutes later. **Collection status** under **Settings → Identifying birds → More options → Garden animals → Automatic checks** describes
 automatic work; refresh it to read updated results. No **Check photo** click is needed.
 
 The [labelled pipeline comparison](../reviews/2026-10-23-garden-labelled-pipeline-validation.md)
@@ -201,7 +201,7 @@ are not shared. Choosing a camera narrows the Garden captures as well as the bir
   view open, then select again or press Escape to return to the crop. A photograph
   without trustworthy geometry stays whole. **Suggest species** runs the installed
   SpeciesNet model using the device selected in **Settings → Identifying birds**. Model
-  installation stays under **Settings → Identifying birds → Garden animals → Models**. The
+  installation stays under **Settings → Identifying birds → More options → Garden animals → Models**. The
   record has no model or accelerator selectors. Bird actions
   such as scoring again, video scans and audio matching do not apply.
   Reference photographs and summaries are looked up by the catalogue's scientific
@@ -342,7 +342,7 @@ turning off Garden animals stops collection but preserves existing reviews.
 If Frigate does not track the animals you want, optionally enable **Collect motion review
 photos** for that camera under **Settings → Cameras & connection → Cameras to watch** (it appears once the
 camera watches for Garden animals), then apply settings and download the **Motion detector**
-under **Models** in **Settings → Identifying birds → Garden animals**. This separate
+under **Models** in **Settings → Identifying birds → More options → Garden animals**. This separate
 MegaDetector v1000 Cedar model uses the species catalogue for its three outputs;
 it needs no labels file.
 It does not replace Frigate's bird detector or change bird classification settings.
@@ -480,7 +480,7 @@ To request a species suggestion, open a confirmed animal in the Explorer:
 1. Set a recognised country name or ISO code in **Settings → Sharing & integrations → Location**. Filtering
    runs locally; coordinates are not sent to the model.
 2. Choose a garden model, about **224 MB** per variant, and download it under
-   **Settings → Identifying birds → Garden animals → Models** if the capture's record says it is missing. The default
+   **Settings → Identifying birds → More options → Garden animals → Models** if the capture's record says it is missing. The default
    **4.0.3b** uses the whole photograph with the model’s vertical border trim.
    **4.0.3a** requires Frigate’s tracked snapshot box or the retained motion detector
    box; it never guesses a crop.
@@ -599,7 +599,7 @@ only offered for declared birds.
 
 ### Turn it on
 
-Declare your birds under **Settings → Identifying birds → Domestic birds you keep**. The list is
+Declare your birds under **Settings → Identifying birds → More options → Garden animals → Domestic birds you keep**. The list is
 empty by default and has no effect while Garden animals is off. Choose from chickens, domestic
 ducks, domestic geese, turkeys, guineafowl, peafowl, domestic pigeons or doves and quail. If the
 range check has already flagged one of them, **I keep Chickens: move to Garden** (described
@@ -679,7 +679,7 @@ without a passing check stays in the list as **not passed on this host**; while 
 the accurate finder runs on CPU. **Check devices** remains available after a successful
 check and does not change the identification model.
 
-**Collection status** under **Settings → Identifying birds → Garden animals → Automatic checks and naming** separately shows the automatic check's
+**Collection status** under **Settings → Identifying birds → More options → Garden animals → Automatic checks** separately shows the automatic check's
 device preference and last completed execution. Open a capture to see the device and
 time of its own automatic result. These are completed records, not a promise that a
 model is currently loaded. A CPU worker stays loaded for up to 60 seconds after a check; an
@@ -699,8 +699,8 @@ person to confirm presence. Manual confirmation remains available as an override
 
 ## Send Garden notifications
 
-Garden alerts are off by default and are set in **Settings → Identifying birds → Garden
-animals → Alerts**, with the rest of Garden. **Settings → Alerts** links there while the
+Garden alerts are off by default and are set in **Settings → Identifying birds → More
+options → Garden animals → Alerts**, with the rest of Garden. **Settings → Alerts** links there while the
 beta is on, and is where the channels themselves are set up.
 
 1. Turn on **Send Garden alerts**.
@@ -819,7 +819,7 @@ Storage holds at most 2,000 JPEG crops, each no larger than 512 pixels along its
 long edge and 128 KiB (a maximum of 250 MiB of crop pixels). A new crop can reclaim
 the oldest preview while retaining the visit and identification record. Evicted
 previews are not automatically recreated in a loop. **Collection status** under
-**Settings → Identifying birds → Garden animals → Automatic checks and naming** shows the saved-crop count and budget.
+**Settings → Identifying birds → More options → Garden animals → Automatic checks** shows the saved-crop count and budget.
 The three-day full-photo expiry and separate 128-photo motion budget still apply to
 the review copy; a confirmed capture's full photograph is kept separately, below.
 

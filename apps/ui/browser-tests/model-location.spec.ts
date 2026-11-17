@@ -48,7 +48,8 @@ for (const width of [1280, 390]) {
         await openTab('models', 'Identifying birds');
         const location = page.getByRole('link', { name: 'Open location settings', exact: true });
         await expect(location).toBeVisible();
-        await expect(location).toHaveAttribute('href', '/settings/integrations');
+        // The location is the first card in Sharing & integrations, so the address is the section's top.
+        await expect(location).toHaveAttribute('href', '/settings/sharing');
         await expect(page.getByText('Uses your feeder location', { exact: true })).toBeVisible();
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
         await location.scrollIntoViewIfNeeded();

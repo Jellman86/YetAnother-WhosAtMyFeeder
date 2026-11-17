@@ -219,5 +219,7 @@
   "span_group": "Time span",
   "more_options": "More",
   "table_share": "Share",
-  "standing_heading": "How the window stands"
+  "standing_heading": "How the window stands",
+  "no_activity_daily_totals": "These days come from daily totals, which keep the count of captures but not the time of day.",
+  "heatmap_stored_only": "Hour and weekday count stored captures only: a daily total has no time of day."
 }

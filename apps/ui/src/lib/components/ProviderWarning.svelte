@@ -22,7 +22,7 @@
                 ? $_('dashboard.provider_checking_detail', { default: 'This check runs once. The classifier reloads automatically if the accelerator passes.' })
                 : model?.fallback_reason ?? $_('dashboard.provider_review', { default: 'Review model and provider' })}
         </p>
-        <button class="btn btn-secondary mt-3 min-h-11" onclick={() => onnavigate?.('/settings/detection')}>
+        <button class="btn btn-secondary mt-3 min-h-11" onclick={() => onnavigate?.('/settings/models')}>
             {$_('dashboard.provider_review', { default: 'Review model and provider' })}
         </button>
     </aside>

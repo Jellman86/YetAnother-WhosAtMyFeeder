@@ -88,7 +88,7 @@ test('page-size arrows and the wizard account controls clear the touch floor', a
 
     const account = page.locator('[data-kit-account]');
     await targetHeights(account.locator('label').filter({ has: page.getByRole('checkbox') }));
-    await expect(account.getByLabel('Admin username')).toHaveAttribute('autocomplete', 'username');
+    await expect(account.getByLabel('Owner user name')).toHaveAttribute('autocomplete', 'username');
     await expect(account.getByLabel('Password', { exact: true })).toHaveAttribute('autocomplete', 'new-password');
     await expect(account.getByLabel('Password', { exact: true })).toHaveAccessibleDescription(/At least 8 characters/);
 });

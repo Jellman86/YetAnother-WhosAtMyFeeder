@@ -100,5 +100,8 @@
     "sw": "SO",
     "w": "O",
     "nw": "NO"
-  }
+  },
+  "daily_totals_note": "As contagens anteriores a {date} vêm dos totais diários; as fotos e os clipes desses dias já não estão guardados.",
+  "daily_totals_partial": "Os totais anteriores a {date} foram contados depois de algumas capturas antigas terem sido removidas, por isso podem ser inferiores às visitas reais.",
+  "daily_totals_partial_all": "Esses totais foram contados depois de algumas capturas antigas terem sido removidas, por isso podem ser inferiores às visitas reais."
 }

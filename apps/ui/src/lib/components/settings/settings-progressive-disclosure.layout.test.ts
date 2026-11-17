@@ -9,6 +9,7 @@ import dataSource from './DataSettings.svelte?raw';
 import maintenanceSource from './MaintenanceSettings.svelte?raw';
 import detectionSource from './DetectionSettings.svelte?raw';
 import modelSource from './ModelSettings.svelte?raw';
+import hardwareSource from './HardwareSettings.svelte?raw';
 import enrichmentSource from './EnrichmentSettings.svelte?raw';
 import integrationSource from './IntegrationSettings.svelte?raw';
 import birdnetSource from './BirdnetSettings.svelte?raw';
@@ -74,7 +75,7 @@ describe('Settings progressive disclosure', () => {
         // Testing the models is one row that opens Model evaluation, not a section of its own.
         expect(modelSource).toContain('labelId="setting-model-evaluation"');
         expect(modelSource).not.toContain('id="models-testing"');
-        expect(modelSource).toContain('<SettingsToggle');
+        expect(hardwareSource).toContain('<SettingsToggle');
         expect(settingsPageSource).not.toContain('role="switch"');
         expect(advancedSectionSource).toContain('openByDefault?: boolean');
     });

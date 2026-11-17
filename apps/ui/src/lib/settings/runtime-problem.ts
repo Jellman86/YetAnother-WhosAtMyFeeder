@@ -1,5 +1,13 @@
-/** The Models tab's Runtime report: where a runtime problem is shown. */
+import { settingsMoreId } from './settings-more';
+
+/** The Runtime report, in Hardware: where a runtime problem is shown. */
 export const RUNTIME_DISCLOSURES = ['detection-inference-advanced'] as const;
+
+/**
+ * What a new runtime problem opens, outermost first: Identifying birds' More options, which holds
+ * Hardware, then the report inside it. Opening only the report would open it out of sight.
+ */
+export const RUNTIME_PROBLEM_OPENS: readonly string[] = [settingsMoreId('identification'), ...RUNTIME_DISCLOSURES];
 
 /** The parts of the classifier status that report a problem the owner must act on. */
 interface RuntimeStatus {

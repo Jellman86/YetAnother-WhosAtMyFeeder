@@ -1,4 +1,5 @@
 import { expect, type Page } from '@playwright/test';
+import { openMoreOptions } from './settings-page-mock';
 
 // A realistic Models tab: an Intel host with CPU, GPU and NPU routes, the
 // registry's recommended lineup, both accurate bird finders and the fast
@@ -224,6 +225,8 @@ export async function openDetectionSettings(page: Page, options: DetectionMockOp
     await expect(mobileNavigation.or(page.getByRole('link', { name: sectionName, exact: true }))).toBeVisible({ timeout: 15_000 });
     if (await mobileNavigation.isVisible()) await mobileNavigation.selectOption('identification');
     else await page.getByRole('link', { name: sectionName, exact: true }).click();
+    // Blocked species, the range filter, video checks and Hardware are under the section's More options.
+    await openMoreOptions(page);
     if (tab === 'detection') return state;
     await expect(page.getByRole('heading', { name: 'Hardware', exact: true })).toBeVisible();
     return state;

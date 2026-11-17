@@ -5697,6 +5697,42 @@
         "title": "DailySummaryResponse",
         "type": "object"
       },
+      "DailyTotalsCoverage": {
+        "description": "How far back a chart's counts come from sealed daily totals instead of stored captures (#949).\n\n`totals_through` is the last such day (null when the chart reads only stored captures).\n`partial` is true when some of those days were sealed after older captures were already\nremoved, before daily totals were kept; `complete_from` is then the first day whose total is\nwhole, if any.",
+        "properties": {
+          "complete_from": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Complete From"
+          },
+          "partial": {
+            "default": false,
+            "title": "Partial",
+            "type": "boolean"
+          },
+          "totals_through": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Totals Through"
+          }
+        },
+        "title": "DailyTotalsCoverage",
+        "type": "object"
+      },
       "DailyWeatherSummary": {
         "properties": {
           "am_cloud": {
@@ -7646,6 +7682,9 @@
               }
             ],
             "title": "Compare Series"
+          },
+          "daily_totals": {
+            "$ref": "#/components/schemas/DailyTotalsCoverage"
           },
           "points": {
             "items": {
@@ -22789,6 +22828,9 @@
             "title": "Daily Distribution",
             "type": "array"
           },
+          "daily_totals": {
+            "$ref": "#/components/schemas/DailyTotalsCoverage"
+          },
           "first_seen": {
             "anyOf": [
               {
@@ -22799,6 +22841,18 @@
               }
             ],
             "title": "First Seen"
+          },
+          "history_first_day": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "History First Day"
           },
           "hourly_distribution": {
             "items": {

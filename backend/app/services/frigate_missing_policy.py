@@ -6,11 +6,13 @@ from typing import Any
 import structlog
 
 from app.config import settings
+from app.repositories.daily_totals_repository import DailyTotalsRepository
 from app.repositories.detection_repository import DetectionRepository
 from app.services.broadcaster import broadcaster
 from app.services.error_diagnostics import error_diagnostics_history
 from app.services.media_cache import media_cache
 from app.utils.api_datetime import serialize_api_datetime, utc_naive_now
+from app.utils.calendar_day import instance_timezone
 
 log = structlog.get_logger()
 
@@ -40,7 +42,11 @@ async def apply_missing_policy(
     if behavior == "delete":
         # Check the owner's keep decision in the DELETE itself. A stale read followed by
         # file cleanup would destroy a favourite accepted while that cleanup was awaiting.
-        deleted = await repo.delete_by_frigate_event(frigate_event, preserve_favorites=True)
+        # The capture's count is kept as its own record, in the same transaction as the delete,
+        # so its day stays live and correctable (#949).
+        deleted = await DailyTotalsRepository(repo.db).delete_lost_capture(
+            frigate_event, zone=instance_timezone(), now=checked, preserve_favorites=True
+        )
         if not deleted:
             detection = await repo.get_by_frigate_event(frigate_event)
             if detection is None or not detection.is_favorite:

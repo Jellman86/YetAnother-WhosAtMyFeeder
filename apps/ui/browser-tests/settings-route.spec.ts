@@ -4,7 +4,7 @@ import { expect, test, type Page } from '@playwright/test';
 // including every former tab's, are rewritten to the section's canonical address in place, with the
 // former tab as the anchor, so the visible section and the URL always agree.
 
-async function openOwnerShell(page: Page): Promise<string[]> {
+async function openOwnerShell(page: Page, saved: Record<string, unknown> = {}): Promise<string[]> {
     const errors: string[] = [];
     page.on('pageerror', error => errors.push(error.message));
     await page.route('https://fonts.googleapis.com/**', route => route.fulfill({ contentType: 'text/css', body: '' }));
@@ -14,7 +14,7 @@ async function openOwnerShell(page: Page): Promise<string[]> {
         const responses: Record<string, unknown> = {
             '/api/auth/status': { auth_required: false, is_authenticated: true, needs_initial_setup: false },
             // The backend always sends the naming threshold; Identifying birds binds it.
-            '/api/settings': { frigate_url: 'http://frigate:5000', mqtt_server: 'mqtt', mqtt_port: 1883, mqtt_auth: false, cameras: ['patio'], classification_threshold: 0.7 },
+            '/api/settings': { frigate_url: 'http://frigate:5000', mqtt_server: 'mqtt', mqtt_port: 1883, mqtt_auth: false, cameras: ['patio'], classification_threshold: 0.7, ...saved },
             '/api/update-status': { update_available: false },
         };
         if (path in responses) return route.fulfill({ json: responses[path] });
@@ -98,6 +98,16 @@ test('one part after another in a section lands on each, and Back and Forward la
     await page.evaluate(() => { location.hash = '#detection'; });
     await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
     expect(errors).toEqual([]);
+});
+
+test('landing on a part below a paused video check keeps the alert that says so in view', async ({ page }) => {
+    await openOwnerShell(page, { auto_video_classification: true, video_classification_circuit_open: true, video_classification_circuit_failures: 3 });
+    await page.goto('/settings/detection');
+    await expectSection(page, '/settings/identification', 'Identifying birds', '#detection');
+    const alert = page.locator('[data-video-circuit]');
+    await expect(alert).toBeVisible();
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
+    expect(await alert.evaluate((node) => node.getBoundingClientRect().top >= 0)).toBe(true);
 });
 
 test('a loose address keeps its part when it is rewritten, so a reload lands there again', async ({ page }) => {

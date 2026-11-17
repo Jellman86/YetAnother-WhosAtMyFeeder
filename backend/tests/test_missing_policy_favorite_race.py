@@ -16,6 +16,7 @@ from app.config import settings
 from app.repositories.detection_repository import DetectionRepository, Detection
 from app.services import frigate_missing_policy as policy
 from app.services import media_cache as cache_module
+from app.repositories.daily_totals_repository import DailyTotalsRepository
 
 
 @pytest_asyncio.fixture
@@ -50,14 +51,16 @@ async def test_favorite_accepted_immediately_before_delete_preserves_history_and
     fixture_history, monkeypatch
 ):
     repo, owner, photograph, metadata = fixture_history
-    original_delete = repo.delete_by_frigate_event
+    # The automatic delete keeps the capture's count with it (#949); the favourite is accepted just
+    # before that delete, which must still check it.
+    original_delete = DailyTotalsRepository.delete_lost_capture
     accepted = []
 
-    async def accept_favorite_then_delete(event_id, **kwargs):
+    async def accept_favorite_then_delete(self, event_id, **kwargs):
         accepted.append(await owner.favorite_detection(event_id))
-        return await original_delete(event_id, **kwargs)
+        return await original_delete(self, event_id, **kwargs)
 
-    monkeypatch.setattr(repo, "delete_by_frigate_event", accept_favorite_then_delete)
+    monkeypatch.setattr(DailyTotalsRepository, "delete_lost_capture", accept_favorite_then_delete)
     result = await policy.apply_missing_policy(
         repo=repo, frigate_event="fav-race", error="event_not_found", source="fixture", media_kind="any"
     )

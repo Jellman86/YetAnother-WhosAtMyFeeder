@@ -45,7 +45,7 @@
 <WizardStepLayout
     title={$_('setup.quality.title', { default: 'Best available snapshots' })}
     description={$_('setup.quality.description', {
-        default: 'YA-WAMF can automatically choose the clearest recorded frame and strongest reliable bird crop after each event.'
+        default: 'After each visit, YA-WAMF can choose the clearest frame from the recording and the best close-up of the bird.'
     })}
     showSkip
     canContinue={loadState === 'ready'}

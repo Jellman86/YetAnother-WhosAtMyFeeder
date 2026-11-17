@@ -124,7 +124,7 @@
     import { unsavedChanges } from '../stores/unsaved-changes';
     import { SettingsDisclosures, provideSettingsDisclosures } from '../settings/disclosures.svelte';
     import { policyChannels } from '../settings/notification-policy';
-    import { RUNTIME_DISCLOSURES, runtimeProblemKey } from '../settings/runtime-problem';
+    import { RUNTIME_PROBLEM_OPENS, runtimeProblemKey } from '../settings/runtime-problem';
     import { currentAccessIdentity, draftFromForm, mergeDraft, unsavedDraft, type DraftConflict } from '../settings/unsaved-draft';
     import { conflictValueText } from '../settings/conflict-values';
     import {
@@ -979,7 +979,7 @@
     // On every read of the runtime or the settings: the sections that show a runtime problem open
     // for a new one, stay open while it clears, and stay closed on one the owner dismissed.
     function reportRuntimeProblem(): void {
-        disclosures.attend(RUNTIME_DISCLOSURES, runtimeProblemKey(classifierStatus, { videoCircuitOpen, autoVideoClassification }));
+        disclosures.attend(RUNTIME_PROBLEM_OPENS, runtimeProblemKey(classifierStatus, { videoCircuitOpen, autoVideoClassification }));
     }
 
     const sectionLabel = (section: SettingsSection): string => $_(`settings.sections.${section}`);
@@ -1398,6 +1398,22 @@
         void revealPart(part);
     }
 
+    /**
+     * Whether settings come before a part in its section, so landing on it means scrolling past them.
+     * What leads a section to say something needs a look (`data-settings-lead`, such as a paused
+     * video check) is not passed over: landing on the part below it scrolls to the top instead.
+     */
+    function settingsBefore(target: HTMLElement): boolean {
+        // Judged where the part sits in its section: a part inside More options has the whole first
+        // screen before it, even when it is the first thing inside.
+        let placed: Element = target;
+        while (placed.parentElement && !placed.parentElement.hasAttribute('data-settings-section')) placed = placed.parentElement;
+        for (let sibling = placed.previousElementSibling; sibling; sibling = sibling.previousElementSibling) {
+            if (!sibling.hasAttribute('data-settings-lead')) return true;
+        }
+        return false;
+    }
+
     async function revealPart(part: SettingsPart): Promise<void> {
         const section = settingsSectionOfPart(part);
         const parts = SETTINGS_SECTION_PARTS[section];
@@ -1408,8 +1424,9 @@
             () => Promise.all(above.map((load) => load())),
             () => document.querySelector<HTMLElement>(`[data-settings-part="${part}"]`)
         );
-        // A part that opens its section is the top of the page, with the section's status above it.
-        if (target && target === target.parentElement?.firstElementChild && target.parentElement.hasAttribute('data-settings-section')) {
+        // A part with nothing but a lead before it is the top of the page, with the section's status
+        // and that lead in view.
+        if (target && !settingsBefore(target)) {
             window.scrollTo({ top: 0 });
             return;
         }
@@ -1431,9 +1448,9 @@
     // The range filter's next steps live in Integrations; land on the field itself, not the top of the section.
     // A field hidden behind its switch (the key while eBird is off, coordinates while the location
     // is automatic) falls back to that switch, which is the step that reveals it.
-    async function openIntegrationField(...selectors: string[]): Promise<void> {
+    async function openSharingField(place: 'first screen' | 'more options', ...selectors: string[]): Promise<void> {
         // The location is on the section's first screen; the services are under More options.
-        if (!selectors.some((selector) => selector.includes('location'))) disclosures.setOpen(settingsMoreId('sharing'), true);
+        if (place === 'more options') disclosures.setOpen(settingsMoreId('sharing'), true);
         openSection(settingsSectionOfPart('integrations'));
         const field = await fieldInOpenedPart(() => Promise.all([SETTINGS_PART_LOADERS.security(), SETTINGS_PART_LOADERS.integrations()]), () =>
             selectors.map((selector) => document.querySelector<HTMLElement>(selector)).find(Boolean) ?? null
@@ -1461,8 +1478,10 @@
         field?.focus({ preventScroll: true });
     }
 
-    // Garden alerts are set with Garden; Notifications links straight to their section.
+    // Garden alerts are set with Garden, under Identifying birds' More options; Notifications links
+    // straight to their section.
     async function openGardenAlerts(): Promise<void> {
+        disclosures.setOpen(settingsMoreId('identification'), true);
         disclosures.setOpen('garden-section-alerts', true);
         openSection(settingsSectionOfPart('beta'));
         const toggle = await fieldInOpenedPart(loadGardenBetaSettings, () => document.getElementById('garden-section-alerts-toggle'));
@@ -3207,13 +3226,12 @@
                 {videoCircuitOpen}
                 {videoCircuitUntil}
                 {videoCircuitFailures}
-                onopenlocationsettings={() => openIntegrationField('#location-lat', '#setting-location-mode + div input[type="radio"]:not(:checked)')}
+                onopenlocationsettings={() => openSharingField('first screen', '#location-lat', '#setting-location-mode + div input[type="radio"]:not(:checked)')}
                 bind:rangeFilterEnabled
                 bind:rangeFilterRegionLevel
-                onopenebirdsettings={() => openIntegrationField('#ebird-api-key', 'button[aria-labelledby="integration-ebird-title"]')}
+                onopenebirdsettings={() => openSharingField('more options', '#ebird-api-key', 'button[aria-labelledby="integration-ebird-title"]')}
                 onopenactivitylog={onNavigate ? () => onNavigate('/system-health') : undefined}
                 onopenmanualobservation={onNavigate ? () => onNavigate('/observations/new') : undefined}
-                onopenmodels={() => openPart('models')}
                 bind:liveWorkerCount
                 bind:backgroundWorkerCount
                 bind:birdModelRegionOverride
@@ -3237,7 +3255,7 @@
                 bind:notificationsIncludePhoto={gardenNotificationsIncludePhoto}
                 birdChannels={gardenBirdChannels}
                 onOpenNotifications={() => openPart('notifications')}
-                onOpenLocation={() => openIntegrationField('#location-lat', '#setting-location-mode + div input[type="radio"]:not(:checked)')}
+                onOpenLocation={() => openSharingField('first screen', '#location-lat', '#setting-location-mode + div input[type="radio"]:not(:checked)')}
                 bind:automaticNaming={gardenAutomaticNaming}
                 bind:namingThreshold={gardenNamingThreshold}
                 bind:domesticBirds={gardenDomesticBirds}
@@ -3394,7 +3412,7 @@
                 {telemetryPayloadPreview}
                 {versionInfo}
                 enrichmentDraft={enrichmentDraft}
-                onOpenEbird={() => openIntegrationField('#ebird-api-key', 'button[aria-labelledby="integration-ebird-title"]')}
+                onOpenEbird={() => openSharingField('more options', '#ebird-api-key', 'button[aria-labelledby="integration-ebird-title"]')}
                 aiDraft={aiDraft}
                 onAiChange={(edit: Partial<AiDraft>) => (aiDraft = editAiDraft(aiDraft, edit))}
             />

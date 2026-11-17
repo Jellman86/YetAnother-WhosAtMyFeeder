@@ -100,5 +100,8 @@
     "sw": "SW",
     "w": "W",
     "nw": "NW"
-  }
+  },
+  "daily_totals_note": "Counts before {date} come from daily totals; photos and clips from those days are no longer stored.",
+  "daily_totals_partial": "Totals before {date} were counted after some older captures had already been removed, so they can be lower than what visited.",
+  "daily_totals_partial_all": "Those totals were counted after some older captures had already been removed, so they can be lower than what visited."
 }

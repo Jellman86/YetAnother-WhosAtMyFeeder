@@ -51,7 +51,7 @@
                 id: `backfill:detections:${job.id}`,
                 serverJobId: `backfill:detections:${job.id}`,
                 kind: 'backfill',
-                title: $_('setup.history.job_title', { default: 'Detection history import' }),
+                title: $_('setup.history.job_title', { default: 'Import of visit history' }),
                 message: job.message || $_('setup.history.job_starting', { default: 'Scanning Frigate event history' }),
                 route: '/jobs',
                 current: job.processed,
@@ -76,16 +76,16 @@
     {continueLabel}
     onContinue={continueSetup}
 >
-    <h3 class="text-sm font-bold text-strong">{$_('setup.history.title', { default: 'Import existing detections' })}</h3>
-    <p class="text-sm text-muted">{$_('setup.history.description', { default: 'Optionally classify bird events that Frigate still retains. The import runs safely in the background while you finish setup.' })}</p>
+    <h3 class="text-sm font-bold text-strong">{$_('setup.history.title', { default: 'Import visits Frigate still has' })}</h3>
+    <p class="text-sm text-muted">{$_('setup.history.description', { default: 'Optionally name the bird events Frigate still keeps. The import runs in the background while you finish setup.' })}</p>
     <label class="flex min-h-12 items-start gap-3 border-y border-line py-3 text-sm text-ink">
         <input type="checkbox" bind:checked={importHistory} class="mt-0.5 h-5 w-5 rounded-sm border-line-strong text-accent focus:ring-focus" />
         <span>
             <span class="block font-semibold text-strong">
-                {$_('setup.history.enable', { default: 'Import retained Frigate bird events' })}
+                {$_('setup.history.enable', { default: 'Import the bird events Frigate still keeps' })}
             </span>
             <span class="mt-1 block leading-relaxed text-muted">
-                {$_('setup.history.enable_help', { default: 'Existing detections are updated only when classification quality improves; saved audio and weather context is preserved.' })}
+                {$_('setup.history.enable_help', { default: 'A visit already in your history is changed only when the new result is better; its saved audio and weather stay.' })}
             </span>
         </span>
     </label>
@@ -114,7 +114,7 @@
 
     <p class="flex items-start gap-2 text-xs leading-relaxed text-muted">
         <svg class="mt-0.5 h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.3 3.7 2.6 17a2 2 0 0 0 1.7 3h15.4a2 2 0 0 0 1.7-3L13.7 3.7a2 2 0 0 0-3.4 0Z" /></svg>
-        <span>{$_('setup.history.audio_note', { default: 'Frigate history can restore visual detections and snapshots, but it cannot recreate BirdNET-Go audio that was not already stored.' })}</span>
+        <span>{$_('setup.history.audio_note', { default: 'Frigate’s history can bring back visits and their photos, but not BirdNET-Go audio that was never stored.' })}</span>
     </p>
 
     <h3 class="border-t border-line pt-4 text-sm font-bold text-strong">{$_('telemetry_banner.title', { default: 'Share anonymous usage stats?' })}</h3>

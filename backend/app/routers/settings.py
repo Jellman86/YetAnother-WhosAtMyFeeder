@@ -43,6 +43,7 @@ from app.services.inaturalist_service import inaturalist_service
 from app.services.frigate_client import frigate_client
 from app.services.timezone_repair_service import timezone_repair_service
 from app.services.maintenance_run_history import latest_maintenance_runs, record_maintenance_run
+from app.services.history_retention import RetentionPaused, delete_aged_captures
 from app.services.media_cache import media_cache
 from app.services.maintenance_coordinator import maintenance_coordinator
 from app.services.media_integrity_scan import MEDIA_INTEGRITY_SCAN_KIND, evaluate_media_presence
@@ -2011,11 +2012,19 @@ async def run_cleanup(auth: AuthContext = Depends(require_owner)):
 
     async with get_db() as db:
         repo = DetectionRepository(db)
-        deleted_count = await repo.delete_older_than(
-            cutoff, preserve_favorites=True, species_floor=settings.media_cache.per_species_minimum
-        )
-        # The same pass the scheduled cleanup runs: "Purge Old Records" is documented as running
-        # it now, and old BirdNET-Go audio used to survive until the next automatic run.
+        # The same pass the scheduled cleanup runs, through the same sealing delete (#949):
+        # "Purge Old Records" is documented as running it now.
+        try:
+            deleted_count = await delete_aged_captures(
+                db,
+                cutoff,
+                now=datetime.now(timezone.utc),
+                species_floor=settings.media_cache.per_species_minimum,
+                source="manual_cleanup",
+            )
+        except RetentionPaused as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+        # Old BirdNET-Go audio used to survive until the next automatic run.
         audio_deleted_count = await repo.delete_audio_detections_older_than(cutoff)
 
     log.info(
