@@ -1102,7 +1102,10 @@
     }
    ],
    "total_count": 4,
-   "visit_count": 4
+   "visit_count": 4,
+   "window": "rolling",
+   "window_end": "2033-06-10T10:00:00Z",
+   "window_start": "2033-06-09T10:00:00Z"
   },
   "status": 200
  },
@@ -3038,7 +3041,10 @@
     }
    ],
    "total_count": 4,
-   "visit_count": 4
+   "visit_count": 4,
+   "window": "rolling",
+   "window_end": "2033-06-10T10:00:00Z",
+   "window_start": "2033-06-09T10:00:00Z"
   },
   "status": 200
  },
@@ -4962,7 +4968,10 @@
     }
    ],
    "total_count": 4,
-   "visit_count": 4
+   "visit_count": 4,
+   "window": "rolling",
+   "window_end": "2033-06-10T10:00:00Z",
+   "window_start": "2033-06-09T10:00:00Z"
   },
   "status": 200
  },
@@ -6874,7 +6883,10 @@
     }
    ],
    "total_count": 4,
-   "visit_count": 4
+   "visit_count": 4,
+   "window": "rolling",
+   "window_end": "2033-06-10T10:00:00Z",
+   "window_start": "2033-06-09T10:00:00Z"
   },
   "status": 200
  },
@@ -8904,7 +8916,10 @@
     }
    ],
    "total_count": 4,
-   "visit_count": 4
+   "visit_count": 4,
+   "window": "rolling",
+   "window_end": "2033-06-10T10:00:00Z",
+   "window_start": "2033-06-09T10:00:00Z"
   },
   "status": 200
  },
@@ -10970,7 +10985,10 @@
     }
    ],
    "total_count": 4,
-   "visit_count": 4
+   "visit_count": 4,
+   "window": "rolling",
+   "window_end": "2033-06-10T10:00:00Z",
+   "window_start": "2033-06-09T10:00:00Z"
   },
   "status": 200
  },

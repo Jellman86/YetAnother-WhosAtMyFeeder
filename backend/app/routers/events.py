@@ -1,9 +1,10 @@
 import asyncio
 import time
 import unicodedata
-from fastapi import APIRouter, HTTPException, Query, Request, Depends
+from collections.abc import Collection
+from fastapi import APIRouter, HTTPException, Query, Request, Response, Depends
 from typing import List, Optional, Literal
-from datetime import datetime, date, timedelta, timezone
+from datetime import datetime, date, timedelta, timezone, tzinfo
 from pydantic import BaseModel, Field
 import structlog
 from PIL import Image
@@ -42,11 +43,11 @@ from app.auth import require_owner, AuthContext
 from app.auth import get_auth_context_with_legacy
 from app.ratelimit import guest_rate_limit
 from app.utils.public_access import (
-    effective_public_events_days,
     public_events_cutoff,
-    public_utc_day,
     public_events_window,
 )
+from app.utils.calendar_day import CalendarDay, calendar_window, clamp_window, local_date
+from app.utils.timezone import calendar_timezone
 from app.utils.api_datetime import serialize_api_datetime, utc_naive_now
 from app.utils.canonical_species import (
     hidden_species_exact_labels,
@@ -132,6 +133,40 @@ def _enforce_max_date_range(start_date: Optional[date], end_date: Optional[date]
             status_code=400,
             detail=f"Date range must not exceed {MAX_FILTER_DATE_RANGE_DAYS} days",
         )
+
+
+_LAST_INSTANT = timedelta(microseconds=1)
+CALENDAR_DAY_HELP = (
+    "an ISO date or `today`, read as a calendar day in the zone `X-Timezone` names, else the instance's `TZ`, else UTC"
+)
+NEXT_OFFSET_HEADER = "X-Next-Offset"
+
+
+def requested_calendar_window(
+    start_day: CalendarDay | None, end_day: CalendarDay | None, zone: tzinfo
+) -> tuple[Optional[datetime], Optional[datetime]]:
+    """Naive-UTC bounds for the calendar days a request names, on the viewer's clock."""
+    return calendar_window(start_day, end_day, now=utc_naive_now().replace(tzinfo=timezone.utc), zone=zone)
+
+
+def visible_history_window(
+    auth: AuthContext, start: Optional[datetime], end: Optional[datetime], zone: tzinfo
+) -> tuple[Optional[datetime], Optional[datetime]]:
+    """Narrow a naive-UTC window to what this viewer may see, then bound its length.
+
+    A guest's allowance is intersected with the request after the zone is resolved, so no
+    date, keyword or ``X-Timezone`` can widen it.
+    """
+    if not auth.is_owner and settings.public_access.enabled:
+        floor, ceiling = public_events_window()
+        start, end = clamp_window(
+            start,
+            end,
+            floor=floor.replace(tzinfo=None),
+            ceiling=None if ceiling is None else ceiling.replace(tzinfo=None) - _LAST_INSTANT,
+        )
+    _enforce_max_date_range(local_date(start, zone=zone), local_date(end, zone=zone))
+    return start, end
 
 
 def parse_species_filter(species: Optional[str]) -> tuple[Optional[str], Optional[int]]:
@@ -238,6 +273,29 @@ def _get_active_model_id_for_feedback() -> str:
     return configured_model or "unknown"
 
 
+async def cached_media_flags(event_id: str) -> dict[str, bool]:
+    from app.services.archive_service import archive_service
+
+    cached_snapshot = media_cache.has_snapshot(event_id)
+    cached_clip = media_cache.has_clip(event_id) or media_cache.has_recording_clip(event_id)
+    return {
+        "has_clip": bool(cached_clip or await archive_service.video_path(event_id)),
+        "has_snapshot": bool(cached_snapshot or await archive_service.snapshot_path(event_id)),
+    }
+
+
+async def local_media_availability(event_ids: list[str]) -> dict[str, EventAvailability]:
+    """What this server holds for each event, without asking Frigate, and saying it did not ask."""
+    return {
+        event_id: {
+            "has_frigate_event": False,
+            "frigate_event_check": "not_checked",
+            **await cached_media_flags(event_id),
+        }
+        for event_id in event_ids
+    }
+
+
 async def batch_check_clips(event_ids: list[str]) -> dict[str, EventAvailability]:
     """
     Check Frigate event/media availability for multiple events.
@@ -248,16 +306,6 @@ async def batch_check_clips(event_ids: list[str]) -> dict[str, EventAvailability
         return {}
 
     semaphore = asyncio.Semaphore(CLIP_CHECK_CONCURRENCY)
-
-    async def cached_media_flags(event_id: str) -> dict[str, bool]:
-        from app.services.archive_service import archive_service
-
-        cached_snapshot = media_cache.has_snapshot(event_id)
-        cached_clip = media_cache.has_clip(event_id) or media_cache.has_recording_clip(event_id)
-        return {
-            "has_clip": bool(cached_clip or await archive_service.video_path(event_id)),
-            "has_snapshot": bool(cached_snapshot or await archive_service.snapshot_path(event_id)),
-        }
 
     async def check(event_id: str) -> tuple[str, EventAvailability]:
         async with semaphore:
@@ -631,16 +679,27 @@ def _filter_event_fields(event: dict, fields: set[str] | None) -> dict:
                 "a partial event projection plus required navigation fields."
             ),
             "model": List[DetectionResponse] | List[DetectionListItemResponse],
+            "headers": {
+                NEXT_OFFSET_HEADER: {
+                    "description": "The `offset` of the next page. Present only while more events match.",
+                    "schema": {"type": "integer", "minimum": 1},
+                }
+            },
         }
     },
 )
 @guest_rate_limit()
 async def get_events(
     request: Request,
+    response: Response,
     limit: int = Query(default=50, ge=1, le=500, description="Number of events to return"),
-    offset: int = Query(default=0, ge=0, description="Number of events to skip"),
-    start_date: Optional[date] = Query(default=None, description="Filter events from this date (inclusive)"),
-    end_date: Optional[date] = Query(default=None, description="Filter events until this date (inclusive)"),
+    offset: int = Query(
+        default=0,
+        ge=0,
+        description=f"Number of events to skip. While more events match, the response carries {NEXT_OFFSET_HEADER}.",
+    ),
+    start_date: Optional[CalendarDay] = Query(default=None, description=f"First day (inclusive): {CALENDAR_DAY_HELP}"),
+    end_date: Optional[CalendarDay] = Query(default=None, description=f"Last day (inclusive): {CALENDAR_DAY_HELP}"),
     species: Optional[str] = Query(default=None, description="Filter by species name"),
     camera: Optional[str] = Query(default=None, description="Filter by camera name"),
     event_id: Optional[str] = Query(default=None, max_length=255, description="Filter by exact Frigate event ID"),
@@ -669,20 +728,13 @@ async def get_events(
         not auth.is_owner and settings.public_access.enabled and not settings.public_access.show_camera_names
     )
 
+    zone = calendar_timezone(request)
+    start_datetime, end_datetime = visible_history_window(
+        auth, *requested_calendar_window(start_date, end_date, zone), zone
+    )
+
     # Apply public access restrictions
     if not auth.is_owner and settings.public_access.enabled:
-        # Restrict historical data for guests
-        today = public_utc_day()
-        max_days = effective_public_events_days()
-        if max_days > 0:
-            cutoff_date = today - timedelta(days=max_days)
-            if start_date is None or start_date < cutoff_date:
-                start_date = cutoff_date
-        else:
-            # Only show today's data
-            start_date = today
-            end_date = today
-
         # Limit result count for guests
         limit = min(limit, 50)
 
@@ -697,20 +749,16 @@ async def get_events(
         if hide_camera_names:
             camera = None
 
-    _enforce_max_date_range(start_date, end_date)
     species_ids = await bird_taxon_members(taxon) if taxon else None
 
     async with get_db() as db:
         repo = DetectionRepository(db)
 
-        # Convert dates to datetime for filtering
-        start_datetime = datetime.combine(start_date, datetime.min.time()) if start_date else None
-        end_datetime = datetime.combine(end_date, datetime.max.time()) if end_date else None
-
         species_name, taxa_id = parse_species_filter(species)
         species_name, species_aliases = resolve_species_display_filter_aliases(species_name, taxa_id)
+        # One row past the page says whether another page exists, without a second count query.
         events = await repo.get_all(
-            limit=limit,
+            limit=limit + 1,
             offset=offset,
             start_date=start_datetime,
             end_date=end_datetime,
@@ -729,12 +777,24 @@ async def get_events(
             species_ids=species_ids,
         )
 
+    if len(events) > limit:
+        events = events[:limit]
+        response.headers[NEXT_OFFSET_HEADER] = str(offset + limit)
     return await present_events(events, request, auth, fields)
 
 
 async def present_events(
-    events: list[StoredDetection], request: Request, auth: AuthContext, fields: str | None = None
+    events: list[StoredDetection],
+    request: Request,
+    auth: AuthContext,
+    fields: str | None = None,
+    *,
+    ask_frigate_about: Collection[str] | None = None,
 ) -> list[DetectionResponse] | list[dict[str, object]]:
+    """Present stored events; ``ask_frigate_about`` limits the Frigate checks to those ids.
+
+    The rest report the media this server holds and ``frigate_event_check: not_checked``.
+    """
     scope = PresentationScope(language=get_user_language(request), is_owner=auth.is_owner)
     event_ids = [event.frigate_event for event in events]
     async with get_db() as db:
@@ -747,7 +807,14 @@ async def present_events(
     # busy page block everything else needing the database, which is what an
     # owner experienced as the whole interface being slow (#300). The rows are
     # already read, so the connection is given back first.
-    clip_availability = await batch_check_clips(event_ids)
+    if ask_frigate_about is None:
+        clip_availability = await batch_check_clips(event_ids)
+    else:
+        asked = [event_id for event_id in dict.fromkeys(event_ids) if event_id in ask_frigate_about]
+        clip_availability = {
+            **await local_media_availability([event_id for event_id in event_ids if event_id not in asked]),
+            **await batch_check_clips(asked),
+        }
 
     async with get_db() as db:
         response_events = await present_detections(
@@ -931,8 +998,8 @@ async def get_review_queue(
 @guest_rate_limit()
 async def get_events_count(
     request: Request,
-    start_date: Optional[date] = Query(default=None, description="Filter events from this date (inclusive)"),
-    end_date: Optional[date] = Query(default=None, description="Filter events until this date (inclusive)"),
+    start_date: Optional[CalendarDay] = Query(default=None, description=f"First day (inclusive): {CALENDAR_DAY_HELP}"),
+    end_date: Optional[CalendarDay] = Query(default=None, description=f"Last day (inclusive): {CALENDAR_DAY_HELP}"),
     species: Optional[str] = Query(default=None, description="Filter by species name"),
     camera: Optional[str] = Query(default=None, description="Filter by camera name"),
     favorites: bool = Query(default=False, description="Only count favorited detections"),
@@ -951,17 +1018,12 @@ async def get_events_count(
     hide_camera_names = (
         not auth.is_owner and settings.public_access.enabled and not settings.public_access.show_camera_names
     )
+    zone = calendar_timezone(request)
+    start_datetime, end_datetime = visible_history_window(
+        auth, *requested_calendar_window(start_date, end_date, zone), zone
+    )
     # Apply public access restrictions
     if not auth.is_owner and settings.public_access.enabled:
-        today = public_utc_day()
-        max_days = effective_public_events_days()
-        if max_days > 0:
-            cutoff_date = today - timedelta(days=max_days)
-            if start_date is None or start_date < cutoff_date:
-                start_date = cutoff_date
-        else:
-            start_date = today
-            end_date = today
         include_hidden = False
         only_hidden = False
         if not settings.public_access.show_audio:
@@ -969,14 +1031,11 @@ async def get_events_count(
         if hide_camera_names:
             camera = None
 
-    _enforce_max_date_range(start_date, end_date)
     species_ids = await bird_taxon_members(taxon) if taxon else None
 
     async with get_db() as db:
         repo = DetectionRepository(db)
 
-        start_datetime = datetime.combine(start_date, datetime.min.time()) if start_date else None
-        end_datetime = datetime.combine(end_date, datetime.max.time()) if end_date else None
         species_name, taxa_id = parse_species_filter(species)
         species_name, species_aliases = resolve_species_display_filter_aliases(species_name, taxa_id)
 
