@@ -93,6 +93,11 @@ function check(mode: Map<string, string>, highContrast: boolean) {
     pair('--danger-fg', '--danger', words);
     pair('--danger-fg', '--danger-hover', words);
     pair('--on-media', '--media', 7);
+    pair('--on-media', '--media-raised', 7);
+    pair('--brand-400', '--media', 4.5);
+    pair('--brand-400', '--media-raised', 4.5);
+    pair('--on-media-fail', '--media', words);
+    pair('--on-media-fail', '--media-raised', words);
     return failures;
 }
 

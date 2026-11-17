@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { authoredLocale } from './authored-locales';
 
 import notableNearbySource from '../components/NotableNearby.svelte?raw';
-import detectionModalSource from '../components/DetectionModal.svelte?raw';
+import detectionModalSource from '../components/record/RecordSpeciesReference.svelte?raw';
 import speciesDetailSource from '../components/SpeciesDetailModal.svelte?raw';
 import integrationSettingsSource from '../components/settings/IntegrationSettings.svelte?raw';
 

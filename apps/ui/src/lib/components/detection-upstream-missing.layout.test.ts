@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import detectionCardSource from './DetectionCard.svelte?raw';
 import detectionModalSource from './DetectionModal.svelte?raw';
+import noticeSource from './record/RecordVideoStatusNotice.svelte?raw';
 
 describe('upstream missing detection UI', () => {
     it('surfaces missing Frigate state on detection cards', () => {
@@ -18,8 +19,9 @@ describe('upstream missing detection UI', () => {
         expect(detectionModalSource).toContain('videoStatusNoticeVisible');
         expect(detectionModalSource).toContain('missingEventNoticeVisible');
         expect(detectionModalSource).toContain('FRIGATE_MISSING_DOCS_URL');
-        expect(detectionModalSource).toContain("$_('detection.upstream_missing.learn_more'");
-        expect(detectionModalSource).toContain("$_('detection.upstream_missing.last_checked'");
+        expect(detectionModalSource).toContain('docsUrl={FRIGATE_MISSING_DOCS_URL}');
+        expect(noticeSource).toContain("$_('detection.upstream_missing.learn_more'");
+        expect(noticeSource).toContain("$_('detection.upstream_missing.last_checked'");
         expect(detectionModalSource).not.toContain("$_('detection.upstream_missing.card_title'");
         expect(detectionModalSource).not.toContain('rounded-2xl border border-orange-200 bg-orange-50/90 p-4');
         expect(detectionModalSource).not.toContain("$_('detection.upstream_missing.compact_label'");

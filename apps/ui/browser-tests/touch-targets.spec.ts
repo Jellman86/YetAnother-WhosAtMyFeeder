@@ -161,8 +161,11 @@ test('the record’s audio context and edit-name controls clear the touch floor'
     await page.goto('/browser-tests/modal-text-layout.html?controls=true');
     const modal = page.locator('[data-detection-detail-modal]');
     await expect(modal).toBeVisible({ timeout: 15000 });
-    const audio = modal.getByRole('button', { name: /^All calls heard around this visit/ });
-    await expect(audio).toHaveAttribute('aria-expanded', 'false');
+    // Every call heard sits behind the shared disclosure; its summary row is the target.
+    const calls = modal.locator('[data-detection-audio-calls]');
+    const audio = calls.locator('summary');
+    await expect(audio).toHaveText(/All calls heard around this visit/);
+    await expect(calls).not.toHaveAttribute('open', '');
     // The rename control waits behind More actions, which must clear the floor as well.
     const more = modal.locator('[data-detection-more-actions]');
     await targetHeights(more);
@@ -171,5 +174,5 @@ test('the record’s audio context and edit-name controls clear the touch floor'
     await targetHeights(audio);
     await targetHeights(editName);
     await audio.click();
-    await expect(audio).toHaveAttribute('aria-expanded', 'true');
+    await expect(calls).toHaveAttribute('open', '');
 });

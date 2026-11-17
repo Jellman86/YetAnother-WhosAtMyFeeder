@@ -13,13 +13,16 @@
     authStore.isAuthenticated = true;
     const requestedStatus = new URLSearchParams(window.location.search).get('videoStatus');
     const videoStatus = requestedStatus === 'pending' || requestedStatus === 'processing' ? requestedStatus : undefined;
-    const detection: Detection = {
+    // Held as the pages hold it, so the record's own writes (a new species, an AI note) are seen.
+    const detection: Detection = $state({
         video_classification_status: videoStatus,
         frigate_event: 'long-camera-capture-abcdefghijklmnopqrstuvwxyz-0123456789',
         display_name: 'Schwarzflügel-Rotschnabel-Blütenbesucher',
         camera_name: 'Gartenfutterstelle_ABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789',
         detection_time: '2026-10-01T12:00:00Z', score: 0.9, frigate_score: 0.8
-    };
+    });
+    // `?ai=true` turns the AI naturalist on, as a configured model does.
+    const llmReady = new URLSearchParams(window.location.search).get('ai') === 'true';
     // `?controls=true` adds what brings the audio-context and edit-name controls on screen.
     if (new URLSearchParams(window.location.search).get('controls') === 'true') {
         detection.scientific_name = 'Prunella modularis';
@@ -27,6 +30,8 @@
     }
     // `?light=<lux>` adds a measured light level beside ordinary weather; `?light=only` leaves the weather out.
     const light = new URLSearchParams(window.location.search).get('light');
+    // `&wind=true` adds the wind as well, the full Conditions line a phone has to wrap.
+    if (new URLSearchParams(window.location.search).get('wind') === 'true') Object.assign(detection, { weather_wind_speed: 6, weather_wind_direction: 45 });
     if (light !== null) {
         detection.illuminance_lux = light === 'only' ? 0.42 : Number(light);
         if (light !== 'only') Object.assign(detection, { weather_condition: 'Cloudy', temperature: 9, weather_cloud_cover: 80 });
@@ -41,7 +46,7 @@
 
 <DetectionModal
     {detection}
-    llmReady={false}
+    {llmReady}
     showVideoButton={false}
     onClose={() => {}}
     onViewSpecies={() => {}}

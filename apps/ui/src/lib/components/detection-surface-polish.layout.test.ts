@@ -3,10 +3,17 @@ import { describe, expect, it } from 'vitest';
 import detectionCardSource from './DetectionCard.svelte?raw';
 import detectionModalSource from './DetectionModal.svelte?raw';
 import technicalSource from './RecordTechnicalDetails.svelte?raw';
+import audioSource from './record/RecordAudioEvidence.svelte?raw';
+import noticeSource from './record/RecordVideoStatusNotice.svelte?raw';
+import referenceSource from './record/RecordSpeciesReference.svelte?raw';
+import disclosureSource from './ui/Disclosure.svelte?raw';
+import dialogHeaderSource from './ui/DialogHeader.svelte?raw';
 
 describe('detection surface polish', () => {
     it('keeps the audio context and edit-name controls at the touch-target floor', () => {
-        expect(detectionModalSource).toMatch(/onclick=\{toggleAudioContext\}\s+aria-expanded=\{audioContextOpen\}\s+class="[^"]*min-h-11/);
+        // Every call heard sits behind the shared disclosure, whose row is a full touch target.
+        expect(audioSource).toContain("<Disclosure label={$_('detection.audio_context_all'");
+        expect(disclosureSource).toMatch(/<summary class="[^"]*min-h-11/);
         expect(detectionModalSource).toMatch(/commonNameEditorOpen = !commonNameEditorOpen;\s+\}\}\s+aria-expanded=\{commonNameEditorOpen\}\s+class="[^"]*min-h-11/);
     });
 
@@ -31,7 +38,8 @@ describe('detection surface polish', () => {
         expect(detectionModalSource).toContain('data-detection-photograph');
         expect(detectionModalSource).not.toContain('from-black/80 via-black/25');
         expect(detectionModalSource).not.toContain('absolute inset-x-0 bottom-0 z-20 flex flex-col');
-        expect(detectionModalSource).toContain('<DialogCloseButton onclick={onClose} data-detection-modal-close />');
+        expect(detectionModalSource).toContain("closeData={{ 'data-detection-modal-close': true }}");
+        expect(dialogHeaderSource).toContain('<DialogCloseButton');
     });
 
     it('offers the originating Frigate event to the owner, honestly', () => {
@@ -58,8 +66,8 @@ describe('detection surface polish', () => {
     });
 
     it('uses section dividers for supporting context instead of stacked feature cards', () => {
-        expect(detectionModalSource).toContain('data-detection-audio-section');
-        expect(detectionModalSource).toMatch(/data-detection-audio-section[^>]+border-t/);
+        expect(detectionModalSource).toContain('<RecordAudioEvidence');
+        expect(audioSource).toMatch(/data-detection-audio-section[^>]+border-t/);
         // The weather no longer gets a section at all: it is one condensed
         // facts row (#268), pinned by weather-stated-once.layout.test.ts.
         expect(detectionModalSource).not.toContain('data-detection-weather-section');
@@ -138,15 +146,19 @@ describe('detection surface polish', () => {
     });
 
     it('lets the species reference sit in the record instead of behind a twisty', () => {
-        expect(detectionModalSource).toContain('data-detection-reference');
-        expect(detectionModalSource).not.toMatch(/<details[^>]*>\s*<summary[^>]*>\s*\{\$_\('detection\.reference_disclosure'/);
+        expect(detectionModalSource).toContain('<RecordSpeciesReference');
+        expect(referenceSource).toContain('data-detection-reference');
+        expect(referenceSource).not.toMatch(/<details[^>]*>\s*<summary[^>]*>\s*\{\$_\('detection\.reference_disclosure'/);
     });
 
     it('does not nest a card inside the video notice card', () => {
         // The notice is already tinted and bordered; the disclosure adding its own border and
         // background made a card within a card.
         expect(detectionModalSource).not.toContain("bg-white/75 dark:bg-slate-900/40'");
-        expect(detectionModalSource).toContain('border-t pt-2 {videoStatusNoticeTone.detailsContainer}');
+        // Now a plain row in the rail: no tint, no border, and the disclosure adds none either.
+        expect(detectionModalSource).toContain('<RecordVideoStatusNotice');
+        expect(noticeSource).not.toMatch(/data-video-status-notice=\{tone\}[^>]*\b(?:border|bg-)/);
+        expect(noticeSource).toMatch(/<div class="flex items-start gap-2" role="status" data-video-status-notice=\{tone\}>/);
     });
 
     it('draws the detection id disclosure as a plain panel in the current theme', () => {
@@ -169,7 +181,7 @@ describe('detection surface polish', () => {
             'data-detection-identification-actions',
             'data-detection-more-actions-panel',
             'data-detection-facts',
-            'data-detection-reference ',
+            '<RecordSpeciesReference',
             'data-detection-technical-identity'
         ].map((marker) => detectionModalSource.indexOf(marker));
         expect(order.every((index) => index > 0)).toBe(true);
@@ -177,8 +189,8 @@ describe('detection surface polish', () => {
     });
 
     it('shortens the species reference to a few lines with a link to the source', () => {
-        expect(detectionModalSource).toContain("summaryUrl ? 'line-clamp-3' : ''");
-        expect(detectionModalSource).toContain('data-detection-reference-link');
+        expect(referenceSource).toContain("summaryUrl ? 'line-clamp-3' : ''");
+        expect(referenceSource).toContain('data-detection-reference-link');
     });
 
     it('keeps the less common record actions behind one control', () => {
@@ -200,7 +212,7 @@ describe('detection surface polish', () => {
         // collapsed to the height of its own text. As a second primary it competed with Confirm.
         expect(detectionModalSource).not.toContain('flex-1 bg-brand-500 hover:bg-brand-600 text-white font-semibold text-xs rounded-xl');
         // Now a text link beside the name it is about, still a full touch target tall.
-        expect(detectionModalSource).toMatch(/onclick=\{handleSpeciesInfo\}\s+class="inline-flex min-h-11 items-center gap-1 rounded-sm text-xs font-semibold text-brand-700 underline/);
+        expect(detectionModalSource).toMatch(/onclick=\{handleSpeciesInfo\}\s+class="inline-flex min-h-11 items-center gap-1 rounded-sm text-xs font-semibold text-accent-ink underline/);
         expect(detectionModalSource.indexOf('data-detection-species-details')).toBeLessThan(detectionModalSource.indexOf('data-detection-identification-actions'));
         expect(detectionModalSource).not.toContain('btn btn-primary flex-1 px-3 py-2.5 text-xs');
         expect(detectionModalSource.match(/\{\$_\('actions\.species_info'\)\}/g)).toHaveLength(1);
