@@ -14,16 +14,24 @@ import visitorsSource from '../components/TopVisitors.svelte?raw';
 import visitGroupingSource from '../utils/visit-grouping.ts?raw';
 
 describe('dashboard field desk layout', () => {
-    it('leads with the chronological log and docks the outstanding work beside it', () => {
+    it('puts the outstanding work first: above the log on a phone, heading the rail beside it on a desktop', () => {
         const fieldDesk = dashboardSource.indexOf('data-dashboard-field-desk');
-        const fieldLog = dashboardSource.indexOf('<FieldLog');
         const reviewQueue = dashboardSource.indexOf('<ReviewQueueCard');
+        const fieldLog = dashboardSource.indexOf('<FieldLog');
+        const aside = dashboardSource.indexOf('<aside');
         const topVisitors = dashboardSource.indexOf('data-dashboard-top-visitors');
 
         expect(fieldDesk).toBeGreaterThan(-1);
-        expect(fieldLog).toBeGreaterThan(fieldDesk);
-        expect(reviewQueue).toBeGreaterThan(fieldLog);
-        expect(topVisitors).toBeGreaterThan(reviewQueue);
+        // Reading order is the phone's order: the work, the log, then the rail.
+        expect(reviewQueue).toBeGreaterThan(fieldDesk);
+        expect(fieldLog).toBeGreaterThan(reviewQueue);
+        expect(aside).toBeGreaterThan(fieldLog);
+        expect(topVisitors).toBeGreaterThan(aside);
+        // From 1280px the grid places them: the card heads the rail, the log spans both of its rows.
+        expect(dashboardSource).toContain('<div class="min-w-0 xl:col-start-2 xl:row-start-1" data-dashboard-needs-call>');
+        expect(dashboardSource).toContain('<div class="min-w-0 xl:col-start-1 xl:row-span-2 xl:row-start-1" data-dashboard-field-log-column>');
+        expect(dashboardSource).toContain("xl:col-start-2 3xl:grid-cols-2 {needsCall.visible ? 'xl:row-start-2' : 'xl:row-start-1'}");
+        expect(dashboardSource).toMatch(/\[data-dashboard-field-desk\] \{\s*grid-template-rows: auto 1fr;/);
     });
 
     it('places location-level notable reports beneath the field log, not in a detection', () => {
@@ -46,10 +54,10 @@ describe('dashboard field desk layout', () => {
         expect(notableNearbySource).toContain('dashboard.notable_nearby.retry');
     });
 
-    it('orders the rail from what is happening to what is merely interesting', () => {
+    it('orders the rail from what is happening to what is merely interesting, under the work that heads it', () => {
         const aside = dashboardSource.indexOf('<aside');
         const asideEnd = dashboardSource.indexOf('</aside>');
-        const order = ['<ReviewQueueCard', '<DeskContextCards', '<RecentAudio', '<DailyHistogram', 'data-dashboard-top-visitors'].map(
+        const order = ['<DeskContextCards', '<RecentAudio', '<DailyHistogram', 'data-dashboard-top-visitors'].map(
             (marker) => dashboardSource.indexOf(marker)
         );
         for (const at of order) expect(at > aside && at < asideEnd).toBe(true);
