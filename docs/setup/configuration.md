@@ -62,6 +62,8 @@ Some settings have since moved within that map:
 | Your feeder's location | Integrations | Sharing & integrations, first |
 | **Display units** | Integrations (Location) | Display (**Units**) |
 | eBird, iNaturalist, BirdWeather, Home Assistant weather, species information sources, AI, telemetry | Sharing & integrations | Sharing & integrations, under **More options** |
+| Garden's **Name animals automatically** and its naming threshold | Beta features (Garden, Automatic checks) | Identifying birds, **Naming threshold** card, marked Beta |
+| Blocked labels, range filter, Frigate and video, **Hardware** (with the runtime report), Beta features | Identifying birds | Identifying birds, under **More options** |
 
 Edits wait in one draft across every section. While anything differs from what is saved, a short
 bar at the bottom of the page counts the changes, with **Discard changes** (puts every saved value
@@ -158,14 +160,18 @@ pipeline. See [BirdNET-Go](../integrations/birdnet-go.md).
 
 ## Identifying birds
 
-How sure a name must be, the models that find and name birds and their hardware, and features still in Beta.
+How sure a name must be and the models that name birds come first. **More options** holds blocked
+species, the range filter, video checks, the hardware and the features still in Beta. When video
+checks have paused after repeated failures, the alert sits at the top of the section, not inside
+More options. An address such as `/settings/identification#beta` opens More options at that part.
 
 ### Detection
 
-The rules for accepting an identification. Which model runs, and on what hardware, is set in
-[Models](#models):
+**Naming threshold** is the first card: the bird naming threshold and the minimum confidence
+floor, **Learn from my corrections**, and, while Garden animals is on, Garden's own **Name animals
+automatically** switch and naming threshold in a row marked **Beta**, so both thresholds are set in
+one place. Under **More options**:
 
-- **Accepting an identification**: the two confidence sliders and **Personalized re-ranking**.
 - **Blocked labels**.
 - **Range filter**: optional, needs a location and an eBird key.
 - **Frigate and video** (starts closed, and opens when a save refuses a value inside it): sublabel
@@ -179,7 +185,7 @@ and wildlife, balanced on Intel GPU.", "… will name birds on CPU. It loads wit
 detection." before a worker has loaded it, or "Nothing is naming birds yet: … is not on this
 install." when the chosen model's files are missing. The first-run wizard's model step and About
 show the same sentence. When the runtime has something to report, a link under it says how many
-things to check and opens the **Runtime report**. Then:
+things to check and opens More options at the **Runtime report**, inside **Hardware**. Then:
 
 - **Models**: **Bird model region**, then the **Identification model**: the model in use (or the
   chosen one, when its files are missing), and at most one **Recommended next** model when the
@@ -190,7 +196,7 @@ things to check and opens the **Runtime report**. Then:
   its coverage, its download size (or that it is on this install, or comes with the app) and its
   memory in one line. Then the **Bird finder**, which locates birds in the frame so YA-WAMF can
   crop and count them, and a **Compare the installed models** row that opens **Model evaluation**.
-- **Hardware**: **Identification model runs on** (the inference provider) and **Check devices on this host**,
+- **Hardware**, under **More options**: **Identification model runs on** (the inference provider) and **Check devices on this host**,
   whose button is **Check devices for every installed model**, then the
   folded **Memory and isolation** (which also holds **Discard results the model could not
   compute** with the debug interface on) and **Runtime report** sections. The report opens on its
@@ -263,7 +269,7 @@ Optional developer tools, hidden unless you enable them:
 - Compose: `DEBUG_UI_ENABLED=true`
 
 This adds a troubleshooting switch, **Discard results the model could not compute**, to
-**Settings → Identifying birds → Hardware → Memory and isolation**, and shows the iNaturalist submission preview in a
+**Settings → Identifying birds → More options → Hardware → Memory and isolation**, and shows the iNaturalist submission preview in a
 detection's details. The **Model evaluation** page is linked from the same card for every owner.
 
 ### Beta features
@@ -272,9 +278,10 @@ Features that are still being tested. Each is a card with its own switch and a s
 words. A feature is off until you turn it on, and may change or be removed. A switch is staged
 with the rest of the page and takes effect on **Save changes**; turning a feature off keeps
 what it has already recorded. While Garden animals is on, its settings are grouped into
-collapsible sections (**Cameras**, **Automatic checks and naming**, **Models**, **Domestic birds
-you keep**, **Alerts**, **Where captures go**), and **Still to set up** lists anything it still
-needs.
+collapsible sections (**Cameras**, **Automatic checks**, **Models**, **Domestic birds you keep**,
+**Alerts**, **Where captures go**), and **Still to set up** lists anything it still needs. Beta
+features are under the section's **More options**; Garden's naming switch and threshold are in the
+**Naming threshold** card at the top of the section.
 
 | Setting | What it does |
 |---------|-------------|
@@ -285,8 +292,8 @@ needs.
 | **Frigate animal labels** | Defaults to `cat, dog`. Animal labels for Garden review; the Frigate detector must already track them. Birds, people and vehicles are excluded; kept birds are declared below. |
 | **Domestic birds you keep** | None by default (`FRIGATE__GARDEN_DOMESTIC_BIRDS`, a JSON list such as `["chicken"]`). Chickens, domestic ducks and geese, turkeys, guineafowl, peafowl, domestic pigeons or doves and quail you add here are recorded as Garden animals on every camera, never as bird detections, and are never sent to eBird, BirdWeather or iNaturalist. Mallards, Greylag Geese, Wild Turkeys and Rock Doves also live wild, so add a bird only if you keep it. See [Domestic birds](../features/garden-animals.md#domestic-birds). |
 | **Animal proposal threshold** | Cedar's minimum animal score for new motion photos, shown as 50% to 95% (default 50%, saved as 0.5 to 0.95, `FRIGATE__GARDEN_MOTION_CONFIDENCE`). Higher values reduce proposals but can miss animals. Existing photos are not reclassified. |
-| **Name animals automatically** | On by default (`FRIGATE__GARDEN_AUTOMATIC_NAMING`). Confirms and names an animal when the automatic check's species score reaches the naming threshold, marked as automatic. Off: every animal waits for your review. |
-| **Naming threshold** | Shown as 70% to 99% (default 80%, saved as 0.7 to 0.99, `FRIGATE__GARDEN_NAMING_THRESHOLD`). Higher values name fewer animals and leave more for you. A photo below it is dismissed and can be restored from Dismissed. Existing captures are not renamed. |
+| **Name animals automatically** | In the **Naming threshold** card, marked Beta. On by default (`FRIGATE__GARDEN_AUTOMATIC_NAMING`). Confirms and names an animal when the automatic check's species score reaches the naming threshold, marked as automatic. Off: every animal waits for your review. |
+| **Naming threshold** | In the **Naming threshold** card, below the switch. Shown as 70% to 99% (default 80%, saved as 0.7 to 0.99, `FRIGATE__GARDEN_NAMING_THRESHOLD`). Higher values name fewer animals and leave more for you. A photo below it is dismissed and can be restored from Dismissed. Existing captures are not renamed. |
 
 ## Alerts
 
@@ -318,7 +325,7 @@ See [Notifications](../features/notifications.md) for per-platform setup.
 ### Garden notifications
 
 Garden alerts are off by default and are set with the rest of Garden, under
-**Settings → Identifying birds → Garden animals → Alerts**; Notifications links there while the beta
+**Settings → Identifying birds → More options → Garden animals → Alerts**; Notifications links there while the beta
 is on. The channels themselves are set up once, in Notifications. They follow
 the bird channels that are switched on and configured, or channels you choose;
 save with **Save changes**. See

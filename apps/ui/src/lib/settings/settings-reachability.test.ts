@@ -47,7 +47,11 @@ const MOVED: Readonly<Record<string, SettingsPart>> = {
     'birdnet-source-options': 'connection',
     // Units are how numbers read, so they are set in Display with the rest of how YA-WAMF looks.
     location_weather_unit_system: 'appearance',
-    'weather-unit-system': 'appearance'
+    'weather-unit-system': 'appearance',
+    // Garden's automatic naming and its threshold sit in the naming card, beside the birds' threshold.
+    garden_automatic_naming: 'detection',
+    garden_naming_threshold: 'detection',
+    'garden-naming-threshold': 'detection'
 };
 
 /**
@@ -56,6 +60,21 @@ const MOVED: Readonly<Record<string, SettingsPart>> = {
  */
 const MOVED_ACTIONS: ReadonlyArray<{ what: string; from: SettingsPart; to: SettingsPart }> = [
     { what: 'Test BirdNET-Go', from: 'integrations', to: 'connection' }
+];
+
+/**
+ * Controls that still render, but whose effect on a saved field now runs through a module the
+ * analysis does not read (it follows Svelte files). Each names the file that still renders it.
+ */
+const THROUGH_MODULES: ReadonlyArray<{ section: SettingsSection; entry: string; files: readonly string[]; why: string }> = [
+    {
+        section: 'identification',
+        entry: 'inference_provider',
+        // Hardware's device check and the bird finder's one start the shared check in
+        // settings/device-check.svelte.ts, which reloads the runtime and so may save a new provider.
+        files: ['../components/settings/HardwareSettings.svelte', '../pages/models/FinderDevicePanel.svelte'],
+        why: 'the device check'
+    }
 ];
 
 /** The part a frozen control is shown by now: by its id, else by the fields it saves, else its tab's. */
@@ -155,6 +174,12 @@ describe('every control the twelve tabs rendered', () => {
             const arrived = `${settingsSectionOfPart(to)} | (no setting)`;
             was.set(left, (was.get(left) ?? 0) - 1);
             was.set(arrived, (was.get(arrived) ?? 0) + 1);
+        }
+        for (const { section, entry, files } of THROUGH_MODULES) {
+            const key = `${section} | ${entry}`;
+            was.set(key, (was.get(key) ?? 0) - files.length);
+            // Each is still rendered in its section.
+            for (const file of files) expect(current.controls.some((control) => control.file === file && control.areas.includes(section)), file).toBe(true);
         }
         const now = countBySectionAndEntry(current.controls, (_control, area) => area);
         const fewer = [...was].filter(([key, count]) => (now.get(key) ?? 0) < count).map(([key, count]) => `${key}: ${count} -> ${now.get(key) ?? 0}`);

@@ -1461,8 +1461,10 @@
         field?.focus({ preventScroll: true });
     }
 
-    // Garden alerts are set with Garden; Notifications links straight to their section.
+    // Garden alerts are set with Garden, under Identifying birds' More options; Notifications links
+    // straight to their section.
     async function openGardenAlerts(): Promise<void> {
+        disclosures.setOpen(settingsMoreId('identification'), true);
         disclosures.setOpen('garden-section-alerts', true);
         openSection(settingsSectionOfPart('beta'));
         const toggle = await fieldInOpenedPart(loadGardenBetaSettings, () => document.getElementById('garden-section-alerts-toggle'));
@@ -3213,7 +3215,6 @@
                 onopenebirdsettings={() => openIntegrationField('#ebird-api-key', 'button[aria-labelledby="integration-ebird-title"]')}
                 onopenactivitylog={onNavigate ? () => onNavigate('/system-health') : undefined}
                 onopenmanualobservation={onNavigate ? () => onNavigate('/observations/new') : undefined}
-                onopenmodels={() => openPart('models')}
                 bind:liveWorkerCount
                 bind:backgroundWorkerCount
                 bind:birdModelRegionOverride

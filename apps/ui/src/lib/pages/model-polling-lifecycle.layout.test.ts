@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import modelSettingsSource from '../components/settings/ModelSettings.svelte?raw';
+import deviceCheckSource from '../settings/device-check.svelte.ts?raw';
 import setupModelSource from '../components/setup/ModelStep.svelte?raw';
 import modelEvaluationSource from './ModelEvaluation.svelte?raw';
 import modelManagerSource from './models/ModelManager.svelte?raw';
@@ -14,6 +14,6 @@ describe('model workflow polling lifecycle', () => {
         expect(modelEvaluationSource).toContain('if (refreshInFlight) return;');
         expect(modelEvaluationSource).toContain('if (!document.hidden) void refresh();');
         expect(setupModelSource).toContain('if (pollInFlight || document.hidden) return;');
-        expect(modelSettingsSource).toContain('if (compatPollInFlight || document.hidden) return;');
+        expect(deviceCheckSource).toContain('if (this.#pollInFlight || document.hidden) return;');
     });
 });

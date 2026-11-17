@@ -52,7 +52,7 @@ Detection Diagnostics.
 ## Inference Providers (CPU / CUDA / Intel OpenVINO)
 
 For ONNX models, YA-WAMF supports a provider selector under
-**Settings → Identifying birds → Hardware → Inference provider**:
+**Settings → Identifying birds → More options → Hardware → Inference provider**:
 
 - `Auto` (recommended): uses the selected model's measured passing order on this installation and
   otherwise remains within its globally safe provider contract.

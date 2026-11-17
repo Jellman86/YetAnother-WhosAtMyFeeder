@@ -325,7 +325,8 @@
   "more": {
     "title": "更多选项",
     "cameras": "Frigate 详情、图像来源、剪辑和 BirdNET-Go",
-    "sharing": "eBird、iNaturalist、BirdWeather、Home Assistant 天气、物种信息、AI 和遥测"
+    "sharing": "eBird、iNaturalist、BirdWeather、Home Assistant 天气、物种信息、AI 和遥测",
+    "identification": "屏蔽的物种、分布范围筛选、视频检查、硬件和测试版功能"
   },
   "debug": {
     "llm_prompts_title": "LLM 提示模板",
@@ -1345,6 +1346,7 @@
     "compat_note_baseline": "CPU 基准",
     "compat_note_fails": "编译失败",
     "compat_note_match": "{n}/{n} 与 CPU 一致",
+    "compat_note_boxes": "{m}/{n} 个框与 CPU 一致",
     "compat_note_nan": "非有限输出",
     "compat_note_partial": "{m}/{n} 与 CPU 一致",
     "compat_note_runs": "可运行",
@@ -1540,10 +1542,12 @@
   },
   "beta": {
     "title": "测试版功能",
+    "chip": "测试版",
     "garden_animals": "花园动物",
     "garden_animals_desc": "从你选择的摄像头收集猫、狐狸等非鸟类访客，供你审核。",
     "garden_motion_toggle": "在 {camera} 收集待审核的移动照片",
     "garden_naming_off": "每个动物都会留在“待审核”中，等你确认并命名。",
+    "garden_naming_elsewhere": "自动命名与鸟类的命名阈值一起设置，位于“识别鸟类”的顶部。",
     "garden_naming_threshold_help": "这是判断是哪种动物的第二道检查。达到或高于此值时，会为你确认并命名该动物。低于此值时，照片进入“已忽略”，你可以从那里恢复。",
     "garden_naming_threshold": "对动物种类有这么确定时命名",
     "garden_naming": "自动为动物命名",
@@ -1617,7 +1621,7 @@
     "garden_off_note": "花园停止收集新的捕获。现有的捕获和设置会保留，重新开启后恢复。",
     "garden_off_effects": "关闭期间，花园在浏览器中隐藏，其提醒停止，你饲养的鸟会记录为野生鸟类。已保存的捕获仍按历史保留期处理。",
     "garden_section_cameras": "摄像头",
-    "garden_section_checks": "自动检查与命名",
+    "garden_section_checks": "自动检查",
     "garden_section_models": "模型",
     "garden_section_alerts": "提醒",
     "garden_naming_help": "达到命名阈值的动物会被确认并命名。低于阈值的照片进入“已忽略”，你可以在那里恢复。",
@@ -1962,5 +1966,9 @@
   "units": {
     "title": "单位",
     "desc": "适用于打开此安装的所有人，而不仅是这台设备。"
+  },
+  "naming": {
+    "title": "命名阈值",
+    "garden_title": "花园动物"
   }
 }

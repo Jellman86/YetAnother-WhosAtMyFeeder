@@ -350,8 +350,8 @@
     "arbitrary": 0
   },
   "lib/components/settings/DetectionSettings.svelte": {
-    "palette": 81,
-    "dark": 38,
+    "palette": 69,
+    "dark": 32,
     "arbitrary": 0
   },
   "lib/components/settings/EnrichmentSettings.svelte": {
@@ -360,8 +360,8 @@
     "arbitrary": 0
   },
   "lib/components/settings/GardenBetaSettings.svelte": {
-    "palette": 44,
-    "dark": 22,
+    "palette": 42,
+    "dark": 21,
     "arbitrary": 0
   },
   "lib/components/settings/GardenCollectionStatus.svelte": {
@@ -390,8 +390,8 @@
     "arbitrary": 0
   },
   "lib/components/settings/ModelSettings.svelte": {
-    "palette": 135,
-    "dark": 63,
+    "palette": 6,
+    "dark": 3,
     "arbitrary": 0
   },
   "lib/components/settings/NativeProfileRevalidation.svelte": {

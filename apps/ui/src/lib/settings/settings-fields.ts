@@ -19,6 +19,9 @@ const EXACT_FIELD_PARTS: Readonly<Record<string, SettingsPart>> = {
     camera_roles: 'connection',
     garden_cameras: 'connection',
     garden_motion_cameras: 'connection',
+    // Garden's naming threshold sits in the naming card, beside the birds' one.
+    garden_automatic_naming: 'detection',
+    garden_naming_threshold: 'detection',
     nest_dedupe_minutes: 'connection',
     classification_image_source: 'connection',
     recording_frame_delay_seconds: 'connection',
@@ -140,6 +143,8 @@ export interface SettingsFieldPlace {
 const CAMERAS_MORE = settingsMoreId('cameras');
 // Sharing & integrations' More options, which holds the other services, AI and telemetry.
 const SHARING_MORE = settingsMoreId('sharing');
+// Identifying birds' More options: blocked species, the range filter, video checks, hardware and Beta.
+const IDENTIFICATION_MORE = settingsMoreId('identification');
 
 const FIELD_PLACES: Readonly<Record<string, SettingsFieldPlace>> = {
     frigate_url: { labelKey: 'settings.frigate.url', inputId: 'frigate-url' },
@@ -151,14 +156,14 @@ const FIELD_PLACES: Readonly<Record<string, SettingsFieldPlace>> = {
     recording_frame_delay_seconds: { labelKey: 'settings.frigate.recording_frame_delay', inputId: 'recording-frame-delay', disclosures: [CAMERAS_MORE] },
     recording_clip_before_seconds: { labelKey: 'settings.frigate.full_visit_before', inputId: 'recording-clip-before', disclosures: [CAMERAS_MORE, 'connection-full-visit'] },
     recording_clip_after_seconds: { labelKey: 'settings.frigate.full_visit_after', inputId: 'recording-clip-after', disclosures: [CAMERAS_MORE, 'connection-full-visit'] },
-    video_classification_delay: { labelKey: 'settings.detection.video_delay', inputId: 'video-delay', disclosures: ['detection-frigate-video'] },
-    video_classification_max_retries: { labelKey: 'settings.detection.video_retries', inputId: 'video-retries', disclosures: ['detection-frigate-video'] },
-    video_classification_frames: { labelKey: 'settings.detection.video_frames', inputId: 'video-frames', disclosures: ['detection-frigate-video'] },
+    video_classification_delay: { labelKey: 'settings.detection.video_delay', inputId: 'video-delay', disclosures: [IDENTIFICATION_MORE, 'detection-frigate-video'] },
+    video_classification_max_retries: { labelKey: 'settings.detection.video_retries', inputId: 'video-retries', disclosures: [IDENTIFICATION_MORE, 'detection-frigate-video'] },
+    video_classification_frames: { labelKey: 'settings.detection.video_frames', inputId: 'video-frames', disclosures: [IDENTIFICATION_MORE, 'detection-frigate-video'] },
     media_cache_max_size_mb: { labelKey: 'settings.data.storage_limit', inputId: 'cache-max-size-gb' },
     maintenance_max_concurrent: { labelKey: 'settings.data.maintenance_max_concurrent', inputId: 'maintenance-max-concurrent' },
-    garden_labels: { labelKey: 'garden.labels', inputId: 'garden-labels', disclosures: ['garden-section-cameras'] },
-    garden_motion_confidence: { labelKey: 'garden.confidence', inputId: 'garden-motion-confidence', disclosures: ['garden-section-cameras'] },
-    garden_naming_threshold: { labelKey: 'settings.beta.garden_naming_threshold', inputId: 'garden-naming-threshold', disclosures: ['garden-section-checks'] },
+    garden_labels: { labelKey: 'garden.labels', inputId: 'garden-labels', disclosures: [IDENTIFICATION_MORE, 'garden-section-cameras'] },
+    garden_motion_confidence: { labelKey: 'garden.confidence', inputId: 'garden-motion-confidence', disclosures: [IDENTIFICATION_MORE, 'garden-section-cameras'] },
+    garden_naming_threshold: { labelKey: 'settings.beta.garden_naming_threshold', inputId: 'garden-naming-threshold' },
     birdnet_url: { labelKey: 'settings.integrations.birdnet.internal_url_label', inputId: 'birdnet-url', disclosures: [CAMERAS_MORE] },
     birdnet_external_url: { labelKey: 'settings.integrations.birdnet.external_url_label', inputId: 'birdnet-external-url', disclosures: [CAMERAS_MORE] },
     audio_topic: { labelKey: 'settings.integrations.birdnet.mqtt_topic', inputId: 'audio-topic', disclosures: [CAMERAS_MORE] },
@@ -182,10 +187,10 @@ const FIELD_PLACES: Readonly<Record<string, SettingsFieldPlace>> = {
     public_access_rate_limit_per_minute: { labelKey: 'settings.public_access.rate_limit', inputId: 'public-rate', disclosures: ['public-access-windows'] },
     public_access_external_base_url: { labelKey: 'settings.public_access.share_base_url', inputId: 'public-share-base-url', disclosures: ['public-access-windows'] },
     notifications_instance_url: { labelKey: 'settings.notifications.instance_url', inputId: 'notification-instance-url' },
-    inference_provider: { labelKey: 'settings.detection.inference_provider', inputId: 'inference-provider' },
-    image_execution_mode: { labelKey: 'settings.detection.execution_mode', inputId: 'image-execution-mode', disclosures: ['detection-memory-advanced'] },
-    live_worker_count: { labelKey: 'settings.detection.worker_counts_live', inputId: 'live-worker-count', disclosures: ['detection-memory-advanced'] },
-    background_worker_count: { labelKey: 'settings.detection.worker_counts_background', inputId: 'background-worker-count', disclosures: ['detection-memory-advanced'] }
+    inference_provider: { labelKey: 'settings.detection.inference_provider', inputId: 'inference-provider', disclosures: [IDENTIFICATION_MORE] },
+    image_execution_mode: { labelKey: 'settings.detection.execution_mode', inputId: 'image-execution-mode', disclosures: [IDENTIFICATION_MORE, 'detection-memory-advanced'] },
+    live_worker_count: { labelKey: 'settings.detection.worker_counts_live', inputId: 'live-worker-count', disclosures: [IDENTIFICATION_MORE, 'detection-memory-advanced'] },
+    background_worker_count: { labelKey: 'settings.detection.worker_counts_background', inputId: 'background-worker-count', disclosures: [IDENTIFICATION_MORE, 'detection-memory-advanced'] }
 };
 
 /** Every field with a place of its own, so a test can hold each place to the markup. */

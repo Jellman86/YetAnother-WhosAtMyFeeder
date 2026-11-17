@@ -24,7 +24,8 @@ describe('where a saved setting lives', () => {
         // Garden's alerts are set with the rest of Garden.
         expect(settingsFieldPart('garden_notifications_enabled')).toBe('beta');
         expect(settingsFieldPart('garden_cameras')).toBe('connection');
-        expect(settingsFieldPart('garden_naming_threshold')).toBe('beta');
+        // Garden's naming threshold is set in the naming card, beside the birds' one.
+        expect(settingsFieldPart('garden_naming_threshold')).toBe('detection');
         expect(settingsFieldPart('inaturalist_default_latitude')).toBe('integrations');
         expect(settingsFieldPart('llm_api_key')).toBe('ai');
         expect(settingsFieldPart('media_cache_max_size_mb')).toBe('data');

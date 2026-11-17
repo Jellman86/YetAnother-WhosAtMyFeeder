@@ -1,7 +1,6 @@
 <script lang="ts">
     import { onDestroy } from 'svelte';
     import { _ } from 'svelte-i18n';
-    import { formatDateTime } from '../../utils/datetime';
     import { searchSpecies, type SearchResult } from '../../api';
     import type { BlockedSpeciesEntry } from '../../api/settings';
     import { getManualTagSearchOptions } from '../../search/manual-tag-search';
@@ -13,23 +12,16 @@
     import SettingsCard from './_primitives/SettingsCard.svelte';
     import RangeFilterSettings from './RangeFilterSettings.svelte';
     import SettingsRow from './_primitives/SettingsRow.svelte';
-    import SettingsSlider from './_primitives/SettingsSlider.svelte';
     import SettingsToggle from './_primitives/SettingsToggle.svelte';
     import SettingsInput from './_primitives/SettingsInput.svelte';
 
     let {
-        threshold = $bindable(0.7),
-        minConfidence = $bindable(0.4),
         trustFrigateSublabel = $bindable(true),
         writeFrigateSublabel = $bindable(true),
-        personalizedRerankEnabled = $bindable(false),
         autoVideoClassification = $bindable(false),
         videoClassificationDelay = $bindable(30),
         videoClassificationMaxRetries = $bindable(3),
         videoClassificationFrames = $bindable(15),
-        videoCircuitOpen = false,
-        videoCircuitUntil = null,
-        videoCircuitFailures = 0,
         blockedLabels = $bindable<string[]>([]),
         blockedSpecies = $bindable<BlockedSpeciesEntry[]>([]),
         rangeFilterEnabled = $bindable(false),
@@ -37,21 +29,14 @@
         onopenlocationsettings,
         onopenebirdsettings,
         onopenactivitylog,
-        onopenmanualobservation,
-        onopenmodels
+        onopenmanualobservation
     }: {
-        threshold: number;
-        minConfidence: number;
         trustFrigateSublabel: boolean;
         writeFrigateSublabel: boolean;
-        personalizedRerankEnabled: boolean;
         autoVideoClassification: boolean;
         videoClassificationDelay: number;
         videoClassificationMaxRetries: number;
         videoClassificationFrames: number;
-        videoCircuitOpen: boolean;
-        videoCircuitUntil: string | null;
-        videoCircuitFailures: number;
         blockedLabels: string[];
         blockedSpecies: BlockedSpeciesEntry[];
         rangeFilterEnabled?: boolean;
@@ -60,11 +45,8 @@
         onopenebirdsettings?: () => void;
         onopenactivitylog?: () => void;
         onopenmanualobservation?: () => void;
-        /** Opens Models, where the identification model is chosen. */
-        onopenmodels?: () => void;
     } = $props();
 
-    const circuitUntil = $derived(videoCircuitUntil ? formatDateTime(videoCircuitUntil) : null);
 
     let blockedSpeciesSearchQuery = $state('');
     let blockedSpeciesSearchResults = $state<SearchResult[]>([]);
@@ -184,75 +166,6 @@
 </script>
 
 <div class="space-y-6">
-
-    {#if autoVideoClassification && videoCircuitOpen}
-        <div role="alert" class="text-attention-800 dark:text-attention-200">
-            <p class="mb-2 text-sm font-semibold text-attention-700 dark:text-attention-300">
-                {$_('settings.video_circuit.title')}
-            </p>
-            <p class="text-sm font-bold leading-relaxed">{$_('settings.video_circuit.message', { values: { failures: videoCircuitFailures } })}</p>
-            {#if circuitUntil}
-                <p class="mt-2 text-xs text-slate-600 dark:text-slate-400">{$_('settings.video_circuit.until', { values: { time: circuitUntil } })}</p>
-            {/if}
-        </div>
-    {/if}
-
-    <SettingsCard
-        title={$_('settings.detection.acceptance_title', { default: 'Accepting an identification' })}
-        description={$_('settings.detection.acceptance_desc', { default: 'How sure the identification model must be before a visit is saved under a species name.' })}
-    >
-        <div class="space-y-4">
-            <SettingsSlider
-                id="confidence-threshold-slider"
-                label={$_('settings.detection.confidence_threshold')}
-                description={$_('settings.detection.threshold_help', { default: 'At or above this score, a visit is saved under the species name.' })}
-                bind:value={threshold}
-                min={0}
-                max={1}
-                step={0.05}
-                display={(value) => `${Math.round(value * 100)}%`}
-                lowLabel={$_('settings.detection.threshold_loose')}
-                highLabel={$_('settings.detection.threshold_strict')}
-            />
-
-            <SettingsSlider
-                id="min-confidence-slider"
-                label={$_('settings.detection.min_confidence_floor')}
-                description={$_('settings.detection.floor_help')}
-                bind:value={minConfidence}
-                min={0}
-                max={1}
-                step={0.05}
-                display={(value) => `${Math.round(value * 100)}%`}
-                lowLabel={$_('settings.detection.floor_capture_all')}
-                highLabel={$_('settings.detection.floor_reject_unsure')}
-            />
-        </div>
-        <div class="space-y-4">
-            <SettingsRow
-                labelId="setting-personalized-rerank"
-                label={$_('settings.detection.personalized_rerank', { default: 'Learn from my corrections' })}
-                description={$_('settings.detection.personalized_rerank_desc', { default: "Uses the species you corrected to adjust scores for each camera and model. Off uses the model's own scores." })}
-            >
-                <SettingsToggle
-                    checked={personalizedRerankEnabled}
-                    labelledBy="setting-personalized-rerank"
-                    srLabel={$_('settings.detection.personalized_rerank', { default: 'Learn from my corrections' })}
-                    onchange={(v) => (personalizedRerankEnabled = v)}
-                />
-            </SettingsRow>
-        </div>
-    </SettingsCard>
-
-    {#if onopenmodels}
-        <p class="px-1 text-sm text-slate-600 dark:text-slate-300" data-detection-models-link>
-            {$_('settings.detection.models_elsewhere', { default: 'Which model names the species, and the hardware it runs on, are set in Models.' })}
-            <button type="button" class="focus-ring min-h-11 rounded-sm font-semibold text-brand-700 underline underline-offset-2 hover:text-brand-800 dark:text-brand-300 dark:hover:text-brand-200" onclick={onopenmodels}>
-                {$_('settings.detection.models_open', { default: 'Open Models' })}
-            </button>
-        </p>
-    {/if}
-
     <SettingsCard
         title={$_('settings.detection.blocked_labels')}
         description={$_('settings.detection.blocked_species_picker_desc', { default: 'Search for a species to block it reliably across common-name, scientific-name, and taxonomy-aware matches. Legacy raw labels still apply until you remove them.' })}

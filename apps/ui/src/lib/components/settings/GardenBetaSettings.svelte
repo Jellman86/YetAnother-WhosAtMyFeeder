@@ -14,7 +14,6 @@
     import BetaSection from './BetaSection.svelte';
     import { useDisclosure } from '../../settings/disclosures.svelte';
     import SettingsRow from './_primitives/SettingsRow.svelte';
-    import SettingsToggle from './_primitives/SettingsToggle.svelte';
     import SettingsInput from './_primitives/SettingsInput.svelte';
     import SettingsSlider from './_primitives/SettingsSlider.svelte';
     import GardenModelSetup from './GardenModelSetup.svelte';
@@ -40,14 +39,12 @@
         motionCameras: string[];
         labels: string;
         motionConfidence: number;
-        automaticNaming: boolean;
         notificationsEnabled?: boolean;
         notificationsUseBirdChannels?: boolean;
         notificationChannels?: GardenNotificationChannel[];
         notificationsIncludePhoto?: boolean;
         /** The bird channels as the page holds them, which Garden alerts can follow. */
         birdChannels?: PolicyChannel[];
-        namingThreshold: number;
         /** Domestic birds the owner keeps: Garden animals on every camera, never bird detections. */
         domesticBirds?: DomesticBirdKey[];
         onNavigate?: (path: string) => void;
@@ -65,13 +62,11 @@
         motionCameras,
         labels = $bindable('cat, dog'),
         motionConfidence = $bindable(0.5),
-        automaticNaming = $bindable(true),
         notificationsEnabled = $bindable(false),
         notificationsUseBirdChannels = $bindable(true),
         notificationChannels = $bindable<GardenNotificationChannel[]>([]),
         notificationsIncludePhoto = $bindable(true),
         birdChannels = [],
-        namingThreshold = $bindable(0.8),
         domesticBirds = $bindable([]),
         onNavigate,
         onOpenCameras,
@@ -259,37 +254,9 @@
             </BetaSection>
 
             <BetaSection id="garden-section-checks" title={$_('settings.beta.garden_section_checks', { default: 'Automatic checks and naming' })} openByDefault>
-                <div class="space-y-3" data-garden-naming>
-                    <SettingsRow
-                        labelId="setting-garden-naming"
-                        label={$_('settings.beta.garden_naming', { default: 'Name animals automatically' })}
-                        description={$_('settings.beta.garden_naming_help', { default: 'Animals that reach the naming threshold are confirmed and named. Photos below it go to Dismissed, where you can restore them.' })}
-                    >
-                        <SettingsToggle
-                            checked={automaticNaming}
-                            labelledBy="setting-garden-naming"
-                            srLabel={$_('settings.beta.garden_naming', { default: 'Name animals automatically' })}
-                            onchange={(value) => (automaticNaming = value)}
-                        />
-                    </SettingsRow>
-                    {#if automaticNaming}
-                        <SettingsSlider
-                            id="garden-naming-threshold"
-                            field="garden_naming_threshold"
-                            label={$_('settings.beta.garden_naming_threshold', { default: 'Name an animal when this sure which one it is' })}
-                            description={$_('settings.beta.garden_naming_threshold_help', { default: 'This is a second check, on which animal it is. At or above it, the animal is confirmed and named for you. Below it, its photo goes to Dismissed, where you can restore it.' })}
-                            bind:value={namingThreshold}
-                            min={0.7}
-                            max={0.99}
-                            step={0.01}
-                            display={(value) => `${thresholdPercentText(value)}%`}
-                            lowLabel={$_('garden.naming_low', { default: 'Names more' })}
-                            highLabel={$_('garden.naming_high', { default: 'Names fewer' })}
-                        />
-                    {:else}
-                        <p class="text-sm text-slate-600 dark:text-slate-400">{$_('settings.beta.garden_naming_off', { default: 'Every animal waits in Needs review for you to confirm and name it.' })}</p>
-                    {/if}
-                </div>
+                <p class="text-sm text-muted" data-garden-naming-elsewhere>
+                    {$_('settings.beta.garden_naming_elsewhere', { default: 'Automatic naming is set with the birds\' naming threshold, at the top of Identifying birds.' })}
+                </p>
 
                 <GardenCollectionStatus {service} blockedBy={summary.steps.some((step) => step.kind === 'download_model') ? 'model' : cameras.length === 0 ? 'camera' : null} />
 
