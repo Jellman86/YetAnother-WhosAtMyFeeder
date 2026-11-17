@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { replayFeeder } from '../accessibility-mock';
+import { NOT_RECORDED_HEADER, replayFeeder } from '../accessibility-mock';
 
 /**
  * The production bundle, served from `dist`, on the replayed feeder. The main suite runs on the
@@ -59,36 +59,48 @@ function withAnalysis(json: unknown, url: URL): unknown {
 }
 
 interface Watch {
-    problems: string[];
+    /** Page errors, the app's console errors, failed or erroring scripts, and failed API answers. */
+    failures: string[];
+    /** URLs the browser reported failing to load, judged once the answers behind them are known. */
+    unloaded: string[];
+    /** API reads the replay marked as not recorded: gaps in the fixture, not faults in the bundle. */
+    notRecorded: Set<string>;
     scripts: string[];
 }
 
-/**
- * The browser's own line for an API read the recording does not hold (a record's per-detection
- * reads, for one). That is a gap in the fixture, not in the bundle: the app's own errors, page
- * errors and every script still count.
- */
-function isFixtureGap(text: string, url: string): boolean {
-    return text.startsWith('Failed to load resource:') && new URL(url).pathname.startsWith('/api/');
-}
+const RESOURCE_FAILURE = 'Failed to load resource:';
 
-/** Records every console error, page error and script that did not load, and every script that did. */
+/** Records every error the page shows, and every script that loaded. */
 function watch(page: Page): Watch {
-    const seen: Watch = { problems: [], scripts: [] };
+    const seen: Watch = { failures: [], unloaded: [], notRecorded: new Set(), scripts: [] };
     page.on('console', (message) => {
-        if (message.type() !== 'error' || isFixtureGap(message.text(), message.location().url)) return;
-        seen.problems.push(`console: ${message.text()} (${message.location().url})`);
+        if (message.type() !== 'error') return;
+        // The browser's own line for a failed load is judged by the answer behind it (`problems`).
+        if (message.text().startsWith(RESOURCE_FAILURE)) seen.unloaded.push(message.location().url);
+        else seen.failures.push(`console: ${message.text()} (${message.location().url})`);
     });
-    page.on('pageerror', (error) => seen.problems.push(`page error: ${error.message}`));
+    page.on('pageerror', (error) => seen.failures.push(`page error: ${error.message}`));
     page.on('requestfailed', (request) => {
-        if (request.resourceType() === 'script') seen.problems.push(`script failed: ${request.url()} ${request.failure()?.errorText ?? ''}`);
+        if (request.resourceType() === 'script') seen.failures.push(`script failed: ${request.url()} ${request.failure()?.errorText ?? ''}`);
     });
     page.on('response', (response) => {
-        if (response.request().resourceType() !== 'script') return;
-        if (response.status() >= 400) seen.problems.push(`script ${response.status()}: ${response.url()}`);
-        else seen.scripts.push(new URL(response.url()).pathname);
+        const url = new URL(response.url());
+        if (response.request().resourceType() === 'script') {
+            if (response.status() >= 400) seen.failures.push(`script ${response.status()}: ${response.url()}`);
+            else seen.scripts.push(url.pathname);
+            return;
+        }
+        if (!url.pathname.startsWith('/api/') || response.status() < 400) return;
+        // Only the replay's own "not recorded" 404 is a gap; a recorded read that fails, or any 5xx, is a fault.
+        if (response.status() === 404 && response.headers()[NOT_RECORDED_HEADER] === '1') seen.notRecorded.add(response.url());
+        else seen.failures.push(`api ${response.status()}: ${response.request().method()} ${response.url()}`);
     });
     return seen;
+}
+
+/** Everything wrong so far: each failure, and each failed load that was not a gap in the fixture. */
+function problems(seen: Watch): string[] {
+    return [...seen.failures, ...seen.unloaded.filter((url) => !seen.notRecorded.has(url)).map((url) => `failed to load: ${url}`)];
 }
 
 async function openFeeder(page: Page): Promise<Watch> {
@@ -135,7 +147,7 @@ test('every page draws its own content, with every script loaded and no console 
         await expect(page.locator('[data-settings-navigation] [aria-current="page"]'), tab).toHaveText(name, { timeout: 15_000 });
         await expect(page.locator('main').getByRole('heading', { level: 2 }).first(), tab).toBeVisible();
     }
-    expect(seen.problems).toEqual([]);
+    expect(problems(seen)).toEqual([]);
 });
 
 test('every chunk the build emitted loads and runs', async ({ page }) => {
@@ -158,7 +170,7 @@ test('every chunk the build emitted loads and runs', async ({ page }) => {
         return failed;
     }, chunks);
     expect(failures).toEqual([]);
-    expect(seen.problems).toEqual([]);
+    expect(problems(seen)).toEqual([]);
     for (const library of ['hls', 'leaflet-src', 'chartjs-runtime', 'markdown']) expect(loaded(seen, library), library).toBe(true);
 });
 
@@ -168,7 +180,7 @@ test('the German locale loads and the app speaks it', async ({ page }) => {
     await page.goto('/about');
     await expect(page.getByRole('heading', { level: 1, name: 'Über uns', exact: true })).toBeVisible({ timeout: 15_000 });
     await expect.poll(() => loaded(seen, 'de')).toBe(true);
-    expect(seen.problems).toEqual([]);
+    expect(problems(seen)).toEqual([]);
 });
 
 test('charts, the map and a record with its written analysis draw from their lazily loaded code', async ({ page }) => {
@@ -187,5 +199,14 @@ test('charts, the map and a record with its written analysis draw from their laz
     // Bold text drawn from the analysis's markdown shows the markdown code loaded and ran.
     await expect(page.locator('[data-record-ai-analysis] strong', { hasText: 'Feeding.' })).toBeVisible({ timeout: 15_000 });
     await expect.poll(() => loaded(seen, 'markdown')).toBe(true);
-    expect(seen.problems).toEqual([]);
+    expect(problems(seen)).toEqual([]);
+});
+
+test('a recorded read that fails fails the check, whatever the app does with it', async ({ page }) => {
+    const seen = await openFeeder(page);
+    // A server error on a read the recording holds, as a broken release would give.
+    await page.route((url) => url.pathname === '/api/about/community', (route) => route.fulfill({ status: 500, json: { detail: 'Internal Server Error' } }));
+    await page.goto('/about');
+    await expect(page.getByRole('heading', { level: 1, name: 'About', exact: true })).toBeVisible({ timeout: 15_000 });
+    await expect.poll(() => problems(seen).some((problem) => problem.includes('/api/about/community'))).toBe(true);
 });
