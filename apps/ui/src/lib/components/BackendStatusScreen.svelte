@@ -20,7 +20,8 @@
         detecting_hardware: 'Checking which hardware can run the model',
         loading_model: 'Loading and checking the selected bird model',
         model_ready: 'Selected bird model is ready',
-        model_unavailable: 'The bird model is not available. Setup can continue once YA-WAMF has started.',
+        // Start-up publishes this as a step and carries on (classifier_service), so the line says so.
+        model_unavailable: 'Start-up is carrying on without a bird model. Nothing will be named until you download one in Settings → Identifying birds.',
         database: 'Preparing your visit history',
         starting_services: 'Starting event and media services',
         finalizing: 'Finishing startup checks',

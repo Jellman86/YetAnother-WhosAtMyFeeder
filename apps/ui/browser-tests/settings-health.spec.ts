@@ -53,11 +53,11 @@ test('Health never reads healthy while the broker and Frigate are down, and list
     // One short item per failed connection, each with what to do, in the app's own path style.
     const problems = status.locator('[data-health-problem]');
     await expect(problems).toHaveCount(2);
-    await expect(status.locator('[data-health-problem="mqtt_down"]')).toContainText('The MQTT broker at mqtt.invalid:1883 is not connected, so no new detections can arrive.');
+    await expect(status.locator('[data-health-problem="mqtt_down"]')).toContainText('The MQTT broker at mqtt.invalid:1883 is not connected, so no new visits can be recorded.');
     await expect(status.locator('[data-health-problem="mqtt_down"]')).toContainText('Check its address in Settings → Cameras & connection and that the broker is running.');
     await expect(status.locator('[data-health-problem="frigate_down"]')).toContainText('Frigate at http://frigate.invalid:5000 is not answering');
     await expect(status).not.toContainText('Settings, Connection');
-    await expect(page.getByText('All monitored services look healthy right now.')).toHaveCount(0);
+    await expect(page.getByText('Everything YA-WAMF checks is working.')).toHaveCount(0);
     // Nothing below contradicts the verdict: the panel holds only incidents that have cleared.
     await expect(page.locator('main')).not.toContainText('0 open');
     await expect(page.locator('[data-health-earlier-incidents]')).toContainText('Earlier incidents');
@@ -109,8 +109,10 @@ test('a backend error is said in words; its raw text, paths and addresses stay u
 
     const rows = page.locator('[data-health-diagnostic]');
     await expect(rows).toHaveCount(2);
-    await expect(rows.nth(0).locator('[data-health-diagnostic-title]')).toHaveText('A detection could not be processed because one of its steps failed.');
-    await expect(rows.nth(1).locator('[data-health-diagnostic-title]')).toHaveText('A processing step failed. Technical details have the exact error.');
+    await expect(rows.nth(0).locator('[data-health-diagnostic-title]')).toHaveText('A Frigate event could not be processed because one of its steps failed.');
+    await expect(rows.nth(1).locator('[data-health-diagnostic-title]')).toHaveText('A processing step failed in a way YA-WAMF does not recognise.');
+    // An unknown failure still ends in something to do, without pretending to know the cause.
+    await expect(rows.nth(1)).toContainText('YA-WAMF cannot say what caused it; the exact error is under Technical details. If it happens again, capture a diagnostics bundle below and report it.');
     // Nothing raw is on screen until Technical details is opened; the whole page is checked, verdict included.
     const visible = await page.locator('main').innerText();
     for (const raw of ['/data/models', 'http://frigate:5000/api', '/config/secret-path', 'Errno']) expect(visible).not.toContain(raw);

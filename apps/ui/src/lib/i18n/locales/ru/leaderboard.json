@@ -13,8 +13,6 @@
   "featured": "Избранное",
   "view_details": "Посмотреть детали",
   "total_sightings": "Всего наблюдений",
-  "last_30_days": "Последние 30 дней",
-  "last_7_days": "Последние 7 дней",
   "last_n_days": "Последние {days} дней",
   "detections_over_time": "Обнаружения по времени",
   "last_seen": "Последний раз замечен",

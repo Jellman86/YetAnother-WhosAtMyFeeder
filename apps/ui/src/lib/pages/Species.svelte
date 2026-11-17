@@ -924,11 +924,13 @@
         });
     }
 
+    /**
+     * The one window the page states, worded as the rankings word it: the span and its dates. The wall,
+     * the rankings and the composition all count over it, so none of them names it differently.
+     */
     function selectedCountLabel(): string {
-        if (span === 'week') return $_('leaderboard.last_7_days');
-        if (span === 'month') return $_('leaderboard.last_30_days');
-        if (span === 'day') return $_('leaderboard.sort_by_day');
-        return $_('leaderboard.total_sightings');
+        if (span === 'all') return $_('leaderboard.total_sightings');
+        return `${spanLabel()} · ${formatRangeCompact(leaderboardWindow?.start, leaderboardWindow?.end)}`;
     }
 
     function bucketLabel(bucket?: DetectionsTimelineSpanResponse['bucket'] | null): string {
@@ -1907,7 +1909,7 @@
                 <div class="flex items-center gap-3">
                     <div>
                         <h2 class="text-xl font-bold text-strong">{$_('leaderboard.full_rankings', { default: 'Full rankings' })}</h2>
-                        <p class="text-sm text-muted">{spanLabel()} · {span === 'all' ? $_('leaderboard.all_species') : formatRangeCompact(leaderboardWindow?.start, leaderboardWindow?.end)}</p>
+                        <p class="text-sm text-muted" data-leaderboard-rankings-window>{spanLabel()} · {span === 'all' ? $_('leaderboard.all_species') : formatRangeCompact(leaderboardWindow?.start, leaderboardWindow?.end)}</p>
                     </div>
                 </div>
             </div>
@@ -2247,7 +2249,7 @@
                 </ChartFigure>
                 <ChartFigure
                     title={$_('leaderboard.detection_breakdown_subtitle', { default: 'Species composition' })}
-                    description={`${selectedCountLabel()} · ${totalCount.toLocaleString()} ${countsAreVisits ? $_('leaderboard.showcase_visits', { default: 'visits' }) : $_('leaderboard.showcase_detections', { default: 'captures' })}`}
+                    description={`${totalCount.toLocaleString()} ${countsAreVisits ? $_('leaderboard.showcase_visits', { default: 'visits' }) : $_('leaderboard.showcase_detections', { default: 'captures' })}`}
                     table={compositionTable}
                     class="xl:col-span-2"
                 >

@@ -131,7 +131,7 @@ function resolveSummarySubline(
 ): string {
     const label = kindLabel(job.kind);
     if (supportsReclassifyQueueStatus(job.kind) && analysisStatus?.circuit_open) {
-        return t('jobs.global_summary_circuit_open', { kind: label }, '{kind} paused by circuit breaker');
+        return t('jobs.global_summary_circuit_open', { kind: label }, '{kind} paused after repeated failures');
     }
     if (job.kind === 'model_download' && job.title.trim().length > 0) {
         return job.title;
@@ -163,19 +163,19 @@ function resolveActivityLabel(
         return t('jobs.activity_fetching_media', undefined, 'Fetching retained media');
     }
     if (job.phase === 'analyzing') {
-        return t('jobs.activity_reclassify_running', undefined, 'Analyzing clips');
+        return t('jobs.activity_reclassify_running', undefined, 'Analysing clips');
     }
     if (job.kind === 'reclassify') {
         if (analysisStatus?.circuit_open) {
-            return t('jobs.activity_circuit_open', undefined, 'Paused by circuit breaker');
+            return t('jobs.activity_circuit_open', undefined, 'Paused after repeated failures');
         }
         if (row?.throttledForLivePressure && job.current <= 0) {
-            return t('jobs.activity_waiting_live_priority', undefined, 'Waiting for live detections');
+            return t('jobs.activity_waiting_live_priority', undefined, 'Waiting while new visits are named');
         }
         if (row?.throttledForMqttPressure && job.current <= 0) {
-            return t('jobs.activity_waiting_slots', undefined, 'Waiting for classifier slots');
+            return t('jobs.activity_waiting_slots', undefined, 'Waiting for the model to be free');
         }
-        return t('jobs.activity_reclassify_running', undefined, 'Analyzing clips');
+        return t('jobs.activity_reclassify_running', undefined, 'Analysing clips');
     }
     if (typeof job.message === 'string' && job.message.trim().length > 0) {
         return job.message.trim();
@@ -219,7 +219,7 @@ function resolveLaneTitle(row: JobPipelineKindRow, t: JobsTranslateFn, kindLabel
     // Both reclassify kinds read the same queue telemetry, but they are not the same work:
     // titling both "Analyze Unknowns" showed one job twice under one name.
     if (row.kind === 'reclassify') {
-        return t('jobs.work_lane_analyze_unknowns', undefined, 'Analyze Unknowns');
+        return t('jobs.work_lane_analyze_unknowns', undefined, 'Naming Unknown bird visits');
     }
     return kindLabel(row.kind);
 }
@@ -230,7 +230,7 @@ function resolveBatchLabel(analysisStatus: AnalysisStatus | null | undefined, t:
     return t('jobs.analyze_unknowns_batch_label', {
         queueLimit: queueLimit.toLocaleString(),
         scanLimit: scanLimit.toLocaleString()
-    }, 'Batching up to {queueLimit} at a time; newest {scanLimit} scanned');
+    }, 'Up to {queueLimit} at a time, from the newest {scanLimit}');
 }
 
 function resolveCandidateLabel(analysisStatus: AnalysisStatus | null | undefined, t: JobsTranslateFn): string | null {
@@ -238,10 +238,10 @@ function resolveCandidateLabel(analysisStatus: AnalysisStatus | null | undefined
     if (remaining > 0) {
         return t('jobs.analyze_unknowns_candidates_remain', {
             count: remaining.toLocaleString()
-        }, '{count} more candidates may remain');
+        }, '{count} more may remain');
     }
     if (analysisStatus?.scan_truncated) {
-        return t('jobs.analyze_unknowns_scan_truncated', undefined, 'More candidates may remain');
+        return t('jobs.analyze_unknowns_scan_truncated', undefined, 'More may remain');
     }
     return null;
 }
@@ -285,13 +285,13 @@ function resolveBlockerLabel(
     t: JobsTranslateFn
 ): string | null {
     if (row && supportsReclassifyQueueStatus(row.kind) && analysisStatus?.circuit_open) {
-        return t('jobs.blocker_circuit_open', undefined, 'Recent failures paused reclassification work');
+        return t('jobs.blocker_circuit_open', undefined, 'Repeated failures paused the analysis');
     }
     if (row && supportsReclassifyQueueStatus(row.kind) && row.throttledForLivePressure) {
-        return t('jobs.blocker_live_priority', undefined, 'Live detections have priority');
+        return t('jobs.blocker_live_priority', undefined, 'New visits are named first');
     }
     if (row && supportsReclassifyQueueStatus(row.kind) && row.throttledForMqttPressure) {
-        return t('jobs.blocker_mqtt_pressure', undefined, 'MQTT pressure reduced background capacity');
+        return t('jobs.blocker_mqtt_pressure', undefined, 'Background work is slowed while camera events are busy');
     }
     return null;
 }
@@ -303,7 +303,7 @@ export function presentPipelineKindRow(
 ): PresentedPipelineKindRow {
     const queueStatusApplies = supportsReclassifyQueueStatus(row.kind);
     const activityLabel = queueStatusApplies && analysisStatus?.circuit_open
-        ? t('jobs.activity_circuit_open', undefined, 'Paused by circuit breaker')
+        ? t('jobs.activity_circuit_open', undefined, 'Paused after repeated failures')
         : row.running > 0
             ? t('jobs.activity_processing', undefined, 'Processing work')
             : t('jobs.activity_queued', undefined, 'Waiting in queue');
@@ -346,7 +346,7 @@ export function presentWorkLane(
         blockerLabel: resolveBlockerLabel(row, analysisStatus, t),
         batchLabel: queueStatusApplies ? resolveBatchLabel(analysisStatus, t) : null,
         candidateLabel: queueStatusApplies ? resolveCandidateLabel(analysisStatus, t) : null,
-        freshnessLabel: age ? t('jobs.queue_updated_age', { age }, 'Queue updated {age} ago') : null
+        freshnessLabel: age ? t('jobs.queue_updated_age', { age }, 'Queue read {age} ago') : null
     };
 }
 
@@ -384,7 +384,7 @@ export function buildGlobalProgressSummary(
                 headline: t('jobs.global_queue_only_headline', {
                     title: lane.title,
                     state: lowercaseLeadingChar(lane.stateLabel)
-                }, '{title} {state}'),
+                }, '{title}: {state}'),
                 subline: formatLaneSummarySubline(dominantRow, t),
                 progressLabel: lane.blockerLabel ?? lane.batchLabel ?? lane.freshnessLabel,
                 determinate: false,

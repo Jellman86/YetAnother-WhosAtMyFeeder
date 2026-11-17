@@ -7,7 +7,7 @@ attach to a bug report.
 
 ![The Health page showing System Status and a What happened timeline with recorded, filtered and fault legend entries and two recorded visits](../images/settings-health.png)
 
-The **MQTT** and **Frigate** cards under **Subsystem detail** report the connections every detection
+The **MQTT** and **Frigate** cards under **Detail by part** report the connections every detection
 depends on, as measured: whether the broker session is up (and, when it is not, the address, the last
 attempt and the broker client's own error), and whether Frigate answered the latest request. The page
 never reads healthy while either is down.

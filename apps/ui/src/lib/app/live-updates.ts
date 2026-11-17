@@ -2,7 +2,7 @@ import type { Detection } from '../api';
 import type { AnalysisStatus } from '../api/maintenance';
 import type { SystemStatus } from '../api/status';
 import type { NotificationItem } from '../stores/notification_center.svelte';
-import { formatBackfillProgressSummary, resolveRunningBackfillMessage } from '../backfill/progress';
+import { describeBackfillProgress, withOutcomeNote, resolveRunningBackfillMessage } from '../backfill/progress';
 import { formatTerminalBackfillMessage } from '../backfill/terminal-message';
 import { notificationPolicy } from '../notifications/policy';
 import { statusNotificationCause, verdictFor } from '../stores/system_status.svelte';
@@ -1240,6 +1240,7 @@ export class LiveUpdateCoordinator {
             title = isWeather ? this.deps.t('notifications.event_weather_backfill_failed') : this.deps.t('notifications.event_backfill_failed');
         }
 
+        const countedText = (key: string, values: Record<string, number>): string => this.deps.t(key, values);
         let message = '';
         if (payload.type === 'backfill_progress' || payload.type === 'backfill_started') {
             message = resolveRunningBackfillMessage(
@@ -1247,13 +1248,15 @@ export class LiveUpdateCoordinator {
                     status: 'running',
                     message: typeof data.message === 'string' ? data.message : ''
                 },
-                formatBackfillProgressSummary(processed, normalizedTotal, updated, skipped, errors, newDetections)
+                describeBackfillProgress(countedText, processed, normalizedTotal, updated, skipped, errors, newDetections)
             );
         } else if (payload.type === 'backfill_complete') {
-            message = formatTerminalBackfillMessage(
-                isWeather ? 'weather' : 'detections',
-                data.message,
-                formatBackfillProgressSummary(processed, normalizedTotal, updated, skipped, errors, newDetections)
+            // A finished job is summed up from its counts, in the reader's language. The server's
+            // own sentence is English and is not the copy; a reason it gives beyond the counts follows.
+            message = withOutcomeNote(
+                describeBackfillProgress(countedText, processed, normalizedTotal, updated, skipped, errors, newDetections, true),
+                typeof data.message === 'string' ? data.message : null,
+                (key, values) => this.deps.t(key, values)
             );
         } else if (payload.type === 'backfill_failed') {
             message = formatTerminalBackfillMessage(
@@ -1279,7 +1282,7 @@ export class LiveUpdateCoordinator {
                 status: 'running',
                 message: typeof data.message === 'string' ? data.message : ''
             },
-            formatBackfillProgressSummary(processed, normalizedTotal, updated, skipped, errors, newDetections)
+            describeBackfillProgress(countedText, processed, normalizedTotal, updated, skipped, errors, newDetections)
         );
         if (payload.type === 'backfill_failed') {
             this.deps.jobProgress.markFailed({

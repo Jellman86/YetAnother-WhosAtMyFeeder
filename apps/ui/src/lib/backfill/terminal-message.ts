@@ -1,11 +1,23 @@
+import { get } from 'svelte/store';
+import { _ } from 'svelte-i18n';
 import type { BackfillJobStatus } from '../api/backfill';
 
 export type BackfillTerminalKind = 'detections' | 'weather';
 
-const KIND_LABELS: Record<BackfillTerminalKind, string> = {
-    detections: 'Detection backfill',
-    weather: 'Weather backfill',
+const KIND_LABELS: Record<BackfillTerminalKind, { key: string; fallback: string }> = {
+    detections: { key: 'jobs.kind_backfill', fallback: 'Import of missed visits' },
+    weather: { key: 'jobs.kind_weather_backfill', fallback: 'Filling in missing weather' },
 };
+
+/** The job's name in the reader's language, as the jobs list names it. */
+function kindLabel(kind: BackfillTerminalKind): string {
+    const { key, fallback } = KIND_LABELS[kind];
+    try {
+        return get(_)(key, { default: fallback });
+    } catch {
+        return fallback;
+    }
+}
 
 export function formatTerminalBackfillMessage(
     kind: BackfillTerminalKind,
@@ -14,7 +26,7 @@ export function formatTerminalBackfillMessage(
 ): string {
     const normalized = typeof message === 'string' ? message.trim() : '';
     if (!normalized) return fallbackText;
-    return `${KIND_LABELS[kind]}: ${normalized}`;
+    return `${kindLabel(kind)}: ${normalized}`;
 }
 
 export function isBackfillTerminalTransition(
