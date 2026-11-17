@@ -132,6 +132,8 @@ describe('the copy lint', () => {
         expect(rules('en', 'setup.cameras.hint', 'Motion detection starts a clip; each detection is then named.')).toEqual(['glossary']);
         expect(rules('en', 'settings.debug.field', 'The <code>id</code> of this detection')).toEqual(['glossary']);
         expect(rules('en', 'detection.detector_unavailable', 'Install a crop detector to find additional birds.')).toEqual(['glossary']);
+        // A catalogue name is exempt only as the registry capitalises it.
+        expect(rules('en', 'settings.detection.crop_tier_title', 'Bird crop detector')).toEqual(['glossary']);
         expect(rules('en', 'audio.hidden', 'Audio detection hidden.')).toEqual(['glossary']);
     });
 

@@ -118,9 +118,9 @@
                 invalid_entity_id: (values) => $_('settings.integrations.ha_weather.illuminance_invalid_entity_id', { values, default: '{entity} is not a Home Assistant entity id. Use one such as sensor.feeder_illuminance.' }),
                 unreachable: (values) => $_('settings.integrations.ha_weather.illuminance_unreachable', { values, default: 'Home Assistant did not return {entity}. Check the entity id, the URL and the token.' }),
                 not_illuminance: (values) => $_('settings.integrations.ha_weather.illuminance_not_illuminance', { values, default: '{entity} is not an illuminance sensor. Choose a sensor with the illuminance device class or the unit lx.' }),
-                unavailable: (values) => $_('settings.integrations.ha_weather.illuminance_unavailable', { values, default: '{entity} is unknown or unavailable in Home Assistant right now. Detections record no light level until it answers.' }),
+                unavailable: (values) => $_('settings.integrations.ha_weather.illuminance_unavailable', { values, default: '{entity} is unknown or unavailable in Home Assistant right now. Visits record no light level until it answers.' }),
                 not_numeric: (values) => $_('settings.integrations.ha_weather.illuminance_not_numeric', { values, default: '{entity} did not report a number, so no light level is recorded.' }),
-                out_of_range: (values) => $_('settings.integrations.ha_weather.illuminance_out_of_range', { values, default: '{entity} reported a value outside 0 to 200,000 lx, so it is not recorded.' })
+                out_of_range: (values) => $_('settings.integrations.ha_weather.illuminance_out_of_range', { values, default: '{entity} reported a value outside 0 to 200,000 lx, so it is not recorded.' })
             },
             noAnswer: $_('settings.integrations.ha_weather.illuminance_no_answer', { default: 'The test returned no light reading.' })
         };
@@ -188,7 +188,7 @@
         <SettingsRow
             labelId="setting-ha-weather-illuminance"
             label={$_('settings.integrations.ha_weather.illuminance', { default: 'Illuminance entity' })}
-            description={$_('settings.integrations.ha_weather.illuminance_desc', { default: 'Optional. A light sensor that reports lx, e.g. sensor.feeder_illuminance. Its reading is stored with each new detection. When it cannot answer, no light level is stored.' })}
+            description={$_('settings.integrations.ha_weather.illuminance_desc', { default: 'Optional. A light sensor that reports lx, e.g. sensor.feeder_illuminance. Its reading is stored with each new visit. When it cannot answer, no light level is stored.' })}
             descriptionId="setting-ha-weather-illuminance-desc"
             layout="stacked"
         >
@@ -251,7 +251,7 @@
 {#if hawTestOpen}
     <DiagnosticDialog
         title={$_('settings.integrations.ha_weather.test_title', { default: 'Home Assistant weather test' })}
-        subtitle={$_('settings.integrations.ha_weather.test_subtitle', { default: 'Fetches the current readings your detections would record.' })}
+        subtitle={$_('settings.integrations.ha_weather.test_subtitle', { default: 'Fetches the current readings that would be stored with a visit.' })}
         stages={hawStages}
         busy={hawRunning}
         result={hawResult}

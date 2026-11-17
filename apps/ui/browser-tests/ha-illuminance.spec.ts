@@ -99,9 +99,9 @@ test('the live test shows the measured light level in its own stage', async ({ p
 });
 
 for (const [reason, sentence] of [
-    ['unavailable', 'sensor.feeder_illuminance is unknown or unavailable in Home Assistant right now. Detections record no light level until it answers.'],
+    ['unavailable', 'sensor.feeder_illuminance is unknown or unavailable in Home Assistant right now. Visits record no light level until it answers.'],
     ['not_illuminance', 'sensor.feeder_illuminance is not an illuminance sensor. Choose a sensor with the illuminance device class or the unit lx.'],
-    ['out_of_range', 'sensor.feeder_illuminance reported a value outside 0 to 200,000 lx, so it is not recorded.']
+    ['out_of_range', 'sensor.feeder_illuminance reported a value outside 0 to 200,000 lx, so it is not recorded.']
 ] as const) {
     test(`the live test says why the light level is missing (${reason})`, async ({ page }) => {
         await openHomeAssistantCard(page);

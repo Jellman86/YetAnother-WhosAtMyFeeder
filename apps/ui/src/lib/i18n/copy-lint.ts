@@ -142,11 +142,14 @@ export const THIRD_PARTY_TERMS: readonly { term: string; owner: string }[] = [
     { term: 'object detection', owner: 'Frigate: the detector that finds a bird in the frame' }
 ];
 export const PROPER_NAMES: readonly string[] = ['Bird Crop Detector Accurate', 'Bird Crop Detector'];
-const NOT_OUR_NOUNS = wholeWords([...THIRD_PARTY_TERMS.map((entry) => entry.term), ...PROPER_NAMES]);
+const OTHER_PRODUCTS_TERMS = new RegExp(wholeWords(THIRD_PARTY_TERMS.map((entry) => entry.term)).source, 'giu');
+// A proper name is a name only as the registry capitalises it: "Bird Crop Detector" is the catalogue
+// entry, "bird crop detector" is the app describing its own bird finder.
+const CATALOGUE_NAMES = new RegExp(wholeWords(PROPER_NAMES, true).source, 'gu');
 
 /** The string as the glossary rule reads it: without code spans, third-party terms and proper names. */
 function ownWords(value: string): string {
-    return value.replace(CODE_SPAN, ' ').replace(new RegExp(NOT_OUR_NOUNS.source, 'giu'), ' ');
+    return value.replace(CODE_SPAN, ' ').replace(OTHER_PRODUCTS_TERMS, ' ').replace(CATALOGUE_NAMES, ' ');
 }
 
 /** Errors that name no cause and no next step, in each language's usual wording. */

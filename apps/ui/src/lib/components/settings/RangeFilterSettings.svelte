@@ -332,15 +332,15 @@
         <SettingsRow
             labelId="setting-range-filter"
             descriptionId="setting-range-filter-desc"
-            label={$_('settings.range_filter.toggle', { default: 'Check new detections against your region' })}
+            label={$_('settings.range_filter.toggle', { default: 'Check new visits against your region' })}
             description={noLocation
                 ? $_('settings.range_filter.toggle_disabled_location', { default: "Set a location first. The filter needs it to know which region's birds to expect." })
-                : $_('settings.range_filter.toggle_desc', { default: 'Off by default. Applies to new detections only; nothing already recorded is changed.' })}
+                : $_('settings.range_filter.toggle_desc', { default: 'Off by default. Applies to new visits only; nothing already recorded is changed.' })}
         >
             <SettingsToggle
                 checked={enabled}
                 labelledBy="setting-range-filter"
-                srLabel={$_('settings.range_filter.toggle', { default: 'Check new detections against your region' })}
+                srLabel={$_('settings.range_filter.toggle', { default: 'Check new visits against your region' })}
                 disabled={noLocation && !enabled}
                 onchange={(next) => (enabled = next)}
             />
@@ -460,7 +460,7 @@
                     aria-label={$_('settings.range_filter.how_title', { default: 'What happens to a bird outside the range' })}
                 >
                     <li>{$_('settings.range_filter.how_fallback', { default: "If the model's top answer has never been recorded in your region, its next answer that has been recorded, and still clears your naming threshold, is used instead. The record keeps a note of what the model said first." })}</li>
-                    <li>{$_('settings.range_filter.how_skip', { default: 'If no answer qualifies, the detection is not recorded. It is listed below and in the activity log, so a genuine rarity can still be recorded by hand.' })}</li>
+                    <li>{$_('settings.range_filter.how_skip', { default: 'If no answer qualifies, the visit is not recorded. It is listed below and on Health, so a genuine rarity can still be added by hand.' })}</li>
                     <li>{$_('settings.range_filter.how_open', { default: 'Whenever the list is missing, out of date or unreachable, nothing is filtered.' })}</li>
                     <li>{$_('settings.range_filter.how_owner', { default: 'Species you choose yourself are never filtered.' })}</li>
                 </ul>
@@ -471,7 +471,7 @@
             <section class="space-y-3" aria-labelledby="range-filter-preview" data-range-filter-preview>
                 <div>
                     <h3 id="range-filter-preview" class="text-sm font-bold text-slate-900 dark:text-white">{$_('settings.range_filter.preview_title', { default: 'Preview' })}</h3>
-                    <p class="mt-0.5 text-xs leading-relaxed text-slate-600 dark:text-slate-300">{$_('settings.range_filter.preview_desc', { default: 'What the filter would set aside with this list and the current model. Detections already recorded stay in your history.' })}</p>
+                    <p class="mt-0.5 text-xs leading-relaxed text-slate-600 dark:text-slate-300">{$_('settings.range_filter.preview_desc', { default: 'What the filter would set aside with this list and the current model. Visits already recorded stay in your history.' })}</p>
                 </div>
                 {#if previewLoading && !preview}
                     <p class="text-xs text-slate-600 dark:text-slate-300" role="status">{$_('settings.range_filter.preview_loading', { default: 'Loading the preview…' })}</p>
@@ -490,7 +490,7 @@
                                             <span class="font-semibold text-slate-900 dark:text-white">{speciesName(species)}</span>
                                             {#if species.common_name}<span class="ml-1 text-xs italic text-slate-600 dark:text-slate-400">{species.scientific_name}</span>{/if}
                                         </span>
-                                        <span class="shrink-0 text-xs tabular-nums text-slate-600 dark:text-slate-300">{$_('settings.range_filter.preview_seen_detections', { values: { count: species.detections ?? 0 }, default: '{count, plural, one {# detection} other {# detections}}' })}</span>
+                                        <span class="shrink-0 text-xs tabular-nums text-slate-600 dark:text-slate-300">{$_('settings.range_filter.preview_seen_detections', { values: { count: species.detections ?? 0 }, default: '{count, plural, one {# visit} other {# visits}}' })}</span>
                                     </li>
                                 {/each}
                             </ul>
@@ -535,13 +535,13 @@
             <div class="flex flex-wrap gap-3">
                 {#if onopenactivitylog}
                     <button type="button" class="btn btn-ghost min-h-11 px-3 text-sm" onclick={onopenactivitylog} data-range-filter-open-log>
-                        {$_('settings.range_filter.skips_open_log', { default: 'Open the activity log' })}
+                        {$_('settings.range_filter.skips_open_log', { default: 'Open Health' })}
                         <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m8 5 5 5-5 5" /></svg>
                     </button>
                 {/if}
                 {#if onopenmanualobservation}
                     <button type="button" class="btn btn-ghost min-h-11 px-3 text-sm" onclick={onopenmanualobservation} data-range-filter-record>
-                        {$_('settings.range_filter.skips_add_manually', { default: 'Record a sighting by hand' })}
+                        {$_('settings.range_filter.skips_add_manually', { default: 'Add an observation' })}
                         <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m8 5 5 5-5 5" /></svg>
                     </button>
                 {/if}

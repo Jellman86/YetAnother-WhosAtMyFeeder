@@ -146,8 +146,8 @@
             />
         </SettingsRow>
 
-        <p class="text-xs text-slate-600 dark:text-slate-400">{$_('settings.notifications.garden.privacy', { default: 'Sends the animal name, camera, sighting time and, if chosen, the photo to these services. The link opens this capture here; a visitor can open it only while public access shares it.' })}</p>
-        <p class="text-xs text-slate-600 dark:text-slate-400">{$_('settings.notifications.garden.rules', { default: 'Sent within five minutes of the name being decided, for sightings up to two hours old, so turning alerts on never replays history. One attempt per channel per visit; failed or uncertain sends are not retried.' })}</p>
+        <p class="text-xs text-slate-600 dark:text-slate-400">{$_('settings.notifications.garden.privacy', { default: 'Sends the animal name, the camera, the time it was seen and, if chosen, the photo to these services. The link opens this capture here; a guest can open it only while public access shares it.' })}</p>
+        <p class="text-xs text-slate-600 dark:text-slate-400">{$_('settings.notifications.garden.rules', { default: 'Sent within five minutes of the name being decided, for visits up to two hours old, so turning alerts on never replays history. One attempt per channel per visit; failed or uncertain sends are not retried.' })}</p>
 
         <div class="space-y-2 text-xs" aria-busy={loading} data-garden-notification-status>
             {#if !statusAvailable}
