@@ -7,7 +7,7 @@ describe('formatTerminalBackfillMessage', () => {
             'Import of missed visits: Backfill complete'
         );
         expect(formatTerminalBackfillMessage('weather', 'Backfill complete', 'Weather backfill complete')).toBe(
-            'Missing weather: Backfill complete'
+            'Filling in missing weather: Backfill complete'
         );
     });
 

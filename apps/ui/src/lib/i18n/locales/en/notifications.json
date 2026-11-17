@@ -1,7 +1,7 @@
 {
   "reclassify_fallback": "No video was available, so the snapshot was used instead.",
   "reclassify_no_result": "No confident result was found. The existing identification was kept.",
-  "reclassify_failed": "Reclassification did not run: {message}. Try again from the record.",
+  "reclassify_failed": "Reclassification did not run. Try again from the record.",
   "hide_failed": "This visit could not be hidden. Try again; if it keeps failing, open Health.",
   "delete_failed": "This visit could not be deleted. Try again; if it keeps failing, open Health.",
   "settings_saved": "Settings saved.",

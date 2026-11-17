@@ -119,7 +119,6 @@
   "errors_activity_filtered": "Écarté par le filtre",
   "errors_activity_fault": "Défaillance du pipeline",
   "errors_activity_view_record": "Voir la fiche",
-  "errors_activity_unidentified": "Détection non identifiée",
   "errors_fault_preview": "Aperçu de l’image de détection échouée pour {species}",
   "errors_subsystems_title": "Détail des sous-systèmes",
   "errors_filtered_preview": "Aperçu de l’image filtrée comme {species}",
@@ -294,5 +293,21 @@
       "title": "Une étape d’une détection a pris trop de temps et a été arrêtée.",
       "next": "Le classificateur ou Frigate est peut-être surchargé. Consultez l’utilisation des ressources ci-dessus."
     }
-  }
+  },
+  "activity_waiting_live_priority": "En attente pendant que les nouvelles visites sont nommées",
+  "blocker_live_priority": "Les nouvelles visites sont nommées en premier",
+  "analyze_unknowns_batch_label": "Jusqu’à {queueLimit} à la fois, parmi les {scanLimit} plus récentes",
+  "analyze_unknowns_candidates_remain": "Il peut en rester {count} de plus",
+  "analyze_unknowns_scan_truncated": "Il peut en rester d’autres",
+  "global_queue_only_headline": "{title} : {state}",
+  "queue_updated_age": "File lue il y a {age}",
+  "state_paused": "En pause",
+  "backfill_nothing_to_check": "Rien à vérifier sur cette période",
+  "backfill_reason_nothing_in_range": "Frigate n’a rien sur cette période.",
+  "backfill_reason_weather_unavailable": "L’archive météo n’a pas de données pour cette période.",
+  "backfill_server_note": "Le serveur a ajouté : « {message} »",
+  "state_idle": "Inactif",
+  "state_queued": "En file d’attente",
+  "state_running": "En cours",
+  "work_lane_analyze_unknowns": "Nommer les visites « oiseau inconnu »"
 }

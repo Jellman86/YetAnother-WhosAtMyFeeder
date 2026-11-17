@@ -1,7 +1,7 @@
 {
   "reclassify_fallback": "⚠️ 视频不可用 - 改用快照",
   "reclassify_no_result": "未找到可信结果，已保留现有识别结果。",
-  "reclassify_failed": "重新分类未运行：{message}。请在记录中重试。",
+  "reclassify_failed": "重新分类未运行。请在记录中重试。",
   "hide_failed": "无法隐藏此访问。请重试；如果仍然失败，请打开“运行状况”。",
   "delete_failed": "无法删除此访问。请重试；如果仍然失败，请打开“运行状况”。",
   "settings_saved": "设置保存成功！",

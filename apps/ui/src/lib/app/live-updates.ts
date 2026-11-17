@@ -2,7 +2,7 @@ import type { Detection } from '../api';
 import type { AnalysisStatus } from '../api/maintenance';
 import type { SystemStatus } from '../api/status';
 import type { NotificationItem } from '../stores/notification_center.svelte';
-import { describeBackfillProgress, resolveRunningBackfillMessage } from '../backfill/progress';
+import { describeBackfillProgress, withOutcomeNote, resolveRunningBackfillMessage } from '../backfill/progress';
 import { formatTerminalBackfillMessage } from '../backfill/terminal-message';
 import { notificationPolicy } from '../notifications/policy';
 import { statusNotificationCause, verdictFor } from '../stores/system_status.svelte';
@@ -1251,9 +1251,13 @@ export class LiveUpdateCoordinator {
                 describeBackfillProgress(countedText, processed, normalizedTotal, updated, skipped, errors, newDetections)
             );
         } else if (payload.type === 'backfill_complete') {
-            // A finished job is summed up from its counts, in the reader's language: the server's
-            // own sentence is English and is not the copy.
-            message = describeBackfillProgress(countedText, processed, normalizedTotal, updated, skipped, errors, newDetections);
+            // A finished job is summed up from its counts, in the reader's language. The server's
+            // own sentence is English and is not the copy; a reason it gives beyond the counts follows.
+            message = withOutcomeNote(
+                describeBackfillProgress(countedText, processed, normalizedTotal, updated, skipped, errors, newDetections, true),
+                typeof data.message === 'string' ? data.message : null,
+                (key, values) => this.deps.t(key, values)
+            );
         } else if (payload.type === 'backfill_failed') {
             message = formatTerminalBackfillMessage(
                 isWeather ? 'weather' : 'detections',

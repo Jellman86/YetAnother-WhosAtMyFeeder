@@ -6,7 +6,7 @@ export type BackfillTerminalKind = 'detections' | 'weather';
 
 const KIND_LABELS: Record<BackfillTerminalKind, { key: string; fallback: string }> = {
     detections: { key: 'jobs.kind_backfill', fallback: 'Import of missed visits' },
-    weather: { key: 'jobs.kind_weather_backfill', fallback: 'Missing weather' },
+    weather: { key: 'jobs.kind_weather_backfill', fallback: 'Filling in missing weather' },
 };
 
 /** The job's name in the reader's language, as the jobs list names it. */

@@ -60,6 +60,7 @@ const COUNT_BEFORE_INVARIANT_WORD = new Set([
     'events.filters.only_active',
     'events.heard.more_species',
     'events.total_count',
+    'jobs.analyze_unknowns_candidates_remain',
     'jobs.errors_export_count',
     'jobs.errors_metric_of',
     'jobs.global_not_responding',

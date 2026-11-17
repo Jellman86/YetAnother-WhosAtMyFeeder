@@ -1,7 +1,7 @@
 {
   "reclassify_fallback": "⚠️ Vídeo não disponível - usando snapshot",
   "reclassify_no_result": "Nenhum resultado confiável foi encontrado. A identificação existente foi mantida.",
-  "reclassify_failed": "A reclassificação não foi executada: {message}. Tente novamente a partir do registo.",
+  "reclassify_failed": "A reclassificação não foi executada. Tente novamente a partir do registo.",
   "hide_failed": "Não foi possível ocultar esta visita. Tente novamente; se continuar falhando, abra Saúde.",
   "delete_failed": "Não foi possível eliminar esta visita. Tente novamente; se continuar falhando, abra Saúde.",
   "settings_saved": "Configurações salvas com sucesso!",

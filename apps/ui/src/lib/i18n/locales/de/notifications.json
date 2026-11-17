@@ -1,7 +1,7 @@
 {
   "reclassify_fallback": "Es war kein Video verfügbar, daher wurde stattdessen der Snapshot verwendet.",
   "reclassify_no_result": "Es wurde kein ausreichend zuverlässiges Ergebnis gefunden. Die bestehende Bestimmung wurde beibehalten.",
-  "reclassify_failed": "Die Neuklassifizierung lief nicht: {message}. Versuchen Sie es im Eintrag erneut.",
+  "reclassify_failed": "Die Neuklassifizierung lief nicht. Versuchen Sie es im Eintrag erneut.",
   "hide_failed": "Dieser Besuch konnte nicht ausgeblendet werden. Versuchen Sie es erneut; schlägt es weiter fehl, öffnen Sie „Zustand“.",
   "delete_failed": "Dieser Besuch konnte nicht gelöscht werden. Versuchen Sie es erneut; schlägt es weiter fehl, öffnen Sie „Zustand“.",
   "settings_saved": "Einstellungen gespeichert.",

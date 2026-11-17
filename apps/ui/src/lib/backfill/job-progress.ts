@@ -3,11 +3,13 @@ import { _ } from 'svelte-i18n';
 import type { BackfillJobStatus } from '../api/backfill';
 import { jobProgressStore } from '../stores/job_progress.svelte';
 
+import { formatTerminalBackfillMessage } from './terminal-message';
 import {
     describeBackfillProgress,
     formatBackfillProgressSummary,
     resolveRunningBackfillMessage,
     updateScopedBackfillProgress,
+    withOutcomeNote,
     type ScopedBackfillProgress,
 } from './progress';
 
@@ -25,12 +27,29 @@ function counted(key: string, values: Record<string, number>): string {
     return get(_)(key, { values });
 }
 
+function said(key: string, values?: Record<string, string>): string {
+    return get(_)(key, { values });
+}
+
 /** The worded summary; the plain English one only before a language has loaded. */
-function progressSummary(processed: number, total: number, updated: number, skipped: number, errors: number, added?: number): string {
+function progressSummary(processed: number, total: number, updated: number, skipped: number, errors: number, added: number | undefined, finished: boolean): string {
     try {
-        return describeBackfillProgress(counted, processed, total, updated, skipped, errors, added);
+        return describeBackfillProgress(counted, processed, total, updated, skipped, errors, added, finished);
     } catch {
         return formatBackfillProgressSummary(processed, total, updated, skipped, errors, added);
+    }
+}
+
+/**
+ * What a finished job shows. A failed one leads with the server's cause, as the live update does,
+ * so a reload does not lose why it failed; a completed one keeps any reason beyond its counts.
+ */
+export function terminalMessage(kind: BackfillKind, status: BackfillJobStatus, summary: string): string {
+    if (status.status === 'failed') return formatTerminalBackfillMessage(kind, status.message, summary);
+    try {
+        return withOutcomeNote(summary, status.message, said);
+    } catch {
+        return summary;
     }
 }
 
@@ -86,14 +105,14 @@ export function syncBackfillJobProgress(
         ? normalizedTotal
         : (status.status === 'running' ? 0 : processed);
     const title = kind === 'weather'
-        ? t('jobs.kind_weather_backfill', 'Missing weather')
+        ? t('jobs.kind_weather_backfill', 'Filling in missing weather')
         : t('jobs.kind_backfill', 'Import of missed visits');
     const message = status.status === 'running'
         ? resolveRunningBackfillMessage(
             status,
-            progressSummary(processed, normalizedTotal, updated, skipped, errors, newDetections)
+            progressSummary(processed, normalizedTotal, updated, skipped, errors, newDetections, false)
         )
-        : progressSummary(processed, normalizedTotal, updated, skipped, errors, newDetections);
+        : terminalMessage(kind, status, progressSummary(processed, normalizedTotal, updated, skipped, errors, newDetections, true));
 
     if (status.status === 'completed') {
         jobProgressStore.markCompleted({

@@ -1,7 +1,7 @@
 {
   "reclassify_fallback": "⚠️ Video non disponibile - usato snapshot",
   "reclassify_no_result": "Non è stato trovato alcun risultato affidabile. L’identificazione esistente è stata mantenuta.",
-  "reclassify_failed": "La riclassificazione non è stata eseguita: {message}. Riprova dalla scheda.",
+  "reclassify_failed": "La riclassificazione non è stata eseguita. Riprova dalla scheda.",
   "hide_failed": "Impossibile nascondere questa visita. Riprova; se continua a non riuscire, apri Stato.",
   "delete_failed": "Impossibile eliminare questa visita. Riprova; se continua a non riuscire, apri Stato.",
   "settings_saved": "Impostazioni salvate con successo!",

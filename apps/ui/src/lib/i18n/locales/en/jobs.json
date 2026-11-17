@@ -26,7 +26,7 @@
   "circuit_reset_failed": "The analysis could not be resumed. Try again; if it keeps failing, open Health.",
   "kind_reclassify": "Reclassification",
   "kind_backfill": "Import of missed visits",
-  "kind_weather_backfill": "Missing weather",
+  "kind_weather_backfill": "Filling in missing weather",
   "backfill_status_unavailable": "The status was lost when YA-WAMF restarted or your sign-in changed, so the job may have been interrupted. Start it again if its result is missing.",
   "backfill_checked": "{processed, number} of {total, number} checked",
   "backfill_checked_so_far": "{processed, number} checked so far",
@@ -116,7 +116,6 @@
   "errors_activity_filtered": "Filtered out",
   "errors_activity_fault": "Fault",
   "errors_activity_view_record": "View record",
-  "errors_activity_unidentified": "Unknown bird",
   "errors_fault_preview": "Preview the frame that failed for {species}",
   "errors_subsystems_title": "Detail by part",
   "errors_filtered_preview": "Preview the frame filtered as {species}",
@@ -294,5 +293,21 @@
       "title": "A processing step took too long and was stopped.",
       "next": "The model or Frigate may be overloaded. Check Resource use above."
     }
-  }
+  },
+  "activity_waiting_live_priority": "Waiting while new visits are named",
+  "blocker_live_priority": "New visits are named first",
+  "analyze_unknowns_batch_label": "Up to {queueLimit} at a time, from the newest {scanLimit}",
+  "analyze_unknowns_candidates_remain": "{count} more may remain",
+  "analyze_unknowns_scan_truncated": "More may remain",
+  "global_queue_only_headline": "{title}: {state}",
+  "queue_updated_age": "Queue read {age} ago",
+  "state_paused": "Paused",
+  "backfill_nothing_to_check": "Nothing in this range to check",
+  "backfill_reason_nothing_in_range": "Frigate has nothing in this range.",
+  "backfill_reason_weather_unavailable": "The weather archive has no data for this range.",
+  "backfill_server_note": "The server added: “{message}”",
+  "state_idle": "Idle",
+  "state_queued": "Queued",
+  "state_running": "Running",
+  "work_lane_analyze_unknowns": "Naming Unknown bird visits"
 }

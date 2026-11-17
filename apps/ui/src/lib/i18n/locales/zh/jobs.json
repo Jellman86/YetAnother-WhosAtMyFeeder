@@ -119,7 +119,6 @@
   "errors_activity_filtered": "已过滤",
   "errors_activity_fault": "处理流程故障",
   "errors_activity_view_record": "查看记录",
-  "errors_activity_unidentified": "未识别的检测",
   "errors_fault_preview": "预览 {species} 的失败检测画面",
   "errors_subsystems_title": "子系统详情",
   "errors_filtered_preview": "预览被过滤为 {species} 的画面",
@@ -294,5 +293,21 @@
       "title": "某个检测步骤耗时过长，已被停止。",
       "next": "分类器或 Frigate 可能过载。请查看上方的资源使用情况。"
     }
-  }
+  },
+  "activity_waiting_live_priority": "正在为新访问命名，暂时等待",
+  "blocker_live_priority": "优先为新访问命名",
+  "analyze_unknowns_batch_label": "每次最多 {queueLimit} 个，取自最新的 {scanLimit} 个",
+  "analyze_unknowns_candidates_remain": "可能还剩 {count} 个",
+  "analyze_unknowns_scan_truncated": "可能还有剩余",
+  "global_queue_only_headline": "{title}：{state}",
+  "queue_updated_age": "{age}前读取队列",
+  "state_paused": "已暂停",
+  "backfill_nothing_to_check": "此范围内没有可检查的内容",
+  "backfill_reason_nothing_in_range": "Frigate 在此范围内没有内容。",
+  "backfill_reason_weather_unavailable": "天气存档中没有此范围的数据。",
+  "backfill_server_note": "服务器补充：“{message}”",
+  "state_idle": "空闲",
+  "state_queued": "排队中",
+  "state_running": "运行中",
+  "work_lane_analyze_unknowns": "为“未知鸟类”访问命名"
 }

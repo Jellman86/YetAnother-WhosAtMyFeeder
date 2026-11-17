@@ -119,7 +119,6 @@
   "errors_activity_filtered": "フィルターで除外",
   "errors_activity_fault": "パイプライン障害",
   "errors_activity_view_record": "記録を表示",
-  "errors_activity_unidentified": "未識別の検出",
   "errors_fault_preview": "{species} の失敗した検出フレームをプレビュー",
   "errors_subsystems_title": "サブシステムの詳細",
   "errors_filtered_preview": "{species} として除外されたフレームをプレビュー",
@@ -294,5 +293,21 @@
       "title": "検出の処理ステップに時間がかかりすぎたため、停止しました。",
       "next": "分類器または Frigate が過負荷の可能性があります。上のリソース使用状況を確認してください。"
     }
-  }
+  },
+  "activity_waiting_live_priority": "新しい訪問の命名中は待機します",
+  "blocker_live_priority": "新しい訪問を先に命名します",
+  "analyze_unknowns_batch_label": "最新 {scanLimit} 件から一度に最大 {queueLimit} 件",
+  "analyze_unknowns_candidates_remain": "さらに {count} 件残っている可能性があります",
+  "analyze_unknowns_scan_truncated": "さらに残っている可能性があります",
+  "global_queue_only_headline": "{title}：{state}",
+  "queue_updated_age": "キューを {age} 前に読み取り",
+  "state_paused": "一時停止中",
+  "backfill_nothing_to_check": "この期間に確認するものはありません",
+  "backfill_reason_nothing_in_range": "Frigate にはこの期間のものがありません。",
+  "backfill_reason_weather_unavailable": "気象アーカイブにこの期間のデータがありません。",
+  "backfill_server_note": "サーバーからの補足:「{message}」",
+  "state_idle": "アイドル",
+  "state_queued": "待機中",
+  "state_running": "実行中",
+  "work_lane_analyze_unknowns": "「不明な鳥」の訪問に名前を付ける"
 }

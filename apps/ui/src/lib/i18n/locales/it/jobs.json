@@ -119,7 +119,6 @@
   "errors_activity_filtered": "Filtrato",
   "errors_activity_fault": "Errore della pipeline",
   "errors_activity_view_record": "Visualizza record",
-  "errors_activity_unidentified": "Rilevamento non identificato",
   "errors_fault_preview": "Anteprima del fotogramma del rilevamento non riuscito per {species}",
   "errors_subsystems_title": "Dettaglio dei sottosistemi",
   "errors_filtered_preview": "Anteprima del fotogramma filtrato come {species}",
@@ -294,5 +293,21 @@
       "title": "Un passaggio di un rilevamento ha richiesto troppo tempo ed è stato interrotto.",
       "next": "Il classificatore o Frigate potrebbero essere sovraccarichi. Controlla l’uso delle risorse sopra."
     }
-  }
+  },
+  "activity_waiting_live_priority": "In attesa mentre vengono nominate le nuove visite",
+  "blocker_live_priority": "Le nuove visite vengono nominate per prime",
+  "analyze_unknowns_batch_label": "Fino a {queueLimit} alla volta, tra le {scanLimit} più recenti",
+  "analyze_unknowns_candidates_remain": "Potrebbero restarne altre {count}",
+  "analyze_unknowns_scan_truncated": "Potrebbero restarne altre",
+  "global_queue_only_headline": "{title}: {state}",
+  "queue_updated_age": "Coda letta {age} fa",
+  "state_paused": "In pausa",
+  "backfill_nothing_to_check": "Niente da controllare in questo intervallo",
+  "backfill_reason_nothing_in_range": "Frigate non ha nulla in questo intervallo.",
+  "backfill_reason_weather_unavailable": "L’archivio meteo non ha dati per questo intervallo.",
+  "backfill_server_note": "Il server ha aggiunto: «{message}»",
+  "state_idle": "Inattivo",
+  "state_queued": "In coda",
+  "state_running": "In esecuzione",
+  "work_lane_analyze_unknowns": "Nominare le visite «uccello sconosciuto»"
 }

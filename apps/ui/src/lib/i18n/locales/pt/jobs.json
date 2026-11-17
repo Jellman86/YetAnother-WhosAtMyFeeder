@@ -119,7 +119,6 @@
   "errors_activity_filtered": "Filtrado",
   "errors_activity_fault": "Falha do processamento",
   "errors_activity_view_record": "Ver registro",
-  "errors_activity_unidentified": "Detecção não identificada",
   "errors_fault_preview": "Pré-visualizar o quadro da detecção com falha de {species}",
   "errors_subsystems_title": "Detalhe dos subsistemas",
   "errors_filtered_preview": "Pré-visualizar o quadro filtrado como {species}",
@@ -294,5 +293,21 @@
       "title": "Um passo de uma deteção demorou demasiado e foi parado.",
       "next": "O classificador ou o Frigate podem estar sobrecarregados. Consulte a utilização de recursos acima."
     }
-  }
+  },
+  "activity_waiting_live_priority": "Aguardando enquanto as novas visitas são nomeadas",
+  "blocker_live_priority": "As novas visitas são nomeadas primeiro",
+  "analyze_unknowns_batch_label": "Até {queueLimit} de cada vez, das {scanLimit} mais recentes",
+  "analyze_unknowns_candidates_remain": "Podem restar mais {count}",
+  "analyze_unknowns_scan_truncated": "Podem restar mais",
+  "global_queue_only_headline": "{title}: {state}",
+  "queue_updated_age": "Fila lida há {age}",
+  "state_paused": "Em pausa",
+  "backfill_nothing_to_check": "Não há nada para verificar neste intervalo",
+  "backfill_reason_nothing_in_range": "O Frigate não tem nada neste intervalo.",
+  "backfill_reason_weather_unavailable": "O arquivo meteorológico não tem dados para este intervalo.",
+  "backfill_server_note": "O servidor acrescentou: “{message}”",
+  "state_idle": "Ocioso",
+  "state_queued": "Na fila",
+  "state_running": "Em execução",
+  "work_lane_analyze_unknowns": "Nomear visitas de “ave desconhecida”"
 }

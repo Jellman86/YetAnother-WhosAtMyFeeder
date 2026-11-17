@@ -119,7 +119,6 @@
   "errors_activity_filtered": "Descartado por filtro",
   "errors_activity_fault": "Fallo del proceso",
   "errors_activity_view_record": "Ver registro",
-  "errors_activity_unidentified": "Detección sin identificar",
   "errors_fault_preview": "Vista previa del fotograma de detección fallida para {species}",
   "errors_subsystems_title": "Detalle de subsistemas",
   "errors_filtered_preview": "Vista previa del fotograma filtrado como {species}",
@@ -294,5 +293,21 @@
       "title": "Un paso de una detección tardó demasiado y se detuvo.",
       "next": "Puede que el clasificador o Frigate estén sobrecargados. Revisa el uso de recursos arriba."
     }
-  }
+  },
+  "activity_waiting_live_priority": "En espera mientras se nombran las visitas nuevas",
+  "blocker_live_priority": "Las visitas nuevas se nombran primero",
+  "analyze_unknowns_batch_label": "Hasta {queueLimit} a la vez, de las {scanLimit} más recientes",
+  "analyze_unknowns_candidates_remain": "Pueden quedar {count} más",
+  "analyze_unknowns_scan_truncated": "Pueden quedar más",
+  "global_queue_only_headline": "{title}: {state}",
+  "queue_updated_age": "Cola leída hace {age}",
+  "state_paused": "En pausa",
+  "backfill_nothing_to_check": "No hay nada que comprobar en este intervalo",
+  "backfill_reason_nothing_in_range": "Frigate no tiene nada en este intervalo.",
+  "backfill_reason_weather_unavailable": "El archivo meteorológico no tiene datos para este intervalo.",
+  "backfill_server_note": "El servidor añadió: «{message}»",
+  "state_idle": "Inactivo",
+  "state_queued": "En cola",
+  "state_running": "En ejecución",
+  "work_lane_analyze_unknowns": "Nombrar visitas de «ave desconocida»"
 }

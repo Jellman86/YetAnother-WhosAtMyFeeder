@@ -184,14 +184,14 @@
                             label={drop.label}
                             previewLabel={isFault
                                 ? $_('jobs.errors_fault_preview', {
-                                    values: { species: drop.label ?? $_('jobs.errors_activity_unidentified', { default: 'Unknown bird' }) },
+                                    values: { species: drop.label ?? $_('common.unknown_species', { default: 'Species not named' }) },
                                     default: 'Preview the failed detection frame for {species}'
                                 })
                                 : null}
                         />
                         <div class="min-w-0">
                             <p class="flex min-w-0 items-baseline justify-between gap-2 text-sm font-semibold {isFault ? 'text-strong' : 'italic text-ink'}">
-                                <span class="truncate">{drop.label ?? $_('jobs.errors_activity_unidentified', { default: 'Unknown bird' })}</span>
+                                <span class="truncate">{drop.label ?? $_('common.unknown_species', { default: 'Species not named' })}</span>
                                 {#if drop.score !== null}
                                     <span class="shrink-0 text-xs font-bold not-italic tabular-nums text-muted sm:hidden">{Math.round(drop.score * 100)}%</span>
                                 {/if}

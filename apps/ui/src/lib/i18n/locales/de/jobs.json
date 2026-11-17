@@ -24,7 +24,7 @@
   "global_summary_circuit_open": "{kind} nach wiederholten Fehlern pausiert",
   "kind_reclassify": "Reklassifizierung",
   "kind_backfill": "Import verpasster Besuche",
-  "kind_weather_backfill": "Fehlendes Wetter",
+  "kind_weather_backfill": "Fehlendes Wetter ergänzen",
   "backfill_status_unavailable": "Der Status ging verloren, als YA-WAMF neu gestartet wurde oder sich Ihre Anmeldung änderte; der Auftrag wurde möglicherweise unterbrochen. Starten Sie ihn erneut, falls sein Ergebnis fehlt.",
   "backfill_checked": "{processed, number} von {total, number} geprüft",
   "backfill_checked_so_far": "bisher {processed, number} geprüft",
@@ -119,7 +119,6 @@
   "errors_activity_filtered": "Herausgefiltert",
   "errors_activity_fault": "Fehler",
   "errors_activity_view_record": "Eintrag ansehen",
-  "errors_activity_unidentified": "Unbekannter Vogel",
   "errors_fault_preview": "Vorschau des fehlgeschlagenen Bildes für {species}",
   "errors_subsystems_title": "Details nach Bereich",
   "errors_filtered_preview": "Vorschau des als {species} gefilterten Bildes",
@@ -294,5 +293,21 @@
       "title": "Ein Verarbeitungsschritt dauerte zu lange und wurde beendet.",
       "next": "Das Modell oder Frigate ist möglicherweise überlastet. Prüfen Sie oben die Ressourcennutzung."
     }
-  }
+  },
+  "activity_waiting_live_priority": "Wartet, während neue Besuche benannt werden",
+  "blocker_live_priority": "Neue Besuche werden zuerst benannt",
+  "analyze_unknowns_batch_label": "Bis zu {queueLimit} gleichzeitig, aus den neuesten {scanLimit}",
+  "analyze_unknowns_candidates_remain": "Möglicherweise bleiben {count} weitere",
+  "analyze_unknowns_scan_truncated": "Möglicherweise bleiben weitere",
+  "global_queue_only_headline": "{title}: {state}",
+  "queue_updated_age": "Warteschlange vor {age} gelesen",
+  "state_paused": "Pausiert",
+  "backfill_nothing_to_check": "In diesem Zeitraum gibt es nichts zu prüfen",
+  "backfill_reason_nothing_in_range": "Frigate hat in diesem Zeitraum nichts.",
+  "backfill_reason_weather_unavailable": "Das Wetterarchiv hat für diesen Zeitraum keine Daten.",
+  "backfill_server_note": "Der Server ergänzte: „{message}“",
+  "state_idle": "Untätig",
+  "state_queued": "In der Warteschlange",
+  "state_running": "Läuft",
+  "work_lane_analyze_unknowns": "Benennung von „Unbekannter Vogel“-Besuchen"
 }

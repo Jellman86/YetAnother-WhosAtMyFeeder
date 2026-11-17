@@ -64,7 +64,7 @@
         if (kind === 'reclassify') return $_('jobs.kind_reclassify', { default: 'Reclassification' });
         if (kind === 'reclassify_batch') return $_('settings.data.batch_analysis_title', { default: 'Batch Analysis' });
         if (kind === 'backfill') return $_('jobs.kind_backfill', { default: 'Import of missed visits' });
-        if (kind === 'weather_backfill') return $_('jobs.kind_weather_backfill', { default: 'Missing weather' });
+        if (kind === 'weather_backfill') return $_('jobs.kind_weather_backfill', { default: 'Filling in missing weather' });
         if (kind === 'taxonomy_sync') return $_('jobs.kind_taxonomy_sync', { default: 'Taxonomy sync' });
         if (kind === 'video_analysis') return $_('jobs.kind_video_analysis', { default: 'Video analysis' });
         return kind.replace(/_/g, ' ').replace(/\b\w/g, (ch) => ch.toUpperCase());

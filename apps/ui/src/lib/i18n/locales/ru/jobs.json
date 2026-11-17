@@ -119,7 +119,6 @@
   "errors_activity_filtered": "Отфильтровано",
   "errors_activity_fault": "Сбой конвейера",
   "errors_activity_view_record": "Открыть запись",
-  "errors_activity_unidentified": "Неопознанное обнаружение",
   "errors_fault_preview": "Предпросмотр кадра сбойного обнаружения для {species}",
   "errors_subsystems_title": "Подробности по подсистемам",
   "errors_filtered_preview": "Предпросмотр кадра, отфильтрованного как {species}",
@@ -294,5 +293,21 @@
       "title": "Шаг обработки обнаружения занял слишком много времени и был остановлен.",
       "next": "Классификатор или Frigate могут быть перегружены. Проверьте использование ресурсов выше."
     }
-  }
+  },
+  "activity_waiting_live_priority": "Ожидание, пока получают названия новые посещения",
+  "blocker_live_priority": "Сначала получают названия новые посещения",
+  "analyze_unknowns_batch_label": "До {queueLimit} за раз из {scanLimit} последних",
+  "analyze_unknowns_candidates_remain": "Возможно, осталось ещё {count}",
+  "analyze_unknowns_scan_truncated": "Возможно, остались ещё",
+  "global_queue_only_headline": "{title}: {state}",
+  "queue_updated_age": "Очередь прочитана {age} назад",
+  "state_paused": "Приостановлено",
+  "backfill_nothing_to_check": "В этом диапазоне нечего проверять",
+  "backfill_reason_nothing_in_range": "У Frigate ничего нет за этот диапазон.",
+  "backfill_reason_weather_unavailable": "В архиве погоды нет данных за этот диапазон.",
+  "backfill_server_note": "Сервер добавил: «{message}»",
+  "state_idle": "Простаивает",
+  "state_queued": "В очереди",
+  "state_running": "Выполняется",
+  "work_lane_analyze_unknowns": "Определение посещений «неизвестная птица»"
 }
