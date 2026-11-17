@@ -50,7 +50,7 @@
             title: $_('shortcuts.navigation', { default: 'Navigation' }),
             items: [
                 { key: 'g d', description: $_('shortcuts.go_dashboard', { default: 'Go to Dashboard' }) },
-                { key: 'g e', description: $_('shortcuts.go_events', { default: 'Go to Events' }) },
+                { key: 'g e', description: $_('shortcuts.go_events', { default: 'Go to Explorer' }) },
                 { key: 'g l', description: $_('shortcuts.go_species', { default: 'Go to Leaderboard' }) },
                 { key: 'g j', description: $_('shortcuts.go_notifications', { default: 'Go to Notifications' }) },
                 { key: 'g t', description: $_('shortcuts.go_settings', { default: 'Go to Settings' }) }

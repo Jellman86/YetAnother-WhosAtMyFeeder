@@ -42,7 +42,7 @@ test('a Frigate that does not answer is named even with the broker up', async ({
     await expect(row(page, 'feed')).toHaveAttribute('data-status-tone', 'attention');
     // Audio detections arrive through the broker, which is up.
     await expect(state(page, 'audio')).toHaveText('Listening');
-    await expect(line(page)).toHaveText('Frigate is not answering, so new detections cannot be saved');
+    await expect(line(page)).toHaveText('Frigate is not answering, so new visits cannot be saved');
 });
 
 test('live means the page stream and the broker session are both up', async ({ page }) => {

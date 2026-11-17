@@ -49,7 +49,7 @@
             case 'broker_down':
                 return $_('status.feed_broker_down', { default: 'Not receiving camera events. The MQTT broker is not connected.' });
             case 'frigate_down':
-                return $_('status.feed_frigate_down', { default: 'Frigate is not answering, so new detections cannot be saved' });
+                return $_('status.feed_frigate_down', { default: 'Frigate is not answering, so new visits cannot be saved' });
             case 'app_only':
                 return $_('status.feed_app_only', { default: 'Connected to YA-WAMF' });
             default:
