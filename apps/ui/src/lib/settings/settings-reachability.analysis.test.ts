@@ -69,6 +69,29 @@ describe('the Settings reachability analysis', () => {
         expect(map.ids['port-field']).toBeUndefined();
     });
 
+    it('reads a function to its own end when a comment in it holds an apostrophe', () => {
+        // Read as an open string, the apostrophe ran the function's body on into the next one, so the
+        // button seemed to save the port that only the next function writes.
+        const part = PART.replace(
+            '<button type="button" onclick={() => onTheme(\'dark\')}>Dark</button>',
+            '<button type="button" onclick={check}>Check</button>'
+        ).replace(
+            "    }: { port: number; onTheme: (theme: string) => void } = $props();",
+            `    }: { port: number; onTheme: (theme: string) => void } = $props();
+    let checking = $state(false);
+    function check() {
+        // The broker's answer is shown, never saved.
+        checking = true;
+    }
+    function reset() {
+        port = 1883;
+    }`
+        );
+        const map = analyseSettings({ [HOST]: host('<Part bind:port onTheme={(next) => (theme = next)} />'), 'parts/Part.svelte': part, 'parts/Field.svelte': FIELD }, HOST);
+        expect(map.controls.find((control) => control.file === 'parts/Part.svelte')?.entries).toEqual([]);
+        expect(map.controls.find((control) => control.id === 'port-field')?.entries).toEqual(['mqtt_port']);
+    });
+
     it('does not count a reload of every setting as an edit', () => {
         const reload = `function reload() { ${Array.from({ length: 25 }, (_, index) => `v${index} = 1;`).join(' ')} port = 1; theme = 'x'; }`;
         const map = analyse('<Part bind:port onTheme={() => reload()} />', reload);

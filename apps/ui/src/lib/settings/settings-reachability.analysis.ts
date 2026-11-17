@@ -69,6 +69,17 @@ function balanced(text: string, open: number): string {
             else if (char === quote) quote = null;
             continue;
         }
+        // A comment may hold an apostrophe or a bracket; it is not code.
+        if (char === '/' && text[index + 1] === '/') {
+            const end = text.indexOf('\n', index);
+            index = end < 0 ? text.length : end;
+            continue;
+        }
+        if (char === '/' && text[index + 1] === '*') {
+            const end = text.indexOf('*/', index + 2);
+            index = end < 0 ? text.length : end + 1;
+            continue;
+        }
         if (char === '"' || char === "'" || char === '`') quote = char;
         else if (char === text[open]) depth += 1;
         else if (char === closeFor) {

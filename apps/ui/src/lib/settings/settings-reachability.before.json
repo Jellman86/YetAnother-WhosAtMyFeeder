@@ -208,7 +208,9 @@
                 "models",
                 "notifications"
             ],
-            "entries": []
+            "entries": [
+                "inference_provider"
+            ]
         },
         {
             "file": "../components/DialogCloseButton.svelte",
@@ -1555,7 +1557,10 @@
             "areas": [
                 "integrations"
             ],
-            "entries": []
+            "entries": [
+                "blocked_labels",
+                "blocked_species"
+            ]
         },
         {
             "file": "../components/settings/IntegrationSettings.svelte",
@@ -1563,7 +1568,10 @@
             "areas": [
                 "integrations"
             ],
-            "entries": []
+            "entries": [
+                "blocked_labels",
+                "blocked_species"
+            ]
         },
         {
             "file": "../components/settings/IntegrationSettings.svelte",
@@ -2003,7 +2011,9 @@
             "areas": [
                 "maintenance"
             ],
-            "entries": []
+            "entries": [
+                "inference_provider"
+            ]
         },
         {
             "file": "../components/settings/MaintenanceSettings.svelte",
@@ -2061,7 +2071,9 @@
             "areas": [
                 "models"
             ],
-            "entries": []
+            "entries": [
+                "inference_provider"
+            ]
         },
         {
             "file": "../components/settings/ModelSettings.svelte",
@@ -2839,7 +2851,9 @@
             "areas": [
                 "models"
             ],
-            "entries": []
+            "entries": [
+                "inference_provider"
+            ]
         },
         {
             "file": "../pages/models/FinderDevicePanel.svelte",
@@ -2881,7 +2895,9 @@
             "areas": [
                 "models"
             ],
-            "entries": []
+            "entries": [
+                "inference_provider"
+            ]
         },
         {
             "file": "../pages/models/ModelManager.svelte",
@@ -2889,7 +2905,9 @@
             "areas": [
                 "models"
             ],
-            "entries": []
+            "entries": [
+                "inference_provider"
+            ]
         },
         {
             "file": "../pages/models/ModelManager.svelte",
@@ -2897,7 +2915,9 @@
             "areas": [
                 "models"
             ],
-            "entries": []
+            "entries": [
+                "inference_provider"
+            ]
         },
         {
             "file": "../pages/models/ModelManager.svelte",
@@ -2905,7 +2925,9 @@
             "areas": [
                 "models"
             ],
-            "entries": []
+            "entries": [
+                "inference_provider"
+            ]
         },
         {
             "file": "../pages/models/ModelManager.svelte",
@@ -2913,7 +2935,9 @@
             "areas": [
                 "models"
             ],
-            "entries": []
+            "entries": [
+                "inference_provider"
+            ]
         },
         {
             "file": "../pages/models/ModelManager.svelte",
