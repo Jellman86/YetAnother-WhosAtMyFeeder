@@ -67,6 +67,13 @@ describe('Sidebar hybrid refresh', () => {
     it('keeps navigation and bottom controls reachable on short viewports', () => {
         expect(sidebarSource).toContain('[@media(max-height:42rem)]:hidden');
         expect(sidebarSource).toContain('[@media(max-height:42rem)]:py-3');
+        // System status gives way before the navigation: it shrinks far faster and scrolls inside itself,
+        // so every place stays in view at 1920 × 900 and 1440 × 800. The column itself never scrolls,
+        // which would clip the language menu that opens past the collapsed rail.
+        expect(sidebarSource).toContain('<nav class="min-h-0 overflow-y-auto px-3 py-4"');
+        expect(sidebarSource).toContain('data-sidebar-status class="mt-auto min-h-0 overflow-y-auto');
+        expect(sidebarSource).toMatch(/\[data-sidebar-status\] \{\s*flex-shrink: 1000;/);
+        expect(sidebarSource).not.toMatch(/id="app-sidebar"[\s\S]*?class="[^"]*overflow-y-auto[^"]*"\s*>\s*<div\s+data-sidebar-brand/);
     });
 
     it('states resource readings as one plain line in the card, on a neutral surface', () => {

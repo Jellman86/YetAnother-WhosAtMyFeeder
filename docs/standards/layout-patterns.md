@@ -264,6 +264,33 @@ by a badge.
 
 Four shapes cover the app. Pick one; do not blend them.
 
+### Width bands
+
+Every page uses the space its device gives it, without stretching text past a reading measure.
+Each shape below says what it does in each band; these are the bands, and what holds in all of
+them.
+
+| Band | Widths | What the page does |
+| --- | --- | --- |
+| Phone | 360 to 430 px | One column, the work first (Needs your call above the field log, the identification before notices). Filters wait in a sheet. No secondary panel above the fold. No sideways scroll. |
+| Large phone, small tablet | 600 to 768 px | Still one column for reading; grids take a second column where a card keeps its shape. Filters stay in a sheet. |
+| Tablet, small laptop | 1024 px | The sidebar is docked. Explorer's filter rail is docked from here; below it the filters are a sheet. |
+| Desktop | 1280 to 1440 px | Secondary content (standing figures, reference, history) moves to a side column; charts and tables take the full width of the page. |
+| Wide | 1920 to 2560 px | Grids add columns rather than widening cards. Content-heavy pages fill about 70% or more of the window. Past 1920 px the page container (`max-w-shell`, 104 rem) stops growing and is centred with gutters. |
+
+What holds in every band:
+
+- **Running text keeps a measure of about 70 characters** (`max-w-prose`), whatever the width of
+  the panel it is in. A line never runs past about 80 characters.
+- **Breakpoints are in px** (`sm` 640, `md` 768, `lg` 1024, `xl` 1280, `2xl` 1536, `3xl` 1920),
+  so a larger text size never moves a layout to its phone form. A part that sits in columns of
+  different widths lays itself out by its own width instead (a container query), as the field log
+  and About's pipeline do.
+- **Short screens:** a phone or small tablet held sideways (up to 640 px tall, the `short` variant)
+  tightens dialog chrome so the actions stay in view. On a desktop window that is wide but not tall
+  (1920 × 900, 1440 × 800) every place in the sidebar stays in view: System status gives way first
+  and scrolls inside itself.
+
 Explorer's filter rail orders filters by how often they change. Choices set once and
 left (**Visitors**, **Show**) are compact switches that explain only the chosen option
 beneath them. **Visitors** has three names of unequal length, so its options take a line each:

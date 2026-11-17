@@ -35,7 +35,7 @@
 <!-- One slim band the full width of the content: which build this is, then the licence and the
      links. Nothing here changes from page to page, and it stacks on narrow screens. -->
 <footer class="mt-auto border-t border-line-soft bg-surface">
-    <div class="flex flex-col items-center gap-x-8 gap-y-3 px-4 py-4 text-xs text-muted sm:px-6 lg:flex-row lg:flex-wrap lg:justify-between lg:px-8 lg:py-3 2xl:px-12">
+    <div class="mx-auto flex max-w-shell flex-col items-center gap-x-8 gap-y-3 px-4 py-4 text-xs text-muted sm:px-6 lg:flex-row lg:flex-wrap lg:justify-between lg:px-8 lg:py-3 2xl:px-12">
         <div class="flex shrink-0 flex-wrap items-center justify-center gap-x-2 gap-y-1">
             <BrandMark class="h-5 w-5 rounded-md" sizes="20px" width={20} height={20} loading="lazy" alt="" />
             <span class="font-display text-sm font-bold text-strong">Yet Another WhosAtMyFeeder</span>

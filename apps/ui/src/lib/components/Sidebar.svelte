@@ -194,7 +194,10 @@
         </button>
     </div>
 
-    <nav class="min-h-0 flex-1 overflow-y-auto px-3 py-4" aria-label={$_('nav.navigation', { default: 'Primary navigation' })}>
+    <!-- Every place in the app stays in view: on a short window System status below gives way first (it
+         scrolls inside itself, see the style below), and only when it has no room left does the
+         navigation scroll. -->
+    <nav class="min-h-0 overflow-y-auto px-3 py-4" aria-label={$_('nav.navigation', { default: 'Primary navigation' })}>
         {#each navSections as section, sectionIndex}
             <div data-sidebar-section={section.id} class={sectionIndex === 0 ? '' : 'mt-5'}>
                 {#if !collapsed}
@@ -234,7 +237,7 @@
          line of resource readings, and the way to Health. Only the owner can reach Health,
          so a guest gets no link. The link asks for attention only for issues Health lists as open,
          read from the same store, so the two always agree. -->
-    <div data-sidebar-status class="shrink-0 border-t border-line-soft p-3 [@media(max-height:42rem)]:hidden">
+    <div data-sidebar-status class="mt-auto min-h-0 overflow-y-auto border-t border-line-soft p-3 [@media(max-height:42rem)]:hidden">
         {#if collapsed}
             <section class="flex flex-col items-center gap-1" aria-label={$_('status.title')} data-sidebar-status-card>
                 {@render status?.(true)}
@@ -415,3 +418,12 @@
         </div>
     </div>
 </aside>
+
+<style>
+    /* System status yields its height long before the navigation does: both may shrink, but the
+       status block a thousand times faster, so a short window scrolls the status card, not the list
+       of places. A column-wide scroll would clip the language menu, which opens beyond the rail. */
+    [data-sidebar-status] {
+        flex-shrink: 1000;
+    }
+</style>

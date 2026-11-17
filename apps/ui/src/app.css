@@ -39,6 +39,12 @@
   --breakpoint-2xl: 1536px;
   --breakpoint-3xl: 1920px;
 
+  /* The page container (max-w-shell): pages use the width up to a 1920px desktop, and beyond that the
+     content stays centred with growing gutters, so a 2560px display does not stretch every card and
+     line across it. In rem, so it keeps its share of the screen as the root size grows. Running text
+     keeps its own measure inside it (max-w-prose). */
+  --container-shell: 104rem;
+
   /* The 44px touch target (h-11, min-h-11, w-11, min-w-11) grows with a larger text size
      but never shrinks below 44px when a reader picks a smaller one. */
   --spacing-11: max(2.75rem, 44px);
