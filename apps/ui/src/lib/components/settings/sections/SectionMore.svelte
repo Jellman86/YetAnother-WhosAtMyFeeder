@@ -21,13 +21,14 @@
 </script>
 
 <!-- One "More options" per section, after the settings most owners need: everything else in the
-     section, the developer-only settings in it marked Advanced. Its contents load when it opens. -->
+     section, the developer-only settings in it marked Advanced. Its contents load when it opens.
+     The toggle has a card's edge and inner padding, so its words never touch the edge high contrast draws. -->
 <section class="space-y-4" aria-labelledby="{id}-toggle" data-settings-more={section}>
     <h2 class="text-lg font-semibold text-strong">
         <button
             id="{id}-toggle"
             type="button"
-            class="focus-ring flex min-h-11 w-full items-center justify-between gap-3 rounded-lg text-left"
+            class="card-base focus-ring flex min-h-11 w-full items-center justify-between gap-3 px-4 py-3 text-left md:px-6"
             aria-expanded={open}
             aria-controls="{id}-body"
             onclick={() => disclosure.toggle()}

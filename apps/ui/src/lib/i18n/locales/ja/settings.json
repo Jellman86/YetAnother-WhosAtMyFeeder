@@ -252,7 +252,7 @@
     "frigate_success": "Frigate v{version} に {url} で接続しました",
     "frigate_unexpected": "Frigate が予期しないステータスを返しました",
     "frigate_error": "Frigate に接続できませんでした",
-    "mqtt_title": "Frigate がイベントを送るブローカーです。YA-WAMF はここで新しい検出を受け取ります。",
+    "mqtt_title": "Frigate がイベントを送るブローカーです。YA-WAMF はここで新しい訪問を受け取ります。",
     "simulating": "シミュレーション中…",
     "advanced_title": "調整",
     "full_visit_advanced_title": "フル訪問クリップ",

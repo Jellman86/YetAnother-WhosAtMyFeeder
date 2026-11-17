@@ -252,7 +252,7 @@
     "frigate_success": "Mit Frigate v{version} unter {url} verbunden",
     "frigate_unexpected": "Frigate hat einen unerwarteten Status zurückgegeben",
     "frigate_error": "Verbindung zu Frigate fehlgeschlagen",
-    "mqtt_title": "Der Broker, an den Frigate seine Ereignisse sendet. YA-WAMF empfängt dort neue Erkennungen.",
+    "mqtt_title": "Der Broker, an den Frigate seine Ereignisse sendet. YA-WAMF empfängt dort neue Besuche.",
     "simulating": "Simulation läuft…",
     "advanced_title": "Feineinstellungen",
     "full_visit_advanced_title": "Vollbesuch-Clips",

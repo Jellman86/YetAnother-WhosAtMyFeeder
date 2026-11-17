@@ -252,7 +252,7 @@
     "frigate_success": "Connected to Frigate v{version} at {url}",
     "frigate_unexpected": "Frigate returned unexpected status",
     "frigate_error": "Failed to connect to Frigate",
-    "mqtt_title": "The broker Frigate publishes its events to. YA-WAMF listens there for new detections.",
+    "mqtt_title": "The broker Frigate publishes its events to. YA-WAMF listens there for new visits.",
     "simulating": "Simulating…",
     "advanced_title": "Tuning",
     "full_visit_advanced_title": "Full-visit clips",

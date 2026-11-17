@@ -252,7 +252,7 @@
     "frigate_success": "Подключено к Frigate v{version} по адресу {url}",
     "frigate_unexpected": "Frigate вернул неожиданный статус",
     "frigate_error": "Не удалось подключиться к Frigate",
-    "mqtt_title": "Брокер, в который Frigate публикует события. YA-WAMF получает там новые обнаружения.",
+    "mqtt_title": "Брокер, в который Frigate публикует события. YA-WAMF получает там новые визиты.",
     "simulating": "Симуляция…",
     "advanced_title": "Тонкая настройка",
     "full_visit_advanced_title": "Клипы полного визита",

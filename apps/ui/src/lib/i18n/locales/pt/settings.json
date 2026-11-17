@@ -252,7 +252,7 @@
     "frigate_success": "Conectado ao Frigate v{version} em {url}",
     "frigate_unexpected": "O Frigate retornou um estado inesperado",
     "frigate_error": "Falha ao conectar ao Frigate",
-    "mqtt_title": "O broker para onde o Frigate publica seus eventos. O YA-WAMF escuta ali as novas detecções.",
+    "mqtt_title": "O broker para onde o Frigate publica seus eventos. O YA-WAMF escuta ali as novas visitas.",
     "simulating": "Simulando…",
     "advanced_title": "Ajuste fino",
     "full_visit_advanced_title": "Clipes de visita completa",
