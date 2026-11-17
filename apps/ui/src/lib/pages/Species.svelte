@@ -3,6 +3,7 @@
     import Segmented from '../components/ui/Segmented.svelte';
     import Disclosure from '../components/ui/Disclosure.svelte';
     import ChartFigure from '../components/ui/ChartFigure.svelte';
+    import DailyTotalsNote from '../components/DailyTotalsNote.svelte';
     import { bucketPrecipitation, chartTable, shareTable, type ChartSeries } from '../utils/chart-table';
     import CaptureWall from '../components/CaptureWall.svelte';
     import SpeciesChecks from '../components/SpeciesChecks.svelte';
@@ -2055,6 +2056,7 @@
                         <div class="h-full w-full rounded-2xl bg-surface-raised animate-pulse"></div>
                     {/if}
                 </div>
+                <DailyTotalsNote coverage={timeline?.daily_totals} />
                 {#each weatherPanels() as panel (panel.key)}
                     <div class="mt-3" data-leaderboard-weather-panel={panel.key}>
                         <p class="mb-1 text-xs font-semibold text-muted">{panel.title}</p>

@@ -34,5 +34,6 @@
   "visits_month": "Besuche, letzte 30 Tage",
   "detections_note": "Jede bestimmte Aufnahme zählt einmal. Ein Besuch kann mehrere Aufnahmen enthalten, daher sind die Besuchszahlen in der Bestenliste niedriger.",
   "recent_captures": "Letzte Aufnahmen",
-  "unknown_bird_actions": "Nicht bis zur Art bestimmt. Lassen Sie das Modell Foto oder Clip erneut prüfen, oder öffnen Sie den Eintrag im Explorer, um ihn umzubenennen."
+  "unknown_bird_actions": "Nicht bis zur Art bestimmt. Lassen Sie das Modell Foto oder Clip erneut prüfen, oder öffnen Sie den Eintrag im Explorer, um ihn umzubenennen.",
+  "daily_totals_time_of_day": "Die Tageszeit zählt nur gespeicherte Aufnahmen, weil eine Tagessumme keine Uhrzeit hat."
 }

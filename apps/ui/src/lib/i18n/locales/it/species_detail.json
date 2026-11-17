@@ -34,5 +34,6 @@
   "visits_month": "Visite, ultimi 30 giorni",
   "detections_note": "Ogni cattura identificata conta una volta. Una visita può contenere più catture, quindi i conteggi delle visite in classifica sono più bassi.",
   "recent_captures": "Catture recenti",
-  "unknown_bird_actions": "Non identificato fino alla specie. Esegui di nuovo il modello sulla sua foto o clip, oppure aprilo in Esplora per rinominarlo."
+  "unknown_bird_actions": "Non identificato fino alla specie. Esegui di nuovo il modello sulla sua foto o clip, oppure aprilo in Esplora per rinominarlo.",
+  "daily_totals_time_of_day": "L’ora del giorno conta solo le acquisizioni conservate, perché un totale giornaliero non ha un orario."
 }

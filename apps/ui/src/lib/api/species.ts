@@ -2,7 +2,7 @@ import { toLocalYMD } from '../utils/date-only';
 import { API_BASE, apiFetch, handleResponse } from './core';
 import { createSlotGate } from '../utils/concurrency';
 import type { Detection, SpeciesCount } from './types';
-import type { paths } from './generated/openapi';
+import type { components, paths } from './generated/openapi';
 
 export async function fetchSpecies(signal?: AbortSignal): Promise<SpeciesCount[]> {
     const response = await apiFetch(`${API_BASE}/species`, { signal, timeoutMs: 15_000 });
@@ -30,6 +30,9 @@ export interface SpeciesStats {
     max_confidence: number;
     min_confidence: number;
     recent_sightings: Detection[];
+    /** The first day counted, from stored captures or sealed daily totals. */
+    history_first_day?: string | null;
+    daily_totals?: components['schemas']['DailyTotalsCoverage'];
 }
 
 export interface SpeciesInfo {

@@ -100,5 +100,8 @@
     "sw": "SW",
     "w": "W",
     "nw": "NW"
-  }
+  },
+  "daily_totals_note": "Zahlen vor dem {date} stammen aus Tagessummen; Fotos und Clips dieser Tage sind nicht mehr gespeichert.",
+  "daily_totals_partial": "Die Tagessummen vor dem {date} wurden gezählt, nachdem einige ältere Aufnahmen bereits entfernt waren, und können daher niedriger sein als die tatsächlichen Besuche.",
+  "daily_totals_partial_all": "Diese Tagessummen wurden gezählt, nachdem einige ältere Aufnahmen bereits entfernt waren, und können daher niedriger sein als die tatsächlichen Besuche."
 }

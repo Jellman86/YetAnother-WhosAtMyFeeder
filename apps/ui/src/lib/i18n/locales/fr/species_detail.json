@@ -34,5 +34,6 @@
   "visits_month": "Visites, 30 derniers jours",
   "detections_note": "Chaque capture identifiée compte une fois. Une visite peut contenir plusieurs captures, les nombres de visites du classement sont donc plus faibles.",
   "recent_captures": "Captures récentes",
-  "unknown_bird_actions": "Non identifié jusqu'à l'espèce. Relancez le modèle sur sa photo ou son clip, ou ouvrez-le dans l'Explorateur pour le renommer."
+  "unknown_bird_actions": "Non identifié jusqu'à l'espèce. Relancez le modèle sur sa photo ou son clip, ou ouvrez-le dans l'Explorateur pour le renommer.",
+  "daily_totals_time_of_day": "L’heure de la journée ne compte que les captures conservées, car un total quotidien n’a pas d’heure."
 }
