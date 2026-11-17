@@ -116,6 +116,11 @@ test('a refused save puts each reason on its own field, in plain words, until th
     await expect(page.locator('body')).not.toContainText('Input should be');
     await expect(page.locator('[data-toast]')).toHaveCount(0);
 
+    // Both refused fields are on the section's first screen, so its More options stays closed.
+    await saveDetails(page).getByRole('button', { name: 'Port (Cameras & connection)', exact: true }).click();
+    await expect(page.locator('#mqtt-port')).toBeFocused();
+    await expect(page.locator('[data-settings-more-body]')).toHaveCount(0);
+
     await url.fill('http://frigate.lan:5000');
     await expect(url).not.toHaveAttribute('aria-invalid', 'true');
     await expect(saveDetails(page).getByRole('button', { name: 'Server URL (Cameras & connection)', exact: true })).toHaveCount(0);
@@ -130,6 +135,22 @@ test('a save that fails on the server says nothing was saved and what to try, on
     await expect(saveDetails(page)).toContainText('try Save changes again');
     await expect(page.getByText('Internal Server Error')).toHaveCount(0);
     await expect(page.locator('[data-toast]')).toHaveCount(0);
+});
+
+test('while a refusal holds the details open, the bar goes to them rather than claiming to close them', async ({ page }) => {
+    await openSettings(page, {}, { refuseWrite: () => ({ status: 500, json: { detail: 'Internal Server Error' } }) });
+    await page.locator('#mqtt-server').fill('broker.lan');
+    await saveBar(page).getByRole('button', { name: 'Details', exact: true }).click();
+    await expect(saveDetails(page)).toBeVisible();
+    await saveButton(page).click();
+    const goTo = saveBar(page).getByRole('button', { name: 'Go to details', exact: true });
+    await expect(goTo).not.toHaveAttribute('aria-expanded');
+    await page.locator('#mqtt-server').focus();
+    await goTo.click();
+    await expect(saveDetails(page)).toBeVisible();
+    await expect(saveDetails(page)).toBeFocused();
+    await goTo.click();
+    await expect(saveDetails(page)).toBeVisible();
 });
 
 test('a successful save is reported once', async ({ page }) => {

@@ -158,7 +158,11 @@ describe('Settings has one look across tabs', () => {
         for (const kept of ['data-settings-save-rule', 'data-draft-conflicts', 'data-save-problem', 'data-restored-draft', 'onOpenTab?.(tab.id)']) {
             expect(bar, kept).not.toContain(kept);
         }
-        // The details open by themselves for anything that needs a decision.
-        expect(pageSource).toContain('const detailsShown = $derived(detailsOpen || conflicts.length > 0 || problemShown || Boolean(restoredNotice));');
+        // The details open by themselves for anything that needs a decision, and while they are
+        // held open the button only goes to them, named so, with no expanded state to claim.
+        expect(pageSource).toContain('const detailsHeldOpen = $derived(conflicts.length > 0 || problemShown || Boolean(restoredNotice));');
+        expect(pageSource).toContain('const detailsShown = $derived(detailsOpen || detailsHeldOpen);');
+        expect(bar).toContain("aria-expanded={detailsHeldOpen ? undefined : detailsShown}");
+        expect(bar).toContain("settings.save_bar.go_to_details");
     });
 });

@@ -437,6 +437,8 @@
       "source_discovery_mapping_value": "Значение сопоставления",
       "source_discovery_sample_id": "Пример ID",
       "source_discovery_seen": "Встречено",
+      "source_discovery_add": "Выберите, чтобы добавить",
+      "source_discovery_add_to": "{source}, слышен {time}. Выберите, чтобы добавить к {camera}.",
       "advanced_title": "Аудио-буфер и сопоставление датчиков",
       "test_subtitle": "Проверяет, что BirdNET-Go доступен, брокер MQTT принимает публикацию, а тестовое обнаружение проходит всю цепочку обработки.",
       "test_title": "Проверка подключения BirdNET-Go"
@@ -1780,6 +1782,7 @@
     "discard_short": "Отменить",
     "save_short": "Сохранить",
     "details": "Подробнее",
+    "go_to_details": "Перейти к разделу «Подробнее»",
     "details_title": "Изменения, ожидающие сохранения",
     "line": "{count, plural, one {# несохранённое изменение} few {# несохранённых изменения} many {# несохранённых изменений} other {# несохранённого изменения}}",
     "line_conflicts": "{count, plural, one {# изменение требует решения} few {# изменения требуют решения} many {# изменений требуют решения} other {# изменения требуют решения}}",

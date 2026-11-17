@@ -437,6 +437,8 @@
       "source_discovery_mapping_value": "Valor de mapeo",
       "source_discovery_sample_id": "ID de ejemplo",
       "source_discovery_seen": "Visto",
+      "source_discovery_add": "Selecciona uno para añadirlo",
+      "source_discovery_add_to": "{source}, oída {time}. Selecciónala para añadirla a {camera}.",
       "advanced_title": "Búfer de audio y mapeo de sensores",
       "test_subtitle": "Confirma que BirdNET-Go es accesible, que el broker MQTT acepta una publicación y que una detección simulada recorre toda la canalización.",
       "test_title": "Prueba de conexión de BirdNET-Go"
@@ -1780,6 +1782,7 @@
     "discard_short": "Descartar",
     "save_short": "Guardar",
     "details": "Detalles",
+    "go_to_details": "Ir a los detalles",
     "details_title": "Cambios pendientes de guardar",
     "line": "{count, plural, one {# cambio sin guardar} other {# cambios sin guardar}}",
     "line_conflicts": "{count, plural, one {# cambio por decidir} other {# cambios por decidir}}",

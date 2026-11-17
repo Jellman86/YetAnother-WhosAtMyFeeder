@@ -437,6 +437,8 @@
       "source_discovery_mapping_value": "映射值",
       "source_discovery_sample_id": "示例ID",
       "source_discovery_seen": "已见",
+      "source_discovery_add": "选择一个以添加",
+      "source_discovery_add_to": "{source}，{time}听到。选择后添加到 {camera}。",
       "advanced_title": "音频缓冲与传感器映射",
       "test_subtitle": "确认 BirdNET-Go 可访问、MQTT 代理接受发布，并且模拟检测能走完整个处理流程。",
       "test_title": "BirdNET-Go 连接测试"
@@ -1780,6 +1782,7 @@
     "discard_short": "放弃",
     "save_short": "保存",
     "details": "详情",
+    "go_to_details": "转到详情",
     "details_title": "等待保存的更改",
     "line": "{count, plural, other {# 项未保存的更改}}",
     "line_conflicts": "{count, plural, other {# 项更改需要决定}}",

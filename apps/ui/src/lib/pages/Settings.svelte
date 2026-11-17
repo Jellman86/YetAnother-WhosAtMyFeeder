@@ -119,7 +119,7 @@
     import { enrichmentSection, type EnrichmentDraft } from '../settings/enrichment-section';
     import { aiSection, editAiDraft, type AiDraft } from '../settings/ai-section';
     import { sectionChangedFields } from '../settings/section-adapter';
-    import { changedFields, firstRefusedField, settingsFieldPlace, settingsFieldSection, summarizeUnsaved } from '../settings/settings-fields';
+    import { changedFields, firstRefusedField, settingsFieldPart, settingsFieldPlace, settingsFieldSection, summarizeUnsaved } from '../settings/settings-fields';
     import { rangeFieldError, standingFieldErrors, type SettingsFieldError } from '../settings/field-errors';
     import { provideSettingsFieldErrors } from '../settings/field-error-context';
     import { unsavedChanges } from '../stores/unsaved-changes';
@@ -3050,10 +3050,17 @@
         if (section && section !== activeSection) openSection(section);
         const place = settingsFieldPlace(field);
         // A closed section either does not render its inputs or keeps them hidden; open every
-        // section that holds this one, More options first, then wait until the input can take focus.
-        disclosures.reveal([...(section ? [settingsMoreId(section)] : []), ...(place?.disclosures ?? [])]);
+        // section that holds this one, outermost first, then wait for the part's code to arrive and
+        // for the input to take focus.
+        disclosures.reveal(place?.disclosures ?? []);
         const inputId = place?.inputId;
         if (!inputId) return;
+        const part = settingsFieldPart(field);
+        try {
+            if (part) await SETTINGS_PART_LOADERS[part]();
+        } catch {
+            return;
+        }
         for (let frame = 0; frame < FIELD_WAIT_FRAMES; frame += 1) {
             await tick();
             const input = document.getElementById(inputId);
@@ -3102,8 +3109,8 @@
 
 </script>
 
-{#snippet sectionAside()}
-    <SectionAside section={activeSection} onOpenPart={openPart} onOpenHealth={onNavigate ? () => onNavigate('/system-health') : undefined} />
+{#snippet sectionAside(placement: 'top' | 'side')}
+    <SectionAside section={activeSection} {placement} onOpenPart={openPart} onOpenHealth={onNavigate ? () => onNavigate('/system-health') : undefined} />
 {/snippet}
 
 {#snippet pageNavigation()}

@@ -10,11 +10,17 @@
 
     interface Props {
         section: SettingsSection;
+        /** Before the settings on a phone, or in its own column after them on a wide page. */
+        placement: 'top' | 'side';
         onOpenPart: (part: SettingsPart) => void;
         onOpenHealth?: () => void;
     }
 
-    let { section, onOpenPart, onOpenHealth }: Props = $props();
+    let { section, placement, onOpenPart, onOpenHealth }: Props = $props();
+
+    // Both placements are in the page, one hidden, so each names its own headings.
+    const titleId = $derived(`settings-section-status-title-${placement}`);
+    const partsTitleId = $derived(`settings-section-parts-title-${placement}`);
 
     /** What each section depends on, as the live status measures it. Display depends on nothing. */
     const STATUS_KEYS: Readonly<Record<SettingsSection, readonly SubsystemKey[]>> = {
@@ -52,8 +58,8 @@
 
 <!-- What this section depends on, measured, then where its settings are. First on a phone; a column
      of its own beside the settings when the page has room. -->
-<section class="space-y-3 text-sm" aria-labelledby="settings-section-status-title" data-settings-section-status>
-    <h2 id="settings-section-status-title" class="text-sm font-semibold text-strong">
+<section class="space-y-3 text-sm" aria-labelledby={titleId} data-settings-section-status={placement}>
+    <h2 id={titleId} class="text-sm font-semibold text-strong">
         {$_('settings.status.title', { default: 'Status' })}
     </h2>
     {#if keys.length === 0}
@@ -89,9 +95,11 @@
         </button>
     {/if}
 
-    {#if parts.length > 1}
-        <nav aria-labelledby="settings-section-parts-title" class="space-y-1 border-t border-line-soft pt-3" data-settings-section-parts>
-            <h2 id="settings-section-parts-title" class="text-sm font-semibold text-strong">
+    <!-- Above the settings on a phone the parts would push the work down, and the section list
+         already leads there, so they are listed only in the column beside them. -->
+    {#if placement === 'side' && parts.length > 1}
+        <nav aria-labelledby={partsTitleId} class="space-y-1 border-t border-line-soft pt-3" data-settings-section-parts>
+            <h2 id={partsTitleId} class="text-sm font-semibold text-strong">
                 {$_('settings.status.in_this_section', { default: 'In this section' })}
             </h2>
             <ul class="space-y-0.5">

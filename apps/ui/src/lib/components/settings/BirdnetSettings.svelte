@@ -139,7 +139,7 @@
     const buttonPrimaryClass = 'btn btn-primary min-h-11 px-4 py-3';
 </script>
 
-<SettingsCard title={$_('settings.integrations.birdnet.title')} description={$_('settings.integrations.birdnet.toggle_label')} titleId="integration-birdnet-title">
+<SettingsCard title={$_('settings.integrations.birdnet.title')} description={$_('settings.integrations.birdnet.toggle_label')} titleId="integration-birdnet-title" level={3}>
     <!-- The card's own switch, named by its title, so the title is not repeated as a row below it. -->
     {#snippet actions()}
         <SettingsToggle
@@ -332,7 +332,7 @@
                             {$_('settings.integrations.birdnet.source_discovery_title')}
                         </div>
                         {#if !loadingBirdnetSources && !birdnetSourcesError && birdnetSourceOptions.length > 0 && availableCameras.length > 0}
-                            <div class="text-sm font-semibold text-ink">click to add</div>
+                            <div class="text-sm font-semibold text-ink">{$_('settings.integrations.birdnet.source_discovery_add', { default: 'Select one to add it' })}</div>
                         {/if}
                     </div>
                     {#if loadingBirdnetSources}
@@ -358,7 +358,10 @@
                                         }}
                                         disabled={availableCameras.length === 0}
                                         title={availableCameras[0]
-                                            ? `${sourceValue} · last seen ${source.last_seen} · click to add to ${availableCameras[0]}`
+                                            ? $_('settings.integrations.birdnet.source_discovery_add_to', {
+                                                  values: { source: sourceValue, time: formatRelativeTime(source.last_seen), camera: availableCameras[0] },
+                                                  default: '{source}, heard {time}. Select it to add it to {camera}.'
+                                              })
                                             : sourceValue}
                                     >
                                         <span class="shrink-0 inline-flex h-5 w-5 items-center justify-center rounded-full bg-surface-sunken text-muted group-hover:bg-accent group-hover:text-accent-fg group-hover:group-disabled:bg-surface-sunken transition-colors text-xs font-bold leading-none" aria-hidden="true">+</span>

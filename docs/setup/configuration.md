@@ -66,7 +66,8 @@ back) and **Save changes**. On a phone it is two short lines at most, whatever t
 label too long for it ends in an ellipsis and keeps its whole name for a screen reader.
 **Details** opens a panel above the bar that names the changed sections, with a link to each, and
 says that settings wait for **Save changes**, while buttons such as Test, Run and Download act
-straight away.
+straight away. While a refused value, a conflict or restored changes need a look, the panel stays
+open and the button, then named **Go to details**, takes you to it.
 While the bar shows, the page keeps a focused control above it. Choosing another page with unsaved
 changes asks first, offering **Save and leave** (it leaves only once the save goes through) as well
 as **Leave without saving**; reloading or closing the tab asks too, and moving between sections keeps
@@ -97,7 +98,7 @@ shown first. **More options** holds the rest of Frigate's settings (the labels t
 public Frigate URL, the image used for the first identification, and clips) and the
 [BirdNET-Go](#birdnet-go) connection.
 
-![Settings → Cameras & connection: a Frigate NVR card with Server URL, the Frigate labels to act on, and the public Frigate URL, beside a Cameras to watch card where the feeder camera watches for birds as a Feeder](../images/settings-connection.png)
+![Frigate settings with the server URL, the Frigate labels to act on and the public Frigate URL, beside the Cameras to watch list where the feeder camera watches for birds as a Feeder. The labels and the public URL are now under More options.](../images/settings-connection.png)
 
 | Setting | Description |
 |---------|-------------|
@@ -149,6 +150,8 @@ address the backend uses to fetch spectrograms (usually the Docker network name)
 browser URL** is the public address dashboard links open, and falls back to the internal one when
 empty. **Test Audio detection** runs the broker publish and a mock detection through the real
 pipeline. See [BirdNET-Go](../integrations/birdnet-go.md).
+
+![The BirdNET-Go card with the integration switched on, the internal URL the backend uses and the browser URL dashboard links open](../images/settings-integrations.png)
 
 ## Identifying birds
 
@@ -338,7 +341,6 @@ Other services YA-WAMF reads from or reports to, your location, AI descriptions,
 Other services YA-WAMF talks to. Credentials are redacted as `***REDACTED***` once saved, and
 a saved credential can be re-tested without typing it again.
 
-![Settings → Sharing & integrations: a BirdNET-Go card with the integration toggled on, its backend-only internal URL and the public browser URL used by dashboard links, beside an iNaturalist card that is switched off](../images/settings-integrations.png)
 
 - **BirdNET-Go** is set up with the cameras, under
   [Cameras & connection → More options](#birdnet-go).

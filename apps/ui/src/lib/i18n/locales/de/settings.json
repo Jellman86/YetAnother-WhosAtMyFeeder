@@ -437,6 +437,8 @@
       "source_discovery_mapping_value": "Zuordnungswert",
       "source_discovery_sample_id": "Beispiel-ID",
       "source_discovery_seen": "Gesehen",
+      "source_discovery_add": "Zum Hinzufügen auswählen",
+      "source_discovery_add_to": "{source}, gehört {time}. Wählen Sie die Quelle aus, um sie {camera} zuzuordnen.",
       "advanced_title": "Audiopuffer & Sensor-Zuordnung",
       "test_subtitle": "Bestätigt, dass BirdNET-Go erreichbar ist, der MQTT-Broker eine Veröffentlichung annimmt und eine simulierte Erkennung die Pipeline durchläuft.",
       "test_title": "BirdNET-Go-Verbindungstest"
@@ -1780,6 +1782,7 @@
     "discard_short": "Verwerfen",
     "save_short": "Speichern",
     "details": "Details",
+    "go_to_details": "Zu den Details",
     "details_title": "Änderungen, die auf das Speichern warten",
     "line": "{count, plural, one {# ungespeicherte Änderung} other {# ungespeicherte Änderungen}}",
     "line_conflicts": "{count, plural, one {# Änderung zu entscheiden} other {# Änderungen zu entscheiden}}",

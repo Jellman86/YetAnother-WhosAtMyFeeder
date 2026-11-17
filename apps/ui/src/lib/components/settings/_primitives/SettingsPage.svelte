@@ -36,10 +36,11 @@
         // tab-order for keyboard users.
         tabs?: Snippet;
         /**
-         * The open section's status and its parts. First on a phone; beside the settings when the
-         * page has room for a third column.
+         * The open section's status and its parts. Rendered twice, with only one shown: first on a
+         * phone (`top`), and after the settings in a third column when the page has room (`side`),
+         * so the keyboard reaches it in the order it is seen.
          */
-        aside?: Snippet;
+        aside?: Snippet<[placement: 'top' | 'side']>;
         /** The id of the settings column, which the navigation's skip link focuses. */
         contentId?: string;
         children: Snippet;
@@ -83,10 +84,12 @@
     let detailsOpen = $state(false);
     let saveDetails = $state<HTMLElement | null>(null);
     const problemShown = $derived(saveProblem !== null);
-    const detailsShown = $derived(detailsOpen || conflicts.length > 0 || problemShown || Boolean(restoredNotice));
+    // While something there needs a look the details cannot close, so the button only goes to them.
+    const detailsHeldOpen = $derived(conflicts.length > 0 || problemShown || Boolean(restoredNotice));
+    const detailsShown = $derived(detailsOpen || detailsHeldOpen);
 
     async function openDetails(): Promise<void> {
-        if (detailsShown && !detailsOpen && (conflicts.length > 0 || problemShown || restoredNotice)) {
+        if (detailsHeldOpen) {
             saveDetails?.scrollIntoView({ block: 'center' });
             saveDetails?.focus({ preventScroll: true });
             return;
@@ -184,8 +187,8 @@
                 </div>
             {/if}
             {#if aside}
-                <div class="settings-layout-aside" data-settings-aside>
-                    {@render aside()}
+                <div class="settings-layout-aside-top" data-settings-aside="top">
+                    {@render aside('top')}
                 </div>
             {/if}
             <div class="settings-layout-main min-w-0 space-y-6">
@@ -315,8 +318,8 @@
                                 <button
                                     type="button"
                                     class="btn btn-ghost min-h-6 min-w-6 shrink-0 px-1.5 py-0.5"
-                                    aria-label={$_('settings.save_bar.details', { default: 'Details' })}
-                                    aria-expanded={detailsShown}
+                                    aria-label={detailsHeldOpen ? $_('settings.save_bar.go_to_details', { default: 'Go to details' }) : $_('settings.save_bar.details', { default: 'Details' })}
+                                    aria-expanded={detailsHeldOpen ? undefined : detailsShown}
                                     aria-controls="settings-save-details"
                                     onclick={openDetails}
                                     data-settings-save-details-toggle
@@ -360,24 +363,30 @@
                     </section>
                 {/if}
             </div>
+            {#if aside}
+                <div class="settings-layout-aside-side" data-settings-aside="side">
+                    {@render aside('side')}
+                </div>
+            {/if}
         </div>
     {/if}
 
 </div>
 
 <style>
-    /* A readable measure for every sentence in Settings, however wide its card or column. It sits in
-       the base layer, under the utilities, so a width a paragraph sets for itself (max-w-full on a
-       chip) still wins. */
+    /* A readable measure for every paragraph in Settings, however wide its card or column, and for
+       the items of a list marked as prose. A list item is otherwise a row (a divider, a value at
+       its right edge) and keeps the card's width. It sits in the base layer, under the utilities,
+       so a width a paragraph sets for itself (max-w-full on a chip) still wins. */
     @layer base {
-        :global(:is([data-settings-content], [data-settings-aside]) :is(p, li)) {
+        :global(:is([data-settings-content], [data-settings-aside]) :is(p, [data-settings-prose] > li)) {
             max-inline-size: 72ch;
         }
     }
 
-    /* The section's parts are listed only in a column of their own: above the settings they would
-       push the work down, and the section list already leads there. */
-    .settings-layout-aside :global([data-settings-section-parts]) {
+    /* The status beside the settings is the one after them in the page, so the keyboard reaches it
+       after the settings it sits beside; on a phone the one before them is shown. */
+    .settings-layout-aside-side {
         display: none;
     }
 
@@ -401,7 +410,7 @@
             top: 1.5rem;
         }
 
-        .settings-layout-aside,
+        .settings-layout-aside-top,
         .settings-layout-main {
             grid-column: 2;
         }
@@ -420,11 +429,12 @@
             grid-row: 1;
         }
 
-        .settings-layout-aside :global([data-settings-section-parts]) {
-            display: block;
+        .settings-layout-aside-top {
+            display: none;
         }
 
-        .settings-layout-aside {
+        .settings-layout-aside-side {
+            display: block;
             grid-column: 3;
             grid-row: 1;
             position: sticky;

@@ -437,6 +437,8 @@
       "source_discovery_mapping_value": "Valeur de mapping",
       "source_discovery_sample_id": "ID d'exemple",
       "source_discovery_seen": "Vu",
+      "source_discovery_add": "Sélectionnez-en une pour l’ajouter",
+      "source_discovery_add_to": "{source}, entendue {time}. Sélectionnez-la pour l’ajouter à {camera}.",
       "advanced_title": "Tampon audio & mapping des capteurs",
       "test_subtitle": "Vérifie que BirdNET-Go est accessible, que le courtier MQTT accepte une publication et qu’une détection simulée traverse le pipeline.",
       "test_title": "Test de connexion BirdNET-Go"
@@ -1780,6 +1782,7 @@
     "discard_short": "Annuler",
     "save_short": "Enregistrer",
     "details": "Détails",
+    "go_to_details": "Aller aux détails",
     "details_title": "Modifications en attente d’enregistrement",
     "line": "{count, plural, one {# modification non enregistrée} other {# modifications non enregistrées}}",
     "line_conflicts": "{count, plural, one {# modification à trancher} other {# modifications à trancher}}",

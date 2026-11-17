@@ -21,7 +21,7 @@ export const loadAccessibilitySettings = lazyComponent(() => import('../Accessib
 
 /** Everything a part needs loaded before it has its full height. */
 export const SETTINGS_PART_LOADERS: Readonly<Record<SettingsPart, () => Promise<unknown>>> = {
-    connection: loadConnectionSettings,
+    connection: () => Promise.all([loadConnectionSettings(), loadBirdnetSettings()]),
     detection: loadDetectionSettings,
     models: loadModelSettings,
     beta: loadGardenBetaSettings,

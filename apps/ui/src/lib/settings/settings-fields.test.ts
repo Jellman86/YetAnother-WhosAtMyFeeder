@@ -133,6 +133,13 @@ describe('where a refused field is shown', () => {
             }
             for (const disclosure of place.disclosures ?? []) {
                 const source = settingsMarkup[inputFile];
+                // A section's More options is drawn by the section around the part that holds the input.
+                const more = /^settings-more-(\w+)$/.exec(disclosure);
+                if (more) {
+                    const opened = Object.values(settingsMarkup).some((markup) => markup.includes(`<SectionMore section="${more[1]}"`));
+                    if (!opened) problems.push(`${field}: no section draws ${disclosure}`);
+                    continue;
+                }
                 // The runtime sections take their ids from one shared list (runtime-problem.ts).
                 const shared = (RUNTIME_DISCLOSURES as readonly string[]).indexOf(disclosure);
                 const named = new RegExp(`id="${disclosure}"|['"]${disclosure}['"]`).test(source)
@@ -143,6 +150,14 @@ describe('where a refused field is shown', () => {
             }
         }
         expect(problems).toEqual([]);
+    });
+
+    it('opens More options only for a field inside it', () => {
+        expect(settingsFieldPlace('frigate_url')?.disclosures ?? []).toEqual([]);
+        expect(settingsFieldPlace('mqtt_server')?.disclosures ?? []).toEqual([]);
+        expect(settingsFieldPlace('frigate_external_url')?.disclosures).toEqual(['settings-more-cameras']);
+        expect(settingsFieldPlace('recording_clip_before_seconds')?.disclosures).toEqual(['settings-more-cameras', 'connection-full-visit']);
+        expect(settingsFieldPlace('audio_buffer_hours')?.disclosures).toEqual(['settings-more-cameras', 'integrations-birdnet-advanced']);
     });
 
     it('shows a refused concurrency on Maintenance with nothing to open, since Jobs at once is a plain section', () => {

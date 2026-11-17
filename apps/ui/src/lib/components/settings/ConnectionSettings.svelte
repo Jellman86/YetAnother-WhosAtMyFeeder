@@ -379,7 +379,7 @@
     {#if showMore}
     <!-- The rest of Frigate, under the section's More options: what it sends, where its pages are,
          which frame is identified and the clips kept. -->
-    <SettingsCard title={$_('settings.frigate.more_title', { default: 'Frigate details' })}>
+    <SettingsCard title={$_('settings.frigate.more_title', { default: 'Frigate details' })} level={3}>
 
         <SettingsRow
             labelId="setting-frigate-ingest-labels"

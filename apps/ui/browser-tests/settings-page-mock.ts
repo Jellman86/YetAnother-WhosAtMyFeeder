@@ -74,8 +74,8 @@ export const saveBar = (page: Page) => page.getByRole('region', { name: 'Unsaved
 export const saveDetails = (page: Page) => page.locator('[data-settings-save-details]');
 /** Opens the save details from the bar, as a person would. */
 export async function openSaveDetails(page: Page): Promise<void> {
-    const toggle = saveBar(page).getByRole('button', { name: 'Details', exact: true });
-    if ((await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click();
+    // A conflict, a refused value or restored changes hold them open already.
+    if (!(await saveDetails(page).isVisible())) await saveBar(page).getByRole('button', { name: 'Details', exact: true }).click();
     await expect(saveDetails(page)).toBeVisible();
 }
 /** Opens the open section's "More options", where the settings fewer owners need are kept. */
