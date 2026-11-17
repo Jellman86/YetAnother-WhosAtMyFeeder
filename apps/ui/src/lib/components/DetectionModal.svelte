@@ -1543,7 +1543,7 @@
 
         <!-- Side by side from 1024px, and on a phone or tablet held sideways (a short screen), where a
              photograph above the identification would push it off the first screen. -->
-        <div class="flex-1 overflow-y-auto flex flex-col lg:overflow-hidden lg:grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] xl:grid-cols-5 sm:short:grid sm:short:grid-cols-2 sm:short:overflow-hidden">
+        <div class="@container flex-1 overflow-y-auto flex flex-col lg:overflow-hidden lg:grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] xl:grid-cols-5 sm:short:grid sm:short:grid-cols-2 sm:short:overflow-hidden">
                 <div class="flex min-h-0 shrink-0 flex-col bg-media lg:shrink lg:overflow-y-auto lg:border-r lg:border-line xl:col-span-2 sm:short:shrink sm:short:overflow-y-auto sm:short:border-r sm:short:border-line">
                     <div class="relative min-w-0 aspect-4/3 min-h-72 shrink-0 overflow-hidden bg-media sm:aspect-video lg:flex-1 short:min-h-0 max-sm:short:max-h-half-screen" data-detection-photograph>
                         {#if photographDrawnUrl}
@@ -1784,7 +1784,7 @@
                         </div>
                 </div>
 
-            <div data-detection-details-column class="flex min-w-0 flex-1 flex-col gap-5 wrap-break-word lg:overflow-y-auto sm:short:overflow-y-auto p-5 sm:p-6 xl:col-span-3 xl:grid xl:grid-cols-2 xl:items-start xl:gap-x-8 {showTagDropdown ? 'blur-xs pointer-events-none select-none' : ''}">
+            <div data-detection-details-column class="flex min-w-0 flex-1 flex-col gap-5 wrap-break-word lg:overflow-y-auto sm:short:overflow-y-auto p-5 sm:p-6 xl:col-span-3 @6xl:grid @6xl:grid-cols-2 @6xl:items-start @6xl:gap-x-8 {showTagDropdown ? 'blur-xs pointer-events-none select-none' : ''}">
             <!-- The identification and what it rests on: the decision first. -->
             <div class="flex min-w-0 flex-col gap-5" data-detection-primary-column>
             {#if isManualObservation && detection.observation_notes}
@@ -2306,7 +2306,9 @@
             {/if}
             </div>
 
-            <!-- Reference for the species and the record: beside the identification from 1280px, under it below. -->
+            <!-- Reference for the species and the record: beside the identification where the record is wide
+                 enough in rem (from 1280px at the usual text size), under it otherwise, so a larger text size
+                 keeps one column of whole words rather than two narrow ones. -->
             <div class="flex min-w-0 flex-col gap-5" data-detection-secondary-column>
             {#if !isUnknownSpecies && detection.scientific_name}
                 <TaxonomyLineage scientificName={detection.scientific_name} commonName={detection.common_name} />
