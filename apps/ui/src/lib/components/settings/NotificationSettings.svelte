@@ -221,7 +221,7 @@
         />
 </SettingsCard>
 {:else}
-<SettingsCard level={3} title={$_('settings.notifications.details_title', { default: 'Pacing, language, links and species' })}>
+<SettingsCard level={3} title={$_('settings.notifications.details_title', { default: 'Cooldown, language, links and species' })}>
 
         <!-- Off is zero minutes: a switch says so instead of asking for "0 to disable". -->
         <div class="settings-row space-y-3 md:grid md:settings-row-columns md:items-start md:gap-x-8 md:space-y-0" data-settings-row data-notification-cooldown>

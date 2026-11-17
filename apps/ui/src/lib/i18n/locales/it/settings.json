@@ -312,8 +312,8 @@
     "cameras": "Dettagli di Frigate, origine dell’immagine, clip e BirdNET-Go",
     "sharing": "eBird, iNaturalist, BirdWeather, meteo di Home Assistant, informazioni sulle specie, IA e telemetria",
     "identification": "Specie bloccate, filtro di areale, controlli video, hardware e funzioni beta",
-    "alerts": "Pausa, lingua, link e filtro delle specie",
-    "alerts_garden": "Pausa, lingua, link, filtro delle specie e avvisi sugli animali del giardino",
+    "alerts": "Raffreddamento, lingua, link e filtro delle specie",
+    "alerts_garden": "Raffreddamento, lingua, link, filtro delle specie e avvisi sugli animali del giardino",
     "storage": "Quando Frigate perde una visita, e le attività che riparano o completano la cronologia",
     "display": "Formato di data e ora, nomi degli uccelli, layout dell’Explorer, caratteri e colori, e unità"
   },
@@ -920,7 +920,7 @@
     },
     "link_open_connection": "Apri Connessione",
     "channels_title": "Canali",
-    "details_title": "Ritmo, lingua, link e specie",
+    "details_title": "Raffreddamento, lingua, link e specie",
     "garden_title": "Avvisi sugli animali del giardino",
     "channels_desc": "Dove vanno gli avvisi. Attiva un canale per configurarlo."
   },

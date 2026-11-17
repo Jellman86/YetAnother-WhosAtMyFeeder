@@ -96,6 +96,7 @@
     import { settingsMoreId, settingsPartIsInMore } from '../settings/settings-more';
     import {
         loadConnectionSettings,
+        loadGardenNotificationSettings,
         SETTINGS_PART_LOADERS
     } from '../components/settings/sections/part-loaders';
     import SettingsPage from '../components/settings/_primitives/SettingsPage.svelte';
@@ -1467,9 +1468,14 @@
     async function openGardenAlerts(): Promise<void> {
         disclosures.setOpen(settingsMoreId('alerts'), true);
         openSection(settingsSectionOfPart('notifications'));
-        const alerts = await fieldInOpenedPart(SETTINGS_PART_LOADERS.notifications, () => document.querySelector<HTMLElement>('[data-garden-alerts]'));
-        alerts?.scrollIntoView({ block: 'start' });
-        alerts?.querySelector<HTMLElement>('button[aria-checked]')?.focus({ preventScroll: true });
+        // The block is drawn at once, but its switch comes with Garden alerts' own code, so the wait
+        // is for the switch itself.
+        const toggle = await fieldInOpenedPart(
+            () => Promise.all([SETTINGS_PART_LOADERS.notifications(), loadGardenNotificationSettings()]),
+            () => document.querySelector<HTMLElement>('[data-garden-alerts] button[aria-checked]')
+        );
+        document.querySelector<HTMLElement>('[data-garden-alerts]')?.scrollIntoView({ block: 'start' });
+        toggle?.focus({ preventScroll: true });
     }
 
     // Drive taxonomy status from the derived active section so router-driven changes
