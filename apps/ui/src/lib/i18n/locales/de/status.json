@@ -16,7 +16,7 @@
   "state_off": "Aus",
   "audio_off": "Die Audioanalyse ist aus",
   "audio_on": "Die Audioanalyse ist an",
-  "audio_listening": "Wartet auf Erkennungen von BirdNET-Go",
+  "audio_listening": "Wartet auf Rufe von BirdNET-Go",
   "audio_not_listening": "Die Audioanalyse ist an, aber der MQTT-Broker ist nicht verbunden",
   "alerts_on": "Benachrichtigungen sind an",
   "alerts_off": "Benachrichtigungen sind aus",
@@ -24,7 +24,7 @@
   "feed_live": "Kameraereignisse kommen an",
   "feed_connecting": "Verbindung zum MQTT-Broker wird aufgebaut",
   "feed_broker_down": "Keine Kameraereignisse. Der MQTT-Broker ist nicht verbunden.",
-  "feed_frigate_down": "Frigate antwortet nicht, neue Erkennungen können nicht gespeichert werden",
+  "feed_frigate_down": "Frigate antwortet nicht, daher können neue Besuche nicht gespeichert werden",
   "feed_app_only": "Mit YA-WAMF verbunden",
   "feed_reconnecting": "Verbindung zu YA-WAMF wird wiederhergestellt",
   "stale_since": "Status zuletzt aktualisiert um {time}. Wird erneut geprüft."
