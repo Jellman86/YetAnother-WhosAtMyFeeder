@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { openSettings } from './settings-page-mock';
+import { openMoreOptions, openSettings } from './settings-page-mock';
 
 // Maintenance says, for every job, when it last ran and what it found, and why a button that
 // cannot run yet is disabled. The last runs come from the server's durable record.
@@ -25,6 +25,8 @@ async function openMaintenance(
         }
     });
     await page.getByRole('link', { name: 'Storage & upkeep', exact: true }).click();
+    // The jobs are under Storage & upkeep's More options.
+    await openMoreOptions(page);
     await expect(page.getByRole('heading', { name: 'Timezone repair', exact: true })).toBeVisible();
 }
 

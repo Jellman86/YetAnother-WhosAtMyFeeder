@@ -314,7 +314,8 @@
     "identification": "Espèces bloquées, filtre d’aire de répartition, vérifications vidéo, matériel et fonctions bêta",
     "alerts": "Délai, langue, lien et filtre d’espèces",
     "alerts_garden": "Délai, langue, lien, filtre d’espèces et alertes sur les animaux du jardin",
-    "storage": "Quand Frigate perd une visite, et les tâches qui réparent ou complètent l’historique"
+    "storage": "Quand Frigate perd une visite, et les tâches qui réparent ou complètent l’historique",
+    "display": "Format de date et d’heure, noms des oiseaux, disposition de l’Explorer, polices et couleurs, et unités"
   },
   "debug": {
     "llm_prompt_style_label": "Style de prompt",
@@ -1706,7 +1707,9 @@
   "save_rule": "Les changements de réglages attendent que vous choisissiez Enregistrer les modifications. Les boutons comme Tester, Lancer et Télécharger agissent tout de suite.",
   "appearance": {
     "typography_title": "Polices et couleurs",
-    "scope": "Le thème, la taille du texte et la langue changent tout de suite sur cet appareil. Le reste s’applique à tous les utilisateurs de cette installation une fois enregistré."
+    "scope_device": "Le thème, la taille du texte et la langue changent tout de suite sur cet appareil.",
+    "scope_everyone": "Ces réglages s’appliquent à tous les utilisateurs de cette installation une fois enregistrés.",
+    "more_title": "Dates, noms et disposition"
   },
   "theme_scope": "Change tout de suite, sur cet appareil seulement.",
   "maintenance": {

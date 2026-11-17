@@ -314,7 +314,8 @@
     "identification": "屏蔽的物种、分布范围筛选、视频检查、硬件和测试版功能",
     "alerts": "冷却时间、语言、链接和物种筛选",
     "alerts_garden": "冷却时间、语言、链接、物种筛选和花园动物提醒",
-    "storage": "Frigate 丢失到访时的处理，以及修复或补全历史的任务"
+    "storage": "Frigate 丢失到访时的处理，以及修复或补全历史的任务",
+    "display": "日期和时间格式、鸟类名称、Explorer 布局、字体和颜色以及单位"
   },
   "debug": {
     "llm_prompt_style_label": "提示风格",
@@ -1706,7 +1707,9 @@
   "save_rule": "设置的更改会等到您选择“保存更改”后才生效。测试、运行和下载等按钮会立即执行。",
   "appearance": {
     "typography_title": "字体和颜色",
-    "scope": "主题、文字大小和语言会在此设备上立即更改。其余设置保存后，对使用此安装的所有人生效。"
+    "scope_device": "主题、文字大小和语言会在此设备上立即更改。",
+    "scope_everyone": "这些设置保存后适用于使用此安装的所有人。",
+    "more_title": "日期、名称和布局"
   },
   "theme_scope": "立即更改，仅限此设备。",
   "maintenance": {

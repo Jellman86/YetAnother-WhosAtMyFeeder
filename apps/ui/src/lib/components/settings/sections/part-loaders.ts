@@ -39,6 +39,6 @@ export const SETTINGS_PART_LOADERS: Readonly<Record<SettingsPart, () => Promise<
     security: () => Promise.all([loadLocationSettings(), loadAuthenticationSettings()]),
     data: loadDataSettings,
     maintenance: () => Promise.all([loadMaintenanceSettings(), loadDangerZoneSettings()]),
-    appearance: () => Promise.all([loadAppearanceSettings(), loadUnitsSettings()]),
+    appearance: loadAppearanceSettings,
     accessibility: loadAccessibilitySettings
 };

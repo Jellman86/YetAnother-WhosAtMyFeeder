@@ -15,8 +15,11 @@
         draft,
         onchange,
         setTheme,
-        setLanguage
+        setLanguage,
+        region
     }: {
+        /** Theme, text size and language on the section's first screen, or the rest under More options. */
+        region: 'main' | 'more';
         currentTheme: Theme;
         currentLocale: string;
         /** The saved-for-everyone Appearance choices as currently edited; Apply saves them. */
@@ -45,7 +48,8 @@
 </script>
 
 
-<SettingsCard title={$_('settings.tabs.appearance')} description={$_('settings.appearance.scope', { default: 'Theme, text size and language change at once on this device. The rest apply to everyone who uses this install once you save.' })}>
+{#if region === 'main'}
+<SettingsCard title={$_('settings.tabs.appearance')} description={$_('settings.appearance.scope_device', { default: 'Theme, text size and language change at once on this device.' })}>
     <SettingsRow
         labelId="setting-theme"
         label={$_('theme.title')}
@@ -112,7 +116,9 @@
             ]}
         />
     </SettingsRow>
-
+</SettingsCard>
+{:else}
+<SettingsCard level={3} title={$_('settings.appearance.more_title', { default: 'Dates, names and layout' })} description={$_('settings.appearance.scope_everyone', { default: 'These apply to everyone who uses this install once you save.' })}>
     <SettingsRow
         labelId="setting-explorer-view"
         label={$_('settings.explorer_view.label')}
@@ -233,3 +239,4 @@
         </SettingsRow>
     </AdvancedSection>
 </SettingsCard>
+{/if}

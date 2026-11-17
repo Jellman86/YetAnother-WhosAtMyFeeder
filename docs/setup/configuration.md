@@ -67,6 +67,7 @@ Some settings have since moved within that map:
 | Garden animal alerts | Beta features (Garden, Alerts) | Alerts, under **More options**, marked Beta |
 | Notification cooldown, language, link and species filter | Alerts | Alerts, under **More options** |
 | When Frigate loses a visit; the repair and fill-in jobs, with **Jobs at once** | Storage & upkeep | Storage & upkeep, under **More options** |
+| Date and time format, naming style, Explorer layout, fonts and colours, Units | Display | Display, under **More options** |
 
 Edits wait in one draft across every section. While anything differs from what is saved, a short
 bar at the bottom of the page counts the changes, with **Discard changes** (puts every saved value
@@ -618,18 +619,21 @@ How YA-WAMF looks and names birds, and contrast, a reading font, motion and spok
 
 ### Appearance
 
-How the interface reads.
+How the interface reads. **Theme**, **Text size** and **Language** come first and change at once on
+this device; the accessibility switches follow. **More options** holds the choices saved for
+everyone: the date and time formats, how birds are named, the Explorer layout, fonts and colours,
+and **Units**.
 
 | Setting | Options |
 |---|---|
-| **Bird Naming Style** | **Standard** (common name primary, scientific subtitle), **Hobbyist** (scientific primary, common subtitle), or **Strictly Scientific** (scientific only). |
-| **Explorer layout** | **Cards** shows a snapshot per detection; **List** shows one compact row each, with times aligned for scanning. |
+| **Bird Naming Style** | Under More options. **Standard** (common name primary, scientific subtitle), **Hobbyist** (scientific primary, common subtitle), or **Strictly Scientific** (scientific only). |
+| **Explorer layout** | Under More options. **Cards** shows a snapshot per detection; **List** shows one compact row each, with times aligned for scanning. |
 | **Theme** | Light or dark, plus the colour and font themes. |
 | **Text size** | Smallest (75%), Smaller (81%), **Standard** (87.5%, default), Large (100%), Larger (112.5%), Extra large (125%) or Largest (150%). Saved separately on each device. |
 | **Language** | The interface language. Notifications have their own language setting. |
-| **Date format** | Follow browser language (default), United Kingdom (DD/MM/YYYY), United States (MM/DD/YYYY), or Japan/China (YYYY-MM-DD). Date and time choices are saved independently. |
-| **Time format** | 12 hour, 24 hour, or **Follow browser language**. |
-| **Units** | **Display units**: `Metric`, `Imperial`, or `British` (°C with mph and mm). Temperature, wind, rain and distances across the UI follow it. Saved for everyone who opens this install, not only this device. |
+| **Date format** | Under More options. Follow browser language (default), United Kingdom (DD/MM/YYYY), United States (MM/DD/YYYY), or Japan/China (YYYY-MM-DD). Date and time choices are saved independently. |
+| **Time format** | Under More options. 12 hour, 24 hour, or **Follow browser language**. |
+| **Units** | Under More options. **Display units**: `Metric`, `Imperial`, or `British` (°C with mph and mm). Temperature, wind, rain and distances across the UI follow it. Saved for everyone who opens this install, not only this device. |
 
 ### Accessibility
 

@@ -314,7 +314,8 @@
     "identification": "Espécies bloqueadas, filtro de área de distribuição, verificações de vídeo, hardware e funções beta",
     "alerts": "Pausa, idioma, link e filtro de espécies",
     "alerts_garden": "Pausa, idioma, link, filtro de espécies e alertas de animais do jardim",
-    "storage": "Quando o Frigate perde uma visita, e as tarefas que reparam ou completam o histórico"
+    "storage": "Quando o Frigate perde uma visita, e as tarefas que reparam ou completam o histórico",
+    "display": "Formato de data e hora, como as aves são nomeadas, o layout do Explorer, fontes e cores, e unidades"
   },
   "debug": {
     "llm_prompt_style_label": "Estilo de prompt",
@@ -1706,7 +1707,9 @@
   "save_rule": "As alterações nas configurações esperam até você escolher Salvar alterações. Botões como Testar, Executar e Baixar agem na hora.",
   "appearance": {
     "typography_title": "Fontes e cores",
-    "scope": "Tema, tamanho do texto e idioma mudam na hora neste dispositivo. O resto vale para todos que usam esta instalação depois de salvar."
+    "scope_device": "Tema, tamanho do texto e idioma mudam na hora neste dispositivo.",
+    "scope_everyone": "Estas opções valem para todas as pessoas que usam esta instalação depois de salvar.",
+    "more_title": "Datas, nomes e layout"
   },
   "theme_scope": "Muda na hora, só neste dispositivo.",
   "maintenance": {

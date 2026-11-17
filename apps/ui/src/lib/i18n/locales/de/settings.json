@@ -314,7 +314,8 @@
     "identification": "Blockierte Arten, Verbreitungsfilter, Videoprüfungen, Hardware und Beta-Funktionen",
     "alerts": "Abkühlzeit, Sprache, Link und Artenfilter",
     "alerts_garden": "Abkühlzeit, Sprache, Link, Artenfilter und Benachrichtigungen zu Gartentieren",
-    "storage": "Wenn Frigate einen Besuch verliert, und die Aufgaben, die den Verlauf reparieren oder ergänzen"
+    "storage": "Wenn Frigate einen Besuch verliert, und die Aufgaben, die den Verlauf reparieren oder ergänzen",
+    "display": "Datums- und Zeitformat, Vogelnamen, Explorer-Ansicht, Schriften und Farben sowie Einheiten"
   },
   "debug": {
     "llm_prompt_style_label": "Prompt-Stil",
@@ -1706,7 +1707,9 @@
   "save_rule": "Änderungen an Einstellungen warten, bis Sie „Änderungen speichern“ wählen. Schaltflächen wie Testen, Ausführen und Herunterladen wirken sofort.",
   "appearance": {
     "typography_title": "Schriften und Farben",
-    "scope": "Design, Textgröße und Sprache ändern sich sofort auf diesem Gerät. Der Rest gilt nach dem Speichern für alle, die diese Installation nutzen."
+    "scope_device": "Design, Textgröße und Sprache ändern sich sofort auf diesem Gerät.",
+    "scope_everyone": "Diese Einstellungen gelten nach dem Speichern für alle, die diese Installation nutzen.",
+    "more_title": "Datum, Namen und Ansicht"
   },
   "theme_scope": "Ändert sich sofort, nur auf diesem Gerät.",
   "maintenance": {

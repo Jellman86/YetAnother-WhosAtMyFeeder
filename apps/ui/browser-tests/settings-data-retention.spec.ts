@@ -112,12 +112,13 @@ test('with automatic cleanup off, saving is not presented as a deletion', async 
     await expect.poll(() => fixture.saves.length).toBe(1);
 });
 
-test('the irreversible actions end Storage & upkeep, in Maintenance, each consequence beside its own button', async ({ page }, testInfo) => {
+test('the irreversible actions end Storage & upkeep, after More options and outside it, each consequence beside its own button', async ({ page }, testInfo) => {
     await openDataSettings(page, 30);
     await page.getByRole('link', { name: 'Storage & upkeep', exact: true }).click();
-    // Data's own part holds none of them; they come after it, at the bottom of the section.
+    // Neither Data nor the jobs under More options hold them; they are last, outside More options.
     await expect(page.locator('[data-settings-part="data"] [data-danger-actions]')).toHaveCount(0);
-    await expect(page.locator('[data-settings-part="maintenance"] [data-danger-actions]')).toHaveCount(1);
+    await expect(page.locator('[data-settings-more] [data-danger-actions]')).toHaveCount(0);
+    await expect(page.locator('[data-settings-danger] [data-danger-actions]')).toHaveCount(1);
     // The last section, a plain heading: each action asks first in its own confirmation.
     await expect(page.getByRole('heading', { name: 'Delete data', exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Delete corrections' })).toHaveAccessibleDescription(/Detections and photos stay/);

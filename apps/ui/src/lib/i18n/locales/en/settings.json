@@ -314,7 +314,8 @@
     "identification": "Blocked species, the range filter, video checks, hardware and Beta features",
     "alerts": "Cooldown, language, the link and the species filter",
     "alerts_garden": "Cooldown, language, the link, the species filter and Garden animal alerts",
-    "storage": "When Frigate loses a visit, and the jobs that repair or fill in the history"
+    "storage": "When Frigate loses a visit, and the jobs that repair or fill in the history",
+    "display": "Date and time format, how birds are named, the Explorer layout, fonts and colours, and units"
   },
   "debug": {
     "llm_prompt_style_label": "Prompt style",
@@ -1706,7 +1707,9 @@
   "save_rule": "Changes to settings wait until you choose Save changes. Buttons such as Test, Run and Download act straight away.",
   "appearance": {
     "typography_title": "Fonts and colours",
-    "scope": "Theme, text size and language change at once on this device. The rest apply to everyone who uses this install once you save."
+    "scope_device": "Theme, text size and language change at once on this device.",
+    "scope_everyone": "These apply to everyone who uses this install once you save.",
+    "more_title": "Dates, names and layout"
   },
   "theme_scope": "Changes at once, on this device only.",
   "maintenance": {
