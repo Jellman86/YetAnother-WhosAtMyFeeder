@@ -130,10 +130,17 @@ const PAGES: ReadonlyArray<[path: string, heading: string]> = [
     ['/no-such-page', 'This page does not exist']
 ];
 
-const SETTINGS_TABS: ReadonlyArray<[path: string, tab: string]> = [
-    ['connection', 'Connection'], ['detection', 'Detection'], ['models', 'Models'], ['integrations', 'Integrations'],
-    ['ai', 'AI'], ['notifications', 'Notifications'], ['security', 'Security'], ['data', 'Data'],
-    ['maintenance', 'Maintenance'], ['beta', 'Beta features'], ['appearance', 'Appearance'], ['accessibility', 'Accessibility']
+// Settings is organised by task: six sections, each at its own address.
+const SETTINGS_SECTIONS: ReadonlyArray<[section: string, name: string]> = [
+    ['cameras', 'Cameras & connection'], ['identification', 'Identifying birds'], ['alerts', 'Alerts'],
+    ['sharing', 'Sharing & integrations'], ['storage', 'Storage & upkeep'], ['display', 'Display']
+];
+
+// Every former tab's address, the section that now holds it, and the part it lands on.
+const FORMER_SETTINGS_TABS: ReadonlyArray<[tab: string, section: string]> = [
+    ['connection', 'cameras'], ['detection', 'identification'], ['models', 'identification'], ['beta', 'identification'],
+    ['notifications', 'alerts'], ['integrations', 'sharing'], ['ai', 'sharing'], ['security', 'sharing'],
+    ['data', 'storage'], ['maintenance', 'storage'], ['appearance', 'display'], ['accessibility', 'display']
 ];
 
 test('every page draws its own content, with every script loaded and no console error', async ({ page }) => {
@@ -142,10 +149,23 @@ test('every page draws its own content, with every script loaded and no console 
         await page.goto(path);
         await expect(page.getByRole('heading', { level: 1, name: heading, exact: true }), path).toBeVisible({ timeout: 15_000 });
     }
-    for (const [tab, name] of SETTINGS_TABS) {
+    for (const [section, name] of SETTINGS_SECTIONS) {
+        await page.goto(`/settings/${section}`);
+        await expect(page.locator('[data-settings-navigation] [aria-current="page"]'), section).toHaveText(name, { timeout: 15_000 });
+        await expect(page.locator('main').getByRole('heading', { level: 2 }).first(), section).toBeVisible();
+    }
+    expect(problems(seen)).toEqual([]);
+});
+
+test('every former Settings tab address lands on its section, at its part', async ({ page }) => {
+    const seen = await openFeeder(page);
+    for (const [tab, section] of FORMER_SETTINGS_TABS) {
+        const name = SETTINGS_SECTIONS.find(([id]) => id === section)?.[1] ?? section;
         await page.goto(`/settings/${tab}`);
-        await expect(page.locator('[data-settings-navigation] [aria-current="page"]'), tab).toHaveText(name, { timeout: 15_000 });
-        await expect(page.locator('main').getByRole('heading', { level: 2 }).first(), tab).toBeVisible();
+        await expect.poll(() => new URL(page.url()).pathname, { timeout: 15_000 }).toBe(`/settings/${section}`);
+        expect(new URL(page.url()).hash, tab).toBe(`#${tab}`);
+        await expect(page.locator('[data-settings-navigation] [aria-current="page"]'), tab).toHaveText(name);
+        await expect(page.locator(`[data-settings-part="${tab}"]`), tab).toBeInViewport({ timeout: 15_000 });
     }
     expect(problems(seen)).toEqual([]);
 });
