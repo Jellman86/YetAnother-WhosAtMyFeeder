@@ -22,6 +22,7 @@ export const loadAuthenticationSettings = lazyComponent(() => import('../Authent
 export const loadTelemetrySettings = lazyComponent(() => import('../TelemetrySettings.svelte'));
 export const loadDataSettings = lazyComponent(() => import('../DataSettings.svelte'));
 export const loadMaintenanceSettings = lazyComponent(() => import('../MaintenanceSettings.svelte'));
+export const loadDangerZoneSettings = lazyComponent(() => import('../DangerZoneSettings.svelte'));
 export const loadAppearanceSettings = lazyComponent(() => import('../AppearanceSettings.svelte'));
 export const loadUnitsSettings = lazyComponent(() => import('../UnitsSettings.svelte'));
 export const loadAccessibilitySettings = lazyComponent(() => import('../AccessibilitySettings.svelte'));
@@ -37,7 +38,7 @@ export const SETTINGS_PART_LOADERS: Readonly<Record<SettingsPart, () => Promise<
     ai: () => Promise.all([loadAiSettings(), loadTelemetrySettings()]),
     security: () => Promise.all([loadLocationSettings(), loadAuthenticationSettings()]),
     data: loadDataSettings,
-    maintenance: loadMaintenanceSettings,
+    maintenance: () => Promise.all([loadMaintenanceSettings(), loadDangerZoneSettings()]),
     appearance: () => Promise.all([loadAppearanceSettings(), loadUnitsSettings()]),
     accessibility: loadAccessibilitySettings
 };

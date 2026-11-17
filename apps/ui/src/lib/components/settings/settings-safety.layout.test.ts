@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import dataSource from './DataSettings.svelte?raw';
 import maintenanceSource from './MaintenanceSettings.svelte?raw';
+import dangerSource from './DangerZoneSettings.svelte?raw';
+import storageSectionSource from './sections/StorageSection.svelte?raw';
 import notificationRulesSource from './NotificationSettings.svelte?raw';
 import notificationChannelsSource from './NotificationChannelsSettings.svelte?raw';
 
@@ -43,24 +45,25 @@ describe('history retention', () => {
 
 describe('the Danger Zone', () => {
     it('gives each action its own block, ordered by reach, with its consequence beside its button', () => {
-        const order = ['feedback', 'favorites', 'reset'].map((action) => maintenanceSource.indexOf(`data-danger-action="${action}"`));
+        const order = ['feedback', 'favorites', 'reset'].map((action) => dangerSource.indexOf(`data-danger-action="${action}"`));
         expect(order.every((at) => at > -1)).toBe(true);
         expect([...order].sort((a, b) => a - b)).toEqual(order);
         for (const action of ['feedback', 'favorites', 'reset']) {
-            expect(maintenanceSource).toContain(`aria-describedby="danger-${action}-consequence"`);
+            expect(dangerSource).toContain(`aria-describedby="danger-${action}-consequence"`);
         }
+        // Deleting data is last in Storage & upkeep, after More options and outside it.
+        expect(storageSectionSource.indexOf('<DangerZoneSettings')).toBeGreaterThan(storageSectionSource.indexOf('</SectionMore>'));
     });
 
     it('uses the kit danger buttons, solid only for the reset, and red only where something is deleted', () => {
-        expect(maintenanceSource).not.toContain('buttonAmberClass');
-        expect(maintenanceSource).toContain("const buttonDangerSolidClass = 'btn btn-danger-solid");
-        const reset = maintenanceSource.slice(maintenanceSource.indexOf('data-danger-action="reset"'));
+        expect(dangerSource).not.toContain('buttonAmberClass');
+        expect(dangerSource).toContain("const buttonDangerSolidClass = 'btn btn-danger-solid");
+        const reset = dangerSource.slice(dangerSource.indexOf('data-danger-action="reset"'));
         expect(reset).toContain('{buttonDangerSolidClass}');
-        expect(maintenanceSource.match(/\{buttonDangerSolidClass\}/g)).toHaveLength(1);
+        expect(dangerSource.match(/\{buttonDangerSolidClass\}/g)).toHaveLength(1);
         // Repairs and the integrity scan change nothing for good, so they are not red; the scan
         // turns red only while the chosen policy deletes local data.
-        const repairs = maintenanceSource.slice(0, maintenanceSource.indexOf('id="data-danger"'));
-        expect(repairs).not.toMatch(/buttonDanger(Outline|Solid)Class\}/);
+        expect(maintenanceSource).not.toMatch(/buttonDanger(Outline|Solid)Class\}/);
         expect(dataSource).toContain("class={frigateMissingBehavior === 'delete' ? buttonDangerOutlineClass : buttonNeutralClass}");
     });
 

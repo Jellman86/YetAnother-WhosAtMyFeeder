@@ -7,6 +7,7 @@ import authenticationSource from './AuthenticationSettings.svelte?raw';
 import connectionSource from './ConnectionSettings.svelte?raw';
 import dataSource from './DataSettings.svelte?raw';
 import maintenanceSource from './MaintenanceSettings.svelte?raw';
+import dangerSource from './DangerZoneSettings.svelte?raw';
 import detectionSource from './DetectionSettings.svelte?raw';
 import modelSource from './ModelSettings.svelte?raw';
 import hardwareSource from './HardwareSettings.svelte?raw';
@@ -72,10 +73,11 @@ describe('Settings progressive disclosure', () => {
         // Repairs and deletions have their own tab; the deletions are the last section, a plain
         // heading like every other, each behind its own confirmation.
         expect(dataSource).not.toContain('id="data-danger"');
-        expect(maintenanceSource).toContain('id="data-danger"');
+        expect(maintenanceSource).not.toContain('id="data-danger"');
+        expect(dangerSource).toContain('id="data-danger"');
         expect(maintenanceSource).not.toMatch(/<SettingsCard\s+collapsible/);
         expect(dataSource).not.toContain('settings.data.setup_wizard_title');
-        expect(maintenanceSource.indexOf('id="data-danger"')).toBeLessThan(maintenanceSource.indexOf('settings.danger.reset_desc'));
+        expect(dangerSource.indexOf('id="data-danger"')).toBeLessThan(dangerSource.indexOf('settings.danger.reset_desc'));
         // Testing the models is one row that opens Model evaluation, not a section of its own.
         expect(modelSource).toContain('labelId="setting-model-evaluation"');
         expect(modelSource).not.toContain('id="models-testing"');

@@ -305,7 +305,8 @@
     "sharing": "eBird、iNaturalist、BirdWeather、Home Assistant 天气、物种信息、AI 和遥测",
     "identification": "屏蔽的物种、分布范围筛选、视频检查、硬件和测试版功能",
     "alerts": "冷却时间、语言、链接和物种筛选",
-    "alerts_garden": "冷却时间、语言、链接、物种筛选和花园动物提醒"
+    "alerts_garden": "冷却时间、语言、链接、物种筛选和花园动物提醒",
+    "storage": "Frigate 丢失到访时的处理，以及修复或补全历史的任务"
   },
   "debug": {
     "llm_prompt_style_label": "提示风格",

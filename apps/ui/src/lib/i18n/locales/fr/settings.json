@@ -305,7 +305,8 @@
     "sharing": "eBird, iNaturalist, BirdWeather, météo Home Assistant, informations sur les espèces, IA et télémétrie",
     "identification": "Espèces bloquées, filtre d’aire de répartition, vérifications vidéo, matériel et fonctions bêta",
     "alerts": "Délai, langue, lien et filtre d’espèces",
-    "alerts_garden": "Délai, langue, lien, filtre d’espèces et alertes sur les animaux du jardin"
+    "alerts_garden": "Délai, langue, lien, filtre d’espèces et alertes sur les animaux du jardin",
+    "storage": "Quand Frigate perd une visite, et les tâches qui réparent ou complètent l’historique"
   },
   "debug": {
     "llm_prompt_style_label": "Style de prompt",

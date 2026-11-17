@@ -305,7 +305,8 @@
     "sharing": "eBird, iNaturalist, BirdWeather, Home Assistant weather, species information, AI and telemetry",
     "identification": "Blocked species, the range filter, video checks, hardware and Beta features",
     "alerts": "Cooldown, language, the link and the species filter",
-    "alerts_garden": "Cooldown, language, the link, the species filter and Garden animal alerts"
+    "alerts_garden": "Cooldown, language, the link, the species filter and Garden animal alerts",
+    "storage": "When Frigate loses a visit, and the jobs that repair or fill in the history"
   },
   "debug": {
     "llm_prompt_style_label": "Prompt style",

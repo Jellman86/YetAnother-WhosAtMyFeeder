@@ -66,6 +66,7 @@ Some settings have since moved within that map:
 | Blocked labels, range filter, Frigate and video, **Hardware** (with the runtime report), Beta features | Identifying birds | Identifying birds, under **More options** |
 | Garden animal alerts | Beta features (Garden, Alerts) | Alerts, under **More options**, marked Beta |
 | Notification cooldown, language, link and species filter | Alerts | Alerts, under **More options** |
+| When Frigate loses a visit; the repair and fill-in jobs, with **Jobs at once** | Storage & upkeep | Storage & upkeep, under **More options** |
 
 Edits wait in one draft across every section. While anything differs from what is saved, a short
 bar at the bottom of the page counts the changes, with **Discard changes** (puts every saved value
@@ -452,7 +453,10 @@ See [Reverse Proxy](reverse-proxy.md) for routing, HTTPS headers and live-stream
 
 ## Storage & upkeep
 
-What is kept and for how long, a backup of these settings, and the jobs that repair or fill in the history.
+What is kept and for how long, and a backup of these settings, come first. **More options** holds
+what happens when Frigate loses a visit, and the jobs that repair or fill in the history (an
+address such as `/settings/maintenance` opens it at the jobs). **Delete data** is last, outside
+More options.
 
 ### Data
 
@@ -555,7 +559,8 @@ Security (see [Telemetry](../features/telemetry.md)).
 
 ### Maintenance
 
-Jobs that repair or fill in the history, and the actions that delete it. Every button here acts
+Under **More options**: jobs that repair or fill in the history. The actions that delete it are
+in **Delete data**, the last card of the section. Every button here acts
 straight away; only **Run automatically (daily)** and **Jobs at once** wait for **Save changes**.
 Each job says when to run it and what it changes, and has a line for its last run ("Last run
 15/11/2026 09:30: 7 of 120 names repaired.", or "No run recorded yet."), read from the server's

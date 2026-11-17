@@ -8,6 +8,7 @@
     let budgetInvalid = $state(false);
     let scan = $state<'standard' | 'intensive'>('intensive');
     const props: Omit<ComponentProps<typeof DataSettings>, 'cachePerSpeciesMaximum' | 'cacheMaxSizeMb' | 'cacheMaxSizeInvalid' | 'cacheBirdScanMode'> = {
+        region: 'main',
         maintenanceStats: null,
         retentionDays: 0,
         frigateMissingBehavior: 'mark_missing',

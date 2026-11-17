@@ -305,7 +305,8 @@
     "sharing": "eBird, iNaturalist, BirdWeather, Home-Assistant-Wetter, Arteninformationen, KI und Telemetrie",
     "identification": "Blockierte Arten, Verbreitungsfilter, Videoprüfungen, Hardware und Beta-Funktionen",
     "alerts": "Abkühlzeit, Sprache, Link und Artenfilter",
-    "alerts_garden": "Abkühlzeit, Sprache, Link, Artenfilter und Benachrichtigungen zu Gartentieren"
+    "alerts_garden": "Abkühlzeit, Sprache, Link, Artenfilter und Benachrichtigungen zu Gartentieren",
+    "storage": "Wenn Frigate einen Besuch verliert, und die Aufgaben, die den Verlauf reparieren oder ergänzen"
   },
   "debug": {
     "llm_prompt_style_label": "Prompt-Stil",

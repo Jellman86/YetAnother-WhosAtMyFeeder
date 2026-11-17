@@ -305,7 +305,8 @@
     "sharing": "eBird、iNaturalist、BirdWeather、Home Assistant の天気、種の情報、AI、テレメトリー",
     "identification": "ブロックした種、分布域フィルター、動画チェック、ハードウェア、ベータ機能",
     "alerts": "待機時間、言語、リンク、種のフィルター",
-    "alerts_garden": "待機時間、言語、リンク、種のフィルター、庭の動物のアラート"
+    "alerts_garden": "待機時間、言語、リンク、種のフィルター、庭の動物のアラート",
+    "storage": "Frigate が訪問を失ったときの扱いと、履歴を修復・補完するジョブ"
   },
   "debug": {
     "llm_prompt_style_label": "プロンプトスタイル",
