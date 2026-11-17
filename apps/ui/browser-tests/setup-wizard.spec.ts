@@ -1238,3 +1238,105 @@ test('the review shows a download the server reports, and reads the model again 
     fake.activity = {};
     await expect(status).toHaveText('Running', { timeout: 10_000 });
 });
+
+/**
+ * A phone or small tablet held sideways: every action of the step on screen stays fully in view,
+ * inside the window and the card, and the page never scrolls sideways (round-5 brief: 1024 × 600
+ * and 844 × 390 landscape without hidden actions).
+ */
+async function expectActionsInView(page: Page, scope: string): Promise<void> {
+    const viewport = page.viewportSize();
+    if (!viewport) throw new Error('No viewport');
+    const card = await wizard(page).boundingBox();
+    expect(card, `${scope}: the card`).not.toBeNull();
+    expect((card?.y ?? 0) + (card?.height ?? 0), `${scope}: the card ends inside the window`).toBeLessThanOrEqual(viewport.height + 1);
+    const actions = wizard(page).locator('[data-setup-footer] button:visible, [role="alertdialog"] button:visible');
+    expect(await actions.count(), `${scope}: there are actions`).toBeGreaterThan(0);
+    for (const action of await actions.all()) {
+        const box = await action.boundingBox();
+        const name = (await action.textContent())?.trim();
+        expect(box, `${scope}: ${name}`).not.toBeNull();
+        expect(box && box.y >= 0 && box.y + box.height <= viewport.height + 1 && box.x >= 0 && box.x + box.width <= viewport.width + 1, `${scope}: "${name}" is fully in view`).toBe(true);
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth), `${scope}: no sideways scroll`).toBeLessThanOrEqual(0);
+}
+
+for (const size of [{ width: 1024, height: 600 }, { width: 844, height: 390 }]) {
+    test(`at ${size.width} × ${size.height} every step keeps its actions in view, the skip prompt included`, async ({ page }) => {
+        test.setTimeout(60_000);
+        await page.setViewportSize(size);
+        const fake = new FakeBackend({ firstRun: true });
+        await openFixture(page, fake);
+        await expectStep(page, 'Set up YA-WAMF');
+        await expectActionsInView(page, 'welcome');
+        await wizard(page).getByRole('button', { name: 'Get started' }).click();
+        await expectStep(page, 'Admin account & access');
+        await expectActionsInView(page, 'account');
+        await wizard(page).getByLabel('Password', { exact: true }).fill('feeder2026');
+        await wizard(page).getByLabel('Confirm password').fill('feeder2026');
+        await continueButton(page).click();
+        await expectStep(page, 'Frigate & MQTT connection');
+        await expectActionsInView(page, 'connection');
+        // The skip prompt adds itself above the step: its own buttons and the step's stay in view.
+        await wizard(page).getByRole('button', { name: 'Skip setup' }).click();
+        await expect(wizard(page).getByRole('alertdialog')).toBeVisible();
+        await expectActionsInView(page, 'skip prompt');
+    });
+
+    test(`at ${size.width} × ${size.height} a re-run's Review and Model steps keep their actions in view`, async ({ page }) => {
+        await page.setViewportSize(size);
+        const fake = new FakeBackend({ settings: { location_latitude: 10, location_longitude: 20, frigate_url: 'http://frigate:5000', mqtt_server: 'mqtt', cameras: ['feeder'] } });
+        await openRerun(page, fake);
+        await expectActionsInView(page, 'review');
+        await openSectionFromReview(page, 'Model and hardware');
+        await expectStep(page, 'Model and hardware');
+        await expectActionsInView(page, 'model');
+    });
+}
+
+test('at 1024 × 600 the wizard tightens: the step heading sits near the top of the card, and the step icon gives way', async ({ page }) => {
+    const fake = new FakeBackend({ firstRun: true });
+    await page.setViewportSize({ width: 1024, height: 600 });
+    await openFixture(page, fake);
+    await expectStep(page, 'Set up YA-WAMF');
+    // The header, the step's padding and its icon tighten or give way, so the heading starts high in the card.
+    const card = await wizard(page).boundingBox();
+    const heading = await wizard(page).getByRole('heading', { level: 2, name: 'Set up YA-WAMF', exact: true }).boundingBox();
+    expect(card && heading && heading.y - card.y).toBeLessThan(110);
+    await expect(wizard(page).locator('[data-setup-step-icon]')).toBeHidden();
+    // A screen with room shows the step's mark again.
+    await page.setViewportSize({ width: 1024, height: 768 });
+    await expect(wizard(page).locator('[data-setup-step-icon]')).toBeVisible();
+});
+
+test('at 844 × 390 with larger text a failed skip says so in view, above the buttons, outside the scrolling words', async ({ page }) => {
+    await page.setViewportSize({ width: 844, height: 390 });
+    const fake = new FakeBackend({ firstRun: true });
+    await openFixture(page, fake);
+    // A reader's larger text size: the prompt's words alone now fill its scrolling box.
+    await page.addStyleTag({ content: ':root { font-size: 22px !important; }' });
+    await page.route('**/api/auth/initial-setup', (route) => route.fulfill({ status: 503, json: { detail: 'Service unavailable' } }));
+    await expectStep(page, 'Set up YA-WAMF');
+    await wizard(page).getByRole('button', { name: 'Skip setup' }).click();
+    const prompt = wizard(page).getByRole('alertdialog');
+    await expect(prompt).toBeVisible();
+    const skip = prompt.getByRole('button', { name: 'Skip and open the app' });
+    await skip.click();
+    const alert = prompt.getByRole('alert');
+    await expect(alert).toHaveCount(1);
+    await expect(skip).toBeEnabled();
+    // The error is fully on screen, without scrolling anything, and above the button that was pressed.
+    const viewport = page.viewportSize();
+    const alertBox = await alert.boundingBox();
+    const buttonBox = await skip.boundingBox();
+    const promptBox = await prompt.boundingBox();
+    expect(alertBox && viewport && alertBox.y >= 0 && alertBox.y + alertBox.height <= viewport.height, 'the error is in the window').toBe(true);
+    expect(alertBox && promptBox && alertBox.y >= promptBox.y && alertBox.y + alertBox.height <= promptBox.y + promptBox.height, 'the error is inside the prompt').toBe(true);
+    expect(alertBox && buttonBox && alertBox.y + alertBox.height <= buttonBox.y + 1, 'the error is above the buttons').toBe(true);
+    // Not inside the scrolling words, which take a tab stop so the keyboard can scroll them anywhere.
+    const words = prompt.locator('[data-skip-setup-text]');
+    await expect(words).toHaveAttribute('tabindex', '0');
+    expect(await words.locator('[role="alert"]').count()).toBe(0);
+    // The wizard stays open on the step it was on.
+    await expectStep(page, 'Set up YA-WAMF');
+});
