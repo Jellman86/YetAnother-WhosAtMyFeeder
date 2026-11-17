@@ -93,11 +93,10 @@
     import StorageSection from '../components/settings/sections/StorageSection.svelte';
     import DisplaySection from '../components/settings/sections/DisplaySection.svelte';
     import SectionAside from '../components/settings/sections/SectionAside.svelte';
-    import { settingsMoreId } from '../settings/settings-more';
+    import { settingsMoreId, settingsPartIsInMore } from '../settings/settings-more';
     import {
         loadConnectionSettings,
         loadGardenBetaSettings,
-        loadIntegrationSettings,
         SETTINGS_PART_LOADERS
     } from '../components/settings/sections/part-loaders';
     import SettingsPage from '../components/settings/_primitives/SettingsPage.svelte';
@@ -1402,15 +1401,18 @@
     async function revealPart(part: SettingsPart): Promise<void> {
         const section = settingsSectionOfPart(part);
         const parts = SETTINGS_SECTION_PARTS[section];
-        if (parts[0] === part) {
-            window.scrollTo({ top: 0 });
-            return;
-        }
+        // A part inside More options is shown by opening it first.
+        if (settingsPartIsInMore(part)) disclosures.setOpen(settingsMoreId(section), true);
         const above = parts.slice(0, parts.indexOf(part) + 1).map((each) => SETTINGS_PART_LOADERS[each]);
         const target = await fieldInOpenedPart(
             () => Promise.all(above.map((load) => load())),
             () => document.querySelector<HTMLElement>(`[data-settings-part="${part}"]`)
         );
+        // A part that opens its section is the top of the page, with the section's status above it.
+        if (target && target === target.parentElement?.firstElementChild && target.parentElement.hasAttribute('data-settings-section')) {
+            window.scrollTo({ top: 0 });
+            return;
+        }
         target?.scrollIntoView({ block: 'start' });
     }
 
@@ -1430,8 +1432,10 @@
     // A field hidden behind its switch (the key while eBird is off, coordinates while the location
     // is automatic) falls back to that switch, which is the step that reveals it.
     async function openIntegrationField(...selectors: string[]): Promise<void> {
+        // The location is on the section's first screen; the services are under More options.
+        if (!selectors.some((selector) => selector.includes('location'))) disclosures.setOpen(settingsMoreId('sharing'), true);
         openSection(settingsSectionOfPart('integrations'));
-        const field = await fieldInOpenedPart(loadIntegrationSettings, () =>
+        const field = await fieldInOpenedPart(() => Promise.all([SETTINGS_PART_LOADERS.security(), SETTINGS_PART_LOADERS.integrations()]), () =>
             selectors.map((selector) => document.querySelector<HTMLElement>(selector)).find(Boolean) ?? null
         );
         field?.scrollIntoView({ block: 'center' });
@@ -3344,7 +3348,6 @@
                 bind:locationLon
                 bind:locationState
                 bind:locationCountry
-                bind:locationWeatherUnitSystem
                 {prepareInaturalistOAuth}
                 initiateInaturalistOAuth={initiateInaturalistOAuth}
                 disconnectInaturalistOAuth={disconnectInaturalistOAuth}
@@ -3474,6 +3477,7 @@
                 {setLanguage}
                 {accessibilityDraft}
                 onAccessibilityChange={(patch: Partial<AccessibilityDraft>) => (accessibilityDraft = { ...accessibilityDraft, ...patch })}
+                bind:locationWeatherUnitSystem
             />
         {/if}
     {/snippet}

@@ -11,7 +11,7 @@
     "cameras": "D’où viennent les événements : Frigate, son broker MQTT et les caméras surveillées.",
     "identification": "Le degré de certitude requis pour nommer, les modèles qui trouvent et nomment les oiseaux avec leur matériel, et les fonctions encore en bêta.",
     "alerts": "Quand vous êtes prévenu d’une visite, et par quels canaux.",
-    "sharing": "Les autres services que YA-WAMF lit ou alimente, votre lieu, les descriptions par IA et qui peut ouvrir cette installation.",
+    "sharing": "L’emplacement de votre mangeoire et qui peut ouvrir cette installation, puis les autres services que YA-WAMF lit ou alimente, les descriptions par IA et la télémétrie.",
     "storage": "Ce qui est conservé et combien de temps, une sauvegarde de ces réglages et les tâches qui réparent ou complètent l’historique.",
     "display": "L’apparence de YA-WAMF et la façon dont il nomme les oiseaux, ainsi que contraste, police de lecture, animations et annonces vocales."
   },

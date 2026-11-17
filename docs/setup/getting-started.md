@@ -95,7 +95,7 @@ speed, not species accuracy; review any fallback explanation. After setup, check
 ![DINOv2 model setup with optional feeder coordinates, an inference provider selector and a hardware compatibility check](../images/setup-wizard-dino.png)
 
 For **Feeder location**, enter both coordinates or leave both empty; zero is valid.
-These are the same saved coordinates used in [Location settings](configuration.md#integrations).
+These are the same saved coordinates used in [Location settings](configuration.md#your-feeders-location).
 Integrated models need no separate `labels.txt`.
 
 **Continue** saves each section; **Skip step** leaves its remaining choices unsaved. When

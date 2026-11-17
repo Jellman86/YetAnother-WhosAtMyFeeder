@@ -3,6 +3,8 @@
     import { _ } from 'svelte-i18n';
     import LazyRoute from '../../LazyRoute.svelte';
     import type IntegrationSettingsView from '../IntegrationSettings.svelte';
+    import type HaWeatherSettingsView from '../HaWeatherSettings.svelte';
+    import type LocationSettingsView from '../LocationSettings.svelte';
     import type AuthenticationSettingsView from '../AuthenticationSettings.svelte';
     import type TelemetrySettingsView from '../TelemetrySettings.svelte';
     import type { AiDraft } from '../../../settings/ai-section';
@@ -12,13 +14,19 @@
         loadAiSettings,
         loadAuthenticationSettings,
         loadEnrichmentSettings,
+        loadHaWeatherSettings,
         loadIntegrationSettings,
+        loadLocationSettings,
         loadTelemetrySettings
     } from './part-loaders';
+    import SectionMore from './SectionMore.svelte';
 
-    // Sharing & integrations: the services YA-WAMF reads from or reports to, AI descriptions, and
-    // who can open this install. Holds what were the Integrations, AI and Security tabs.
-    type Props = ComponentProps<typeof IntegrationSettingsView>
+    // Sharing & integrations: where the feeder is and who can open this install first; the services
+    // YA-WAMF reads from or reports to, AI descriptions and telemetry under More options. Holds what
+    // were the Integrations, AI and Security tabs.
+    type Props = Omit<ComponentProps<typeof IntegrationSettingsView>, 'locationLat' | 'locationLon'>
+        & ComponentProps<typeof HaWeatherSettingsView>
+        & ComponentProps<typeof LocationSettingsView>
         & ComponentProps<typeof AuthenticationSettingsView>
         & ComponentProps<typeof TelemetrySettingsView>
         & {
@@ -67,7 +75,6 @@
         locationLon = $bindable(),
         locationState = $bindable(),
         locationCountry = $bindable(),
-        locationWeatherUnitSystem = $bindable(),
         prepareInaturalistOAuth,
         initiateInaturalistOAuth,
         disconnectInaturalistOAuth,
@@ -116,73 +123,20 @@
 </script>
 
 <div class="space-y-8" data-settings-section="sharing">
-    <div class="space-y-8" data-settings-part="integrations">
-        <LazyRoute loader={loadIntegrationSettings} label={$_('settings.tabs.integrations')}>
-        {#snippet content(IntegrationSettings)}
-        <IntegrationSettings
-            {weatherUnitSystem}
-            bind:birdweatherEnabled
-            bind:birdweatherStationToken
-            bind:birdweatherStationTokenSaved
-            bind:haWeatherEnabled
-            bind:haWeatherBaseUrl
-            bind:haWeatherAccessToken
-            bind:haWeatherAccessTokenSaved
-            bind:haWeatherEntity
-            bind:haWeatherTemperatureEntity
-            bind:haWeatherWindSpeedEntity
-            bind:haWeatherWindDirectionEntity
-            bind:haWeatherCloudCoverEntity
-            bind:haWeatherPrecipitationEntity
-            bind:haWeatherRainEntity
-            bind:haWeatherSnowfallEntity
-            bind:haWeatherIlluminanceEntity
-            bind:ebirdEnabled
-            bind:ebirdApiKey
-            bind:ebirdApiKeySaved
-            bind:ebirdDefaultRadiusKm
-            bind:ebirdDefaultDaysBack
-            bind:ebirdMaxResults
-            bind:ebirdLocale
-            bind:inaturalistEnabled
-            bind:inaturalistClientId
-            bind:inaturalistClientSecret
-            bind:inaturalistClientIdSaved
-            bind:inaturalistClientSecretSaved
-            bind:inaturalistDefaultLat
-            bind:inaturalistDefaultLon
-            bind:inaturalistDefaultPlace
-            bind:inaturalistConnectedUser
+    <!-- Where the feeder is, then who can open this install: what most owners set here. -->
+    <div class="space-y-8" data-settings-location>
+        <LazyRoute loader={loadLocationSettings} label={$_('settings.location.title')}>
+        {#snippet content(LocationSettings)}
+        <LocationSettings
             bind:locationAuto
             bind:locationLat
             bind:locationLon
             bind:locationState
             bind:locationCountry
-            bind:locationWeatherUnitSystem
-            {prepareInaturalistOAuth}
-            {initiateInaturalistOAuth}
-            {disconnectInaturalistOAuth}
-            {refreshInaturalistStatus}
-            {exportEbirdCsv}
-            {onActionFeedback}
             {savedLocation}
         />
         {/snippet}
         </LazyRoute>
-        <!-- Where species pages get their information: chosen from these integrations, so shown with them. -->
-        <LazyRoute
-            loader={loadEnrichmentSettings}
-            label={$_('settings.enrichment.title')}
-            props={{ ...enrichmentDraft, onOpenEbird }}
-        />
-    </div>
-
-    <div class="space-y-8" data-settings-part="ai">
-        <LazyRoute
-            loader={loadAiSettings}
-            label={$_('settings.tabs.ai', { default: 'AI' })}
-            props={{ draft: aiDraft, onchange: onAiChange }}
-        />
     </div>
 
     <div class="space-y-8" data-settings-part="security">
@@ -230,18 +184,93 @@
         />
         {/snippet}
         </LazyRoute>
-        <!-- What leaves this install: kept with who can reach it. -->
-        <LazyRoute loader={loadTelemetrySettings} label={$_('settings.telemetry.title')}>
-        {#snippet content(TelemetrySettings)}
-        <TelemetrySettings
-            bind:telemetryEnabled
-            bind:telemetryHealthEnabled
-            {telemetryInstallationId}
-            {telemetryPlatform}
-            {telemetryPayloadPreview}
-            {versionInfo}
-        />
-        {/snippet}
-        </LazyRoute>
     </div>
+
+    <SectionMore section="sharing" summary={$_('settings.more.sharing', { default: 'eBird, iNaturalist, BirdWeather, Home Assistant weather, species information, AI and telemetry' })}>
+        <div class="space-y-8" data-settings-part="integrations">
+            <LazyRoute loader={loadIntegrationSettings} label={$_('settings.tabs.integrations')}>
+            {#snippet content(IntegrationSettings)}
+            <IntegrationSettings
+                {weatherUnitSystem}
+                bind:birdweatherEnabled
+                bind:birdweatherStationToken
+                bind:birdweatherStationTokenSaved
+                bind:ebirdEnabled
+                bind:ebirdApiKey
+                bind:ebirdApiKeySaved
+                bind:ebirdDefaultRadiusKm
+                bind:ebirdDefaultDaysBack
+                bind:ebirdMaxResults
+                bind:ebirdLocale
+                bind:inaturalistEnabled
+                bind:inaturalistClientId
+                bind:inaturalistClientSecret
+                bind:inaturalistClientIdSaved
+                bind:inaturalistClientSecretSaved
+                bind:inaturalistDefaultLat
+                bind:inaturalistDefaultLon
+                bind:inaturalistDefaultPlace
+                bind:inaturalistConnectedUser
+                {locationLat}
+                {locationLon}
+                {prepareInaturalistOAuth}
+                {initiateInaturalistOAuth}
+                {disconnectInaturalistOAuth}
+                {refreshInaturalistStatus}
+                {exportEbirdCsv}
+                {onActionFeedback}
+            />
+            {/snippet}
+            </LazyRoute>
+            <LazyRoute loader={loadHaWeatherSettings} label={$_('settings.integrations.ha_weather.title', { default: 'Home Assistant weather' })}>
+            {#snippet content(HaWeatherSettings)}
+            <HaWeatherSettings
+                bind:haWeatherEnabled
+                bind:haWeatherBaseUrl
+                bind:haWeatherAccessToken
+                bind:haWeatherAccessTokenSaved
+                bind:haWeatherEntity
+                bind:haWeatherTemperatureEntity
+                bind:haWeatherWindSpeedEntity
+                bind:haWeatherWindDirectionEntity
+                bind:haWeatherCloudCoverEntity
+                bind:haWeatherPrecipitationEntity
+                bind:haWeatherRainEntity
+                bind:haWeatherSnowfallEntity
+                bind:haWeatherIlluminanceEntity
+            />
+            {/snippet}
+            </LazyRoute>
+            <!-- Where species pages get their information: chosen from these integrations, so shown with them. -->
+            <LazyRoute
+                loader={loadEnrichmentSettings}
+                label={$_('settings.enrichment.title')}
+                props={{ ...enrichmentDraft, onOpenEbird }}
+            />
+        </div>
+
+        <div class="space-y-8" data-settings-part="ai">
+            <LazyRoute
+                loader={loadAiSettings}
+                label={$_('settings.tabs.ai', { default: 'AI' })}
+                props={{ draft: aiDraft, onchange: onAiChange }}
+            />
+        </div>
+
+        <div class="space-y-8" data-settings-telemetry>
+            <!-- What leaves this install: kept with who can reach it. -->
+            <LazyRoute loader={loadTelemetrySettings} label={$_('settings.telemetry.title')}>
+            {#snippet content(TelemetrySettings)}
+            <TelemetrySettings
+                bind:telemetryEnabled
+                bind:telemetryHealthEnabled
+                {telemetryInstallationId}
+                {telemetryPlatform}
+                {telemetryPayloadPreview}
+                {versionInfo}
+            />
+            {/snippet}
+            </LazyRoute>
+        </div>
+    </SectionMore>
 </div>

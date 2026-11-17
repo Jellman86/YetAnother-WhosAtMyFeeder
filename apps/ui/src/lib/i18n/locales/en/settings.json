@@ -320,11 +320,12 @@
       "storage": "Storage",
       "notifications": "Alerts"
     },
-    "sharing_note": "Each service below says whether it is on. Sign-in and guest access are set here too."
+    "sharing_note": "Nothing here depends on a measured connection. Sign-in and guest access are set here; each service under More options says whether it is on."
   },
   "more": {
     "title": "More options",
-    "cameras": "Frigate details, image source, clips and BirdNET-Go"
+    "cameras": "Frigate details, image source, clips and BirdNET-Go",
+    "sharing": "eBird, iNaturalist, BirdWeather, Home Assistant weather, species information, AI and telemetry"
   },
   "debug": {
     "llm_prompts_title": "LLM prompt templates",
@@ -1038,6 +1039,8 @@
   },
   "location": {
     "title": "Location",
+    "card_title": "Your feeder’s location",
+    "card_desc": "The weather recorded with each visit, nearby eBird sightings, the range filter and observations sent to iNaturalist all start from here.",
     "auto": "Auto",
     "manual": "Manual",
     "latitude": "Latitude",
@@ -1955,5 +1958,9 @@
     "scan_again": "Scan again.",
     "timezone_last_scan_incomplete": "{count, plural, one {The last scan could not check # detection (Frigate did not answer). Scan again.} other {The last scan could not check # detections (Frigate did not answer). Scan again.}}",
     "timezone_scan_incomplete": "{count, plural, one {This scan could not check # detection (Frigate did not answer). Scan again.} other {This scan could not check # detections (Frigate did not answer). Scan again.}}"
+  },
+  "units": {
+    "title": "Units",
+    "desc": "For everyone who opens this install, not only this device."
   }
 }

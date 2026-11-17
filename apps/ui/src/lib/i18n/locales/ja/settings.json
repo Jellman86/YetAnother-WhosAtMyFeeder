@@ -320,11 +320,12 @@
       "storage": "ストレージ",
       "notifications": "アラート"
     },
-    "sharing_note": "下の各サービスに、オンかどうかが表示されます。サインインとゲストアクセスもここで設定します。"
+    "sharing_note": "ここには測定される接続はありません。サインインとゲストアクセスはここで設定します。「その他のオプション」の各サービスに、オンかどうかが表示されます。"
   },
   "more": {
     "title": "その他のオプション",
-    "cameras": "Frigate の詳細、画像の取得元、クリップ、BirdNET-Go"
+    "cameras": "Frigate の詳細、画像の取得元、クリップ、BirdNET-Go",
+    "sharing": "eBird、iNaturalist、BirdWeather、Home Assistant の天気、種の情報、AI、テレメトリー"
   },
   "debug": {
     "llm_prompts_title": "LLMプロンプトテンプレート",
@@ -1038,6 +1039,8 @@
   },
   "location": {
     "title": "位置情報",
+    "card_title": "給餌台の場所",
+    "card_desc": "訪問ごとに記録する天気、近くの eBird の目撃情報、分布域フィルター、iNaturalist に送る観察は、すべてこの場所が基準です。",
     "auto": "自動",
     "manual": "手動",
     "latitude": "緯度",
@@ -1955,5 +1958,9 @@
     "scan_again": "もう一度スキャンしてください。",
     "timezone_last_scan_incomplete": "{count, plural, other {前回のスキャンでは # 件の検出を確認できませんでした (Frigate が応答しませんでした)。もう一度スキャンしてください。}}",
     "timezone_scan_incomplete": "{count, plural, other {このスキャンでは # 件の検出を確認できませんでした (Frigate が応答しませんでした)。もう一度スキャンしてください。}}"
+  },
+  "units": {
+    "title": "単位",
+    "desc": "この端末だけでなく、このインストールを開くすべての人に適用されます。"
   }
 }
