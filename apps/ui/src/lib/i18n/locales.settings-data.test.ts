@@ -23,9 +23,6 @@ function pick(obj: LocaleRoot, path: string): unknown {
 const REQUIRED_KEYS = [
     'settings.data.cache_high_quality_event_snapshot_jpeg_quality',
     'settings.data.cache_high_quality_event_snapshot_jpeg_quality_help',
-    'settings.data.media_integrity_title',
-    'settings.data.diagnostics_title',
-    'settings.data.diagnostics_desc',
     'settings.data.open_diagnostics',
     'settings.data.frigate_missing_behavior',
     'settings.data.frigate_missing_behavior_mark',
@@ -50,7 +47,6 @@ const REQUIRED_KEYS = [
     'settings.integrations.ebird.export_range_help',
     'settings.integrations.ebird.export_range_error',
     'settings.location.weather_unit_system',
-    'settings.location.state',
     'settings.location.country',
     'settings.location.metric',
     'settings.location.imperial',

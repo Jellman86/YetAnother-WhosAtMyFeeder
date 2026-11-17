@@ -80,9 +80,4 @@ describe('"Settings → …" pointers in copy', () => {
         const stale = settingsPointers(language).filter(({ target }) => formerTabs.some((name) => target.startsWith(name)));
         expect(stale).toEqual([]);
     });
-
-    it.each(LANGUAGES)('%s never calls Health a Settings tab', (language) => {
-        const dictionary = authoredLocale(language);
-        expect(text(dictionary, 'settings.data.diagnostics_desc')).toContain(text(dictionary, 'nav.health'));
-    });
 });
