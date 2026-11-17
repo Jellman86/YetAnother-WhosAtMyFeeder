@@ -1,5 +1,7 @@
 import { defineConfig, type Plugin } from 'vite'
 import { composeAppVersion } from './src/lib/app/app-version.ts';
+import { viewScriptCounts, type OutputChunks } from './src/lib/app/bundle-shape.ts';
+import { sharedChunkFor } from './src/lib/app/chunk-groups.ts';
 import { svelte } from '@sveltejs/vite-plugin-svelte'
 import tailwindcss from '@tailwindcss/vite'
 import { execSync } from 'child_process'
@@ -38,6 +40,34 @@ function enforceInitialJavaScriptBudget(maxBytes: number): Plugin {
                         'Move route-only code or locale data behind a dynamic import.'
                     );
                 }
+            }
+        }
+    };
+}
+
+/**
+ * The most scripts a view may need before it draws (src/lib/app/bundle-shape.ts). With the
+ * English locale and one library the view draws with (charts, a map), a cold load stays within 12.
+ */
+const MAX_VIEW_SCRIPTS = 10;
+
+function enforceScriptsPerView(maxScripts: number): Plugin {
+    return {
+        name: 'yawamf-scripts-per-view',
+        apply: 'build',
+        generateBundle(_options, bundle) {
+            const chunks: Record<string, OutputChunks[string]> = {};
+            for (const output of Object.values(bundle)) {
+                if (output.type !== 'chunk') continue;
+                chunks[output.fileName] = { isEntry: output.isEntry, imports: output.imports, dynamicImports: output.dynamicImports };
+            }
+            const over = viewScriptCounts(chunks).filter((view) => view.scripts > maxScripts);
+            if (over.length > 0) {
+                this.error(
+                    `These views need more than ${maxScripts} scripts before they draw: ` +
+                    over.map((view) => `${view.view} (${view.scripts})`).join(', ') +
+                    '. Shared code belongs in the shared chunks (src/lib/app/chunk-groups.ts).'
+                );
             }
         }
     };
@@ -94,7 +124,7 @@ const appVersion = composeAppVersion(baseVersion, appBranch, gitHash);
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
-    plugins: [tailwindcss(), svelte(), enforceInitialJavaScriptBudget(INITIAL_JAVASCRIPT_BUDGET_BYTES)],
+    plugins: [tailwindcss(), svelte(), enforceInitialJavaScriptBudget(INITIAL_JAVASCRIPT_BUDGET_BYTES), enforceScriptsPerView(MAX_VIEW_SCRIPTS)],
     define: {
         __APP_VERSION__: JSON.stringify(appVersion),
         __GIT_HASH__: JSON.stringify(gitHash),
@@ -105,13 +135,20 @@ export default defineConfig(({ mode }) => ({
         chunkSizeWarningLimit: 800,
         rollupOptions: {
             output: {
-                // Function form (not the object form) so this works under both Rollup and
-                // Rolldown, which vite 8 uses by default. Keep the lazily loaded
-                // charting library separate from the first page load.
-                manualChunks(id: string) {
-                    if (id.includes('node_modules/chart.js')) {
-                        return 'chartjs'
-                    }
+                // A cold load fetches a handful of scripts, not dozens. Everything the entry loads up
+                // front is one shell chunk; code several lazily loaded views share is one `shared`
+                // chunk (or `settings`, when only Settings and its tabs share it); the bundler keeps
+                // the rest inside the view, dialog or library chunk that loads it, so charts, video
+                // and maps stay lazy (src/lib/app/chunk-groups.ts). Rolldown's `codeSplitting`,
+                // formerly `advancedChunks`.
+                codeSplitting: {
+                    groups: [
+                        { name: 'shell', tags: ['$initial'], priority: 2 },
+                        // A shared chunk takes only the modules named for it, not their dependencies too:
+                        // otherwise `dialogs` and `setup` pull in code every view needs, and each view
+                        // then loads them. The chunks stay acyclic: shell, then shared, then the rest.
+                        { name: (id, context) => sharedChunkFor(id, context), priority: 1, includeDependenciesRecursively: false }
+                    ]
                 }
             }
         }

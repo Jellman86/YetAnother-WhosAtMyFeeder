@@ -19,9 +19,11 @@
         updateStatusStore.load();
     });
 
-    let { currentRoute, onNavigate, isMobile = false, mobileSidebarOpen = false, onMobileClose, status }: {
+    let { currentRoute, onNavigate, onPrefetch, isMobile = false, mobileSidebarOpen = false, onMobileClose, status }: {
         currentRoute: string;
         onNavigate: (path: string) => void;
+        /** A link is pointed at or focused: its page's code can start loading ahead of the click. */
+        onPrefetch?: (path: string) => void;
         /** On a phone the sidebar is a drawer over the page. */
         isMobile?: boolean;
         mobileSidebarOpen?: boolean;
@@ -207,6 +209,8 @@
                             class:sidebar-nav-active={isRouteActive(item)}
                             class:sidebar-nav-inactive={!isRouteActive(item)}
                             onclick={() => handleNavClick(item)}
+                            onpointerenter={() => onPrefetch?.(item.path)}
+                            onfocus={() => onPrefetch?.(item.path)}
                             title={collapsed ? item.label : ''}
                             aria-label={item.label}
                             aria-current={isRouteActive(item) ? 'page' : undefined}
@@ -241,6 +245,8 @@
                         data-sidebar-status-link
                         data-health-attention={health.needsAttention}
                         onclick={openHealth}
+                        onpointerenter={() => onPrefetch?.('/system-health')}
+                        onfocus={() => onPrefetch?.('/system-health')}
                     >
                         <span class="sr-only">{healthLinkName}</span>
                         <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -273,6 +279,8 @@
                         data-sidebar-status-link
                         data-health-attention={health.needsAttention}
                         onclick={openHealth}
+                        onpointerenter={() => onPrefetch?.('/system-health')}
+                        onfocus={() => onPrefetch?.('/system-health')}
                     >
                         {#if health.needsAttention}
                             <span class="flex min-w-0 items-center gap-2 text-status-attention">
