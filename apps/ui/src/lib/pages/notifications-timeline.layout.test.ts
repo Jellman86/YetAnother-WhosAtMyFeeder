@@ -50,12 +50,12 @@ describe('Notifications timeline layout', () => {
     it('keeps amber for what needs a person', () => {
         // The progress bar used to run a three colour gradient through the attention colour.
         expect(source).not.toContain('from-accent-500');
-        expect(source).toContain("running: 'bg-brand-500 border-brand-500'");
-        // layout-patterns §1.3: "Amber is reserved for 'this needs a person'", and accent-* is a
-        // brand colour the classic theme paints emerald. attention-* is amber in every theme.
-        expect(source).toContain("attention: 'bg-attention-500 border-attention-500'");
-        // "Anything meaning confirmed ... must use success-* so it stays green in every theme."
-        expect(source).toContain("done: 'bg-success-500 border-success-500'");
+        expect(source).toContain("running: 'bg-accent border-accent'");
+        // layout-patterns §1.3: "Amber is reserved for 'this needs a person'": the attention status
+        // token is amber in every theme, while the accent follows the theme's brand colour.
+        expect(source).toContain("attention: 'bg-status-attention border-status-attention'");
+        // Anything meaning confirmed uses the ok status token, so it stays green in every theme.
+        expect(source).toContain("done: 'bg-status-ok border-status-ok'");
         expect(source).not.toMatch(/\baccent-\d|emerald-/);
     });
 
@@ -74,6 +74,10 @@ describe('Notifications timeline layout', () => {
         expect(en.notifications.empty_body).toContain('Newest first');
         // The page owns background work now, so the empty state has to say so.
         expect(en.notifications.empty_body).toContain('background work');
+        // The shared state primitive, so an empty page reads as every other empty page does.
+        expect(source).toContain("import StateBlock from '../components/ui/StateBlock.svelte';");
+        expect(source).toMatch(/<StateBlock\s+state="empty"\s+title=\{\$_\('notifications\.empty_title'/);
+        expect(source).toContain('state="empty" variant="inline" cause={$_(\'notifications.empty_filtered\'');
     });
 
     it('centres the rail and its markers in one column instead of offsetting by hand', () => {
@@ -119,7 +123,7 @@ describe('a job that stopped reporting', () => {
         expect(source).toContain("$_('notifications.job_stopped'");
         expect(source).toContain("$_('notifications.job_stopped_label')");
         // A stopped job's bar is grey and static, never the brand colour that means work in flight.
-        expect(source).toContain("'bg-slate-400 dark:bg-slate-500'");
+        expect(source).toContain("isStoppedJob(item) ? 'bg-status-neutral'");
         expect(source).toContain('notificationCenter.remove(item.id)');
         expect(en.notifications.job_stopped).toContain('Nothing is still running');
         expect(en.notifications.job_stopped).toContain('{time}');
