@@ -67,7 +67,6 @@
   "ai_summary": "AI 洞察",
   "species_compare_title": "物种对比",
   "species_compare_subtitle": "主要物种时间趋势",
-  "activity_heatmap_title": "活动热力图",
   "activity_heatmap_subtitle": "按小时和星期的活动",
   "no_compare_data": "当前还没有足够的数据可用于对比。",
   "compare_zero_activity": "已选择对比物种，但该时间窗口内当前活动为零。",

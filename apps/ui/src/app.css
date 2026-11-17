@@ -163,6 +163,8 @@
   --color-on-media-accent: rgb(var(--brand-400));
   /* A failure said on the dark ground: a light rose, since the theme's own red is written for paper. */
   --color-on-media-fail: rgb(var(--on-media-fail));
+  /* Rain over a time series: the precipitation bands on the Leaderboard's timeline and their key. */
+  --color-rain-band: rgb(var(--rain-band));
 
   /* Semantic success, deliberately NOT theme-driven. `accent` is a brand colour and the
      bluetit theme paints it amber, which is reserved for "needs a person"
@@ -339,6 +341,7 @@
   --media: 0 0 0;
   --media-raised: 15 23 42;
   --on-media-fail: 253 164 175;
+  --rain-band: 56 189 248;
   --on-media: 255 255 255;
 }
 

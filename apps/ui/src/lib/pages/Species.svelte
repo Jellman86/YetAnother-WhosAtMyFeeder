@@ -3,7 +3,7 @@
     import Segmented from '../components/ui/Segmented.svelte';
     import Disclosure from '../components/ui/Disclosure.svelte';
     import ChartFigure from '../components/ui/ChartFigure.svelte';
-    import { chartTable, type ChartSeries } from '../utils/chart-table';
+    import { bucketPrecipitation, chartTable, shareTable, type ChartSeries } from '../utils/chart-table';
     import CaptureWall from '../components/CaptureWall.svelte';
     import SpeciesChecks from '../components/SpeciesChecks.svelte';
     import SpeciesCheckSheet from '../components/SpeciesCheckSheet.svelte';
@@ -59,6 +59,7 @@
     import { getErrorMessage, isTransientRequestError } from '../utils/error-handling';
     import {
         convertWindSpeed,
+        formatPrecipitation,
         getTemperatureUnitForSystem,
         resolveWeatherUnitSystem
     } from '../utils/weather-units';
@@ -149,9 +150,15 @@
             && trendMeasured(sourceMode, { seen: previousWindowComplete, heard: audioPreviousWindowComplete })
     );
     let hiddenTimelineSeries = $state<string[]>([]);
-    /** The rain bands' colour, drawn by the chart and by the key's swatches at the same strengths. */
-    const RAIN_BAND_RGB = '56, 189, 248';
-    const RAIN_KEY_STRENGTHS = [0.12, 0.2, 0.28] as const;
+    /**
+     * The rain bands are the `--rain-band` token, drawn by the chart (read from the page, as a canvas
+     * cannot use a class) and by the key's swatches at the strengths their classes name.
+     */
+    const RAIN_KEY = ['bg-rain-band/10', 'bg-rain-band/20', 'bg-rain-band/30'] as const;
+    function rainBand(alpha: number): string {
+        const channels = typeof document === 'undefined' ? '' : getComputedStyle(document.documentElement).getPropertyValue('--rain-band').trim();
+        return channels ? `rgb(${channels} / ${alpha.toFixed(3)})` : 'transparent';
+    }
     let includeUnknownBird = $state(false);
     const spanOptions = $derived<{ value: NonNullable<LeaderboardSpan>; label: string }[]>([
         { value: 'day', label: $_('leaderboard.sort_by_day') },
@@ -1063,18 +1070,16 @@
             if (!Number.isFinite(start)) continue;
             const next = points[i + 1]?.bucket_start ? Date.parse(points[i + 1].bucket_start) : NaN;
             const end = Number.isFinite(next) ? next : (start + duration);
-            const rain = Math.max(0, weatherValue(bucketStart, 'rain_total') ?? 0);
-            const snow = Math.max(0, weatherValue(bucketStart, 'snow_total') ?? 0);
-            const precip = Math.max(0, weatherValue(bucketStart, 'precip_total') ?? 0);
-            const intensity = Math.max(rain + snow, precip);
+            const intensity = bucketPrecipitation(weatherValue(bucketStart, 'rain_total'), weatherValue(bucketStart, 'snow_total'), weatherValue(bucketStart, 'precip_total'));
             if (intensity <= 0) continue;
-            const alpha = Math.min(0.28, 0.08 + (intensity * 0.12));
+            // From the key's Low (0.1) to its High (0.3), so a band reads against the swatch beside it.
+            const alpha = Math.min(0.3, 0.1 + (intensity * 0.1));
             annotations.push({
                 x: start,
                 x2: end,
-                fillColor: `rgba(${RAIN_BAND_RGB}, ${alpha.toFixed(3)})`,
+                fillColor: rainBand(alpha),
                 opacity: 0.85,
-                borderColor: `rgba(${RAIN_BAND_RGB}, 0.12)`
+                borderColor: rainBand(0.12)
             });
         }
         return annotations;
@@ -1361,7 +1366,7 @@
                     'wind',
                     $_('leaderboard.wind_avg'),
                     points.map((point) => convertWindSpeed(weatherValue(point.bucket_start, 'wind_avg'), weatherUnitSystem)),
-                    (value) => `${Math.round(value)} ${windUnitLabel}`
+                    (value) => `${Math.round(value)}\u00a0${windUnitLabel}`
                 )
                 : null
         ].filter((item): item is WeatherPanel => item !== null);
@@ -1427,6 +1432,18 @@
         const config = chartOptions();
         const series: ChartSeries[] = config.data.datasets.map((dataset) => ({ label: String(dataset.label ?? ''), data: dataset.data, hidden: Boolean(dataset.hidden) }));
         const weather: ChartSeries[] = weatherPanels().map((panel) => ({ label: panel.title, data: (panel.config.data.datasets[0]?.data ?? []) as number[], format: panel.format }));
+        // The rain bands as a column, from the same per-bucket readings, on the chart's own buckets.
+        if (showPrecip && hasWeather()) {
+            const buckets = timelinePoints().filter((point) => Number.isFinite(Date.parse(point.bucket_start)));
+            weather.push({
+                label: $_('leaderboard.show_precip', { default: 'Precipitation' }),
+                data: buckets.map((point) => {
+                    const readings = [weatherValue(point.bucket_start, 'rain_total'), weatherValue(point.bucket_start, 'snow_total'), weatherValue(point.bucket_start, 'precip_total')];
+                    return readings.every((reading) => reading === null) ? Number.NaN : bucketPrecipitation(readings[0], readings[1], readings[2]);
+                }),
+                format: (value) => formatPrecipitation(value, weatherUnitSystem, { metric: $_('common.unit_mm', { default: 'mm' }), imperial: $_('common.unit_in', { default: 'in' }) })
+            });
+        }
         return chartTable($_('common.period', { default: 'Period' }), (config.data.labels ?? []).map(String), [...series, ...weather], figureValue);
     });
     const heatmapTable = $derived.by(() => {
@@ -1441,18 +1458,17 @@
     });
     const compositionTable = $derived.by(() => {
         const { labels, series } = donutSeries();
-        const total = series.reduce((sum, value) => sum + value, 0);
-        return {
-            columns: [
+        return shareTable(
+            [
                 $_('leaderboard.species', { default: 'Species' }),
                 countsAreVisits ? $_('leaderboard.metric_visits', { default: 'Visits' }) : $_('leaderboard.metric_detections', { default: 'Captures' }),
                 $_('leaderboard.table_share', { default: 'Share' })
             ],
-            rows: labels
-                .map((label, index) => ({ label, value: series[index] ?? 0, index }))
-                .filter((entry) => !hiddenDonutSpecies.includes(entry.index))
-                .map((entry) => [entry.label, entry.value.toLocaleString(), total > 0 ? `${Math.round((entry.value / total) * 100)}%` : '—'])
-        };
+            labels,
+            series,
+            hiddenDonutSpecies,
+            (value) => value.toLocaleString()
+        );
     });
 
     function donutColor(index: number): string {
@@ -2153,7 +2169,7 @@
                         {#if showPrecip && hasWeather()}
                             <span class="inline-flex items-center gap-2 text-xs font-semibold text-muted">
                                 {#each [$_('leaderboard.band_low', { default: 'Low' }), $_('leaderboard.band_medium', { default: 'Med' }), $_('leaderboard.band_high', { default: 'High' })] as band, index (band)}
-                                    <span class="h-2.5 w-2.5 rounded-xs" style="background-color: rgba({RAIN_BAND_RGB}, {RAIN_KEY_STRENGTHS[index]})" aria-hidden="true"></span>{band}
+                                    <span class="h-2.5 w-2.5 rounded-xs {RAIN_KEY[index]}" aria-hidden="true"></span>{band}
                                 {/each}
                             </span>
                         {/if}

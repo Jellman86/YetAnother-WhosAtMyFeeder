@@ -627,14 +627,14 @@
                             </div>
                         </dl>
                         <p class="mt-2 text-xs text-muted" data-species-detections-note>
-                            {$_('species_detail.detections_note', { default: 'Every identified frame counts once. One visit can hold several frames, so the Leaderboard’s visit counts are lower.' })}
+                            {$_('species_detail.detections_note', { default: 'Every identified capture counts once. One visit can hold several captures, so the Leaderboard’s visit counts are lower.' })}
                         </p>
                     </section>
 
                     {#if stats.recent_sightings.length > 0}
                         <section data-species-recent-sightings aria-labelledby="recent-sightings-heading">
                             <div class="mb-4 flex items-center gap-2.5">
-                                <h3 id="recent-sightings-heading" class="text-base font-semibold text-strong">{$_('species_detail.recent_visits')}</h3>
+                                <h3 id="recent-sightings-heading" class="text-base font-semibold text-strong">{$_('species_detail.recent_captures')}</h3>
                             </div>
                             <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
                                 {#each stats.recent_sightings as sighting}

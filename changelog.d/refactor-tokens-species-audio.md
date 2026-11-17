@@ -2,8 +2,8 @@
   with **Include Unknown bird** under **More**, so the leader is on the first screen. From
   1280 px the summary figures stand beside the photo wall, while the rankings table and the
   charts take the full width.
-- Every ranking row shows this feeder's own photograph of the species where there is one, and
-  nothing at all where there is none, instead of a placeholder feather.
+- Every ranking row shows this feeder's own photograph of the species where there is one, then
+  the species' reference picture, and otherwise nothing, instead of a placeholder feather.
 - The Leaderboard's charts carry one heading each, with the window said once for the section and
   the total in each caption, and every chart, the heatmap included, offers **Show the data as a
   table**. The timeline's table follows the series you show and any weather overlay.
@@ -16,7 +16,7 @@
 - The species details, Garden capture and species check dialogs, and the Explorer's filter sheet,
   now share one header with the same round close button as the detection record. The species
   details dialog shows its charts' numbers as tables and keeps the reference picture smaller,
-  below the feeder's own sightings.
+  below the feeder's own captures, which it now calls **Recent captures**.
 - Under the hood, these pages and dialogs draw from the semantic colour tokens in every mode and
   high contrast.
 - The Leaderboard, Audio history and species details now use the app's words throughout: calls for

@@ -27,6 +27,8 @@ test('recent sightings link to the exact capture even when it has no clip', asyn
         return route.fulfill({ json: {} });
     });
     await page.goto('/browser-tests/owner-history.html?surface=species');
+    // The list is the newest stored photographs, not grouped into visits, so it is headed as captures.
+    await expect(page.locator('[data-species-recent-sightings] h3')).toHaveText('Recent captures');
     // Each link is named by what it shows: the bird in the picture, then when it was seen and how sure the model was.
     const links = page.locator('[data-species-recent-sightings]').getByRole('link', { name: /^Eurasian Blue Tit .*\d+%$/ });
     await expect(links).toHaveCount(2);

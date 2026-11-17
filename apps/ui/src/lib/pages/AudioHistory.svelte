@@ -430,7 +430,7 @@
             {$_('audio.not_shared_title', { default: 'Audio is not shared publicly' })}
         </p>
         <p class="mt-1 text-sm text-muted">
-            {$_('audio.not_shared_body', { default: 'The owner of this instance has turned off audio for visitors.' })}
+            {$_('audio.not_shared_body', { default: 'The owner of this instance has turned off audio for guests.' })}
         </p>
     </section>
 {:else}

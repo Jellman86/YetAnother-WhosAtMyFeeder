@@ -8,7 +8,6 @@
     "empty": "No activity in this window.",
     "other_species": "Other species",
     "unavailable": "Not available while the history cannot be read.",
-    "show_numbers": "Show the numbers",
     "col_day": "Day",
     "col_hour": "Hour",
     "col_calls": "Calls",
@@ -76,6 +75,6 @@
     "empty": "No sources yet."
   },
   "not_shared_title": "Audio is not shared publicly",
-  "not_shared_body": "The owner of this instance has turned off audio for visitors.",
+  "not_shared_body": "The owner of this instance has turned off audio for guests.",
   "summary_title": "This window"
 }

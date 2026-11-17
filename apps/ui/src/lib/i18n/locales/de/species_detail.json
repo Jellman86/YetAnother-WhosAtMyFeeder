@@ -32,6 +32,6 @@
   "visits_day": "Besuche, letzte 24 Stunden",
   "visits_week": "Besuche, letzte 7 Tage",
   "visits_month": "Besuche, letzte 30 Tage",
-  "detections_note": "Jedes bestimmte Einzelbild zählt einmal. Ein Besuch kann mehrere Bilder enthalten, daher sind die Besuchszahlen in der Bestenliste niedriger.",
-  "recent_visits": "Letzte Besuche"
+  "detections_note": "Jede bestimmte Aufnahme zählt einmal. Ein Besuch kann mehrere Aufnahmen enthalten, daher sind die Besuchszahlen in der Bestenliste niedriger.",
+  "recent_captures": "Letzte Aufnahmen"
 }

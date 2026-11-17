@@ -95,12 +95,12 @@ export function formatPrecipitation(
         ? (labels.british ?? labels.metric)
         : labels[system];
     if (system === 'imperial') {
-        if (converted < 0.1) return `${converted.toFixed(2)}${label}`;
-        return `${converted.toFixed(1)}${label}`;
+        if (converted < 0.1) return `${converted.toFixed(2)}${NO_BREAK}${label}`;
+        return `${converted.toFixed(1)}${NO_BREAK}${label}`;
     }
-    if (converted < 0.1) return `${converted.toFixed(2)}${label}`;
-    if (converted < 1) return `${converted.toFixed(1)}${label}`;
-    return `${converted.toFixed(0)}${label}`;
+    if (converted < 0.1) return `${converted.toFixed(2)}${NO_BREAK}${label}`;
+    if (converted < 1) return `${converted.toFixed(1)}${NO_BREAK}${label}`;
+    return `${converted.toFixed(0)}${NO_BREAK}${label}`;
 }
 
 function convertDistance(valueKm: number | null | undefined, system: WeatherUnitSystem): number | null {
