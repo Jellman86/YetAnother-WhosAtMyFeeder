@@ -33,6 +33,7 @@ from app.utils.public_access import (
 )
 from app.utils.api_datetime import serialize_api_datetime, utc_naive_now
 from app.utils.timezone import get_user_timezone
+from app.utils.calendar_day import instance_timezone, today_so_far
 
 router = APIRouter()
 
@@ -311,6 +312,10 @@ class DailyCameraVisits(APIModel):
 
 
 class DailySummaryResponse(APIModel):
+    # The window every count below covers: the rolling 24 hours, or today on the instance's clock.
+    window: Literal["rolling", "today"] = "rolling"
+    window_start: Optional[str] = None
+    window_end: Optional[str] = None
     hourly_distribution: List[int]
     top_species: List[DailySpeciesSummary]
     latest_detection: Optional[DetectionResponse]
@@ -496,15 +501,28 @@ def _build_local_timeline_points(
 
 @router.get("/stats/daily-summary", response_model=DailySummaryResponse)
 @guest_rate_limit()
-async def get_daily_summary(request: Request, auth: AuthContext = Depends(get_auth_context_with_legacy)):
-    """Get a summary of detections for today."""
+async def get_daily_summary(
+    request: Request,
+    window: Literal["rolling", "today"] = Query(
+        default="rolling",
+        description=(
+            "`rolling`: the last 24 hours. `today`: from local midnight to now, on the instance's timezone "
+            "(`TZ`; UTC when unset)."
+        ),
+    ),
+    auth: AuthContext = Depends(get_auth_context_with_legacy),
+):
+    """Summarise detections over the last 24 hours, or over today so far."""
     lang = getattr(request.state, "language", "en")
     hide_camera_names = (
         not auth.is_owner and settings.public_access.enabled and not settings.public_access.show_camera_names
     )
     user_tz = get_user_timezone(request)
     end_dt = utc_naive_now()
-    start_dt = end_dt - timedelta(hours=24)
+    if window == "today":
+        start_dt, _ = today_so_far(now=end_dt.replace(tzinfo=timezone.utc), zone=instance_timezone())
+    else:
+        start_dt = end_dt - timedelta(hours=24)
     if not auth.is_owner:
         start_dt = max(start_dt, public_events_cutoff(end_dt.replace(tzinfo=timezone.utc)).replace(tzinfo=None))
 
@@ -616,6 +634,9 @@ async def get_daily_summary(request: Request, auth: AuthContext = Depends(get_au
             ]
 
         return DailySummaryResponse(
+            window=window,
+            window_start=serialize_api_datetime(start_dt),
+            window_end=serialize_api_datetime(end_dt),
             hourly_distribution=hourly,
             top_species=summary_species,
             latest_detection=latest_detection,

@@ -283,14 +283,35 @@ This is the current route map (grouped). Use OpenAPI for full schemas.
 Public event-history and media windows use UTC calendar days. Custom `0` starts at
 00:00 UTC and excludes the next midnight; custom `N` starts at midnight UTC `N` days
 ago. Public audio, AI access, filter counts, About photographs and leaderboard portraits
-use the corresponding shared history/media bounds. Owner date filters are unchanged.
+use the corresponding shared history/media bounds. A guest's window is intersected with any
+dates the request names, so a date or `today` can narrow it but never widen it.
 One UTC calendar day is captured per HTTP response, so nested queries, totals and audio
 projection cannot switch to another day's evidence midway through a request. The calendar
 is released when the response body completes; later requests and background work use a
 fresh day. This does not cache sharing preferences.
 
-- `GET /api/events`
-- `GET /api/events/count`
+#### Calendar days and `today`
+
+`start_date` and `end_date` on `GET /api/events`, `GET /api/events/count`, `GET /api/visits`
+and `GET /api/visits/{visit_id}/captures` take an ISO date (`2026-11-17`) or the keyword
+`today`. Both are calendar days in the instance's timezone: the zone named by the container's
+`TZ` environment variable, or UTC when `TZ` is unset or unknown. A day runs from local midnight
+to the last instant before the next local midnight, so a capture at 23:30 local time belongs to
+that day even when it is already the next day in UTC, and a day that changes the clock is 23 or
+25 hours long. Both bounds are inclusive. The range may span at most 365 days. Any other word
+is rejected with `422`.
+
+```bash
+# Everything from today, in pages of 500, then today's visits in one request.
+curl -fsS "http://localhost:9852/api/events?start_date=today&end_date=today&limit=500"
+curl -fsS "http://localhost:9852/api/visits?start_date=today&end_date=today&limit=500"
+```
+
+- `GET /api/events` Returns one page of events (`limit` 1 to 500, 50 by default; `offset` skips
+  that many). While more events match, the response carries an `X-Next-Offset` header with the
+  `offset` for the next page; the last page has none. Guests get at most 50 per page.
+- `GET /api/events/count` Counts every event matching the same filters, for clients that want
+  the total before paging.
 
 Every detection carries `illuminance_lux`: the light level in lux that a configured
 [Home Assistant illuminance entity](integrations/home-assistant.md#illuminance-entity) measured
@@ -314,10 +335,12 @@ measurement, never derived, and is not rewritten later. Live `detection` and
   guests. Camera names are omitted when sharing them is off. The response is
   private and cannot be cached; switching public access off rejects guest searches.
   Search reads the local catalogue and history without external lookups or inference.
-- `GET /api/visits` Groups the accessible history before pagination. Accepts `limit`, `offset`,
-  `start_date`/`end_date` or UTC `start_time`/`end_time`, `species`, `camera`, `favorites`,
+- `GET /api/visits` Groups the accessible history before pagination. Accepts `limit` (1 to 500,
+  24 by default; guests at most 50), `offset`, `start_date`/`end_date` (calendar days, above) or
+  exact UTC `start_time`/`end_time`, which take precedence, `species`, `camera`, `favorites`,
   `audio_confirmed_only`, `only_hidden`, `multiple_species_only` and `sort` (`newest`, `oldest`,
-  `confidence`). Returns `visits`, `total` and `gap_seconds`. Each visit includes
+  `confidence`). Returns `visits`, `total` (every matching visit, so a client can tell how many
+  pages remain) and `gap_seconds`. Each visit includes
   `visit_id` (its first accessible capture ID), start/end, full `capture_count`, best score, review/audio/owner-confirmation
   state, representative/latest records and owner-only busiest counted capture. Grouping uses
   canonical species, actual camera and a 60-second inactivity gap after the running latest
@@ -1069,10 +1092,15 @@ stores it (parentheses included when the source writes them), or null when unrec
 
 ### Statistics
 
-- `GET /api/stats/daily-summary` — includes `counted_birds` (visible child observations) and
+- `GET /api/stats/daily-summary` Covers the last 24 hours by default (`window=rolling`). With
+  `window=today` it covers today so far: from local midnight in the instance's timezone (see
+  [Calendar days](#calendar-days-and-today)) to now. The response names the window it used in
+  `window`, `window_start` and `window_end` (UTC). A guest's history window still applies, so
+  `window_start` can be later than midnight. Every count below covers that window. It
+  includes `counted_birds` (visible child observations) and
   `counted_captures` (captures with at least one stored bird observation) for the same daily
   window. These counts cover analyzed captures and may count the same bird in later captures.
-  Visits for the same last-24-hours window use the leaderboard's rule (a frame opens a visit unless the
+  Visits for the same window use the leaderboard's rule (a frame opens a visit unless the
   same canonical species was on the same camera within 60 seconds of the running latest verified event end, or capture time when the end is unavailable): `visit_count`, `hourly_visits`
   (24 local-hour buckets by when each visit began), `camera_visits` (visits and last sighting per
   camera; `null` for a guest who may not see camera names) and `visit_count` on each `top_species`

@@ -837,6 +837,9 @@ export interface components {
     top_species: Array<components['schemas']['DailySpeciesSummary']>;
     total_count: number;
     visit_count?: number;
+    window?: "rolling" | "today";
+    window_end?: string | null;
+    window_start?: string | null;
 };
     DailyWeatherSummary: {
     am_cloud?: number | null;
@@ -4158,7 +4161,7 @@ export interface paths {
       query: {
     audio_confirmed_only?: boolean;
     camera?: string | null;
-    end_date?: string | null;
+    end_date?: string | "today" | null;
     event_id?: string | null;
     favorites?: boolean;
     fields?: string | null;
@@ -4169,7 +4172,7 @@ export interface paths {
     only_hidden?: boolean;
     sort?: "newest" | "oldest" | "confidence";
     species?: string | null;
-    start_date?: string | null;
+    start_date?: string | "today" | null;
     taxon?: number | null;
 };
       requestBody: unknown;
@@ -4201,13 +4204,13 @@ export interface paths {
       query: {
     audio_confirmed_only?: boolean;
     camera?: string | null;
-    end_date?: string | null;
+    end_date?: string | "today" | null;
     favorites?: boolean;
     include_hidden?: boolean;
     multiple_species_only?: boolean;
     only_hidden?: boolean;
     species?: string | null;
-    start_date?: string | null;
+    start_date?: string | "today" | null;
     taxon?: number | null;
 };
       requestBody: unknown;
@@ -5749,7 +5752,9 @@ export interface paths {
     get: {
       operationId: "get_daily_summary_api_stats_daily_summary_get";
       path: never;
-      query: never;
+      query: {
+    window?: "rolling" | "today";
+};
       requestBody: unknown;
       response: components['schemas']['DailySummaryResponse'];
     };
@@ -5968,7 +5973,7 @@ export interface paths {
       query: {
     audio_confirmed_only?: boolean;
     camera?: string | null;
-    end_date?: string | null;
+    end_date?: string | "today" | null;
     end_time?: string | null;
     favorites?: boolean;
     limit?: number;
@@ -5977,7 +5982,7 @@ export interface paths {
     only_hidden?: boolean;
     sort?: string;
     species?: string | null;
-    start_date?: string | null;
+    start_date?: string | "today" | null;
     start_time?: string | null;
     taxon?: number | null;
 };
@@ -5992,12 +5997,12 @@ export interface paths {
     visit_id: string;
 };
       query: {
-    end_date?: string | null;
+    end_date?: string | "today" | null;
     end_time?: string | null;
     limit?: number;
     offset?: number;
     only_hidden?: boolean;
-    start_date?: string | null;
+    start_date?: string | "today" | null;
     start_time?: string | null;
 };
       requestBody: unknown;
