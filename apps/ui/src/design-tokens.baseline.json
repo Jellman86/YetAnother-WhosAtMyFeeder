@@ -20,14 +20,9 @@
     "arbitrary": 0
   },
   "lib/components/BirdScanControl.svelte": {
-    "palette": 20,
-    "dark": 10,
+    "palette": 0,
+    "dark": 0,
     "arbitrary": 1
-  },
-  "lib/components/BirdScanRegions.svelte": {
-    "palette": 6,
-    "dark": 3,
-    "arbitrary": 0
   },
   "lib/components/CallPlayer.svelte": {
     "palette": 17,
@@ -43,11 +38,6 @@
     "palette": 56,
     "dark": 28,
     "arbitrary": 2
-  },
-  "lib/components/ClassificationSource.svelte": {
-    "palette": 3,
-    "dark": 1,
-    "arbitrary": 0
   },
   "lib/components/ConfirmDialog.svelte": {
     "palette": 7,
@@ -65,8 +55,8 @@
     "arbitrary": 0
   },
   "lib/components/CountedBirds.svelte": {
-    "palette": 62,
-    "dark": 27,
+    "palette": 0,
+    "dark": 0,
     "arbitrary": 5
   },
   "lib/components/DetectionCard.svelte": {
@@ -74,15 +64,10 @@
     "dark": 0,
     "arbitrary": 4
   },
-  "lib/components/DetectionCardAnalysisOverlay.svelte": {
-    "palette": 10,
-    "dark": 3,
-    "arbitrary": 0
-  },
   "lib/components/DetectionModal.svelte": {
-    "palette": 451,
-    "dark": 184,
-    "arbitrary": 7
+    "palette": 0,
+    "dark": 0,
+    "arbitrary": 4
   },
   "lib/components/DetectionRow.svelte": {
     "palette": 0,
@@ -93,11 +78,6 @@
     "palette": 0,
     "dark": 0,
     "arbitrary": 1
-  },
-  "lib/components/DialogCloseButton.svelte": {
-    "palette": 2,
-    "dark": 0,
-    "arbitrary": 0
   },
   "lib/components/ErrorBoundary.svelte": {
     "palette": 53,
@@ -115,8 +95,8 @@
     "arbitrary": 1
   },
   "lib/components/FamilyTreeDialog.svelte": {
-    "palette": 56,
-    "dark": 27,
+    "palette": 0,
+    "dark": 0,
     "arbitrary": 1
   },
   "lib/components/FeederPortrait.svelte": {
@@ -155,8 +135,8 @@
     "arbitrary": 2
   },
   "lib/components/FrameStrip.svelte": {
-    "palette": 48,
-    "dark": 2,
+    "palette": 0,
+    "dark": 0,
     "arbitrary": 4
   },
   "lib/components/GardenAutomaticAssessment.svelte": {
@@ -315,13 +295,13 @@
     "arbitrary": 1
   },
   "lib/components/ReclassificationOverlay.svelte": {
-    "palette": 117,
-    "dark": 45,
+    "palette": 0,
+    "dark": 0,
     "arbitrary": 4
   },
   "lib/components/RecordTechnicalDetails.svelte": {
-    "palette": 6,
-    "dark": 3,
+    "palette": 0,
+    "dark": 0,
     "arbitrary": 1
   },
   "lib/components/ReviewQueueModal.svelte": {
@@ -364,18 +344,13 @@
     "dark": 8,
     "arbitrary": 0
   },
-  "lib/components/TaxonomyLineage.svelte": {
-    "palette": 18,
-    "dark": 9,
-    "arbitrary": 0
-  },
   "lib/components/Toast.svelte": {
     "palette": 15,
     "dark": 0,
     "arbitrary": 0
   },
   "lib/components/VideoPlayer.svelte": {
-    "palette": 50,
+    "palette": 0,
     "dark": 0,
     "arbitrary": 3
   },

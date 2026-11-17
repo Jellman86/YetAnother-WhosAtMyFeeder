@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import detectionModalSource from './DetectionModal.svelte?raw';
+import aiAnalysisSource from './record/RecordAiAnalysis.svelte?raw';
 import eventsPageSource from '../pages/Events.svelte?raw';
 import dashboardPageSource from '../pages/Dashboard.svelte?raw';
 
@@ -14,17 +15,17 @@ describe('detection modal full-visit fetch wiring', () => {
         expect(detectionModalSource).toContain('Full visit');
         expect(detectionModalSource).toContain('getSnapshotUrl(detection.frigate_event)');
         expect(detectionModalSource).toContain("title={fullVisitFetched ? $_('video_player.full_visit_ready'");
-        // brand-700 under white text: brand-500 fails AA in both themes (KIT-02).
-        expect(detectionModalSource).toContain("fullVisitFetched ? 'gap-2 border-brand-300/30 bg-brand-700/95");
+        // The accent fill carries its own ink, which holds AA in every mode (KIT-02).
+        expect(detectionModalSource).toContain("fullVisitFetched ? 'gap-2 border-on-media-accent/30 bg-accent px-3 text-accent-fg");
         expect(detectionModalSource).not.toContain("video_player.full_visit_badge', { default: 'Full visit' })}</span>");
         expect(detectionModalSource).not.toContain('bottom-4 left-4 z-30 flex items-end gap-2 mt-3');
         expect(detectionModalSource).not.toContain('{#if fullVisitFetched}\n                                    <div');
         expect(detectionModalSource).not.toContain('absolute inset-0 flex items-center justify-center pointer-events-none');
-        expect(detectionModalSource).toContain('inline-flex min-h-11 items-center gap-2 rounded-full border border-white/25 bg-black/55');
+        expect(detectionModalSource).toContain('inline-flex min-h-11 items-center gap-2 rounded-full border border-on-media/25 bg-media/55');
         expect(detectionModalSource).toContain("video_player.full_visit_action', { default: 'Full visit' }");
         expect(detectionModalSource).not.toContain('img src={getThumbnailUrl(detection.frigate_event)}');
         expect(detectionModalSource).toContain("title={videoFailureInsight.summary}");
-        expect(detectionModalSource).toContain('inline-flex h-11 w-11 items-center justify-center rounded-full border border-rose-200/85');
+        expect(detectionModalSource).toContain('inline-flex h-11 w-11 items-center justify-center rounded-full border border-on-media-fail/70 bg-media/55 text-on-media-fail');
         expect(detectionModalSource).not.toContain("<span>{$_('detection.frigate_badge', { default: 'Frigate' })}</span>");
 
         expect(eventsPageSource).toContain("fullVisitAvailable={fullVisitAvailability[selectedEvent.frigate_event] === 'available'}");
@@ -73,17 +74,19 @@ describe('detection modal full-visit fetch wiring', () => {
 
     it('normalizes media overlay circular controls to a consistent size', () => {
         expect(detectionModalSource).toContain('pointer-events-auto inline-flex h-11 min-w-11 items-center justify-center rounded-full');
-        expect(detectionModalSource).toContain('<DialogCloseButton onclick={onClose} data-detection-modal-close />');
-        expect(detectionModalSource).toContain('inline-flex h-11 w-11 items-center justify-center rounded-full border border-rose-200/85');
+        expect(detectionModalSource).toContain("closeData={{ 'data-detection-modal-close': true }}");
+        expect(detectionModalSource).toContain('inline-flex h-11 w-11 items-center justify-center rounded-full border border-on-media-fail/70');
     });
 
     it('persists generated AI analysis back into the current detection state', () => {
-        expect(detectionModalSource).toContain('result.analysis_timestamp');
-        expect(detectionModalSource).toContain('detection.ai_analysis = result.analysis;');
-        expect(detectionModalSource).toContain('detection.ai_analysis_timestamp = result.analysis_timestamp;');
-        expect(detectionModalSource).toContain('detectionsStore.updateDetection({');
-        expect(detectionModalSource).toContain('ai_analysis: result.analysis');
-        expect(detectionModalSource).toContain('ai_analysis_timestamp: result.analysis_timestamp');
+        // The note is the record's own field, so writing it back is what shows it.
+        expect(aiAnalysisSource).toContain('result.analysis_timestamp');
+        expect(aiAnalysisSource).toContain('detection.ai_analysis = result.analysis;');
+        expect(aiAnalysisSource).toContain('detection.ai_analysis_timestamp = result.analysis_timestamp;');
+        expect(aiAnalysisSource).toContain('detectionsStore.updateDetection({');
+        expect(aiAnalysisSource).toContain('ai_analysis: result.analysis');
+        expect(aiAnalysisSource).toContain('ai_analysis_timestamp: result.analysis_timestamp');
+        expect(aiAnalysisSource).toContain('(detection.ai_analysis ?? null)');
         expect(detectionModalSource).toContain('const nextDetection = applyManualTagResult(detection, result);');
         expect(detectionModalSource).toContain('Object.assign(detection, nextDetection);');
         expect(dashboardPageSource).toContain('asText(d.ai_analysis)');

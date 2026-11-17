@@ -505,10 +505,10 @@
     onkeydown={handleKeydown}
     role="presentation"
 >
-    <div class="flex min-h-4 items-center justify-between gap-2 px-1 text-3xs font-semibold text-white/65" aria-live="polite">
-        <!-- The count keeps its one line beside the hint, which truncates instead, so the strip never
-             grows when its frames arrive. Phones hide the hint, so there the count may wrap. -->
-        <span class="sm:shrink-0 sm:whitespace-nowrap">
+    <!-- The count and the hint wrap by the width they have, so enlarged text is never cut off; the
+         row keeps one line's room while frames load, without forcing them onto one line. -->
+    <div class="flex min-h-5 flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 px-1 text-2xs font-semibold text-on-media/80" aria-live="polite" data-frame-strip-status>
+        <span class="min-w-0 wrap-break-word">
             {#if loading}
                 {$_('detection.snapshot_candidates_loading', { default: 'Loading frames...' })}
             {:else if moments.length === 0}
@@ -520,11 +520,14 @@
                 })}
             {/if}
         </span>
-        <span class="hidden truncate text-white/70 sm:inline">
-            {$_('detection.frame_strip_hint', {
-                default: 'Choosing one changes the photograph, not the identification.'
-            })}
-        </span>
+        <!-- Only when there is a photograph to choose; phones leave it out to keep the strip short. -->
+        {#if offersPhotoOptions && !loading && moments.length > 0}
+            <span class="hidden min-w-0 font-medium wrap-break-word sm:inline" data-frame-strip-hint>
+                {$_('detection.frame_strip_hint', {
+                    default: 'Choosing one changes the photograph, not the identification.'
+                })}
+            </span>
+        {/if}
     </div>
     <div class="flex min-w-0 items-center gap-1.5">
         <div class="snapshot-strip-shell relative min-w-0 flex-1" data-snapshot-strip-shell>
@@ -538,7 +541,7 @@
                 {#if loading && moments.length === 0}
                     <!-- Holds a thumbnail's room while the frames are read, so they arrive in place. -->
                     <span class="shrink-0 rounded-md p-1" aria-hidden="true" data-frame-strip-pending>
-                        <span class="block h-9 w-12 rounded-md bg-slate-800/70"></span>
+                        <span class="block h-9 w-12 rounded-md bg-media-raised/70"></span>
                     </span>
                 {/if}
                 {#each moments as moment, index (moment.key)}
@@ -552,8 +555,8 @@
                         <button
                             type="button"
                             bind:this={triggers[index]}
-                            class="relative block min-h-11 min-w-11 shrink-0 rounded-md p-1 transition duration-200 ease-out motion-reduce:translate-none motion-reduce:scale-none focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-white {chosen && marksChoice
-                                ? 'z-10 -translate-y-1 scale-105 bg-white/15 opacity-100 shadow-lg shadow-black/50'
+                            class="relative block min-h-11 min-w-11 shrink-0 rounded-md p-1 transition duration-200 ease-out motion-reduce:translate-none motion-reduce:scale-none focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-on-dark {chosen && marksChoice
+                                ? 'z-10 -translate-y-1 scale-105 bg-on-media/15 opacity-100 shadow-lg shadow-media/50'
                                 : chosen ? 'opacity-100' : 'opacity-80 hover:opacity-100'}"
                             aria-pressed={chosen}
                             aria-expanded={openIndex === index}
@@ -571,15 +574,15 @@
                                 decoding="async"
                                 width={48}
                                 height={36}
-                                class="block h-9 w-12 rounded-md bg-slate-800 object-cover"
-                                placeholderClass="text-slate-500"
+                                class="block h-9 w-12 rounded-md bg-media-raised object-cover"
+                                placeholderClass="text-on-media/80"
                                 iconClass="h-4 w-4"
                             />
                             {#if chosen && marksChoice}
                                 <!-- Held between the thumbnail's own edges. Hung from the left alone, a word wider
                                      than the thumbnail stuck out past the last frame and lengthened the strip
                                      after it had been scrolled to its end. -->
-                                <span class="pointer-events-none absolute inset-x-0.5 bottom-1.5 rounded-sm bg-brand-500 px-0.5 text-center text-3xs font-bold leading-4 wrap-anywhere text-slate-950">
+                                <span class="pointer-events-none absolute inset-x-0.5 bottom-1.5 rounded-sm bg-on-media-accent px-0.5 text-center text-3xs font-bold leading-4 wrap-anywhere text-media">
                                     {$_('detection.frame_chosen_badge', { default: 'Chosen' })}
                                 </span>
                             {/if}
@@ -593,7 +596,7 @@
                                      before the sheet, the backdrop shares that layer and covers it. -->
                                 <div
                                     use:portal
-                                    class="fixed inset-0 z-70 bg-slate-950/50"
+                                    class="fixed inset-0 z-70 bg-media/50"
                                     data-frame-strip-backdrop
                                     onclick={() => hide(true)}
                                     role="presentation"
@@ -603,7 +606,7 @@
                                 bind:this={panelEl}
                                 use:portal
                                 style={anchor.sheet ? '' : `left: ${anchor.x}px; top: ${anchor.y}px;`}
-                                class="fixed z-70 overflow-hidden border border-slate-700 bg-slate-900 text-slate-100 shadow-2xl shadow-slate-950/40 motion-safe:animate-in motion-safe:fade-in {anchor.sheet
+                                class="fixed z-70 overflow-hidden border border-on-media/20 bg-media-raised text-on-media/95 shadow-2xl shadow-media/40 motion-safe:animate-in motion-safe:fade-in {anchor.sheet
                                     ? 'inset-x-0 bottom-0 rounded-t-2xl motion-safe:slide-in-from-bottom-4'
                                     : anchor.above
                                       ? 'w-72 max-w-[calc(100vw-16px)] -translate-x-1/2 -translate-y-full rounded-2xl motion-safe:zoom-in-95'
@@ -623,7 +626,7 @@
                               >
                                 <button
                                     type="button"
-                                    class="absolute right-2 top-2 z-10 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/25 bg-slate-950/60 text-white backdrop-blur-xs focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-white"
+                                    class="absolute right-2 top-2 z-10 inline-flex h-11 w-11 items-center justify-center rounded-full border border-on-media/25 bg-media/60 text-on-media backdrop-blur-xs focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-on-dark"
                                     aria-label={$_('common.close', { default: 'Close' })}
                                     onclick={(event) => { event.stopPropagation(); const current = openIndex; if (current !== null) triggers[current]?.focus(); hide(true); }}
                                 >
@@ -635,43 +638,43 @@
                                         ? $_('detection.photo_option_image_alt', { default: 'Candidate photograph from this visit' })
                                         : primaryName}
                                     decoding="async"
-                                    class="w-full bg-slate-950 object-contain {anchor.sheet ? 'h-56' : 'h-40'}"
-                                    placeholderClass="text-slate-600"
+                                    class="w-full bg-media object-contain {anchor.sheet ? 'h-56' : 'h-40'}"
+                                    placeholderClass="text-on-media/80"
                                     iconClass="h-8 w-8"
                                 />
                                 <div class="flex flex-col gap-1.5 p-3 text-[0.8125rem]">
                                     <div class="flex items-baseline justify-between gap-2">
-                                        <span class="text-3xs font-semibold text-slate-400">
+                                        <span class="text-3xs font-semibold text-on-media/80">
                                             {positionLabel(moment)}
                                             &middot; {framingLabel(moment)}
                                         </span>
                                         {#if formatOffset(moment.offsetSeconds)}
-                                            <span class="shrink-0 text-xs tabular-nums text-slate-400">{formatOffset(moment.offsetSeconds)}</span>
+                                            <span class="shrink-0 text-xs tabular-nums text-on-media/80">{formatOffset(moment.offsetSeconds)}</span>
                                         {/if}
                                     </div>
                                     {#if read}
                                         <div class="flex items-baseline justify-between gap-2">
-                                            <span class="text-slate-400">{$_(moment.choice === 'crop' ? 'detection.photo_option_model_read' : 'detection.frame_model_read', { default: moment.choice === 'crop' ? 'Model reads this crop as' : 'Model reads this frame as' })}</span>
-                                            <span class="shrink-0 font-semibold text-white">{read}</span>
+                                            <span class="text-on-media/80">{$_(moment.choice === 'crop' ? 'detection.photo_option_model_read' : 'detection.frame_model_read', { default: moment.choice === 'crop' ? 'Model reads this crop as' : 'Model reads this frame as' })}</span>
+                                            <span class="shrink-0 font-semibold text-on-media">{read}</span>
                                         </div>
-                                        <p class="text-xs text-slate-400">
+                                        <p class="text-xs text-on-media/80">
                                             {$_('detection.frame_read_note', {
                                                 default: 'A read of one frame. The identification stays until you change it.'
                                             })}
                                         </p>
                                     {:else if moment.previous}
-                                        <p class="text-xs text-slate-400">
+                                        <p class="text-xs text-on-media/80">
                                             {$_('detection.previous_photo_note', {
                                                 default: 'The photograph this record had before a later analysis replaced it.'
                                             })}
                                         </p>
                                     {:else}
-                                        <p class="text-xs text-slate-400">
+                                        <p class="text-xs text-on-media/80">
                                             {$_('detection.frame_no_read', { default: 'The model has not read this frame on its own.' })}
                                         </p>
                                     {/if}
                                     {#if chosen}
-                                        <span class="mt-1 inline-flex min-h-10 items-center justify-center rounded-xl border border-slate-700 px-3 text-xs font-semibold text-slate-300">
+                                        <span class="mt-1 inline-flex min-h-10 items-center justify-center rounded-xl border border-on-media/20 px-3 text-xs font-semibold text-on-media/80">
                                             {$_('detection.frame_is_photograph', { default: 'The photograph now' })}
                                         </span>
                                     {:else}
@@ -694,7 +697,7 @@
                                             onclick={(event) => { event.stopPropagation(); void removeChoice(moment); }}>
                                             {$_('visits.remove_photo', { default: 'Remove photo choice' })}
                                         </button>
-                                        {#if candidate?.selected}<p class="text-xs text-slate-400">{$_('visits.choose_first', { default: 'Choose another photograph before removing this one.' })}</p>{/if}
+                                        {#if candidate?.selected}<p class="text-xs text-on-media/80">{$_('visits.choose_first', { default: 'Choose another photograph before removing this one.' })}</p>{/if}
                                     {/if}
                                 </div>
                               </div>
@@ -710,7 +713,7 @@
                 <!-- The fade says the strip runs on; the control takes it there. Keyboard users
                      move along the strip itself, so the control stays out of the Tab order. -->
                 <div
-                    class="pointer-events-none absolute inset-y-2 w-14 from-transparent to-slate-950/90 transition-opacity duration-150 motion-reduce:transition-none {end.forward ? 'right-0 bg-linear-to-r/srgb' : 'left-0 bg-linear-to-l/srgb'} {end.shown ? 'opacity-100' : 'opacity-0'}"
+                    class="pointer-events-none absolute inset-y-2 w-14 from-transparent to-media/90 transition-opacity duration-150 motion-reduce:transition-none {end.forward ? 'right-0 bg-linear-to-r/srgb' : 'left-0 bg-linear-to-l/srgb'} {end.shown ? 'opacity-100' : 'opacity-0'}"
                     data-snapshot-strip-fade
                     aria-hidden="true"
                 ></div>
@@ -724,7 +727,7 @@
                     data-frame-strip-forward={end.forward ? '' : undefined}
                     onclick={(event) => { event.stopPropagation(); scrollAlong(end.forward ? 1 : -1); }}
                 >
-                    <span class="inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/20 bg-slate-950/75 text-white/80 shadow-md shadow-black/40 backdrop-blur-xs transition-colors group-hover:border-white/40 group-hover:text-white group-active:bg-slate-900">
+                    <span class="inline-flex h-8 w-8 items-center justify-center rounded-full border border-on-media/20 bg-media/75 text-on-media/80 shadow-md shadow-media/40 backdrop-blur-xs transition-colors group-hover:border-on-media/40 group-hover:text-on-media group-active:bg-media-raised">
                         <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                             <path d={end.forward ? 'm9 6 6 6-6 6' : 'm15 6-6 6 6 6'} stroke-linecap="round" stroke-linejoin="round" />
                         </svg>
@@ -735,7 +738,7 @@
         {#if canRegenerate && onregenerate}
             <button
                 type="button"
-                class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-brand-300/35 bg-brand-500/15 text-brand-100 transition-colors hover:bg-brand-500/25 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-white"
+                class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-on-media-accent/35 bg-on-media-accent/15 text-on-media transition-colors hover:bg-on-media-accent/25 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-on-dark"
                 disabled={regeneratePending || busy}
                 title={$_('detection.snapshot_regenerate', { default: 'Regenerate snapshots and recount birds' })}
                 aria-label={$_('detection.snapshot_regenerate', { default: 'Regenerate snapshots and recount birds' })}
@@ -752,12 +755,12 @@
         {/if}
     </div>
     {#if removedPhoto?.eventId === eventId}
-        <div class="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-600 dark:text-slate-400" role="status">
+        <div class="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted" role="status">
             <span>{$_('visits.photo_removed', { default: 'Photo removed from the choices.' })}</span>
             <button type="button" class="btn btn-ghost min-h-11 px-3 text-xs" bind:this={undoButton} disabled={busy} onclick={() => void undoRemoval()}>{$_('common.undo', { default: 'Undo' })}</button>
         </div>
     {/if}
-    {#if removalError}<p role="alert" class="mt-2 text-sm text-slate-600 dark:text-slate-300">{$_('visits.remove_failed', { default: 'Could not change this photo choice. Try again.' })}</p>{/if}
+    {#if removalError}<p role="alert" class="mt-2 text-sm text-muted">{$_('visits.remove_failed', { default: 'Could not change this photo choice. Try again.' })}</p>{/if}
 </div>
 
 <style>

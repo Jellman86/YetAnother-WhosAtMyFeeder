@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import detectionSource from './DetectionModal.svelte?raw';
+import detectionSource from './record/RecordSpeciesReference.svelte?raw';
 import gardenSource from './GardenCaptureModal.svelte?raw';
 import speciesSource from './SpeciesDetailModal.svelte?raw';
 
@@ -12,7 +12,7 @@ describe.each([
     ['species details', speciesSource]
 ])('a description in another language on %s', (_surface, source) => {
     it('is marked with its language for assistive technology', () => {
-        expect(source).toContain("import { summaryInAnotherLanguage } from '../utils/summary-language';");
+        expect(source).toMatch(/import \{ summaryInAnotherLanguage \} from '(?:\.\.\/)+utils\/summary-language';/);
         expect(source).toMatch(/lang=\{summaryLanguage\?\.code\}/);
     });
 

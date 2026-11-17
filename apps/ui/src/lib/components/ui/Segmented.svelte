@@ -14,6 +14,8 @@
         onchange: (next: T) => void;
         /** The id of the visible label that names the set. */
         labelledBy?: string;
+        /** The set's name when no visible label names it. */
+        label?: string;
         /** `row` shares the width evenly, `stack` gives each option a line, `wrap` lets short ones flow. */
         layout?: 'row' | 'stack' | 'wrap';
         /** `fill` takes the width it is given (a rail, a settings row); `content` is as wide as its options (a toolbar). */
@@ -27,14 +29,14 @@
         [data: `data-${string}`]: string | boolean | undefined;
     };
 
-    let { value, options, onchange, labelledBy, layout = 'row', width = 'fill', size = 'md', describedBy, optionAttribute, class: className = '', ...data }: Props = $props();
+    let { value, options, onchange, labelledBy, label, layout = 'row', width = 'fill', size = 'md', describedBy, optionAttribute, class: className = '', ...data }: Props = $props();
 
     const track = $derived(
         layout === 'stack' ? 'flex flex-col' : layout === 'wrap' ? 'flex flex-wrap' : 'flex'
     );
 </script>
 
-<div class="{track} {width === 'content' ? 'w-fit max-w-full flex-wrap' : 'w-full'} gap-1 rounded-xl bg-surface-raised p-1 {className}" role="group" aria-labelledby={labelledBy} {...data}>
+<div class="{track} {width === 'content' ? 'w-fit max-w-full flex-wrap' : 'w-full'} gap-1 rounded-xl bg-surface-raised p-1 {className}" role="group" aria-labelledby={labelledBy} aria-label={labelledBy ? undefined : label} {...data}>
     {#each options as option (String(option.value))}
         {@const chosen = option.value === value}
         <button

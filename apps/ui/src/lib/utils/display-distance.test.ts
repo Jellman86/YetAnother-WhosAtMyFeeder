@@ -14,21 +14,21 @@ describe('display distance', () => {
 
     it('keeps kilometres for metric owners', () => {
         settingsStore.settings = { location_weather_unit_system: 'metric' } as Settings;
-        expect(displayDistance(50, translate)).toBe('50 km');
+        expect(displayDistance(50, translate)).toBe('50\u00a0km');
     });
 
     it('shows miles when the owner chose Imperial (#911)', () => {
         settingsStore.settings = { location_weather_unit_system: 'imperial' } as Settings;
-        expect(displayDistance(50, translate)).toBe('31 mi');
+        expect(displayDistance(50, translate)).toBe('31\u00a0mi');
     });
 
     it('shows miles for British units, which measure distance in miles', () => {
         settingsStore.settings = { location_weather_unit_system: 'british' } as Settings;
-        expect(displayDistance(25, translate)).toBe('16 mi');
+        expect(displayDistance(25, translate)).toBe('16\u00a0mi');
     });
 
     it('follows the public unit choice when no owner settings are loaded', () => {
         authStore.locationWeatherUnitSystem = 'imperial';
-        expect(displayDistance(5, translate)).toBe('3.1 mi');
+        expect(displayDistance(5, translate)).toBe('3.1\u00a0mi');
     });
 });

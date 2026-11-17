@@ -59,7 +59,7 @@
     <div class="relative flex items-start justify-between gap-3">
         <div class="min-w-0">
             <div class="flex flex-wrap items-center gap-1.5">
-                <span class="inline-flex h-2 w-2 rounded-full bg-brand-300 {isComplete ? '' : 'animate-pulse'}"></span>
+                <span class="inline-flex h-2 w-2 rounded-full bg-status-info-line {isComplete ? '' : 'animate-pulse'}"></span>
                 <span class="text-3xs font-bold text-accent-ink">
                     {statusLabel}
                 </span>
@@ -72,7 +72,7 @@
         <div class="flex shrink-0 items-center gap-2">
             {#if isComplete}
                 <div
-                    class="card-analysis-close-indicator grid h-8 w-8 place-items-center rounded-full border border-line bg-slate-500/10 text-ink"
+                    class="card-analysis-close-indicator grid h-8 w-8 place-items-center rounded-full border border-line bg-surface-raised text-ink"
                     role="img"
                     aria-label={closeIndicatorLabel}
                     title={closeIndicatorLabel}
@@ -84,7 +84,7 @@
                     </svg>
                 </div>
             {/if}
-            <div class="rounded-xl border border-slate-950/10 bg-white/45 px-2 py-1.5 text-right shadow-xs dark:border-white/15 dark:bg-white/10">
+            <div class="rounded-xl border border-line-soft bg-surface-raised px-2 py-1.5 text-right shadow-xs ">
                 <p class="text-base font-bold leading-none text-strong">{progressPercent}%</p>
                 <p class="mt-0.5 text-3xs font-bold text-muted">
                     {$_('detection.reclassification.analysis', { default: 'Analysis' })}
@@ -95,9 +95,10 @@
 
     <div class="relative space-y-3">
         {#if hasFallenBackToSnapshot}
-            <div class="overflow-hidden rounded-full">
+            <!-- On a track, so how far it has come reads against how far it has to go. -->
+            <div class="overflow-hidden rounded-full bg-track">
                 <div
-                    class="h-2 rounded-full bg-brand-400 transition-all duration-500"
+                    class="h-2 rounded-full bg-status-info-line transition-all duration-500 motion-reduce:transition-none"
                     style={`width: ${progressPercent}%`}
                 ></div>
             </div>
@@ -105,11 +106,11 @@
             <FrameScanRibbon {progress} variant="card" />
         {/if}
 
-        <div class="rounded-xl border border-white/10 p-2.5 dark:border-white/10">
+        <div class="rounded-xl border border-line-soft p-2.5">
             <div class="flex items-center justify-between gap-3 text-3xs font-bold text-muted">
                 <span>{$_('detection.reclassification.frame_progress', { values: { current: displayFrameIndex, total: displayClipTotal } })}</span>
                 {#if isAutoVideoReclassification}
-                    <span class="rounded-md border border-line bg-slate-500/10 px-1.5 py-0.5 text-ink">
+                    <span class="rounded-md border border-line bg-surface-raised px-1.5 py-0.5 text-ink">
                         {$_('detection.reclassification.auto_video_source', { default: 'Auto Video' })}
                     </span>
                 {/if}

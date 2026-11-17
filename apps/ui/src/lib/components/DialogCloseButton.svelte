@@ -15,7 +15,7 @@
 
     let { tone = 'surface', label, element = $bindable(null), class: className = '', ...rest }: Props = $props();
 
-    const toneClass = $derived(tone === 'media' ? 'btn-on-dark bg-slate-950/60 hover:bg-slate-950/80' : 'btn-ghost');
+    const toneClass = $derived(tone === 'media' ? 'btn-on-dark bg-media/60 hover:bg-media/80' : 'btn-ghost');
 </script>
 
 <button
