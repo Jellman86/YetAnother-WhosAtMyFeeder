@@ -15,7 +15,7 @@
     },
     "finder": "Détecteur d'oiseaux",
     "row": {
-      "activation_failed": "Il n'a pas pu être chargé, donc aucun fournisseur n'a été vérifié. Utilisez « Réparer le téléchargement » pour ce modèle dans Paramètres → Modèles.",
+      "activation_failed": "Il n'a pas pu être chargé, donc aucun fournisseur n'a été vérifié. Utilisez « Réparer le téléchargement » pour ce modèle dans Paramètres → Identifier les oiseaux.",
       "provider_sweep_failed": "La vérification a échoué avant qu'un fournisseur ne donne un résultat. Relancez-la ; si elle échoue encore, la cause figure dans les journaux du conteneur.",
       "unknown": "Il n'a pas été vérifié, pour une raison que cette page ne sait pas nommer. La cause figure dans les journaux du conteneur."
     },
@@ -138,9 +138,9 @@
     "vocabulary_note": "Les parts ne comptent que les espèces qu'un modèle sait nommer."
   },
   "skipped": {
-    "activation_failed": "Ses fichiers sont absents ou incomplets. Utilisez « Réparer le téléchargement » pour ce modèle dans Paramètres → Modèles.",
+    "activation_failed": "Ses fichiers sont absents ou incomplets. Utilisez « Réparer le téléchargement » pour ce modèle dans Paramètres → Identifier les oiseaux.",
     "other": "Il a été ignoré pour une raison que cette page ne sait pas nommer. La cause figure dans les journaux du conteneur.",
-    "reload_failed": "Il n'a pas pu être chargé. Utilisez « Réparer le téléchargement » pour ce modèle dans Paramètres → Modèles ; si cela ne suffit pas, la cause figure dans les journaux du conteneur.",
+    "reload_failed": "Il n'a pas pu être chargé. Utilisez « Réparer le téléchargement » pour ce modèle dans Paramètres → Identifier les oiseaux ; si cela ne suffit pas, la cause figure dans les journaux du conteneur.",
     "title": "Modèles non testés"
   },
   "start": {
@@ -148,7 +148,7 @@
     "all_models_desc": "Vérifie aussi que chaque modèle donne les mêmes réponses sur votre puce graphique ou votre NPU que sur le CPU. Les modèles non installés sont d'abord téléchargés et restent installés. C'est beaucoup plus long.",
     "all_models_label": "Vérifier chaque modèle sur chaque fournisseur",
     "download_none": "Tous les modèles sont déjà installés, rien n'est donc téléchargé.",
-    "download_note": "Le téléchargement peut prendre un moment, selon votre connexion. Les modèles téléchargés restent sur le disque jusqu'à ce que vous supprimiez leurs fichiers dans Paramètres → Modèles.",
+    "download_note": "Le téléchargement peut prendre un moment, selon votre connexion. Les modèles téléchargés restent sur le disque jusqu'à ce que vous supprimiez leurs fichiers dans Paramètres → Identifier les oiseaux.",
     "download_reading": "Calcul de la taille du téléchargement…",
     "download_size": "{count, plural, one {# modèle n'est pas encore installé : un téléchargement d'environ {size}.} other {# modèles ne sont pas encore installés : un téléchargement d'environ {size}.}}",
     "download_size_partial": "{count, plural, one {# modèle n'est pas encore installé.} other {# modèles ne sont pas encore installés.}} {unknown, plural, one {La taille de # d'entre eux n'est pas connue ;} other {La taille de # d'entre eux n'est pas connue ;}} les autres représentent un téléchargement d'environ {size}.",
@@ -165,24 +165,24 @@
     "what": "Chaque modèle installé nomme des photos de référence d’espèces connues, pour comparer à quelle fréquence chacun a raison et à quelle vitesse."
   },
   "stopped": {
-    "finder_needs_provider_check": "Un détecteur d'oiseaux ne peut être vérifié que par fournisseur. Lancez la vérification depuis Paramètres → Modèles.",
-    "models_not_ready": "Un modèle choisi pour cette vérification n'est pas installé et prêt. Vérifiez-le dans Paramètres → Modèles, puis relancez.",
+    "finder_needs_provider_check": "Un détecteur d'oiseaux ne peut être vérifié que par fournisseur. Lancez la vérification depuis Paramètres → Identifier les oiseaux.",
+    "models_not_ready": "Un modèle choisi pour cette vérification n'est pas installé et prêt. Vérifiez-le dans Paramètres → Identifier les oiseaux, puis relancez.",
     "network": "Une requête vers iNaturalist ou Wikimedia Commons a échoué. Vérifiez la connexion à Internet, puis relancez.",
-    "no_models": "Aucun modèle d'oiseaux n'est installé et prêt. Installez-en un dans Paramètres → Modèles, puis relancez.",
+    "no_models": "Aucun modèle d'oiseaux n'est installé et prêt. Installez-en un dans Paramètres → Identifier les oiseaux, puis relancez.",
     "no_test_birds": "La liste des oiseaux de test n'a pas pu être établie, car iNaturalist n'a pas répondu. Vérifiez la connexion à Internet, puis relancez.",
     "no_test_photos": "Aucune photo de test n'a pu être récupérée depuis iNaturalist ou Wikimedia Commons. Vérifiez la connexion à Internet, puis relancez.",
     "unexpected": "Elle s'est arrêtée sur une erreur que cette page ne sait pas nommer. Relancez-la ; si elle s'arrête encore, la cause figure dans les journaux du conteneur."
   },
   "warning": {
-    "high_abstention": "N'a donné aucune espèce pour {share} % des photos. Il ne couvre peut-être pas ces oiseaux, ou son installation est incomplète. Vérifiez le modèle dans Paramètres → Modèles.",
-    "incomplete_install": "Ses fichiers sont incomplets. Utilisez « Réparer le téléchargement » pour ce modèle dans Paramètres → Modèles.",
+    "high_abstention": "N'a donné aucune espèce pour {share} % des photos. Il ne couvre peut-être pas ces oiseaux, ou son installation est incomplète. Vérifiez le modèle dans Paramètres → Identifier les oiseaux.",
+    "incomplete_install": "Ses fichiers sont incomplets. Utilisez « Réparer le téléchargement » pour ce modèle dans Paramètres → Identifier les oiseaux.",
     "inference_health_unhealthy": "Des erreurs ou des dépassements de délai se sont produits pendant l'exécution. Cherchez la cause dans les journaux du conteneur.",
-    "latency_drift_high": "Bien plus lent qu'à son chargement : {measured, number} ms par photo contre {loaded, number} ms. Le fournisseur utilisé est peut-être défaillant. Réglez le fournisseur d'inférence sur CPU dans Paramètres → Modèles et relancez une évaluation.",
-    "latency_drift_high_plain": "Bien plus lent qu'à son chargement. Le fournisseur utilisé est peut-être défaillant. Réglez le fournisseur d'inférence sur CPU dans Paramètres → Modèles et relancez une évaluation.",
-    "low_shared_core": "A bien nommé moins de la moitié des oiseaux courants des mangeoires, ce qui indique en général une installation endommagée. Utilisez « Réparer le téléchargement » pour ce modèle dans Paramètres → Modèles.",
+    "latency_drift_high": "Bien plus lent qu'à son chargement : {measured, number} ms par photo contre {loaded, number} ms. Le fournisseur utilisé est peut-être défaillant. Réglez le fournisseur d'inférence sur CPU dans Paramètres → Identifier les oiseaux et relancez une évaluation.",
+    "latency_drift_high_plain": "Bien plus lent qu'à son chargement. Le fournisseur utilisé est peut-être défaillant. Réglez le fournisseur d'inférence sur CPU dans Paramètres → Identifier les oiseaux et relancez une évaluation.",
+    "low_shared_core": "A bien nommé moins de la moitié des oiseaux courants des mangeoires, ce qui indique en général une installation endommagée. Utilisez « Réparer le téléchargement » pour ce modèle dans Paramètres → Identifier les oiseaux.",
     "partial_vocabulary": "Ne sait pas nommer {outside} des {total} espèces de test, en général parce qu'elles vivent hors de sa région. Ses parts portent sur les espèces qu'il sait nommer.",
     "partial_vocabulary_plain": "Ne sait pas nommer certaines espèces de test, en général parce qu'elles vivent hors de sa région. Ses parts portent sur les espèces qu'il sait nommer.",
-    "provider_fallback_active": "S'est exécuté sur le CPU alors qu'un fournisseur plus rapide était demandé. La raison figure dans Diagnostics d'exécution, dans Paramètres → Modèles.",
+    "provider_fallback_active": "S'est exécuté sur le CPU alors qu'un fournisseur plus rapide était demandé. La raison figure dans Diagnostics d'exécution, dans Paramètres → Identifier les oiseaux.",
     "provider_validation_failed": "Aucun fournisseur n'a donné de réponses utilisables identiques à celles du CPU. Les vérifications des fournisseurs ci-dessous montrent chaque résultat.",
     "provider_validation_partial": "Certains fournisseurs ont échoué ou ne sont pas disponibles ici. Les vérifications des fournisseurs ci-dessous montrent chaque résultat.",
     "region_mismatch": "Conçu pour une autre région que celle des oiseaux près de chez vous, donc ses parts sont plus basses ici que là-bas.",

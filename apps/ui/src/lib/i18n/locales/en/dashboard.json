@@ -87,7 +87,7 @@
     "seen_and_heard": "seen and heard"
   },
   "desk": {
-    "cameras_empty": "No cameras reporting yet. Add them in Settings → Connection.",
+    "cameras_empty": "No cameras reporting yet. Add them in Settings → Cameras & connection.",
     "camera_no_visits": "no visits",
     "no_cross_confirmation": "{count, plural, one {# call was heard but it did not line up with a camera visit.} other {# calls were heard but none lined up with a camera visit.}} The microphone and the cameras may be covering different ground.",
     "temperature_span": "Visits ranged {low} to {high}",

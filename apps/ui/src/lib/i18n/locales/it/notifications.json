@@ -64,7 +64,7 @@
   "empty_filtered": "Nessun risultato per questo filtro.",
   "clear_notifications": "Cancella notifiche",
   "system_media_storage_unavailable_title": "Archivio media non disponibile",
-  "system_media_storage_unavailable_message": "Non è possibile scrivere nella cartella dei media, quindi foto e video non vengono conservati. Apri Impostazioni → Dati per i dettagli.",
+  "system_media_storage_unavailable_message": "Non è possibile scrivere nella cartella dei media, quindi foto e video non vengono conservati. Apri Impostazioni → Archiviazione e manutenzione per i dettagli.",
   "bell_unread": "{title}, {count} non letti",
   "filter_group": "Filtra notifiche",
   "count_unread_unit": "{count, plural, one {non letta} other {non lette}}",

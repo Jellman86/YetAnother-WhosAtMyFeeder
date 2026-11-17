@@ -218,11 +218,12 @@ export async function openDetectionSettings(page: Page, options: DetectionMockOp
     await page.goto('/browser-tests/settings-backfill.html');
     const mobileNavigation = page.getByRole('combobox', { name: 'Settings section', exact: true });
     // The first open compiles the page and its tab on the dev server, which is slow under load.
+    // Detection and Models are both parts of Identifying birds.
     const tab = options.tab ?? 'models';
-    const tabName = tab === 'models' ? 'Models' : 'Detection';
-    await expect(mobileNavigation.or(page.getByRole('link', { name: tabName, exact: true }))).toBeVisible({ timeout: 15_000 });
-    if (await mobileNavigation.isVisible()) await mobileNavigation.selectOption(tab);
-    else await page.getByRole('link', { name: tabName, exact: true }).click();
+    const sectionName = 'Identifying birds';
+    await expect(mobileNavigation.or(page.getByRole('link', { name: sectionName, exact: true }))).toBeVisible({ timeout: 15_000 });
+    if (await mobileNavigation.isVisible()) await mobileNavigation.selectOption('identification');
+    else await page.getByRole('link', { name: sectionName, exact: true }).click();
     if (tab === 'detection') return state;
     await expect(page.getByRole('heading', { name: 'Hardware', exact: true })).toBeVisible();
     return state;

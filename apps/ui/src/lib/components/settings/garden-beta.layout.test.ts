@@ -13,32 +13,34 @@ import betaSectionSource from './BetaSection.svelte?raw';
 import gardenServiceSource from './garden-service-status.svelte.ts?raw';
 import detectionSource from './DetectionSettings.svelte?raw';
 import notificationSource from './NotificationSettings.svelte?raw';
-import enPageSubtitles from '../../i18n/locales/en/page_subtitle.json';
+import identificationSource from './sections/IdentificationSection.svelte?raw';
 import enSettings from '../../i18n/locales/en/settings.json';
 
 const en = { settings: enSettings };
 
 describe('Garden animals is a beta feature', () => {
-    it('has its own Beta features tab with a labelled switch that saves', () => {
-        expect(tabsSource).toContain('id: "beta"');
-        expect(settingsSource).toContain("{#if activeTab === 'beta'}");
-        expect(settingsSource).toContain('<GardenBetaSettings');
+    it('has its own Beta features part in Identifying birds, with a labelled switch that saves', () => {
+        expect(tabsSource).toContain('SETTINGS_SECTION_ORDER');
+        expect(identificationSource).toContain('data-settings-part="beta"');
+        expect(identificationSource).toContain('<GardenBetaSettings');
+        expect(settingsSource).toContain('<IdentificationSection');
         expect(betaCardSource).toContain('<SettingsToggle checked={enabled} labelledBy={nameId} srLabel={name} onchange={ontoggle} />');
         expect(gardenBetaSource).toContain('ontoggle={(next) => (enabled = next)}');
         expect(settingsSource).toContain('beta_garden_animals: betaGardenAnimals,');
         expect(settingsSource).toContain("saved: s.beta_garden_animals ?? false");
     });
 
-    it('lists beta features as cards under the tab\'s one line, said once', () => {
-        const beta = settingsSource.slice(settingsSource.indexOf("{#if activeTab === 'beta'}"), settingsSource.indexOf("{#if activeTab === 'debug'}"));
-        // The page header's line for the tab is the intro; the page does not repeat it.
-        expect(beta).not.toContain('data-beta-intro');
-        expect(beta).not.toContain('settings.beta.intro');
+    it('lists beta features as cards under the part\'s one line, said once', () => {
+        const beta = identificationSource.slice(identificationSource.indexOf('data-settings-part="beta"'));
+        // One line says what Beta promises for every feature; no card repeats it.
+        expect(beta.match(/data-beta-intro/g) ?? []).toHaveLength(1);
+        expect(beta).toContain("settings.beta.part_intro");
+        expect(gardenBetaSource).not.toContain('settings.beta.part_intro');
         expect(beta).toContain('data-beta-feature-list');
         expect(beta).toMatch(/<li>\s*<LazyRoute loader=\{loadGardenBetaSettings\}[^\n]*\s*\{#snippet content\(GardenBetaSettings\)\}\s*<GardenBetaSettings/);
         expect(gardenBetaSource).toContain('<BetaFeatureCard');
-        expect(enPageSubtitles.settings_tab.beta).toMatch(/off until you turn it on/);
-        expect(enPageSubtitles.settings_tab.beta).toMatch(/keeps what it has already recorded/);
+        expect(en.settings.beta.part_intro).toMatch(/off until you turn it on/);
+        expect(en.settings.beta.part_intro).toMatch(/keeps what it has already recorded/);
     });
 
     it('shows a feature\'s settings only while it is on, and what off means while it is off', () => {

@@ -21,7 +21,7 @@
   },
   "account": {
     "title": "Cuenta de administrador y acceso",
-    "already": "La autenticación ya está configurada. Gestiónala en Ajustes → Seguridad.",
+    "already": "La autenticación ya está configurada. Gestiónala en Ajustes → Compartir e integraciones.",
     "description": "Protege el panel con una contraseña de propietario o úsalo sin autenticación en una red de confianza."
   },
   "connection": {
@@ -44,7 +44,7 @@
     "frigate_ok": "Conectado a Frigate {version}",
     "blocked": "Guarda y prueba la conexión para continuar, o elige «Configurar más tarde».",
     "later": "Configurar más tarde",
-    "later_note": "¿No tienes Frigate o el broker a mano? Elige «Configurar más tarde». Hasta que ambos estén conectados en Ajustes → Conexión, no llegarán visitas, no se podrán obtener fotos ni clips, y el paso de cámaras no podrá mostrar tus cámaras.",
+    "later_note": "¿No tienes Frigate o el broker a mano? Elige «Configurar más tarde». Hasta que ambos estén conectados en Ajustes → Cámaras y conexión, no llegarán visitas, no se podrán obtener fotos ni clips, y el paso de cámaras no podrá mostrar tus cámaras.",
     "check_frigate": "API de Frigate",
     "check_mqtt": "Broker MQTT"
   },
@@ -85,7 +85,7 @@
     "validation_success": "La validación de hardware se completó correctamente.",
     "verified": "Proveedores validados: {list}",
     "location_title": "Ubicación del comedero",
-    "location_hint": "Al validar o continuar se guardan primero estas coordenadas, las mismas de Ajustes → Integraciones → Ubicación. Este modelo no utiliza la fecha ni un radio de precisión.",
+    "location_hint": "Al validar o continuar se guardan primero estas coordenadas, las mismas de Ajustes → Compartir e integraciones → Ubicación. Este modelo no utiliza la fecha ni un radio de precisión.",
     "location_incomplete": "Introduce la latitud y la longitud, o deja ambos campos vacíos.",
     "location_empty": "No se utilizará la ubicación: este modelo identifica aves sin ella.",
     "ram_note": "Se recomiendan unos {ram} MB de RAM.",
@@ -127,7 +127,7 @@
     "note_bw": "Envía informes a estaciones comunitarias. Añade un token de estación en Ajustes.",
     "note_ebird": "Avistamientos cercanos, mapas y un filtro de área opcional. Añade una clave de API en Ajustes.",
     "note_inat": "Envíos revisados por el propietario. Conecta tu cuenta en Ajustes.",
-    "notifications_note": "Los canales de notificación se configuran en Ajustes → Notificaciones. Home Assistant se instala y configura por separado; consulta la guía de integración."
+    "notifications_note": "Los canales de notificación se configuran en Ajustes → Alertas. Home Assistant se instala y configura por separado; consulta la guía de integración."
   },
   "history": {
     "title": "Importar detecciones existentes",
@@ -182,7 +182,7 @@
   "skip": "Omitir configuración",
   "skip_failed": "No se pudo omitir: no se pudo contactar con el servidor.",
   "skip_confirm_title": "¿Omitir la configuración y abrir la aplicación?",
-  "skip_confirm_body_no_account": "La aplicación funcionará sin contraseña hasta que definas una en Ajustes → Seguridad. Todo lo que cubre este asistente puede configurarse después, y puedes volver a ejecutarlo desde Ajustes → Asistente de configuración.",
+  "skip_confirm_body_no_account": "La aplicación funcionará sin contraseña hasta que definas una en Ajustes → Compartir e integraciones. Todo lo que cubre este asistente puede configurarse después, y puedes volver a ejecutarlo desde Ajustes → Asistente de configuración.",
   "skip_confirm_body": "Todo lo que cubre este asistente puede configurarse después, y puedes volver a ejecutarlo desde Ajustes → Asistente de configuración.",
   "skip_confirm_action": "Omitir y abrir la aplicación",
   "back": "Atrás",

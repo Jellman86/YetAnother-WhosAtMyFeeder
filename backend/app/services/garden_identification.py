@@ -528,7 +528,8 @@ class GardenIdentificationService:
         country = normalize_country(settings.location.country)
         if country is None:
             raise HTTPException(
-                409, "Set a recognised country or ISO country code in Settings → Integrations → Location first"
+                409,
+                "Set a recognised country or ISO country code in Settings → Sharing & integrations → Location first",
             )
         bundle = await asyncio.to_thread(self.catalog.load)
         path = self.model_path(request.variant)

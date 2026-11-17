@@ -78,7 +78,7 @@ Open `http://<your-ip>:9852`. A fresh installation opens the setup wizard:
 ![The Welcome to YA-WAMF wizard step lists connection, cameras, model validation and integrations, with a language selector and Get started button](../images/setup-wizard.png)
 
 Set an owner password in **Admin account & access** before exposing YA-WAMF
-outside your trusted network. Later account changes belong in **Settings → Security**;
+outside your trusted network. Later account changes belong in **Settings → Sharing & integrations**;
 first-run account setup cannot be reused.
 
 ![Admin account and access setup with username, password, confirmation and an explicit Skip authentication choice](../images/setup-wizard-account.png)
@@ -90,7 +90,7 @@ setup and can recover only bird events Frigate still retains, not missing BirdNE
 In **Model and hardware**, download missing models before validating them.
 **Continue** waits for the check to finish. It measures provider compatibility and
 speed, not species accuracy; review any fallback explanation. After setup, check
-**Settings → Models → Runtime diagnostics** for the actual active provider.
+**Settings → Identifying birds → Runtime diagnostics** for the actual active provider.
 
 ![DINOv2 model setup with optional feeder coordinates, an inference provider selector and a hardware compatibility check](../images/setup-wizard-dino.png)
 
@@ -101,7 +101,7 @@ Integrated models need no separate `labels.txt`.
 **Continue** saves each section; **Skip step** leaves its remaining choices unsaved. When
 **Continue** cannot be pressed, the line above it says why. If Frigate or the broker is not
 running yet, choose **Set up later** on the connection step: until both are connected under
-**Settings → Connection**, no visits arrive, no photos or clips can be fetched, and the cameras
+**Settings → Cameras & connection**, no visits arrive, no photos or clips can be fetched, and the cameras
 step cannot list your cameras. The last step before the review, **Optional extras**, asks the two
 optional questions together: importing what Frigate still holds, and sharing anonymous usage stats.
 Leaving a hardware check does not cancel it or undo coordinates already saved.
@@ -129,7 +129,7 @@ See [Explorer](../features/explorer.md) for grouping and review controls.
 
 ### 5. (Optional) Share a read-only public view
 
-Set an owner password, then enable **Settings → Security → Public Access** and
+Set an owner password, then enable **Settings → Sharing & integrations → Public Access** and
 review the separate media and history permissions. Follow
 [Authentication & Access](../features/authentication.md) before sharing the URL.
 

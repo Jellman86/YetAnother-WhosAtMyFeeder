@@ -427,12 +427,12 @@
             case 'mqtt_down':
                 return {
                     title: $_('jobs.errors_problem.mqtt_down', { values: { server }, default: 'The MQTT broker at {server} is not connected, so no new detections can arrive.' }),
-                    next: $_('jobs.errors_problem.mqtt_down_next', { default: 'Check its address in Settings → Connection and that the broker is running.' })
+                    next: $_('jobs.errors_problem.mqtt_down_next', { default: 'Check its address in Settings → Cameras & connection and that the broker is running.' })
                 };
             case 'mqtt_not_configured':
                 return {
                     title: $_('jobs.errors_problem.mqtt_not_configured', { default: 'No MQTT broker is set, so no detections can arrive.' }),
-                    next: $_('jobs.errors_problem.mqtt_not_configured_next', { default: 'Add one in Settings → Connection.' })
+                    next: $_('jobs.errors_problem.mqtt_not_configured_next', { default: 'Add one in Settings → Cameras & connection.' })
                 };
             case 'mqtt_stopped':
                 return {
@@ -442,7 +442,7 @@
             case 'frigate_down':
                 return {
                     title: $_('jobs.errors_problem.frigate_down', { values: { url }, default: 'Frigate at {url} is not answering, so new detections cannot be saved.' }),
-                    next: $_('jobs.errors_problem.frigate_down_next', { default: 'Check its address in Settings → Connection and that Frigate is running.' })
+                    next: $_('jobs.errors_problem.frigate_down_next', { default: 'Check its address in Settings → Cameras & connection and that Frigate is running.' })
                 };
         }
     }
@@ -961,7 +961,7 @@
                                 {/each}
                             </ul>
                         {/if}
-                        <p class="mt-2 text-xs text-ink">{$_('jobs.errors_filtered_hint', { default: 'Adjust the naming threshold in Settings → Detection to keep more of these.' })}</p>
+                        <p class="mt-2 text-xs text-ink">{$_('jobs.errors_filtered_hint', { default: 'Adjust the naming threshold in Settings → Identifying birds to keep more of these.' })}</p>
                     {/if}
                 </li>
 

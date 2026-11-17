@@ -30,7 +30,7 @@
   "species": "Spezies",
   "view_species": "{species} anzeigen",
   "no_species": "Noch keine Vögel erfasst",
-  "no_species_desc": "Die Bestenliste füllt sich, sobald Ihre Kameras Vögel erkennen. Kommt nichts an, prüfen Sie Einstellungen → Verbindung.",
+  "no_species_desc": "Die Bestenliste füllt sich, sobald Ihre Kameras Vögel erkennen. Kommt nichts an, prüfen Sie Einstellungen → Kameras & Verbindung.",
   "only_unknown_desc": "Aktuell sind nur \"Unbekannter Vogel\"-Erkennungen vorhanden. Aktivieren Sie „\"Unbekannter Vogel\" einschließen“, um sie in der Bestenliste anzuzeigen.",
   "all_species": "Alle Spezies",
   "percentage_of_total": "{percentage}% der Gesamtzahl",

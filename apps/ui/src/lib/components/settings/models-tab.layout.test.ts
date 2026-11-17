@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import detectionSource from './DetectionSettings.svelte?raw';
 import modelsSource from './ModelSettings.svelte?raw';
 import settingsSource from '../../pages/Settings.svelte?raw';
+import partLoadersSource from './sections/part-loaders.ts?raw';
+import identificationSource from './sections/IdentificationSection.svelte?raw';
 import statusSource from '../../settings/identification-models.ts?raw';
 import statusLineSource from '../IdentificationStatusLine.svelte?raw';
 import modelManagerSource from '../../pages/models/ModelManager.svelte?raw';
@@ -9,17 +11,17 @@ import modelManagerSource from '../../pages/models/ModelManager.svelte?raw';
 // Detection holds the rules for accepting an identification; Models holds which models run, on
 // what hardware, and the checks behind them. Each setting has exactly one of the two as its home.
 describe('Detection and Models', () => {
-    it('gives the models, the hardware and the runtime report their own tab', () => {
-        expect(settingsSource).toContain("activeTab === 'models'");
-        expect(settingsSource).toContain("import('../components/settings/ModelSettings.svelte')");
+    it('gives the models, the hardware and the runtime report their own part of Identifying birds', () => {
+        expect(identificationSource).toContain('data-settings-part="models"');
+        expect(partLoadersSource).toContain("import('../ModelSettings.svelte')");
         expect(modelsSource).toContain('<ModelManager');
         expect(modelsSource).toContain('<IdentificationStatusLine');
         expect(modelsSource).toContain('id="inference-provider"');
         expect(modelsSource).toContain('id="image-execution-mode"');
         expect(modelsSource).toContain('id="bird-model-region-override"');
         expect(modelsSource).toContain('<DiagnosticDialog');
-        // The runtime it shows is kept current while Models, not Detection, is open.
-        expect(settingsSource).toContain("if (activeTab !== 'models' || !authStore.showSettings) return;");
+        // The runtime it shows is kept current while the section holding Models is open.
+        expect(settingsSource).toContain("if (activeSection !== settingsSectionOfPart('models') || !authStore.showSettings) return;");
     });
 
     it('leaves Detection with thresholds, blocked species, the range filter and video checks only', () => {

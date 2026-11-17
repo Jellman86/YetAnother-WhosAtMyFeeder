@@ -2,7 +2,7 @@
   "cameras_all_offline": "Tutte le telecamere sono offline",
   "cameras_all_online": "Tutte le telecamere sono online",
   "cameras_checking": "Verifica delle telecamere…",
-  "cameras_empty": "Nessuna telecamera configurata. Aggiungi telecamere in Impostazioni → Connessione.",
+  "cameras_empty": "Nessuna telecamera configurata. Aggiungi telecamere in Impostazioni → Telecamere e connessione.",
   "cameras_frame_alt": "Ultimo fotogramma da {camera}",
   "cameras_frame_unavailable": "Fotogramma non disponibile",
   "cameras_label": "Stato telecamere",

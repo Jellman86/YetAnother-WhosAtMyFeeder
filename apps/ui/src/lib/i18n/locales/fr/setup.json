@@ -21,7 +21,7 @@
   },
   "account": {
     "title": "Compte administrateur et accès",
-    "already": "L’authentification est déjà configurée. Gérez-la dans Paramètres → Sécurité.",
+    "already": "L’authentification est déjà configurée. Gérez-la dans Paramètres → Partage et intégrations.",
     "description": "Protégez le tableau de bord avec un mot de passe propriétaire, ou utilisez-le sans authentification sur un réseau de confiance."
   },
   "connection": {
@@ -44,7 +44,7 @@
     "frigate_ok": "Connecté à Frigate {version}",
     "blocked": "Enregistrez et testez la connexion pour continuer, ou choisissez « Configurer plus tard ».",
     "later": "Configurer plus tard",
-    "later_note": "Pas de Frigate ni de broker sous la main \u0001 Choisissez « Configurer plus tard ». Tant que les deux ne sont pas connectés dans Paramètres → Connexion, aucune visite n’arrive, aucune photo ni aucun clip ne peut être récupéré, et l’étape des caméras ne peut pas lister vos caméras.",
+    "later_note": "Pas de Frigate ni de broker sous la main \u0001 Choisissez « Configurer plus tard ». Tant que les deux ne sont pas connectés dans Paramètres → Caméras et connexion, aucune visite n’arrive, aucune photo ni aucun clip ne peut être récupéré, et l’étape des caméras ne peut pas lister vos caméras.",
     "check_frigate": "API Frigate",
     "check_mqtt": "Broker MQTT"
   },
@@ -85,7 +85,7 @@
     "validation_success": "Validation du matériel terminée avec succès.",
     "verified": "Fournisseurs validés : {list}",
     "location_title": "Emplacement de la mangeoire",
-    "location_hint": "La validation ou la poursuite enregistre d’abord ces coordonnées, identiques à celles de Paramètres → Intégrations → Localisation. Ce modèle n’utilise ni la date ni un rayon de précision.",
+    "location_hint": "La validation ou la poursuite enregistre d’abord ces coordonnées, identiques à celles de Paramètres → Partage et intégrations → Localisation. Ce modèle n’utilise ni la date ni un rayon de précision.",
     "location_incomplete": "Saisissez la latitude et la longitude, ou laissez les deux champs vides.",
     "location_empty": "Aucune localisation ne sera utilisée : ce modèle identifie les oiseaux sans elle.",
     "ram_note": "Environ {ram} Mo de RAM recommandés.",
@@ -127,7 +127,7 @@
     "note_bw": "Envoi vers les stations communautaires. Ajoutez un jeton de station dans Paramètres.",
     "note_ebird": "Observations et cartes à proximité, et un filtre d'aire de répartition facultatif. Ajoutez une clé API dans Paramètres.",
     "note_inat": "Envois vérifiés par le propriétaire. Connectez votre compte dans Paramètres.",
-    "notifications_note": "Les canaux de notification se configurent dans Paramètres → Notifications. Home Assistant s’installe et se configure séparément ; consultez le guide d’intégration."
+    "notifications_note": "Les canaux de notification se configurent dans Paramètres → Alertes. Home Assistant s’installe et se configure séparément ; consultez le guide d’intégration."
   },
   "history": {
     "title": "Importer les détections existantes",
@@ -182,7 +182,7 @@
   "skip": "Ignorer la configuration",
   "skip_failed": "Échec : le serveur est injoignable.",
   "skip_confirm_title": "Ignorer la configuration et ouvrir l'application ?",
-  "skip_confirm_body_no_account": "L'application fonctionnera sans mot de passe jusqu'à ce que vous en définissiez un dans Paramètres → Sécurité. Tout ce que couvre cet assistant peut être configuré plus tard, et vous pouvez le relancer à tout moment depuis Paramètres → Assistant de configuration.",
+  "skip_confirm_body_no_account": "L'application fonctionnera sans mot de passe jusqu'à ce que vous en définissiez un dans Paramètres → Partage et intégrations. Tout ce que couvre cet assistant peut être configuré plus tard, et vous pouvez le relancer à tout moment depuis Paramètres → Assistant de configuration.",
   "skip_confirm_body": "Tout ce que couvre cet assistant peut être configuré plus tard, et vous pouvez le relancer à tout moment depuis Paramètres → Assistant de configuration.",
   "skip_confirm_action": "Ignorer et ouvrir l'application",
   "back": "Retour",

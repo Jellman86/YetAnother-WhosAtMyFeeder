@@ -4,20 +4,17 @@ import settingsTabsSource from './SettingsTabs.svelte?raw';
 import settingsPageSource from './_primitives/SettingsPage.svelte?raw';
 
 describe('Settings navigation', () => {
-    it('groups every Settings route by the feeder workflow on desktop and mobile', () => {
-        expect(settingsTabsSource).toContain('id: "pipeline"');
-        expect(settingsTabsSource).toContain('id: "intelligence"');
-        expect(settingsTabsSource).toContain('id: "operations"');
-        expect(settingsTabsSource).toContain('id: "interface"');
-        expect(settingsTabsSource).toContain('<optgroup label={group.label}>');
-        // Species information sources are summarised in Integrations, not a tab of their own.
-        expect(settingsTabsSource).not.toContain('id: "enrichment"');
+    it('lists the six task sections, the same on desktop and mobile, with no groups to scan', () => {
+        expect(settingsTabsSource).toContain('SETTINGS_SECTION_ORDER.map((id) => ({ id, label: $_(`settings.sections.${id}`) }))');
+        expect(settingsTabsSource.match(/\{#each sections as section \(section\.id\)\}/g) ?? []).toHaveLength(2);
+        expect(settingsTabsSource).not.toContain('<optgroup');
+        expect(settingsTabsSource).not.toContain('settings.tabs.groups');
     });
 
     it('uses real links with a stable current-page state that is not shown by colour alone', () => {
         expect(settingsTabsSource).toContain("aria-current={current ? 'page' : undefined}");
-        expect(settingsTabsSource).toContain('href={settingsHref(tab.id)}');
-        expect(settingsTabsSource).toContain('toAppPath(`/settings/${tab}`)');
+        expect(settingsTabsSource).toContain('href={sectionHref(section.id)}');
+        expect(settingsTabsSource).toContain('toAppPath(settingsSectionPath(section))');
         expect(settingsTabsSource).toContain('event.metaKey');
         // The kit's sidebar-nav carries the focus ring and the 44 px target.
         expect(settingsTabsSource).toContain('class="sidebar-nav ');
@@ -34,7 +31,7 @@ describe('Settings navigation', () => {
         expect(settingsPageSource).toContain('id={contentId}');
         expect(settingsTabsSource).not.toContain('grid-cols-4');
         expect(settingsTabsSource).not.toContain('card-base');
-        // Group headings use the one sentence-case label style, not spaced capitals.
+        // Labels use the one sentence-case style, not spaced capitals.
         expect(settingsTabsSource).not.toContain('eyebrow');
         expect(settingsTabsSource).not.toMatch(/uppercase|tracking-/);
     });

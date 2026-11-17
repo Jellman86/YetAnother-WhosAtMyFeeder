@@ -183,25 +183,13 @@
                                     {/if}
                                 {/if}
                                 {#if unsaved.count > 0}
-                                <!-- The text flows inline, so the save rule's toggle ends the same line instead of taking its own. -->
-                                <p class="text-sm leading-relaxed text-slate-700 dark:text-slate-200">
-                                    <span aria-live="polite" data-save-summary>
-                                        <span class="font-semibold text-slate-900 dark:text-white">{$_('settings.save_bar.summary', {
-                                            values: { count: unsaved.count },
-                                            default: '{count, plural, one {# unsaved change in} other {# unsaved changes in}}'
-                                        })}</span>
-                                        {#each unsaved.tabs as tab (tab.id)}
-                                            <button
-                                                type="button"
-                                                class="focus-ring min-h-6 rounded-sm px-1 font-semibold text-brand-700 underline decoration-1 underline-offset-2 hover:text-brand-900 dark:text-brand-300 dark:hover:text-brand-100"
-                                                onclick={() => onOpenTab?.(tab.id)}
-                                            >{tab.label}</button>
-                                        {/each}
-                                    </span>
-                                    <!-- Said where it matters, once something is waiting: what waits and what does not. -->
+                                <!-- The text flows inline, and the save rule's toggle sits at the end of its first line. -->
+                                <p class="text-sm leading-snug text-slate-700 dark:text-slate-200">
+                                    <!-- Said where it matters, once something is waiting: what waits and what does not. It floats at
+                                         the end of the first line, so a long section name never leaves it a line of its own. -->
                                     <button
                                         type="button"
-                                        class="focus-ring inline-flex h-6 w-6 items-center justify-center rounded-full align-middle text-brand-700 hover:text-brand-900 dark:text-brand-300 dark:hover:text-brand-100"
+                                        class="focus-ring float-right ml-2 inline-flex h-6 w-6 items-center justify-center rounded-full align-middle text-brand-700 hover:text-brand-900 dark:text-brand-300 dark:hover:text-brand-100"
                                         aria-label={$_('settings.save_bar.how_saving_works', { default: 'How saving works' })}
                                         title={$_('settings.save_bar.how_saving_works', { default: 'How saving works' })}
                                         aria-expanded={saveRuleOpen}
@@ -214,6 +202,22 @@
                                             <path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.6M12 17h.01" />
                                         </svg>
                                     </button>
+                                    <span aria-live="polite" data-save-summary>
+                                        <span class="font-semibold text-slate-900 dark:text-white">{$_('settings.save_bar.summary', {
+                                            values: { count: unsaved.count },
+                                            default: '{count, plural, one {# unsaved change in} other {# unsaved changes in}}'
+                                        })}</span>
+                                        <!-- Each name flows with the sentence, so a long section name wraps where the
+                                             line ends instead of dropping to a line of its own (a target inside a sentence,
+                                             WCAG 2.5.8). -->
+                                        {#each unsaved.tabs as tab (tab.id)}
+                                            <button
+                                                type="button"
+                                                class="focus-ring inline rounded-sm px-1 text-left box-decoration-clone font-semibold text-brand-700 underline decoration-1 underline-offset-2 hover:text-brand-900 dark:text-brand-300 dark:hover:text-brand-100"
+                                                onclick={() => onOpenTab?.(tab.id)}
+                                            >{tab.label}</button>
+                                        {/each}
+                                    </span>
                                 </p>
                                 {#if saveRuleOpen}
                                     <p id="settings-save-rule" class="text-sm text-slate-600 dark:text-slate-300" data-settings-save-rule>

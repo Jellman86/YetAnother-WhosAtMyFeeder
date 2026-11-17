@@ -32,15 +32,15 @@ const matrix = {
     }
 };
 
-async function selectSettingsSection(page: Page, name: 'Connection' | 'Models') {
+async function selectSettingsSection(page: Page, name: 'Cameras & connection' | 'Identifying birds') {
     const mobileNavigation = page.getByRole('combobox', { name: 'Settings section', exact: true });
-    await expect(mobileNavigation.or(page.getByRole('link', { name: 'Models', exact: true }))).toBeVisible();
+    await expect(mobileNavigation.or(page.getByRole('link', { name: 'Identifying birds', exact: true }))).toBeVisible();
     if (await mobileNavigation.isVisible()) {
         await mobileNavigation.selectOption({ label: name });
     } else {
         await page.getByRole('link', { name, exact: true }).click();
     }
-    if (name !== 'Models') return;
+    if (name !== 'Identifying birds') return;
     // Hardware is a plain section: the provider is on the surface, the runtime report folded inside it.
     await expect(page.getByRole('heading', { name: 'Hardware', exact: true })).toBeVisible();
 }
@@ -104,7 +104,7 @@ async function openDetectionWithCompatibilityRun(
         return route.fulfill({ json: {} });
     });
     await page.goto('/browser-tests/settings-backfill.html');
-    await selectSettingsSection(page, 'Models');
+    await selectSettingsSection(page, 'Identifying birds');
     return counters;
 }
 
@@ -207,8 +207,8 @@ test('a runtime change after returning to Models refreshes without another check
     // An unsaved edit on the same tab, which a runtime refresh must not undo.
     const slider = page.locator('#bird-model-region-override');
     await slider.selectOption('eu');
-    await page.getByRole('link', { name: 'Connection', exact: true }).click();
-    await page.getByRole('link', { name: 'Models', exact: true }).click();
+    await page.getByRole('link', { name: 'Cameras & connection', exact: true }).click();
+    await page.getByRole('link', { name: 'Identifying birds', exact: true }).click();
     await expect(runtimeCell(page)).toContainText(' on CPU');
     const settingsReads = counters.settingsReads;
     counters.runFinished = true;
@@ -306,14 +306,14 @@ test('an Auto preference stays Auto while the worker runs on the NPU', async ({ 
 
 test('the recording delay survives navigation and saves with its selected source', async ({ page }) => {
     const counters = await openDetectionWithCompatibilityRun(page, () => ({ status: 200, json: cpuStatus }));
-    await selectSettingsSection(page, 'Connection');
+    await selectSettingsSection(page, 'Cameras & connection');
     await expect(page.locator('#recording-frame-delay')).toHaveCount(0);
     await page.locator('#classification-image-source').selectOption('recording_snapshot');
     const input = page.getByRole('spinbutton', { name: 'Initial identification delay (seconds)' });
     await expect(input).toHaveValue('12');
     await input.fill('45');
-    await selectSettingsSection(page, 'Models');
-    await selectSettingsSection(page, 'Connection');
+    await selectSettingsSection(page, 'Identifying birds');
+    await selectSettingsSection(page, 'Cameras & connection');
     await expect(input).toHaveValue('45');
     const saved = await applySettings(page, counters);
     expect(saved.recording_frame_delay_seconds).toBe(45);
@@ -328,7 +328,7 @@ test('the recording delay survives navigation and saves with its selected source
 
 test('an empty recording delay is explained without sending a settings write', async ({ page }) => {
     const counters = await openDetectionWithCompatibilityRun(page, () => ({ status: 200, json: cpuStatus }));
-    await selectSettingsSection(page, 'Connection');
+    await selectSettingsSection(page, 'Cameras & connection');
     await page.locator('#classification-image-source').selectOption('recording_snapshot');
     await page.locator('#recording-frame-delay').fill('');
     await page.getByRole('button', { name: 'Save changes', exact: true }).click();

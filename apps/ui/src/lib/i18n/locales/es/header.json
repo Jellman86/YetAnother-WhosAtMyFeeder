@@ -2,7 +2,7 @@
   "cameras_all_offline": "Todas las cámaras están sin conexión",
   "cameras_all_online": "Todas las cámaras están en línea",
   "cameras_checking": "Comprobando cámaras…",
-  "cameras_empty": "No hay cámaras configuradas. Añade cámaras en Ajustes → Conexión.",
+  "cameras_empty": "No hay cámaras configuradas. Añade cámaras en Ajustes → Cámaras y conexión.",
   "cameras_frame_alt": "Última imagen de {camera}",
   "cameras_frame_unavailable": "Imagen no disponible",
   "cameras_label": "Estado de cámaras",

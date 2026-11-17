@@ -64,7 +64,7 @@
   "empty_filtered": "没有符合此筛选条件的内容。",
   "clear_notifications": "清除通知",
   "system_media_storage_unavailable_title": "媒体存储不可用",
-  "system_media_storage_unavailable_message": "无法写入媒体文件夹，因此没有保留照片和视频。请打开 设置 → 数据 查看详情。",
+  "system_media_storage_unavailable_message": "无法写入媒体文件夹，因此没有保留照片和视频。请打开 设置 → 存储与维护 查看详情。",
   "bell_unread": "{title}，{count} 条未读",
   "filter_group": "筛选通知",
   "count_unread_unit": "{count, plural, other {未读}}",

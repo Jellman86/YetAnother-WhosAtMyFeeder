@@ -174,7 +174,7 @@
   "errors_filtered_title": "Gefilterte Erkennungen",
   "errors_filtered_none": "Bisher wurde nichts herausgefiltert.",
   "errors_filtered_summary": "{count, plural, one {# Erkennung hat Ihre Erkennungseinstellungen nicht erfüllt.} other {# Erkennungen haben Ihre Erkennungseinstellungen nicht erfüllt.}} Das ist der Filter bei der Arbeit, kein Fehler.",
-  "errors_filtered_hint": "Passen Sie die Benennungsschwelle unter Einstellungen → Erkennung an, um mehr davon zu behalten.",
+  "errors_filtered_hint": "Passen Sie die Benennungsschwelle unter Einstellungen → Vögel bestimmen an, um mehr davon zu behalten.",
   "errors_filtered_recent": "Zuletzt",
   "errors_activity_title": "Was passiert ist",
   "errors_activity_subtitle": "Erfasste Besuche, herausgefilterte Erkennungen und Pipelinefehler in zeitlicher Reihenfolge",
@@ -283,13 +283,13 @@
   "errors_pipeline_idle": "Seit dem Start dieser Instanz hat keine Erkennung die Verarbeitung erreicht.",
   "errors_problem": {
     "mqtt_down": "Der MQTT-Broker unter {server} ist nicht verbunden, daher kommen keine neuen Erkennungen an.",
-    "mqtt_down_next": "Prüfen Sie die Adresse unter Einstellungen → Verbindung und ob der Broker läuft.",
+    "mqtt_down_next": "Prüfen Sie die Adresse unter Einstellungen → Kameras & Verbindung und ob der Broker läuft.",
     "mqtt_not_configured": "Es ist kein MQTT-Broker eingetragen, daher kommen keine Erkennungen an.",
-    "mqtt_not_configured_next": "Tragen Sie einen unter Einstellungen → Verbindung ein.",
+    "mqtt_not_configured_next": "Tragen Sie einen unter Einstellungen → Kameras & Verbindung ein.",
     "mqtt_stopped": "Der MQTT-Dienst läuft nicht, daher kommen keine neuen Erkennungen an.",
     "mqtt_stopped_next": "Starten Sie YA-WAMF neu, um ihn wieder zu starten.",
     "frigate_down": "Frigate unter {url} antwortet nicht, daher können neue Erkennungen nicht gespeichert werden.",
-    "frigate_down_next": "Prüfen Sie die Adresse unter Einstellungen → Verbindung und ob Frigate läuft."
+    "frigate_down_next": "Prüfen Sie die Adresse unter Einstellungen → Kameras & Verbindung und ob Frigate läuft."
   },
   "errors_clear_effect": "Entfernt aufgezeichnete Fehler und Vorfälle sofort. Laufende Prüfungen gehen weiter.",
   "earlier_incidents_title": "Frühere Vorfälle",
@@ -333,11 +333,11 @@
   "diagnostic_words": {
     "classify_snapshot_timeout": {
       "title": "Eine Erkennung wurde verworfen, weil die Bestimmung ihres Schnappschusses zu lange dauerte.",
-      "next": "Der Klassifikator ist möglicherweise überlastet. Prüfen Sie oben die Ressourcennutzung oder wählen Sie unter Einstellungen → Modelle ein leichteres Modell."
+      "next": "Der Klassifikator ist möglicherweise überlastet. Prüfen Sie oben die Ressourcennutzung oder wählen Sie unter Einstellungen → Vögel bestimmen ein leichteres Modell."
     },
     "classify_snapshot_overloaded": {
       "title": "Eine Erkennung wurde verworfen, weil der Klassifikator zu beschäftigt war.",
-      "next": "Prüfen Sie oben die Ressourcennutzung. Wenn es oft passiert, wählen Sie unter Einstellungen → Modelle ein leichteres Modell."
+      "next": "Prüfen Sie oben die Ressourcennutzung. Wenn es oft passiert, wählen Sie unter Einstellungen → Vögel bestimmen ein leichteres Modell."
     },
     "classify_snapshot_unavailable": {
       "title": "Eine Erkennung wurde verworfen, weil Frigate keinen Schnappschuss dafür hatte.",
@@ -345,7 +345,7 @@
     },
     "classifier_empty_results": {
       "title": "Eine Erkennung wurde verworfen, weil der Klassifikator keine Antwort gab.",
-      "next": "Prüfen Sie unter Einstellungen → Modelle, ob ein Modell geladen ist."
+      "next": "Prüfen Sie unter Einstellungen → Vögel bestimmen, ob ein Modell geladen ist."
     },
     "save_and_notify_failed": {
       "title": "Eine Erkennung wurde bestimmt, konnte aber nicht gespeichert werden.",

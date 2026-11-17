@@ -30,7 +30,7 @@
   "species": "Espèce",
   "view_species": "Voir {species}",
   "no_species": "Aucun oiseau enregistré pour l’instant",
-  "no_species_desc": "Le classement se remplit à mesure que vos caméras identifient des oiseaux. Si rien n’arrive, vérifiez Paramètres → Connexion.",
+  "no_species_desc": "Le classement se remplit à mesure que vos caméras identifient des oiseaux. Si rien n’arrive, vérifiez Paramètres → Caméras et connexion.",
   "only_unknown_desc": "Seules des détections \"Oiseau inconnu\" sont disponibles pour le moment. Activez « Inclure \"Oiseau inconnu\" » pour les afficher dans le classement.",
   "all_species": "Toutes les espèces",
   "percentage_of_total": "{percentage}% du total",

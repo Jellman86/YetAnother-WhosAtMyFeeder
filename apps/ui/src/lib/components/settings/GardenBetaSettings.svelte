@@ -1,6 +1,6 @@
 <script lang="ts">
     /**
-     * Garden animals as one card on Settings → Beta features. The switch stages the beta in the
+     * Garden animals as one card on Settings → Identifying birds. The switch stages the beta in the
      * page draft; its settings appear only while it is on, grouped into sections in the order
      * setup runs, with anything still left to do stated above them. Everything Garden decides is
      * set here, alerts included. Which cameras it watches stays one choice per camera, with the

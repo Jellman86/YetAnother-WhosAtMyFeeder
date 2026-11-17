@@ -7,19 +7,13 @@
   "notifications": "Visite, avvisi e attività in background, dalle più recenti.",
   "species": "Quali uccelli vengono di più, quanto spesso e quando.",
   "health": "Se YA-WAMF funziona, cosa sta facendo il computer e cosa è successo.",
-  "settings_tab": {
-    "connection": "Da dove arrivano gli eventi: Frigate, il suo broker MQTT e le telecamere da osservare.",
-    "detection": "Quanto deve essere sicura un’identificazione per dare un nome a una visita, e cosa non viene mai salvato.",
-    "models": "Quali modelli trovano e nominano gli uccelli, e l’hardware su cui girano.",
-    "integrations": "Gli altri servizi da cui YA-WAMF legge o a cui invia dati, e la tua posizione.",
-    "ai": "Un fornitore di IA facoltativo che descrive cosa stava facendo un uccello.",
-    "notifications": "Quando vieni avvisato di una visita, e su quali canali.",
-    "security": "Chi può aprire YA-WAMF, cosa vedono gli ospiti e cosa esce da questa installazione.",
-    "data": "Cosa viene conservato, per quanto tempo, e un backup di queste impostazioni.",
-    "maintenance": "Attività che riparano o completano la cronologia, e la sua eliminazione.",
-    "beta": "Funzioni ancora in prova. Ognuna è spenta finché non la attivi, e può cambiare o essere rimossa. Spegnerla conserva ciò che ha già registrato.",
-    "appearance": "Come appare YA-WAMF e come nomina gli uccelli.",
-    "accessibility": "Contrasto, un carattere di lettura, movimento e aggiornamenti letti ad alta voce."
+  "settings_section": {
+    "cameras": "Da dove arrivano gli eventi: Frigate, il suo broker MQTT e le telecamere da osservare.",
+    "identification": "Quanto deve essere sicuro un nome, i modelli che trovano e nominano gli uccelli con il loro hardware, e le funzioni ancora in beta.",
+    "alerts": "Quando vieni avvisato di una visita, e su quali canali.",
+    "sharing": "Gli altri servizi da cui YA-WAMF legge o a cui invia dati, la posizione, le descrizioni IA e chi può aprire questa installazione.",
+    "storage": "Cosa viene conservato e per quanto tempo, un backup di queste impostazioni e le attività che riparano o completano la cronologia.",
+    "display": "Come appare YA-WAMF e come nomina gli uccelli, oltre a contrasto, carattere di lettura, movimento e aggiornamenti letti ad alta voce."
   },
   "model_evaluation": "Quanto spesso ogni modello installato dà il nome giusto a un uccello, e con quale velocità."
 }

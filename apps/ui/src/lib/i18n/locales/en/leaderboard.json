@@ -36,7 +36,7 @@
   "species": "Species",
   "view_species": "View {species}",
   "no_species": "No birds recorded yet",
-  "no_species_desc": "The leaderboard fills in as your cameras identify birds. If nothing arrives, check Settings → Connection.",
+  "no_species_desc": "The leaderboard fills in as your cameras identify birds. If nothing arrives, check Settings → Cameras & connection.",
   "only_unknown_desc": "Only \"Unknown bird\" detections are available right now. Turn on \"Include Unknown bird\" to show them in the leaderboard.",
   "all_species": "All species",
   "percentage_of_total": "{percentage}% of total",

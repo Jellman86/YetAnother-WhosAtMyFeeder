@@ -1,13 +1,14 @@
-import { SETTINGS_TAB_ORDER, type SettingsTab } from './settings-route';
+import { SETTINGS_SECTION_ORDER, settingsSectionOfPart, type SettingsPart, type SettingsSection } from './settings-route';
 
 /**
- * Where each saved setting lives in Settings. The save model uses it to name the tabs that hold
- * unsaved changes, and to send a rejected value back to the field that shows it.
+ * Where each saved setting lives in Settings: the part that shows it, and so the section. The save
+ * model uses it to name the sections that hold unsaved changes, and to send a rejected value back
+ * to the field that shows it.
  *
  * A field is matched exactly first, then by its longest matching prefix, so a whole family such as
  * `notifications_` has one home and an exception can still be named.
  */
-const EXACT_FIELD_TABS: Readonly<Record<string, SettingsTab>> = {
+const EXACT_FIELD_PARTS: Readonly<Record<string, SettingsPart>> = {
     frigate_url: 'connection',
     frigate_ingest_labels: 'connection',
     frigate_external_url: 'connection',
@@ -41,14 +42,11 @@ const EXACT_FIELD_TABS: Readonly<Record<string, SettingsTab>> = {
     beta_garden_animals: 'beta',
     display_common_names: 'appearance',
     scientific_name_primary: 'appearance',
-    explorer_view: 'appearance',
     date_format: 'appearance',
-    time_format: 'appearance',
-    font_theme: 'appearance',
-    color_theme: 'appearance'
+    time_format: 'appearance'
 };
 
-const PREFIX_FIELD_TABS: ReadonlyArray<readonly [string, SettingsTab]> = [
+const PREFIX_FIELD_PARTS: ReadonlyArray<readonly [string, SettingsPart]> = [
     ['mqtt_', 'connection'],
     ['recording_clip_', 'connection'],
     ['telemetry_', 'security'],
@@ -73,34 +71,41 @@ const PREFIX_FIELD_TABS: ReadonlyArray<readonly [string, SettingsTab]> = [
     ['media_cache_', 'data'],
     ['maintenance_', 'maintenance'],
     ['auto_purge_', 'data'],
+    ['appearance_', 'appearance'],
     ['accessibility_', 'accessibility']
 ];
 
-/** The tab that owns a saved setting, or null for a field Settings does not show. */
-export function settingsFieldTab(field: string): SettingsTab | null {
-    const exact = EXACT_FIELD_TABS[field];
+/** The part that shows a saved setting, or null for a field Settings does not show. */
+export function settingsFieldPart(field: string): SettingsPart | null {
+    const exact = EXACT_FIELD_PARTS[field];
     if (exact) return exact;
-    let best: readonly [string, SettingsTab] | null = null;
-    for (const entry of PREFIX_FIELD_TABS) {
+    let best: readonly [string, SettingsPart] | null = null;
+    for (const entry of PREFIX_FIELD_PARTS) {
         if (field.startsWith(entry[0]) && (!best || entry[0].length > best[0].length)) best = entry;
     }
     return best ? best[1] : null;
 }
 
+/** The section that shows a saved setting, or null for a field Settings does not show. */
+export function settingsFieldSection(field: string): SettingsSection | null {
+    const part = settingsFieldPart(field);
+    return part ? settingsSectionOfPart(part) : null;
+}
+
 export interface UnsavedSummary {
     /** How many saved settings the draft would change. */
     count: number;
-    /** The tabs holding those changes, in navigation order. */
-    tabs: SettingsTab[];
+    /** The sections holding those changes, in navigation order. */
+    sections: SettingsSection[];
 }
 
-/** Summarises changed settings, given by field name, as a count and the tabs that hold them. */
+/** Summarises changed settings, given by field name, as a count and the sections that hold them. */
 export function summarizeUnsaved(changedFields: readonly string[]): UnsavedSummary {
     const fields = [...new Set(changedFields)];
-    const owners = new Set(fields.map(settingsFieldTab).filter((tab): tab is SettingsTab => tab !== null));
+    const owners = new Set(fields.map(settingsFieldSection).filter((section): section is SettingsSection => section !== null));
     return {
         count: fields.length,
-        tabs: SETTINGS_TAB_ORDER.filter((tab) => owners.has(tab))
+        sections: SETTINGS_SECTION_ORDER.filter((section) => owners.has(section))
     };
 }
 
@@ -180,20 +185,20 @@ export function settingsFieldPlaces(): Array<[string, SettingsFieldPlace]> {
     return Object.entries(FIELD_PLACES);
 }
 
-/** Where a field is shown, or null for one without its own input (the tab is then the pointer). */
+/** Where a field is shown, or null for one without its own input (its part is then the pointer). */
 export function settingsFieldPlace(field: string): SettingsFieldPlace | null {
     return FIELD_PLACES[field] ?? null;
 }
 
 /**
- * The refused field to show first: one on the tab already open, so a correction there needs no
+ * The refused field to show first: one in the section already open, so a correction there needs no
  * jump, otherwise the first in navigation order.
  */
-export function firstRefusedField(fields: readonly string[], openTab: SettingsTab): string | null {
-    const located = fields.map((field, order) => ({ field, order, tab: settingsFieldTab(field) }));
-    const here = located.find((entry) => entry.tab === openTab);
+export function firstRefusedField(fields: readonly string[], openSection: SettingsSection): string | null {
+    const located = fields.map((field, order) => ({ field, order, section: settingsFieldSection(field) }));
+    const here = located.find((entry) => entry.section === openSection);
     if (here) return here.field;
-    const rank = (tab: SettingsTab | null) => (tab === null ? SETTINGS_TAB_ORDER.length : SETTINGS_TAB_ORDER.indexOf(tab));
-    const sorted = [...located].sort((a, b) => rank(a.tab) - rank(b.tab) || a.order - b.order);
+    const rank = (section: SettingsSection | null) => (section === null ? SETTINGS_SECTION_ORDER.length : SETTINGS_SECTION_ORDER.indexOf(section));
+    const sorted = [...located].sort((a, b) => rank(a.section) - rank(b.section) || a.order - b.order);
     return sorted[0]?.field ?? null;
 }

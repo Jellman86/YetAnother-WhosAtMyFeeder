@@ -2,7 +2,7 @@ import { expect, test, type Locator, type Page, type Route } from '@playwright/t
 
 // Every Garden visitor setting, including its own models, lives on its card in Settings → Beta
 // features, except which cameras watch for Garden animals: that is one choice per camera, beside its
-// bird role, in Settings → Connection. Settings save with the rest of the page; model downloads are
+// bird role, in Settings → Cameras & connection. Settings save with the rest of the page; model downloads are
 // separate explicit actions.
 
 type Settings = Record<string, unknown>;
@@ -67,12 +67,12 @@ async function openSettings(page: Page, overrides: Settings = {}, frigateCameras
         return route.fulfill({ json: {} });
     });
     await page.goto('/browser-tests/settings-backfill.html');
-    await expect(page.getByRole('link', { name: 'Beta features' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Identifying birds', exact: true })).toBeVisible();
     return harness;
 }
 
 async function openBeta(page: Page): Promise<void> {
-    await page.getByRole('link', { name: 'Beta features' }).click();
+    await page.getByRole('link', { name: 'Identifying birds', exact: true }).click();
     await expect(page.locator('[data-beta-page]')).toBeVisible();
 }
 
@@ -261,7 +261,7 @@ test('Garden models lists its three own models with measured state, size and req
     await expect(detector).toContainText('Optional · Not downloaded');
     await expect(page.locator('[data-garden-country]')).toHaveText('Animal names are filtered for GBR.');
 
-    await page.getByRole('link', { name: 'Connection', exact: true }).click();
+    await page.getByRole('link', { name: 'Cameras & connection', exact: true }).click();
     await motionSwitch(page, 'patio').click();
     await expect(motionSwitch(page, 'patio')).toHaveAttribute('aria-checked', 'true');
     await openBeta(page);
@@ -534,17 +534,17 @@ async function openGardenAlerts(page: Page): Promise<void> {
 
 test('Garden alerts are set in the Garden card; Notifications links to them and keeps the channels', async ({ page }) => {
     await openSettings(page, { garden_cameras: ['patio'] }, ['patio'], gardenNotifications);
-    await page.getByRole('link', { name: 'Notifications', exact: true }).click();
+    await page.getByRole('link', { name: 'Alerts', exact: true }).click();
     await expect(page.getByRole('switch', { name: 'Send Garden alerts' })).toHaveCount(0);
     await expect(page.locator('[data-garden-alerts-elsewhere]')).toContainText('in Beta features');
     await page.getByRole('button', { name: 'Open Garden alerts', exact: true }).click();
-    await expect(page.getByRole('link', { name: 'Beta features' })).toHaveAttribute('aria-current', 'page');
+    await expect(page.getByRole('link', { name: 'Identifying birds', exact: true })).toHaveAttribute('aria-current', 'page');
     const alerts = page.getByRole('heading', { name: 'Alerts' }).getByRole('button');
     await expect(alerts).toHaveAttribute('aria-expanded', 'true');
     await expect(alerts).toContainText('Off');
     await expect(page.getByRole('switch', { name: 'Send Garden alerts' })).toHaveAttribute('aria-checked', 'false');
     await page.getByRole('button', { name: 'Set up channels in Notifications' }).click();
-    await expect(page.getByRole('link', { name: 'Notifications', exact: true })).toHaveAttribute('aria-current', 'page');
+    await expect(page.getByRole('link', { name: 'Alerts', exact: true })).toHaveAttribute('aria-current', 'page');
 });
 
 test('Garden alerts follow the enabled bird channels by default, attach the photo and report saved attempts', async ({ page }) => {
@@ -609,7 +609,7 @@ test('the Garden alert choices work from the keyboard', async ({ page }) => {
 
 test('Notifications says nothing about Garden while the Garden beta is off', async ({ page }) => {
     const harness = await openSettings(page, { beta_garden_animals: false }, ['patio'], gardenNotifications);
-    await page.getByRole('link', { name: 'Notifications', exact: true }).click();
+    await page.getByRole('link', { name: 'Alerts', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Discord' })).toBeVisible();
     await expect(page.locator('[data-garden-alerts-elsewhere]')).toHaveCount(0);
     expect(harness.gardenRequests).toEqual([]);
@@ -653,11 +653,12 @@ test('saved domestic birds show as chips on a narrow screen', async ({ page }) =
 // The Beta page: one card per feature, an on/off switch that stages in the draft, a status line in
 // words, next steps while setup is unfinished, and the settings only while the feature is on.
 
-test('the Beta page lists Garden animals as a card, without repeating the tab\'s intro line', async ({ page }) => {
+test('the Beta part lists Garden animals as a card under one line that says what Beta promises', async ({ page }) => {
     await openSettings(page, { beta_garden_animals: false });
     await openBeta(page);
-    // The page header's line for the tab says what beta features are; the page does not say it again.
-    await expect(page.locator('[data-beta-intro]')).toHaveCount(0);
+    // Beta shares its section with Detection and Models, so the part says once what Beta features are.
+    await expect(page.locator('[data-beta-intro]')).toHaveCount(1);
+    await expect(page.locator('[data-beta-intro]')).toContainText('Each is off until you turn it on');
     const list = page.getByRole('list', { name: 'Beta features' });
     await expect(list.getByRole('listitem')).toHaveCount(1);
     await expect(list.getByRole('article', { name: 'Garden animals' })).toBeVisible();
@@ -761,14 +762,14 @@ test('the camera selector in Connection follows the staged Garden switch and kee
 
     await openBeta(page);
     await page.getByRole('switch', { name: 'Garden animals' }).click();
-    await page.getByRole('link', { name: 'Connection', exact: true }).click();
+    await page.getByRole('link', { name: 'Cameras & connection', exact: true }).click();
     await expect(patio.locator('option')).toHaveText(['Off', 'Birds', 'Garden animals', 'Both']);
     await expect(patio.locator('option:checked')).toHaveText('Both');
     await expect(page.locator('[data-camera-garden-hint]')).toHaveCount(0);
 
     await openBeta(page);
     await page.getByRole('switch', { name: 'Garden animals' }).click();
-    await page.getByRole('link', { name: 'Connection', exact: true }).click();
+    await page.getByRole('link', { name: 'Cameras & connection', exact: true }).click();
     await expect(patio.locator('option')).toHaveText(['Off', 'Birds']);
     // Switching Garden on and off again is no change at all, so there is nothing to save.
     await expect(page.getByRole('region', { name: 'Unsaved changes' })).toHaveCount(0);

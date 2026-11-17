@@ -8,7 +8,7 @@ test.use({ viewport: { width: 1440, height: 900 } });
 test('an emptied storage limit blocks the save instead of saving a small limit', async ({ page }) => {
     const harness = await openSettings(page, { media_cache_max_size_mb: 20480 });
     await page.locator('#mqtt-server').fill('broker.lan');
-    await page.getByRole('link', { name: 'Data', exact: true }).click();
+    await page.getByRole('link', { name: 'Storage & upkeep', exact: true }).click();
     const limit = page.getByRole('spinbutton', { name: /^Storage limit in GB/ });
     await expect(limit).toHaveValue('20');
     await limit.fill('');

@@ -2,7 +2,7 @@
   "cameras_all_offline": "Все камеры не в сети",
   "cameras_all_online": "Все камеры в сети",
   "cameras_checking": "Проверка камер…",
-  "cameras_empty": "Камеры не настроены. Добавьте их в Настройки → Подключение.",
+  "cameras_empty": "Камеры не настроены. Добавьте их в Настройки → Камеры и подключение.",
   "cameras_frame_alt": "Последний кадр с камеры {camera}",
   "cameras_frame_unavailable": "Кадр недоступен",
   "cameras_label": "Состояние камер",

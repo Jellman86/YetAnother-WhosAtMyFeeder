@@ -174,7 +174,7 @@
   "errors_filtered_title": "Detecções filtradas",
   "errors_filtered_none": "Nada foi filtrado ainda.",
   "errors_filtered_summary": "{count, plural, one {# detecção não atendeu às suas configurações de detecção.} other {# detecções não atenderam às suas configurações de detecção.}} É o filtro funcionando, não uma falha.",
-  "errors_filtered_hint": "Ajuste o limiar de identificação em Configurações → Detecção para manter mais delas.",
+  "errors_filtered_hint": "Ajuste o limiar de identificação em Configurações → Identificar aves para manter mais delas.",
   "errors_filtered_recent": "Mais recentes",
   "errors_activity_title": "O que aconteceu",
   "errors_activity_subtitle": "Visitas registadas, detecções filtradas e falhas de processamento, pela ordem em que aconteceram",
@@ -283,13 +283,13 @@
   "errors_pipeline_idle": "Nenhuma detecção chegou ao processamento desde que esta instância iniciou.",
   "errors_problem": {
     "mqtt_down": "O broker MQTT em {server} não está conectado, então nenhuma nova detecção pode chegar.",
-    "mqtt_down_next": "Verifique o endereço em Configurações → Conexão e se o broker está em execução.",
+    "mqtt_down_next": "Verifique o endereço em Configurações → Câmeras e conexão e se o broker está em execução.",
     "mqtt_not_configured": "Nenhum broker MQTT está definido, então nenhuma detecção pode chegar.",
-    "mqtt_not_configured_next": "Adicione um em Configurações → Conexão.",
+    "mqtt_not_configured_next": "Adicione um em Configurações → Câmeras e conexão.",
     "mqtt_stopped": "O serviço MQTT não está em execução, então nenhuma nova detecção pode chegar.",
     "mqtt_stopped_next": "Reinicie o YA-WAMF para iniciá-lo novamente.",
     "frigate_down": "O Frigate em {url} não responde, então novas detecções não podem ser salvas.",
-    "frigate_down_next": "Verifique o endereço em Configurações → Conexão e se o Frigate está em execução."
+    "frigate_down_next": "Verifique o endereço em Configurações → Câmeras e conexão e se o Frigate está em execução."
   },
   "errors_clear_effect": "Remove agora os erros e incidentes registrados. As verificações ao vivo continuam.",
   "earlier_incidents_title": "Incidentes anteriores",

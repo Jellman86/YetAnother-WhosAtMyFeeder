@@ -194,7 +194,7 @@ curl -N "http://localhost:9852/api/sse?ticket=$TICKET"
   last accepted snapshot, or from sign-in before the first), says so, and reads `GET /api/status`
   until one arrives. Reconnecting does not restart that count.
 - `GET /api/status` (owner): the one status reading the shell, Health, the Dashboard and
-  Settings › Models all show, so none of them can disagree. Not cacheable. It holds:
+  Settings › Identifying birds all show, so none of them can disagree. Not cacheable. It holds:
   - `overall`: `state` (`ok`, `degraded` or `unknown`, the same judgement as `/health`'s
     `status`) and `cause`, the first thing to fix, with the `subsystem` it belongs to.
   - `subsystems`: one verdict each for `mqtt`, `frigate`, `classifier`, `finder`, `audio`,
@@ -1402,7 +1402,7 @@ return 422. It does not reclassify saved detections or wait indefinitely for an 
 - `GET /api/maintenance/taxonomy/status` (owner)
 - `POST /api/maintenance/taxonomy/sync` (owner)
 - `GET /api/maintenance/last-runs` (owner) — the newest recorded run of each Maintenance job, so
-  Settings › Maintenance can say when each one last ran and what it found. `runs` holds one entry
+  Settings › Storage & upkeep can say when each one last ran and what it found. `runs` holds one entry
   per job that has run: `kind` (`taxonomy`, `timezone_scan`, `timezone_repair`, `analyze_unknowns`,
   or the backfill kinds `detections` and `weather`), `status` (`completed`, `failed`, or for a
   backfill also `running` or `cancelled`), `started_at` where recorded, `finished_at`, `checked`

@@ -57,7 +57,7 @@ Only these:
 
 - **Unfavouriting** the visit. The confirmation names the size. The visit stays in history.
 - **Deleting** the visit.
-- **Delete all favourites** in **Settings → Maintenance → Delete data**, and a **database reset**. Both say so.
+- **Delete all favourites** in **Settings → Storage & upkeep → Delete data**, and a **database reset**. Both say so.
 
 Age cleanup, orphan cleanup, **Clear cached files**, the media integrity scan and the
 missing-event policy never touch the archive.
@@ -72,7 +72,7 @@ unfinished and re-acquired if the visit is still a favourite.
 
 ## The per-species floor
 
-**Settings → Data → Per-species limits → Keep photos of each species' newest visits** protects the newest N stored
+**Settings → Storage & upkeep → Per-species limits → Keep photos of each species' newest visits** protects the newest N stored
 detections of each species, and their cached photographs, from age-based cleanup, however old
 they are. This is applied to stored captures, not the Explorer's grouping of captures into visits.
 It is off by default (stored as `0`). The floor is counted per canonical species, so a bird under two names has one floor, and
@@ -97,6 +97,6 @@ from YA-WAMF itself; do not assume Frigate still has them.
 
 ## Storage
 
-**Settings → Data** shows archived favourites (count and size) apart from the cache size, and how
+**Settings → Storage & upkeep** shows archived favourites (count and size) apart from the cache size, and how
 many could not be archived. The archive is never cleaned automatically, so its size is a choice
 you make one star at a time.

@@ -6,7 +6,7 @@ import { openSettings } from './settings-page-mock';
 
 test('with sign-in off, public access cannot be turned on and says why', async ({ page }) => {
     await openSettings(page, { auth_enabled: false, public_access_enabled: false });
-    await page.getByRole('link', { name: 'Security', exact: true }).click();
+    await page.getByRole('link', { name: 'Sharing & integrations', exact: true }).click();
     const publicAccess = page.getByRole('switch', { name: 'Public access' });
     await expect(publicAccess).toHaveAttribute('aria-checked', 'false');
     await expect(publicAccess).toHaveAttribute('aria-disabled', 'true');
@@ -15,7 +15,7 @@ test('with sign-in off, public access cannot be turned on and says why', async (
 
 test('with sign-in off, public access that is on can still be turned off, and then not back on', async ({ page }) => {
     const harness = await openSettings(page, { auth_enabled: false, public_access_enabled: true });
-    await page.getByRole('link', { name: 'Security', exact: true }).click();
+    await page.getByRole('link', { name: 'Sharing & integrations', exact: true }).click();
     const publicAccess = page.getByRole('switch', { name: 'Public access' });
     await expect(publicAccess).toHaveAttribute('aria-checked', 'true');
     await expect(publicAccess).not.toHaveAttribute('aria-disabled', 'true');

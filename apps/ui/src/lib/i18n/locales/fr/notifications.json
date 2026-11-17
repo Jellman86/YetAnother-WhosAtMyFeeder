@@ -64,7 +64,7 @@
   "empty_filtered": "Rien ne correspond à ce filtre.",
   "clear_notifications": "Effacer les notifications",
   "system_media_storage_unavailable_title": "Stockage des médias indisponible",
-  "system_media_storage_unavailable_message": "Le dossier des médias n'est pas accessible en écriture, donc aucune photo ni vidéo n'est conservée. Ouvrez Paramètres → Données pour les détails.",
+  "system_media_storage_unavailable_message": "Le dossier des médias n'est pas accessible en écriture, donc aucune photo ni vidéo n'est conservée. Ouvrez Paramètres → Stockage et entretien pour les détails.",
   "bell_unread": "{title}, {count} non lues",
   "filter_group": "Filtrer les notifications",
   "count_unread_unit": "{count, plural, one {non lue} other {non lues}}",

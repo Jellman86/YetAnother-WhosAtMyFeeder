@@ -15,7 +15,7 @@
     },
     "finder": "Bird finder",
     "row": {
-      "activation_failed": "It could not be loaded, so no provider was checked. Use Repair download for this model in Settings → Models.",
+      "activation_failed": "It could not be loaded, so no provider was checked. Use Repair download for this model in Settings → Identifying birds.",
       "provider_sweep_failed": "The check failed before any provider gave a result. Run it again; if it fails again, the container logs name the cause.",
       "unknown": "It was not checked, for a reason this page cannot name. The container logs name the cause."
     },
@@ -138,9 +138,9 @@
     "vocabulary_note": "Shares count only the species a model can name."
   },
   "skipped": {
-    "activation_failed": "Its files are missing or incomplete. Use Repair download for this model in Settings → Models.",
+    "activation_failed": "Its files are missing or incomplete. Use Repair download for this model in Settings → Identifying birds.",
     "other": "It was skipped for a reason this page cannot name. The container logs name the cause.",
-    "reload_failed": "It could not be loaded. Use Repair download for this model in Settings → Models; if that does not help, the container logs name the cause.",
+    "reload_failed": "It could not be loaded. Use Repair download for this model in Settings → Identifying birds; if that does not help, the container logs name the cause.",
     "title": "Models that were not tested"
   },
   "start": {
@@ -148,7 +148,7 @@
     "all_models_desc": "Also checks that each model gives the same answers on your graphics chip or NPU as on the CPU. Models you have not installed are downloaded first and stay installed. This takes much longer.",
     "all_models_label": "Check every model on every provider",
     "download_none": "Every model is already installed, so nothing is downloaded.",
-    "download_note": "The download may take a while, depending on your connection. Downloaded models stay on disk until you delete their files in Settings → Models.",
+    "download_note": "The download may take a while, depending on your connection. Downloaded models stay on disk until you delete their files in Settings → Identifying birds.",
     "download_reading": "Reading how much would be downloaded…",
     "download_size": "{count, plural, one {# model is not installed yet: a download of about {size}.} other {# models are not installed yet: a download of about {size}.}}",
     "download_size_partial": "{count, plural, one {# model is not installed yet.} other {# models are not installed yet.}} {unknown, plural, one {# of them has no known size;} other {# of them have no known size;}} the rest are a download of about {size}.",
@@ -165,24 +165,24 @@
     "what": "Each installed model names reference photos of known species, so you can compare how often each is right and how fast."
   },
   "stopped": {
-    "finder_needs_provider_check": "A bird finder can only be checked for providers. Run the check from Settings → Models.",
-    "models_not_ready": "A model chosen for this check is not installed and ready. Look at it in Settings → Models, then start again.",
+    "finder_needs_provider_check": "A bird finder can only be checked for providers. Run the check from Settings → Identifying birds.",
+    "models_not_ready": "A model chosen for this check is not installed and ready. Look at it in Settings → Identifying birds, then start again.",
     "network": "A request to iNaturalist or Wikimedia Commons failed. Check the internet connection, then start again.",
-    "no_models": "No bird model is installed and ready. Install one in Settings → Models, then start again.",
+    "no_models": "No bird model is installed and ready. Install one in Settings → Identifying birds, then start again.",
     "no_test_birds": "The list of test birds could not be built because iNaturalist did not answer. Check the internet connection, then start again.",
     "no_test_photos": "No test photo could be fetched from iNaturalist or Wikimedia Commons. Check the internet connection, then start again.",
     "unexpected": "It stopped on an error this page cannot name. Start it again; if it stops again, the container logs name the cause."
   },
   "warning": {
-    "high_abstention": "Gave no species for {share}% of the photos. It may not cover these birds, or its install may be incomplete. Check the model in Settings → Models.",
-    "incomplete_install": "Its files are incomplete. Use Repair download for this model in Settings → Models.",
+    "high_abstention": "Gave no species for {share}% of the photos. It may not cover these birds, or its install may be incomplete. Check the model in Settings → Identifying birds.",
+    "incomplete_install": "Its files are incomplete. Use Repair download for this model in Settings → Identifying birds.",
     "inference_health_unhealthy": "Errors or timeouts happened while it ran. Look at the container logs for the cause.",
-    "latency_drift_high": "Much slower than when it was loaded: {measured, number} ms a photo against {loaded, number} ms. The provider it ran on may be failing. Set the inference provider to CPU in Settings → Models and evaluate again.",
-    "latency_drift_high_plain": "Much slower than when it was loaded. The provider it ran on may be failing. Set the inference provider to CPU in Settings → Models and evaluate again.",
-    "low_shared_core": "Named fewer than half of the common feeder birds correctly, which usually means a broken install. Use Repair download for this model in Settings → Models.",
+    "latency_drift_high": "Much slower than when it was loaded: {measured, number} ms a photo against {loaded, number} ms. The provider it ran on may be failing. Set the inference provider to CPU in Settings → Identifying birds and evaluate again.",
+    "latency_drift_high_plain": "Much slower than when it was loaded. The provider it ran on may be failing. Set the inference provider to CPU in Settings → Identifying birds and evaluate again.",
+    "low_shared_core": "Named fewer than half of the common feeder birds correctly, which usually means a broken install. Use Repair download for this model in Settings → Identifying birds.",
     "partial_vocabulary": "Cannot name {outside} of the {total} test species, usually because they live outside its region. Its shares cover the species it can name.",
     "partial_vocabulary_plain": "Cannot name some of the test species, usually because they live outside its region. Its shares cover the species it can name.",
-    "provider_fallback_active": "Ran on the CPU although a faster provider was asked for. Runtime diagnostics in Settings → Models gives the reason.",
+    "provider_fallback_active": "Ran on the CPU although a faster provider was asked for. Runtime diagnostics in Settings → Identifying birds gives the reason.",
     "provider_validation_failed": "No provider gave usable answers that matched the CPU. Provider checks below shows each result.",
     "provider_validation_partial": "Some providers failed or are not available here. Provider checks below shows each result.",
     "region_mismatch": "Built for a different region than the birds near you, so its shares here are lower than they would be there.",

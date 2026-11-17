@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { openSettings, saveBar as unsavedChanges } from './settings-page-mock';
 
-// Settings → Accessibility keeps its toggles in the one Settings draft and loads its tab body on
+// Settings → Display keeps its toggles in the one Settings draft and loads its tab body on
 // first use; Apply saves them with the rest of the form.
 
 test('Accessibility loads on first open, keeps an edit across tabs and saves it with Apply', async ({ page }) => {
@@ -13,7 +13,7 @@ test('Accessibility loads on first open, keeps an edit across tabs and saves it 
     });
     expect(harness.moduleRequests('AccessibilitySettings.svelte')).toBe(0);
 
-    await page.getByRole('link', { name: 'Accessibility' }).click();
+    await page.getByRole('link', { name: 'Display', exact: true }).click();
     const highContrast = page.getByRole('switch', { name: 'High contrast' });
     const reducedMotion = page.getByRole('switch', { name: 'Reduced motion' });
     const announcements = page.getByRole('switch', { name: 'Live announcements' });
@@ -27,9 +27,9 @@ test('Accessibility loads on first open, keeps an edit across tabs and saves it 
     await expect(reducedMotion).toHaveAttribute('aria-checked', 'true');
     await expect(unsavedChanges(page)).toBeVisible();
 
-    await page.getByRole('link', { name: 'Connection' }).click();
+    await page.getByRole('link', { name: 'Cameras & connection', exact: true }).click();
     await expect(page.locator('#mqtt-server')).toBeVisible();
-    await page.getByRole('link', { name: 'Accessibility' }).click();
+    await page.getByRole('link', { name: 'Display', exact: true }).click();
     await expect(reducedMotion).toHaveAttribute('aria-checked', 'true');
 
     await page.getByRole('button', { name: 'Save changes', exact: true }).click();
@@ -46,7 +46,7 @@ test('Accessibility loads on first open, keeps an edit across tabs and saves it 
 
 test('turning a toggle back to its saved value leaves nothing to apply', async ({ page }) => {
     await openSettings(page);
-    await page.getByRole('link', { name: 'Accessibility' }).click();
+    await page.getByRole('link', { name: 'Display', exact: true }).click();
     const announcements = page.getByRole('switch', { name: 'Live announcements' });
     await expect(announcements).toHaveAttribute('aria-checked', 'true');
     await announcements.click();

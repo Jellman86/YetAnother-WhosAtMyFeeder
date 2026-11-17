@@ -684,7 +684,7 @@
                 </div>
             </div>
             {#if !betaGardenAnimals}
-                <p class="text-sm text-slate-600 dark:text-slate-400" data-camera-garden-hint>{$_('settings.cameras.garden_beta_hint', { default: 'To watch for Garden animals as well, turn on Garden animals in Settings → Beta features.' })}</p>
+                <p class="text-sm text-slate-600 dark:text-slate-400" data-camera-garden-hint>{$_('settings.cameras.garden_beta_hint', { default: 'To watch for Garden animals as well, turn on Garden animals in Settings → Identifying birds.' })}</p>
             {/if}
             {#if frigateCameras === null}
                 <!-- One neutral notice: the list is being read, or could not be, and saved cameras are shown. -->

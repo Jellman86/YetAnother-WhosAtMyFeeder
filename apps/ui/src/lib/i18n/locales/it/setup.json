@@ -21,7 +21,7 @@
   },
   "account": {
     "title": "Account amministratore e accesso",
-    "already": "L’autenticazione è già configurata. Gestiscila in Impostazioni → Sicurezza.",
+    "already": "L’autenticazione è già configurata. Gestiscila in Impostazioni → Condivisione e integrazioni.",
     "description": "Proteggi la dashboard con una password del proprietario, oppure usala senza autenticazione su una rete fidata."
   },
   "connection": {
@@ -44,7 +44,7 @@
     "frigate_ok": "Connesso a Frigate {version}",
     "blocked": "Salva e prova la connessione per continuare, oppure scegli «Configura più tardi».",
     "later": "Configura più tardi",
-    "later_note": "Non hai Frigate o il broker a portata di mano? Scegli «Configura più tardi». Finché entrambi non sono collegati in Impostazioni → Connessione, non arrivano visite, non si possono recuperare foto o clip e il passaggio delle telecamere non può elencare le tue telecamere.",
+    "later_note": "Non hai Frigate o il broker a portata di mano? Scegli «Configura più tardi». Finché entrambi non sono collegati in Impostazioni → Telecamere e connessione, non arrivano visite, non si possono recuperare foto o clip e il passaggio delle telecamere non può elencare le tue telecamere.",
     "check_frigate": "API di Frigate",
     "check_mqtt": "Broker MQTT"
   },
@@ -85,7 +85,7 @@
     "validation_success": "Convalida hardware completata correttamente.",
     "verified": "Provider convalidati: {list}",
     "location_title": "Posizione della mangiatoia",
-    "location_hint": "La verifica o il proseguimento salva prima queste coordinate, le stesse di Impostazioni → Integrazioni → Posizione. Questo modello non usa la data né un raggio di precisione.",
+    "location_hint": "La verifica o il proseguimento salva prima queste coordinate, le stesse di Impostazioni → Condivisione e integrazioni → Posizione. Questo modello non usa la data né un raggio di precisione.",
     "location_incomplete": "Inserisci latitudine e longitudine, oppure lascia vuoti entrambi i campi.",
     "location_empty": "La posizione non verrà usata: questo modello identifica gli uccelli anche senza.",
     "ram_note": "Circa {ram} MB di RAM consigliati.",
@@ -127,7 +127,7 @@
     "note_bw": "Segnalazioni alle stazioni della comunità. Aggiungi un token stazione in Impostazioni.",
     "note_ebird": "Avvistamenti vicini, mappe e un filtro di areale facoltativo. Aggiungi una chiave API in Impostazioni.",
     "note_inat": "Invii verificati dal proprietario. Collega il tuo account in Impostazioni.",
-    "notifications_note": "I canali di notifica si configurano in Impostazioni → Notifiche. Home Assistant si installa e si configura esternamente; consulta la guida all’integrazione."
+    "notifications_note": "I canali di notifica si configurano in Impostazioni → Avvisi. Home Assistant si installa e si configura esternamente; consulta la guida all’integrazione."
   },
   "history": {
     "title": "Importa rilevamenti esistenti",
@@ -182,7 +182,7 @@
   "skip": "Salta la configurazione",
   "skip_failed": "Impossibile saltare: il server non è raggiungibile.",
   "skip_confirm_title": "Saltare la configurazione e aprire l'app?",
-  "skip_confirm_body_no_account": "L'app funzionerà senza password finché non ne imposti una in Impostazioni → Sicurezza. Tutto ciò che copre questa procedura può essere configurato in seguito, e puoi rieseguirla in qualsiasi momento da Impostazioni → Configurazione guidata.",
+  "skip_confirm_body_no_account": "L'app funzionerà senza password finché non ne imposti una in Impostazioni → Condivisione e integrazioni. Tutto ciò che copre questa procedura può essere configurato in seguito, e puoi rieseguirla in qualsiasi momento da Impostazioni → Configurazione guidata.",
   "skip_confirm_body": "Tutto ciò che copre questa procedura può essere configurato in seguito, e puoi rieseguirla in qualsiasi momento da Impostazioni → Configurazione guidata.",
   "skip_confirm_action": "Salta e apri l'app",
   "back": "Indietro",

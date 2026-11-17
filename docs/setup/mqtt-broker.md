@@ -177,7 +177,7 @@ You should see `Opening ipv4 listen socket on port 1883` and no error lines.
 
 ### Quick connection test from the UI
 
-In **Settings → Connection**, select **Test Connection**. The staged dialog checks
+In **Settings → Cameras & connection**, select **Test Connection**. The staged dialog checks
 **Frigate API**, then **MQTT broker publish**, using the values currently visible in
 the form. A passed MQTT stage proves the isolated client connected and published;
 it does not prove Frigate is publishing real bird events or that a camera is selected.

@@ -24,7 +24,7 @@ async function openMaintenance(
             return undefined;
         }
     });
-    await page.getByRole('link', { name: 'Maintenance', exact: true }).click();
+    await page.getByRole('link', { name: 'Storage & upkeep', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Timezone repair', exact: true })).toBeVisible();
 }
 

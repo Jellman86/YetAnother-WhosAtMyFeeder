@@ -277,12 +277,6 @@
     "accessibility": "アクセシビリティ",
     "enrichment": "情報拡充",
     "ai": "AI",
-    "groups": {
-      "pipeline": "フィーダーパイプライン",
-      "intelligence": "分析と共有",
-      "operations": "運用",
-      "interface": "インターフェース"
-    },
     "beta": "ベータ機能",
     "unsaved": "未保存",
     "skip_to_content": "設定へ移動",
@@ -293,6 +287,14 @@
     "maintenance": "メンテナンス",
     "refused": "要修正",
     "refused_note": "前回の保存で拒否された値があります"
+  },
+  "sections": {
+    "cameras": "カメラと接続",
+    "identification": "鳥の識別",
+    "alerts": "アラート",
+    "sharing": "共有と統合",
+    "storage": "ストレージとメンテナンス",
+    "display": "表示"
   },
   "debug": {
     "llm_prompts_title": "LLMプロンプトテンプレート",
@@ -709,7 +711,7 @@
     "every_camera_on": "すべての Frigate カメラで鳥を監視します。後から Frigate に追加したカメラも含みます。",
     "every_camera_off": "ここで選んだカメラだけで鳥を監視します。後から Frigate に追加したカメラは、選ぶまで監視されません。",
     "watch_every_camera": "すべてのカメラで鳥を監視",
-    "garden_beta_hint": "庭の動物も監視するには、設定 → ベータ機能で庭の動物をオンにしてください。",
+    "garden_beta_hint": "庭の動物も監視するには、設定 → 鳥の識別で庭の動物をオンにしてください。",
     "list_loading": "Frigate からカメラ一覧を読み込んでいます…",
     "list_unread": "Frigate からカメラ一覧を読み込めませんでした。保存済みのカメラを表示しています。もう一度試すには「カメラ同期」を選んでください。",
     "none_found_help": "Frigate はカメラを報告しませんでした。上の Frigate URL を確認してから「カメラ同期」を選んでください。",
@@ -890,7 +892,7 @@
     "link_opens_yawamf_req": "上のインスタンスのアドレスを使います。",
     "link_opens_frigate": "Frigate",
     "link_opens_frigate_desc": "Frigate の Explore ページにある同じ追跡オブジェクト。",
-    "link_opens_frigate_req": "Frigate 0.15 以降と、設定 → 接続 で設定する Frigate の公開 URL が必要です。",
+    "link_opens_frigate_req": "Frigate 0.15 以降と、設定 → カメラと接続 で設定する Frigate の公開 URL が必要です。",
     "link_frigate_url_missing": "Frigate の公開 URL が未設定のため、設定されるまで通知にリンクは付きません。",
     "link_preview_telegram": "Telegram のボタンのリンク:",
     "link_preview_others": "Discord のタイトル、Pushover、メールも同じアドレスを使います。",
@@ -1328,7 +1330,7 @@
     "model_manager_repair_download": "再ダウンロードして修復",
     "model_manager_repair_needed": "このモデルのインストールは不完全です。有効化する前に再ダウンロードして、不足している種名またはモデル設定を復元してください。",
     "model_manager_location_title": "給餌台の位置情報を使用します",
-    "model_manager_location_desc": "このモデルは、設定 → 統合 → 位置情報 に保存されている給餌台の座標も使用します。有効な座標が保存されていない場合は、位置情報なしで鳥を識別します。日付や位置の精度半径は使用しません。",
+    "model_manager_location_desc": "このモデルは、設定 → 共有と統合 → 位置情報 に保存されている給餌台の座標も使用します。有効な座標が保存されていない場合は、位置情報なしで鳥を識別します。日付や位置の精度半径は使用しません。",
     "model_manager_location_link": "位置情報の設定を開く",
     "provider_intel_npu": "Intel NPU (OpenVINO)",
     "bird_finder_title": "鳥の検出",
@@ -1613,7 +1615,8 @@
     "garden_sentence_motion_on": "{cameras} で動きの写真を収集しています。",
     "garden_sentence_motion_off": "動きの写真はオフです。",
     "garden_sentence_motion_unread": "動きの写真の状況を読み込めませんでした。更新してもう一度お試しください。",
-    "garden_sentence_saved_crops": "{limit, number} 件まで保存でき、{count, plural, other {# 件}}を保存済み。"
+    "garden_sentence_saved_crops": "{limit, number} 件まで保存でき、{count, plural, other {# 件}}を保存済み。",
+    "part_intro": "テスト中の機能です。オンにするまではオフで、変更や削除される場合があります。オフにしても、すでに記録した内容は残ります。"
   },
   "native_revalidation": {
     "title": "隔離されたプロファイルを確認",

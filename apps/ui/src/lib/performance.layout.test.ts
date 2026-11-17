@@ -17,6 +17,10 @@ import eventsSource from './pages/Events.svelte?raw';
 import lazyRouteSource from './components/LazyRoute.svelte?raw';
 import recentAudioSource from './components/RecentAudio.svelte?raw';
 import settingsSource from './pages/Settings.svelte?raw';
+import partLoadersSource from './components/settings/sections/part-loaders.ts?raw';
+import camerasSectionSource from './components/settings/sections/CamerasSection.svelte?raw';
+
+const sectionSources = Object.values(import.meta.glob<string>('./components/settings/sections/*.svelte', { query: '?raw', import: 'default', eager: true }));
 import speciesSource from './pages/Species.svelte?raw';
 import systemHealthPanelSource from './components/settings/SystemHealthPanel.svelte?raw';
 import modelManagerSource from './pages/models/ModelManager.svelte?raw';
@@ -36,16 +40,18 @@ const SETTINGS_TABS = [
     'AISettings'
 ];
 
-describe('Settings loads one tab at a time', () => {
-    it.each(SETTINGS_TABS)('%s is its own chunk, fetched when its tab is opened', (tab) => {
-        expect(settingsSource).toContain(`lazyComponent(() => import('../components/settings/${tab}.svelte'))`);
-        expect(settingsSource).not.toMatch(new RegExp(`^\\s*import ${tab} from`, 'm'));
+describe('Settings loads one section\'s parts at a time', () => {
+    it.each(SETTINGS_TABS)('%s is its own chunk, fetched when its section is opened', (part) => {
+        expect(partLoadersSource).toContain(`lazyComponent(() => import('../${part}.svelte'))`);
+        for (const source of [settingsSource, ...sectionSources]) {
+            expect(source).not.toMatch(new RegExp(`^\\s*import ${part} from`, 'm'));
+        }
     });
 
-    it('lets a lazily loaded tab keep its two-way bindings to the form', () => {
+    it('lets a lazily loaded part keep its two-way bindings to the form', () => {
         expect(lazyRouteSource).toContain('content?: Snippet<[LoadedPage]>');
         expect(lazyRouteSource).toContain('{@render content(Page)}');
-        expect(settingsSource).toContain('{#snippet content(ConnectionSettings)}');
+        expect(camerasSectionSource).toContain('{#snippet content(ConnectionSettings)}');
     });
 });
 
@@ -163,17 +169,17 @@ describe('the live stream replaces polling where it announces changes', () => {
     });
 });
 
-describe('Settings reads operational data only for the tab that shows it', () => {
-    it('takes each tab\'s readings when it opens, not every reading on every tab', () => {
-        const mount = settingsSource.slice(settingsSource.indexOf('onMount(async () => {'), settingsSource.indexOf('type TabReading'));
+describe('Settings reads operational data only for the section that shows it', () => {
+    it('takes each section\'s readings when it opens, not every reading in every section', () => {
+        const mount = settingsSource.slice(settingsSource.indexOf('onMount(async () => {'), settingsSource.indexOf('type SectionReading'));
         for (const read of ['loadCameras()', 'loadClassifierStatus()', 'loadMaintenanceStats()', 'loadCacheStats()', 'loadTaxonomyStatus()', 'loadVersion()']) {
             expect(mount).not.toContain(read);
         }
-        const map = settingsSource.slice(settingsSource.indexOf('const READINGS_BY_TAB'), settingsSource.indexOf('const readingsTaken'));
-        for (const tab of ['appearance', 'accessibility', 'notifications', 'ai', 'beta', 'detection']) {
-            expect(map).not.toContain(`${tab}:`);
+        const map = settingsSource.slice(settingsSource.indexOf('const READINGS_BY_SECTION'), settingsSource.indexOf('const readingsTaken'));
+        for (const section of ['display', 'alerts', 'identification']) {
+            expect(map).not.toContain(`${section}:`);
         }
-        expect(settingsSource).toContain('untrack(() => readForTab(tab, controller.signal));');
+        expect(settingsSource).toContain('untrack(() => readForSection(section, controller.signal));');
     });
 
     it('reads the storage figures before asking about a retention change saved from another tab', () => {

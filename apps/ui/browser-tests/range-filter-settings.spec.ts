@@ -1,7 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { openDetectionSettings, type RangeMock } from './detection-settings-mock';
 
-// The range filter card in Settings → Detection (#696): every state names what the filter is
+// The range filter card in Settings → Identifying birds (#696): every state names what the filter is
 // doing in words, never claims to filter when it is not, and points at the one next step.
 
 const card = (page: Page) => page.locator('[data-range-filter]');
@@ -82,7 +82,7 @@ test('with no location the switch is disabled with the reason and a way to set o
     await expect(card(page)).toContainText('Set a location first.');
     await expect(card(page).locator('[data-range-filter-facts]')).toHaveCount(0);
     await card(page).getByRole('button', { name: 'Set location' }).click();
-    await expect(page.locator('[data-fixture-route]')).toHaveAttribute('data-fixture-route', '/settings/integrations');
+    await expect(page.locator('[data-fixture-route]')).toHaveAttribute('data-fixture-route', '/settings/sharing');
     // With an automatic location the coordinates are hidden, so the Manual choice that reveals them takes focus.
     await expect(page.locator('#location-lat').or(page.locator('#setting-location-mode + div input[type="radio"]:not(:checked)'))).toBeFocused();
 });
@@ -96,7 +96,7 @@ test('without an eBird key it names the missing key and that BirdNET-Go alone ne
     // Work that needs a person is marked by the kit's amber dot beside the words, not a tinted box.
     await expect(panel(page).locator('[data-range-filter-chip] .attention-dot')).toHaveCount(1);
     await card(page).getByRole('button', { name: 'Add eBird key' }).click();
-    await expect(page.locator('[data-fixture-route]')).toHaveAttribute('data-fixture-route', '/settings/integrations');
+    await expect(page.locator('[data-fixture-route]')).toHaveAttribute('data-fixture-route', '/settings/sharing');
     // eBird is off in this fixture, so its switch, the step that reveals the key field, takes focus.
     await expect(page.getByRole('switch', { name: 'eBird' })).toBeFocused();
 });

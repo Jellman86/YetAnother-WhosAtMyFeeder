@@ -277,12 +277,6 @@
     "accessibility": "Accesibilidad",
     "enrichment": "Enriquecimiento",
     "ai": "IA",
-    "groups": {
-      "pipeline": "Flujo del comedero",
-      "intelligence": "Análisis y difusión",
-      "operations": "Operaciones",
-      "interface": "Interfaz"
-    },
     "beta": "Funciones beta",
     "unsaved": "sin guardar",
     "skip_to_content": "Ir a los ajustes",
@@ -293,6 +287,14 @@
     "maintenance": "Mantenimiento",
     "refused": "necesita un arreglo",
     "refused_note": "Tiene un valor que el último guardado rechazó"
+  },
+  "sections": {
+    "cameras": "Cámaras y conexión",
+    "identification": "Identificar aves",
+    "alerts": "Alertas",
+    "sharing": "Compartir e integraciones",
+    "storage": "Almacenamiento y mantenimiento",
+    "display": "Visualización"
   },
   "debug": {
     "llm_prompts_title": "Plantillas de prompts de LLM",
@@ -709,7 +711,7 @@
     "every_camera_on": "Todas las cámaras de Frigate se vigilan en busca de aves, incluidas las que se añadan a Frigate más adelante.",
     "every_camera_off": "Solo las cámaras elegidas aquí se vigilan en busca de aves. Una cámara añadida a Frigate más adelante no se vigila hasta que la elijas.",
     "watch_every_camera": "Vigilar aves en todas las cámaras",
-    "garden_beta_hint": "Para vigilar también animales del jardín, activa Animales del jardín en Ajustes → Funciones beta.",
+    "garden_beta_hint": "Para vigilar también animales del jardín, activa Animales del jardín en Ajustes → Identificar aves.",
     "list_loading": "Leyendo la lista de cámaras de Frigate…",
     "list_unread": "No se pudo leer la lista de cámaras de Frigate. Se muestran las cámaras guardadas; elige Sincronizar Cámaras para volver a intentarlo.",
     "none_found_help": "Frigate no informó de ninguna cámara. Revisa la URL de Frigate arriba y luego elige Sincronizar Cámaras.",
@@ -890,7 +892,7 @@
     "link_opens_yawamf_req": "Usa la dirección de la instancia de arriba.",
     "link_opens_frigate": "Frigate",
     "link_opens_frigate_desc": "El mismo objeto rastreado en la página Explore de Frigate.",
-    "link_opens_frigate_req": "Necesita Frigate 0.15 o posterior y la URL pública de Frigate, que se configura en Ajustes → Conexión.",
+    "link_opens_frigate_req": "Necesita Frigate 0.15 o posterior y la URL pública de Frigate, que se configura en Ajustes → Cámaras y conexión.",
     "link_frigate_url_missing": "La URL pública de Frigate no está configurada; las notificaciones no llevarán enlace hasta que lo esté.",
     "link_preview_telegram": "Enlace del botón de Telegram:",
     "link_preview_others": "El título de Discord, Pushover y el correo usan la misma dirección.",
@@ -1328,7 +1330,7 @@
     "model_manager_repair_download": "Reparar descarga",
     "model_manager_repair_needed": "La instalación de este modelo está incompleta. Vuelve a descargarlo para restaurar los nombres de especies o la configuración del modelo que faltan antes de activarlo.",
     "model_manager_location_title": "Usa la ubicación de tu comedero",
-    "model_manager_location_desc": "Este modelo también usa las coordenadas del comedero guardadas en Ajustes → Integraciones → Ubicación. Si no hay coordenadas válidas guardadas, identifica las aves sin ubicación. No usa la fecha ni un radio de precisión de la ubicación.",
+    "model_manager_location_desc": "Este modelo también usa las coordenadas del comedero guardadas en Ajustes → Compartir e integraciones → Ubicación. Si no hay coordenadas válidas guardadas, identifica las aves sin ubicación. No usa la fecha ni un radio de precisión de la ubicación.",
     "model_manager_location_link": "Abrir ajustes de ubicación",
     "provider_intel_npu": "NPU Intel (OpenVINO)",
     "bird_finder_title": "Buscador de aves",
@@ -1613,7 +1615,8 @@
     "garden_sentence_motion_on": "Se recogen fotos de movimiento en {cameras}.",
     "garden_sentence_motion_off": "Las fotos de movimiento están desactivadas.",
     "garden_sentence_motion_unread": "No se pudo leer el estado de las fotos de movimiento. Actualice para volver a intentarlo.",
-    "garden_sentence_saved_crops": "{count, plural, one {# recorte guardado} other {# recortes guardados}} de {limit, number} permitidos."
+    "garden_sentence_saved_crops": "{count, plural, one {# recorte guardado} other {# recortes guardados}} de {limit, number} permitidos.",
+    "part_intro": "Funciones aún en pruebas. Cada una está desactivada hasta que la active, y puede cambiar o eliminarse. Al desactivarla se conserva lo que ya ha registrado."
   },
   "native_revalidation": {
     "title": "Comprobar perfil en cuarentena",

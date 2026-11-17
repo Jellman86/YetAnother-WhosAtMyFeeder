@@ -54,7 +54,7 @@
             case 'camera_list_unread':
                 return $_('settings.cameras.blocked_camera_list_unread', { default: 'Every camera watches for birds. Sync cameras from Frigate before turning birds off for one camera.' });
             case 'garden_off':
-                return $_('settings.cameras.garden_beta_hint', { default: 'To watch for Garden animals as well, turn on Garden animals in Settings → Beta features.' });
+                return $_('settings.cameras.garden_beta_hint', { default: 'To watch for Garden animals as well, turn on Garden animals in Settings → Identifying birds.' });
         }
     }
 

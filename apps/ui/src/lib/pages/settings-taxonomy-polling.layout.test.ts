@@ -8,8 +8,8 @@ function between(source: string, start: string, end: string): string {
 }
 
 describe('taxonomy repair status', () => {
-    it('reads the status when the Maintenance tab opens instead of polling every 3 s while it stays open', () => {
-        const tabEffect = between(settingsSource, "if (activeTab === 'maintenance') {", '} else {');
+    it('reads the status when the section holding Maintenance opens instead of polling every 3 s while it stays open', () => {
+        const tabEffect = between(settingsSource, "if (activeSection === settingsSectionOfPart('maintenance')) {", '} else {');
         expect(tabEffect).toContain('loadTaxonomyStatus()');
         expect(tabEffect).not.toContain('startTaxonomyPolling()');
     });

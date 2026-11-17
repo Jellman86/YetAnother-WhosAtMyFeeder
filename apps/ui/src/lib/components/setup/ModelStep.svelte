@@ -600,7 +600,7 @@
         {#if usesLocation}
             <fieldset disabled={validating || downloading || saving} class="space-y-2 border-l-2 border-brand-100 pl-4 dark:border-brand-900/60">
                 <legend class="text-sm font-medium text-slate-700 dark:text-slate-300">{$_('setup.model.location_title', { default: 'Feeder location' })}</legend>
-                <p class="text-xs leading-relaxed text-slate-600 dark:text-slate-400">{$_('setup.model.location_hint', { default: 'Validating or continuing saves these coordinates first, using the same feeder location as Settings → Integrations → Location. This model does not use the date or a location accuracy radius.' })}</p>
+                <p class="text-xs leading-relaxed text-slate-600 dark:text-slate-400">{$_('setup.model.location_hint', { default: 'Validating or continuing saves these coordinates first, using the same feeder location as Settings → Sharing & integrations → Location. This model does not use the date or a location accuracy radius.' })}</p>
                 <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <label for="setup-model-latitude" class="text-sm text-slate-700 dark:text-slate-300">
                         {$_('manual_observation.location.latitude', { default: 'Latitude' })}

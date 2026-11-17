@@ -20,7 +20,7 @@ test.describe('on a wide screen', () => {
         // The rail sits to the left of the settings, not above them.
         expect((field?.x ?? 0)).toBeGreaterThan((railBox?.x ?? 0) + (railBox?.width ?? 0));
         expect(field?.y ?? 1000).toBeLessThan(400);
-        await expect(rail(page).getByRole('link', { name: 'Connection', exact: true })).toHaveAttribute('aria-current', 'page');
+        await expect(rail(page).getByRole('link', { name: 'Cameras & connection', exact: true })).toHaveAttribute('aria-current', 'page');
         await expect(rail(page).getByRole('link', { name: 'Enrichment' })).toHaveCount(0);
         const wizard = rail(page).getByRole('button', { name: 'Setup wizard', exact: true });
         expect((await wizard.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
@@ -41,17 +41,17 @@ test.describe('on a wide screen', () => {
     test('a section with unsaved changes is marked in words in the rail', async ({ page }) => {
         await openSettings(page);
         await page.locator('#mqtt-server').fill('broker.lan');
-        await expect(rail(page).getByRole('link', { name: 'Connection', exact: true })).toContainText('unsaved');
-        await expect(rail(page).getByRole('link', { name: 'Detection', exact: true })).not.toContainText('unsaved');
+        await expect(rail(page).getByRole('link', { name: 'Cameras & connection', exact: true })).toContainText('unsaved');
+        await expect(rail(page).getByRole('link', { name: 'Identifying birds', exact: true })).not.toContainText('unsaved');
     });
 
     test('telemetry lives with Security, and Integrations ends with the species information sources', async ({ page }) => {
         await openSettings(page, { ebird_enabled: false, enrichment_sightings_source: 'disabled' });
         await expect(page.getByText('Anonymous usage', { exact: false }).first()).toHaveCount(0);
-        await rail(page).getByRole('link', { name: 'Security', exact: true }).click();
+        await rail(page).getByRole('link', { name: 'Sharing & integrations', exact: true }).click();
         await expect(page.getByRole('switch', { name: /telemetry/i }).first()).toBeVisible();
 
-        await rail(page).getByRole('link', { name: 'Integrations', exact: true }).click();
+        await rail(page).getByRole('link', { name: 'Sharing & integrations', exact: true }).click();
         const sources = page.locator('[data-enrichment-summary]');
         await expect(sources).toContainText('Not shown: needs an eBird API key');
         // The summary links to eBird's own switch rather than offering a second way to turn it on.
@@ -60,9 +60,9 @@ test.describe('on a wide screen', () => {
         await expect(saveBar(page)).toHaveCount(0);
     });
 
-    test('Detection leads with the confidence sliders, and the models and hardware are their own tab', async ({ page }) => {
+    test('Identifying birds leads with the confidence sliders, and the models and hardware are their own part', async ({ page }) => {
         await openSettings(page);
-        await rail(page).getByRole('link', { name: 'Detection', exact: true }).click();
+        await rail(page).getByRole('link', { name: 'Identifying birds', exact: true }).click();
         const slider = page.locator('#confidence-threshold-slider');
         await expect(slider).toBeVisible();
         const frigate = page.getByRole('button', { name: 'Frigate and video', exact: true });
@@ -73,7 +73,7 @@ test.describe('on a wide screen', () => {
         await expect(page.getByRole('switch', { name: /Frigate/ }).first()).toBeVisible();
 
         await page.getByRole('button', { name: 'Open Models', exact: true }).click();
-        await expect(rail(page).getByRole('link', { name: 'Models', exact: true })).toHaveAttribute('aria-current', 'page');
+        await expect(rail(page).getByRole('link', { name: 'Identifying birds', exact: true })).toHaveAttribute('aria-current', 'page');
         // Hardware is a plain section like every other: its device choice is on the surface.
         await expect(page.getByRole('heading', { name: 'Hardware', exact: true })).toBeVisible();
         await expect(page.locator('#inference-provider')).toBeVisible();
@@ -89,8 +89,8 @@ test.describe('on a phone', () => {
         await expect(rail(page)).toBeHidden();
         const select = page.getByRole('combobox', { name: 'Settings section', exact: true });
         await expect(select).toBeVisible();
-        await expect(select).toHaveValue('connection');
-        await select.selectOption('detection');
+        await expect(select).toHaveValue('cameras');
+        await select.selectOption('identification');
         await expect(page.locator('#confidence-threshold-slider')).toBeVisible();
         const wizard = page.getByRole('button', { name: 'Setup wizard', exact: true });
         expect((await wizard.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
@@ -109,13 +109,13 @@ test.describe('a refused value inside a closed card', () => {
                 json: { detail: [{ type: 'less_than_equal', loc: ['body', 'video_classification_delay'], msg: 'Input should be less than or equal to 3600', ctx: { le: 3600 } }] }
             })
         });
-        await rail(page).getByRole('link', { name: 'Detection', exact: true }).click();
+        await rail(page).getByRole('link', { name: 'Identifying birds', exact: true }).click();
         await expect(page.getByRole('button', { name: 'Frigate and video', exact: true })).toHaveAttribute('aria-expanded', 'false');
-        await rail(page).getByRole('link', { name: 'Connection', exact: true }).click();
+        await rail(page).getByRole('link', { name: 'Cameras & connection', exact: true }).click();
         await page.locator('#mqtt-server').fill('broker.lan');
         await page.getByRole('button', { name: 'Save changes', exact: true }).click();
 
-        await expect(rail(page).getByRole('link', { name: 'Detection', exact: true })).toHaveAttribute('aria-current', 'page');
+        await expect(rail(page).getByRole('link', { name: 'Identifying birds', exact: true })).toHaveAttribute('aria-current', 'page');
         await expect(page.getByRole('button', { name: 'Frigate and video', exact: true })).toHaveAttribute('aria-expanded', 'true');
         const delay = page.locator('#video-delay');
         await expect(delay).toBeFocused();
@@ -148,7 +148,7 @@ test.describe('a refused value inside a closed card', () => {
         });
         await page.locator('#mqtt-server').fill('broker.lan');
         await page.getByRole('button', { name: 'Save changes', exact: true }).click();
-        await expect(rail(page).getByRole('link', { name: 'Maintenance', exact: true })).toHaveAttribute('aria-current', 'page');
+        await expect(rail(page).getByRole('link', { name: 'Storage & upkeep', exact: true })).toHaveAttribute('aria-current', 'page');
         await expect(page.getByRole('heading', { name: 'Jobs at once', exact: true })).toBeVisible();
         await expect(page.locator('#maintenance-max-concurrent')).toBeFocused();
     });
@@ -163,9 +163,9 @@ test.describe('the runtime report, after it was closed and the tab left', () => 
         if ((await report(page).getAttribute('aria-expanded')) === 'false') await report(page).click();
         await report(page).click();
         await expect(report(page)).toHaveAttribute('aria-expanded', 'false');
-        await rail(page).getByRole('link', { name: 'Connection', exact: true }).click();
+        await rail(page).getByRole('link', { name: 'Cameras & connection', exact: true }).click();
         await expect(page.locator('#mqtt-server')).toBeVisible();
-        await rail(page).getByRole('link', { name: 'Models', exact: true }).click();
+        await rail(page).getByRole('link', { name: 'Identifying birds', exact: true }).click();
     }
 
     test('with nothing to check, the status line has no report link', async ({ page }) => {

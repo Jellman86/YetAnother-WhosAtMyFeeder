@@ -30,7 +30,7 @@
   "species": "Especie",
   "view_species": "Ver {species}",
   "no_species": "Aún no hay aves registradas",
-  "no_species_desc": "La clasificación se llena a medida que tus cámaras identifican aves. Si no llega nada, revisa Ajustes → Conexión.",
+  "no_species_desc": "La clasificación se llena a medida que tus cámaras identifican aves. Si no llega nada, revisa Ajustes → Cámaras y conexión.",
   "only_unknown_desc": "Solo hay detecciones de \"Ave desconocida\" por ahora. Activa \"Incluir \\\"Ave desconocida\\\"\" para mostrarlas en la clasificación.",
   "all_species": "Todas las especies",
   "percentage_of_total": "{percentage}% del total",

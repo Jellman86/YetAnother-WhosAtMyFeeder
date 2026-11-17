@@ -212,7 +212,7 @@ test('the finder keeps an explicit NPU choice even when GPU benchmarks faster', 
     // A device this host does not offer the finder is not listed at all.
     await expect(device(page).locator('option[value="cuda"]')).toHaveCount(0);
     await page.reload();
-    await page.getByRole('link', { name: 'Models', exact: true }).click();
+    await page.getByRole('link', { name: 'Identifying birds', exact: true }).click();
     await expect(device(page)).toHaveValue('intel_npu');
     await expect(runsOn(page)).toHaveText('Intel NPU · passed its device check on this host');
 });

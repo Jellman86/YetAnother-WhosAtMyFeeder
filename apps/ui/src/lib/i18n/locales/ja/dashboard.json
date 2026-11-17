@@ -87,7 +87,7 @@
     "seen_and_heard": "見て聞いた"
   },
   "desk": {
-    "cameras_empty": "まだカメラが応答していません。設定 → 接続 で追加してください。",
+    "cameras_empty": "まだカメラが応答していません。設定 → カメラと接続 で追加してください。",
     "camera_no_visits": "訪問なし",
     "no_cross_confirmation": "{count, plural, other {# 件の鳴き声が聞こえましたが、カメラの訪問と一致するものはありませんでした。マイクとカメラの対象範囲が異なる可能性があります。}}",
     "temperature_span": "訪問時の気温は {low} 〜 {high}",
