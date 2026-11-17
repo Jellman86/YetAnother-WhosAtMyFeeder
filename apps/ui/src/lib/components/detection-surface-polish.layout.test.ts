@@ -272,7 +272,7 @@ describe('detection surface polish', () => {
         expect(detectionModalSource.indexOf('<TaxonomyLineage')).toBeGreaterThan(secondary);
         expect(detectionModalSource.indexOf('data-detection-identity')).toBeLessThan(secondary);
         expect(detectionModalSource).toContain('xl:col-span-3 @6xl:grid @6xl:grid-cols-2 @6xl:items-start');
-        expect(detectionModalSource).toContain('<div class="@container flex-1 overflow-y-auto');
+        expect(detectionModalSource).toContain('<div class="flex-1 overflow-y-auto flex flex-col @container lg:overflow-hidden');
         expect(detectionModalSource).toContain('sm:rounded-2xl xl:max-w-7xl');
         // On a phone the star and play buttons sit on the photograph's lower edge.
         expect(detectionModalSource).toContain('max-sm:absolute max-sm:inset-x-4 max-sm:bottom-full max-sm:z-30 max-sm:mb-3" data-detection-media-actions');

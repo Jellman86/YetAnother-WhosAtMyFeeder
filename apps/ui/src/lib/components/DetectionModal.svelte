@@ -1543,7 +1543,7 @@
 
         <!-- Side by side from 1024px, and on a phone or tablet held sideways (a short screen), where a
              photograph above the identification would push it off the first screen. -->
-        <div class="@container flex-1 overflow-y-auto flex flex-col lg:overflow-hidden lg:grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] xl:grid-cols-5 sm:short:grid sm:short:grid-cols-2 sm:short:overflow-hidden">
+        <div class="flex-1 overflow-y-auto flex flex-col @container lg:overflow-hidden lg:grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] xl:grid-cols-5 sm:short:grid sm:short:grid-cols-2 sm:short:overflow-hidden">
                 <div class="flex min-h-0 shrink-0 flex-col bg-media lg:shrink lg:overflow-y-auto lg:border-r lg:border-line xl:col-span-2 sm:short:shrink sm:short:overflow-y-auto sm:short:border-r sm:short:border-line">
                     <div class="relative min-w-0 aspect-4/3 min-h-72 shrink-0 overflow-hidden bg-media sm:aspect-video lg:flex-1 short:min-h-0 max-sm:short:max-h-half-screen" data-detection-photograph>
                         {#if photographDrawnUrl}
