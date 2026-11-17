@@ -79,7 +79,7 @@
     <div class="min-h-0 flex-1 space-y-6 overflow-y-auto p-6 short:space-y-4 short:p-4" data-setup-scroll>
         <!-- Setup opens under the app's own mark; each later step has an icon for what it sets up. On a
              screen held sideways the icon gives its room to the step's own controls. -->
-        <div class="short:hidden">
+        <div class="short:hidden" data-setup-step-icon>
             {#if setupWizardStore.current.id === 'welcome'}
                 <BrandMark alt="" class="h-10 w-10 rounded-xl" width={40} height={40} sizes="40px" />
             {:else}

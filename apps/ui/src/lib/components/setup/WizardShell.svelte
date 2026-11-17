@@ -131,21 +131,25 @@
             <!-- At most half the card: its words scroll inside it and its two buttons stay put, so on a short
                  screen the step's own Back and Continue are never pushed out of the card either. -->
             <div class="flex max-h-half-screen shrink-0 flex-col border-b border-line bg-status-attention-soft" role="alertdialog" aria-labelledby="skip-setup-title" aria-describedby="skip-setup-body">
-                <div class="min-h-0 overflow-y-auto px-6 pt-4 short:pt-2">
-                <p id="skip-setup-title" class="text-sm font-bold text-strong">
-                    {$_('setup.skip_confirm_title', { default: 'Skip setup and open the app?' })}
-                </p>
-                <p id="skip-setup-body" class="mt-1 text-sm leading-relaxed text-muted">
-                    {#if authStore.needsInitialSetup}
-                        {$_('setup.skip_confirm_body_no_account', { default: 'The app will run without a password until you set one under Settings → Sharing & integrations. Everything this wizard covers can be configured later, and you can re-run it any time from Settings → Setup wizard.' })}
-                    {:else}
-                        {$_('setup.skip_confirm_body', { default: 'Everything this wizard covers can be configured later, and you can re-run it any time from Settings → Setup wizard.' })}
-                    {/if}
-                </p>
-                {#if skipError}
-                    <p role="alert" class="mt-2 text-sm font-semibold text-status-fail">{skipError}</p>
-                {/if}
+                <!-- A tab stop of its own, so the keyboard can scroll the words in every browser (Safari
+                     does not focus a scrolling box that holds no control). -->
+                <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+                <div class="min-h-0 overflow-y-auto px-6 pt-4 focus-ring short:pt-2" role="group" tabindex="0" aria-labelledby="skip-setup-title" data-skip-setup-text>
+                    <p id="skip-setup-title" class="text-sm font-bold text-strong">
+                        {$_('setup.skip_confirm_title', { default: 'Skip setup and open the app?' })}
+                    </p>
+                    <p id="skip-setup-body" class="mt-1 text-sm leading-relaxed text-muted">
+                        {#if authStore.needsInitialSetup}
+                            {$_('setup.skip_confirm_body_no_account', { default: 'The app will run without a password until you set one under Settings → Sharing & integrations. Everything this wizard covers can be configured later, and you can re-run it any time from Settings → Setup wizard.' })}
+                        {:else}
+                            {$_('setup.skip_confirm_body', { default: 'Everything this wizard covers can be configured later, and you can re-run it any time from Settings → Setup wizard.' })}
+                        {/if}
+                    </p>
                 </div>
+                <!-- Outside the scrolling words, just above the buttons, so a failed skip is seen where it was pressed. -->
+                {#if skipError}
+                    <p role="alert" class="shrink-0 px-6 pt-2 text-sm font-semibold text-status-fail" data-skip-setup-error>{skipError}</p>
+                {/if}
                 <div class="flex shrink-0 flex-wrap gap-2 px-6 pb-4 pt-3 short:pb-2 short:pt-2">
                     <button type="button" class="btn btn-secondary min-h-11 px-4" disabled={skipBusy} onclick={() => { skipConfirming = false; skipError = null; }}>
                         {$_('common.cancel', { default: 'Cancel' })}

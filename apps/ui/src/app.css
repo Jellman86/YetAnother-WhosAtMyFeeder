@@ -23,9 +23,10 @@
    section in FieldLog.svelte declares the container these query. */
 @custom-variant log-wide (@container field-log (width >= 32rem));
 @custom-variant log-narrow (@container field-log (width < 16rem));
-/* A short screen: a phone or small tablet held sideways (844 × 390, 1024 × 600). Dialogs tighten
-   their chrome there so the actions stay in view. */
-@custom-variant short (@media (max-height: 32rem));
+/* A short screen: a phone or small tablet held sideways (844 × 390, 1024 × 600). The wizard
+   tightens its chrome there so the step has room and the actions stay in view. In px, like the
+   breakpoints below, so a larger text size does not change which screens count as short. */
+@custom-variant short (@media (max-height: 640px));
 
 @theme {
   /* Breakpoints stay in px, so a reader's larger text size never moves a layout to its phone
