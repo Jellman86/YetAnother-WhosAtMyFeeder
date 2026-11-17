@@ -204,3 +204,30 @@ test('the phone drawer is out of the tab order when closed and modal when open',
     await expect(menu).toBeFocused();
     await expect.poll(() => drawer.evaluate(node => node.getBoundingClientRect().right <= 0)).toBe(true);
 });
+
+test('a camera frame that fails to load says so and gives the next step, clear of the camera chip on a phone', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await mockShell(page, 'owner');
+    await page.goto('/events');
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 15_000 });
+    await page.getByRole('button', { name: 'Camera status' }).click();
+    const viewer = page.getByRole('dialog', { name: 'Live camera viewer' });
+    const message = viewer.getByText('This frame could not be loaded', { exact: true });
+    await expect(message).toBeVisible();
+    await expect(viewer.locator('[data-camera-frame-help]')).toHaveText(
+        'Retry asks Frigate for the frame again. If it keeps failing, Health shows whether Frigate is answering.'
+    );
+    const retry = viewer.getByRole('button', { name: 'Retry', exact: true });
+    await expect(retry).toBeVisible();
+    // The chip naming the camera lies over the top of the frame: the message starts below it,
+    // and the whole message, Retry included, stays inside the frame.
+    const [chip, text, button, frame] = await Promise.all([
+        viewer.getByText('patio', { exact: true }).boundingBox(),
+        message.boundingBox(),
+        retry.boundingBox(),
+        viewer.locator('.aspect-video').boundingBox()
+    ]);
+    if (!chip || !text || !button || !frame) throw new Error('The camera viewer did not lay out');
+    expect(text.y).toBeGreaterThanOrEqual(chip.y + chip.height);
+    expect(button.y + button.height).toBeLessThanOrEqual(frame.y + frame.height + 1);
+});

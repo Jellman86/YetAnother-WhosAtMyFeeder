@@ -48,7 +48,7 @@ const FEED_STATES: Record<LiveFeedState, Pick<StatusRow, 'tone' | 'state' | 'det
     frigate_down: {
         tone: 'attention',
         state: text('state_frigate_down', 'Frigate not answering'),
-        detail: text('feed_frigate_down', 'Frigate is not answering, so new detections cannot be saved')
+        detail: text('feed_frigate_down', 'Frigate is not answering, so new visits cannot be saved')
     },
     app_only: {
         tone: 'neutral',
@@ -83,7 +83,7 @@ export function audioRow(enabled: boolean, feed: LiveFeedState): StatusRow {
             label: AUDIO_LABEL,
             tone: 'ok',
             state: text('state_listening', 'Listening'),
-            detail: text('audio_listening', 'Listening for BirdNET-Go detections')
+            detail: text('audio_listening', 'Listening for calls from BirdNET-Go')
         };
     }
     if (feed === 'app_only') {

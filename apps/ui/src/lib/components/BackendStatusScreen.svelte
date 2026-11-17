@@ -17,11 +17,11 @@
     const startupStatusPollMs = 1_000;
     const phaseFallbacks: Record<StartupPhase, string> = {
         launching: 'Launching application services',
-        detecting_hardware: 'Checking available inference hardware',
+        detecting_hardware: 'Checking which hardware can run the model',
         loading_model: 'Loading and checking the selected bird model',
         model_ready: 'Selected bird model is ready',
-        model_unavailable: 'Classifier unavailable: setup can continue after the backend starts',
-        database: 'Preparing detection history',
+        model_unavailable: 'The bird model is not available. Setup can continue once YA-WAMF has started.',
+        database: 'Preparing your visit history',
         starting_services: 'Starting event and media services',
         finalizing: 'Finishing startup checks',
         ready: 'Ready'
@@ -160,7 +160,7 @@
                             : showingUnavailable
                                 ? $_('auth.status_unavailable_desc', { default: 'The service may still be starting after an update or model change.' })
                                 : startupActive
-                                    ? $_('auth.startup_status_desc', { default: 'Model loading and hardware checks can take longer after an update or model change. This progress comes directly from the container.' })
+                                    ? $_('auth.startup_status_desc', { default: 'Loading the model and checking hardware can take longer after an update or a model change. YA-WAMF reports this progress as it starts.' })
                                     : $_('auth.loading_status_desc', { default: 'Checking the service and your access settings before opening the feeder.' })}
                     </p>
 
