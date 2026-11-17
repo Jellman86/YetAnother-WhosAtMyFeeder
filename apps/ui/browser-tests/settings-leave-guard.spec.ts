@@ -152,6 +152,45 @@ test('rapid Back and Forward never block or misroute, and keep the draft', async
     await expect(page.locator('#mqtt-server')).toHaveValue('broker.lan');
 });
 
+test('rapid Back and Forward on a slow device keep the draft every time', async ({ page }) => {
+    await editSettingsAfterDashboard(page);
+    // A slow device (or a busy CI runner) stretches every load, so Back and Forward overtake them.
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send('Emulation.setCPUThrottlingRate', { rate: 6 });
+    for (let round = 0; round < 5; round += 1) {
+        for (let step = 0; step < 4; step += 1) {
+            await page.goBack();
+            await page.goForward();
+        }
+        await page.goBack();
+        await expect.poll(() => pathname(page)).toBe('/');
+        await page.goForward();
+        await expect.poll(() => pathname(page)).toBe('/settings/cameras');
+        await expect(leaveDialog(page), `round ${round}`).toHaveCount(0);
+        await expect(page.locator('#mqtt-server'), `round ${round}`).toHaveValue('broker.lan', { timeout: 15_000 });
+    }
+});
+
+test('a Back while Settings still reads the saved copy never replaces the kept draft with an unread form', async ({ page }) => {
+    await editSettingsAfterDashboard(page);
+    await page.goBack();
+    await expect.poll(() => pathname(page)).toBe('/');
+    // From here the saved copy takes a while to arrive, so the next Back lands while Settings,
+    // holding a kept draft, still waits for it and has not filled its form.
+    await page.route((url) => url.pathname === '/api/settings', async (route) => {
+        if (route.request().method() === 'GET') await new Promise((resolve) => setTimeout(resolve, 1500));
+        await route.fallback();
+    });
+    await page.goForward();
+    await expect.poll(() => pathname(page)).toBe('/settings/cameras');
+    await page.goBack();
+    await expect.poll(() => pathname(page)).toBe('/');
+    await page.goForward();
+    await expect.poll(() => pathname(page)).toBe('/settings/cameras');
+    await expect(page.locator('#mqtt-server')).toHaveValue('broker.lan', { timeout: 10_000 });
+    await expect(restoredNotice(page)).toBeVisible();
+});
+
 test('a secret typed before leaving is never kept: the return says to type it again', async ({ page }) => {
     await editSettingsAfterDashboard(page, { mqtt_auth: true, mqtt_username: 'feeder', mqtt_password: '***REDACTED***' });
     await page.locator('#mqtt-password').fill('hunter2-secret');

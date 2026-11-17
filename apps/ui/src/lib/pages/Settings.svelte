@@ -1500,7 +1500,10 @@
     onDestroy(() => {
         destroyed = true;
         const saved = settingsStore.settings;
-        if (!leftOnPurpose && saved && (isDirty || restoredDraft)) {
+        // Only a form this page has filled can hold edits. Left while it still waited for the saved
+        // copy (a quick Back while a kept draft waits for a fresh read), its fields are empty
+        // defaults, not changes; keeping them would replace the waiting draft with blanks.
+        if (!leftOnPurpose && saved && settingsFormLoads > 0 && (isDirty || restoredDraft)) {
             const identity = currentAccessIdentity();
             const draft = draftFromForm(
                 buildSettingsPayload() as Record<string, unknown>,
