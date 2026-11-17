@@ -172,7 +172,8 @@
       "no_results": "视频分析没有返回结果。",
       "event_missing": "Frigate 中未找到事件。",
       "unknown": "视频分析失败。将改用快照分析。",
-      "clip_not_retained": "片段不再保留在Frigate中（超出保留窗口）。"
+      "clip_not_retained": "片段不再保留在Frigate中（超出保留窗口）。",
+      "event_missing_media_cached": "Frigate 已不再保留此事件，但 YA-WAMF 仍保有其媒体。"
     },
     "error_details": {
       "why": "可能发生的原因",
@@ -202,7 +203,9 @@
         "unknown_1": "媒体检索或视频处理中发生意外错误。",
         "unknown_2": "分析进行时事件状态发生了变化。",
         "video_timeout_large_clip": "片段处理时间超过了配置的超时时间。",
-        "video_timeout_resource": "推理过程中GPU/CPU资源已饱和。"
+        "video_timeout_resource": "推理过程中GPU/CPU资源已饱和。",
+        "event_missing_media_cached": "YA-WAMF 已保存此次捕获的媒体，因此即使 Frigate 不再保留该事件，仍可播放。",
+        "event_missing_media_cached_retention": "Frigate 可能已在保留期结束时删除该事件，而 YA-WAMF 保留了快照或完整访问片段。"
       },
       "checks_items": {
         "api_health": "验证Frigate API健康端点和认证配置。",
@@ -222,7 +225,9 @@
         "retention_settings": "检查Frigate保留设置和存储健康状况。",
         "retry_manual": "服务稳定后重试手动重分类。",
         "retry_snapshot": "稍后尝试手动快照或视频重分类。",
-        "video_timeout_setting": "增加视频分析超时时间或减少采样帧数。"
+        "video_timeout_setting": "增加视频分析超时时间或减少采样帧数。",
+        "use_cached_media": "使用 YA-WAMF 保有的快照或片段。如果可以播放，则无需任何操作。",
+        "frigate_retention_if_unexpected": "如果这比预期发生得更早，请检查 Frigate 保留事件的时长。"
       }
     },
     "fallback_title": "基于快照的结果",
@@ -303,7 +308,7 @@
     "analyzing": "正在分析行为…",
     "regenerating": "重新生成中…",
     "regenerate": "重新生成分析",
-    "error": "错误：{message}",
+    "error": "AI 没有返回分析。请在设置中检查提供商和密钥，然后重试。",
     "conversation_title": "对话",
     "conversation_loading": "正在加载对话…",
     "conversation_empty": "还没有对话。向 AI 提一个后续问题吧。",
@@ -503,7 +508,7 @@
   },
   "identified_by_owner": "由所有者识别",
   "moved_to_garden": "已移至花园。该鸟类记录已隐藏；在“已隐藏”中重新显示即可恢复。",
-  "move_to_garden_failed": "无法将此记录移至花园：{message}",
+  "move_to_garden_failed": "无法将此记录移至花园。请重试；如果仍然失败，请打开“运行状况”。",
   "domestic_bird_declared": "这是您饲养的家禽（{bird}）。将其移至花园即可记录为花园动物。此鸟类记录会被隐藏，而不是删除。",
   "move_to_garden": "移至花园",
   "range_fallback": "分布范围筛选：模型最初给出的是 {original}（{score}%），eBird 从未在 {region} 记录过，因此保留了它在分布范围内的下一个答案。",

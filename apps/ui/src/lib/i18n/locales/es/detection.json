@@ -172,7 +172,8 @@
       "no_results": "El análisis de video no devolvió resultados.",
       "event_missing": "Evento no encontrado en Frigate.",
       "unknown": "Falló el análisis de video. Se usa análisis de instantánea.",
-      "clip_not_retained": "El clip ya no está retenido en Frigate (fuera de la ventana de retención)."
+      "clip_not_retained": "El clip ya no está retenido en Frigate (fuera de la ventana de retención).",
+      "event_missing_media_cached": "Frigate ya no tiene este evento, pero YA-WAMF conserva sus archivos multimedia."
     },
     "error_details": {
       "why": "Por qué puede ocurrir esto",
@@ -202,7 +203,9 @@
         "unknown_1": "Ocurrió un error inesperado en la recuperación de medios o el procesamiento de video.",
         "unknown_2": "El estado del evento cambió mientras el análisis estaba en progreso.",
         "video_timeout_large_clip": "El procesamiento del clip tardó más que el tiempo de espera configurado.",
-        "video_timeout_resource": "Los recursos de GPU/CPU estaban saturados durante la inferencia."
+        "video_timeout_resource": "Los recursos de GPU/CPU estaban saturados durante la inferencia.",
+        "event_missing_media_cached": "YA-WAMF ya había guardado los archivos de esta captura, así que aún se pueden reproducir aunque Frigate ya no tenga el evento.",
+        "event_missing_media_cached_retention": "Puede que Frigate haya eliminado el evento al agotarse su retención, mientras YA-WAMF conservó la instantánea o el clip de la visita completa."
       },
       "checks_items": {
         "api_health": "Verificar el endpoint de salud de la API de Frigate y la configuración de autenticación.",
@@ -222,7 +225,9 @@
         "retention_settings": "Revisar la configuración de retención de Frigate y el estado del almacenamiento.",
         "retry_manual": "Reintentar la reclasificación manual después de que el servicio se estabilice.",
         "retry_snapshot": "Intentar la reclasificación manual de snapshot o video más tarde.",
-        "video_timeout_setting": "Aumentar el tiempo de espera del análisis de video o reducir los frames muestreados."
+        "video_timeout_setting": "Aumentar el tiempo de espera del análisis de video o reducir los frames muestreados.",
+        "use_cached_media": "Usa la instantánea o el clip que tiene YA-WAMF. Si se reproduce, no hay que hacer nada.",
+        "frigate_retention_if_unexpected": "Si ocurrió antes de lo que esperabas, revisa cuánto tiempo conserva Frigate los eventos."
       }
     },
     "fallback_title": "Resultado a partir de instantánea",
@@ -239,7 +244,7 @@
     "gated_action": "Reclasificar",
     "evidence": {
       "title": "Evidencia de esta ejecución",
-      "summary": "Se decodificaron {processed} de {sampled} fotogramas muestreados. Cada fotograma necesitaba al menos un {threshold} % de confianza para votar.",
+      "summary": "Se decodificaron {processed} de {sampled} fotogramas muestreados. Cada fotograma necesitaba al menos un {threshold} % de confianza para votar.",
       "confident_short": "fiables",
       "required": "Se necesitaban {required} momentos fiables y coincidentes de esta fuente.",
       "top_candidates": "Candidatos más recurrentes",
@@ -303,7 +308,7 @@
     "analyzing": "Analizando comportamiento…",
     "regenerating": "Regenerando…",
     "regenerate": "Regenerar análisis",
-    "error": "Error: {message}",
+    "error": "La IA no devolvió ningún análisis. Revisa el proveedor y la clave en Ajustes y vuelve a intentarlo.",
     "conversation_title": "Conversación",
     "conversation_loading": "Cargando conversación…",
     "conversation_empty": "Todavía no hay conversación. Haz una pregunta de seguimiento a la IA.",
@@ -419,7 +424,7 @@
   "archive_retry": "Reintentar",
   "unfavorite_confirm": "¿Quitar el favorito? Su foto y clip archivados ({size}) se eliminan con él. La visita sigue en el historial.",
   "unfavorite_button": "Quitar de favoritos",
-  "confidence_hint": "Confianza de la identificación: {score} %.",
+  "confidence_hint": "Confianza de la identificación: {score} %.",
   "captured_at_hint": "Capturado el {date} a las {time}.",
   "audio_evidence_hint": "Se oyó un canto de ave coincidente cerca de esta captura.",
   "audio_clip_aria": "Clip de audio de BirdNET-Go de la detección coincidente",
@@ -461,7 +466,7 @@
     "queued_behind": "Esperando para revisar todo el fotograma. {count, plural, one {# búsqueda delante.} other {# búsquedas delante.}}",
     "progress_label": "Progreso de la búsqueda",
     "progress_waiting": "Esperando para empezar",
-    "elapsed": "{seconds} s",
+    "elapsed": "{seconds} s",
     "action_waiting": "Esperando…",
     "action_scanning": "Buscando…",
     "incomplete": "{count, plural, =0 {No se confirmó ningún ave en esta imagen.} one {Al menos un ave confirmada en esta imagen.} other {Al menos # aves confirmadas en esta imagen.}} {regions, plural, one {Otra posible ave no se contó.} other {Otras # posibles aves no se contaron.}}",
@@ -503,10 +508,10 @@
   },
   "identified_by_owner": "Identificado por el propietario",
   "moved_to_garden": "Movida al jardín. El registro de ave está oculto; vuelve a mostrarlo desde Ocultas para restaurarlo.",
-  "move_to_garden_failed": "No se pudo mover este registro al jardín: {message}",
+  "move_to_garden_failed": "No se pudo mover este registro a Jardín. Inténtalo de nuevo; si sigue fallando, abre Estado.",
   "domestic_bird_declared": "Es un ave de tipo {bird}, un ave doméstica que tienes. Muévela al jardín para registrarla como animal del jardín. Este registro de ave se oculta, no se borra.",
   "move_to_garden": "Mover al jardín",
-  "range_fallback": "Filtro de área: el modelo dijo primero {original} ({score} %), que eBird nunca ha registrado en {region}, así que se mantuvo su siguiente respuesta dentro del área.",
+  "range_fallback": "Filtro de área: el modelo dijo primero {original} ({score} %), que eBird nunca ha registrado en {region}, así que se mantuvo su siguiente respuesta dentro del área.",
   "audio_context_all": "Todos los cantos oídos en torno a esta visita",
   "record_label": "Registro de detección",
   "more_actions": "Más acciones",

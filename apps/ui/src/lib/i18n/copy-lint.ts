@@ -60,6 +60,28 @@ const OTHER_PEOPLES_REPORTS = {
     keys: /ebird|nearby|notable|reference|hotspot|location|inat/i,
     reason: 'a sighting is a report from eBird or another observer, which is what these strings describe'
 };
+/**
+ * "…, um es zu prüfen" is the ordinary verb (to check something), not the old name of the queue.
+ * The old label also appears in lower case ("nichts zu prüfen"), so the words are matched in any
+ * case and the sentences that use the verb are named here, one by one.
+ */
+const GERMAN_VERB_TO_CHECK = {
+    keys: new RegExp(
+        '^(?:' +
+            [
+                'detection\\.upstream_check\\.not_checked',
+                'detection\\.video_analysis\\.error_details\\.checks',
+                'garden\\.beta_off_desc',
+                'garden\\.explorer\\.capture_actions',
+                'jobs\\.report_issue_empty',
+                'leaderboard\\.unidentified_desc',
+                'settings\\.detection\\.bird_finder_runs_waiting(?:_full_frames)?',
+                'visits\\.capture_actions'
+            ].join('|') +
+            ')$'
+    ),
+    reason: 'the sentence uses the verb "prüfen" (to check a photo, a device or an incident), not the name of the queue'
+};
 const DEFAULT_USER_NAME = {
     keys: /^auth\.username_placeholder$/,
     reason: 'the placeholder shows the literal default user name'
@@ -99,7 +121,7 @@ export const GLOSSARY: Record<string, readonly GlossaryTerm[]> = {
         term('KI', ['LLM', 'LLMs'], { exact: true }),
         term('Explorer', ['Zu Ereignissen', 'Ereignisseite'], { exact: true }),
         term('Zustand', ['Systemgesundheit', 'Systemzustand']),
-        term('Erfordert Ihre Entscheidung', ['Zu prüfen', 'Prüfung erforderlich', 'Prüfwarteschlange']),
+        term('Erfordert Ihre Entscheidung', ['Zu prüfen', 'Prüfung erforderlich', 'Prüfwarteschlange'], { except: GERMAN_VERB_TO_CHECK }),
         term('Gartentier', ['Garten-Wildtier', 'Gartenbesucher']),
         term('Besitzer', ['Eigentümer', 'Eigentümers', 'Betreiber', 'Betreibers', 'Inhaber', 'Admin', 'Administrator'], { except: DEFAULT_USER_NAME })
     ]

@@ -55,7 +55,7 @@
   "bulk_delete_confirm": "Excluir {count, plural, one {# detecção} other {# detecções}}? Esta ação não pode ser desfeita.",
   "bulk_delete_success": "{count, plural, one {# detecção excluída.} other {# detecções excluídas.}}",
   "bulk_delete_missing": "{count, plural, one {# detecção não foi encontrada.} other {# detecções não foram encontradas.}}",
-  "bulk_delete_failed": "Falha ao excluir: {message}",
+  "bulk_delete_failed": "Não foi possível eliminar os registros selecionados. Tente novamente; se continuar falhando, abra Saúde.",
   "bulk_reclassify_success": "{count, plural, one {# detecção enfileirada para análise de vídeo.} other {# detecções enfileiradas para análise de vídeo.}}",
   "bulk_reclassify_partial": "{queued} enfileiradas; falha ao enfileirar {failed}.",
   "timeline_scope": "Dias nesta página",

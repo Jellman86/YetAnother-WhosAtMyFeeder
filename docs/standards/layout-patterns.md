@@ -336,7 +336,8 @@ day bar: eyebrow, the window as the page heading (the page's only h1), live indi
 from 1920px the rail splits into those two columns, under the card that spans both:
 [ primary log, 1.4fr ]  [ Needs your call, across both          ]
                         [ happening, 1fr ]  [ reference, 1fr ]
-on a phone, one column: the day bar, Needs your call, the log, then the rail
+on a phone, one column: the day bar, Needs your call, the log, then the rail; from 768px to 1279px
+the rail under the log stands in its two columns (happening, reference) instead of full-width cards
 ```
 
 The rail is ordered by urgency, not by data source: what needs you, then what is running, then
