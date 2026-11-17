@@ -1243,7 +1243,7 @@
                     </span>
                 </summary>
 
-                <p class="mt-4 max-w-2xl text-sm text-muted">
+                <p class="mt-4 max-w-prose text-sm text-muted">
                     {$_('jobs.errors_export_desc', {
                         default: 'A bundle captures this page, the backend’s warnings and errors, the model’s status, start-up warnings and incidents as one JSON file. Attach one when you report a problem.'
                     })}
