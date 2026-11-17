@@ -57,7 +57,7 @@
       "top_three": "Der Anteil, bei dem die richtige Art unter den ersten drei Vermutungen war."
     },
     "columns_title": "Was die Spalten bedeuten",
-    "cost": "Während der Bewertung lädt YA-WAMF die Modelle nacheinander, daher können laufende Erkennungen langsamer sein. Am Ende wird das Modell, das Sie jetzt verwenden, wieder eingesetzt. Zum Abrufen der Fotos ist Internetzugang nötig.",
+    "cost": "Während der Bewertung lädt YA-WAMF die Modelle nacheinander, daher kann die Benennung neuer Besuche langsamer sein. Am Ende wird das Modell, das Sie jetzt verwenden, wieder eingesetzt. Zum Abrufen der Fotos ist Internetzugang nötig.",
     "limit": "Die Fotos stammen nicht von Ihrer Futterstelle. Nutzen Sie die Werte, um Modelle miteinander zu vergleichen, nicht um vorherzusagen, wie genau eines an Ihrer Futterstelle sein wird.",
     "photos": "Die Fotos stammen von iNaturalist und Wikimedia Commons: häufige Futterplatzvögel und Vögel, die in der Nähe Ihres gespeicherten Standorts gemeldet wurden.",
     "title": "So funktioniert es"
@@ -174,10 +174,10 @@
     "unexpected": "Sie wurde durch einen Fehler beendet, den diese Seite nicht benennen kann. Starten Sie sie erneut; wenn sie wieder abbricht, steht die Ursache in den Container-Protokollen."
   },
   "warning": {
-    "high_abstention": "Hat bei {share} % der Fotos keine Art genannt. Möglicherweise deckt es diese Vögel nicht ab, oder die Installation ist unvollständig. Prüfen Sie das Modell unter Einstellungen → Vögel bestimmen.",
+    "high_abstention": "Hat bei {share} % der Fotos keine Art genannt. Möglicherweise deckt es diese Vögel nicht ab, oder die Installation ist unvollständig. Prüfen Sie das Modell unter Einstellungen → Vögel bestimmen.",
     "incomplete_install": "Seine Dateien sind unvollständig. Nutzen Sie für dieses Modell „Download reparieren“ unter Einstellungen → Vögel bestimmen.",
     "inference_health_unhealthy": "Während des Laufs traten Fehler oder Zeitüberschreitungen auf. Die Ursache steht in den Container-Protokollen.",
-    "latency_drift_high": "Viel langsamer als beim Laden: {measured, number} ms pro Foto gegenüber {loaded, number} ms. Der Anbieter, auf dem es lief, arbeitet möglicherweise fehlerhaft. Stellen Sie den Inferenzanbieter unter Einstellungen → Vögel bestimmen auf CPU und bewerten Sie erneut.",
+    "latency_drift_high": "Viel langsamer als beim Laden: {measured, number} ms pro Foto gegenüber {loaded, number} ms. Der Anbieter, auf dem es lief, arbeitet möglicherweise fehlerhaft. Stellen Sie den Inferenzanbieter unter Einstellungen → Vögel bestimmen auf CPU und bewerten Sie erneut.",
     "latency_drift_high_plain": "Viel langsamer als beim Laden. Der Anbieter, auf dem es lief, arbeitet möglicherweise fehlerhaft. Stellen Sie den Inferenzanbieter unter Einstellungen → Vögel bestimmen auf CPU und bewerten Sie erneut.",
     "low_shared_core": "Hat weniger als die Hälfte der häufigen Futterplatzvögel richtig benannt, was meist auf eine beschädigte Installation hinweist. Nutzen Sie für dieses Modell „Download reparieren“ unter Einstellungen → Vögel bestimmen.",
     "partial_vocabulary": "Kann {outside} der {total} Testarten nicht benennen, meist weil sie außerhalb seiner Region leben. Seine Anteile beziehen sich auf die Arten, die es benennen kann.",

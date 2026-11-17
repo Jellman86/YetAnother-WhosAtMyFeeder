@@ -131,7 +131,7 @@
 <WizardStepLayout
     title={$_('setup.connection.title', { default: 'Frigate & MQTT connection' })}
     description={$_('setup.connection.description', {
-        default: 'YA-WAMF reads detections from Frigate over MQTT and fetches snapshots from its API. Point it at both, then test.'
+        default: 'YA-WAMF hears about each bird from Frigate over MQTT, and fetches its snapshot from Frigate’s API. Enter both addresses, then test.'
     })}
     canContinue={loadState === 'ready' && savedOnce}
     {blockedReason}

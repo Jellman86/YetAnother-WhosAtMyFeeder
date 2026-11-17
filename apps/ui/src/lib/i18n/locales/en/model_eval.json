@@ -57,7 +57,7 @@
       "top_three": "The share where the correct species was among the first three guesses."
     },
     "columns_title": "What the columns mean",
-    "cost": "While it runs, YA-WAMF loads each model in turn, so live detections can be slower. The model you use now is put back when it ends. Fetching the photos needs internet access.",
+    "cost": "While it runs, YA-WAMF loads each model in turn, so naming new visits can be slower. The model you use now is put back when it ends. Fetching the photos needs internet access.",
     "limit": "The photos are not from your feeder. Use the figures to compare models with each other, not to predict how accurate one will be at your feeder.",
     "photos": "The photos come from iNaturalist and Wikimedia Commons: common feeder birds, and birds recorded near your saved location.",
     "title": "How this works"
@@ -177,7 +177,7 @@
     "high_abstention": "Gave no species for {share}% of the photos. It may not cover these birds, or its install may be incomplete. Check the model in Settings → Identifying birds.",
     "incomplete_install": "Its files are incomplete. Use Repair download for this model in Settings → Identifying birds.",
     "inference_health_unhealthy": "Errors or timeouts happened while it ran. Look at the container logs for the cause.",
-    "latency_drift_high": "Much slower than when it was loaded: {measured, number} ms a photo against {loaded, number} ms. The provider it ran on may be failing. Set the inference provider to CPU in Settings → Identifying birds and evaluate again.",
+    "latency_drift_high": "Much slower than when it was loaded: {measured, number} ms a photo against {loaded, number} ms. The provider it ran on may be failing. Set the inference provider to CPU in Settings → Identifying birds and evaluate again.",
     "latency_drift_high_plain": "Much slower than when it was loaded. The provider it ran on may be failing. Set the inference provider to CPU in Settings → Identifying birds and evaluate again.",
     "low_shared_core": "Named fewer than half of the common feeder birds correctly, which usually means a broken install. Use Repair download for this model in Settings → Identifying birds.",
     "partial_vocabulary": "Cannot name {outside} of the {total} test species, usually because they live outside its region. Its shares cover the species it can name.",

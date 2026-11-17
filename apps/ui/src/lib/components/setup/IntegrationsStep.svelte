@@ -27,7 +27,7 @@
     let diagnosticRunId = $state(0);
 
     let integrations = $derived([
-        { id: 'birdnet' as const, name: 'BirdNET-Go', get: () => birdnetEnabled, set: (value: boolean) => (birdnetEnabled = value), note: $_('setup.integrations.note_birdnet', { default: 'Audio confirmation of visual detections.' }) },
+        { id: 'birdnet' as const, name: 'BirdNET-Go', get: () => birdnetEnabled, set: (value: boolean) => (birdnetEnabled = value), note: $_('setup.integrations.note_birdnet', { default: 'Confirms what the camera saw with what the microphone heard.' }) },
         { id: 'ebird' as const, name: 'eBird', get: () => ebirdEnabled, set: (value: boolean) => (ebirdEnabled = value), note: $_('setup.integrations.note_ebird', { default: 'Nearby sightings, maps and an optional range filter. Add an API key in Settings.' }) },
         { id: 'inaturalist' as const, name: 'iNaturalist', get: () => inaturalistEnabled, set: (value: boolean) => (inaturalistEnabled = value), note: $_('setup.integrations.note_inat', { default: 'Owner-reviewed submissions. Connect your account in Settings.' }) },
         { id: 'birdweather' as const, name: 'BirdWeather', get: () => birdweatherEnabled, set: (value: boolean) => (birdweatherEnabled = value), note: $_('setup.integrations.note_bw', { default: 'Report to community stations. Add a station token in Settings.' }) },
@@ -123,7 +123,7 @@
 <WizardStepLayout
     title={$_('setup.integrations.title', { default: 'Integrations' })}
     description={$_('setup.integrations.description', {
-        default: 'Optional add-ons. Enable what you want now; sections that still need credentials are clearly marked in the final review.'
+        default: 'Optional add-ons. Turn on what you want now; the final review marks any that still need a key or an account.'
     })}
     showSkip
     canContinue={loadState === 'ready'}
@@ -151,7 +151,7 @@
                             </label>
                             <input id="setup-birdnet-url" type="url" placeholder="http://birdnet-go:8080" bind:value={birdnetUrl} class="input-base" />
                             <p class="text-xs leading-relaxed text-muted">
-                                {$_('setup.integrations.birdnet_test_subtitle', { default: 'The staged test uses this URL, then verifies the saved MQTT broker and local detection storage.' })}
+                                {$_('setup.integrations.birdnet_test_subtitle', { default: 'The test uses this address, then checks the saved MQTT broker and that calls can be stored.' })}
                             </p>
                             <button type="button" class="btn btn-secondary px-4 py-2.5" onclick={testBirdnet} disabled={diagnosticRunning}>
                                 {$_('setup.integrations.birdnet_test', { default: 'Test BirdNET-Go path' })}
@@ -172,7 +172,7 @@
 {#if diagnosticOpen}
     <DiagnosticDialog
         title={$_('settings.integrations.birdnet.test_title', { default: 'BirdNET-Go connection test' })}
-        subtitle={$_('setup.integrations.birdnet_test_subtitle', { default: 'Checks this URL, the saved MQTT broker, and local detection storage.' })}
+        subtitle={$_('setup.integrations.birdnet_test_subtitle', { default: 'The test uses this address, then checks the saved MQTT broker and that calls can be stored.' })}
         stages={diagnosticStages}
         result={diagnosticResult}
         busy={diagnosticRunning}
