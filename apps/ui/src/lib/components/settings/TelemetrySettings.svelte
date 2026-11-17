@@ -57,7 +57,7 @@
     ]);
 </script>
 
-<SettingsCard title={$_('settings.telemetry.title')} description={$_('settings.telemetry.desc')}>
+<SettingsCard level={3} title={$_('settings.telemetry.title')} description={$_('settings.telemetry.desc')}>
     <SettingsRow
         labelId="setting-telemetry"
         label={$_('settings.telemetry.usage_title', { default: 'Anonymous usage statistics' })}

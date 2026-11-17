@@ -320,11 +320,12 @@
       "storage": "Almacenamiento",
       "notifications": "Alertas"
     },
-    "sharing_note": "Cada servicio de abajo indica si está activado. El inicio de sesión y el acceso de invitados también se configuran aquí."
+    "sharing_note": "Nada de aquí depende de una conexión medida. Aquí se configuran el inicio de sesión y el acceso de invitados; cada servicio en Más opciones indica si está activado."
   },
   "more": {
     "title": "Más opciones",
-    "cameras": "Detalles de Frigate, origen de la imagen, clips y BirdNET-Go"
+    "cameras": "Detalles de Frigate, origen de la imagen, clips y BirdNET-Go",
+    "sharing": "eBird, iNaturalist, BirdWeather, tiempo de Home Assistant, información de especies, IA y telemetría"
   },
   "debug": {
     "llm_prompts_title": "Plantillas de prompts de LLM",
@@ -1038,6 +1039,8 @@
   },
   "location": {
     "title": "Ubicación",
+    "card_title": "Ubicación de tu comedero",
+    "card_desc": "El tiempo registrado con cada visita, los avistamientos cercanos de eBird, el filtro de área de distribución y las observaciones enviadas a iNaturalist parten de aquí.",
     "auto": "Auto",
     "manual": "Manual",
     "latitude": "Latitud",
@@ -1955,5 +1958,9 @@
     "scan_again": "Vuelva a analizar.",
     "timezone_last_scan_incomplete": "{count, plural, one {El último análisis no pudo comprobar # detección (Frigate no respondió). Vuelva a analizar.} other {El último análisis no pudo comprobar # detecciones (Frigate no respondió). Vuelva a analizar.}}",
     "timezone_scan_incomplete": "{count, plural, one {Este análisis no pudo comprobar # detección (Frigate no respondió). Vuelva a analizar.} other {Este análisis no pudo comprobar # detecciones (Frigate no respondió). Vuelva a analizar.}}"
+  },
+  "units": {
+    "title": "Unidades",
+    "desc": "Para todas las personas que abren esta instalación, no solo para este dispositivo."
   }
 }

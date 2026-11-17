@@ -320,11 +320,12 @@
       "storage": "Speicher",
       "notifications": "Benachrichtigungen"
     },
-    "sharing_note": "Jeder Dienst unten zeigt, ob er eingeschaltet ist. Anmeldung und Gastzugang werden ebenfalls hier eingestellt."
+    "sharing_note": "Hier hängt nichts von einer gemessenen Verbindung ab. Anmeldung und Gastzugang werden hier eingestellt; jeder Dienst unter Weitere Optionen zeigt, ob er eingeschaltet ist."
   },
   "more": {
     "title": "Weitere Optionen",
-    "cameras": "Frigate-Details, Bildquelle, Clips und BirdNET-Go"
+    "cameras": "Frigate-Details, Bildquelle, Clips und BirdNET-Go",
+    "sharing": "eBird, iNaturalist, BirdWeather, Home-Assistant-Wetter, Arteninformationen, KI und Telemetrie"
   },
   "debug": {
     "llm_prompts_title": "LLM-Promptvorlagen",
@@ -1038,6 +1039,8 @@
   },
   "location": {
     "title": "Standort",
+    "card_title": "Standort Ihrer Futterstelle",
+    "card_desc": "Das Wetter zu jedem Besuch, eBird-Sichtungen in der Nähe, der Verbreitungsfilter und an iNaturalist gesendete Beobachtungen gehen von hier aus.",
     "auto": "Auto",
     "manual": "Manuell",
     "latitude": "Breitengrad",
@@ -1955,5 +1958,9 @@
     "scan_again": "Suchen Sie erneut.",
     "timezone_last_scan_incomplete": "{count, plural, one {Die letzte Suche konnte # Erkennung nicht prüfen (Frigate hat nicht geantwortet). Suchen Sie erneut.} other {Die letzte Suche konnte # Erkennungen nicht prüfen (Frigate hat nicht geantwortet). Suchen Sie erneut.}}",
     "timezone_scan_incomplete": "{count, plural, one {Diese Suche konnte # Erkennung nicht prüfen (Frigate hat nicht geantwortet). Suchen Sie erneut.} other {Diese Suche konnte # Erkennungen nicht prüfen (Frigate hat nicht geantwortet). Suchen Sie erneut.}}"
+  },
+  "units": {
+    "title": "Einheiten",
+    "desc": "Für alle, die diese Installation öffnen, nicht nur für dieses Gerät."
   }
 }

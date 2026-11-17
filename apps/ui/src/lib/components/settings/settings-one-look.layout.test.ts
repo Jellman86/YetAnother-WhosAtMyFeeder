@@ -7,6 +7,7 @@ import sharedSegmentedSource from '../ui/Segmented.svelte?raw';
 import cardSource from './_primitives/SettingsCard.svelte?raw';
 import gardenSource from './GardenBetaSettings.svelte?raw';
 import integrationSource from './IntegrationSettings.svelte?raw';
+import haWeatherSource from './HaWeatherSettings.svelte?raw';
 import birdnetSource from './BirdnetSettings.svelte?raw';
 import authenticationSource from './AuthenticationSettings.svelte?raw';
 import modelManagerSource from '../../pages/models/ModelManager.svelte?raw';
@@ -70,9 +71,10 @@ describe('Settings has one look across tabs', () => {
         // The switch for a whole card sits in its header, named by the card title.
         expect(cardSource).toContain('titleId');
         expect(birdnetSource).toContain('titleId="integration-birdnet-title"');
-        for (const service of ['inaturalist', 'ebird', 'birdweather', 'ha-weather']) {
+        for (const service of ['inaturalist', 'ebird', 'birdweather']) {
             expect(integrationSource, service).toContain(`titleId="integration-${service}-title"`);
         }
+        expect(haWeatherSource).toContain('titleId="integration-ha-weather-title"');
         expect(authenticationSource).toContain('titleId="security-auth-title"');
         // Telemetry's first switch is named for what it sends, not after the section.
         expect(telemetrySource).toContain("label={$_('settings.telemetry.usage_title'");

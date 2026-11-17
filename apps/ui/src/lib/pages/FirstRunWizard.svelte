@@ -13,7 +13,7 @@
 </script>
 
 {#if setupWizardStore.active}
-    <div class="min-h-screen bg-surface-light dark:bg-surface-dark">
+    <div class="min-h-screen">
         <WizardShell />
     </div>
 {/if}

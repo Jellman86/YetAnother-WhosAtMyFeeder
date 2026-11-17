@@ -5,9 +5,11 @@ import {
     birdDeliveryChannels,
     deliverableChannels,
     gardenAlertChannels,
+    leadsOutboundList,
     outboundRequests,
     type NotificationCredentials,
-    type OutboundFacts
+    type OutboundFacts,
+    type OutboundState
 } from './outbound-requests';
 
 function backendJson<T>(path: string): T {
@@ -215,3 +217,24 @@ describe('the list as a whole', () => {
         expect(new Set(keys).size).toBe(keys.length);
     });
 });
+
+describe('which requests lead the list on About', () => {
+    it('leads with what is or may be sent, and folds away only what certainly is not sent now', () => {
+        const table: Record<OutboundState, boolean> = { on: true, always: true, unknown: true, off: false, on_use: false };
+        for (const [state, leads] of Object.entries(table) as Array<[OutboundState, boolean]>) {
+            expect(leadsOutboundList(state), state).toBe(leads);
+        }
+    });
+
+    it('never folds a request a guest cannot see the setting for', () => {
+        const guest: OutboundFacts = {
+            ...owner, owner: false, llmKey: null, telemetryUsage: null, telemetryHealth: null, updateChecks: null,
+            birdweather: null, birdweatherToken: null, inaturalistSubmissions: null, inaturalistConnected: null,
+            birdChannels: null, gardenChannels: null, garden: null, locationSet: null, locationAutomatic: null
+        };
+        const unknown = outboundRequests(guest).filter((request) => request.state === 'unknown');
+        expect(unknown.map((request) => request.key)).toEqual(expect.arrayContaining(['weather', 'notify', 'birdweather', 'telemetry']));
+        for (const request of unknown) expect(leadsOutboundList(request.state), request.key).toBe(true);
+    });
+});
+

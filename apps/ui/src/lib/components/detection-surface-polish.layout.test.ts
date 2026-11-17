@@ -14,6 +14,8 @@ describe('detection surface polish', () => {
         // Every call heard sits behind the shared disclosure, whose row is a full touch target.
         expect(audioSource).toContain("<Disclosure label={$_('detection.audio_context_all'");
         expect(disclosureSource).toMatch(/<summary class="[^"]*min-h-11/);
+        // The note keeps its space from the label, and its dot never ends a line.
+        expect(disclosureSource).toContain("{#if note}{' '}<span class=\"font-semibold text-accent-ink\"><Separator />&nbsp;{note}</span>");
         expect(detectionModalSource).toMatch(/commonNameEditorOpen = !commonNameEditorOpen;\s+\}\}\s+aria-expanded=\{commonNameEditorOpen\}\s+class="[^"]*min-h-11/);
     });
 

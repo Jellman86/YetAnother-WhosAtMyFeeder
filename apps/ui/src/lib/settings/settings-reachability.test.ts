@@ -44,7 +44,10 @@ const MOVED: Readonly<Record<string, SettingsPart>> = {
     'integrations-birdnet-advanced': 'connection',
     'audio-buffer': 'connection',
     'correlation-window': 'connection',
-    'birdnet-source-options': 'connection'
+    'birdnet-source-options': 'connection',
+    // Units are how numbers read, so they are set in Display with the rest of how YA-WAMF looks.
+    location_weather_unit_system: 'appearance',
+    'weather-unit-system': 'appearance'
 };
 
 /**

@@ -142,6 +142,16 @@ export function gardenAlertChannels(settings: {
     return NOTIFICATION_CHANNELS.filter((channel) => chosen.has(channel) && settings.deliverable[channel]).length;
 }
 
+/**
+ * Whether a request leads About's list rather than waiting behind "Show everything". Everything
+ * that is or may be sent leads: On, Always, and a setting this viewer cannot read, because a privacy
+ * list errs towards showing a request that might be made. Only what is certainly not being sent (Off)
+ * or is made only when someone starts it (When used) waits.
+ */
+export function leadsOutboundList(state: OutboundState): boolean {
+    return state !== 'off' && state !== 'on_use';
+}
+
 export function outboundRequests(facts: OutboundFacts): OutboundRequest[] {
     const located = facts.locationSet === null || facts.locationAutomatic === null
         ? null

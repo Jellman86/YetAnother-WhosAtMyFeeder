@@ -10,6 +10,8 @@ import { settingsMoreId } from './settings-more';
  * `notifications_` has one home and an exception can still be named.
  */
 const EXACT_FIELD_PARTS: Readonly<Record<string, SettingsPart>> = {
+    // Units are how numbers read, set in Display with the rest of how YA-WAMF looks.
+    location_weather_unit_system: 'appearance',
     frigate_url: 'connection',
     frigate_ingest_labels: 'connection',
     frigate_external_url: 'connection',
@@ -136,6 +138,8 @@ export interface SettingsFieldPlace {
 
 // Cameras & connection's More options, which holds the Frigate details and BirdNET-Go.
 const CAMERAS_MORE = settingsMoreId('cameras');
+// Sharing & integrations' More options, which holds the other services, AI and telemetry.
+const SHARING_MORE = settingsMoreId('sharing');
 
 const FIELD_PLACES: Readonly<Record<string, SettingsFieldPlace>> = {
     frigate_url: { labelKey: 'settings.frigate.url', inputId: 'frigate-url' },
@@ -160,16 +164,16 @@ const FIELD_PLACES: Readonly<Record<string, SettingsFieldPlace>> = {
     audio_topic: { labelKey: 'settings.integrations.birdnet.mqtt_topic', inputId: 'audio-topic', disclosures: [CAMERAS_MORE] },
     audio_buffer_hours: { labelKey: 'settings.integrations.birdnet.audio_buffer_hours', inputId: 'audio-buffer', disclosures: [CAMERAS_MORE, 'integrations-birdnet-advanced'] },
     audio_correlation_window_seconds: { labelKey: 'settings.integrations.birdnet.match_window_seconds', inputId: 'correlation-window', disclosures: [CAMERAS_MORE, 'integrations-birdnet-advanced'] },
-    inaturalist_default_latitude: { labelKey: 'settings.integrations.inaturalist.default_latitude', inputId: 'inat-lat', disclosures: ['integrations-inat-advanced'] },
-    inaturalist_default_longitude: { labelKey: 'settings.integrations.inaturalist.default_longitude', inputId: 'inat-lon', disclosures: ['integrations-inat-advanced'] },
-    inaturalist_default_place_guess: { labelKey: 'settings.integrations.inaturalist.default_place_guess', inputId: 'inat-place', disclosures: ['integrations-inat-advanced'] },
-    ebird_default_radius_km: { labelKey: 'settings.integrations.ebird.radius', inputId: 'ebird-radius', disclosures: ['integrations-ebird-advanced'] },
-    ebird_default_days_back: { labelKey: 'settings.integrations.ebird.days_back', inputId: 'ebird-days', disclosures: ['integrations-ebird-advanced'] },
-    ebird_max_results: { labelKey: 'settings.integrations.ebird.max_results', inputId: 'ebird-max-results', disclosures: ['integrations-ebird-advanced'] },
-    ebird_locale: { labelKey: 'settings.integrations.ebird.locale', inputId: 'ebird-locale', disclosures: ['integrations-ebird-advanced'] },
-    ha_weather_base_url: { labelKey: 'settings.integrations.ha_weather.base_url', inputId: 'ha-weather-url' },
-    ha_weather_entity: { labelKey: 'settings.integrations.ha_weather.entity', inputId: 'ha-weather-entity' },
-    ha_weather_illuminance_entity: { labelKey: 'settings.integrations.ha_weather.illuminance', inputId: 'ha-weather-illuminance' },
+    inaturalist_default_latitude: { labelKey: 'settings.integrations.inaturalist.default_latitude', inputId: 'inat-lat', disclosures: [SHARING_MORE, 'integrations-inat-advanced'] },
+    inaturalist_default_longitude: { labelKey: 'settings.integrations.inaturalist.default_longitude', inputId: 'inat-lon', disclosures: [SHARING_MORE, 'integrations-inat-advanced'] },
+    inaturalist_default_place_guess: { labelKey: 'settings.integrations.inaturalist.default_place_guess', inputId: 'inat-place', disclosures: [SHARING_MORE, 'integrations-inat-advanced'] },
+    ebird_default_radius_km: { labelKey: 'settings.integrations.ebird.radius', inputId: 'ebird-radius', disclosures: [SHARING_MORE, 'integrations-ebird-advanced'] },
+    ebird_default_days_back: { labelKey: 'settings.integrations.ebird.days_back', inputId: 'ebird-days', disclosures: [SHARING_MORE, 'integrations-ebird-advanced'] },
+    ebird_max_results: { labelKey: 'settings.integrations.ebird.max_results', inputId: 'ebird-max-results', disclosures: [SHARING_MORE, 'integrations-ebird-advanced'] },
+    ebird_locale: { labelKey: 'settings.integrations.ebird.locale', inputId: 'ebird-locale', disclosures: [SHARING_MORE, 'integrations-ebird-advanced'] },
+    ha_weather_base_url: { labelKey: 'settings.integrations.ha_weather.base_url', inputId: 'ha-weather-url', disclosures: [SHARING_MORE] },
+    ha_weather_entity: { labelKey: 'settings.integrations.ha_weather.entity', inputId: 'ha-weather-entity', disclosures: [SHARING_MORE] },
+    ha_weather_illuminance_entity: { labelKey: 'settings.integrations.ha_weather.illuminance', inputId: 'ha-weather-illuminance', disclosures: [SHARING_MORE] },
     location_latitude: { labelKey: 'settings.location.latitude', inputId: 'location-lat' },
     location_longitude: { labelKey: 'settings.location.longitude', inputId: 'location-lon' },
     auth_username: { labelKey: 'settings.auth.username', inputId: 'auth-username' },

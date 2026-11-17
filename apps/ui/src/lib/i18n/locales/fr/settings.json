@@ -320,11 +320,12 @@
       "storage": "Stockage",
       "notifications": "Alertes"
     },
-    "sharing_note": "Chaque service ci-dessous indique s’il est activé. La connexion et l’accès invité se règlent aussi ici."
+    "sharing_note": "Rien ici ne dépend d’une connexion mesurée. La connexion et l’accès invité se règlent ici ; chaque service sous Plus d’options indique s’il est activé."
   },
   "more": {
     "title": "Plus d’options",
-    "cameras": "Détails de Frigate, source d’image, clips et BirdNET-Go"
+    "cameras": "Détails de Frigate, source d’image, clips et BirdNET-Go",
+    "sharing": "eBird, iNaturalist, BirdWeather, météo Home Assistant, informations sur les espèces, IA et télémétrie"
   },
   "debug": {
     "llm_prompts_title": "Modèles de prompt LLM",
@@ -1038,6 +1039,8 @@
   },
   "location": {
     "title": "Emplacement",
+    "card_title": "Emplacement de votre mangeoire",
+    "card_desc": "La météo enregistrée avec chaque visite, les observations eBird à proximité, le filtre d’aire de répartition et les observations envoyées à iNaturalist partent d’ici.",
     "auto": "Auto",
     "manual": "Manuel",
     "latitude": "Latitude",
@@ -1955,5 +1958,9 @@
     "scan_again": "Relancez l’analyse.",
     "timezone_last_scan_incomplete": "{count, plural, one {La dernière analyse n’a pas pu vérifier # détection (Frigate n’a pas répondu). Relancez l’analyse.} other {La dernière analyse n’a pas pu vérifier # détections (Frigate n’a pas répondu). Relancez l’analyse.}}",
     "timezone_scan_incomplete": "{count, plural, one {Cette analyse n’a pas pu vérifier # détection (Frigate n’a pas répondu). Relancez l’analyse.} other {Cette analyse n’a pas pu vérifier # détections (Frigate n’a pas répondu). Relancez l’analyse.}}"
+  },
+  "units": {
+    "title": "Unités",
+    "desc": "Pour toutes les personnes qui ouvrent cette installation, pas seulement cet appareil."
   }
 }

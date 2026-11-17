@@ -51,6 +51,7 @@ const REQUIRED_FORMS: Record<string, string[]> = {
 const COUNT_BEFORE_INVARIANT_WORD = new Set([
     'about.instance.uptime_hours',
     'about.instance.uptime_minutes',
+    'about.outbound.show_everything_note',
     'dashboard.field_log.birds_none_counted',
     'dashboard.field_log.birds_unknown',
     'dashboard.field_log.preview_frame_position',

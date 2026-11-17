@@ -11,7 +11,7 @@
     "cameras": "Where events come from: Frigate, its MQTT broker and the cameras to watch.",
     "identification": "How sure a name must be, the models that find and name birds and their hardware, and features still in Beta.",
     "alerts": "When you hear about a visit, and the channels the message goes to.",
-    "sharing": "Other services YA-WAMF reads from or reports to, your location, AI descriptions, and who can open this install.",
+    "sharing": "Your feeder’s location and who can open this install, then the other services YA-WAMF reads from or reports to, AI descriptions and telemetry.",
     "storage": "What is kept and for how long, a backup of these settings, and the jobs that repair or fill in the history.",
     "display": "How YA-WAMF looks and names birds, and contrast, a reading font, motion and spoken updates."
   },

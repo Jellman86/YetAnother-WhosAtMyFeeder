@@ -43,8 +43,8 @@
 >
     <!-- What setup will ask for, as a plain list: tiles here looked like buttons and did nothing. -->
     <div>
-        <p class="text-sm font-semibold text-slate-900 dark:text-white">{$_('setup.welcome.covers', { default: 'Setup will ask you to:' })}</p>
-        <ul class="mt-1 list-disc space-y-1 pl-5 text-sm text-slate-700 dark:text-slate-200" data-setup-welcome-covers>
+        <p class="text-sm font-semibold text-strong">{$_('setup.welcome.covers', { default: 'Setup will ask you to:' })}</p>
+        <ul class="mt-1 list-disc space-y-1 pl-5 text-sm text-ink" data-setup-welcome-covers>
             {#each covers as item (item.id)}
                 <li>{item.label}</li>
             {/each}
@@ -52,7 +52,7 @@
     </div>
 
     <div class="space-y-2">
-        <label for="setup-language" class="text-sm font-medium text-slate-700 dark:text-slate-300">
+        <label for="setup-language" class="text-sm font-medium text-ink">
             {$_('first_run.language_label', { default: 'Language' })}
         </label>
         <select
@@ -66,11 +66,11 @@
                 <option value={opt.value}>{opt.label}</option>
             {/each}
         </select>
-        <p class="text-xs text-slate-600 dark:text-slate-400">
+        <p class="text-xs text-muted">
             {$_('first_run.language_desc', { default: 'You can change this later in Settings.' })}
         </p>
         {#if languageError}
-            <p class="text-xs font-medium text-attention-700 dark:text-attention-300" role="alert">
+            <p class="text-xs font-medium text-status-attention" role="alert">
                 {$_('common.language_load_error', { default: 'That language could not be loaded. Check your connection and try again.' })}
             </p>
         {/if}

@@ -203,7 +203,7 @@ For advanced insights, YA-WAMF can send high-confidence snapshots to a Large Lan
 
 The LLM analyzes the image context (weather, behavior, plumage) and provides a short, educational summary of what the bird is doing. This feature requires an API key.
 
-Use **Settings → Sharing & integrations → Test AI Connection** to check credentials, vision support and a representative
+Use **Settings → Sharing & integrations → More options → Test AI Connection** to check credentials, vision support and a representative
 five-frame request before analysing detections. The dialog keeps failures and retry guidance
 visible. A successful connection test is not a latency benchmark or a guarantee against later
 provider outages. Optional AI analysis sends selected images to the configured external provider.

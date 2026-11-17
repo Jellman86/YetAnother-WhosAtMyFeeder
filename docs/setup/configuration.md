@@ -59,6 +59,9 @@ Some settings have since moved within that map:
 | Setting | Was in | Now in |
 |---|---|---|
 | BirdNET-Go (connection, MQTT topic, audio buffer, source mapping, **Test Audio detection**) | Integrations | Cameras & connection, under **More options** |
+| Your feeder's location | Integrations | Sharing & integrations, first |
+| **Display units** | Integrations (Location) | Display (**Units**) |
+| eBird, iNaturalist, BirdWeather, Home Assistant weather, species information sources, AI, telemetry | Sharing & integrations | Sharing & integrations, under **More options** |
 
 Edits wait in one draft across every section. While anything differs from what is saved, a short
 bar at the bottom of the page counts the changes, with **Discard changes** (puts every saved value
@@ -334,11 +337,25 @@ notification choices persist in `/config/config.json`.
 
 ## Sharing & integrations
 
-Other services YA-WAMF reads from or reports to, your location, AI descriptions, and who can open this install.
+Your feeder's location and who can open this install come first. **More options** holds the other
+services YA-WAMF reads from or reports to, where species pages get their information, AI
+descriptions and telemetry. An address such as `/settings/sharing#ai` opens More options at that
+part.
+
+### Your feeder's location
+
+Your latitude and longitude, used for the weather recorded with each visit, nearby eBird sightings,
+the range filter, location-aware models such as DINOv2, and observations sent to iNaturalist.
+**Auto-detect** resolves it from your network; **Manual entry** pins exact coordinates. The place
+looked up for the point fills the optional `state` and `country` used by the eBird export. DINOv2
+uses both saved coordinates, including a valid zero, or neutral metadata when either is absent or
+invalid. It does not receive a capture date or location uncertainty. Saving changed coordinates
+reloads the classifier workers. This is the same location configured in the model step of the
+setup wizard.
 
 ### Integrations
 
-Other services YA-WAMF talks to. Credentials are redacted as `***REDACTED***` once saved, and
+Under **More options**: other services YA-WAMF talks to. Credentials are redacted as `***REDACTED***` once saved, and
 a saved credential can be re-tested without typing it again.
 
 
@@ -355,13 +372,7 @@ a saved credential can be re-tested without typing it again.
   than borrowing forecast values. An optional **Illuminance entity** stores a lux sensor's
   reading with each new detection. See
   [Home Assistant](../integrations/home-assistant.md#weather-and-light-from-your-own-sensors).
-- **Location** — your latitude and longitude for weather enrichment and location-aware classifiers such as DINOv2, optional `state` and
-  `country` values for the eBird export, and **Display Units** (`Metric`, `Imperial`, or
-  `British` for °C with mph and mm). Distances elsewhere in the UI follow this choice.
-  DINOv2 uses both saved coordinates, including a valid zero, or neutral metadata when
-  either is absent/invalid. It does not receive a capture date or location uncertainty.
-  Saving changed coordinates reloads the classifier workers. This is the same location
-  configured in the model step of the setup wizard.
+- **Location** is its own card, first in the section: see [Your feeder's location](#your-feeders-location).
 
 ### Species information sources
 
@@ -598,6 +609,7 @@ How the interface reads.
 | **Language** | The interface language. Notifications have their own language setting. |
 | **Date format** | Follow browser language (default), United Kingdom (DD/MM/YYYY), United States (MM/DD/YYYY), or Japan/China (YYYY-MM-DD). Date and time choices are saved independently. |
 | **Time format** | 12 hour, 24 hour, or **Follow browser language**. |
+| **Units** | **Display units**: `Metric`, `Imperial`, or `British` (°C with mph and mm). Temperature, wind, rain and distances across the UI follow it. Saved for everyone who opens this install, not only this device. |
 
 ### Accessibility
 

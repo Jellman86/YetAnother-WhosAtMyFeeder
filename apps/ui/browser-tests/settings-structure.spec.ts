@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { openSettings, saveBar } from './settings-page-mock';
+import { openMoreOptions, openSettings, saveBar } from './settings-page-mock';
 import { openDetectionSettings } from './detection-settings-mock';
 
 // Settings' shape: a compact rail beside the settings on a wide screen, one named select on a
@@ -45,13 +45,15 @@ test.describe('on a wide screen', () => {
         await expect(rail(page).getByRole('link', { name: 'Identifying birds', exact: true })).not.toContainText('unsaved');
     });
 
-    test('telemetry lives with Security, and Integrations ends with the species information sources', async ({ page }) => {
+    test('telemetry and the species information sources are under Sharing\'s More options', async ({ page }) => {
         await openSettings(page, { ebird_enabled: false, enrichment_sightings_source: 'disabled' });
         await expect(page.getByText('Anonymous usage', { exact: false }).first()).toHaveCount(0);
         await rail(page).getByRole('link', { name: 'Sharing & integrations', exact: true }).click();
+        await openMoreOptions(page);
         await expect(page.getByRole('switch', { name: /telemetry/i }).first()).toBeVisible();
 
         await rail(page).getByRole('link', { name: 'Sharing & integrations', exact: true }).click();
+        await openMoreOptions(page);
         const sources = page.locator('[data-enrichment-summary]');
         await expect(sources).toContainText('Not shown: needs an eBird API key');
         // The summary links to eBird's own switch rather than offering a second way to turn it on.

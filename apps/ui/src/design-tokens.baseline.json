@@ -94,16 +94,6 @@
     "dark": 0,
     "arbitrary": 1
   },
-  "lib/components/FeederPortrait.svelte": {
-    "palette": 33,
-    "dark": 14,
-    "arbitrary": 3
-  },
-  "lib/components/FeederPortraitPlaceholder.svelte": {
-    "palette": 6,
-    "dark": 3,
-    "arbitrary": 1
-  },
   "lib/components/FieldLog.svelte": {
     "palette": 0,
     "dark": 0,
@@ -199,16 +189,6 @@
     "dark": 4,
     "arbitrary": 0
   },
-  "lib/components/InstancePipeline.svelte": {
-    "palette": 19,
-    "dark": 9,
-    "arbitrary": 1
-  },
-  "lib/components/InstanceSummary.svelte": {
-    "palette": 58,
-    "dark": 27,
-    "arbitrary": 7
-  },
   "lib/components/KeyboardShortcuts.svelte": {
     "palette": 9,
     "dark": 4,
@@ -260,8 +240,8 @@
     "arbitrary": 0
   },
   "lib/components/PrivacySummary.svelte": {
-    "palette": 6,
-    "dark": 3,
+    "palette": 0,
+    "dark": 0,
     "arbitrary": 1
   },
   "lib/components/ProviderWarning.svelte": {
@@ -400,8 +380,8 @@
     "arbitrary": 0
   },
   "lib/components/settings/IntegrationSettings.svelte": {
-    "palette": 34,
-    "dark": 17,
+    "palette": 0,
+    "dark": 0,
     "arbitrary": 2
   },
   "lib/components/settings/MaintenanceSettings.svelte": {
@@ -494,81 +474,6 @@
     "dark": 3,
     "arbitrary": 0
   },
-  "lib/components/setup/AccountStep.svelte": {
-    "palette": 20,
-    "dark": 9,
-    "arbitrary": 0
-  },
-  "lib/components/setup/CameraThumbnail.svelte": {
-    "palette": 13,
-    "dark": 3,
-    "arbitrary": 0
-  },
-  "lib/components/setup/CamerasStep.svelte": {
-    "palette": 25,
-    "dark": 11,
-    "arbitrary": 0
-  },
-  "lib/components/setup/ConnectionStep.svelte": {
-    "palette": 48,
-    "dark": 22,
-    "arbitrary": 0
-  },
-  "lib/components/setup/HistoryStep.svelte": {
-    "palette": 44,
-    "dark": 20,
-    "arbitrary": 0
-  },
-  "lib/components/setup/IntegrationsStep.svelte": {
-    "palette": 20,
-    "dark": 9,
-    "arbitrary": 0
-  },
-  "lib/components/setup/ModelStep.svelte": {
-    "palette": 100,
-    "dark": 49,
-    "arbitrary": 0
-  },
-  "lib/components/setup/QualityStep.svelte": {
-    "palette": 10,
-    "dark": 4,
-    "arbitrary": 0
-  },
-  "lib/components/setup/ReviewStep.svelte": {
-    "palette": 34,
-    "dark": 15,
-    "arbitrary": 0
-  },
-  "lib/components/setup/SetupStepIcon.svelte": {
-    "palette": 6,
-    "dark": 3,
-    "arbitrary": 0
-  },
-  "lib/components/setup/WelcomeStep.svelte": {
-    "palette": 10,
-    "dark": 5,
-    "arbitrary": 0
-  },
-  "lib/components/setup/WizardLoadState.svelte": {
-    "palette": 9,
-    "dark": 3,
-    "arbitrary": 0
-  },
-  "lib/components/setup/WizardShell.svelte": {
-    "palette": 29,
-    "dark": 12,
-    "arbitrary": 0
-  },
-  "lib/components/setup/WizardStepLayout.svelte": {
-    "palette": 13,
-    "dark": 6,
-    "arbitrary": 0
-  },
-  "lib/pages/About.svelte": {
-    "palette": 29,
-    "dark": 14,
-    "arbitrary": 0
-  },
   "lib/pages/AudioHistory.svelte": {
     "palette": 0,
     "dark": 0,
@@ -584,19 +489,14 @@
     "dark": 0,
     "arbitrary": 2
   },
-  "lib/pages/FirstRunWizard.svelte": {
-    "palette": 0,
-    "dark": 1,
-    "arbitrary": 0
-  },
   "lib/pages/ManualObservation.svelte": {
     "palette": 196,
     "dark": 87,
     "arbitrary": 4
   },
   "lib/pages/Notifications.svelte": {
-    "palette": 97,
-    "dark": 44,
+    "palette": 0,
+    "dark": 0,
     "arbitrary": 1
   },
   "lib/pages/models/FinderDevicePanel.svelte": {

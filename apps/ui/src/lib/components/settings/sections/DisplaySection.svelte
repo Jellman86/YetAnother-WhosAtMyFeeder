@@ -4,7 +4,8 @@
     import type { Theme } from '../../../stores/theme.svelte';
     import type { AppearanceDraft } from '../../../settings/appearance-section';
     import type { AccessibilityDraft } from '../../../settings/accessibility-section';
-    import { loadAccessibilitySettings, loadAppearanceSettings } from './part-loaders';
+    import type { WeatherUnitSystem } from '../../../utils/weather-units';
+    import { loadAccessibilitySettings, loadAppearanceSettings, loadUnitsSettings } from './part-loaders';
 
     // Display: how YA-WAMF looks and reads. Holds what were the Appearance and Accessibility tabs.
     interface Props {
@@ -16,6 +17,7 @@
         setLanguage: (language: string) => Promise<void>;
         accessibilityDraft: AccessibilityDraft;
         onAccessibilityChange: (patch: Partial<AccessibilityDraft>) => void;
+        locationWeatherUnitSystem: WeatherUnitSystem;
     }
 
     let {
@@ -26,7 +28,8 @@
         setTheme,
         setLanguage,
         accessibilityDraft,
-        onAccessibilityChange
+        onAccessibilityChange,
+        locationWeatherUnitSystem = $bindable()
     }: Props = $props();
 </script>
 
@@ -44,6 +47,13 @@
                 setLanguage
             }}
         />
+        <!-- Units are how numbers read, so they sit with the rest of how YA-WAMF looks; they are
+             saved for everyone, which the card says. -->
+        <LazyRoute loader={loadUnitsSettings} label={$_('settings.units.title', { default: 'Units' })}>
+        {#snippet content(UnitsSettings)}
+        <UnitsSettings bind:locationWeatherUnitSystem />
+        {/snippet}
+        </LazyRoute>
     </div>
 
     <div class="space-y-8" data-settings-part="accessibility">

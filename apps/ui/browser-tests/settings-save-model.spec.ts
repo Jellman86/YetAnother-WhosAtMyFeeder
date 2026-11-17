@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { discardButton, openSaveDetails, openSettings, saveBar, saveButton, saveDetails } from './settings-page-mock';
+import { discardButton, openMoreOptions, openSaveDetails, openSettings, saveBar, saveButton, saveDetails } from './settings-page-mock';
 
 // Settings keeps one draft with one Save. The save bar must be honest about it: present only while
 // a saved value would change, naming where the changes are, able to throw them away, and putting a
@@ -55,6 +55,7 @@ test('the save bar counts the changes, names their sections, and Discard restore
     await page.locator('#mqtt-server').fill('broker.lan');
     await page.locator('#frigate-url').fill('http://frigate.lan:5000');
     await tabLink(page, 'Sharing & integrations').click();
+    await openMoreOptions(page);
     await page.getByRole('combobox', { name: /^Provider/ }).selectOption({ label: 'Claude' });
     await expect(page.locator('#llm-model')).toHaveValue('claude-opus-4-8');
 
