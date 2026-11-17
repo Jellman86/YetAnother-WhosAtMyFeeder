@@ -594,11 +594,6 @@
     "dark": 87,
     "arbitrary": 4
   },
-  "lib/pages/ModelEvaluation.svelte": {
-    "palette": 100,
-    "dark": 48,
-    "arbitrary": 0
-  },
   "lib/pages/Notifications.svelte": {
     "palette": 97,
     "dark": 44,
