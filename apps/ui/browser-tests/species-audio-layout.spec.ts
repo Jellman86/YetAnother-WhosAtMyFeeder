@@ -148,3 +148,12 @@ test('leaving the Audio filter sheet without Apply puts the fields back to what 
     await expect(page.getByRole('dialog', { name: 'Filters' }).getByPlaceholder('Any species')).toHaveValue('');
 });
 
+
+test('the Leaderboard names one window: the wall says the same span and dates as the rankings', async ({ page }) => {
+    await open(page, '/species', '[data-leaderboard-species-portrait]', WIDTHS[3]);
+    const rankings = (await page.locator('[data-leaderboard-rankings-window]').textContent())?.trim() ?? '';
+    expect(rankings).toMatch(/·/);
+    const eyebrow = (await page.locator('[data-capture-wall] header p').first().textContent())?.trim() ?? '';
+    expect(eyebrow).toContain(rankings);
+    await expect(page.locator('main')).not.toContainText(/Last (?:7|30) days/);
+});

@@ -13,8 +13,6 @@
   "featured": "Hervorgehoben",
   "view_details": "Details anzeigen",
   "total_sightings": "Gesamter Zeitraum",
-  "last_30_days": "Letzte 30 Tage",
-  "last_7_days": "Letzte 7 Tage",
   "last_n_days": "Letzte {days} Tage",
   "detections_over_time": "Aufnahmen im Zeitverlauf",
   "last_seen": "Zuletzt gesehen",

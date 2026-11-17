@@ -13,8 +13,6 @@
   "featured": "In evidenza",
   "view_details": "Vedi dettagli",
   "total_sightings": "Avvistamenti totali",
-  "last_30_days": "Ultimi 30 giorni",
-  "last_7_days": "Ultimi 7 giorni",
   "last_n_days": "Ultimi {days} giorni",
   "detections_over_time": "Rilevamenti nel tempo",
   "last_seen": "Visto l'ultima volta",
