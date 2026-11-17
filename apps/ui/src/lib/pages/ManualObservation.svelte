@@ -152,8 +152,8 @@
     const evidenceCaption = $derived.by(() => {
         if (!isVideo) {
             return topPrediction?.input_is_cropped
-                ? $_('manual_observation.evidence.photo_cropped_help', { default: 'Your photo, kept as uploaded. The classifier scored a crop around the bird.' })
-                : $_('manual_observation.evidence.photo_help', { default: 'Your photo, kept as uploaded. The classifier scored the whole frame.' });
+                ? $_('manual_observation.evidence.photo_cropped_help', { default: 'Your photo, kept as uploaded. The model scored a crop around the bird.' })
+                : $_('manual_observation.evidence.photo_help', { default: 'Your photo, kept as uploaded. The model scored the whole frame.' });
         }
         if (speciesPhotoUrl && selectedPrediction) {
             const offset = selectedPrediction.frame_offset_seconds;
@@ -316,9 +316,9 @@
         if (!validation.ok) {
             clearSelectedFile();
             if (validation.reason === 'image_too_large') {
-                errorMessage = $_('manual_observation.errors.image_size', { default: 'Choose an image no larger than 25 MB.' });
+                errorMessage = $_('manual_observation.errors.image_size', { default: 'Choose an image no larger than 25 MB.' });
             } else if (validation.reason === 'video_too_large') {
-                errorMessage = $_('manual_observation.errors.video_size', { default: 'Choose a video no larger than 250 MB.' });
+                errorMessage = $_('manual_observation.errors.video_size', { default: 'Choose a video no larger than 250 MB.' });
             } else {
                 errorMessage = $_('manual_observation.errors.type', { default: 'Choose a JPEG, PNG, WebP, MP4, MOV, or WebM file.' });
             }
@@ -539,7 +539,7 @@
                         {:else}
                             <div class="grid h-14 w-14 place-items-center rounded-2xl bg-brand-100 text-brand-700 dark:bg-brand-900/50 dark:text-brand-300"><svg class="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 16V4m0 0L8 8m4-4 4 4M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4" /></svg></div>
                             <div class="mt-4 text-sm font-bold text-slate-800 dark:text-slate-100">{$_('manual_observation.upload.drop', { default: 'Drop media here or choose a file' })}</div>
-                            <div class="mt-1 px-6 text-xs leading-5 text-slate-600 dark:text-slate-400">{$_('manual_observation.upload.formats', { default: 'JPEG, PNG or WebP up to 25 MB · MP4, MOV or WebM up to 250 MB and 3 minutes' })}</div>
+                            <div class="mt-1 px-6 text-xs leading-5 text-slate-600 dark:text-slate-400">{$_('manual_observation.upload.formats', { default: 'JPEG, PNG, WebP up to 25 MB · MP4, MOV, WebM up to 250 MB / 3 minutes' })}</div>
                         {/if}
                     </button>
                     <input bind:this={fileInput} class="sr-only" type="file" aria-label={$_('manual_observation.upload.title', { default: 'Choose a photo or video' })} accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm" onchange={(event) => setFile(event.currentTarget.files?.[0] ?? null)} />
@@ -557,7 +557,7 @@
                                     <p class="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">{draft.error_message}</p>
                                 {:else}
                                     <p class="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">{$_('manual_observation.analysis.failed_body', { default: 'The original is safe. Retry the analysis without uploading it again.' })}</p>
-                                    {#if draft.error_message}<p class="mt-2 text-xs text-slate-600 dark:text-slate-400">{$_('manual_observation.analysis.failed_reason', { default: 'Reason given by the classifier:' })} <code class="break-all font-mono">{draft.error_message}</code></p>{/if}
+                                    {#if draft.error_message}<p class="mt-2 text-xs text-slate-600 dark:text-slate-400">{$_('manual_observation.analysis.failed_reason', { default: 'Reason given by the model:' })} <code class="break-all font-mono">{draft.error_message}</code></p>{/if}
                                 {/if}
                                 <div class="mt-5 flex flex-wrap gap-3"><button class="btn btn-primary px-4 py-2.5" onclick={retryAnalysis}>{$_('manual_observation.analysis.retry', { default: 'Retry analysis' })}</button><button class="btn btn-ghost px-4 py-2.5" onclick={startOver}>{$_('manual_observation.start_over', { default: 'Start over' })}</button></div>
                             {:else}
@@ -676,7 +676,7 @@
                     </div>
                 </div>
             {:else}
-                <div class="mx-auto flex max-w-xl flex-col items-center py-10 text-center"><div class="grid h-16 w-16 place-items-center rounded-full bg-success-100 text-success-700 ring-8 ring-success-50 dark:bg-success-900/50 dark:text-success-300 dark:ring-success-950/40"><svg class="h-8 w-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m5 12 4 4L19 6" /></svg></div><p class="mt-6 text-xs font-bold text-success-700 dark:text-success-300">{$_('manual_observation.saved.eyebrow', { default: 'Field record complete' })}</p><h3 class="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{$_('manual_observation.saved.title', { default: 'Observation added' })}</h3><p class="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">{$_('manual_observation.saved.body', { default: 'The original media, classification evidence, and your confirmed species are now safely linked.' })}</p>{#if speciesPhotoUrl ?? previewUrl}<figure class="mt-6 w-full max-w-xs" data-manual-observation-saved-photo><div class="aspect-4/3 overflow-hidden rounded-xl bg-slate-950"><img src={speciesPhotoUrl ?? previewUrl ?? ''} alt="" class="h-full w-full object-contain" /></div><figcaption class="mt-2 text-xs text-slate-600 dark:text-slate-400">{$_('manual_observation.saved.photo', { values: { species: selectedSpeciesName }, default: 'The photo saved with {species}' })}</figcaption></figure>{/if}<div class="mt-7 flex flex-wrap justify-center gap-3"><button class="btn btn-primary px-5 py-2.5" onclick={() => onNavigate(`/events?event=${encodeURIComponent(draft?.saved_event_id ?? '')}`)}>{$_('manual_observation.saved.view', { default: 'View detection' })}</button><button class="btn btn-secondary px-5 py-2.5" onclick={startOver}>{$_('manual_observation.saved.another', { default: 'Add another' })}</button></div></div>
+                <div class="mx-auto flex max-w-xl flex-col items-center py-10 text-center"><div class="grid h-16 w-16 place-items-center rounded-full bg-success-100 text-success-700 ring-8 ring-success-50 dark:bg-success-900/50 dark:text-success-300 dark:ring-success-950/40"><svg class="h-8 w-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m5 12 4 4L19 6" /></svg></div><p class="mt-6 text-xs font-bold text-success-700 dark:text-success-300">{$_('manual_observation.saved.eyebrow', { default: 'Field record complete' })}</p><h3 class="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{$_('manual_observation.saved.title', { default: 'Observation added' })}</h3><p class="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">{$_('manual_observation.saved.body', { default: 'The verified record is now part of your history and species totals.' })}</p>{#if speciesPhotoUrl ?? previewUrl}<figure class="mt-6 w-full max-w-xs" data-manual-observation-saved-photo><div class="aspect-4/3 overflow-hidden rounded-xl bg-slate-950"><img src={speciesPhotoUrl ?? previewUrl ?? ''} alt="" class="h-full w-full object-contain" /></div><figcaption class="mt-2 text-xs text-slate-600 dark:text-slate-400">{$_('manual_observation.saved.photo', { values: { species: selectedSpeciesName }, default: 'The photo saved with {species}' })}</figcaption></figure>{/if}<div class="mt-7 flex flex-wrap justify-center gap-3"><button class="btn btn-primary px-5 py-2.5" onclick={() => onNavigate(`/events?event=${encodeURIComponent(draft?.saved_event_id ?? '')}`)}>{$_('manual_observation.saved.view', { default: 'View record' })}</button><button class="btn btn-secondary px-5 py-2.5" onclick={startOver}>{$_('manual_observation.saved.another', { default: 'Add another' })}</button></div></div>
             {/if}
         </div>
 </section>

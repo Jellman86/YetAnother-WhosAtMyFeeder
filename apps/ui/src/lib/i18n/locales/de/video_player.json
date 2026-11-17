@@ -56,7 +56,7 @@
   "aria_label": "Videoplayer",
   "clip_badge": "Clip",
   "close": "Video schließen",
-  "detection_clip_title": "Erkennungsclip",
+  "detection_clip_title": "Clip der Aufnahme",
   "full_visit_title": "Vollbesuch-Clip",
   "no_video_support": "Ihr Browser unterstützt keine Videowiedergabe."
 }

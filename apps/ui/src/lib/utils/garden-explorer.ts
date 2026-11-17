@@ -209,7 +209,7 @@ export function gardenEntryText(
         if (reason === 'below_threshold') return { title, state: t('garden.explorer.state_below_threshold', 'Animal detected; species below the naming threshold') };
         return { title, state: t('garden.explorer.state_manual', 'Manual review: automatic naming is off or an owner override is active') };
     }
-    if (view.review === 'species') return { title, state: t('garden.explorer.state_species', 'Needs review: suggested species') };
+    if (view.review === 'species') return { title, state: t('garden.explorer.state_species', 'Needs your call: suggested species') };
     if (route) {
         return {
             title,

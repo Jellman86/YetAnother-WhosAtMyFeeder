@@ -131,7 +131,7 @@
         };
     });
 
-    const name = $derived(label ?? $_('common.unknown_species', { default: 'Unknown species' }));
+    const name = $derived(label ?? $_('common.unknown_species', { default: 'Species not named' }));
 </script>
 
 <div

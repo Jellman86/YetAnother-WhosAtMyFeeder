@@ -228,7 +228,7 @@
     const status = $derived.by((): { text: string; tone: 'review' | 'confirmed' | 'neutral' } => {
         const entry = gardenEntryText(capture, view, (key, fallback, values) => get(_)(key, { values, default: fallback }), viewer, checkState);
         if (view.review === 'species') {
-            return { text: $_('garden.explorer.review_species', { default: 'Needs review: the species was suggested, not confirmed.' }), tone: 'review' };
+            return { text: $_('garden.explorer.review_species', { default: 'Needs your call: the species was suggested, not confirmed.' }), tone: 'review' };
         }
         if (view.review === 'presence') return { text: entry.state, tone: 'review' };
         if (capture.status === 'confirmed') {
@@ -356,7 +356,7 @@
             ? $_('garden.photo_confirmed', { default: 'Photo confirmed.' })
             : action === 'dismiss'
               ? $_('garden.explorer.dismissed', { default: 'Capture dismissed. Find it under Garden animals › Dismissed.' })
-              : $_('garden.photo_restored', { default: 'Photo returned to review.' });
+              : $_('garden.photo_restored', { default: 'Photo returned to Needs your call.' });
         // Similar photos stay; saying so keeps one decision from reading as the whole stack's.
         const remaining = groupTotal > 1 && action !== 'restore'
             ? ` ${$_('garden.group_remaining', { default: 'Other photos in this group still need review.' })}`
@@ -843,7 +843,7 @@
                             {/if}
                         {:else}
                             <button type="button" class="btn min-h-11 min-w-0 w-full whitespace-normal px-4 text-sm sm:w-auto btn-primary sm:flex-1" disabled={saving || !capture.snapshot_url} onclick={() => review('restore')}>
-                                {$_('garden.restore', { default: 'Return to review' })}
+                                {$_('garden.restore', { default: 'Return to Needs your call' })}
                             </button>
                         {/if}
                     </div>
@@ -851,7 +851,7 @@
                         <p id="garden-capture-identify-note" class="text-xs text-muted">{identifyBlocked}</p>
                     {/if}
                     {#if capture.status === 'dismissed' && !capture.snapshot_url}
-                        <p class="text-xs text-muted">{$_('garden.photo_restore_unavailable', { default: 'Photo unavailable. It cannot return to review.' })}</p>
+                        <p class="text-xs text-muted">{$_('garden.photo_restore_unavailable', { default: 'Photo unavailable. It cannot return to Needs your call.' })}</p>
                     {/if}
                     {#if capture.status === 'confirmed' && capture.review_token && editCapture === capture.id}
                         {#key capture.id}

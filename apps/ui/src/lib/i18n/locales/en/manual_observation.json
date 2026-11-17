@@ -1,7 +1,7 @@
 {
   "eyebrow": "Field record",
   "intro_title": "Turn a photo or clip into a verified observation",
-  "intro_body": "YA-WAMF uses the same model, crop selection, and video consensus as live detections. Nothing is added until you review it.",
+  "intro_body": "YA-WAMF uses the same model, crop selection and video consensus as for visits from the camera. Nothing is added until you review it.",
   "progress_label": "Observation progress",
   "steps": {
     "upload": "Upload",
@@ -30,14 +30,14 @@
     "species_frame_help_untimed": "The best frame of {species} in the video. This becomes the observation's photo.",
     "no_species_frame_help": "No frame singled out {species}, so the observation keeps the first frame of the video as its photo.",
     "first_frame_help": "The first frame of the video.",
-    "photo_help": "Your photo, kept as uploaded. The classifier scored the whole frame.",
-    "photo_cropped_help": "Your photo, kept as uploaded. The classifier scored a crop around the bird."
+    "photo_help": "Your photo, kept as uploaded. The model scored the whole frame.",
+    "photo_cropped_help": "Your photo, kept as uploaded. The model scored a crop around the bird."
   },
   "errors": {
     "load": "The analysis status could not be loaded.",
     "type": "Choose a JPEG, PNG, WebP, MP4, MOV, or WebM file.",
-    "image_size": "Choose an image no larger than 25 MB.",
-    "video_size": "Choose a video no larger than 250 MB.",
+    "image_size": "Choose an image no larger than 25 MB.",
+    "video_size": "Choose a video no larger than 250 MB.",
     "upload": "The media could not be uploaded.",
     "retry": "The analysis could not be restarted.",
     "save": "The observation could not be saved."
@@ -47,7 +47,7 @@
     "help": "Use the original file when possible. YA-WAMF will preserve it and choose the strongest input for classification.",
     "change": "Choose a different file",
     "drop": "Drop media here or choose a file",
-    "formats": "JPEG, PNG, WebP up to 25 MB · MP4, MOV, WebM up to 250 MB / 3 minutes",
+    "formats": "JPEG, PNG, WebP up to 25 MB · MP4, MOV, WebM up to 250 MB / 3 minutes",
     "uploading": "Securing the original…",
     "analyse": "Upload and analyse"
   },
@@ -61,7 +61,7 @@
     "failed_title": "Analysis stopped safely",
     "failed_body": "Your original media is still stored. Retry when the model is available.",
     "retry": "Retry analysis",
-    "failed_reason": "Reason given by the classifier:"
+    "failed_reason": "Reason given by the model:"
   },
   "review": {
     "preview_alt": "Observation preview",
@@ -110,8 +110,8 @@
     "toast": "Observation added",
     "eyebrow": "Record complete",
     "title": "Observation saved",
-    "body": "The verified record is now part of your detection history and species totals.",
-    "view": "View detection",
+    "body": "The verified record is now part of your history and species totals.",
+    "view": "View record",
     "another": "Add another",
     "photo": "The photo saved with {species}"
   },

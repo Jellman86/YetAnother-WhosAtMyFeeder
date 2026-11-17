@@ -1,7 +1,7 @@
 {
   "eyebrow": "Feldbeobachtung",
   "intro_title": "Foto oder Clip in eine bestätigte Beobachtung verwandeln",
-  "intro_body": "YA-WAMF nutzt dasselbe Modell, dieselbe Ausschnittwahl und denselben Videokonsens wie Live-Erkennungen. Gespeichert wird erst nach Ihrer Prüfung.",
+  "intro_body": "YA-WAMF nutzt dasselbe Modell, dieselbe Ausschnittwahl und denselben Videokonsens wie bei Besuchen von der Kamera. Gespeichert wird erst nach Ihrer Prüfung.",
   "progress_label": "Fortschritt der Beobachtung",
   "steps": {
     "upload": "Hochladen",
@@ -30,14 +30,14 @@
     "species_frame_help_untimed": "Das beste Bild von {species} im Video. Es wird das Foto der Beobachtung.",
     "no_species_frame_help": "Kein Bild zeigt eindeutig {species}, daher behält die Beobachtung das erste Bild des Videos als Foto.",
     "first_frame_help": "Das erste Bild des Videos.",
-    "photo_help": "Ihr Foto, unverändert gespeichert. Der Klassifikator hat das ganze Bild bewertet.",
-    "photo_cropped_help": "Ihr Foto, unverändert gespeichert. Der Klassifikator hat einen Ausschnitt um den Vogel bewertet."
+    "photo_help": "Ihr Foto, unverändert gespeichert. Das Modell hat das ganze Bild bewertet.",
+    "photo_cropped_help": "Ihr Foto, unverändert gespeichert. Das Modell hat einen Ausschnitt um den Vogel bewertet."
   },
   "errors": {
     "load": "Der Analysestatus konnte nicht geladen werden.",
     "type": "Wählen Sie eine JPEG-, PNG-, WebP-, MP4-, MOV- oder WebM-Datei.",
-    "image_size": "Wählen Sie ein Bild mit höchstens 25 MB.",
-    "video_size": "Wählen Sie ein Video mit höchstens 250 MB.",
+    "image_size": "Wählen Sie ein Bild mit höchstens 25 MB.",
+    "video_size": "Wählen Sie ein Video mit höchstens 250 MB.",
     "upload": "Das Medium konnte nicht hochgeladen werden.",
     "retry": "Die Analyse konnte nicht neu gestartet werden.",
     "save": "Die Beobachtung konnte nicht gespeichert werden."
@@ -47,7 +47,7 @@
     "help": "Verwenden Sie möglichst die Originaldatei. YA-WAMF bewahrt sie auf und wählt die beste Eingabe für die Klassifizierung.",
     "change": "Andere Datei auswählen",
     "drop": "Medium hier ablegen oder Datei auswählen",
-    "formats": "JPEG, PNG, WebP bis 25 MB · MP4, MOV, WebM bis 250 MB / 3 Minuten",
+    "formats": "JPEG, PNG, WebP bis 25 MB · MP4, MOV, WebM bis 250 MB / 3 Minuten",
     "uploading": "Original wird gesichert…",
     "analyse": "Hochladen und analysieren"
   },
@@ -61,7 +61,7 @@
     "failed_title": "Analyse sicher angehalten",
     "failed_body": "Ihr Originalmedium bleibt gespeichert. Wiederholen Sie den Vorgang, sobald das Modell verfügbar ist.",
     "retry": "Analyse wiederholen",
-    "failed_reason": "Vom Klassifikator genannter Grund:"
+    "failed_reason": "Vom Modell genannter Grund:"
   },
   "review": {
     "preview_alt": "Vorschau der Beobachtung",
@@ -110,8 +110,8 @@
     "toast": "Beobachtung hinzugefügt",
     "eyebrow": "Eintrag abgeschlossen",
     "title": "Beobachtung gespeichert",
-    "body": "Der bestätigte Eintrag gehört nun zu Ihrem Erkennungsverlauf und den Artensummen.",
-    "view": "Erkennung anzeigen",
+    "body": "Der bestätigte Eintrag gehört nun zu Ihrem Verlauf und den Artensummen.",
+    "view": "Eintrag anzeigen",
     "another": "Weitere hinzufügen",
     "photo": "Das mit {species} gespeicherte Foto"
   },

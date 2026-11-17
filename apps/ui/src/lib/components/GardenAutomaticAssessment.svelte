@@ -11,7 +11,7 @@
     {#if overridden}
         <p>{$_('garden.automatic_overridden', { default: 'Your review overrides this automatic result. This capture will not be checked again automatically.' })}</p>
     {:else if assessment.decision_reason === 'below_threshold' && assessment.outcome === 'animal'}
-        <p>{$_('garden.automatic_animal_below_threshold_dismissed', { default: 'Animal detected, but its species score is below the naming threshold. Moved to Dismissed; return it to review if you want to name it yourself.' })}</p>
+        <p>{$_('garden.automatic_animal_below_threshold_dismissed', { default: 'Animal detected, but its species score is below the naming threshold. Moved to Dismissed; return it to Needs your call if you want to name it yourself.' })}</p>
         {#if assessment.naming_score !== null && assessment.naming_score !== undefined && assessment.naming_threshold}
             <p>{$_('garden.automatic_score', { default: 'Species score {score}%; naming threshold {threshold}%.', values: { score: Math.round(assessment.naming_score * 100), threshold: Math.round(assessment.naming_threshold * 100) } })}</p>
         {/if}
@@ -25,13 +25,13 @@
     {:else if assessment.decision_reason === 'identity_unavailable'}
         <p>{$_('garden.automatic_identity_unavailable', { default: 'Animal detected, but its name could not be bound to the local catalogue. No automatic name was saved.' })}</p>
     {:else if assessment.decision_reason === 'bird_camera'}
-        <p>{$_('garden.automatic_bird_camera', { default: 'Bird, handled by bird detection on this camera. Moved to Dismissed; return this photo to review if it is not a bird.' })}</p>
+        <p>{$_('garden.automatic_bird_camera', { default: 'A bird, which this camera already records as a bird visit. Moved to Dismissed; return this photo to Needs your call if it is not a bird.' })}</p>
     {:else if assessment.decision_reason === 'wild_bird'}
-        <p>{$_('garden.automatic_wild_bird', { default: 'Wild bird. Turn on birds for this camera to record it. Moved to Dismissed; return this photo to review if the check is wrong.' })}</p>
+        <p>{$_('garden.automatic_wild_bird', { default: 'Wild bird. Turn on birds for this camera to record it. Moved to Dismissed; return this photo to Needs your call if the check is wrong.' })}</p>
     {:else if assessment.outcome === 'bird'}
-        <p>{$_('garden.automatic_bird', { default: 'Bird suggested. Bird-only captures go to Dismissed; return this photo to review if the check is wrong.' })}</p>
+        <p>{$_('garden.automatic_bird', { default: 'Bird suggested. Bird-only captures go to Dismissed; return this photo to Needs your call if the check is wrong.' })}</p>
     {:else if assessment.outcome === 'non_animal'}
-        <p>{$_('garden.automatic_non_animal', { default: 'Blank scene or vehicle suggested. These captures go to Dismissed; return this photo to review if the check is wrong.' })}</p>
+        <p>{$_('garden.automatic_non_animal', { default: 'Blank scene or vehicle suggested. These captures go to Dismissed; return this photo to Needs your call if the check is wrong.' })}</p>
     {:else if assessment.outcome === 'animal' && named}
         <p>{$_('garden.automatic_named', { default: 'Confident animal. Confirmed and named automatically; dismiss the capture or discard the name if either is wrong.' })}</p>
     {:else if assessment.outcome === 'animal'}
@@ -39,7 +39,7 @@
     {:else if assessment.outcome === 'uncertain'}
         <p>{$_('garden.automatic_uncertain_pending', { default: 'This older uncertain result is waiting for the updated automatic check.' })}</p>
     {:else}
-        <p>{$_('garden.automatic_unavailable', { default: 'The automatic check was unavailable. This photo stays in Needs review; checks retry after five minutes while Garden is enabled.' })}</p>
+        <p>{$_('garden.automatic_unavailable', { default: 'The automatic check was unavailable. This photo stays in Needs your call; checks retry after five minutes while Garden is enabled.' })}</p>
     {/if}
     <ModelExecutionEvidence execution={assessment.execution ?? (assessment.variant && assessment.devices?.length ? {
         devices: assessment.devices, checked_at: `${assessment.checked_at}${assessment.checked_at.endsWith('Z') || assessment.checked_at.includes('+') ? '' : 'Z'}`

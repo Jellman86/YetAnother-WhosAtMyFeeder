@@ -89,7 +89,7 @@
     "state_confirmed": "Especie confirmada por ti",
     "state_unnamed": "Animal confirmado, especie sin nombre",
     "open": "Abrir captura del jardín: {subject}",
-    "score_hint": "Puntuación del modelo de especies {score} %",
+    "score_hint": "Puntuación del modelo de especies {score} %",
     "photo_expired_short": "Foto caducada",
     "photo_expired": "La foto ha caducado. El registro confirmado se conserva.",
     "model_busy": "El modelo del jardín está ocupado con otra foto. Inténtalo de nuevo en breve.",

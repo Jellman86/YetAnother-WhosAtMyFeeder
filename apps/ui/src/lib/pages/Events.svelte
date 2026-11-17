@@ -1907,7 +1907,7 @@
         try {
             const result = await reviewGardenBatch(undo.ids, 'restore');
             gardenUndo = null;
-            toastStore.success($_('garden.batch_restored', { default: '{count, plural, one {# photo returned to review.} other {# photos returned to review.}}', values: { count: result.updated_ids.length } }));
+            toastStore.success($_('garden.batch_restored', { default: '{count, plural, one {# photo returned to Needs your call.} other {# photos returned to Needs your call.}}', values: { count: result.updated_ids.length } }));
             await loadEvents();
         } catch (failure) {
             toastStore.error(failure instanceof Error ? failure.message : $_('garden.save_error', { default: 'Could not save your review. Try again.' }));
@@ -2425,11 +2425,11 @@
                     {$_('garden.batch_dismissed', { default: '{count, plural, one {# photo dismissed.} other {# photos dismissed.}}', values: { count: gardenUndo.ids.length } })}
                     {#if gardenUndo.skipped > 0}{' '}{$_('garden.batch_skipped', { default: '{count, plural, one {# photo was unchanged because its review or availability changed.} other {# photos were unchanged because their review or availability changed.}}', values: { count: gardenUndo.skipped } })}{/if}
                     {' '}{gardenUndo.returnToReview
-                        ? $_('garden.visit_return_help', { default: 'Returning photos to review does not reconfirm presence or the species name. Dismissed photos may make room for new captures.' })
+                        ? $_('garden.visit_return_help', { default: 'Returning photos to Needs your call does not reconfirm presence or the species name. Dismissed photos may make room for new captures.' })
                         : $_('garden.batch_undo_help', { default: 'Undo is available while photos remain. Dismissed photos may make room for new captures.' })}
                 </span>
                 <button type="button" class="btn btn-secondary min-h-11 whitespace-normal px-3 text-xs" onclick={undoGardenGroup}>{gardenUndo.returnToReview
-                    ? $_('garden.visit_return', { default: 'Return captures to review' })
+                    ? $_('garden.visit_return', { default: 'Return captures to Needs your call' })
                     : $_('garden.batch_undo', { default: 'Undo group dismissal' })}</button>
             </div>
         {/if}

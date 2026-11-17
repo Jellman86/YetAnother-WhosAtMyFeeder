@@ -165,7 +165,7 @@ describe('gardenEntryText', () => {
         const pending = capture();
         expect(gardenEntryText(pending, gardenEntryView(pending), t, 'owner')).toEqual({ title: 'Possible animal', state: 'Waiting for automatic identification' });
         const suggested = capture({ status: 'confirmed', identification: named('unreviewed') });
-        expect(gardenEntryText(suggested, gardenEntryView(suggested), t, 'owner')).toEqual({ title: 'Red fox', state: 'Needs review: suggested species' });
+        expect(gardenEntryText(suggested, gardenEntryView(suggested), t, 'owner')).toEqual({ title: 'Red fox', state: 'Needs your call: suggested species' });
         const unnamed = capture({ status: 'confirmed' });
         expect(gardenEntryText(unnamed, gardenEntryView(unnamed), t, 'owner')).toEqual({ title: 'Animal, not named', state: 'Animal confirmed, species not named' });
     });

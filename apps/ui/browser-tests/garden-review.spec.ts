@@ -132,7 +132,7 @@ test('automatic rejections explain the result and can return to review without a
     await openFirst(page);
     await expect(record(page).locator('[data-garden-automatic-check]')).toContainText('Blank scene or vehicle suggested.');
     await fitsNarrowScreen(page);
-    await record(page).getByRole('button', { name: 'Return to review' }).click();
+    await record(page).getByRole('button', { name: 'Return to Needs your call' }).click();
     await expect(record(page)).toHaveCount(0);
     await wideAgain(page);
     await chooseReview(page, 'pending');
@@ -237,18 +237,18 @@ for (const sourceKind of ['motion', 'frigate_event']) {
             });
             await openReview(page, 'dismissed');
             await openFirst(page);
-            const restore = record(page).getByRole('button', { name: 'Return to review' });
+            const restore = record(page).getByRole('button', { name: 'Return to Needs your call' });
             if (photoAvailable) {
                 await expect(restore).toBeEnabled();
                 await restore.click();
-                await expect(toasts(page)).toContainText('Photo returned to review.');
+                await expect(toasts(page)).toContainText('Photo returned to Needs your call.');
                 await chooseReview(page, 'pending');
                 await openFirst(page);
                 await expect(record(page).getByText(sourceKind === 'motion' ? 'Candidate from retained motion footage' : 'Frigate suggested: cat')).toBeVisible();
                 expect(writes).toBe(1);
             } else {
                 await expect(restore).toBeDisabled();
-                await expect(record(page).getByText('Photo unavailable. It cannot return to review.')).toBeVisible();
+                await expect(record(page).getByText('Photo unavailable. It cannot return to Needs your call.')).toBeVisible();
                 expect(writes).toBe(0);
             }
             await fitsNarrowScreen(page);
@@ -273,7 +273,7 @@ test('owner can dismiss a false capture, restore it and review at narrow widths'
     await expect(page.getByText('No Garden captures need review')).toBeVisible();
     await chooseReview(page, 'dismissed');
     await openFirst(page);
-    await record(page).getByRole('button', { name: 'Return to review' }).click();
+    await record(page).getByRole('button', { name: 'Return to Needs your call' }).click();
     await chooseReview(page, 'pending');
     await openFirst(page);
     await expect(record(page).getByText('Frigate suggested: cat')).toBeVisible();
@@ -542,7 +542,7 @@ for (const concurrentReview of [false, true]) {
                 await expect(toasts(page)).toContainText('1 photo was unchanged');
             }
             await page.getByRole('button', { name: 'Undo group dismissal', exact: true }).click();
-            await expect(toasts(page)).toContainText(`${concurrentReview ? 78 : 79} photos returned to review.`);
+            await expect(toasts(page)).toContainText(`${concurrentReview ? 78 : 79} photos returned to Needs your call.`);
             expect(writes[1].ids).not.toContain(animalId);
             if (concurrentReview) expect(writes[1].ids).not.toContain(concurrentId);
             expect(states.get(animalId)).toBe('confirmed');
@@ -830,7 +830,7 @@ const birdCheck = (reason: 'bird_camera' | 'wild_bird') => ({
 });
 
 for (const [reason, text] of [
-    ['bird_camera', 'Bird, handled by bird detection on this camera.'],
+    ['bird_camera', 'A bird, which this camera already records as a bird visit.'],
     ['wild_bird', 'Wild bird. Turn on birds for this camera to record it.']
 ] as const) {
     test(`a dismissed ${reason} capture says who records birds and asks once about chickens`, async ({ page }) => {

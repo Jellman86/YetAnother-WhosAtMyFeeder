@@ -90,6 +90,9 @@ describe('the copy lint', () => {
 
     it('keeps "sighting" for other people’s reports and the literal default user name', () => {
         expect(rules('en', 'about.outbound.ebird_desc', 'Recent sightings near the feeder.')).toEqual([]);
+        // The species dialog's eBird section and its map markers are eBird's reports too.
+        expect(rules('en', 'species_detail.recent_sightings', 'Recent sightings')).toEqual([]);
+        expect(rules('en', 'common.map_sighting', 'Sighting location')).toEqual([]);
         expect(rules('en', 'dashboard.summary', '{count} sightings today')).toEqual(['glossary']);
         expect(rules('en', 'auth.username_placeholder', 'admin')).toEqual([]);
     });

@@ -163,7 +163,8 @@ describe('locale editorial quality', () => {
 /**
  * docs/standards/layout-patterns.md, writing rules: controls, headings and labels are in sentence
  * case. A short label whose later words are capitalised ("Clear History", "Test AI Connection")
- * fails unless the word is a name: a product, a place, a model, or a page or tab of the app.
+ * fails unless the word is a name: a product, a place, a model, or a page, tab or named queue of
+ * the app ("Needs your call", docs/standards/glossary.md).
  * German capitalises its nouns and Japanese and Chinese have no case, so they are not checked.
  */
 const NAMES = new Set(
@@ -174,7 +175,8 @@ const NAMES = new Set(
     Open-Meteo Nominatim Fonts HACS MIT License Record Format Token Northern Cardinal United States Kingdom North America Europe
     Unknown Bird Tit NaN Celsius Fahrenheit Israel European Arabian Peninsula
     Dashboard Explorer Leaderboard Settings Notifications Events Species Garden Health Connection Detection Integrations
-    Enrichment Security Data Appearance Accessibility Advanced Beta Debug Explore Jobs About`
+    Enrichment Security Data Appearance Accessibility Advanced Beta Debug Explore Jobs About
+    Needs`
         .split(/\s+/)
         .filter(Boolean)
 );

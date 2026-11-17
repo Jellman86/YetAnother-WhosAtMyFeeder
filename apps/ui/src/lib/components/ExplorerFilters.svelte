@@ -171,7 +171,7 @@
     ]);
     const reviewOptions = $derived<{ value: GardenReview; label: string }[]>([
         { value: 'reviewable', label: $_('garden.explorer.review_animals', { default: 'Animals and waiting for review' }) },
-        { value: 'pending', label: $_('garden.pending', { default: 'Needs review' }) },
+        { value: 'pending', label: $_('garden.pending', { default: 'Needs your call' }) },
         { value: 'confirmed', label: $_('garden.confirmed', { default: 'Confirmed animals' }) },
         { value: 'dismissed', label: $_('garden.dismissed', { default: 'Dismissed' }) }
     ]);
