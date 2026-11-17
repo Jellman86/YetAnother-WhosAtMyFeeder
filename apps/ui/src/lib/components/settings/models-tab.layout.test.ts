@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import detectionSource from './DetectionSettings.svelte?raw';
 import modelsSource from './ModelSettings.svelte?raw';
+import providerWarningSource from '../ProviderWarning.svelte?raw';
+import hardwareSource from './HardwareSettings.svelte?raw';
+import namingSource from './NamingSettings.svelte?raw';
 import settingsSource from '../../pages/Settings.svelte?raw';
 import partLoadersSource from './sections/part-loaders.ts?raw';
 import identificationSource from './sections/IdentificationSection.svelte?raw';
@@ -16,16 +19,19 @@ describe('Detection and Models', () => {
         expect(partLoadersSource).toContain("import('../ModelSettings.svelte')");
         expect(modelsSource).toContain('<ModelManager');
         expect(modelsSource).toContain('<IdentificationStatusLine');
-        expect(modelsSource).toContain('id="inference-provider"');
-        expect(modelsSource).toContain('id="image-execution-mode"');
         expect(modelsSource).toContain('id="bird-model-region-override"');
-        expect(modelsSource).toContain('<DiagnosticDialog');
+        // Hardware and its runtime report are their own card under the section's More options, and
+        // the device check's dialog belongs to the section, which both the models and Hardware use.
+        expect(hardwareSource).toContain('id="inference-provider"');
+        expect(hardwareSource).toContain('id="image-execution-mode"');
+        expect(identificationSource).toContain('<DeviceCheckDialog check={deviceCheck} />');
         // The runtime it shows is kept current while the section holding Models is open.
         expect(settingsSource).toContain("if (activeSection !== settingsSectionOfPart('models') || !authStore.showSettings) return;");
     });
 
-    it('leaves Detection with thresholds, blocked species, the range filter and video checks only', () => {
-        expect(detectionSource).toContain('id="confidence-threshold-slider"');
+    it('leaves Detection with blocked species, the range filter and video checks, and the thresholds with naming', () => {
+        expect(namingSource).toContain('id="confidence-threshold-slider"');
+        expect(detectionSource).not.toContain('id="confidence-threshold-slider"');
         expect(detectionSource).toContain('<RangeFilterSettings');
         expect(detectionSource).toContain('id="blocked-species-search"');
         expect(detectionSource).toContain('setting-auto-video');
@@ -36,15 +42,20 @@ describe('Detection and Models', () => {
 
     it('folds the old Debug tab into Models: one switch for the debug build, and the model evaluation page linked', () => {
         expect(settingsSource).not.toContain("activeTab === 'debug'");
-        expect(modelsSource).toContain('{#if debugUiEnabled}');
-        expect(modelsSource).toContain('setting-strict-non-finite-output');
+        expect(hardwareSource).toContain('{#if debugUiEnabled}');
+        expect(hardwareSource).toContain('setting-strict-non-finite-output');
         expect(modelsSource).toContain('/diagnostics/model-eval');
         // The link is the kit's secondary button, not a hand-made black one.
         expect(modelsSource).not.toContain('bg-slate-900 px-4 py-2 text-xs font-bold text-white');
     });
 
-    it('links Detection to Models instead of repeating the model choice', () => {
-        expect(detectionSource).toContain('onopenmodels');
+    it('sends the dashboard\'s provider warning to the models, whose status line leads to the runtime report', () => {
+        expect(providerWarningSource).toContain("onnavigate?.('/settings/models')");
+    });
+
+    it('puts Detection under More options below Models, so it needs no link to them', () => {
+        expect(detectionSource).not.toContain('onopenmodels');
+        expect(identificationSource.indexOf('<ModelSettings')).toBeLessThan(identificationSource.indexOf('<DetectionSettings'));
     });
 
     it('names the running model as its card does, and never calls a missing model in use', () => {

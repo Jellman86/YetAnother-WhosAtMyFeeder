@@ -66,7 +66,7 @@
         <p class="text-muted" data-section-status-note>
             {section === 'sharing'
                 ? $_('settings.status.sharing_note', { default: 'Nothing here depends on a measured connection. Sign-in and guest access are set here; each service under More options says whether it is on.' })
-                : $_('settings.status.display_note', { default: 'Nothing here depends on another service. Theme, text size and language change at once on this device.' })}
+                : $_('settings.status.display_note', { default: 'Nothing here depends on another service. Theme, text size and language change at once on this device. Units wait for Save and apply to everyone.' })}
         </p>
     {:else if !snapshot}
         <StateBlock state="not-measured" variant="inline" cause={$_('settings.status.not_read', { default: 'Not measured yet: the status has not been read.' })} />

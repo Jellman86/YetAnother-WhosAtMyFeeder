@@ -62,24 +62,24 @@ test.describe('on a wide screen', () => {
         await expect(saveBar(page)).toHaveCount(0);
     });
 
-    test('Identifying birds leads with the confidence sliders, and the models and hardware are their own part', async ({ page }) => {
+    test('Identifying birds leads with the naming threshold and the models, with the rest under More options', async ({ page }) => {
         await openSettings(page);
         await rail(page).getByRole('link', { name: 'Identifying birds', exact: true }).click();
         const slider = page.locator('#confidence-threshold-slider');
         await expect(slider).toBeVisible();
+        await expect(page.locator('#bird-model-region-override')).toBeVisible();
+        // Video checks and Hardware wait under More options.
         const frigate = page.getByRole('button', { name: 'Frigate and video', exact: true });
+        await expect(frigate).toHaveCount(0);
+        await expect(page.getByRole('heading', { name: 'Hardware', exact: true })).toHaveCount(0);
+        await openMoreOptions(page);
         await expect(frigate).toHaveAttribute('aria-expanded', 'false');
-        await expect(page.getByRole('button', { name: 'Hardware', exact: true })).toHaveCount(0);
         await frigate.click();
         await expect(frigate).toHaveAttribute('aria-expanded', 'true');
         await expect(page.getByRole('switch', { name: /Frigate/ }).first()).toBeVisible();
-
-        await page.getByRole('button', { name: 'Open Models', exact: true }).click();
-        await expect(rail(page).getByRole('link', { name: 'Identifying birds', exact: true })).toHaveAttribute('aria-current', 'page');
         // Hardware is a plain section like every other: its device choice is on the surface.
         await expect(page.getByRole('heading', { name: 'Hardware', exact: true })).toBeVisible();
         await expect(page.locator('#inference-provider')).toBeVisible();
-        await expect(page.locator('#bird-model-region-override')).toBeVisible();
     });
 });
 
@@ -112,7 +112,8 @@ test.describe('a refused value inside a closed card', () => {
             })
         });
         await rail(page).getByRole('link', { name: 'Identifying birds', exact: true }).click();
-        await expect(page.getByRole('button', { name: 'Frigate and video', exact: true })).toHaveAttribute('aria-expanded', 'false');
+        // The card is under a closed More options, inside a closed card of its own.
+        await expect(page.locator('[data-settings-more] > h2 > button')).toHaveAttribute('aria-expanded', 'false');
         await rail(page).getByRole('link', { name: 'Cameras & connection', exact: true }).click();
         await page.locator('#mqtt-server').fill('broker.lan');
         await page.getByRole('button', { name: 'Save changes', exact: true }).click();

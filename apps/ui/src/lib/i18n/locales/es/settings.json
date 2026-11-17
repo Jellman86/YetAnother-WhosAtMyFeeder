@@ -303,7 +303,7 @@
     "in_this_section": "En esta sección",
     "not_read": "Aún sin medir: el estado no se ha leído.",
     "stale": "Esta lectura está desactualizada: no ha llegado ninguna más reciente.",
-    "display_note": "Nada aquí depende de otro servicio. El tema, el tamaño del texto y el idioma cambian al momento en este dispositivo.",
+    "display_note": "Nada aquí depende de otro servicio. El tema, el tamaño del texto y el idioma cambian al momento en este dispositivo. Las unidades esperan a Guardar y se aplican a todos.",
     "state": {
       "ok": "funciona",
       "degraded": "bajo presión",
@@ -325,7 +325,8 @@
   "more": {
     "title": "Más opciones",
     "cameras": "Detalles de Frigate, origen de la imagen, clips y BirdNET-Go",
-    "sharing": "eBird, iNaturalist, BirdWeather, tiempo de Home Assistant, información de especies, IA y telemetría"
+    "sharing": "eBird, iNaturalist, BirdWeather, tiempo de Home Assistant, información de especies, IA y telemetría",
+    "identification": "Especies bloqueadas, filtro de área de distribución, comprobaciones de vídeo, hardware y funciones beta"
   },
   "debug": {
     "llm_prompts_title": "Plantillas de prompts de LLM",
@@ -1345,6 +1346,7 @@
     "compat_note_baseline": "referencia de CPU",
     "compat_note_fails": "no compila",
     "compat_note_match": "{n}/{n} coinciden con la CPU",
+    "compat_note_boxes": "{m}/{n} recuadros coinciden con la CPU",
     "compat_note_nan": "salida no finita",
     "compat_note_partial": "{m}/{n} coinciden con la CPU",
     "compat_note_runs": "funciona",
@@ -1540,10 +1542,12 @@
   },
   "beta": {
     "title": "Funciones beta",
+    "chip": "Beta",
     "garden_animals": "Animales del jardín",
     "garden_animals_desc": "Recoge gatos, zorros y otros visitantes que no son aves de las cámaras que elijas, para que los revises.",
     "garden_motion_toggle": "Recopilar fotos de movimiento para revisar en {camera}",
     "garden_naming_off": "Cada animal espera en Por revisar hasta que lo confirmes y lo nombres.",
+    "garden_naming_elsewhere": "El nombrado automático se configura junto al umbral de identificación de las aves, al principio de Identificar aves.",
     "garden_naming_threshold_help": "Es una segunda comprobación, sobre qué animal es. Desde este valor, el animal se confirma y se nombra por usted. Por debajo, su foto va a Descartadas, desde donde puede restaurarla.",
     "garden_naming_threshold": "Nombrar un animal con esta certeza de cuál es",
     "garden_naming": "Nombrar animales automáticamente",
@@ -1617,7 +1621,7 @@
     "garden_off_note": "El jardín deja de recoger capturas nuevas. Las capturas y los ajustes existentes se conservan y vuelven cuando lo actives de nuevo.",
     "garden_off_effects": "Mientras está desactivado, el jardín se oculta en el Explorador, sus alertas se detienen y las aves que tienes se registran como aves silvestres. La retención del historial sigue aplicándose a las capturas guardadas.",
     "garden_section_cameras": "Cámaras",
-    "garden_section_checks": "Comprobaciones automáticas y nombres",
+    "garden_section_checks": "Comprobaciones automáticas",
     "garden_section_models": "Modelos",
     "garden_section_alerts": "Alertas",
     "garden_naming_help": "Los animales que alcanzan el umbral de nombre se confirman y se nombran. Las fotos por debajo van a Descartadas, donde puedes restaurarlas.",
@@ -1962,5 +1966,9 @@
   "units": {
     "title": "Unidades",
     "desc": "Para todas las personas que abren esta instalación, no solo para este dispositivo."
+  },
+  "naming": {
+    "title": "Umbral de identificación",
+    "garden_title": "Animales del jardín"
   }
 }

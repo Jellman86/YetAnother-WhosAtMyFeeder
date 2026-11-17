@@ -303,7 +303,7 @@
     "in_this_section": "In this section",
     "not_read": "Not measured yet: the status has not been read.",
     "stale": "This reading is out of date: no newer one has arrived.",
-    "display_note": "Nothing here depends on another service. Theme, text size and language change at once on this device.",
+    "display_note": "Nothing here depends on another service. Theme, text size and language change at once on this device. Units wait for Save and apply to everyone.",
     "state": {
       "ok": "working",
       "degraded": "under strain",
@@ -325,7 +325,8 @@
   "more": {
     "title": "More options",
     "cameras": "Frigate details, image source, clips and BirdNET-Go",
-    "sharing": "eBird, iNaturalist, BirdWeather, Home Assistant weather, species information, AI and telemetry"
+    "sharing": "eBird, iNaturalist, BirdWeather, Home Assistant weather, species information, AI and telemetry",
+    "identification": "Blocked species, the range filter, video checks, hardware and Beta features"
   },
   "debug": {
     "llm_prompts_title": "LLM prompt templates",
@@ -1345,6 +1346,7 @@
     "compat_note_baseline": "CPU baseline",
     "compat_note_fails": "fails to compile",
     "compat_note_match": "{n}/{n} match CPU",
+    "compat_note_boxes": "{m}/{n} boxes match CPU",
     "compat_note_nan": "non-finite output",
     "compat_note_partial": "{m}/{n} match CPU",
     "compat_note_runs": "runs",
@@ -1540,10 +1542,12 @@
   },
   "beta": {
     "title": "Beta features",
+    "chip": "Beta",
     "garden_animals": "Garden animals",
     "garden_animals_desc": "Collects cats, foxes and other non-bird visitors from cameras you choose, for you to review.",
     "garden_motion_toggle": "Collect motion review photos on {camera}",
     "garden_naming_off": "Every animal waits in Needs review for you to confirm and name it.",
+    "garden_naming_elsewhere": "Automatic naming is set with the birds’ naming threshold, at the top of Identifying birds.",
     "garden_naming_threshold_help": "This is a second check, on which animal it is. At or above it, the animal is confirmed and named for you. Below it, its photo goes to Dismissed, where you can restore it.",
     "garden_naming_threshold": "Name an animal when this sure which one it is",
     "garden_naming": "Name animals automatically",
@@ -1617,7 +1621,7 @@
     "garden_off_note": "Garden stops collecting new captures. Existing captures and settings are kept and come back when you turn it on again.",
     "garden_off_effects": "While it is off, Garden is hidden in the Explorer, its alerts stop, and birds you keep are recorded as wild birds. History retention still applies to saved captures.",
     "garden_section_cameras": "Cameras",
-    "garden_section_checks": "Automatic checks and naming",
+    "garden_section_checks": "Automatic checks",
     "garden_section_models": "Models",
     "garden_section_alerts": "Alerts",
     "garden_naming_help": "Animals that reach the naming threshold are confirmed and named. Photos below it go to Dismissed, where you can restore them.",
@@ -1962,5 +1966,9 @@
   "units": {
     "title": "Units",
     "desc": "For everyone who opens this install, not only this device."
+  },
+  "naming": {
+    "title": "Naming threshold",
+    "garden_title": "Garden animals"
   }
 }

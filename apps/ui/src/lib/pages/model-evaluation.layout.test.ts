@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import source from './ModelEvaluation.svelte?raw';
 import apiSource from '../api/model_eval.ts?raw';
 import modelSettingsSource from '../components/settings/ModelSettings.svelte?raw';
+import deviceCheckSource from '../settings/device-check.svelte.ts?raw';
 import wizardSource from '../components/setup/ModelStep.svelte?raw';
 import appSource from '../../App.svelte?raw';
 import settingsSource from './Settings.svelte?raw';
@@ -256,7 +257,7 @@ describe('model evaluation states what it measured, and nothing else', () => {
             expect(source, leak).not.toContain(leak);
         }
         expect(Object.keys(english).filter((key) => key.startsWith('model_eval.') && /\{detail\}|\{error\}|\{message\}/.test(english[key]))).toEqual([]);
-        for (const [name, other] of [['ModelSettings', modelSettingsSource], ['ModelStep', wizardSource]] as const) {
+        for (const [name, other] of [['the Settings device check', deviceCheckSource], ['ModelStep', wizardSource]] as const) {
             expect(other, name).toContain('stopCause(summary');
             expect(other, name).not.toMatch(/summary\??\.error\b(?!_code)/);
         }

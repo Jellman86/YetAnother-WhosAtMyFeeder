@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page, type Route } from '@playwright/test';
+import { openMoreOptions } from './settings-page-mock';
 
 // Every Garden visitor setting, including its own models, lives on its card in Settings → Beta
 // features, except which cameras watch for Garden animals: that is one choice per camera, beside its
@@ -73,6 +74,8 @@ async function openSettings(page: Page, overrides: Settings = {}, frigateCameras
 
 async function openBeta(page: Page): Promise<void> {
     await page.getByRole('link', { name: 'Identifying birds', exact: true }).click();
+    // Beta features are under the section's More options.
+    await openMoreOptions(page);
     await expect(page.locator('[data-beta-page]')).toBeVisible();
 }
 
@@ -200,9 +203,10 @@ for (const [name, low, high] of [['Suggest a motion photo when this sure it show
 test('automatic naming is on at 0.80 by default and both choices save with the page', async ({ page }) => {
     const { writes } = await openSettings(page);
     await openBeta(page);
-    const garden = page.locator('[data-garden-beta-settings]');
-    const naming = garden.getByRole('switch', { name: 'Name animals automatically' });
-    const threshold = garden.getByRole('slider', { name: 'Name an animal when this sure which one it is' });
+    // Garden's naming sits in the naming card, beside the birds' threshold, marked Beta.
+    const naming = page.locator('[data-naming-garden]').getByRole('switch', { name: 'Name animals automatically' });
+    const threshold = page.locator('[data-naming-garden]').getByRole('slider', { name: 'Name an animal when this sure which one it is' });
+    await expect(page.locator('[data-naming-garden]')).toContainText('Beta');
     await expect(naming).toHaveAttribute('aria-checked', 'true');
     await expect(threshold).toHaveAttribute('aria-valuetext', '80%');
     await threshold.fill('0.9');
@@ -214,7 +218,7 @@ test('automatic naming is on at 0.80 by default and both choices save with the p
 
     await naming.click();
     await expect(threshold).toHaveCount(0);
-    await expect(garden.getByText('Every animal waits in Needs review for you to confirm and name it.')).toBeVisible();
+    await expect(page.locator('[data-naming-garden]').getByText('Every animal waits in Needs review for you to confirm and name it.')).toBeVisible();
     await page.getByRole('button', { name: 'Save changes', exact: true }).click();
     await expect.poll(() => writes.length).toBe(2);
     expect(writes[1]).toMatchObject({ garden_automatic_naming: false });
@@ -674,7 +678,7 @@ test('switching Garden on reveals its sections and the setup it still needs', as
 
     await expect(page.locator('[data-garden-beta-off-note]')).toHaveCount(0);
     const headings = page.locator('[data-garden-beta-settings] h3');
-    await expect(headings).toHaveText(['Still to set up', 'Cameras', 'Automatic checks and naming', 'Models', 'Domestic birds you keep None', 'Alerts Off', 'Where captures go']);
+    await expect(headings).toHaveText(['Still to set up', 'Cameras', 'Automatic checks', 'Models', 'Domestic birds you keep None', 'Alerts Off', 'Where captures go']);
     const expanded = page.locator('[data-beta-section] h3 button');
     await expect(expanded).toHaveCount(6);
     expect(await expanded.evaluateAll(buttons => buttons.map(button => button.getAttribute('aria-expanded')))).toEqual(['true', 'true', 'false', 'false', 'false', 'false']);

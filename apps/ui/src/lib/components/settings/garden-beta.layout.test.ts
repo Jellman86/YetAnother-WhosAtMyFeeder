@@ -6,6 +6,7 @@ import eventsSource from '../../pages/Events.svelte?raw';
 import tabsSource from './SettingsTabs.svelte?raw';
 import connectionSource from './ConnectionSettings.svelte?raw';
 import gardenBetaSource from './GardenBetaSettings.svelte?raw';
+import namingSource from './NamingSettings.svelte?raw';
 import gardenModelsSource from './GardenModelSetup.svelte?raw';
 import gardenStatusSource from './GardenCollectionStatus.svelte?raw';
 import betaCardSource from './BetaFeatureCard.svelte?raw';
@@ -117,11 +118,14 @@ describe('Garden animals is a beta feature', () => {
 
     it('moves its thresholds with the shared slider, shown as percentages, like Detection', () => {
         expect(gardenBetaSource).toContain('bind:value={motionConfidence}');
-        expect(gardenBetaSource).toContain('bind:value={namingThreshold}');
-        expect(gardenBetaSource).toContain('display={(value) => `${thresholdPercentText(value)}%`}');
+        // The naming threshold sits in the naming card, beside the birds' one, while Garden is on.
+        expect(namingSource).toContain('bind:value={namingThreshold}');
+        expect(namingSource).toContain('{#if gardenEnabled}');
+        for (const source of [gardenBetaSource, namingSource]) expect(source).toContain('display={(value) => `${thresholdPercentText(value)}%`}');
         // Both sliders move one percentage point a step. A calibrated saved value such as 0.6385722
         // is kept as saved until the slider moves, and a step never shrinks to its precision.
-        expect(gardenBetaSource.match(/step=\{0\.01\}/g)).toHaveLength(2);
+        expect(gardenBetaSource.match(/step=\{0\.01\}/g)).toHaveLength(1);
+        expect(namingSource.match(/step=\{0\.01\}/g)).toHaveLength(1);
         expect(gardenBetaSource).not.toContain('gardenThresholdPercentStep');
         expect(gardenBetaSource).not.toMatch(/<input\b/);
     });

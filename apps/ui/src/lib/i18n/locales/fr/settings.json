@@ -303,7 +303,7 @@
     "in_this_section": "Dans cette section",
     "not_read": "Pas encore mesuré : l’état n’a pas été lu.",
     "stale": "Cette mesure est périmée : aucune plus récente n’est arrivée.",
-    "display_note": "Rien ici ne dépend d’un autre service. Le thème, la taille du texte et la langue changent aussitôt sur cet appareil.",
+    "display_note": "Rien ici ne dépend d’un autre service. Le thème, la taille du texte et la langue changent aussitôt sur cet appareil. Les unités attendent Enregistrer et s’appliquent à tous.",
     "state": {
       "ok": "fonctionne",
       "degraded": "sous tension",
@@ -325,7 +325,8 @@
   "more": {
     "title": "Plus d’options",
     "cameras": "Détails de Frigate, source d’image, clips et BirdNET-Go",
-    "sharing": "eBird, iNaturalist, BirdWeather, météo Home Assistant, informations sur les espèces, IA et télémétrie"
+    "sharing": "eBird, iNaturalist, BirdWeather, météo Home Assistant, informations sur les espèces, IA et télémétrie",
+    "identification": "Espèces bloquées, filtre d’aire de répartition, vérifications vidéo, matériel et fonctions bêta"
   },
   "debug": {
     "llm_prompts_title": "Modèles de prompt LLM",
@@ -1345,6 +1346,7 @@
     "compat_note_baseline": "référence CPU",
     "compat_note_fails": "échec de compilation",
     "compat_note_match": "{n}/{n} conformes au CPU",
+    "compat_note_boxes": "{m}/{n} cadres conformes au CPU",
     "compat_note_nan": "sortie non finie",
     "compat_note_partial": "{m}/{n} conformes au CPU",
     "compat_note_runs": "fonctionne",
@@ -1540,10 +1542,12 @@
   },
   "beta": {
     "title": "Fonctions bêta",
+    "chip": "Bêta",
     "garden_animals": "Animaux du jardin",
     "garden_animals_desc": "Collecte chats, renards et autres visiteurs qui ne sont pas des oiseaux depuis les caméras choisies, pour que vous les examiniez.",
     "garden_motion_toggle": "Collecter des photos de mouvement à vérifier sur {camera}",
     "garden_naming_off": "Chaque animal attend dans À vérifier que vous le confirmiez et le nommiez.",
+    "garden_naming_elsewhere": "Le nommage automatique se règle avec le seuil d’identification des oiseaux, en haut d’Identifier les oiseaux.",
     "garden_naming_threshold_help": "C’est une seconde vérification, sur l’animal dont il s’agit. À partir de ce seuil, l’animal est confirmé et nommé pour vous. En dessous, sa photo va dans Écartées, d’où vous pouvez la restaurer.",
     "garden_naming_threshold": "Nommer un animal avec cette certitude sur son espèce",
     "garden_naming": "Nommer les animaux automatiquement",
@@ -1617,7 +1621,7 @@
     "garden_off_note": "Le jardin cesse de collecter de nouvelles captures. Les captures et réglages existants sont conservés et reviennent quand vous le réactivez.",
     "garden_off_effects": "Tant qu’il est désactivé, le jardin est masqué dans l’Explorateur, ses alertes s’arrêtent et les oiseaux que vous élevez sont enregistrés comme oiseaux sauvages. La durée de conservation s’applique toujours aux captures enregistrées.",
     "garden_section_cameras": "Caméras",
-    "garden_section_checks": "Vérifications automatiques et noms",
+    "garden_section_checks": "Vérifications automatiques",
     "garden_section_models": "Modèles",
     "garden_section_alerts": "Alertes",
     "garden_naming_help": "Les animaux qui atteignent le seuil de nommage sont confirmés et nommés. Les photos en dessous vont dans Écartées, où vous pouvez les restaurer.",
@@ -1962,5 +1966,9 @@
   "units": {
     "title": "Unités",
     "desc": "Pour toutes les personnes qui ouvrent cette installation, pas seulement cet appareil."
+  },
+  "naming": {
+    "title": "Seuil d’identification",
+    "garden_title": "Animaux du jardin"
   }
 }

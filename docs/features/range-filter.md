@@ -5,7 +5,7 @@ sometimes told it saw a species that only lives in Europe. The range filter chec
 automatic identification against the species eBird has ever recorded in your region and sets
 aside the ones it has not.
 
-It is **off by default**. Turn it on in **Settings → Identifying birds → Range filter**, then **Save
+It is **off by default**. Turn it on in **Settings → Identifying birds → More options → Range filter**, then **Save
 changes**.
 
 ## What it needs
