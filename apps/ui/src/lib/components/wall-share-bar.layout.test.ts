@@ -14,7 +14,7 @@ describe('the leaderboard share bar, now the wall\'s navigation', () => {
         expect(wallSource).not.toContain('class="chip');
         // The photographs the wall shows come from the capture list; the portraits only say which
         // visits have a film made.
-        expect(leaderboardSource).toContain('fetchLeaderboardPortraits(requestedSpan, controller.signal, SPOTLIGHT_PORTRAITS)');
+        expect(leaderboardSource).toContain('fetchLeaderboardPortraits(requestedSpan, controller.signal, RANKING_PORTRAITS)');
     });
 
     it('fills the bar from the same segments and colours as before', () => {

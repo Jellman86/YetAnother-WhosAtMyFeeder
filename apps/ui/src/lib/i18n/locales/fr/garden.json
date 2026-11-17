@@ -252,5 +252,6 @@
   "confidence_low": "Plus de propositions",
   "confidence_high": "Moins de propositions",
   "naming_low": "Nomme davantage",
-  "naming_high": "Nomme moins"
+  "naming_high": "Nomme moins",
+  "capture_label": "Capture du jardin"
 }

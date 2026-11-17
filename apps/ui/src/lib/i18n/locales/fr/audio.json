@@ -76,5 +76,6 @@
     "empty": "Aucune source pour le moment."
   },
   "not_shared_title": "L'audio n'est pas partagé publiquement",
-  "not_shared_body": "Le propriétaire de cette instance a désactivé l'audio pour les visiteurs."
+  "not_shared_body": "Le propriétaire de cette instance a désactivé l'audio pour les visiteurs.",
+  "summary_title": "Cette période"
 }

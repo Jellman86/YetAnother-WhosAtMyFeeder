@@ -252,5 +252,6 @@
   "confidence_low": "更多建议",
   "confidence_high": "更少建议",
   "naming_low": "命名更多",
-  "naming_high": "命名更少"
+  "naming_high": "命名更少",
+  "capture_label": "花园拍摄"
 }

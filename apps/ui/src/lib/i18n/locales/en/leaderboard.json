@@ -218,5 +218,8 @@
     "kept_bird_skipped": "{count, plural, one {# record could not move and stays in bird history.} other {# records could not move and stay in bird history.}}",
     "kept_bird_remaining": "{count, plural, one {# more record is waiting; choose the action again to move it.} other {# more records are waiting; choose the action again to move them.}}"
   },
-  "span_group": "Time span"
+  "span_group": "Time span",
+  "more_options": "More",
+  "table_share": "Share",
+  "standing_heading": "How the window stands"
 }

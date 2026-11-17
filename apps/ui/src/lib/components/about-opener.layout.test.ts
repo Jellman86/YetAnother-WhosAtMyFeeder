@@ -15,7 +15,8 @@ describe('the leaderboard opens on a wall of this feeder\'s own visits', () => {
         const wall = speciesSource.indexOf('<CaptureWall');
         expect(wall).toBeGreaterThan(-1);
         expect(wall).toBeLessThan(speciesSource.indexOf('<SpeciesChecks'));
-        expect(speciesSource).toContain("{#if sourceMode !== 'heard' && sourceLeader && sourceLeader.count > 0}");
+        expect(speciesSource).toContain("const showsWall = $derived(sourceMode !== 'heard' && sourceLeader !== null && sourceLeader.count > 0);");
+        expect(speciesSource).toContain('{#if showsWall}');
         expect(wallSource).toContain('{#if loading || usable.length >= WALL_MINIMUM}');
         expect(speciesSource).toContain('onopen={(key) => (selectedSpecies = key)}');
         // A tile is the stored photograph (the crop) at card size, never the whole-scene

@@ -252,5 +252,6 @@
   "confidence_low": "提案を増やす",
   "confidence_high": "提案を減らす",
   "naming_low": "多く名付ける",
-  "naming_high": "名付けを減らす"
+  "naming_high": "名付けを減らす",
+  "capture_label": "庭の撮影"
 }

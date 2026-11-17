@@ -218,5 +218,8 @@
     "kept_bird_skipped": "{count, plural, one {# fiche n’a pas pu être déplacée et reste dans l’historique des oiseaux.} other {# fiches n’ont pas pu être déplacées et restent dans l’historique des oiseaux.}}",
     "kept_bird_remaining": "{count, plural, one {# autre fiche attend ; relancez l’action pour la déplacer.} other {# autres fiches attendent ; relancez l’action pour les déplacer.}}"
   },
-  "span_group": "Période"
+  "span_group": "Période",
+  "more_options": "Plus",
+  "table_share": "Part",
+  "standing_heading": "Bilan de la période"
 }

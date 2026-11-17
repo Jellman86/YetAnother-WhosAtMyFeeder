@@ -218,5 +218,8 @@
     "kept_bird_skipped": "{count, plural, other {# 条记录无法移动，仍保留在鸟类历史中。}}",
     "kept_bird_remaining": "{count, plural, other {还有 # 条记录等待移动；请再次执行此操作。}}"
   },
-  "span_group": "时间范围"
+  "span_group": "时间范围",
+  "more_options": "更多",
+  "table_share": "占比",
+  "standing_heading": "本时段概况"
 }

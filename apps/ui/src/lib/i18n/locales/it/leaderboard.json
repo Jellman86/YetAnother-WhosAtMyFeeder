@@ -218,5 +218,8 @@
     "kept_bird_skipped": "{count, plural, one {# scheda non è stata spostata e resta nella cronologia degli uccelli.} other {# schede non sono state spostate e restano nella cronologia degli uccelli.}}",
     "kept_bird_remaining": "{count, plural, one {Resta # altra scheda; scegli di nuovo l’azione per spostarla.} other {Restano # altre schede; scegli di nuovo l’azione per spostarle.}}"
   },
-  "span_group": "Periodo"
+  "span_group": "Periodo",
+  "more_options": "Altro",
+  "table_share": "Quota",
+  "standing_heading": "Situazione del periodo"
 }

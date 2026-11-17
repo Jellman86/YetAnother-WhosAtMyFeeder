@@ -76,5 +76,6 @@
     "empty": "尚无来源。"
   },
   "not_shared_title": "音频未公开共享",
-  "not_shared_body": "此实例的所有者已为访客关闭音频。"
+  "not_shared_body": "此实例的所有者已为访客关闭音频。",
+  "summary_title": "本时段"
 }

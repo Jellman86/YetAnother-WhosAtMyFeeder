@@ -76,5 +76,6 @@
     "empty": "No sources yet."
   },
   "not_shared_title": "Audio is not shared publicly",
-  "not_shared_body": "The owner of this instance has turned off audio for visitors."
+  "not_shared_body": "The owner of this instance has turned off audio for visitors.",
+  "summary_title": "This window"
 }

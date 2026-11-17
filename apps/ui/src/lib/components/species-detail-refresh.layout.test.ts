@@ -9,7 +9,8 @@ describe('species detail field-record layout', () => {
         expect(speciesDetailSource).toContain('max-w-6xl');
         expect(speciesDetailSource).toContain('h-dvh');
         expect(speciesDetailSource).not.toContain('max-w-4xl');
-        expect(speciesDetailSource).toContain('<DialogCloseButton onclick={onclose} />');
+        // The shared dialog header carries the round close button.
+        expect(speciesDetailSource).toMatch(/<DialogHeader title=\{primaryName\} titleId="modal-title" onClose=\{onclose\}/);
     });
 
     it('prioritizes the owner record before reference and activity detail', () => {
@@ -39,7 +40,7 @@ describe('species detail field-record layout', () => {
         // The rule and padding travel with the lineage, which renders nothing when the catalogue
         // does not know the bird; a wrapper section here would leave an empty ruled band.
         expect(speciesDetailSource).not.toMatch(/<section data-species-taxonomy[^>]*>\s*<TaxonomyLineage/);
-        expect(speciesDetailSource).toMatch(/<TaxonomyLineage[^>]*class="border-t border-slate-200 pt-8 dark:border-slate-700"/);
+        expect(speciesDetailSource).toMatch(/<TaxonomyLineage[^>]*class="border-t border-line pt-8"/);
         expect(lineageSource).toMatch(/<section class="space-y-3 \{className\}"/);
     });
 

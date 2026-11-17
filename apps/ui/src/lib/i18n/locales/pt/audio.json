@@ -76,5 +76,6 @@
     "empty": "Ainda não há fontes."
   },
   "not_shared_title": "O áudio não é compartilhado publicamente",
-  "not_shared_body": "O proprietário desta instância desativou o áudio para visitantes."
+  "not_shared_body": "O proprietário desta instância desativou o áudio para visitantes.",
+  "summary_title": "Este período"
 }

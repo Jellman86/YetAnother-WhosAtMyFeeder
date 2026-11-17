@@ -218,5 +218,8 @@
     "kept_bird_skipped": "{count, plural, one {# registro não pôde ser movido e permanece no histórico de aves.} other {# registros não puderam ser movidos e permanecem no histórico de aves.}}",
     "kept_bird_remaining": "{count, plural, one {Falta # registro; escolha a ação de novo para movê-lo.} other {Faltam # registros; escolha a ação de novo para movê-los.}}"
   },
-  "span_group": "Período"
+  "span_group": "Período",
+  "more_options": "Mais",
+  "table_share": "Proporção",
+  "standing_heading": "Resumo do período"
 }

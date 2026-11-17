@@ -20,6 +20,8 @@
         onClose: () => void;
         closeLabel?: string;
         closeElement?: HTMLButtonElement | null;
+        /** The close button waits, as while a decision is being saved. */
+        closeDisabled?: boolean;
         /** Attributes for the close button, such as a test hook. */
         closeData?: Record<`data-${string}`, string | boolean>;
         /** More under the title: a breadcrumb, an expiry line. */
@@ -40,6 +42,7 @@
         onClose,
         closeLabel,
         closeElement = $bindable(null),
+        closeDisabled = false,
         closeData = {},
         details,
         actions,
@@ -68,6 +71,6 @@
     </div>
     <div class="ml-auto flex shrink-0 flex-wrap items-center gap-2">
         {#if actions}{@render actions()}{/if}
-        <DialogCloseButton tone={media ? 'media' : 'surface'} bind:element={closeElement} label={closeLabel} onclick={onClose} {...closeData} />
+        <DialogCloseButton tone={media ? 'media' : 'surface'} bind:element={closeElement} label={closeLabel} onclick={onClose} disabled={closeDisabled} {...closeData} />
     </div>
 </div>

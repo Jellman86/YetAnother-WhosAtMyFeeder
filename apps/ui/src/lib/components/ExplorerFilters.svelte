@@ -1,9 +1,7 @@
 <script lang="ts">
     import type { Snippet } from 'svelte';
     import { MediaQuery } from 'svelte/reactivity';
-    import { portal } from '../utils/portal';
-    import { trapFocus } from '../utils/focus-trap';
-    import { lockDocumentScroll } from '../utils/document-scroll-lock';
+    import FilterSheet from './ui/FilterSheet.svelte';
     import type { EventFilterSpecies, EventFilters } from '../api';
     import { _ } from 'svelte-i18n';
     import { shownExplorerSpecies, sortExplorerSpecies } from '../utils/explorer-species';
@@ -117,7 +115,6 @@
     const wide = new MediaQuery('min-width: 1024px', false);
     const rail = $derived(wide.current && !collapsed);
     const sheetOpen = $derived(panelOpen && !rail);
-    let sheet = $state<HTMLDivElement | null>(null);
 
     function closeSheet(): void {
         panelOpen = false;
@@ -128,27 +125,6 @@
         if (event.currentTarget instanceof HTMLElement) event.currentTarget.focus();
         panelOpen = !panelOpen;
     }
-
-    function handleSheetKeydown(event: KeyboardEvent): void {
-        // Keys pressed in a modal belong to it: the page's shortcuts (the search's "/", the day
-        // keys) would otherwise act on, or move focus to, what lies beneath.
-        event.stopPropagation();
-        if (event.key === 'Escape') {
-            event.preventDefault();
-            closeSheet();
-        }
-    }
-
-    // trapFocus moves focus in, holds it, and alone returns it to the opener on release.
-    $effect(() => {
-        if (!sheet) return;
-        const unlock = lockDocumentScroll();
-        const release = trapFocus(sheet);
-        return () => {
-            release();
-            unlock();
-        };
-    });
 
     // Collapsing arrives from the header toolbar. The collapsed desktop shares
     // the phone's Filters button, so the moment the rail folds away the facets
@@ -629,35 +605,16 @@
             {@render facets()}
         </div>
     {:else if sheetOpen}
-        <div
-            class="fixed inset-0 z-60 flex items-end justify-center bg-media/70 sm:items-stretch sm:justify-end"
-            use:portal
-            role="presentation"
-            onclick={(event) => { if (event.target === event.currentTarget) closeSheet(); }}
+        <FilterSheet
+            title={$_('events.filters.title', { default: 'Filters' })}
+            id="explorer-facets"
+            onclose={closeSheet}
+            closeData={{ 'data-explorer-sheet-close': true }}
+            data-explorer-filter-sheet
         >
-            <div
-                bind:this={sheet}
-                id="explorer-facets"
-                class="flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-3xl border border-line bg-surface text-strong shadow-2xl sm:h-full sm:max-h-none sm:max-w-sm sm:rounded-none sm:rounded-l-3xl"
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="explorer-filter-sheet-title"
-                tabindex="-1"
-                onkeydown={handleSheetKeydown}
-                data-explorer-filter-sheet
-            >
-                <div class="flex shrink-0 items-center justify-between gap-3 border-b border-line-soft px-4 py-3">
-                    <h2 id="explorer-filter-sheet-title" class="text-base font-semibold text-strong">
-                        {$_('events.filters.title', { default: 'Filters' })}
-                    </h2>
-                    <button type="button" class="btn btn-secondary min-h-11 px-3 py-2 text-xs" onclick={closeSheet} data-explorer-sheet-close>
-                        {$_('common.close', { default: 'Close' })}
-                    </button>
-                </div>
-                <div class="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain px-4 py-4" data-explorer-facets>
-                    {@render facets()}
-                </div>
+            <div class="flex min-h-0 flex-1 flex-col gap-3" data-explorer-facets>
+                {@render facets()}
             </div>
-        </div>
+        </FilterSheet>
     {/if}
 </section>

@@ -218,5 +218,8 @@
     "kept_bird_skipped": "{count, plural, other {# 件の記録は移動できず、鳥の履歴に残っています。}}",
     "kept_bird_remaining": "{count, plural, other {あと # 件の記録が残っています。もう一度操作すると移動します。}}"
   },
-  "span_group": "期間"
+  "span_group": "期間",
+  "more_options": "その他",
+  "table_share": "割合",
+  "standing_heading": "期間のまとめ"
 }

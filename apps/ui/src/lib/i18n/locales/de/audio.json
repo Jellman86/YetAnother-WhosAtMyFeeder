@@ -76,5 +76,6 @@
     "empty": "Noch keine Quellen."
   },
   "not_shared_title": "Audio wird nicht öffentlich geteilt",
-  "not_shared_body": "Die Besitzerin oder der Besitzer dieser Instanz hat Audio für Besucher deaktiviert."
+  "not_shared_body": "Die Besitzerin oder der Besitzer dieser Instanz hat Audio für Besucher deaktiviert.",
+  "summary_title": "Dieser Zeitraum"
 }

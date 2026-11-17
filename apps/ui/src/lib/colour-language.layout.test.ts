@@ -140,10 +140,6 @@ const PALETTE_EXCEPTIONS: Record<string, { families: string[]; reason: string }>
         families: ['amber', 'blue', 'teal', 'violet'],
         reason: 'categorical CPU-share series, chosen for colour-vision separation and always named; a series is not a state'
     },
-    'pages/Species.svelte': {
-        families: ['sky'],
-        reason: 'the precipitation overlay draws rain as a sky band on the activity chart, and its legend matches it'
-    }
 };
 
 /**

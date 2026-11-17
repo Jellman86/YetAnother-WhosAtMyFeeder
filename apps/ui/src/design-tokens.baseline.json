@@ -1,9 +1,4 @@
 {
-  "lib/components/ActivityHeatmap.svelte": {
-    "palette": 39,
-    "dark": 19,
-    "arbitrary": 0
-  },
   "lib/components/BackendStatusScreen.svelte": {
     "palette": 62,
     "dark": 31,
@@ -35,8 +30,8 @@
     "arbitrary": 4
   },
   "lib/components/CaptureWall.svelte": {
-    "palette": 56,
-    "dark": 28,
+    "palette": 0,
+    "dark": 0,
     "arbitrary": 2
   },
   "lib/components/ConfirmDialog.svelte": {
@@ -87,7 +82,7 @@
   "lib/components/ExplorerFilters.svelte": {
     "palette": 0,
     "dark": 0,
-    "arbitrary": 3
+    "arbitrary": 2
   },
   "lib/components/ExplorerPlaceholders.svelte": {
     "palette": 0,
@@ -145,19 +140,9 @@
     "arbitrary": 0
   },
   "lib/components/GardenCaptureModal.svelte": {
-    "palette": 105,
-    "dark": 40,
-    "arbitrary": 2
-  },
-  "lib/components/GardenCapturePreview.svelte": {
-    "palette": 20,
-    "dark": 10,
-    "arbitrary": 0
-  },
-  "lib/components/GardenCaptureThumbnail.svelte": {
-    "palette": 2,
+    "palette": 0,
     "dark": 0,
-    "arbitrary": 0
+    "arbitrary": 1
   },
   "lib/components/GardenDomesticSuggestion.svelte": {
     "palette": 2,
@@ -173,11 +158,6 @@
     "palette": 0,
     "dark": 0,
     "arbitrary": 2
-  },
-  "lib/components/GardenSpeciesPicker.svelte": {
-    "palette": 6,
-    "dark": 3,
-    "arbitrary": 0
   },
   "lib/components/GardenVisitCaptures.svelte": {
     "palette": 0,
@@ -289,11 +269,6 @@
     "dark": 2,
     "arbitrary": 0
   },
-  "lib/components/RangeMap.svelte": {
-    "palette": 4,
-    "dark": 2,
-    "arbitrary": 1
-  },
   "lib/components/ReclassificationOverlay.svelte": {
     "palette": 0,
     "dark": 0,
@@ -309,30 +284,15 @@
     "dark": 24,
     "arbitrary": 5
   },
-  "lib/components/SimpleBarChart.svelte": {
-    "palette": 18,
-    "dark": 7,
-    "arbitrary": 0
-  },
   "lib/components/SnapshotAnalysisScanner.svelte": {
     "palette": 26,
     "dark": 5,
     "arbitrary": 0
   },
   "lib/components/SpeciesCheckSheet.svelte": {
-    "palette": 47,
-    "dark": 12,
-    "arbitrary": 5
-  },
-  "lib/components/SpeciesChecks.svelte": {
-    "palette": 12,
-    "dark": 5,
-    "arbitrary": 0
-  },
-  "lib/components/SpeciesDetailModal.svelte": {
-    "palette": 229,
-    "dark": 103,
-    "arbitrary": 11
+    "palette": 0,
+    "dark": 0,
+    "arbitrary": 3
   },
   "lib/components/TaxonCard.svelte": {
     "palette": 60,
@@ -610,9 +570,9 @@
     "arbitrary": 0
   },
   "lib/pages/AudioHistory.svelte": {
-    "palette": 217,
-    "dark": 108,
-    "arbitrary": 9
+    "palette": 0,
+    "dark": 0,
+    "arbitrary": 1
   },
   "lib/pages/Dashboard.svelte": {
     "palette": 0,
@@ -643,11 +603,6 @@
     "palette": 97,
     "dark": 44,
     "arbitrary": 1
-  },
-  "lib/pages/Species.svelte": {
-    "palette": 394,
-    "dark": 192,
-    "arbitrary": 8
   },
   "lib/pages/models/FinderDevicePanel.svelte": {
     "palette": 22,

@@ -308,8 +308,10 @@
         };
     });
 
+    // Out of the wall's clipping box, but inside the page's main landmark, so the preview is read as
+    // part of the page it belongs to (axe `region`). It is fixed, so where it sits in main does not move it.
     function portal(node: HTMLElement) {
-        document.body.appendChild(node);
+        (document.getElementById('main-content') ?? document.body).appendChild(node);
         return { destroy: () => node.remove() };
     }
 
@@ -387,16 +389,16 @@
     {#if leader}
         <header class="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
             <div class="min-w-0">
-                <p class="text-xs font-semibold text-slate-600 dark:text-slate-400">{eyebrow}</p>
+                <p class="text-xs font-semibold text-muted">{eyebrow}</p>
                 <div class="mt-1 flex flex-wrap items-baseline gap-x-4 gap-y-1">
-                    <h2 class="font-display text-3xl font-bold leading-tight text-slate-900 dark:text-white sm:text-4xl sm:leading-10">{leader.displayName}</h2>
-                    <p class="text-sm tabular-nums text-slate-600 dark:text-slate-300">
-                        <span class="font-semibold text-slate-900 dark:text-white">{leader.count.toLocaleString()}</span>
+                    <h2 class="font-display text-3xl font-bold leading-tight text-strong sm:text-4xl sm:leading-10">{leader.displayName}</h2>
+                    <p class="text-sm tabular-nums text-muted">
+                        <span class="font-semibold text-strong">{leader.count.toLocaleString()}</span>
                         {countLabel(leader.count)}
                     </p>
                 </div>
                 {#if leader.subName}
-                    <p class="text-sm italic text-slate-600 dark:text-slate-400">{leader.subName}</p>
+                    <p class="text-sm italic text-muted">{leader.subName}</p>
                 {/if}
             </div>
             {#if pinnedRow}
@@ -409,7 +411,7 @@
 
     {#if segments.length > 0}
         <ul
-            class="share flex h-12 gap-1 overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-900"
+            class="share flex h-12 gap-1 overflow-hidden rounded-xl bg-surface-raised"
             aria-label={$_('leaderboard.spotlight_share_heading', { default: 'Share by species' })}
             data-capture-wall-share
         >
@@ -437,12 +439,12 @@
         </ul>
         <!-- The key says in words what each colour is, in the bar's order, with nothing to hover.
              It is hidden from a screen reader, which hears the same words as each segment's name. -->
-        <ul class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-700 dark:text-slate-300" aria-hidden="true" data-capture-wall-key>
+        <ul class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink" aria-hidden="true" data-capture-wall-key>
             {#each segments as segment, index (`${segment.key}|${index}`)}
-                <li class="min-w-0 wrap-break-word {activeSegment === segment.key ? 'font-bold text-slate-950 underline dark:text-white' : ''}">
+                <li class="min-w-0 wrap-break-word {activeSegment === segment.key ? 'font-bold text-strong underline' : ''}">
                     <span class="mr-1 inline-block h-2.5 w-2.5 rounded-xs align-baseline" style:background-color={segmentColour(segment)}></span>
                     {segmentName(segment.key, segment.kind)}
-                    <span class="tabular-nums text-slate-600 dark:text-slate-400">{percentOfTotal(segment.count)} · {segment.count.toLocaleString()} {countLabel(segment.count)}</span>
+                    <span class="tabular-nums text-muted">{percentOfTotal(segment.count)} · {segment.count.toLocaleString()} {countLabel(segment.count)}</span>
                 </li>
             {/each}
         </ul>
@@ -451,7 +453,7 @@
     {#if loading || usable.length >= WALL_MINIMUM}
         <!-- svelte-ignore a11y_no_static_element_interactions -->
         <div
-            class="wall relative overflow-hidden rounded-2xl border border-slate-200/80 bg-slate-100/70 p-[3px] dark:border-slate-700/60 dark:bg-slate-950/60 {lit !== null ? 'has-active' : ''}"
+            class="wall relative overflow-hidden rounded-2xl border border-line bg-surface-raised p-[3px] {lit !== null ? 'has-active' : ''}"
             bind:clientWidth={width}
             onpointerleave={scheduleClose}
             data-capture-wall-grid
@@ -496,7 +498,7 @@
                         >
                             {#if failed.has(tile.frigateEvent)}
                                 <!-- The picture is gone; the visit is not. A neutral cell that names the bird. -->
-                                <span class="tile-missing flex h-full w-full items-center justify-center bg-slate-200 p-1 text-center text-3xs font-semibold leading-tight text-slate-700 dark:bg-slate-800 dark:text-slate-200" data-capture-wall-missing>
+                                <span class="tile-missing flex h-full w-full items-center justify-center bg-surface-raised p-1 text-center text-3xs font-semibold leading-tight text-ink" data-capture-wall-missing>
                                     <span class="line-clamp-3 wrap-break-word">{tile.name}</span>
                                 </span>
                             {:else}
@@ -525,7 +527,7 @@
 
         {#if shown.length > 0}
             <div class="flex flex-wrap items-center justify-between gap-2">
-                <p class="text-xs text-slate-600 dark:text-slate-400">
+                <p class="text-xs text-muted">
                     {$_('leaderboard.wall_footer', { values: { count: shown.length }, default: '{count, plural, one {# recent visit. It opens its species.} other {# recent visits. Each opens its species.}}' })}
                 </p>
                 {#if hasMore || opened}
@@ -544,7 +546,7 @@
         id={popoutId}
         use:portal
         role="tooltip"
-        class="wall-popout fixed z-70 rounded-2xl border border-slate-200 bg-surface p-2.5 shadow-2xl dark:border-slate-700 {place.side}"
+        class="wall-popout fixed z-70 rounded-2xl border border-line bg-surface p-2.5 shadow-2xl {place.side}"
         style:left="{place.left}px"
         style:top="{place.top}px"
         style:width="{POPOUT_WIDTH}px"
@@ -574,34 +576,34 @@
                     {/if}
                 </div>
                 <div class="px-1 pb-1 pt-2.5">
-                    <p class="flex items-center gap-2 font-display text-lg font-bold leading-tight text-slate-900 dark:text-white">
+                    <p class="flex items-center gap-2 font-display text-lg font-bold leading-tight text-strong">
                         <span class="h-2.5 w-2.5 shrink-0 rounded-full" style:background-color={colourFor(open.speciesKey)} aria-hidden="true"></span>
                         <span class="min-w-0 wrap-break-word">{open.name}</span>
                     </p>
                     {#if open.subName}
-                        <p class="wrap-break-word text-sm italic text-slate-600 dark:text-slate-400">{open.subName}</p>
+                        <p class="wrap-break-word text-sm italic text-muted">{open.subName}</p>
                     {/if}
                     <dl class="mt-2.5 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
-                        <dt class="text-slate-600 dark:text-slate-400">{$_('leaderboard.wall_confidence', { default: 'Confidence' })}</dt>
-                        <dd class="flex items-center gap-2 font-semibold tabular-nums text-slate-900 dark:text-white">
+                        <dt class="text-muted">{$_('leaderboard.wall_confidence', { default: 'Confidence' })}</dt>
+                        <dd class="flex items-center gap-2 font-semibold tabular-nums text-strong">
                             {percent(open.score)}
-                            <span class="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700" aria-hidden="true">
+                            <span class="h-1.5 flex-1 overflow-hidden rounded-full bg-line" aria-hidden="true">
                                 <span class="block h-full rounded-full {SCORE_FILL[scoreBand(open.score)]}" style:width={percent(open.score)}></span>
                             </span>
                         </dd>
-                        <dt class="text-slate-600 dark:text-slate-400">{$_('leaderboard.wall_seen', { default: 'Seen' })}</dt>
-                        <dd class="text-slate-800 dark:text-slate-100">{formatDateTime(open.at)}</dd>
+                        <dt class="text-muted">{$_('leaderboard.wall_seen', { default: 'Seen' })}</dt>
+                        <dd class="text-strong">{formatDateTime(open.at)}</dd>
                         {#if open.camera}
-                            <dt class="text-slate-600 dark:text-slate-400">{$_('leaderboard.wall_camera', { default: 'Camera' })}</dt>
-                            <dd class="wrap-break-word text-slate-800 dark:text-slate-100">{open.camera}</dd>
+                            <dt class="text-muted">{$_('leaderboard.wall_camera', { default: 'Camera' })}</dt>
+                            <dd class="wrap-break-word text-strong">{open.camera}</dd>
                         {/if}
-                        <dt class="text-slate-600 dark:text-slate-400">{$_('leaderboard.wall_visit', { default: 'Visit' })}</dt>
-                        <dd class="text-slate-800 dark:text-slate-100">
+                        <dt class="text-muted">{$_('leaderboard.wall_visit', { default: 'Visit' })}</dt>
+                        <dd class="text-strong">
                             {$_('leaderboard.wall_frames', { values: { count: open.captures }, default: '{count, plural, one {# frame} other {# frames}}' })}
                         </dd>
                     </dl>
                     {#if open.speciesKey}
-                        <p class="mt-2.5 border-t border-slate-200 pt-2 text-2xs font-semibold text-brand-700 dark:border-slate-700 dark:text-brand-300">
+                        <p class="mt-2.5 border-t border-line pt-2 text-2xs font-semibold text-accent-ink">
                             {$_('leaderboard.wall_open', { values: { name: open.name }, default: 'Open {name}' })}
                         </p>
                     {/if}

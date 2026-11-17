@@ -28,7 +28,9 @@ describe('Audio history keeps loading, measured-empty, failed and stale apart', 
     });
 
     it('gives every chart its numbers as text, including the other species', () => {
-        expect(source.match(/\{@render chartNumbers\(/g)?.length).toBe(3);
+        // Each chart is a ChartFigure, whose table holds its numbers.
+        expect(source.match(/<ChartFigure\b/g)?.length).toBe(3);
+        expect(source.match(/table=\{measured && has(?:Daily|Hourly|Species) \?/g)?.length).toBe(3);
         expect(source).toContain('data-audio-mix-count');
         expect(source).toContain('speciesMix.map((item) => [item.species, item.count.toLocaleString()])');
     });

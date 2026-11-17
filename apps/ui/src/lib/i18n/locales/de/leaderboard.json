@@ -218,5 +218,8 @@
     "kept_bird_skipped": "{count, plural, one {# Eintrag konnte nicht verschoben werden und bleibt im Vogelverlauf.} other {# Einträge konnten nicht verschoben werden und bleiben im Vogelverlauf.}}",
     "kept_bird_remaining": "{count, plural, one {# weiterer Eintrag wartet; wählen Sie die Aktion erneut, um ihn zu verschieben.} other {# weitere Einträge warten; wählen Sie die Aktion erneut, um sie zu verschieben.}}"
   },
-  "span_group": "Zeitraum"
+  "span_group": "Zeitraum",
+  "more_options": "Mehr",
+  "table_share": "Anteil",
+  "standing_heading": "Stand im Zeitraum"
 }

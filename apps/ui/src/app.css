@@ -813,6 +813,11 @@ img[data-media-failed] {
   height: clamp(23.75rem, 24vw, 38rem);
 }
 
+/* A bottom sheet on a phone stops short of the top, so the page it covers still shows above it. */
+@utility max-h-sheet {
+  max-height: 92dvh;
+}
+
 /* Pulsing status indicator */
 @utility status-pulse {
   @apply relative;

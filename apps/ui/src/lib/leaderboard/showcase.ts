@@ -39,8 +39,8 @@ export interface ReferenceImage {
 /** How many species the share bar names before it sums the rest. */
 const SPOTLIGHT_LIST = 6;
 
-/** Ranked species to ask a photograph for: the list plus the flagged species shown beneath it. */
-export const SPOTLIGHT_PORTRAITS = 16;
+/** Every ranking row shows this feeder's own crop where there is one: as many as the portraits route gives (its maximum). */
+export const RANKING_PORTRAITS = 24;
 
 /**
  * Match a species' own photograph to its row. The taxon is the identity when both sides

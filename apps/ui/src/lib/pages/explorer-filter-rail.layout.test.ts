@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import eventsPageSource from './Events.svelte?raw';
 import filtersSource from '../components/ExplorerFilters.svelte?raw';
+import sheetSource from '../components/ui/FilterSheet.svelte?raw';
 import rowSource from '../components/DetectionRow.svelte?raw';
 import storeSource from '../stores/explorer_filters.svelte.ts?raw';
 import previewSource from '../components/DetectionPreview.svelte?raw';
@@ -59,12 +60,16 @@ describe('collapsing the Explorer filter rail', () => {
         // focus nowhere on closing.
         expect(filtersSource).toContain("const rail = $derived(wide.current && !collapsed);");
         expect(filtersSource).toContain('const sheetOpen = $derived(panelOpen && !rail);');
+        // The shared sheet: portalled, a named modal dialog under the shared header, focus held and
+        // the page's scroll locked while it is open.
         const sheet = filtersSource.slice(filtersSource.indexOf('{:else if sheetOpen}'));
-        expect(sheet).toContain('use:portal');
-        expect(sheet).toMatch(/role="dialog"\s+aria-modal="true"\s+aria-labelledby="explorer-filter-sheet-title"/);
-        expect(sheet).toContain('data-explorer-sheet-close');
-        expect(filtersSource).toContain('const release = trapFocus(sheet);');
-        expect(filtersSource).toContain('const unlock = lockDocumentScroll();');
+        expect(sheet).toContain('<FilterSheet');
+        expect(sheet).toContain("closeData={{ 'data-explorer-sheet-close': true }}");
+        expect(sheetSource).toContain('use:portal');
+        expect(sheetSource).toMatch(/role="dialog"\s+aria-modal="true"\s+aria-labelledby=\{titleId\}/);
+        expect(sheetSource).toContain('<DialogHeader {title} {titleId}');
+        expect(sheetSource).toContain('const release = trapFocus(sheet);');
+        expect(sheetSource).toContain('const unlock = lockDocumentScroll();');
         // The filters are written once and drawn in whichever of the two holds them.
         expect(filtersSource.match(/\{@render facets\(\)\}/g)).toHaveLength(2);
         expect(filtersSource.match(/data-explorer-date-facet/g)).toHaveLength(1);
