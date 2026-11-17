@@ -190,7 +190,7 @@
     });
     let hideActionLabel = $derived(
         detection.is_hidden
-            ? $_('actions.unhide_detection', { default: 'Unhide detection' })
+            ? $_('actions.unhide_detection', { default: 'Unhide record' })
             : $_('actions.hide_detection')
     );
 

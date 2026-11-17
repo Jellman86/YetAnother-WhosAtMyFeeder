@@ -407,7 +407,7 @@ for (const width of [320, 1280]) {
 
         const hedgehog = page.locator('[data-field-log-garden="hedgehog"]');
         await expect(hedgehog).toHaveAttribute('data-needs-review', 'true');
-        await expect(hedgehog.locator('[data-field-log-garden-state]')).toHaveText('Needs review: suggested species');
+        await expect(hedgehog.locator('[data-field-log-garden-state]')).toHaveText('Needs your call: suggested species');
         // A capture waiting for review is opened by a button named for what it shows first: Review.
         await hedgehog.getByRole('button', { name: /^Review: European Hedgehog/ }).click();
         await expect(page.getByLabel('Selected record')).toHaveText('garden:hedgehog');
@@ -430,7 +430,7 @@ for (const theme of ['light', 'dark']) {
         await expect(page.locator('[data-field-log-row]')).toHaveCount(6);
         const flagged = page.locator('[data-field-log-row][data-needs-review="true"]');
         await expect(flagged).toHaveCount(2);
-        await expect(page.locator('[data-field-log-garden="hedgehog"] [data-attention-reason]')).toHaveText('Needs review: suggested species');
+        await expect(page.locator('[data-field-log-garden="hedgehog"] [data-attention-reason]')).toHaveText('Needs your call: suggested species');
         await expect(page.locator('[data-field-log-visit="unknown"] [data-attention-reason]')).toHaveText('Below the naming threshold');
         for (const row of await flagged.all()) {
             await expect(row.locator('[data-attention-reason] .attention-dot')).toBeVisible();
@@ -542,7 +542,7 @@ test('a Garden pop-out opens on keyboard focus and closes on Escape and on blur'
     // No saved crop, so the snapshot; and a suggestion still waiting is said to be one.
     await expect(panel).toHaveAttribute('data-garden-capture-preview-panel', 'snapshot');
     await expect(panel.locator('img')).toHaveAttribute('src', /\/api\/garden\/hedgehog\/snapshot/);
-    await expect(panel.locator('[data-garden-capture-preview-state]')).toHaveText('Needs review: suggested species');
+    await expect(panel.locator('[data-garden-capture-preview-state]')).toHaveText('Needs your call: suggested species');
 
     await page.keyboard.press('Escape');
     await expect(panel).toHaveCount(0);

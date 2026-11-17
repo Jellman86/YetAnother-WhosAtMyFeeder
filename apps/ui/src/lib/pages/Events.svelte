@@ -1907,7 +1907,7 @@
         try {
             const result = await reviewGardenBatch(undo.ids, 'restore');
             gardenUndo = null;
-            toastStore.success($_('garden.batch_restored', { default: '{count, plural, one {# photo returned to review.} other {# photos returned to review.}}', values: { count: result.updated_ids.length } }));
+            toastStore.success($_('garden.batch_restored', { default: '{count, plural, one {# photo returned to Needs your call.} other {# photos returned to Needs your call.}}', values: { count: result.updated_ids.length } }));
             await loadEvents();
         } catch (failure) {
             toastStore.error(failure instanceof Error ? failure.message : $_('garden.save_error', { default: 'Could not save your review. Try again.' }));
@@ -2425,11 +2425,11 @@
                     {$_('garden.batch_dismissed', { default: '{count, plural, one {# photo dismissed.} other {# photos dismissed.}}', values: { count: gardenUndo.ids.length } })}
                     {#if gardenUndo.skipped > 0}{' '}{$_('garden.batch_skipped', { default: '{count, plural, one {# photo was unchanged because its review or availability changed.} other {# photos were unchanged because their review or availability changed.}}', values: { count: gardenUndo.skipped } })}{/if}
                     {' '}{gardenUndo.returnToReview
-                        ? $_('garden.visit_return_help', { default: 'Returning photos to review does not reconfirm presence or the species name. Dismissed photos may make room for new captures.' })
+                        ? $_('garden.visit_return_help', { default: 'Returning photos to Needs your call does not reconfirm presence or the species name. Dismissed photos may make room for new captures.' })
                         : $_('garden.batch_undo_help', { default: 'Undo is available while photos remain. Dismissed photos may make room for new captures.' })}
                 </span>
                 <button type="button" class="btn btn-secondary min-h-11 whitespace-normal px-3 text-xs" onclick={undoGardenGroup}>{gardenUndo.returnToReview
-                    ? $_('garden.visit_return', { default: 'Return captures to review' })
+                    ? $_('garden.visit_return', { default: 'Return captures to Needs your call' })
                     : $_('garden.batch_undo', { default: 'Undo group dismissal' })}</button>
             </div>
         {/if}
@@ -2476,14 +2476,14 @@
         {:else if pane.state === 'empty' && gardenOnly && authStore.hasOwnerAccess && gardenCameraCount === 0}
             <div class="border-y border-dashed border-line py-12 text-center" data-explorer-garden-empty>
                 <h2 class="text-lg font-semibold text-strong">{$_('garden.explorer.no_cameras_title', { default: 'No camera has Garden animals turned on' })}</h2>
-                <p class="mt-2 text-sm text-muted">{$_('garden.explorer.no_cameras_desc', { default: 'Turn Garden animals on for a camera, and its confirmed animals and captures waiting for review appear here.' })}</p>
+                <p class="mt-2 text-sm text-muted">{$_('garden.explorer.no_cameras_desc', { default: 'Turn Garden animals on for a camera, and its confirmed animals and the captures that need your call appear here.' })}</p>
                 <a href={toAppPath('/settings/beta')} class="btn btn-secondary mt-4 inline-flex min-h-11 items-center px-4">{$_('garden.open_settings', { default: 'Garden settings' })}</a>
             </div>
         {:else if pane.state === 'empty' && gardenOnly}
             <div class="border-y border-dashed border-line py-12 text-center" data-explorer-garden-empty>
                 <h2 class="text-lg font-semibold text-strong">
                     {gardenReview === 'pending'
-                        ? $_('garden.explorer.empty_pending', { default: 'No Garden captures need review' })
+                        ? $_('garden.explorer.empty_pending', { default: 'No Garden captures need your call' })
                         : gardenReview === 'confirmed'
                           ? $_('garden.explorer.empty_confirmed', { default: 'No confirmed animals yet' })
                           : gardenReview === 'dismissed'
@@ -2496,7 +2496,7 @@
                     </p>
                 {/if}
                 <p class="mt-2 text-sm text-muted">{authStore.hasOwnerAccess
-                    ? $_('garden.explorer.empty_desc', { default: 'Confirmed animals and captures waiting for review appear here. Dismissed captures are under Review, Dismissed.' })
+                    ? $_('garden.explorer.empty_desc', { default: 'Confirmed animals and captures that need your call appear here. Dismissed captures are under Garden status, Dismissed.' })
                     : $_('garden.explorer.empty_guest_desc', { default: 'Animals confirmed on the Garden cameras appear here.' })}</p>
             </div>
         {:else if pane.state === 'empty' || pane.state === 'empty-filtered'}

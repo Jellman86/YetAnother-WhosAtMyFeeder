@@ -500,7 +500,7 @@ test('confirmed visit dismissal sends only the displayed review snapshots and of
         { id: first.id, review_token: 'a'.repeat(64) }, { id: second.id, review_token: 'b'.repeat(64) }
     ] });
     await expect(dialog).toBeHidden();
-    await expect(page.locator('[data-explorer-garden-undo]').getByRole('button', { name: 'Return captures to review' })).toBeVisible();
+    await expect(page.locator('[data-explorer-garden-undo]').getByRole('button', { name: 'Return captures to Needs your call' })).toBeVisible();
     expect(errors).toEqual([]);
 });
 

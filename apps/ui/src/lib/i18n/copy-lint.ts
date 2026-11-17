@@ -57,7 +57,7 @@ function term(use: string, avoid: readonly string[], options: TermOptions = {}):
 
 /** A sighting is someone else's report, so the word stays where the copy is about eBird or a place. */
 const OTHER_PEOPLES_REPORTS = {
-    keys: /ebird|nearby|notable|reference|hotspot|location|inat/i,
+    keys: /ebird|nearby|notable|reference|hotspot|location|inat|^species_detail\.(?:no_)?recent_sightings$|^common\.map_sighting$/i,
     reason: 'a sighting is a report from eBird or another observer, which is what these strings describe'
 };
 /**

@@ -26,42 +26,20 @@
     "zh/settings": 3
   },
   "glossary": {
-    "de/actions": 2,
-    "de/common": 3,
-    "de/garden": 5,
     "de/jobs": 1,
-    "de/manual_observation": 5,
-    "de/settings": 113,
-    "de/species_detail": 1,
-    "en/actions": 2,
-    "en/common": 3,
-    "en/garden": 9,
-    "en/manual_observation": 6,
-    "en/settings": 124,
-    "en/species_detail": 2,
-    "en/video_player": 2
+    "de/settings": 111,
+    "en/settings": 122
   },
   "unit-spacing": {
-    "de/garden": 2,
-    "de/manual_observation": 3,
     "de/settings": 18,
-    "en/manual_observation": 3,
     "en/settings": 14,
-    "es/garden": 1,
-    "es/manual_observation": 3,
     "es/settings": 16,
-    "fr/garden": 2,
     "fr/jobs": 1,
     "fr/settings": 8,
-    "it/manual_observation": 3,
     "it/settings": 14,
-    "ja/manual_observation": 1,
     "ja/settings": 12,
-    "pt/manual_observation": 3,
     "pt/settings": 14,
-    "ru/manual_observation": 3,
     "ru/settings": 13,
-    "zh/manual_observation": 3,
     "zh/settings": 11
   }
 }

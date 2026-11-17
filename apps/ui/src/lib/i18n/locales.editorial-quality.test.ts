@@ -164,6 +164,7 @@ describe('locale editorial quality', () => {
  * docs/standards/layout-patterns.md, writing rules: controls, headings and labels are in sentence
  * case. A short label whose later words are capitalised ("Clear History", "Test AI Connection")
  * fails unless the word is a name: a product, a place, a model, or a page or tab of the app.
+ * The queue's name is a name as a whole phrase ("Return to Needs your call"), not word by word.
  * German capitalises its nouns and Japanese and Chinese have no case, so they are not checked.
  */
 const NAMES = new Set(
@@ -204,8 +205,11 @@ function interfaceNames(locale: LocaleRoot): Set<string> {
     return new Set(labels.flatMap((label) => label.match(/[\p{L}][\p{L}\p{N}'’.-]*/gu) ?? []));
 }
 
+/** docs/standards/glossary.md: the one name for work waiting on the owner. */
+const QUEUE_NAME = /Needs your call/g;
+
 function titleCasedWords(value: string, names: Set<string>): string[] {
-    const plain = value.replace(/\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/g, ' ');
+    const plain = value.replace(/\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/g, ' ').replace(QUEUE_NAME, 'needs your call');
     const words = plain.match(/[\p{L}][\p{L}\p{N}'’.-]*/gu) ?? [];
     if (words.length < 2 || words.length > 6) return [];
     const offenders: string[] = [];
@@ -223,6 +227,14 @@ function titleCasedWords(value: string, names: Set<string>): string[] {
 }
 
 describe('sentence case', () => {
+    it('treats the queue\u2019s name as a name only as the whole phrase', () => {
+        const none = new Set<string>();
+        expect(titleCasedWords('Return to Needs your call', none)).toEqual([]);
+        expect(titleCasedWords('Animals and Needs your call', none)).toEqual([]);
+        expect(titleCasedWords('Photo Needs a check', none)).toEqual(['Needs']);
+        expect(titleCasedWords('Return To Needs your call', none)).toEqual(['To']);
+    });
+
     it('checks every language or names why it is exempt', () => {
         const covered = [...SENTENCE_CASE_LOCALES, ...CASE_EXEMPT_LOCALES].sort();
         expect(covered).toEqual(LOCALES.map(([name]) => name).sort());
