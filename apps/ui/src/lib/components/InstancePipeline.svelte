@@ -10,6 +10,7 @@
     import { logger } from '../utils/logger';
     import { describeRuntime } from '../utils/instance-facts';
     import { pipelineClassifierStep } from '../utils/pipeline-classifier-state';
+    import { identificationModelLabel } from '../settings/identification-models';
     import { readinessLabel, reportedModelId } from '../settings/model-readiness';
     import { modelActivityStore } from '../stores/model_activity.svelte';
     import { _ } from 'svelte-i18n';
@@ -20,6 +21,8 @@
      */
 
     type Tone = 'ok' | 'off' | 'unknown';
+
+    const translate = (key: string, options?: { default?: string; values?: Record<string, string | number> }): string => $_(key, options);
 
     interface Step {
         key: string;
@@ -144,8 +147,12 @@
     const classifierSummary = $derived.by(() => {
         if (classifierFailed) return { detail: noReading, state: unknown, tone: 'unknown' as Tone };
         if (!classifier) return { detail: '…', state: null, tone: 'unknown' as Tone };
-        // The model's own name, as the Models tab shows it. Its file id belongs in the issue report.
-        const modelName = classifier.effective_model_name?.trim() || null;
+        // The model's names as the Models tab and Model evaluation give them. Its file id belongs in the issue report.
+        const catalogueName = classifier.effective_model_name?.trim() || null;
+        const modelId = reportedModelId(classifier);
+        const modelName = modelId
+            ? identificationModelLabel({ id: modelId, name: catalogueName }, translate)
+            : catalogueName;
         const runtime = describeRuntime(classifier)?.runtime ?? null;
         // The model's state by the rule every other surface uses, with work this app started on it.
         const step = pipelineClassifierStep(classifier, modelActivityStore.phase(reportedModelId(classifier)));

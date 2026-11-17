@@ -18,7 +18,10 @@
     "lint:dead": "knip --no-progress --include files,dependencies,devDependencies,unlisted,unresolved,exports,types,nsExports,nsTypes,enumMembers",
     "lint:tokens": "vitest run src/design-tokens.ratchet.test.ts src/design-tokens.contrast.test.ts",
     "tokens:baseline": "UPDATE_TOKEN_BASELINE=1 vitest run src/design-tokens.ratchet.test.ts",
-    "tokens:check-base": "node scripts/token-baseline.mjs check-against"
+    "tokens:check-base": "node scripts/token-baseline.mjs check-against",
+    "lint:copy": "vitest run src/lib/i18n/copy-lint.test.ts",
+    "copy:baseline": "UPDATE_COPY_BASELINE=1 vitest run src/lib/i18n/copy-lint.test.ts",
+    "copy:check-base": "node scripts/copy-baseline.mjs check-against"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.14.0",

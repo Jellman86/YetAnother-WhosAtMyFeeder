@@ -471,7 +471,7 @@ shows grouping, not divergence.
 span and source: one compact row (on a phone the span is a select and "Include Unknown bird" is under More)
 wall: the leader named, the share bar as its navigation, then a contact sheet of this feeder's own visits
 flagged species: probable misidentifications, named apart for a person to check
-standing band: species, visits, busiest hour, heard or confirmed, rising, most recent
+standing band: species, visits (captures in the all-time view), busiest hour, heard or confirmed, rising, most recent
   (beside the wall in a side column from 1280 px; under it on narrower screens)
 rankings (with evidence, each row with this feeder's own crop), then analytics, both at full width
 ```
@@ -490,7 +490,9 @@ species besides the classifier: confirmed by the owner, heard by BirdNET in the 
 camera alone (`leaderboard/evidence.ts`). A trend is claimed only when the history covers the whole
 previous window (`previous_window_complete` from the route); otherwise the page says when records
 start. Rankings count visits (`window_visit_count`, the shared server rule of a 60-second inactivity gap after the latest verified event end,
-with capture time as the fallback), and only the all-time view, which has no visit counts, says detections.
+with capture time as the fallback). Only the all-time view, which has no visit counts, shows the raw total of stored
+photographs, and it calls them captures ([`glossary.md`](glossary.md), Counting): a raw total is never relabelled as visits.
+The Leaderboard's strings still say "detections" until its copy pass; the copy-lint baseline counts them.
 The timeline and the composition chart share one colour per species
 (`leaderboard/species-palette.ts`, validated for colour-blind separation on both surfaces).
 
@@ -701,6 +703,9 @@ The product's voice is dry, first person where a person is speaking, and underst
 sets it: *"A personal project built with AI-assisted coding... I saw an opportunity to learn and
 build something better."*
 
+- **One word for each thing.** [`glossary.md`](glossary.md) lists the term for every concept, the
+  words it replaces, each language's form of address and the rules for units. `copy-lint.test.ts`
+  holds every locale file to it.
 - **No em dashes.** Use a comma, a colon, a semicolon or a full stop. The locale test covers all
   nine languages and `dialog-close-and-copy.layout.test.ts` covers English fallbacks in the code.
 - **Sentence case.** Buttons, headings and labels capitalise their first word and names only:
