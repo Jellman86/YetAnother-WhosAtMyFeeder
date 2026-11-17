@@ -188,7 +188,7 @@ function effects(source: string): { writes: Set<string>; calls: Set<string> } {
     const text = source.replace(/\.\.\./g, ' ');
     const writes = new Set<string>();
     const calls = new Set<string>();
-    for (const match of text.matchAll(/(?<![\w.$])(?<!(?:const|let|var)\s+)([A-Za-z_$][\w$]*)(?:\.[\w$.]+|\[[^\]]*\])*\s*(?:=|\+=|-=|\|\|=|\?\?=)(?![=>])/g)) writes.add(match[1]);
+    for (const match of text.matchAll(/(?<![\w.$])(?<!(?:const|let|var)\s+)([A-Za-z_$][\w$]*)(?:\.[\w$]+|\[[^\]]*\])*\s*(?:=|\+=|-=|\|\|=|\?\?=)(?![=>])/g)) writes.add(match[1]);
     for (const match of text.matchAll(/(?<![\w.$])([A-Za-z_$][\w$]*)\.(?:push|splice|pop|shift|unshift|set|delete|add)\(/g)) writes.add(match[1]);
     for (const match of text.matchAll(/(?<![\w.$])([A-Za-z_$][\w$]*)\s*(?:\?\.)?\(/g)) if (!KEYWORDS.has(match[1])) calls.add(match[1]);
     return { writes, calls };
