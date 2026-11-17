@@ -1073,7 +1073,7 @@
   "danger": {
     "title": "Daten löschen",
     "subtitle": "Jede dieser Aktionen löscht etwas endgültig. Jede fragt nach, bevor sie etwas tut.",
-    "reset_desc": "Löscht alle Erkennungen, alle zwischengespeicherten Fotos und Clips und alle archivierten Favoriten.",
+    "reset_desc": "Löscht alle Erkennungen, alle zwischengespeicherten Fotos und Clips, alle archivierten Favoriten und die Tagessummen, die ältere Bestenlisten-Verläufe erhalten.",
     "reset_button": "Gesamten Verlauf löschen",
     "resetting": "Wird zurückgesetzt…",
     "confirm": "{count, plural, one {# Erkennung} other {Alle # Erkennungen}}, ausgeblendete eingeschlossen, alle zwischengespeicherten Fotos und Clips und alle archivierten Favoriten löschen? Das lässt sich nicht rückgängig machen.",

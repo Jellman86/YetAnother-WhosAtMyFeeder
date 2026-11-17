@@ -1073,7 +1073,7 @@
   "danger": {
     "title": "Eliminar datos",
     "subtitle": "Cada una de estas acciones elimina algo para siempre. Todas preguntan antes de hacer nada.",
-    "reset_desc": "Elimina todas las detecciones, todas las fotos y clips en caché y todos los favoritos archivados.",
+    "reset_desc": "Elimina todas las detecciones, todas las fotos y clips en caché, todos los favoritos archivados y los totales diarios que conservan el historial antiguo de la clasificación.",
     "reset_button": "Eliminar todo el historial",
     "resetting": "Restableciendo…",
     "confirm": "¿Eliminar {count, plural, one {# detección} other {las # detecciones}}, incluidas las ocultas, todas las fotos y clips en caché y todos los favoritos archivados? No se puede deshacer.",

@@ -1073,7 +1073,7 @@
   "danger": {
     "title": "Supprimer des données",
     "subtitle": "Chacune de ces actions supprime quelque chose définitivement. Chacune demande confirmation avant d’agir.",
-    "reset_desc": "Supprime toutes les détections, toutes les photos et clips en cache et tous les favoris archivés.",
+    "reset_desc": "Supprime toutes les détections, toutes les photos et clips en cache, tous les favoris archivés et les totaux quotidiens qui conservent l’historique ancien du classement.",
     "reset_button": "Supprimer tout l’historique",
     "resetting": "Réinitialisation…",
     "confirm": "Supprimer {count, plural, one {# détection} other {les # détections}}, y compris les masquées, toutes les photos et clips en cache et tous les favoris archivés ? Impossible d’annuler.",

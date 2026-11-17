@@ -7,11 +7,12 @@ from typing import List, Optional, Literal
 from collections import Counter
 from app.database import get_db
 from app.repositories.audio_history_repository import AudioHistoryRepository
+from app.repositories.daily_totals_repository import DailyTotalsRepository
 from app.repositories.detection_repository import DetectionRepository
 from app.repositories.bird_observation_repository import BirdObservationRepository
 from app.repositories.health_repository import HealthRepository
 from app.services.uptime import HEARTBEAT_INTERVAL_MINUTES, build_uptime_window
-from app.models import APIModel, DetectionResponse
+from app.models import APIModel, DailyTotalsCoverage, DetectionResponse
 from app.config import settings
 from app.services.accelerator_telemetry import DrmProbeSnapshot
 from app.services.host_facts import collect_host_facts
@@ -33,7 +34,8 @@ from app.utils.public_access import (
 )
 from app.utils.api_datetime import serialize_api_datetime, utc_naive_now
 from app.utils.timezone import calendar_timezone, get_user_timezone
-from app.utils.calendar_day import today_so_far
+from app.utils.calendar_day import instance_timezone, local_date, today_so_far
+from app.services.daily_history import coverage, local_midnight_utc, local_noon_utc
 
 router = APIRouter()
 
@@ -407,6 +409,7 @@ class DetectionsTimelineSpanResponse(APIModel):
     weather: Optional[list[DetectionsTimelineWeatherPoint]] = None
     sunrise_range: Optional[str] = None
     sunset_range: Optional[str] = None
+    daily_totals: DailyTotalsCoverage = Field(default_factory=DailyTotalsCoverage)
 
 
 class DetectionsActivityHeatmapCell(APIModel):
@@ -818,7 +821,10 @@ async def get_detection_timeline_span(
     # slow or unreachable weather host cannot hold pool capacity.
     async with get_db() as db:
         repo = DetectionRepository(db)
+        totals_repo = DailyTotalsRepository(db)
         bounds = {} if auth.is_owner else public_event_query_bounds(now.replace(tzinfo=timezone.utc))
+        zone = instance_timezone()
+        history_floor = None if auth.is_owner else local_date(bounds["start_date"].replace(tzinfo=None), zone=zone)
 
         if span == "day":
             window_start = now - timedelta(hours=24)
@@ -850,6 +856,10 @@ async def get_detection_timeline_span(
 
         else:
             oldest, newest = await repo.get_detection_time_bounds(**bounds)
+            first_sealed = await totals_repo.first_sealed_day(history_floor)
+            if first_sealed is not None:
+                sealed_start = local_midnight_utc(first_sealed, zone)
+                oldest = sealed_start if not oldest else min(oldest.replace(tzinfo=None), sealed_start)
             if not oldest:
                 return DetectionsTimelineSpanResponse(
                     span="all",
@@ -891,12 +901,29 @@ async def get_detection_timeline_span(
                 )
 
         points_by_key = {point.bucket_start: point for point in points}
+        # A sealed day is counted from its daily totals alone; an hour bucket cannot hold a day's total.
+        sealed: dict = {}
+        if bucket != "hour":
+            first_day = local_date(window_start, zone=zone)
+            if history_floor is not None and first_day is not None:
+                first_day = max(first_day, history_floor)
+            sealed = await totals_repo.sealed_days(first_day, local_date(window_end, zone=zone))
+
+        def on_sealed_day(utc_bucket: datetime) -> bool:
+            return bool(sealed) and local_date(utc_bucket, zone=zone) in sealed
+
+        def bucket_of_day(day) -> str:
+            key, _label = _localized_bucket_key_and_label(local_noon_utc(day, zone), bucket, user_tz)
+            return key
+
         hourly_counts = await repo.get_timebucket_counts_hourly(window_start, window_end)
         hourly_metrics = await repo.get_timebucket_metrics(window_start, window_end, "hour")
         metric_rollups: dict[str, dict[str, float | int]] = {}
 
         for bucket_key, count in hourly_counts.items():
             utc_bucket = _parse_utc_bucket_key(bucket_key)
+            if on_sealed_day(utc_bucket):
+                continue
             local_key, _label = _localized_bucket_key_and_label(
                 utc_bucket,
                 bucket,
@@ -917,9 +944,19 @@ async def get_detection_timeline_span(
                 rollup["confidence_sum"] = float(rollup["confidence_sum"]) + (float(avg_confidence) * weight)
                 rollup["weight"] = int(rollup["weight"]) + weight
 
+        sealed_species: dict[str, set[str]] = {}
+        for total in await totals_repo.totals(min(sealed), max(sealed)) if sealed else []:
+            point = points_by_key.get(bucket_of_day(total.day))
+            if point is None:
+                continue
+            point.count += total.capture_count
+            sealed_species.setdefault(point.bucket_start, set()).add(total.species_key)
+
         for point in points:
             metrics = metric_rollups.get(point.bucket_start, {})
-            point.unique_species = int(metrics.get("unique_species") or 0)
+            point.unique_species = max(
+                int(metrics.get("unique_species") or 0), len(sealed_species.get(point.bucket_start, ()))
+            )
             weight = int(metrics.get("weight") or 0)
             point.avg_confidence = (
                 float(metrics["confidence_sum"]) / weight
@@ -949,6 +986,8 @@ async def get_detection_timeline_span(
                 localized_compare_counts: dict[str, dict[str, int]] = {}
                 for bucket_key, species_counts in compare_counts.items():
                     utc_bucket = _parse_utc_bucket_key(bucket_key)
+                    if on_sealed_day(utc_bucket):
+                        continue
                     local_key, _label = _localized_bucket_key_and_label(
                         utc_bucket,
                         bucket,
@@ -958,6 +997,10 @@ async def get_detection_timeline_span(
                     row = localized_compare_counts.setdefault(local_key, {})
                     for selected, count in species_counts.items():
                         row[selected] = row.get(selected, 0) + int(count)
+                for selected in sanitized_compare if sealed else []:
+                    for total in await totals_repo.totals(min(sealed), max(sealed), species_names=[selected]):
+                        row = localized_compare_counts.setdefault(bucket_of_day(total.day), {})
+                        row[selected] = row.get(selected, 0) + total.capture_count
                 compare_series = []
                 for selected in sanitized_compare:
                     compare_series.append(
@@ -1094,12 +1137,16 @@ async def get_detection_timeline_span(
                 sunset_range = None
 
     total_count = sum(p.count for p in points)
+    covered = coverage({day: seal.complete for day, seal in sealed.items()})
     return DetectionsTimelineSpanResponse(
         span=span,
         bucket=bucket,
         window_start=window_start.replace(tzinfo=timezone.utc).isoformat(),
         window_end=window_end.replace(tzinfo=timezone.utc).isoformat(),
         total_count=total_count,
+        daily_totals=DailyTotalsCoverage(
+            totals_through=covered.totals_through, complete_from=covered.complete_from, partial=covered.partial
+        ),
         points=points,
         compare_series=compare_series,
         weather=weather_points,

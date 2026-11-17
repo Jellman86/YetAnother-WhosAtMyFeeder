@@ -1073,7 +1073,7 @@
   "danger": {
     "title": "Elimina dati",
     "subtitle": "Ognuna di queste azioni elimina qualcosa per sempre. Ognuna chiede conferma prima di agire.",
-    "reset_desc": "Elimina tutti i rilevamenti, tutte le foto e le clip in cache e tutti i preferiti archiviati.",
+    "reset_desc": "Elimina tutti i rilevamenti, tutte le foto e le clip in cache, tutti i preferiti archiviati e i totali giornalieri che conservano la cronologia meno recente della classifica.",
     "reset_button": "Elimina tutta la cronologia",
     "resetting": "Reset…",
     "confirm": "Eliminare {count, plural, one {# rilevamento} other {tutti i # rilevamenti}}, compresi quelli nascosti, tutte le foto e le clip in cache e tutti i preferiti archiviati? Non si può annullare.",

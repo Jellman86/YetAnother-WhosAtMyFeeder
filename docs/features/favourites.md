@@ -88,6 +88,26 @@ Purged history cannot be recovered without a backup. Neither hiding a visit nor 
 cached clips is the same as permanently deleting its database record or removing an archive.
 Review the [data settings](../setup/configuration.md) before changing retention.
 
+### Daily totals keep the counts
+
+Cleanup keeps how many birds each day saw even after it deletes the captures. Just before it
+removes any capture from a day, it writes that day's captures and visits for each species, from
+the stored captures, and seals the day. The Leaderboard's chart and each species' weekday and
+month charts then count sealed days from these totals, so seasonal trends reach back past your
+retention period. Photos, clips and individual records for those days are gone; the charts say
+from which day their counts come from daily totals.
+
+- A day is local to the instance's timezone (`TZ`), like the rest of the history.
+- A sealed day never changes again. Hiding, renaming or deleting a capture is a correction that
+  changes the counts while the day's captures are still stored; once they are gone there is
+  nothing to check a correction against, so a sealed day keeps the totals it was sealed with.
+- A capture Frigate no longer has, removed under **Delete** for missing events, seals its day
+  first in the same way. Today is never sealed.
+- Totals start when you upgrade. Days whose older captures cleanup had already removed are
+  sealed with what was left and marked incomplete, and the charts say so.
+- **Delete all history** deletes the daily totals too.
+- The ranked lists on the Leaderboard count their rolling day, week or month from stored captures.
+
 The per-species floor is age protection, not reserved disk space. **Limit visits per species with
 photos and video** and **Limit the space photos and video use** can still evict ordinary cached media. Such eviction
 keeps detection history and leaves archived favourites alone. Removed bytes cannot be restored

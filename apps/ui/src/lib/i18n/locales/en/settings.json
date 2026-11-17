@@ -1073,7 +1073,7 @@
   "danger": {
     "title": "Delete data",
     "subtitle": "Each of these deletes something for good. Each asks before it does anything.",
-    "reset_desc": "Deletes every detection, every cached photo and clip, and every archived favourite.",
+    "reset_desc": "Deletes every detection, every cached photo and clip, every archived favourite, and the daily totals that keep older Leaderboard history.",
     "reset_button": "Delete all history",
     "resetting": "Resetting…",
     "confirm": "Delete all {count, plural, one {# detection} other {# detections}}, hidden ones included, every cached photo and clip, and every archived favourite? This cannot be undone.",

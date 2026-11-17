@@ -841,6 +841,11 @@ export interface components {
     window_end: string;
     window_start: string;
 };
+    DailyTotalsCoverage: {
+    complete_from?: string | null;
+    partial?: boolean;
+    totals_through?: string | null;
+};
     DailyWeatherSummary: {
     am_cloud?: number | null;
     am_condition?: string | null;
@@ -1079,6 +1084,7 @@ export interface components {
     DetectionsTimelineSpanResponse: {
     bucket: string;
     compare_series?: Array<components['schemas']['DetectionsTimelineCompareSeries']> | null;
+    daily_totals?: components['schemas']['DailyTotalsCoverage'];
     points: Array<components['schemas']['DetectionsTimelinePoint']>;
     span: string;
     sunrise_range?: string | null;
@@ -2983,7 +2989,9 @@ export interface components {
     cameras: Array<components['schemas']['CameraStats']>;
     common_name?: string | null;
     daily_distribution: Array<number>;
+    daily_totals?: components['schemas']['DailyTotalsCoverage'];
     first_seen: string | null;
+    history_first_day?: string | null;
     hourly_distribution: Array<number>;
     last_seen: string | null;
     max_confidence: number;

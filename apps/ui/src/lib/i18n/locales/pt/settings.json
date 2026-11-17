@@ -1073,7 +1073,7 @@
   "danger": {
     "title": "Excluir dados",
     "subtitle": "Cada uma destas ações exclui algo para sempre. Todas pedem confirmação antes de agir.",
-    "reset_desc": "Exclui todas as detecções, todas as fotos e clipes em cache e todos os favoritos arquivados.",
+    "reset_desc": "Exclui todas as detecções, todas as fotos e clipes em cache, todos os favoritos arquivados e os totais diários que preservam o histórico antigo da classificação.",
     "reset_button": "Excluir todo o histórico",
     "resetting": "Resetando…",
     "confirm": "Excluir {count, plural, one {# detecção} other {as # detecções}}, incluindo as ocultas, todas as fotos e clipes em cache e todos os favoritos arquivados? Não é possível desfazer.",
