@@ -961,7 +961,7 @@
                                 {/each}
                             </ul>
                         {/if}
-                        <p class="mt-2 text-xs text-ink">{$_('jobs.errors_filtered_hint', { default: 'Adjust the naming threshold in Settings → Identifying birds to keep more of these.' })}</p>
+                        <p class="mt-2 text-xs text-ink">{$_('jobs.errors_filtered_hint', { default: 'Lower the minimum confidence floor in Settings → Identifying birds to keep more of these as Unknown bird.' })}</p>
                     {/if}
                 </li>
 

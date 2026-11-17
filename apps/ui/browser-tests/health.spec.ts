@@ -31,6 +31,8 @@ async function expectPortalledAndUnclipped(panel: Locator): Promise<void> {
 test('recorded, filtered and failed rows stay distinct and only records can open', async ({ page }) => {
     await expect(page.locator('[data-health-activity-row]').first()).toHaveAttribute('data-row-kind', 'filtered');
     await expect(page.locator('[data-row-kind="filtered"]')).toContainText('20%');
+    // A `filter_low_confidence` drop fell under the minimum confidence floor, not the naming threshold.
+    await expect(page.locator('[data-row-kind="filtered"]')).toContainText('Not recorded, below your minimum confidence floor');
     await expect(page.locator('[data-row-kind="fault"]')).toContainText('Pipeline fault');
     await expect(page.locator('[data-row-kind="filtered"]')).not.toContainText('Pipeline fault');
     await expect(page.getByRole('button', { name: /View record:/ })).toHaveCount(1);
