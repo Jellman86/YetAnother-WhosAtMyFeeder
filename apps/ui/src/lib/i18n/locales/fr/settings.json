@@ -309,6 +309,79 @@
       "finder": {
         "not_downloaded": "non téléchargé"
       }
+    },
+    "purpose": {
+      "mqtt": "Le broker transmet les événements de Frigate à YA-WAMF, pour que chaque nouvelle visite arrive.",
+      "frigate": "Frigate enregistre les caméras. YA-WAMF y lit les photos et la vidéo de chaque visite.",
+      "classifier": "Le modèle nomme l’oiseau de chaque visite.",
+      "finder": "Le détecteur d’oiseaux repère chaque oiseau dans une photo chargée avant qu’il soit nommé. Il est facultatif.",
+      "audio": "BirdNET-Go écoute les chants, pour qu’une visite puisse être rapprochée de ce qui a été entendu.",
+      "storage": "Les photos et vidéos sont conservées dans le dossier des médias de cette installation.",
+      "notifications": "Les alertes partent sur vos canaux quand une visite en mérite une."
+    },
+    "why": {
+      "mqtt": {
+        "connected": "Connecté au broker.",
+        "connecting": "Connexion au broker pour la première fois depuis le démarrage de YA-WAMF.",
+        "disconnected": "Le broker n’est pas connecté, aucune nouvelle visite ne peut donc être enregistrée.",
+        "not_configured": "Aucun broker n’est défini, aucune visite ne peut donc être enregistrée.",
+        "stopped": "Le service MQTT ne tourne pas, aucune nouvelle visite ne peut donc être enregistrée.",
+        "pressure_high": "Les événements arrivent plus vite que YA-WAMF ne les traite, certains attendent donc.",
+        "pressure_critical": "Les événements arrivent bien plus vite que YA-WAMF ne les traite, beaucoup attendent donc.",
+        "backlog": "Des événements attendent leur tour.",
+        "frigate_topic_silent": "Connecté, mais rien n’arrive de Frigate depuis un moment."
+      },
+      "frigate": {
+        "reachable": "Frigate répond, et aucune caméra n’est signalée hors ligne.",
+        "unreachable": "Frigate ne répond pas, les nouvelles visites ne peuvent donc pas être enregistrées.",
+        "unchecked": "Frigate n’a pas encore été interrogé depuis le démarrage de YA-WAMF.",
+        "cameras_offline": "Frigate répond, mais une caméra est hors ligne."
+      },
+      "classifier": {
+        "ready": "Le modèle ne signale aucun problème.",
+        "model_missing": "Le modèle choisi n’est pas sur cette installation, aucun oiseau ne peut donc être nommé.",
+        "unmeasured": "Le modèle ne s’est pas manifesté depuis le démarrage de YA-WAMF.",
+        "model_not_loaded": "Les fichiers du modèle sont là, mais il ne s’est pas chargé.",
+        "runtime_failed": "Le modèle a cessé de fonctionner. Le rapport d’exécution, sous Plus d’options, dit pourquoi.",
+        "recovering": "Le modèle redémarre après s’être arrêté.",
+        "live_degraded": "Nommer les nouvelles visites est plus lent que prévu.",
+        "degraded": "Le nommage fonctionne, mais sous tension."
+      },
+      "finder": {
+        "ready": "Le détecteur d’oiseaux est téléchargé et tourne là où il doit.",
+        "unmeasured": "Le détecteur d’oiseaux ne s’est pas manifesté depuis le démarrage de YA-WAMF.",
+        "cpu_fallback": "Le détecteur d’oiseaux tourne sur le processeur, car l’appareil choisi a échoué.",
+        "none_selected": "Aucun détecteur d’oiseaux n’est choisi. Il est facultatif.",
+        "not_downloaded": "Le détecteur d’oiseaux choisi n’est pas téléchargé, il ne tourne donc encore nulle part."
+      },
+      "audio": {
+        "hearing": "Des chants sont arrivés de BirdNET-Go depuis le démarrage de YA-WAMF.",
+        "nothing_heard": "Aucun chant n’est arrivé depuis le démarrage de YA-WAMF. BirdNET-Go n’a peut-être simplement rien entendu.",
+        "broker_down": "Les chants arrivent par MQTT, et le broker n’est pas connecté.",
+        "disabled": "L’audio est désactivé."
+      },
+      "storage": {
+        "writable": "Le dossier des médias est accessible en écriture.",
+        "not_writable": "Le dossier des médias n’est pas accessible en écriture, les photos et vidéos ne sont donc pas conservées."
+      },
+      "notifications": {
+        "ready": "Un canal est activé, et aucune alerte n’a été abandonnée depuis le démarrage de YA-WAMF.",
+        "none_enabled": "Aucun canal n’est activé, aucune alerte n’est donc envoyée.",
+        "dropped": "Certaines alertes ont été abandonnées avant d’avoir pu être envoyées."
+      }
+    },
+    "test": {
+      "not_kept": "Les résultats des tests ne sont pas conservés. Lancez le test pour vérifier maintenant.",
+      "run": "Lancer le test",
+      "go": "Aller au test",
+      "passed": "Testé à {time} : cela a fonctionné.",
+      "failed": "Testé à {time} : cela n’a pas fonctionné. Relancez-le pour voir pourquoi.",
+      "passed_subject": "{subject} testé à {time} : cela a fonctionné.",
+      "failed_subject": "{subject} testé à {time} : cela n’a pas fonctionné. Relancez-le pour voir pourquoi.",
+      "passed_unsaved": "Testé à {time} avec les valeurs de cette page, pas encore enregistrées : cela a fonctionné.",
+      "failed_unsaved": "Testé à {time} avec les valeurs de cette page, pas encore enregistrées : cela n’a pas fonctionné. Relancez-le pour voir pourquoi.",
+      "passed_subject_unsaved": "{subject} testé à {time} avec les valeurs de cette page, pas encore enregistrées : cela a fonctionné.",
+      "failed_subject_unsaved": "{subject} testé à {time} avec les valeurs de cette page, pas encore enregistrées : cela n’a pas fonctionné. Relancez-le pour voir pourquoi."
     }
   },
   "more": {

@@ -21,6 +21,17 @@ settings; on a wide monitor the Status line and the section's parts move to a co
 own beside the controls. Sentences keep a readable line length at every width, and a phone never
 scrolls sideways.
 
+In that column each chip says what the part is for and its cause in words, saying only what was
+measured ("Frigate answers, and no camera is reported offline"), never a code. While the reading is
+out of date the causes are left out and the column says so. Frigate, MQTT, BirdNET-Go and Alerts
+have tests of their own. YA-WAMF keeps no test result, so a result is shown only for a test run
+during this visit, with the time it ran; a reload forgets it. A test runs with the values on the
+page: when they are not saved yet, the result says so, and an edit, **Discard changes** or **Save
+changes** after it removes it. Until then the column says "Test results aren't kept. Run the test
+to check now." with **Run the test**, or **Go to the test** when the test is under More options
+or is one of the channel tests. Above the settings on a phone the column stays short: the chips,
+with words only for a part that needs a look.
+
 | Section | What lives there |
 |---|---|
 | **Cameras & connection** | Where events come from: Frigate, its MQTT broker, the cameras to watch, and BirdNET-Go for audio. |

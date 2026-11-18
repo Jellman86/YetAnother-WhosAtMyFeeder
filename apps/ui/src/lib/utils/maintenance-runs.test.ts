@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { MaintenanceLastRun } from '../api/maintenance';
 import { lastRunSentence, timezoneRepairBlockedReason } from './maintenance-runs';
+import { authoredLocale } from '../i18n/authored-locales';
+import { SUPPORTED_LOCALES } from '../i18n/locale-partition';
 
 const translate = (key: string, options?: { default?: string; values?: Record<string, string | number> }): string => {
     let text = options?.default ?? key;
@@ -102,9 +104,7 @@ describe('timezoneRepairBlockedReason', () => {
 describe('the keys these sentences ask for', () => {
     // Some are built here from a base key ("…_none"), so a search for the literal key does not find
     // them. This reads the keys back from the function itself and holds every language to them.
-    it('are all defined in every language, including the ones built from a base key', async () => {
-        const { authoredLocale } = await import('../i18n/authored-locales');
-        const { SUPPORTED_LOCALES } = await import('../i18n/locale-partition');
+    it('are all defined in every language, including the ones built from a base key', () => {
         const asked = new Set<string>();
         const record = (key: string, options?: { default?: string }): string => { asked.add(key); return options?.default ?? key; };
         const kinds = ['taxonomy', 'timezone_scan', 'timezone_repair', 'analyze_unknowns', 'detections', 'weather'] as const;

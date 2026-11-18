@@ -212,8 +212,10 @@
     <div class="min-w-0 space-y-6 xl:col-span-8" data-about-main>
         <!-- Colophon: what this is, in plain sentences -->
         <section id="about-project" aria-labelledby="about-project-heading" class="space-y-4 px-1 pt-2">
-            <!-- On a phone the version sits on its own line, so the runtime version replacing the
-                 build's cannot rewrap the title and move the page beneath it. -->
+            <!-- On a phone the version sits on its own line; from 640px it has a slot of a fixed width
+                 beside the title, cut short with the whole version in its title. Either way the
+                 version's length (a long branch name in a development build, or the runtime version
+                 replacing the build's) can never rewrap the title and move the page beneath it. -->
             <div class="flex flex-wrap items-start gap-x-4 gap-y-2">
                 <div class="min-w-0 basis-full sm:basis-0 sm:grow">
                     <!-- The PageHeader already says "About" for owners; repeating it here was the
@@ -222,16 +224,19 @@
                         {$_('app.full_title', { default: 'Yet Another WhosAtMyFeeder' })}
                     </h2>
                 </div>
-                <a
-                    href={`${repoUrl}/blob/${docsRefBranch}/CHANGELOG.md`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    class="max-w-full shrink-0 truncate rounded-full border border-line px-3 py-1 font-mono text-xs sm:ml-auto text-muted transition-colors hover:border-accent-line focus-ring"
-                    title={$_('about.view_changelog')}
-                >
-                    <!-- The same full version string the footer shows, so the page never names two. -->
-                    v{versionInfo.version}
-                </a>
+                <div class="flex min-w-0 basis-full sm:w-56 sm:shrink-0 sm:basis-auto sm:justify-end" data-about-version-slot>
+                    <a
+                        href={`${repoUrl}/blob/${docsRefBranch}/CHANGELOG.md`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="min-w-0 max-w-full truncate rounded-full border border-line px-3 py-1 font-mono text-xs text-muted transition-colors hover:border-accent-line focus-ring"
+                        title={`v${versionInfo.version} · ${$_('about.view_changelog')}`}
+                        data-about-version
+                    >
+                        <!-- The same full version string the footer shows, so the page never names two. -->
+                        v{versionInfo.version}
+                    </a>
+                </div>
             </div>
 
             {#if portrait}

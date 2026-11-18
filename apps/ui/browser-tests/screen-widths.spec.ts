@@ -44,9 +44,7 @@ const KNOWN_LONG_LINES: { route: string; startsWith: string; owner: string }[] =
 ];
 
 /** Content-heavy pages known to use less of a 1920 px window, with their owner. The list may only shrink. */
-const KNOWN_NARROW: { route: string; owner: string }[] = [
-    { route: 'Settings', owner: 'Settings (M4): the content column and status column end about 360 px short of the window at 1920 px' }
-];
+const KNOWN_NARROW: { route: string; owner: string }[] = [];
 
 interface LongLine { text: string; ch: number }
 

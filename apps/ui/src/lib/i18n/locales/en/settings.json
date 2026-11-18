@@ -309,6 +309,79 @@
       "finder": {
         "not_downloaded": "not downloaded"
       }
+    },
+    "purpose": {
+      "mqtt": "The broker carries Frigate's events to YA-WAMF, so each new visit arrives.",
+      "frigate": "Frigate records the cameras. YA-WAMF reads each visit's photos and video from it.",
+      "classifier": "The model names the bird in each visit.",
+      "finder": "The bird finder picks each bird out of a busy photo before it is named. It is optional.",
+      "audio": "BirdNET-Go listens for birdsong, so a visit can be matched with the calls heard.",
+      "storage": "Photos and video are kept in the media folder on this install.",
+      "notifications": "Alerts go out on your channels when a visit earns one."
+    },
+    "why": {
+      "mqtt": {
+        "connected": "Connected to the broker.",
+        "connecting": "Connecting to the broker for the first time since YA-WAMF started.",
+        "disconnected": "The broker is not connected, so no new visits can be recorded.",
+        "not_configured": "No broker is set, so no visits can be recorded.",
+        "stopped": "The MQTT service is not running, so no new visits can be recorded.",
+        "pressure_high": "Events arrive faster than YA-WAMF handles them, so some wait.",
+        "pressure_critical": "Events arrive much faster than YA-WAMF handles them, so many wait.",
+        "backlog": "Events are waiting their turn to be handled.",
+        "frigate_topic_silent": "Connected, but nothing has come from Frigate for a while."
+      },
+      "frigate": {
+        "reachable": "Frigate answers, and no camera is reported offline.",
+        "unreachable": "Frigate does not answer, so new visits cannot be saved.",
+        "unchecked": "Frigate has not been asked yet since YA-WAMF started.",
+        "cameras_offline": "Frigate answers, but a camera is offline."
+      },
+      "classifier": {
+        "ready": "The model reports no problem.",
+        "model_missing": "The chosen model is not on this install, so no bird can be named.",
+        "unmeasured": "The model has not reported since YA-WAMF started.",
+        "model_not_loaded": "The model's files are here, but it did not load.",
+        "runtime_failed": "The model stopped working. The runtime report under More options says why.",
+        "recovering": "The model is starting again after it stopped.",
+        "live_degraded": "Naming new visits is slower than it should be.",
+        "degraded": "Naming works, but under strain."
+      },
+      "finder": {
+        "ready": "The bird finder is downloaded and runs where it should.",
+        "unmeasured": "The bird finder has not reported since YA-WAMF started.",
+        "cpu_fallback": "The bird finder runs on the processor, because its chosen device failed.",
+        "none_selected": "No bird finder is chosen. It is optional.",
+        "not_downloaded": "The chosen bird finder is not downloaded, so it runs nowhere yet."
+      },
+      "audio": {
+        "hearing": "Calls have arrived from BirdNET-Go since YA-WAMF started.",
+        "nothing_heard": "No call has arrived since YA-WAMF started. BirdNET-Go may simply have heard nothing yet.",
+        "broker_down": "Calls come over MQTT, and the broker is not connected.",
+        "disabled": "Audio is off."
+      },
+      "storage": {
+        "writable": "The media folder can be written.",
+        "not_writable": "The media folder cannot be written, so photos and video are not kept."
+      },
+      "notifications": {
+        "ready": "A channel is on, and no alert has been dropped since YA-WAMF started.",
+        "none_enabled": "No channel is on, so no alert is sent.",
+        "dropped": "Some alerts were dropped before they could be sent."
+      }
+    },
+    "test": {
+      "not_kept": "Test results aren't kept. Run the test to check now.",
+      "run": "Run the test",
+      "go": "Go to the test",
+      "passed": "Tested at {time}: it worked.",
+      "failed": "Tested at {time}: it did not work. Run it again to see why.",
+      "passed_subject": "{subject} tested at {time}: it worked.",
+      "failed_subject": "{subject} tested at {time}: it did not work. Run it again to see why.",
+      "passed_unsaved": "Tested at {time} with the values on this page, not saved yet: it worked.",
+      "failed_unsaved": "Tested at {time} with the values on this page, not saved yet: it did not work. Run it again to see why.",
+      "passed_subject_unsaved": "{subject} tested at {time} with the values on this page, not saved yet: it worked.",
+      "failed_subject_unsaved": "{subject} tested at {time} with the values on this page, not saved yet: it did not work. Run it again to see why."
     }
   },
   "more": {

@@ -44,7 +44,7 @@
     "frigate_ok": "Connecté à Frigate {version}",
     "blocked": "Enregistrez et testez la connexion pour continuer, ou choisissez « Configurer plus tard ».",
     "later": "Configurer plus tard",
-    "later_note": "Pas de Frigate ni de broker sous la main \u0001 Choisissez « Configurer plus tard ». Tant que les deux ne sont pas connectés dans Paramètres → Caméras et connexion, aucune visite n’arrive, aucune photo ni aucun clip ne peut être récupéré, et l’étape des caméras ne peut pas lister vos caméras.",
+    "later_note": "Pas de Frigate ni de broker sous la main ? Choisissez « Configurer plus tard ». Tant que les deux ne sont pas connectés dans Paramètres → Caméras et connexion, aucune visite n’arrive, aucune photo ni aucun clip ne peut être récupéré, et l’étape des caméras ne peut pas lister vos caméras.",
     "check_frigate": "API Frigate",
     "check_mqtt": "Broker MQTT"
   },
@@ -201,7 +201,7 @@
     "description": "Cela prend quelques minutes. Les choix facultatifs peuvent être ignorés, et vous pouvez relancer la configuration à tout moment depuis les Paramètres.",
     "start": "Commencer",
     "title": "Configurer YA-WAMF",
-    "covers": "La configuration vous demandera de \u0001"
+    "covers": "La configuration vous demandera de :"
   },
   "working": "En cours…",
   "skip_step": "Passer cette étape",

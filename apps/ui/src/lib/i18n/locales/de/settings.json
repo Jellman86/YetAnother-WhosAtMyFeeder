@@ -309,6 +309,79 @@
       "finder": {
         "not_downloaded": "nicht heruntergeladen"
       }
+    },
+    "purpose": {
+      "mqtt": "Der Broker bringt die Ereignisse von Frigate zu YA-WAMF, damit jeder neue Besuch ankommt.",
+      "frigate": "Frigate zeichnet die Kameras auf. YA-WAMF liest die Fotos und Videos jedes Besuchs von dort.",
+      "classifier": "Das Modell benennt den Vogel in jedem Besuch.",
+      "finder": "Der Vogelfinder findet jeden Vogel auf einem vollen Foto, bevor er benannt wird. Er ist optional.",
+      "audio": "BirdNET-Go hört auf Vogelstimmen, damit ein Besuch mit den gehörten Rufen abgeglichen werden kann.",
+      "storage": "Fotos und Videos werden im Medienordner dieser Installation aufbewahrt.",
+      "notifications": "Benachrichtigungen werden über Ihre Kanäle gesendet, wenn ein Besuch eine auslöst."
+    },
+    "why": {
+      "mqtt": {
+        "connected": "Mit dem Broker verbunden.",
+        "connecting": "Verbindet sich zum ersten Mal seit dem Start von YA-WAMF mit dem Broker.",
+        "disconnected": "Der Broker ist nicht verbunden, daher können keine neuen Besuche erfasst werden.",
+        "not_configured": "Es ist kein Broker eingetragen, daher können keine Besuche erfasst werden.",
+        "stopped": "Der MQTT-Dienst läuft nicht, daher können keine neuen Besuche erfasst werden.",
+        "pressure_high": "Ereignisse kommen schneller an, als YA-WAMF sie verarbeitet, daher warten einige.",
+        "pressure_critical": "Ereignisse kommen viel schneller an, als YA-WAMF sie verarbeitet, daher warten viele.",
+        "backlog": "Ereignisse warten darauf, verarbeitet zu werden.",
+        "frigate_topic_silent": "Verbunden, aber von Frigate kommt seit einer Weile nichts."
+      },
+      "frigate": {
+        "reachable": "Frigate antwortet, und keine Kamera wird als offline gemeldet.",
+        "unreachable": "Frigate antwortet nicht, daher können neue Besuche nicht gespeichert werden.",
+        "unchecked": "Frigate wurde seit dem Start von YA-WAMF noch nicht abgefragt.",
+        "cameras_offline": "Frigate antwortet, aber eine Kamera ist offline."
+      },
+      "classifier": {
+        "ready": "Das Modell meldet kein Problem.",
+        "model_missing": "Das gewählte Modell ist auf dieser Installation nicht vorhanden, daher kann kein Vogel benannt werden.",
+        "unmeasured": "Das Modell hat sich seit dem Start von YA-WAMF noch nicht gemeldet.",
+        "model_not_loaded": "Die Dateien des Modells sind vorhanden, aber es wurde nicht geladen.",
+        "runtime_failed": "Das Modell arbeitet nicht mehr. Der Laufzeitbericht unter Weitere Optionen nennt den Grund.",
+        "recovering": "Das Modell startet nach einem Ausfall neu.",
+        "live_degraded": "Neue Besuche werden langsamer benannt als vorgesehen.",
+        "degraded": "Das Benennen funktioniert, aber unter Last."
+      },
+      "finder": {
+        "ready": "Der Vogelfinder ist heruntergeladen und läuft dort, wo er soll.",
+        "unmeasured": "Der Vogelfinder hat sich seit dem Start von YA-WAMF noch nicht gemeldet.",
+        "cpu_fallback": "Der Vogelfinder läuft auf dem Prozessor, weil sein gewähltes Gerät ausgefallen ist.",
+        "none_selected": "Es ist kein Vogelfinder gewählt. Er ist optional.",
+        "not_downloaded": "Der gewählte Vogelfinder ist nicht heruntergeladen und läuft daher noch nirgends."
+      },
+      "audio": {
+        "hearing": "Seit dem Start von YA-WAMF sind Rufe von BirdNET-Go angekommen.",
+        "nothing_heard": "Seit dem Start von YA-WAMF ist kein Ruf angekommen. Vielleicht hat BirdNET-Go einfach noch nichts gehört.",
+        "broker_down": "Rufe kommen über MQTT, und der Broker ist nicht verbunden.",
+        "disabled": "Audio ist aus."
+      },
+      "storage": {
+        "writable": "In den Medienordner kann geschrieben werden.",
+        "not_writable": "In den Medienordner kann nicht geschrieben werden, daher werden keine Fotos und Videos aufbewahrt."
+      },
+      "notifications": {
+        "ready": "Ein Kanal ist eingeschaltet, und seit dem Start von YA-WAMF wurde keine Benachrichtigung verworfen.",
+        "none_enabled": "Kein Kanal ist eingeschaltet, daher wird keine Benachrichtigung gesendet.",
+        "dropped": "Einige Benachrichtigungen wurden verworfen, bevor sie gesendet werden konnten."
+      }
+    },
+    "test": {
+      "not_kept": "Testergebnisse werden nicht gespeichert. Führen Sie den Test aus, um den Stand jetzt zu sehen.",
+      "run": "Test ausführen",
+      "go": "Zum Test",
+      "passed": "Um {time} getestet: Es hat funktioniert.",
+      "failed": "Um {time} getestet: Es hat nicht funktioniert. Führen Sie ihn erneut aus, um den Grund zu sehen.",
+      "passed_subject": "{subject} um {time} getestet: Es hat funktioniert.",
+      "failed_subject": "{subject} um {time} getestet: Es hat nicht funktioniert. Führen Sie ihn erneut aus, um den Grund zu sehen.",
+      "passed_unsaved": "Um {time} mit den noch nicht gespeicherten Werten dieser Seite getestet: Es hat funktioniert.",
+      "failed_unsaved": "Um {time} mit den noch nicht gespeicherten Werten dieser Seite getestet: Es hat nicht funktioniert. Führen Sie ihn erneut aus, um den Grund zu sehen.",
+      "passed_subject_unsaved": "{subject} um {time} mit den noch nicht gespeicherten Werten dieser Seite getestet: Es hat funktioniert.",
+      "failed_subject_unsaved": "{subject} um {time} mit den noch nicht gespeicherten Werten dieser Seite getestet: Es hat nicht funktioniert. Führen Sie ihn erneut aus, um den Grund zu sehen."
     }
   },
   "more": {
