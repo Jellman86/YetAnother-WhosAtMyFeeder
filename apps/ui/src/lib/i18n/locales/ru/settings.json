@@ -249,7 +249,7 @@
   },
   "tabs": {
     "connection": "Подключение",
-    "detection": "Обнаружение",
+    "detection": "Именование и фильтры",
     "notifications": "Уведомления",
     "integrations": "Интеграции",
     "data": "Данные",

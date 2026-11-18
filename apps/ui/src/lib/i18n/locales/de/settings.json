@@ -249,7 +249,7 @@
   },
   "tabs": {
     "connection": "Verbindung",
-    "detection": "Erkennung",
+    "detection": "Benennung und Filter",
     "notifications": "Benachrichtigungen",
     "integrations": "Integrationen",
     "data": "Daten",
@@ -691,7 +691,7 @@
     "reduced_motion": "Bewegung reduzieren",
     "reduced_motion_desc": "Beendet Animationen und Übergänge. Die Einstellung Ihres Geräts für reduzierte Bewegung wird immer zusätzlich beachtet.",
     "live_announcements": "Live-Ansagen",
-    "live_announcements_desc": "Neue Erkennungen per Screenreader ansagen.",
+    "live_announcements_desc": "Sagt jeden neuen Besuch per Screenreader an.",
     "device_title": "Barrierefreiheit auf diesem Gerät",
     "device_scope": "Diese ändern sich sofort, nur in diesem Browser, und müssen nicht gespeichert werden. Solange Sie hier nichts festlegen, folgt dieses Gerät der Voreinstellung für alle unter Weitere Optionen.",
     "defaults_title": "Voreinstellungen für alle",

@@ -249,7 +249,7 @@
   },
   "tabs": {
     "connection": "接続",
-    "detection": "検出",
+    "detection": "命名とフィルター",
     "notifications": "通知",
     "integrations": "統合",
     "data": "データ",
