@@ -57,7 +57,7 @@
         type RecordingClipCapability
     } from '../api';
     import { SettingsSaveRejected, type BlockedSpeciesEntry, type ClassificationImageSource, type NotificationSpeciesFilterMode, type Settings as SettingsPayload, type SettingsUpdate } from '../api/settings';
-    import { ApiRequestError } from '../api/core';
+    import { ApiRequestError, onRequestsIdle } from '../api/core';
     import { themeStore, type Theme } from '../stores/theme.svelte';
     import { settingsStore } from '../stores/settings.svelte';
     import { analysisQueueStatusStore } from '../stores/analysis_queue_status.svelte';
@@ -114,6 +114,7 @@
     } from '../settings/inference-providers';
     import { getErrorMessage } from '../utils/error-handling';
     import { createSupersedingRead } from '../utils/latest-request';
+    import { holdInPlace, listenForReaderIntent, watchElementSize, whenSectionReady } from '../utils/part-landing';
 
     // Every tab is its own chunk, loaded when it is opened (see the loaders above).
     import { appearanceSection, type AppearanceDraft } from '../settings/appearance-section';
@@ -1433,23 +1434,75 @@
         return false;
     }
 
+    // The landing in progress: aborting it ends its wait for the section and its hold on the part.
+    let landing: AbortController | null = null;
+
+    function cancelLanding(): void {
+        landing?.abort();
+        landing = null;
+    }
+
+    /** Moves keyboard and screen-reader focus to the part's heading, so the next Tab starts there. */
+    function focusLandedPart(target: HTMLElement): void {
+        const heading = target.querySelector<HTMLElement>('h2, h3') ?? target;
+        if (!heading.hasAttribute('tabindex')) heading.setAttribute('tabindex', '-1');
+        heading.setAttribute('data-settings-landed', '');
+        heading.focus({ preventScroll: true });
+    }
+
     async function revealPart(part: SettingsPart): Promise<void> {
+        // A newer landing calls this one off, and so do the reader's own scroll, keys or press, and
+        // leaving the page (the address effect's cleanup), wherever it has got to.
+        cancelLanding();
+        const controller = new AbortController();
+        landing = controller;
+        const calledOff = (): boolean => controller.signal.aborted;
+        const stopListening = listenForReaderIntent(() => controller.abort());
         const section = settingsSectionOfPart(part);
         const parts = SETTINGS_SECTION_PARTS[section];
-        // A part inside More options is shown by opening it first.
-        if (settingsPartIsInMore(part)) disclosures.setOpen(settingsMoreId(section), true);
-        const above = parts.slice(0, parts.indexOf(part) + 1).map((each) => SETTINGS_PART_LOADERS[each]);
-        const target = await fieldInOpenedPart(
-            () => Promise.all(above.map((load) => load())),
-            () => document.querySelector<HTMLElement>(`[data-settings-part="${part}"]`)
-        );
-        // A part with nothing but a lead before it is the top of the page, with the section's status
-        // and that lead in view.
-        if (target && !settingsBefore(target)) {
-            window.scrollTo({ top: 0 });
-            return;
+        const find = (): HTMLElement | null => document.querySelector<HTMLElement>(`[data-settings-part="${part}"]`);
+        let target: HTMLElement | null = null;
+        const sectionRoot = (): Element | null => document.querySelector(`[data-settings-section="${section}"]`);
+        try {
+            // A part inside More options is shown by opening it first.
+            if (settingsPartIsInMore(part)) disclosures.setOpen(settingsMoreId(section), true);
+            const above = parts.slice(0, parts.indexOf(part) + 1).map((each) => SETTINGS_PART_LOADERS[each]);
+            target = await fieldInOpenedPart(() => Promise.all(above.map((load) => load())), find);
+            if (calledOff() || !target) return;
+            // A part with nothing but a lead before it is the top of the page, with the section's status
+            // and that lead in view.
+            if (!settingsBefore(target)) {
+                window.scrollTo({ top: 0 });
+                focusLandedPart(target);
+                return;
+            }
+            // The parts above are still filling in: the model list, Hardware once the list answers,
+            // More options' own parts. Scrolling before they have their answers left the part sliding
+            // away under the reader (a layout shift of 0.6 at 1440 px for /settings/beta), so the page
+            // waits until the section has its answers and has drawn them, however slow the backend is,
+            // for four seconds at most.
+            const root = sectionRoot();
+            if (root) await whenSectionReady({ watch: watchElementSize(root), requestsIdle: onRequestsIdle, signal: controller.signal });
+            if (calledOff()) return;
+            target = find();
+            if (!target) return;
+            target.scrollIntoView({ block: 'start' });
+            focusLandedPart(target);
+        } finally {
+            stopListening();
         }
-        target?.scrollIntoView({ block: 'start' });
+        // Anything that still arrives later is followed, so the part stays where it landed until the
+        // reader acts, a newer address lands, the page is left, or three seconds have passed.
+        const root = sectionRoot();
+        if (!root || calledOff()) return;
+        const release = holdInPlace({
+            watch: watchElementSize(root),
+            listenForIntent: listenForReaderIntent,
+            place: () => {
+                if (!calledOff()) find()?.scrollIntoView({ block: 'start' });
+            }
+        });
+        controller.signal.addEventListener('abort', release, { once: true });
     }
 
     // The fragment that names a part. The app follows it through navigation, Back and Forward and a
@@ -1458,10 +1511,13 @@
 
     // An address that names a part (a former tab's link, redirected here, or one part after another
     // within a section) lands on that part.
+    // A newer address, or leaving the page, ends a landing still in progress, even one that names no
+    // part, so an older landing never pulls the page away from where the reader has since gone.
     $effect(() => {
         if (typeof window === 'undefined' || !currentRoute?.startsWith('/settings')) return;
         const part = settingsPartFromAnchor(activeSection, anchor);
         if (part) untrack(() => void revealPart(part));
+        return () => untrack(() => cancelLanding());
     });
 
     // The range filter's next steps live in Integrations; land on the field itself, not the top of the section.

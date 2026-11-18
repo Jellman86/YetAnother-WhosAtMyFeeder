@@ -101,6 +101,83 @@ test('one part after another in a section lands on each, and Back and Forward la
     expect(errors).toEqual([]);
 });
 
+/** Holds every read the Settings parts make (all but the shell's own) for `ms`, as a slow backend would,
+ *  so the parts above a landed part fill in late and grow. Routes added later win in Playwright. */
+async function slowPartReads(page: Page, ms: number): Promise<void> {
+    await page.route((url) => url.pathname.startsWith('/api/') && !['/api/auth/status', '/api/settings', '/api/update-status'].includes(url.pathname), async (route) => {
+        await new Promise((done) => setTimeout(done, ms));
+        await route.fulfill({ status: 503, json: { detail: 'Unavailable in settings route fixture' } }).catch(() => {});
+    });
+}
+
+const settled = (page: Page, ms: number) => page.waitForTimeout(ms);
+
+test('a part address lands on its part and keeps it there while slow reads fill in the parts above it', async ({ page }) => {
+    const errors = await openOwnerShell(page);
+    await slowPartReads(page, 1200);
+    await page.goto('/settings/beta');
+    await expectSection(page, '/settings/identification', 'Identifying birds', '#beta');
+    await expectAtPart(page, 'beta');
+    // After the slow reads have answered and the parts above have grown, the part is still where it landed.
+    await settled(page, 2000);
+    await expectAtPart(page, 'beta');
+    // Focus is on the part's heading, so the next Tab starts there and a screen reader says where it is.
+    expect(await page.evaluate(() => Boolean(document.activeElement?.closest('[data-settings-part="beta"]')))).toBe(true);
+    expect(errors).toEqual([]);
+});
+
+test('a newer address wins over a landing still in progress', async ({ page }) => {
+    await openOwnerShell(page);
+    await slowPartReads(page, 1200);
+    await page.goto('/settings/identification');
+    await expectSection(page, '/settings/identification', 'Identifying birds');
+    // Beta, then the section's first part a moment later: the page stays at the top, where the address is.
+    await page.evaluate(() => { location.hash = '#beta'; });
+    await page.waitForTimeout(60);
+    await page.evaluate(() => { location.hash = '#detection'; });
+    await settled(page, 2500);
+    expect(hash(page)).toBe('#detection');
+    expect(await page.evaluate(() => window.scrollY)).toBe(0);
+});
+
+test('going to another section while a part landing holds leaves the reader where they went', async ({ page }) => {
+    await openOwnerShell(page);
+    await slowPartReads(page, 1200);
+    await page.goto('/settings/beta');
+    // Away to another section before the landing's reads have answered: it does not pull the page back.
+    await settingsNav(page).getByRole('link', { name: 'Cameras & connection', exact: true }).click();
+    await expectSection(page, '/settings/cameras', 'Cameras & connection');
+    // From here on, count every scroll a script asks for: the Cameras section's own reads may still
+    // change its height, but nothing from the Beta landing may scroll the page once the reader has left.
+    await page.evaluate(() => {
+        const counted = window as unknown as { landingScrolls: number };
+        counted.landingScrolls = 0;
+        const scroll = Element.prototype.scrollIntoView;
+        Element.prototype.scrollIntoView = function (this: Element, ...args: Parameters<Element['scrollIntoView']>) {
+            counted.landingScrolls += 1;
+            return scroll.apply(this, args);
+        };
+    });
+    await settled(page, 2500);
+    expect(pathname(page)).toBe('/settings/cameras');
+    expect(await page.evaluate(() => (window as unknown as { landingScrolls: number }).landingScrolls)).toBe(0);
+});
+
+test('the reader\'s own scroll ends the hold, so the page never pulls them back to the part', async ({ page }) => {
+    await openOwnerShell(page);
+    await slowPartReads(page, 1200);
+    await page.goto('/settings/beta');
+    await expectAtPart(page, 'beta');
+    await page.mouse.move(700, 500);
+    await page.mouse.wheel(0, -600);
+    const partTop = () => page.evaluate(() => document.querySelector('[data-settings-part="beta"]')?.getBoundingClientRect().top ?? 0);
+    await expect.poll(partTop).toBeGreaterThan(300);
+    await settled(page, 2000);
+    // The parts above still grow after the reader has scrolled (the browser keeps what they are reading
+    // still), but the landing does not pull them back to the part.
+    expect(await partTop()).toBeGreaterThan(300);
+});
+
 test('landing on a part below a paused video check keeps the alert that says so in view', async ({ page }) => {
     await openOwnerShell(page, { auto_video_classification: true, video_classification_circuit_open: true, video_classification_circuit_failures: 3 });
     await page.goto('/settings/detection');

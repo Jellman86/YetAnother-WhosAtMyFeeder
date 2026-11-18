@@ -125,6 +125,32 @@ export interface ApiFetchOptions extends RequestInit {
     timeoutMs?: number;
 }
 
+// Requests on their way, so a page can wait for the data it is filling in (a Settings part address
+// lands once its section has its answers). The live stream is an EventSource, not counted here.
+let requestsInFlight = 0;
+const idleWaiters = new Set<() => void>();
+
+/**
+ * Calls `onIdle` once no request is in flight: at once when none is, or when the last one in flight
+ * finishes. Returns the stop.
+ */
+export function onRequestsIdle(onIdle: () => void): () => void {
+    if (requestsInFlight === 0) {
+        onIdle();
+        return () => {};
+    }
+    idleWaiters.add(onIdle);
+    return () => idleWaiters.delete(onIdle);
+}
+
+function requestFinished(): void {
+    requestsInFlight -= 1;
+    if (requestsInFlight > 0) return;
+    const waiting = [...idleWaiters];
+    idleWaiters.clear();
+    for (const onIdle of waiting) onIdle();
+}
+
 /**
  * One request with the caller's abort and the timeout attached, held until `read` has finished
  * with the response. Releasing at the headers, as `apiFetch` does, leaves a body that stalls
@@ -146,6 +172,7 @@ async function guardedRequest<T>(url: string, options: ApiFetchOptions, read: (r
         }, timeoutMs);
     }
 
+    requestsInFlight += 1;
     try {
         const response = await fetch(normalizeBackendPath(url), {
             ...requestOptions,
@@ -165,6 +192,7 @@ async function guardedRequest<T>(url: string, options: ApiFetchOptions, read: (r
     } finally {
         if (timeoutId) clearTimeout(timeoutId);
         callerSignal?.removeEventListener('abort', abortFromCaller);
+        requestFinished();
     }
 }
 
