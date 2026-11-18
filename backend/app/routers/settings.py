@@ -34,6 +34,7 @@ from app.repositories.detection_repository import DetectionRepository
 from app.services.canonical_identity_repair_service import canonical_identity_repair_service
 from app.services.telemetry_service import collect_runtime_telemetry_payload, telemetry_service
 from app.services.notification_service import notification_service
+from app.services.notifications.delivery_failure import delivery_failure_payload
 from app.services.garden_domestic_birds import DomesticBirdKey, normalize_domestic_birds
 from app.services.notification_links import instance_base, notification_link
 from app.services.auto_video_classifier_service import auto_video_classifier
@@ -555,7 +556,7 @@ async def test_notification(
 
     try:
         if request.platform == "discord":
-            await notification_service._send_discord(
+            result = await notification_service.deliver_discord(
                 common_name,
                 confidence,
                 camera,
@@ -569,7 +570,7 @@ async def test_notification(
             )
 
         elif request.platform == "pushover":
-            await notification_service._send_pushover(
+            result = await notification_service.deliver_pushover(
                 common_name,
                 confidence,
                 camera,
@@ -584,7 +585,7 @@ async def test_notification(
             )
 
         elif request.platform == "telegram":
-            await notification_service._send_telegram(
+            result = await notification_service.deliver_telegram(
                 common_name,
                 confidence,
                 camera,
@@ -602,11 +603,16 @@ async def test_notification(
             return JSONResponse(
                 status_code=400, content={"status": "error", "message": f"Unknown platform: {request.platform}"}
             )
-
-        return ActionStatusResponse(status="ok", message=f"Test notification sent to {request.platform}")
     except Exception as e:
         log.error("Notification test failed", error=safe_connection_error(e))
         return JSONResponse(status_code=502, content={"status": "error", "message": safe_connection_error(e)})
+
+    # Only a message the channel accepted is a pass: a send that failed says why, never "sent".
+    if not result.sent:
+        failure = delivery_failure_payload(request.platform, result)
+        log.warning("Notification test not delivered", platform=request.platform, cause=failure["cause"])
+        return JSONResponse(status_code=400 if failure["cause"] == "not_configured" else 502, content=failure)
+    return ActionStatusResponse(status="ok", message=f"Test notification sent to {request.platform}")
 
 
 class BirdWeatherTestRequest(BaseModel):

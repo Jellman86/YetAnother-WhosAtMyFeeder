@@ -20,6 +20,7 @@ from google_auth_oauthlib.flow import Flow
 
 from app.utils.diagnostic_redaction import safe_error_message
 from app.config import settings
+from app.config_models import EmailSettings
 from app.models import MessageResponse, OAuthAuthorizeResponse
 from app.services.smtp_service import smtp_service
 from app.services.oauth_state import oauth_states
@@ -396,6 +397,17 @@ async def disconnect_oauth(provider: str, request: Request, auth: AuthContext = 
         )
 
 
+_OAUTH_PROVIDER_NAMES = {"gmail": "Gmail", "outlook": "Outlook"}
+
+
+def _send_failure_detail(send_mode: str, email_config: EmailSettings, lang: str) -> str:
+    """What to check after a test email was not accepted: the mailbox connection, or the SMTP details."""
+    if send_mode == "oauth":
+        provider = _OAUTH_PROVIDER_NAMES.get(email_config.oauth_provider or "", "The mail provider")
+        return i18n_service.translate("errors.email.send_failed_oauth", lang, provider=provider)
+    return i18n_service.translate("errors.email.send_failed", lang)
+
+
 @router.post("/test", response_model=TestEmailResponse)
 async def send_test_email(test_request: TestEmailRequest, request: Request, auth: AuthContext = Depends(require_owner)):
     """
@@ -496,18 +508,15 @@ async def send_test_email(test_request: TestEmailRequest, request: Request, auth
             log.info("test_email_sent", to=email_config.to_email)
             return {"message": "Test email sent successfully!", "to": email_config.to_email}
         else:
-            raise HTTPException(status_code=500, detail=i18n_service.translate("errors.email.send_failed", lang))
+            # The reason stays in the log: a mail server's own words can quote the login exchange.
+            log.warning("test_email_not_accepted", mode=send_mode)
+            raise HTTPException(status_code=502, detail=_send_failure_detail(send_mode, email_config, lang))
 
     except HTTPException:
         raise
     except asyncio.TimeoutError:
         log.error("test_email_timeout", timeout_seconds=30, mode=send_mode)
-        raise HTTPException(
-            status_code=504,
-            detail=i18n_service.translate("errors.email.send_error", lang, error="request timed out"),
-        )
+        raise HTTPException(status_code=504, detail=i18n_service.translate("errors.email.send_timeout", lang))
     except Exception as e:
         log.error("test_email_error", error=safe_error_message(e), error_type=type(e).__name__, mode=send_mode)
-        raise HTTPException(
-            status_code=500, detail=i18n_service.translate("errors.email.send_error", lang, error=safe_error_message(e))
-        )
+        raise HTTPException(status_code=502, detail=_send_failure_detail(send_mode, settings.notifications.email, lang))

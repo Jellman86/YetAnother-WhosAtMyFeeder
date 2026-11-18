@@ -1439,7 +1439,14 @@ return 422. It does not reclassify saved detections or wait indefinitely for an 
   `not_authorised` or `unreachable`), the `service` (`mqtt` or `birdnet`) and an `address`
   reduced to `host[:port]`, or `scheme://host[:port]` when it was given as a URL, so a client can
   word the cause in its own language. It never carries a user, password, path or query.
-- `POST /api/settings/notifications/test` (owner)
+- `POST /api/settings/notifications/test` (owner) — sends one test message through `platform`
+  (`discord`, `pushover` or `telegram`), with optional typed credentials that are used for this
+  send only. It answers `200` with `status: "ok"` only when the channel accepted the message. A
+  message that was not delivered answers `502` with `status: "error"`, the `channel`, a `cause`
+  (`no_answer`, `timeout`, `refused`, `rate_limited` or `provider_error`) and the same thing as an
+  English `message` with the next step; a channel with no credentials answers `400` with
+  `cause: "not_configured"`. No answer ever carries the webhook address, a token or the
+  provider's own text.
 - `POST /api/settings/birdweather/test` (owner)
 - `POST /api/settings/ha-weather/test` (owner) — fetches a live reading from the configured
   Home Assistant weather source so the settings page can prove the URL, token, and entities work.
@@ -1680,7 +1687,9 @@ history, hidden-event, and camera-privacy restrictions as the paginated event li
   - `GET /api/email/oauth/outlook/authorize`
   - `GET /api/email/oauth/outlook/callback`
   - `DELETE /api/email/oauth/{provider}/disconnect`
-  - `POST /api/email/test`
+  - `POST /api/email/test` — answers `200` only when the mail was accepted. A send that was not
+    accepted answers `502`, and one that got no answer in 30 seconds `504`, each with a `detail`
+    that says what to check; the mail server's own words stay in the log.
 
 OAuth authorization, disconnection and submission require owner authentication. Only the three
 exact GET callback routes accept a provider redirect without a login header. They require a

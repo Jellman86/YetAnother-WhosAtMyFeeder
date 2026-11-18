@@ -9,5 +9,16 @@
     "not_authorised": "{service}: se rechazó el nombre de usuario o la contraseña. Compruébalos, o desactiva la autenticación si acepta clientes anónimos.",
     "unreachable": "{service}: no se pudo conectar con {address}. Comprueba la dirección y el puerto.",
     "unreachable_url": "{service}: no se pudo conectar con {address}. Comprueba la dirección, el esquema (http o https) y el puerto."
+  },
+  "delivery": {
+    "not_configured": "{channel} aún no está configurado. Introduce sus datos y vuelve a probar.",
+    "no_answer_address": "{channel} no respondió. Comprueba la URL del webhook y vuelve a probar.",
+    "no_answer_network": "{channel} no respondió. Comprueba que YA-WAMF puede acceder a internet y vuelve a probar.",
+    "timeout": "{channel} tardó demasiado en responder. Espera un momento y vuelve a probar.",
+    "refused_discord": "{channel} rechazó el mensaje. Comprueba la URL del webhook y vuelve a probar.",
+    "refused_pushover": "{channel} rechazó el mensaje. Comprueba la clave de usuario y el token de la API y vuelve a probar.",
+    "refused_telegram": "{channel} rechazó el mensaje. Comprueba el token del bot y el ID del chat y vuelve a probar.",
+    "rate_limited": "{channel} está limitando los mensajes por ahora. Espera un minuto y vuelve a probar.",
+    "provider_error": "{channel} informó de un problema por su parte. Espera unos minutos y vuelve a probar."
   }
 }

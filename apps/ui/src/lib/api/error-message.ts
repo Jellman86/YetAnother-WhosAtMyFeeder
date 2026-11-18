@@ -68,6 +68,39 @@ export function connectionCauseMessage(cause: string, service: string, address: 
     return worded(`errors.connection.${cause}`, CONNECTION_CAUSES[cause], { service: serviceName, address });
 }
 
+const DELIVERY_CHANNELS: Record<string, string> = { discord: 'Discord', pushover: 'Pushover', telegram: 'Telegram' };
+const DELIVERY_CAUSES: Record<string, string> = {
+    not_configured: '{channel} is not set up yet. Enter its details, then test again.',
+    no_answer_address: '{channel} did not answer. Check the webhook address, then test again.',
+    no_answer_network: '{channel} did not answer. Check that YA-WAMF can reach the internet, then test again.',
+    timeout: '{channel} took too long to answer. Wait a moment, then test again.',
+    refused_discord: '{channel} refused the message. Check the webhook address, then test again.',
+    refused_pushover: '{channel} refused the message. Check the user key and API token, then test again.',
+    refused_telegram: '{channel} refused the message. Check the bot token and chat ID, then test again.',
+    rate_limited: '{channel} is limiting messages for now. Wait a minute, then test again.',
+    provider_error: '{channel} reported a problem on its side. Wait a few minutes, then test again.'
+};
+
+/** The sentence a cause has on a channel: what to check depends on which credentials the channel takes. */
+function deliverySentenceKey(cause: string, channel: string): string {
+    if (cause === 'refused') return `refused_${channel}`;
+    // Only Discord's address is the owner's to get wrong; the others have one fixed address.
+    if (cause === 'no_answer') return channel === 'discord' ? 'no_answer_address' : 'no_answer_network';
+    return cause;
+}
+
+/**
+ * A channel test that was not delivered answers with a cause code and the channel. The sentence
+ * and its next step are written here from the code, so they read in the page's language.
+ */
+function deliveryFailureMessage(payload: object): string | null {
+    const { cause, channel } = payload as { cause?: unknown; channel?: unknown };
+    if (typeof cause !== 'string' || typeof channel !== 'string' || !Object.hasOwn(DELIVERY_CHANNELS, channel)) return null;
+    const key = deliverySentenceKey(cause, channel);
+    if (!Object.hasOwn(DELIVERY_CAUSES, key)) return null;
+    return worded(`errors.delivery.${key}`, DELIVERY_CAUSES[key], { channel: DELIVERY_CHANNELS[channel] });
+}
+
 type ValidationDetail = {
     loc?: Array<string | number>;
     msg?: string;
@@ -128,6 +161,9 @@ export function extractApiErrorMessage(payload: unknown, fallback: string): stri
 
     const connectionFailure = connectionFailureMessage(payload);
     if (connectionFailure) return connectionFailure;
+
+    const deliveryFailure = deliveryFailureMessage(payload);
+    if (deliveryFailure) return deliveryFailure;
 
     const detail = (payload as { detail?: unknown }).detail;
     if (typeof detail === 'string') {

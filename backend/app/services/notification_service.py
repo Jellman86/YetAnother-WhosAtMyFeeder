@@ -9,7 +9,8 @@ from app.config import settings
 from app.config_models import DiscordSettings, PushoverSettings, TelegramSettings
 from app.services.i18n_service import i18n_service
 from app.services.notification_links import notification_link
-from app.services.notifications.message import Attachment, NotificationMessage, SubjectLink
+from app.services.notifications.delivery_failure import NOT_CONFIGURED
+from app.services.notifications.message import Attachment, DeliveryResult, NotificationMessage, SubjectLink
 from app.services.notifications.transports.email import EmailCredentials, EmailOptions, EmailTransport
 from app.services.notifications.transports.discord import DiscordCredentials, DiscordOptions, DiscordTransport
 from app.services.notifications.transports.pushover import PushoverCredentials, PushoverOptions, PushoverTransport
@@ -293,7 +294,11 @@ class NotificationService:
         log.debug("Notification skipped: no eligible channels", species=species, channels=channels)
         return False
 
-    async def _send_discord(
+    async def _send_discord(self, *args: object, **kwargs: object) -> bool:
+        """Whether Discord accepted the alert. `deliver_discord` also says why not."""
+        return (await self.deliver_discord(*args, **kwargs)).sent
+
+    async def deliver_discord(
         self,
         species: str,
         confidence: float,
@@ -305,11 +310,11 @@ class NotificationService:
         snapshot_data: Optional[bytes],
         detection_url: Optional[str] = None,
         config: Optional[DiscordSettings] = None,
-    ) -> bool:
-        """Send Discord webhook notification."""
+    ) -> DeliveryResult:
+        """Send a Discord webhook notification and answer what Discord made of it."""
         cfg = config if config is not None else settings.notifications.discord
         if not cfg.webhook_url:
-            return False
+            return DeliveryResult(sent=False, error_type=NOT_CONFIGURED)
 
         title = i18n_service.translate("notification.new_detection", lang=lang, species=species)
         lines = [
@@ -336,9 +341,13 @@ class NotificationService:
         result = await DiscordTransport(self.client).send(message, DiscordCredentials(cfg.webhook_url), options)
         if not result.sent:
             log.error("Discord notification failed", error_type=result.error_type, status_code=result.status_code)
-        return result.sent
+        return result
 
-    async def _send_pushover(
+    async def _send_pushover(self, *args: object, **kwargs: object) -> bool:
+        """Whether Pushover accepted the alert. `deliver_pushover` also says why not."""
+        return (await self.deliver_pushover(*args, **kwargs)).sent
+
+    async def deliver_pushover(
         self,
         species: str,
         confidence: float,
@@ -349,11 +358,11 @@ class NotificationService:
         lang: str,
         detection_url: Optional[str] = None,
         config: Optional[PushoverSettings] = None,
-    ) -> bool:
-        """Send Pushover notification."""
+    ) -> DeliveryResult:
+        """Send a Pushover notification and answer what Pushover made of it."""
         cfg = config if config is not None else settings.notifications.pushover
         if not cfg.user_key or not cfg.api_token:
-            return False
+            return DeliveryResult(sent=False, error_type=NOT_CONFIGURED)
 
         message = NotificationMessage(
             title=i18n_service.translate("notification.new_detection", lang=lang, species=species),
@@ -380,9 +389,13 @@ class NotificationService:
         )
         if not result.sent:
             log.error("Pushover notification failed", error_type=result.error_type, status_code=result.status_code)
-        return result.sent
+        return result
 
-    async def _send_telegram(
+    async def _send_telegram(self, *args: object, **kwargs: object) -> bool:
+        """Whether Telegram accepted the alert. `deliver_telegram` also says why not."""
+        return (await self.deliver_telegram(*args, **kwargs)).sent
+
+    async def deliver_telegram(
         self,
         species: str,
         confidence: float,
@@ -393,11 +406,11 @@ class NotificationService:
         lang: str,
         detection_url: Optional[str] = None,
         config: Optional[TelegramSettings] = None,
-    ) -> bool:
-        """Send Telegram notification."""
+    ) -> DeliveryResult:
+        """Send a Telegram notification and answer what Telegram made of it."""
         cfg = config if config is not None else settings.notifications.telegram
         if not cfg.bot_token or not cfg.chat_id:
-            return False
+            return DeliveryResult(sent=False, error_type=NOT_CONFIGURED)
 
         sentence = i18n_service.translate(
             "notification.detection_body", lang=lang, species=species, camera=camera, confidence=int(confidence * 100)
@@ -420,7 +433,7 @@ class NotificationService:
         )
         if not result.sent:
             log.error("Telegram notification failed", error_type=result.error_type, status_code=result.status_code)
-        return result.sent
+        return result
 
     async def _send_email(
         self,

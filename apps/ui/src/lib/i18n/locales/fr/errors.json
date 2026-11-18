@@ -9,5 +9,16 @@
     "not_authorised": "{service} : le nom d’utilisateur ou le mot de passe a été refusé. Vérifiez-les, ou désactivez l’authentification si les clients anonymes sont acceptés.",
     "unreachable": "{service} : connexion à {address} impossible. Vérifiez l’adresse et le port.",
     "unreachable_url": "{service} : connexion à {address} impossible. Vérifiez l’adresse, le schéma (http ou https) et le port."
+  },
+  "delivery": {
+    "not_configured": "{channel} n’est pas encore configuré. Saisissez ses informations, puis relancez le test.",
+    "no_answer_address": "{channel} n’a pas répondu. Vérifiez l’URL du webhook, puis relancez le test.",
+    "no_answer_network": "{channel} n’a pas répondu. Vérifiez que YA-WAMF peut accéder à Internet, puis relancez le test.",
+    "timeout": "{channel} a mis trop de temps à répondre. Patientez un instant, puis relancez le test.",
+    "refused_discord": "{channel} a refusé le message. Vérifiez l’URL du webhook, puis relancez le test.",
+    "refused_pushover": "{channel} a refusé le message. Vérifiez la clé utilisateur et le jeton d’API, puis relancez le test.",
+    "refused_telegram": "{channel} a refusé le message. Vérifiez le jeton du bot et l’ID de la discussion, puis relancez le test.",
+    "rate_limited": "{channel} limite les messages pour le moment. Patientez une minute, puis relancez le test.",
+    "provider_error": "{channel} a signalé un problème de son côté. Patientez quelques minutes, puis relancez le test."
   }
 }
