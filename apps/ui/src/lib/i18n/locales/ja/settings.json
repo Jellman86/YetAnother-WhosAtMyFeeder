@@ -1622,7 +1622,7 @@
     "preview_error": "プレビューを読み込めませんでした。{message}",
     "preview_unavailable": "プレビューには、この位置の最新のリストが必要です。リストを更新すると表示されます。",
     "preview_seen_heading": "{count, plural, other {過去 # 日間にここで記録}}",
-    "preview_seen_detections": "{count, plural, other {# 件の検出}}",
+    "preview_seen_detections": "{count, plural, other {# 件の撮影}}",
     "preview_seen_none": "この期間にここで記録されたものは、どれも保留にはなりません。",
     "preview_model_unknown": "現在のモデルのラベルは種カタログにないため、効果をプレビューできません。そのラベルが絞り込まれることはありません。",
     "preview_model_total": "{count, plural, other {現在のモデルは、このリストで分布域外とされる # 種を挙げる可能性があります。}}",

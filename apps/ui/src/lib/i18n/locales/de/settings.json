@@ -1622,7 +1622,7 @@
     "preview_error": "Die Vorschau konnte nicht geladen werden. {message}",
     "preview_unavailable": "Eine Vorschau braucht eine aktuelle Liste für diesen Standort. Aktualisieren Sie die Liste, um eine zu sehen.",
     "preview_seen_heading": "{count, plural, one {Hier erfasst am letzten # Tag} other {Hier erfasst in den letzten # Tagen}}",
-    "preview_seen_detections": "{count, plural, one {# Besuch} other {# Besuche}}",
+    "preview_seen_detections": "{count, plural, one {# Aufnahme} other {# Aufnahmen}}",
     "preview_seen_none": "Nichts, was hier in diesem Zeitraum erfasst wurde, wäre beiseitegelegt worden.",
     "preview_model_unknown": "Die Bezeichnungen des aktuellen Modells stehen nicht im Artenkatalog, daher lässt sich seine Wirkung nicht vorhersehen. Seine Bezeichnungen werden nie gefiltert.",
     "preview_model_total": "{count, plural, one {Das aktuelle Modell kann # Art nennen, die diese Liste als außerhalb des Verbreitungsgebiets behandelt.} other {Das aktuelle Modell kann # Arten nennen, die diese Liste als außerhalb des Verbreitungsgebiets behandelt.}}",

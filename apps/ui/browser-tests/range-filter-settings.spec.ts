@@ -52,7 +52,7 @@ test('before it is switched on, the preview shows what would be set aside and th
     const preview = card(page).locator('[data-range-filter-preview]');
     await expect(preview).toContainText('Recorded here in the last 90 days');
     await expect(preview.locator('[data-range-filter-preview-seen]')).toContainText('Eurasian Blackbird');
-    await expect(preview.locator('[data-range-filter-preview-seen]')).toContainText('6 visits');
+    await expect(preview.locator('[data-range-filter-preview-seen]')).toContainText('6 captures');
     await expect(preview.locator('[data-range-filter-preview-total]')).toContainText('The current model can name 803 species');
     await expect(preview).toContainText('Northern Cardinal');
     // The rules sit behind a plain disclosure, closed at first.

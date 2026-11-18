@@ -1622,7 +1622,7 @@
     "preview_error": "无法加载预览。{message}",
     "preview_unavailable": "预览需要此位置的最新名录。更新名录后即可查看。",
     "preview_seen_heading": "{count, plural, other {过去 # 天在这里记录的}}",
-    "preview_seen_detections": "{count, plural, other {# 次检测}}",
+    "preview_seen_detections": "{count, plural, other {# 次拍摄}}",
     "preview_seen_none": "这段时间在这里记录的内容都不会被搁置。",
     "preview_model_unknown": "当前模型的标签不在物种目录中，因此无法预览其效果。它的标签永远不会被筛选。",
     "preview_model_total": "{count, plural, other {当前模型能识别出 # 种此名录视为超出分布范围的鸟。}}",
