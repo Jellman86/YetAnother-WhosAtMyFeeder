@@ -141,9 +141,6 @@ export class SettingsStore {
         return this.settings?.scientific_name_primary ?? authStore.scientificNamePrimary ?? false;
     }
 
-    get liveAnnouncements() {
-        return this.settings?.accessibility_live_announcements ?? authStore.liveAnnouncements ?? true;
-    }
 }
 
 export const settingsStore = new SettingsStore();

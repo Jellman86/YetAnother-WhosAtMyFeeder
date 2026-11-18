@@ -68,6 +68,7 @@ Some settings have since moved within that map:
 | Notification cooldown, language, link and species filter | Alerts | Alerts, under **More options** |
 | When Frigate loses a visit; the repair and fill-in jobs, with **Jobs at once** | Storage & upkeep | Storage & upkeep, under **More options** |
 | Date and time format, naming style, Explorer layout, fonts and colours, Units | Display | Display, under **More options** |
+| The accessibility switches, saved for everyone | Display | Display, under **More options**, as **Defaults for everyone**; Display first is **Accessibility on this device** |
 
 Edits wait in one draft across every section. While anything differs from what is saved, a short
 bar at the bottom of the page counts the changes, with **Discard changes** (puts every saved value
@@ -620,9 +621,9 @@ How YA-WAMF looks and names birds, and contrast, a reading font, motion and spok
 ### Appearance
 
 How the interface reads. **Theme**, **Text size** and **Language** come first and change at once on
-this device; the accessibility switches follow. **More options** holds the choices saved for
+this device; this device's accessibility follows. **More options** holds the choices saved for
 everyone: the date and time formats, how birds are named, the Explorer layout, fonts and colours,
-and **Units**.
+the accessibility defaults, and **Units**.
 
 | Setting | Options |
 |---|---|
@@ -640,7 +641,23 @@ and **Units**.
 - **High contrast** (one black scheme with white and yellow text, used in place of the light or
   dark theme), **Reading font: OpenDyslexic**, and **Reduced motion** for readability and
   motion sensitivity.
-- **Live announcements** — screen reader announcements when new detections arrive.
+- **Live announcements**: screen reader announcements when new detections arrive.
+
+Each is chosen per device, with a default for everyone:
+
+- **Accessibility on this device**, first in Display, changes this browser at once and needs no
+  saving. It is kept in this browser and outlasts a reload and signing out. Each switch says
+  whether it follows the default for everyone or was set here; **Use the default** goes back to
+  following it.
+- **Defaults for everyone**, under More options, is saved with the rest of Settings. Guests and
+  devices with no choice of their own follow it; a device with its own choice keeps it. Until you
+  save, the device you are editing on previews the defaults it follows, and its own card says
+  "Previewing the unsaved default". **Discard changes** or leaving Settings ends the preview. The
+  `ACCESSIBILITY__*` [environment variables](environment-variables.md) set these defaults.
+
+A device's own choice applies from the first moment a page loads, before the interface has
+finished loading. OpenDyslexic has Latin letters only: in Japanese, Chinese and Russian its row
+shows only while the font is on, so it can always be turned off.
 
 ## Setup wizard
 

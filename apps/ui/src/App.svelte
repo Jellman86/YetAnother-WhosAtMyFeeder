@@ -29,7 +29,7 @@
   import { resolveStreamUrl } from './lib/app/stream-url';
   import { themeStore } from './lib/stores/theme.svelte';
   import { layoutStore } from './lib/stores/layout.svelte';
-import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte';
+import { accessibilityApplied } from './lib/stores/accessibility_applied.svelte';
 import { unsavedChanges } from './lib/stores/unsaved-changes';
   import { settingsStore } from './lib/stores/settings.svelte';
   import { publicSettingsStore } from './lib/stores/public_settings.svelte';
@@ -190,26 +190,12 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
       return path;
   }
 
-  // Accessibility Logic. An owner reads these from settings; a guest is refused
-  // that endpoint, so the public status payload carries the same three choices.
-  // Applied here rather than on the Settings page, so they hold on every route
-  // and survive a reload. AccessibilitySettings toggles the same classes from
-  // its unsaved state, which is the live preview while you are editing.
-  const highContrast = $derived(
-      accessibilityPreview.highContrast ??
-          settingsStore.settings?.accessibility_high_contrast ??
-          authStore.highContrast
-  );
-  const dyslexiaFont = $derived(
-      accessibilityPreview.dyslexiaFont ??
-          settingsStore.settings?.accessibility_dyslexia_font ??
-          authStore.dyslexiaFont
-  );
-  const reducedMotion = $derived(
-      accessibilityPreview.reducedMotion ??
-          settingsStore.settings?.accessibility_reduced_motion ??
-          authStore.reducedMotion
-  );
+  // Accessibility Logic. Applied here rather than on the Settings page, so it holds on every
+  // route and survives a reload; accessibilityApplied writes the order once (this device, then the
+  // defaults being edited, then the saved defaults, then the public payload a guest reads).
+  const highContrast = $derived(accessibilityApplied.highContrast);
+  const dyslexiaFont = $derived(accessibilityApplied.dyslexiaFont);
+  const reducedMotion = $derived(accessibilityApplied.reducedMotion);
 
   $effect(() => {
       document.documentElement.classList.toggle('high-contrast', highContrast);
@@ -365,8 +351,8 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
       const previousIds = new Set(detectionsStore.detections.map((item) => item.frigate_event));
       try {
           // A live announcement needs the list to tell what is new; otherwise only views showing it read it.
-          await detectionsStore.refreshPublicHistory({ includeList: settingsStore.liveAnnouncements });
-          if (settingsStore.liveAnnouncements) {
+          await detectionsStore.refreshPublicHistory({ includeList: accessibilityApplied.liveAnnouncements });
+          if (accessibilityApplied.liveAnnouncements) {
               const added = detectionsStore.detections.find((item) => !previousIds.has(item.frigate_event));
               if (added) announcer.announce(`New bird detected: ${added.display_name} at ${added.camera_name}`);
           }
@@ -384,7 +370,7 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
       notificationCenter,
       jobProgress: jobProgressStore,
       detectionsStore,
-      settingsStore,
+      accessibility: accessibilityApplied,
       announcer,
       logger,
       diagnostics: jobDiagnosticsStore,

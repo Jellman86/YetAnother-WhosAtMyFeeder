@@ -284,7 +284,7 @@
     "in_this_section": "本分区内容",
     "not_read": "尚未测量：还未读取状态。",
     "stale": "此读数已过时：没有更新的读数。",
-    "display_note": "这里没有依赖其他服务的内容。主题、文字大小和语言会在此设备上立即生效。单位需要保存后才生效，并适用于所有人。",
+    "display_note": "这里没有依赖其他服务的内容。主题、文字大小、语言和此设备上的辅助功能会立即生效。单位和所有人的默认值需要保存后才生效。",
     "state": {
       "ok": "正常",
       "degraded": "负载较高",
@@ -319,7 +319,7 @@
     "alerts": "冷却、语言、链接和物种筛选",
     "alerts_garden": "冷却、语言、链接、物种筛选和花园动物提醒",
     "storage": "Frigate 丢失到访时的处理，以及修复或补全历史的任务",
-    "display": "日期和时间格式、鸟类名称、Explorer 布局、字体和颜色以及单位"
+    "display": "日期和时间格式、鸟类名称、Explorer 布局、字体和颜色、所有人的辅助功能默认值以及单位"
   },
   "debug": {
     "llm_prompt_style_label": "提示风格",
@@ -614,11 +614,21 @@
     "high_contrast_desc": "黑色背景配白色和黄色文字，取代浅色或深色主题。",
     "dyslexia_font": "阅读字体：OpenDyslexic",
     "dyslexia_font_desc": "所有文字都用 OpenDyslexic 字体显示。",
+    "dyslexia_font_latin_only": "它只包含拉丁字母，因此此语言的文字保持不变。",
     "reduced_motion": "减少动态效果",
     "reduced_motion_desc": "停止动画和过渡效果。也始终遵循设备的“减少动态效果”设置。",
     "live_announcements": "实时播报",
     "live_announcements_desc": "使用屏幕阅读器播报新的检测。",
-    "scope": "保存后，对使用此安装的所有人（包括访客）生效。在此之前，这里显示的是预览。"
+    "device_title": "此设备上的辅助功能",
+    "device_scope": "这些设置立即生效，只作用于此浏览器，无需保存。在这里设置之前，此设备沿用“更多选项”中所有人的默认值。",
+    "defaults_title": "所有人的默认值",
+    "defaults_scope": "保存后，访客和没有自己选择的设备会沿用这些设置。已有自己选择的设备保持不变。保存前，此设备会预览它所沿用的设置。",
+    "follows_default": "沿用所有人的默认值（{state}）",
+    "previewing_default": "正在预览未保存的所有人默认值（{state}）",
+    "own_choice": "已在此设备上设置。所有人的默认值为{state}。",
+    "use_default": "使用默认值",
+    "state_on": "开启",
+    "state_off": "关闭"
   },
   "frigate": {
     "title": "Frigate NVR",

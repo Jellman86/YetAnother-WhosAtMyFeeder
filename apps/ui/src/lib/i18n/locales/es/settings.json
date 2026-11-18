@@ -284,7 +284,7 @@
     "in_this_section": "En esta sección",
     "not_read": "Aún sin medir: el estado no se ha leído.",
     "stale": "Esta lectura está desactualizada: no ha llegado ninguna más reciente.",
-    "display_note": "Nada aquí depende de otro servicio. El tema, el tamaño del texto y el idioma cambian al momento en este dispositivo. Las unidades esperan a Guardar y se aplican a todos.",
+    "display_note": "Nada aquí depende de otro servicio. El tema, el tamaño del texto, el idioma y la accesibilidad de este dispositivo cambian al momento. Las unidades y los valores predeterminados para todos esperan a Guardar.",
     "state": {
       "ok": "funciona",
       "degraded": "bajo presión",
@@ -319,7 +319,7 @@
     "alerts": "Enfriamiento, idioma, enlace y filtro de especies",
     "alerts_garden": "Enfriamiento, idioma, enlace, filtro de especies y alertas de animales del jardín",
     "storage": "Cuando Frigate pierde una visita, y las tareas que reparan o completan el historial",
-    "display": "Formato de fecha y hora, cómo se nombran las aves, el diseño del Explorer, fuentes y colores, y unidades"
+    "display": "Formato de fecha y hora, cómo se nombran las aves, el diseño del Explorer, fuentes y colores, la accesibilidad predeterminada para todos, y unidades"
   },
   "debug": {
     "llm_prompt_style_label": "Estilo de prompt",
@@ -614,11 +614,21 @@
     "high_contrast_desc": "Fondo negro con texto blanco y amarillo, en lugar del tema claro u oscuro.",
     "dyslexia_font": "Fuente de lectura: OpenDyslexic",
     "dyslexia_font_desc": "Muestra todo el texto con la tipografía OpenDyslexic.",
+    "dyslexia_font_latin_only": "Solo tiene letras latinas, así que el texto en este idioma se queda como está.",
     "reduced_motion": "Movimiento reducido",
     "reduced_motion_desc": "Detiene animaciones y transiciones. También se respeta siempre el ajuste de movimiento reducido de su dispositivo.",
     "live_announcements": "Anuncios en vivo",
     "live_announcements_desc": "Anunciar nuevas detecciones con alertas para lectores de pantalla.",
-    "scope": "Se aplican a todos los que usan esta instalación, invitados incluidos, al guardar. Hasta entonces se ven aquí como vista previa."
+    "device_title": "Accesibilidad en este dispositivo",
+    "device_scope": "Cambian al momento, solo en este navegador, y no hace falta guardarlas. Mientras no elijas una aquí, este dispositivo sigue el valor predeterminado para todos de Más opciones.",
+    "defaults_title": "Valores predeterminados para todos",
+    "defaults_scope": "Los invitados y los dispositivos sin elección propia los siguen una vez que guardes. Un dispositivo con su propia elección la conserva. Hasta que guardes, este dispositivo muestra una vista previa de los que sigue.",
+    "follows_default": "Sigue el valor predeterminado para todos ({state})",
+    "previewing_default": "Vista previa del valor predeterminado para todos sin guardar ({state})",
+    "own_choice": "Elegido en este dispositivo. El valor predeterminado para todos es {state}.",
+    "use_default": "Usar el valor predeterminado",
+    "state_on": "activado",
+    "state_off": "desactivado"
   },
   "frigate": {
     "title": "Frigate NVR",

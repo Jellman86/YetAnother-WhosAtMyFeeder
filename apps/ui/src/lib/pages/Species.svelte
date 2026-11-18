@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { accessibilityApplied, prefersReducedMotion } from '../stores/accessibility_applied.svelte';
     import Separator from '../components/Separator.svelte';
     import Segmented from '../components/ui/Segmented.svelte';
     import Disclosure from '../components/ui/Disclosure.svelte';
@@ -182,13 +183,13 @@
     let chartEl = $state<HTMLCanvasElement | null>(null);
     let donutChartEl = $state<HTMLCanvasElement | null>(null);
     let hiddenDonutState = $state({ theme: '', indices: [] as number[] });
-    let hiddenDonutSpecies = $derived(hiddenDonutState.theme === `${themeStore.isDark}-${themeStore.colorTheme}-${authStore.reducedMotion}` ? hiddenDonutState.indices : []);
+    let hiddenDonutSpecies = $derived(hiddenDonutState.theme === `${themeStore.isDark}-${themeStore.colorTheme}-${accessibilityApplied.reducedMotion}` ? hiddenDonutState.indices : []);
 
     function toggleDonutSlice(index: number) {
         const visible = toggleChartSlice(donutChartEl, index);
         if (visible === null) return;
         hiddenDonutState = {
-            theme: `${themeStore.isDark}-${themeStore.colorTheme}-${authStore.reducedMotion}`,
+            theme: `${themeStore.isDark}-${themeStore.colorTheme}-${accessibilityApplied.reducedMotion}`,
             indices: visible ? hiddenDonutSpecies.filter((item) => item !== index) : [...hiddenDonutSpecies, index],
         };
     }
@@ -420,7 +421,7 @@
     function scrollToChecks(): void {
         const checks = document.querySelector<HTMLElement>('[data-spotlight-checks]');
         if (!checks) return;
-        const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches || document.documentElement.classList.contains('reduced-motion');
+        const still = prefersReducedMotion();
         checks.scrollIntoView({ behavior: still ? 'auto' : 'smooth', block: 'nearest' });
         checks.querySelector<HTMLElement>('button')?.focus({ preventScroll: true });
     }
@@ -1259,7 +1260,7 @@
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                animation: typeof window !== 'undefined' && (window.matchMedia('(prefers-reduced-motion: reduce)').matches || document.documentElement.classList.contains('reduced-motion') || authStore.reducedMotion)
+                animation: prefersReducedMotion()
                     ? false : { duration: 300 },
                 interaction: { mode: 'index', intersect: false },
                 plugins: {
@@ -1308,7 +1309,7 @@
         const labels = points.map((point) => point.label);
         const gridColor = isDark() ? 'rgba(148,163,184,0.12)' : 'rgba(148,163,184,0.2)';
         const textColor = isDark() ? '#94a3b8' : '#64748b';
-        const reduced = typeof window !== 'undefined' && (window.matchMedia('(prefers-reduced-motion: reduce)').matches || document.documentElement.classList.contains('reduced-motion') || authStore.reducedMotion);
+        const reduced = prefersReducedMotion();
         const lineColor = isDark() ? '#cbd5e1' : '#475569';
         const panel = (
             key: WeatherPanel['key'],
@@ -1498,7 +1499,7 @@
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                animation: typeof window !== 'undefined' && (window.matchMedia('(prefers-reduced-motion: reduce)').matches || document.documentElement.classList.contains('reduced-motion') || authStore.reducedMotion)
+                animation: prefersReducedMotion()
                     ? false : { duration: 250 },
                 cutout: '62%',
                 plugins: {
@@ -2051,7 +2052,7 @@
             >
                 <div class="mt-6 w-full shrink-0 {isStackedChart() ? 'chart-h-tall' : 'chart-h'}">
                     {#if timeline?.points?.length}
-                        {#key `${span}-${timeline.total_count}-${timeline.bucket}-${showPrecip}-${isDark()}-${themeStore.colorTheme}`}
+                        {#key `${span}-${timeline.total_count}-${timeline.bucket}-${showPrecip}-${isDark()}-${themeStore.colorTheme}-${accessibilityApplied.reducedMotion}`}
                             <div class="flex h-full min-w-0 flex-col">
                                 <div class="relative min-h-0 flex-1"><canvas use:chartjsWhenNear={chartOptions()} bind:this={chartEl} aria-label="{$_('leaderboard.detections_over_time')}: {metricLabel()}" class="w-full"></canvas></div>
                             </div>
@@ -2255,7 +2256,7 @@
                 >
                     <div class="min-h-64">
                         {#if donutHasData()}
-                            {#key `${span}-${donutSeries().series.join(',')}-${isDark()}-${themeStore.colorTheme}`}
+                            {#key `${span}-${donutSeries().series.join(',')}-${isDark()}-${themeStore.colorTheme}-${accessibilityApplied.reducedMotion}`}
                                 <div class="relative chart-h w-full"><canvas use:chartjsWhenNear={donutChartOptions()} bind:this={donutChartEl} aria-label={$_('leaderboard.detection_breakdown_subtitle', { default: 'Species composition' })}></canvas></div>
                                 <div class="mt-2 flex flex-wrap justify-center gap-x-1" role="group" aria-label={$_('leaderboard.detection_breakdown_subtitle', { default: 'Species composition' })}>
                                     {#each donutSeries().labels as label, index}

@@ -284,7 +284,7 @@
     "in_this_section": "Dans cette section",
     "not_read": "Pas encore mesuré : l’état n’a pas été lu.",
     "stale": "Cette mesure est périmée : aucune plus récente n’est arrivée.",
-    "display_note": "Rien ici ne dépend d’un autre service. Le thème, la taille du texte et la langue changent aussitôt sur cet appareil. Les unités attendent Enregistrer et s’appliquent à tous.",
+    "display_note": "Rien ici ne dépend d’un autre service. Le thème, la taille du texte, la langue et l’accessibilité de cet appareil changent aussitôt. Les unités et les réglages par défaut pour tous attendent Enregistrer.",
     "state": {
       "ok": "fonctionne",
       "degraded": "sous tension",
@@ -319,7 +319,7 @@
     "alerts": "Délai, langue, lien et filtre d’espèces",
     "alerts_garden": "Délai, langue, lien, filtre d’espèces et alertes sur les animaux du jardin",
     "storage": "Quand Frigate perd une visite, et les tâches qui réparent ou complètent l’historique",
-    "display": "Format de date et d’heure, noms des oiseaux, disposition de l’Explorer, polices et couleurs, et unités"
+    "display": "Format de date et d’heure, noms des oiseaux, disposition de l’Explorer, polices et couleurs, accessibilité par défaut pour tous, et unités"
   },
   "debug": {
     "llm_prompt_style_label": "Style de prompt",
@@ -614,11 +614,21 @@
     "high_contrast_desc": "Fond noir avec texte blanc et jaune, à la place du thème clair ou sombre.",
     "dyslexia_font": "Police de lecture : OpenDyslexic",
     "dyslexia_font_desc": "Affiche tout le texte dans la police OpenDyslexic.",
+    "dyslexia_font_latin_only": "Elle ne contient que des lettres latines, le texte dans cette langue reste donc tel quel.",
     "reduced_motion": "Réduire les mouvements",
     "reduced_motion_desc": "Arrête les animations et les transitions. Le réglage de mouvement réduit de votre appareil est aussi toujours respecté.",
     "live_announcements": "Annonces en direct",
     "live_announcements_desc": "Annoncer les nouvelles détections via le lecteur d’écran.",
-    "scope": "Ils s’appliquent à tous les utilisateurs de cette installation, invités compris, une fois enregistrés. D’ici là, ils s’affichent ici en aperçu."
+    "device_title": "Accessibilité sur cet appareil",
+    "device_scope": "Ils changent aussitôt, dans ce navigateur seulement, sans enregistrement. Tant que vous n’en choisissez pas un ici, cet appareil suit le réglage par défaut pour tous, sous Plus d’options.",
+    "defaults_title": "Réglages par défaut pour tous",
+    "defaults_scope": "Les invités et les appareils sans choix propre les suivent une fois enregistrés. Un appareil qui a son propre choix le garde. D’ici là, cet appareil affiche en aperçu ceux qu’il suit.",
+    "follows_default": "Suit le réglage par défaut pour tous ({state})",
+    "previewing_default": "Aperçu du réglage par défaut pour tous non enregistré ({state})",
+    "own_choice": "Choisi sur cet appareil. Le réglage par défaut pour tous est {state}.",
+    "use_default": "Revenir au réglage par défaut",
+    "state_on": "activé",
+    "state_off": "désactivé"
   },
   "frigate": {
     "title": "Frigate NVR",

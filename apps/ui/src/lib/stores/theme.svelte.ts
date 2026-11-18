@@ -1,3 +1,5 @@
+import { accessibilityDevice } from '../settings/accessibility-device.svelte';
+
 export type Theme = 'light' | 'dark' | 'system';
 export type FontTheme = 'default' | 'clean' | 'studio' | 'classic' | 'compact';
 export type ColorTheme = 'default' | 'bluetit';
@@ -94,8 +96,11 @@ class ThemeStore {
     currentColorTheme = $state<ColorTheme>('bluetit');
     /** Kept on this device only: a wall display and a phone want different sizes. */
     currentTextSize = $state<TextSize>('standard');
-    /** The install's high contrast choice (or its unsaved preview), set by the app shell. */
-    private highContrast = $state(false);
+    /**
+     * Whether high contrast applies, set by the app shell. It starts from this device's own choice,
+     * which the boot script has already applied, so the first paint keeps the black scheme.
+     */
+    private highContrast = $state(accessibilityDevice.get('highContrast') ?? false);
     private mediaQueryList: MediaQueryList | null = null;
 
     constructor() {

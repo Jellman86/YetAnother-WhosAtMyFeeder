@@ -284,7 +284,7 @@
     "in_this_section": "In diesem Bereich",
     "not_read": "Noch nicht gemessen: Der Status wurde noch nicht gelesen.",
     "stale": "Diese Messung ist veraltet: Es ist keine neuere eingetroffen.",
-    "display_note": "Hier hängt nichts von einem anderen Dienst ab. Design, Textgröße und Sprache ändern sich sofort auf diesem Gerät. Einheiten warten auf Speichern und gelten für alle.",
+    "display_note": "Hier hängt nichts von einem anderen Dienst ab. Design, Textgröße, Sprache und die Barrierefreiheit auf diesem Gerät ändern sich sofort. Einheiten und die Voreinstellungen für alle warten auf Speichern.",
     "state": {
       "ok": "funktioniert",
       "degraded": "unter Last",
@@ -319,7 +319,7 @@
     "alerts": "Abkühlzeit, Sprache, Link und Artenfilter",
     "alerts_garden": "Abkühlzeit, Sprache, Link, Artenfilter und Benachrichtigungen zu Gartentieren",
     "storage": "Wenn Frigate einen Besuch verliert, und die Aufgaben, die den Verlauf reparieren oder ergänzen",
-    "display": "Datums- und Zeitformat, Vogelnamen, Explorer-Ansicht, Schriften und Farben sowie Einheiten"
+    "display": "Datums- und Zeitformat, Vogelnamen, Explorer-Ansicht, Schriften und Farben, Barrierefreiheit für alle sowie Einheiten"
   },
   "debug": {
     "llm_prompt_style_label": "Prompt-Stil",
@@ -614,11 +614,21 @@
     "high_contrast_desc": "Schwarzer Hintergrund mit weißer und gelber Schrift, anstelle des hellen oder dunklen Designs.",
     "dyslexia_font": "Leseschrift: OpenDyslexic",
     "dyslexia_font_desc": "Setzt den gesamten Text in der Schrift OpenDyslexic.",
+    "dyslexia_font_latin_only": "Sie enthält nur lateinische Buchstaben, daher bleibt Text in dieser Sprache unverändert.",
     "reduced_motion": "Bewegung reduzieren",
     "reduced_motion_desc": "Beendet Animationen und Übergänge. Die Einstellung Ihres Geräts für reduzierte Bewegung wird immer zusätzlich beachtet.",
     "live_announcements": "Live-Ansagen",
     "live_announcements_desc": "Neue Erkennungen per Screenreader ansagen.",
-    "scope": "Diese gelten nach dem Speichern für alle, die diese Installation nutzen, auch für Gäste. Bis dahin sehen Sie hier eine Vorschau."
+    "device_title": "Barrierefreiheit auf diesem Gerät",
+    "device_scope": "Diese ändern sich sofort, nur in diesem Browser, und müssen nicht gespeichert werden. Solange Sie hier nichts festlegen, folgt dieses Gerät der Voreinstellung für alle unter Weitere Optionen.",
+    "defaults_title": "Voreinstellungen für alle",
+    "defaults_scope": "Gäste und Geräte ohne eigene Wahl folgen diesen, sobald Sie speichern. Ein Gerät mit eigener Wahl behält sie. Bis zum Speichern zeigt dieses Gerät eine Vorschau der Optionen, denen es folgt.",
+    "follows_default": "Folgt der Voreinstellung für alle ({state})",
+    "previewing_default": "Vorschau der ungespeicherten Voreinstellung für alle ({state})",
+    "own_choice": "Auf diesem Gerät festgelegt. Die Voreinstellung für alle ist {state}.",
+    "use_default": "Voreinstellung verwenden",
+    "state_on": "an",
+    "state_off": "aus"
   },
   "frigate": {
     "title": "Frigate NVR",

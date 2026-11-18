@@ -115,6 +115,7 @@
     // Every tab is its own chunk, loaded when it is opened (see the loaders above).
     import { appearanceSection, type AppearanceDraft } from '../settings/appearance-section';
     import { accessibilitySection, type AccessibilityDraft } from '../settings/accessibility-section';
+    import { accessibilityPreview } from '../stores/accessibility_preview.svelte';
     import { enrichmentSection, type EnrichmentDraft } from '../settings/enrichment-section';
     import { aiSection, editAiDraft, type AiDraft } from '../settings/ai-section';
     import { sectionChangedFields } from '../settings/section-adapter';
@@ -1206,6 +1207,16 @@
     });
 
     onMount(() => subscribeSettingsUpdates(reconcileLocalSettingsUpdate));
+
+    // The defaults for everyone being edited show on this device while Settings is open, read from
+    // the draft against the saved copy, so Discard, a restored draft or closing More options keeps
+    // the look in step with what is pending; leaving Settings disconnects it. Until the form has
+    // been filled the draft holds placeholders, so nothing is previewed against them.
+    let accessibilityFormFilled = $state(false);
+    onMount(() => accessibilityPreview.connect(() => ({
+        draft: accessibilityDraft,
+        saved: accessibilityFormFilled && settingsStore.settings ? accessibilitySection.decode(settingsStore.settings) : null
+    })));
 
     onMount(async () => {
         // Guests should never load the Settings view or call /api/settings.
@@ -2738,6 +2749,7 @@
             reportRuntimeProblem();
             loadedInferenceProvider = settings.inference_provider;
             settingsFormLoads += 1;
+            accessibilityFormFilled = true;
             const migratedBlockedLabels = await migrateLegacyBlockedLabels(
                 settings.blocked_labels || [],
                 (query) => searchSpecies(query, 50, true)
