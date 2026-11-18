@@ -309,6 +309,79 @@
       "finder": {
         "not_downloaded": "未下载"
       }
+    },
+    "purpose": {
+      "mqtt": "代理把 Frigate 的事件传给 YA-WAMF，这样每次新的到访才会到达。",
+      "frigate": "Frigate 负责录制摄像头。YA-WAMF 从中读取每次到访的照片和视频。",
+      "classifier": "模型为每次到访中的鸟命名。",
+      "finder": "鸟类检测器会在命名前从繁杂的照片中找出每只鸟。它是可选的。",
+      "audio": "BirdNET-Go 聆听鸟鸣，这样到访可以与听到的鸣叫对应起来。",
+      "storage": "照片和视频保存在此安装的媒体文件夹中。",
+      "notifications": "当到访符合条件时，提醒会通过你的频道发出。"
+    },
+    "why": {
+      "mqtt": {
+        "connected": "已连接到代理。",
+        "connecting": "自 YA-WAMF 启动以来首次连接代理。",
+        "disconnected": "代理未连接，因此无法记录新的到访。",
+        "not_configured": "未设置代理，因此无法记录到访。",
+        "stopped": "MQTT 服务未运行，因此无法记录新的到访。",
+        "pressure_high": "事件到达的速度快于 YA-WAMF 的处理速度，因此部分事件在等待。",
+        "pressure_critical": "事件到达的速度远快于 YA-WAMF 的处理速度，因此许多事件在等待。",
+        "backlog": "有事件正在排队等待处理。",
+        "frigate_topic_silent": "已连接，但 Frigate 已有一段时间没有发来任何内容。"
+      },
+      "frigate": {
+        "reachable": "Frigate 有响应，没有摄像头被报告为离线。",
+        "unreachable": "Frigate 无响应，因此新的到访无法保存。",
+        "unchecked": "自 YA-WAMF 启动以来尚未询问过 Frigate。",
+        "cameras_offline": "Frigate 有响应，但有摄像头离线。"
+      },
+      "classifier": {
+        "ready": "模型未报告任何问题。",
+        "model_missing": "所选模型不在此安装中，因此无法为任何鸟命名。",
+        "unmeasured": "自 YA-WAMF 启动以来模型尚未报告。",
+        "model_not_loaded": "模型文件在此，但未能加载。",
+        "runtime_failed": "模型已停止工作。“更多选项”中的运行时报告说明了原因。",
+        "recovering": "模型停止后正在重新启动。",
+        "live_degraded": "为新到访命名比应有的慢。",
+        "degraded": "命名可以工作，但负载较高。"
+      },
+      "finder": {
+        "ready": "鸟类检测器已下载，并在应在的位置运行。",
+        "unmeasured": "自 YA-WAMF 启动以来鸟类检测器尚未报告。",
+        "cpu_fallback": "鸟类检测器在处理器上运行，因为所选设备出错。",
+        "none_selected": "未选择鸟类检测器。它是可选的。",
+        "not_downloaded": "所选的鸟类检测器尚未下载，因此暂时不在任何地方运行。"
+      },
+      "audio": {
+        "hearing": "自 YA-WAMF 启动以来已收到来自 BirdNET-Go 的鸣叫。",
+        "nothing_heard": "自 YA-WAMF 启动以来没有收到鸣叫。可能只是 BirdNET-Go 还没有听到任何声音。",
+        "broker_down": "鸣叫通过 MQTT 传来，而代理未连接。",
+        "disabled": "音频已关闭。"
+      },
+      "storage": {
+        "writable": "媒体文件夹可以写入。",
+        "not_writable": "媒体文件夹无法写入，因此不会保留照片和视频。"
+      },
+      "notifications": {
+        "ready": "有频道已开启，自 YA-WAMF 启动以来没有提醒被丢弃。",
+        "none_enabled": "没有开启任何频道，因此不会发送提醒。",
+        "dropped": "部分提醒在发送前被丢弃。"
+      }
+    },
+    "test": {
+      "not_kept": "测试结果不会保留。立即运行测试进行检查。",
+      "run": "运行测试",
+      "go": "前往测试",
+      "passed": "{time} 测试：正常工作。",
+      "failed": "{time} 测试：未能工作。再次运行以查看原因。",
+      "passed_subject": "{subject} 于 {time} 测试：正常工作。",
+      "failed_subject": "{subject} 于 {time} 测试：未能工作。再次运行以查看原因。",
+      "passed_unsaved": "{time} 使用此页面尚未保存的值测试：正常工作。",
+      "failed_unsaved": "{time} 使用此页面尚未保存的值测试：未能工作。再次运行以查看原因。",
+      "passed_subject_unsaved": "{subject} 于 {time} 使用此页面尚未保存的值测试：正常工作。",
+      "failed_subject_unsaved": "{subject} 于 {time} 使用此页面尚未保存的值测试：未能工作。再次运行以查看原因。"
     }
   },
   "more": {

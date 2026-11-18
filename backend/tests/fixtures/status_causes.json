@@ -1,0 +1,12 @@
+{
+  "_comment": "Every cause a subsystem verdict can carry. The status column words each one; backend/tests/pure/test_status_causes.py holds system_status.py to this list and apps/ui/src/lib/settings/status-words.test.ts holds every locale to it.",
+  "causes": {
+    "mqtt": ["connected", "connecting", "disconnected", "not_configured", "stopped", "pressure_high", "pressure_critical", "backlog", "frigate_topic_silent"],
+    "frigate": ["reachable", "unreachable", "unchecked", "cameras_offline"],
+    "classifier": ["ready", "model_missing", "unmeasured", "model_not_loaded", "runtime_failed", "recovering", "live_degraded", "degraded"],
+    "finder": ["ready", "unmeasured", "cpu_fallback", "none_selected", "not_downloaded"],
+    "audio": ["hearing", "nothing_heard", "broker_down", "disabled"],
+    "storage": ["writable", "not_writable"],
+    "notifications": ["ready", "none_enabled", "dropped"]
+  }
+}

@@ -1,6 +1,7 @@
 <script lang="ts">
     import Separator from '../Separator.svelte';
-    import { onDestroy } from 'svelte';
+    import { onDestroy, onMount } from 'svelte';
+    import { sessionTests } from '../../settings/session-tests.svelte';
     import { _ } from 'svelte-i18n';
     import { testFrigateConnection, type RecordingClipCapability } from '../../api/system';
     import { testMQTTPublish } from '../../api/maintenance';
@@ -167,7 +168,17 @@
             { independent: true }
         );
         fcRunning = false;
+        // The status column states a test's result only when it ran during this visit.
+        for (const key of ['frigate', 'mqtt'] as const) {
+            const stage = fcStages.find((candidate) => candidate.id === key);
+            if (stage && (stage.state === 'passed' || stage.state === 'warning' || stage.state === 'failed')) {
+                sessionTests.record(key, stage.state !== 'failed');
+            }
+        }
     }
+
+    // The test sits on the section's first screen, so the status column can run it from there.
+    onMount(() => (region === 'more' ? undefined : sessionTests.provide(['frigate', 'mqtt'], runConnectionDiagnostic)));
 
     let previewCamera = $state<string | null>(null);
     let previewVisible = $state(false);
@@ -648,6 +659,7 @@
                 type="button"
                 onclick={runConnectionDiagnostic}
                 disabled={fcRunning}
+                data-settings-test="connection"
                 class="btn btn-primary min-h-11 px-4 whitespace-normal"
             >
                 {fcRunning ? $_('common.testing') : $_('settings.frigate.test_connection_both', { default: 'Test Frigate and MQTT' })}

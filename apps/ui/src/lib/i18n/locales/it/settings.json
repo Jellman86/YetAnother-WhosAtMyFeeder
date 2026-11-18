@@ -309,6 +309,79 @@
       "finder": {
         "not_downloaded": "non scaricato"
       }
+    },
+    "purpose": {
+      "mqtt": "Il broker porta gli eventi di Frigate a YA-WAMF, così ogni nuova visita arriva.",
+      "frigate": "Frigate registra le telecamere. YA-WAMF ne legge le foto e il video di ogni visita.",
+      "classifier": "Il modello nomina l’uccello di ogni visita.",
+      "finder": "Il rilevatore di uccelli individua ogni uccello in una foto affollata prima di nominarlo. È facoltativo.",
+      "audio": "BirdNET-Go ascolta i canti, così una visita può essere abbinata a ciò che si è sentito.",
+      "storage": "Foto e video sono conservati nella cartella dei media di questa installazione.",
+      "notifications": "Gli avvisi partono sui tuoi canali quando una visita ne merita uno."
+    },
+    "why": {
+      "mqtt": {
+        "connected": "Connesso al broker.",
+        "connecting": "Connessione al broker per la prima volta dall’avvio di YA-WAMF.",
+        "disconnected": "Il broker non è connesso, quindi non si possono registrare nuove visite.",
+        "not_configured": "Nessun broker impostato, quindi non si possono registrare visite.",
+        "stopped": "Il servizio MQTT non è in esecuzione, quindi non si possono registrare nuove visite.",
+        "pressure_high": "Gli eventi arrivano più in fretta di quanto YA-WAMF li gestisca, quindi alcuni attendono.",
+        "pressure_critical": "Gli eventi arrivano molto più in fretta di quanto YA-WAMF li gestisca, quindi molti attendono.",
+        "backlog": "Alcuni eventi attendono il loro turno.",
+        "frigate_topic_silent": "Connesso, ma da Frigate non arriva nulla da un po’."
+      },
+      "frigate": {
+        "reachable": "Frigate risponde e nessuna telecamera risulta offline.",
+        "unreachable": "Frigate non risponde, quindi le nuove visite non si possono salvare.",
+        "unchecked": "Frigate non è ancora stato interrogato dall’avvio di YA-WAMF.",
+        "cameras_offline": "Frigate risponde, ma una telecamera è offline."
+      },
+      "classifier": {
+        "ready": "Il modello non segnala alcun problema.",
+        "model_missing": "Il modello scelto non è su questa installazione, quindi nessun uccello può essere nominato.",
+        "unmeasured": "Il modello non ha ancora risposto dall’avvio di YA-WAMF.",
+        "model_not_loaded": "I file del modello ci sono, ma non si è caricato.",
+        "runtime_failed": "Il modello ha smesso di funzionare. Il rapporto di esecuzione in Altre opzioni dice perché.",
+        "recovering": "Il modello si sta riavviando dopo essersi fermato.",
+        "live_degraded": "Nominare le nuove visite è più lento del dovuto.",
+        "degraded": "Il riconoscimento funziona, ma sotto sforzo."
+      },
+      "finder": {
+        "ready": "Il rilevatore di uccelli è scaricato e funziona dove deve.",
+        "unmeasured": "Il rilevatore di uccelli non ha ancora risposto dall’avvio di YA-WAMF.",
+        "cpu_fallback": "Il rilevatore di uccelli funziona sul processore, perché il dispositivo scelto ha avuto un errore.",
+        "none_selected": "Nessun rilevatore di uccelli scelto. È facoltativo.",
+        "not_downloaded": "Il rilevatore di uccelli scelto non è scaricato, quindi per ora non funziona da nessuna parte."
+      },
+      "audio": {
+        "hearing": "Dall’avvio di YA-WAMF sono arrivati canti da BirdNET-Go.",
+        "nothing_heard": "Nessun canto è arrivato dall’avvio di YA-WAMF. Forse BirdNET-Go non ha ancora sentito nulla.",
+        "broker_down": "I canti arrivano via MQTT, e il broker non è connesso.",
+        "disabled": "L’audio è spento."
+      },
+      "storage": {
+        "writable": "Si può scrivere nella cartella dei media.",
+        "not_writable": "Non si può scrivere nella cartella dei media, quindi foto e video non vengono conservati."
+      },
+      "notifications": {
+        "ready": "Un canale è attivo e nessun avviso è stato scartato dall’avvio di YA-WAMF.",
+        "none_enabled": "Nessun canale è attivo, quindi non viene inviato alcun avviso.",
+        "dropped": "Alcuni avvisi sono stati scartati prima che potessero essere inviati."
+      }
+    },
+    "test": {
+      "not_kept": "I risultati dei test non vengono conservati. Esegui il test per controllare ora.",
+      "run": "Esegui il test",
+      "go": "Vai al test",
+      "passed": "Testato alle {time}: ha funzionato.",
+      "failed": "Testato alle {time}: non ha funzionato. Eseguilo di nuovo per vedere perché.",
+      "passed_subject": "{subject} testato alle {time}: ha funzionato.",
+      "failed_subject": "{subject} testato alle {time}: non ha funzionato. Eseguilo di nuovo per vedere perché.",
+      "passed_unsaved": "Testato alle {time} con i valori di questa pagina, non ancora salvati: ha funzionato.",
+      "failed_unsaved": "Testato alle {time} con i valori di questa pagina, non ancora salvati: non ha funzionato. Eseguilo di nuovo per vedere perché.",
+      "passed_subject_unsaved": "{subject} testato alle {time} con i valori di questa pagina, non ancora salvati: ha funzionato.",
+      "failed_subject_unsaved": "{subject} testato alle {time} con i valori di questa pagina, non ancora salvati: non ha funzionato. Eseguilo di nuovo per vedere perché."
     }
   },
   "more": {
