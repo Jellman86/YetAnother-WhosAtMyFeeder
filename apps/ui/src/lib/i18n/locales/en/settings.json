@@ -1622,7 +1622,7 @@
     "preview_error": "The preview could not be loaded. {message}",
     "preview_unavailable": "A preview needs a current list for this location. Refresh the list to see one.",
     "preview_seen_heading": "{count, plural, one {Recorded here in the last # day} other {Recorded here in the last # days}}",
-    "preview_seen_detections": "{count, plural, one {# visit} other {# visits}}",
+    "preview_seen_detections": "{count, plural, one {# capture} other {# captures}}",
     "preview_seen_none": "Nothing recorded here in that time would have been set aside.",
     "preview_model_unknown": "The current model's labels are not in the species catalogue, so its effect cannot be previewed. Its labels are never filtered.",
     "preview_model_total": "{count, plural, one {The current model can name # species this list treats as outside the range.} other {The current model can name # species this list treats as outside the range.}}",

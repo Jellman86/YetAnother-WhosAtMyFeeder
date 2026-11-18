@@ -1622,7 +1622,7 @@
     "preview_error": "L'aperçu n'a pas pu être chargé. {message}",
     "preview_unavailable": "Un aperçu nécessite une liste à jour pour cet emplacement. Actualisez la liste pour en voir un.",
     "preview_seen_heading": "{count, plural, one {Enregistrées ici le dernier # jour} other {Enregistrées ici ces # derniers jours}}",
-    "preview_seen_detections": "{count, plural, one {# détection} other {# détections}}",
+    "preview_seen_detections": "{count, plural, one {# capture} other {# captures}}",
     "preview_seen_none": "Rien de ce qui a été enregistré ici sur cette période n'aurait été mis de côté.",
     "preview_model_unknown": "Les étiquettes du modèle actuel ne figurent pas dans le catalogue des espèces, son effet ne peut donc pas être prévu. Ses étiquettes ne sont jamais filtrées.",
     "preview_model_total": "{count, plural, one {Le modèle actuel peut nommer # espèce que cette liste considère hors de l'aire.} other {Le modèle actuel peut nommer # espèces que cette liste considère hors de l'aire.}}",

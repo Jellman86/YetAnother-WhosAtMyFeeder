@@ -1622,7 +1622,7 @@
     "preview_error": "Non è stato possibile caricare l'anteprima. {message}",
     "preview_unavailable": "L'anteprima richiede un elenco aggiornato per questa posizione. Aggiorna l'elenco per vederla.",
     "preview_seen_heading": "{count, plural, one {Registrate qui nell'ultimo # giorno} other {Registrate qui negli ultimi # giorni}}",
-    "preview_seen_detections": "{count, plural, one {# rilevamento} other {# rilevamenti}}",
+    "preview_seen_detections": "{count, plural, one {# acquisizione} other {# acquisizioni}}",
     "preview_seen_none": "Nulla di quanto registrato qui in quel periodo sarebbe stato messo da parte.",
     "preview_model_unknown": "Le etichette del modello attuale non sono nel catalogo delle specie, quindi il suo effetto non si può prevedere. Le sue etichette non vengono mai filtrate.",
     "preview_model_total": "{count, plural, one {Il modello attuale può nominare # specie che questo elenco considera fuori areale.} other {Il modello attuale può nominare # specie che questo elenco considera fuori areale.}}",

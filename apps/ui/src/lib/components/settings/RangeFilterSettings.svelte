@@ -490,7 +490,7 @@
                                             <span class="font-semibold text-slate-900 dark:text-white">{speciesName(species)}</span>
                                             {#if species.common_name}<span class="ml-1 text-xs italic text-slate-600 dark:text-slate-400">{species.scientific_name}</span>{/if}
                                         </span>
-                                        <span class="shrink-0 text-xs tabular-nums text-slate-600 dark:text-slate-300">{$_('settings.range_filter.preview_seen_detections', { values: { count: species.detections ?? 0 }, default: '{count, plural, one {# visit} other {# visits}}' })}</span>
+                                        <span class="shrink-0 text-xs tabular-nums text-slate-600 dark:text-slate-300">{$_('settings.range_filter.preview_seen_detections', { values: { count: species.detections ?? 0 }, default: '{count, plural, one {# capture} other {# captures}}' })}</span>
                                     </li>
                                 {/each}
                             </ul>

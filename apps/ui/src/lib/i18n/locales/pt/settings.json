@@ -1622,7 +1622,7 @@
     "preview_error": "Não foi possível carregar a pré-visualização. {message}",
     "preview_unavailable": "A pré-visualização precisa de uma lista atual para esta localização. Atualize a lista para a ver.",
     "preview_seen_heading": "{count, plural, one {Registadas aqui no último # dia} other {Registadas aqui nos últimos # dias}}",
-    "preview_seen_detections": "{count, plural, one {# deteção} other {# deteções}}",
+    "preview_seen_detections": "{count, plural, one {# captura} other {# capturas}}",
     "preview_seen_none": "Nada do que foi registado aqui nesse período teria sido posto de lado.",
     "preview_model_unknown": "As etiquetas do modelo atual não estão no catálogo de espécies, por isso o seu efeito não pode ser previsto. As suas etiquetas nunca são filtradas.",
     "preview_model_total": "{count, plural, one {O modelo atual consegue nomear # espécie que esta lista trata como fora da área.} other {O modelo atual consegue nomear # espécies que esta lista trata como fora da área.}}",
