@@ -3,6 +3,7 @@ import { appApiPath, normalizeBackendPath } from '../app/url-base';
 export const API_BASE = appApiPath('/api');
 
 import { discardBody, readApiErrorMessage } from './error-message';
+import { logger } from '../utils/logger';
 
 // API Key Management
 let apiKey: string | null = typeof localStorage !== 'undefined' ? localStorage.getItem('api_key') : null;
@@ -145,10 +146,21 @@ export function onRequestsIdle(onIdle: () => void): () => void {
 
 function requestFinished(): void {
     requestsInFlight -= 1;
-    if (requestsInFlight > 0) return;
-    const waiting = [...idleWaiters];
-    idleWaiters.clear();
-    for (const onIdle of waiting) onIdle();
+    if (requestsInFlight > 0 || idleWaiters.size === 0) return;
+    // Told after the request has settled, each on its own: a waiter that throws can neither fail the
+    // request that happened to finish last nor keep the other waiters from being told.
+    queueMicrotask(() => {
+        if (requestsInFlight > 0) return;
+        const waiting = [...idleWaiters];
+        idleWaiters.clear();
+        for (const onIdle of waiting) {
+            try {
+                onIdle();
+            } catch (error) {
+                logger.error('A wait for requests to finish failed', error);
+            }
+        }
+    });
 }
 
 /**

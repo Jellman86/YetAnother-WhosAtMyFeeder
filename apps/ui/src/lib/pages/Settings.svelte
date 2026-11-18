@@ -114,7 +114,7 @@
     } from '../settings/inference-providers';
     import { getErrorMessage } from '../utils/error-handling';
     import { createSupersedingRead } from '../utils/latest-request';
-    import { holdInPlace, listenForReaderIntent, watchElementSize, whenSectionReady } from '../utils/part-landing';
+    import { holdInPlace, listenForReaderIntent, watchElementSizes, whenSectionReady } from '../utils/part-landing';
 
     // Every tab is its own chunk, loaded when it is opened (see the loaders above).
     import { appearanceSection, type AppearanceDraft } from '../settings/appearance-section';
@@ -1482,7 +1482,9 @@
             // waits until the section has its answers and has drawn them, however slow the backend is,
             // for four seconds at most.
             const root = sectionRoot();
-            if (root) await whenSectionReady({ watch: watchElementSize(root), requestsIdle: onRequestsIdle, signal: controller.signal });
+            // The page as well as the section: something above the section (the shell's jobs strip) moves
+            // the part without changing the section's size.
+            if (root) await whenSectionReady({ watch: watchElementSizes(root, document.body), requestsIdle: onRequestsIdle, signal: controller.signal });
             if (calledOff()) return;
             target = find();
             if (!target) return;
@@ -1492,15 +1494,16 @@
             stopListening();
         }
         // Anything that still arrives later is followed, so the part stays where it landed until the
-        // reader acts, a newer address lands, the page is left, or three seconds have passed.
+        // reader acts, a newer address lands, the page is left, or three seconds have passed. The part's
+        // own position is held, not the section's size: in Safari, which keeps no reader's place, the jobs
+        // strip appearing above the section moved a landed part 103px without the section changing size.
         const root = sectionRoot();
         if (!root || calledOff()) return;
         const release = holdInPlace({
-            watch: watchElementSize(root),
+            watch: watchElementSizes(root, document.body),
             listenForIntent: listenForReaderIntent,
-            place: () => {
-                if (!calledOff()) find()?.scrollIntoView({ block: 'start' });
-            }
+            position: () => (calledOff() ? null : (find()?.getBoundingClientRect().top ?? null)),
+            scrollBy: (by) => window.scrollBy({ top: by })
         });
         controller.signal.addEventListener('abort', release, { once: true });
     }

@@ -1,11 +1,11 @@
 /** Starts reporting to `onReport` and returns the stop. */
 type Listen = (onReport: () => void) => () => void;
 
-/** Reports every size change of `element`, through a ResizeObserver. */
-export function watchElementSize(element: Element): Listen {
+/** Reports every size change of any of `elements`, through one ResizeObserver. */
+export function watchElementSizes(...elements: Element[]): Listen {
     return (onResize) => {
         const observer = new ResizeObserver(() => onResize());
-        observer.observe(element);
+        for (const element of elements) observer.observe(element);
         return () => observer.disconnect();
     };
 }
@@ -71,18 +71,31 @@ export function whenSectionReady({ watch, requestsIdle, quietMs = 150, maxMs = 4
 }
 
 /**
- * Keeps a part where a landing put it while the content around it is still filling in, and returns the
- * stop. Every size change puts it back (`place`) before the frame is drawn; the hold ends when the
- * reader acts, when the caller stops it (a newer address, leaving the page), or after `maxMs`.
- *
- * A Settings part further down its section is landed on before the parts above it have their data (the
- * model list, Hardware once the list answers, More options' own parts). Waiting for the page to go quiet
- * failed whenever the backend was slow; holding the part follows the content however late it comes.
+ * Keeps a part where a landing put it while the page around it is still filling in, and returns the
+ * stop. Whenever `watch` reports a change, the part's top (`position`) is compared with where it landed
+ * and the page is scrolled by the difference, so whatever moved it (a part above it growing, the shell's
+ * jobs strip appearing above the section) is undone before the frame is drawn. Safari keeps no reader's
+ * place by itself; Chromium's scroll anchoring usually leaves nothing to undo. The hold ends when the
+ * reader acts, when the caller stops it (a newer address, leaving the page), when the part is gone, or
+ * after `maxMs`.
  */
-export function holdInPlace({ watch, listenForIntent, place, maxMs = 3000 }: { watch: Listen; listenForIntent: Listen; place: () => void; maxMs?: number }): () => void {
+export function holdInPlace({ watch, listenForIntent, position, scrollBy, maxMs = 3000 }: {
+    watch: Listen;
+    listenForIntent: Listen;
+    position: () => number | null;
+    scrollBy: (by: number) => void;
+    maxMs?: number;
+}): () => void {
     let held = true;
+    const landed = position();
     const stopWatching = watch(() => {
-        if (held) place();
+        if (!held) return;
+        const now = position();
+        if (now === null || landed === null) {
+            release();
+            return;
+        }
+        if (Math.abs(now - landed) >= 1) scrollBy(now - landed);
     });
     const stopListening = listenForIntent(() => release());
     const longest = setTimeout(() => release(), maxMs);
