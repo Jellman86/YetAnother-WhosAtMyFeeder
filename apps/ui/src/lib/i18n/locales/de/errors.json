@@ -11,13 +11,16 @@
     "unreachable_url": "{service}: Verbindung zu {address} nicht möglich. Prüfen Sie Adresse, Schema (http oder https) und Port."
   },
   "delivery": {
-    "not_configured": "{channel} ist noch nicht eingerichtet. Geben Sie die Angaben ein und testen Sie dann erneut.",
+    "not_configured_discord": "{channel} ist noch nicht eingerichtet. Geben Sie die Webhook-URL ein und testen Sie dann erneut.",
+    "not_configured_pushover": "{channel} ist noch nicht eingerichtet. Geben Sie den Benutzerschlüssel und das API-Token ein und testen Sie dann erneut.",
+    "not_configured_telegram": "{channel} ist noch nicht eingerichtet. Geben Sie das Bot-Token und die Chat-ID ein und testen Sie dann erneut.",
     "no_answer_address": "{channel} hat nicht geantwortet. Prüfen Sie die Webhook-URL und testen Sie dann erneut.",
     "no_answer_network": "{channel} hat nicht geantwortet. Prüfen Sie, ob YA-WAMF das Internet erreichen kann, und testen Sie dann erneut.",
     "timeout": "{channel} hat zu lange nicht geantwortet. Warten Sie einen Moment und testen Sie dann erneut.",
     "refused_discord": "{channel} hat die Nachricht abgelehnt. Prüfen Sie die Webhook-URL und testen Sie dann erneut.",
     "refused_pushover": "{channel} hat die Nachricht abgelehnt. Prüfen Sie den Benutzerschlüssel und das API-Token und testen Sie dann erneut.",
     "refused_telegram": "{channel} hat die Nachricht abgelehnt. Prüfen Sie das Bot-Token und die Chat-ID und testen Sie dann erneut.",
+    "unexpected_reply": "Statt {channel} hat etwas anderes geantwortet. Prüfen Sie, ob ein Proxy oder eine Anmeldeseite zwischen YA-WAMF und dem Internet liegt, und testen Sie dann erneut.",
     "rate_limited": "{channel} begrenzt derzeit die Nachrichten. Warten Sie eine Minute und testen Sie dann erneut.",
     "provider_error": "{channel} hat ein Problem auf seiner Seite gemeldet. Warten Sie einige Minuten und testen Sie dann erneut."
   }

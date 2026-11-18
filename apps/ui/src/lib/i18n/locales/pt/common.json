@@ -1,5 +1,6 @@
 {
   "loading": "Carregando…",
+  "live_new_bird": "Nova ave: {species} em {camera}",
   "error": "Erro",
   "success": "Sucesso",
   "cancel": "Cancelar",

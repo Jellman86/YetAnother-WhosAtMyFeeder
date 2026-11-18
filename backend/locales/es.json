@@ -94,6 +94,8 @@
       "send_failed": "El servidor de correo no aceptó el correo de prueba. Comprueba el host SMTP, el puerto, el usuario y la contraseña, y vuelve a probar.",
       "send_failed_oauth": "{provider} no aceptó el correo de prueba. Vuelve a conectar la cuenta y prueba de nuevo.",
       "send_timeout": "El servidor de correo tardó demasiado en responder. Comprueba el host SMTP y el puerto, y vuelve a probar.",
+      "send_timeout_oauth": "{provider} tardó demasiado en responder. Espera un momento y vuelve a probar.",
+      "prepare_failed": "YA-WAMF no pudo preparar el correo de prueba. Abre Estado y vuelve a probar.",
       "invalid_state": "Estado OAuth inválido. Inténtalo de nuevo.",
       "state_expired": "El estado OAuth ha caducado. Inténtalo de nuevo.",
       "email_missing": "El proveedor no devolvió el correo electrónico."

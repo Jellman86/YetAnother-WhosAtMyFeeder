@@ -94,6 +94,8 @@
       "send_failed": "Le serveur de messagerie n'a pas accepté l'e-mail de test. Vérifiez l'hôte SMTP, le port, le nom d'utilisateur et le mot de passe, puis relancez le test.",
       "send_failed_oauth": "{provider} n'a pas accepté l'e-mail de test. Reconnectez le compte, puis relancez le test.",
       "send_timeout": "Le serveur de messagerie a mis trop de temps à répondre. Vérifiez l'hôte SMTP et le port, puis relancez le test.",
+      "send_timeout_oauth": "{provider} a mis trop de temps à répondre. Patientez un instant, puis relancez le test.",
+      "prepare_failed": "YA-WAMF n'a pas pu préparer l'e-mail de test. Ouvrez État, puis relancez le test.",
       "invalid_state": "État OAuth invalide. Veuillez réessayer.",
       "state_expired": "L’état OAuth a expiré. Veuillez réessayer.",
       "email_missing": "Le fournisseur n'a pas renvoyé l'adresse e-mail."

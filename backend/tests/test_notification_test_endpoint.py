@@ -185,3 +185,33 @@ async def test_channel_test_without_credentials_says_the_channel_is_not_set_up(m
 
     assert response.status_code == 400
     assert response.json()["cause"] == "not_configured"
+
+
+@pytest.mark.asyncio
+async def test_discord_test_passes_for_a_webhook_that_accepts_with_no_body(monkeypatch):
+    response = await _run_channel_test(monkeypatch, "discord", lambda request: httpx.Response(204))
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "ok"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("platform", sorted(CHANNEL_CREDENTIALS))
+@pytest.mark.parametrize(
+    "reply",
+    [
+        lambda request: httpx.Response(200, html=f"<html>Sign in to continue to {request.url}</html>"),
+        lambda request: httpx.Response(200, json=["not", "an", "object"]),
+    ],
+    ids=["html-page", "json-list"],
+)
+async def test_channel_test_fails_when_something_else_answers_200_in_the_channels_place(monkeypatch, platform, reply):
+    response = await _run_channel_test(monkeypatch, platform, reply)
+
+    assert response.status_code == 502
+    payload = response.json()
+    assert payload["cause"] == "unexpected_reply"
+    assert payload["message"].startswith(f"Something answered in place of {CHANNEL_NAMES[platform]}.")
+    assert "Sign in to continue" not in response.text
+    for secret in CHANNEL_CREDENTIALS[platform].values():
+        assert secret not in response.text

@@ -55,4 +55,21 @@ test('a test message the channel accepted passes', async ({ page }) => {
     await pressDiscordTest(page, { status: 200, json: { status: 'ok', message: 'Test notification sent to discord' } });
     const dialog = page.getByRole('dialog', { name: 'Notification test' });
     await expect(dialog.locator('[data-diagnostic-stage-state]')).toHaveAttribute('data-diagnostic-stage-state', 'passed');
+    // The pass is worded by the page, in its language, not by the server's English sentence.
+    await expect(dialog.getByRole('listitem')).toContainText('Discord accepted the test message.');
+    await expect(dialog).not.toContainText('Test notification sent to discord');
+});
+
+test('a pass reads in German on a German page', async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('preferred-language', 'de'));
+    await openSettings(page, { notifications_discord_enabled: true, notifications_discord_webhook_url: '***REDACTED***' }, {
+        route: '/settings/alerts',
+        respond: (path, method) => (path === '/api/settings/notifications/test' && method === 'POST'
+            ? { status: 200, json: { status: 'ok', message: 'Test notification sent to discord' } }
+            : undefined)
+    });
+    await page.getByRole('button', { name: 'Testbenachrichtigung senden', exact: true }).first().click();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog.getByRole('listitem')).toContainText('Discord hat die Testnachricht angenommen.');
+    await expect(dialog).not.toContainText('Test notification sent');
 });

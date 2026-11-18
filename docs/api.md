@@ -1443,7 +1443,7 @@ return 422. It does not reclassify saved detections or wait indefinitely for an 
   (`discord`, `pushover` or `telegram`), with optional typed credentials that are used for this
   send only. It answers `200` with `status: "ok"` only when the channel accepted the message. A
   message that was not delivered answers `502` with `status: "error"`, the `channel`, a `cause`
-  (`no_answer`, `timeout`, `refused`, `rate_limited` or `provider_error`) and the same thing as an
+  (`no_answer`, `timeout`, `refused`, `unexpected_reply`, `rate_limited` or `provider_error`) and the same thing as an
   English `message` with the next step; a channel with no credentials answers `400` with
   `cause: "not_configured"`. No answer ever carries the webhook address, a token or the
   provider's own text.
@@ -1689,7 +1689,8 @@ history, hidden-event, and camera-privacy restrictions as the paginated event li
   - `DELETE /api/email/oauth/{provider}/disconnect`
   - `POST /api/email/test` — answers `200` only when the mail was accepted. A send that was not
     accepted answers `502`, and one that got no answer in 30 seconds `504`, each with a `detail`
-    that says what to check; the mail server's own words stay in the log.
+    that says what to check; the mail server's own words stay in the log. A test email that could
+    not be built answers `500` and does not point at the mail settings.
 
 OAuth authorization, disconnection and submission require owner authentication. Only the three
 exact GET callback routes accept a provider redirect without a login header. They require a

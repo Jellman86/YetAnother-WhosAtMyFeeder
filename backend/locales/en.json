@@ -94,6 +94,8 @@
       "send_failed": "The mail server did not accept the test email. Check the SMTP host, port, user name and password, then test again.",
       "send_failed_oauth": "{provider} did not accept the test email. Reconnect the account, then test again.",
       "send_timeout": "The mail server took too long to answer. Check the SMTP host and port, then test again.",
+      "send_timeout_oauth": "{provider} took too long to answer. Wait a moment, then test again.",
+      "prepare_failed": "YA-WAMF could not prepare the test email. Open Health, then test again.",
       "invalid_state": "Invalid OAuth state. Please try again.",
       "state_expired": "OAuth state expired. Please try again.",
       "email_missing": "Email address not returned by provider."

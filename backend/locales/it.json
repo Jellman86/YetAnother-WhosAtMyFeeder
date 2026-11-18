@@ -94,6 +94,8 @@
       "send_failed": "Il server di posta non ha accettato l'email di prova. Controlla host SMTP, porta, nome utente e password, poi riprova.",
       "send_failed_oauth": "{provider} non ha accettato l'email di prova. Ricollega l'account, poi riprova.",
       "send_timeout": "Il server di posta ha impiegato troppo tempo a rispondere. Controlla host SMTP e porta, poi riprova.",
+      "send_timeout_oauth": "{provider} ha impiegato troppo tempo a rispondere. Attendi un momento, poi riprova.",
+      "prepare_failed": "YA-WAMF non è riuscito a preparare l'email di prova. Apri Stato, poi riprova.",
       "invalid_state": "Stato OAuth non valido. Riprova.",
       "state_expired": "Stato OAuth scaduto. Riprova.",
       "email_missing": "Indirizzo email non restituito dal provider."

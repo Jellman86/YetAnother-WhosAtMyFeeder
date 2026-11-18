@@ -125,7 +125,8 @@
     async function runNotificationTest(
         channel: 'discord' | 'pushover' | 'telegram' | 'email',
         channelLabel: string,
-        run: () => Promise<{ status: string; message: string }>
+        run: () => Promise<{ status: string; message: string }>,
+        passed: () => string = () => $_('settings.notifications.test_passed', { default: '{channel} accepted the test message.', values: { channel: channelLabel } })
     ): Promise<void> {
         ntOpen = true;
         ntRunning = true;
@@ -138,8 +139,10 @@
         try {
             const result = await run();
             const ok = result.status === 'ok';
-            ntStages = [{ id: 'deliver', label, state: ok ? 'passed' : 'failed', message: result.message }];
-            ntResult = { ok, message: result.message };
+            // A pass is worded here, in the page's language; the server's sentence is English.
+            const message = ok ? passed() : result.message;
+            ntStages = [{ id: 'deliver', label, state: ok ? 'passed' : 'failed', message }];
+            ntResult = { ok, message };
         } catch (error) {
             const text = error instanceof Error && error.message.trim()
                 ? error.message
@@ -155,10 +158,12 @@
     const runDiscordTest = () => runNotificationTest('discord', 'Discord', () => testNotification('discord', { webhook_url: discordWebhook }));
     const runPushoverTest = () => runNotificationTest('pushover', 'Pushover', () => testNotification('pushover', { user_key: pushoverUserKey, api_token: pushoverApiToken }));
     const runTelegramTest = () => runNotificationTest('telegram', 'Telegram', () => testNotification('telegram', { bot_token: telegramBotToken, chat_id: telegramChatId }));
-    const runEmailTest = () => runNotificationTest('email', $_('settings.email.title'), async () => {
-        const result = await sendTestEmail();
-        return { status: 'ok', message: result.message || $_('settings.email.test_email_sent') };
-    });
+    const runEmailTest = () => runNotificationTest(
+        'email',
+        $_('settings.email.title'),
+        async () => ({ status: 'ok', message: (await sendTestEmail()).message }),
+        () => $_('settings.email.test_email_sent')
+    );
 
     function retryNotificationTest(): void {
         if (ntChannel === 'discord') void runDiscordTest();

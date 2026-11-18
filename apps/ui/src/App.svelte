@@ -49,6 +49,7 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
   import { initKeyboardShortcuts } from './lib/utils/keyboard-shortcuts';
   import { logger } from './lib/utils/logger';
   import { LiveUpdateCoordinator } from './lib/app/live-updates';
+  import { newBirdAnnouncement } from './lib/app/live-announcement';
   import { gardenHistory } from './lib/stores/garden_history.svelte';
   import { audioActivity } from './lib/stores/audio_activity.svelte';
   import { guestHistoryRefreshDelayMs } from './lib/app/public-refresh-budget';
@@ -354,7 +355,7 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
           await detectionsStore.refreshPublicHistory({ includeList: accessibilityApplied.liveAnnouncements });
           if (accessibilityApplied.liveAnnouncements) {
               const added = detectionsStore.detections.find((item) => !previousIds.has(item.frigate_event));
-              if (added) announcer.announce(`New bird detected: ${added.display_name} at ${added.camera_name}`);
+              if (added) announcer.announce(newBirdAnnouncement(added.display_name, added.camera_name));
           }
       } catch (error) {
           logger.error('Public history refresh failed', error);
