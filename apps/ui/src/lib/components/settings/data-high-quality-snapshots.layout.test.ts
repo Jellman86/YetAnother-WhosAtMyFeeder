@@ -10,9 +10,9 @@ describe('high-quality snapshot settings', () => {
         expect(source).not.toContain('HQ Bird Crop Snapshots');
     });
 
-    it('shows whether the crop detector is ready without exposing source selection', () => {
+    it('shows whether the bird finder is ready without exposing source selection', () => {
         expect(source).toContain('cropDetectorReady');
-        expect(source).toContain('Crop detector ready');
+        expect(source).toContain('Bird finder ready');
         expect(source).not.toContain('bird_crop_source_priority');
     });
 });

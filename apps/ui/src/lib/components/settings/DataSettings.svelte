@@ -573,12 +573,12 @@
                     <div class="min-w-0">
                         <p class="text-sm font-bold text-slate-700 dark:text-slate-200">
                             {cropDetectorReady
-                                ? $_('settings.data.cache_crop_detector_ready', { default: 'Crop detector ready' })
+                                ? $_('settings.data.cache_crop_detector_ready', { default: 'Bird finder ready' })
                                 : $_('settings.data.cache_crop_fallback_ready', { default: 'Frigate tracking fallback ready' })}
                         </p>
                         <p class="mt-0.5 text-xs leading-relaxed text-slate-600 dark:text-slate-400">
                             {cropDetectorReady
-                                ? $_('settings.data.cache_crop_detector_ready_help', { default: 'Frigate tracking hints and the crop detectors are evaluated automatically.' })
+                                ? $_('settings.data.cache_crop_detector_ready_help', { default: 'Frigate’s tracking hints and the bird finders are tried automatically.' })
                                 : $_('settings.data.cache_crop_fallback_ready_help', { default: 'Frigate tracking hints are used automatically; detector crops join in when a model is installed.' })}
                         </p>
                     </div>

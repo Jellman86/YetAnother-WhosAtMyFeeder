@@ -249,7 +249,7 @@
   },
   "tabs": {
     "connection": "Connection",
-    "detection": "Detection",
+    "detection": "Naming and filters",
     "notifications": "Notifications",
     "integrations": "Integrations",
     "data": "Data",
@@ -618,7 +618,7 @@
     "reduced_motion": "Reduced motion",
     "reduced_motion_desc": "Stops animations and transitions. Your device's reduce-motion setting is always followed as well.",
     "live_announcements": "Live announcements",
-    "live_announcements_desc": "Announce new detections with screen reader alerts.",
+    "live_announcements_desc": "Announces each new visit to a screen reader.",
     "device_title": "Accessibility on this device",
     "device_scope": "These change at once, in this browser only, and need no saving. Until you set one here, this device follows the default for everyone under More options.",
     "defaults_title": "Defaults for everyone",
