@@ -174,9 +174,11 @@ test('at 200% text the card loses nothing', async ({ page }) => {
     await openShell(page, 'light', TWO_ISSUES);
     await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
     await settled(page);
-    // Nothing in the card clips or scrolls, so growing text can only push the card taller...
+    // Nothing in the card is cut off: growing text pushes the card taller, and the column it is in scrolls,
+    // rather than any box in the card hiding part of what it holds...
     const clipping = await card(page).evaluate(node => [node, ...node.querySelectorAll<HTMLElement>('*')]
-        .filter(el => el instanceof HTMLElement && !el.classList.contains('sr-only') && getComputedStyle(el).overflow !== 'visible')
+        .filter(el => el instanceof HTMLElement && !el.classList.contains('sr-only') && getComputedStyle(el).overflow !== 'visible'
+            && (el.scrollHeight > el.clientHeight + 1 || el.scrollWidth > el.clientWidth + 1))
         .map(el => el.outerHTML.slice(0, 80)));
     expect(clipping).toEqual([]);
     // ...and no box in it is wider than the card, so nothing runs out under the page.

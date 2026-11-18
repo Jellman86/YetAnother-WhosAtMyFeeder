@@ -899,7 +899,7 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
           {/if}
           <!-- A screen tall at least: a page still reading its data is short, and the footer would
                otherwise show beneath it and jump away when the data lands. -->
-          <main id="main-content" class="min-h-svh flex-1 w-full px-4 sm:px-6 lg:px-8 2xl:px-12 pt-4 pb-8">
+          <main id="main-content" class="mx-auto min-h-svh w-full max-w-shell flex-1 px-4 pt-4 pb-8 sm:px-6 lg:px-8 2xl:px-12">
               {#if showPageHeader}
                   <AppPageHeader
                       title={pageHeaderTitle}

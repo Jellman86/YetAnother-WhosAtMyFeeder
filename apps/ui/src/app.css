@@ -27,6 +27,9 @@
    tightens its chrome there so the step has room and the actions stay in view. In px, like the
    breakpoints below, so a larger text size does not change which screens count as short. */
 @custom-variant short (@media (max-height: 640px));
+/* A desktop window that is wide but not tall (1920 × 900, 1440 × 800): the sidebar's wordmark sits
+   beside the mark instead of under it, so every place in the navigation and the way to Health fit. */
+@custom-variant compact-height (@media (max-height: 900px));
 
 @theme {
   /* Breakpoints stay in px, so a reader's larger text size never moves a layout to its phone
@@ -38,6 +41,12 @@
   --breakpoint-xl: 1280px;
   --breakpoint-2xl: 1536px;
   --breakpoint-3xl: 1920px;
+
+  /* The page container (max-w-shell): pages use the width up to a 1920px desktop, and beyond that the
+     content stays centred with growing gutters, so a 2560px display does not stretch every card and
+     line across it. In rem, so it keeps its share of the screen as the root size grows. Running text
+     keeps its own measure inside it (max-w-prose). */
+  --container-shell: 104rem;
 
   /* The 44px touch target (h-11, min-h-11, w-11, min-w-11) grows with a larger text size
      but never shrinks below 44px when a reader picks a smaller one. */

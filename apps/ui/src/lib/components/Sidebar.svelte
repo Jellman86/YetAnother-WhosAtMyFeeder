@@ -169,19 +169,19 @@
 >
     <div
         data-sidebar-brand
-        class="relative flex w-full flex-col items-center text-center gap-3 border-b border-line-soft px-4 py-5 [@media(max-height:42rem)]:py-3"
+        class="relative flex w-full flex-col items-center text-center gap-3 border-b border-line-soft px-4 py-5 [@media(max-height:42rem)]:py-3 compact-height:py-3"
     >
         <button
-            class="focus-ring -m-1 flex flex-col items-center gap-3 rounded-xl p-1"
+            class="focus-ring -m-1 flex min-h-11 min-w-11 flex-col items-center justify-center gap-3 rounded-xl p-1 {collapsed ? '' : 'compact-height:flex-row compact-height:text-left'}"
             onclick={() => navigateAndClose('/')}
         >
             <BrandMark
                 alt={$_('app.title')}
                 sizes={collapsed ? '40px' : '64px'}
-                class="shrink-0 rounded-2xl transition-all duration-300 {collapsed ? 'h-10 w-10' : 'h-16 w-16'}"
+                class="shrink-0 rounded-2xl transition-all duration-300 {collapsed ? 'h-10 w-10' : 'h-16 w-16 compact-height:h-10 compact-height:w-10'}"
             />
             {#if !collapsed}
-                <div class="flex flex-col items-center gap-0.5 overflow-hidden">
+                <div class="flex flex-col items-center gap-0.5 overflow-hidden compact-height:items-start">
                     <!-- The wordmark, not a heading: each page carries its own h1. -->
                     <span class="truncate font-display text-lg font-bold leading-tight text-strong">
                         {$_('app.logo_title')}
@@ -194,187 +194,205 @@
         </button>
     </div>
 
-    <nav class="min-h-0 flex-1 overflow-y-auto px-3 py-4" aria-label={$_('nav.navigation', { default: 'Primary navigation' })}>
-        {#each navSections as section, sectionIndex}
-            <div data-sidebar-section={section.id} class={sectionIndex === 0 ? '' : 'mt-5'}>
-                {#if !collapsed}
-                    <!-- Headed like the Settings rail's groups, so the two navigations read as one. -->
-                    <div class="px-3 pb-1 text-sm font-semibold text-strong">
-                        {section.label}
-                    </div>
-                {/if}
-                <div class="space-y-1">
-                    {#each section.items as item}
-                        <button
-                            class="sidebar-nav {collapsed ? 'justify-center px-0' : ''}"
-                            class:sidebar-nav-active={isRouteActive(item)}
-                            class:sidebar-nav-inactive={!isRouteActive(item)}
-                            onclick={() => handleNavClick(item)}
-                            onpointerenter={(event) => { if (pointerMayPrefetch(event.pointerType)) onPrefetch?.(item.path); }}
-                            onfocus={() => onPrefetch?.(item.path)}
-                            title={collapsed ? item.label : ''}
-                            aria-label={item.label}
-                            aria-current={isRouteActive(item) ? 'page' : undefined}
-                        >
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                                <path stroke-linecap="round" stroke-linejoin="round" d={item.icon} />
-                            </svg>
-                            {#if !collapsed}
-                                <!-- A long label wraps onto a second line (German "Beobachtung hinzufügen") rather than losing its end. -->
-                                <span class="min-w-0 hyphens-auto text-base leading-tight wrap-break-word">{item.label}</span>
-                            {/if}
-                        </button>
-                    {/each}
-                </div>
-            </div>
-        {/each}
-    </nav>
-
-    <!-- System status is a plain list on a neutral surface: measured states in words, one muted
-         line of resource readings, and the way to Health. Only the owner can reach Health,
-         so a guest gets no link. The link asks for attention only for issues Health lists as open,
-         read from the same store, so the two always agree. -->
-    <div data-sidebar-status class="shrink-0 border-t border-line-soft p-3 [@media(max-height:42rem)]:hidden">
-        {#if collapsed}
-            <section class="flex flex-col items-center gap-1" aria-label={$_('status.title')} data-sidebar-status-card>
-                {@render status?.(true)}
-                {#if authStore.showSettings}
-                    <a
-                        href="/system-health"
-                        class="focus-ring relative grid h-11 w-11 place-items-center rounded-lg text-ink transition-colors hover:bg-surface-raised"
-                        title={healthLinkName}
-                        data-sidebar-status-link
-                        data-health-attention={health.needsAttention}
-                        onclick={openHealth}
-                        onpointerenter={(event) => { if (pointerMayPrefetch(event.pointerType)) onPrefetch?.('/system-health'); }}
-                        onfocus={() => onPrefetch?.('/system-health')}
-                    >
-                        <span class="sr-only">{healthLinkName}</span>
-                        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                            <path d="M3 12h4l2-6 4 12 2-6h6" />
-                        </svg>
-                        {#if health.needsAttention}
-                            <span class="absolute right-1.5 top-1.5 h-2 w-2 rotate-45 bg-status-attention-line" aria-hidden="true"></span>
-                        {/if}
-                    </a>
-                {/if}
-            </section>
-        {:else}
-            <section
-                class="rounded-xl border border-line-soft bg-surface-raised p-3"
-                aria-labelledby="sidebar-status-title"
-                data-sidebar-status-card
-            >
-                <h2 id="sidebar-status-title" class="mb-2 text-xs font-semibold leading-4 text-ink">
-                    {$_('status.title')}
-                </h2>
-                {@render status?.(false)}
-                <SystemTelemetryGraph />
-                {#if authStore.showSettings}
-                    <!-- One line, one control: with issues open the count is the link's wording and
-                         "Health" is said before it for a screen reader; with none open the
-                         link is just "Health". -->
-                    <a
-                        href="/system-health"
-                        class="focus-ring -mx-1 mt-2 flex min-h-7 items-center justify-between gap-x-2 rounded-md border-t border-line-soft px-1 pt-2 text-xs font-semibold leading-4 text-ink transition-colors hover:text-accent-ink"
-                        data-sidebar-status-link
-                        data-health-attention={health.needsAttention}
-                        onclick={openHealth}
-                        onpointerenter={(event) => { if (pointerMayPrefetch(event.pointerType)) onPrefetch?.('/system-health'); }}
-                        onfocus={() => onPrefetch?.('/system-health')}
-                    >
-                        {#if health.needsAttention}
-                            <span class="flex min-w-0 items-center gap-2 text-status-attention">
-                                <span class="h-2 w-2 shrink-0 rotate-45 bg-status-attention-line" aria-hidden="true"></span>
-                                <span class="min-w-0">
-                                    <span class="sr-only">{healthLinkPrefix}</span><span data-health-issues>{issuesLabel}</span>
-                                </span>
-                            </span>
-                        {:else}
-                            <span class="ml-auto">{$_('status.open_health', { default: 'Health' })}</span>
-                        {/if}
-                        <svg class="h-3 w-3 shrink-0" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" data-health-chevron><path stroke-linecap="round" stroke-linejoin="round" d="m8 5 5 5-5 5" /></svg>
-                    </a>
-                {/if}
-            </section>
-        {/if}
-    </div>
-
-    <div class="shrink-0 border-t border-line-soft p-3">
-        {#if !collapsed}
-            {#if authStore.isAuthenticated}
-                <div data-sidebar-account class="flex min-w-0 items-center gap-2 rounded-xl border border-line-soft bg-surface-raised p-2">
-                    {#if avatarStore.url}
-                        <img src={avatarStore.url} alt="" class="h-8 w-8 shrink-0 rounded-lg object-cover" data-sidebar-avatar />
-                    {:else}
-                        <div class="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-accent-soft text-xs font-bold text-accent-ink">
-                            {accountInitial}
+    <!-- Every place in the app and the way to Health stay in view: on a short window the brand sits
+         beside its mark and System status gives up its readings first (they scroll inside the card,
+         the Health link stays at its foot). Only when even that is not enough, as at a much larger text
+         size, do the places and the status scroll together; the controls below never scroll, so the
+         language menu that opens past the collapsed rail is never clipped. -->
+    <div class="flex min-h-0 flex-1 flex-col overflow-y-auto" data-sidebar-scroll>
+        <nav class="shrink-0 px-3 py-4" aria-label={$_('nav.navigation', { default: 'Primary navigation' })}>
+            {#each navSections as section, sectionIndex}
+                <div data-sidebar-section={section.id} class={sectionIndex === 0 ? '' : 'mt-5 compact-height:mt-3'}>
+                    {#if !collapsed}
+                        <!-- Headed like the Settings rail's groups, so the two navigations read as one. -->
+                        <div class="px-3 pb-1 text-sm font-semibold text-strong">
+                            {section.label}
                         </div>
                     {/if}
-                    <div class="min-w-0 flex-1">
-                        <div class="truncate text-xs font-semibold text-strong">{authStore.username}</div>
-                        <div class="truncate text-xs text-muted">{$_('app.title')}</div>
+                    <div class="space-y-1">
+                        {#each section.items as item}
+                            <button
+                                class="sidebar-nav {collapsed ? 'justify-center px-0' : ''}"
+                                class:sidebar-nav-active={isRouteActive(item)}
+                                class:sidebar-nav-inactive={!isRouteActive(item)}
+                                onclick={() => handleNavClick(item)}
+                                onpointerenter={(event) => { if (pointerMayPrefetch(event.pointerType)) onPrefetch?.(item.path); }}
+                                onfocus={() => onPrefetch?.(item.path)}
+                                title={collapsed ? item.label : ''}
+                                aria-label={item.label}
+                                aria-current={isRouteActive(item) ? 'page' : undefined}
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d={item.icon} />
+                                </svg>
+                                {#if !collapsed}
+                                    <!-- A long label wraps onto a second line (German "Beobachtung hinzufügen") rather than losing its end. -->
+                                    <span class="min-w-0 hyphens-auto text-base leading-tight wrap-break-word">{item.label}</span>
+                                {/if}
+                            </button>
+                        {/each}
                     </div>
+                </div>
+            {/each}
+        </nav>
+
+        <!-- System status is a plain list on a neutral surface: measured states in words, one muted
+             line of resource readings, and the way to Health. Only the owner can reach Health,
+             so a guest gets no link. The link asks for attention only for issues Health lists as open,
+             read from the same store, so the two always agree. -->
+        <div data-sidebar-status class="mt-auto flex flex-col border-t border-line-soft p-3 compact-height:p-2 [@media(max-height:42rem)]:hidden">
+            {#if collapsed}
+                <section class="flex flex-col items-center gap-1" aria-label={$_('status.title')} data-sidebar-status-card>
+                    {@render status?.(true)}
+                    {#if authStore.showSettings}
+                        <a
+                            href="/system-health"
+                            class="focus-ring relative grid h-11 w-11 place-items-center rounded-lg text-ink transition-colors hover:bg-surface-raised"
+                            title={healthLinkName}
+                            data-sidebar-status-link
+                            data-health-attention={health.needsAttention}
+                            onclick={openHealth}
+                            onpointerenter={(event) => { if (pointerMayPrefetch(event.pointerType)) onPrefetch?.('/system-health'); }}
+                            onfocus={() => onPrefetch?.('/system-health')}
+                        >
+                            <span class="sr-only">{healthLinkName}</span>
+                            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M3 12h4l2-6 4 12 2-6h6" />
+                            </svg>
+                            {#if health.needsAttention}
+                                <span class="absolute right-1.5 top-1.5 h-2 w-2 rotate-45 bg-status-attention-line" aria-hidden="true"></span>
+                            {/if}
+                        </a>
+                    {/if}
+                </section>
+            {:else}
+                <section
+                    class="flex flex-col rounded-xl border border-line-soft bg-surface-raised p-3 compact-height:p-2"
+                    aria-labelledby="sidebar-status-title"
+                    data-sidebar-status-card
+                >
+                    <!-- On a short window at the usual text size the readings scroll inside the card and the way to
+                         Health stays at its foot (see the style below), so the issues link is never the part cut
+                         off. A tab stop of its own, so the keyboard can scroll it where the browser does not. -->
+                    <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+                    <div class="focus-ring" role="group" tabindex="0" aria-labelledby="sidebar-status-title" data-sidebar-status-readings>
+                        <h2 id="sidebar-status-title" class="mb-2 text-xs font-semibold leading-4 text-ink">
+                            {$_('status.title')}
+                        </h2>
+                        {@render status?.(false)}
+                        <SystemTelemetryGraph />
+                    </div>
+                    {#if authStore.showSettings}
+                        <!-- One line, one control: with issues open the count is the link's wording and
+                             "Health" is said before it for a screen reader; with none open the
+                             link is just "Health". -->
+                        <a
+                            href="/system-health"
+                            class="focus-ring -mx-1 mt-2 flex min-h-7 shrink-0 items-center justify-between gap-x-2 rounded-md border-t border-line-soft px-1 pt-2 text-xs font-semibold leading-4 text-ink transition-colors hover:text-accent-ink"
+                            data-sidebar-status-link
+                            data-health-attention={health.needsAttention}
+                            onclick={openHealth}
+                            onpointerenter={(event) => { if (pointerMayPrefetch(event.pointerType)) onPrefetch?.('/system-health'); }}
+                            onfocus={() => onPrefetch?.('/system-health')}
+                        >
+                            {#if health.needsAttention}
+                                <span class="flex min-w-0 items-center gap-2 text-status-attention">
+                                    <span class="h-2 w-2 shrink-0 rotate-45 bg-status-attention-line" aria-hidden="true"></span>
+                                    <span class="min-w-0">
+                                        <span class="sr-only">{healthLinkPrefix}</span><span data-health-issues>{issuesLabel}</span>
+                                    </span>
+                                </span>
+                            {:else}
+                                <span class="ml-auto">{$_('status.open_health', { default: 'Health' })}</span>
+                            {/if}
+                            <svg class="h-3 w-3 shrink-0" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" data-health-chevron><path stroke-linecap="round" stroke-linejoin="round" d="m8 5 5 5-5 5" /></svg>
+                        </a>
+                    {/if}
+                </section>
+            {/if}
+        </div>
+
+    </div>
+
+    <!-- Only when there is someone to show: an owner with sign-in off would get an empty ruled band. -->
+    {#if authStore.isAuthenticated || authStore.isGuest}
+        <div class="shrink-0 border-t border-line-soft p-3" data-sidebar-account-band>
+            {#if !collapsed}
+                {#if authStore.isAuthenticated}
+                    <div data-sidebar-account class="flex min-w-0 items-center gap-2 rounded-xl border border-line-soft bg-surface-raised p-2">
+                        {#if avatarStore.url}
+                            <img src={avatarStore.url} alt="" class="h-8 w-8 shrink-0 rounded-lg object-cover" data-sidebar-avatar />
+                        {:else}
+                            <div class="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-accent-soft text-xs font-bold text-accent-ink">
+                                {accountInitial}
+                            </div>
+                        {/if}
+                        <div class="min-w-0 flex-1">
+                            <div class="truncate text-xs font-semibold text-strong">{authStore.username}</div>
+                            <div class="truncate text-xs text-muted">{$_('app.title')}</div>
+                        </div>
+                        <button
+                            class="btn btn-ghost min-h-11 min-w-11 focus-ring rounded-lg p-2 text-muted transition hover:bg-status-fail-soft hover:text-status-fail"
+                            onclick={() => authStore.logout()}
+                            title={$_('auth.logout')}
+                            aria-label={$_('auth.logout')}
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                            </svg>
+                        </button>
+                    </div>
+                {:else if authStore.isGuest}
+                    <div data-sidebar-account class="flex min-w-0 items-center gap-2 rounded-xl border border-line-soft bg-surface-raised p-2">
+                        <div class="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-surface-raised text-ink">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                        </div>
+                        <div class="min-w-0 flex-1 truncate text-xs font-semibold text-ink">
+                            {$_('auth.public_view')}
+                        </div>
+                        <button
+                            class="btn btn-ghost min-h-11 min-w-11 focus-ring rounded-lg p-2 text-muted transition hover:bg-accent-soft hover:text-accent-ink"
+                            onclick={() => authStore.requestLogin()}
+                            title={$_('auth.login')}
+                            aria-label={$_('auth.login')}
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                            </svg>
+                        </button>
+                    </div>
+                {/if}
+            {:else}
+                {#if authStore.isAuthenticated}
                     <button
-                        class="btn btn-ghost min-h-11 min-w-11 focus-ring rounded-lg p-2 text-muted transition hover:bg-status-fail-soft hover:text-status-fail"
+                        class="sidebar-nav sidebar-nav-inactive justify-center px-0 hover:text-status-fail"
                         onclick={() => authStore.logout()}
                         title={$_('auth.logout')}
                         aria-label={$_('auth.logout')}
                     >
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                         </svg>
                     </button>
-                </div>
-            {:else if authStore.isGuest}
-                <div data-sidebar-account class="flex min-w-0 items-center gap-2 rounded-xl border border-line-soft bg-surface-raised p-2">
-                    <div class="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-surface-raised text-ink">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                        </svg>
-                    </div>
-                    <div class="min-w-0 flex-1 truncate text-xs font-semibold text-ink">
-                        {$_('auth.public_view')}
-                    </div>
+                {:else if authStore.isGuest}
                     <button
-                        class="btn btn-ghost min-h-11 min-w-11 focus-ring rounded-lg p-2 text-muted transition hover:bg-accent-soft hover:text-accent-ink"
+                        class="sidebar-nav sidebar-nav-inactive justify-center px-0"
                         onclick={() => authStore.requestLogin()}
                         title={$_('auth.login')}
                         aria-label={$_('auth.login')}
                     >
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
                         </svg>
                     </button>
-                </div>
+                {/if}
             {/if}
-        {:else}
-            {#if authStore.isAuthenticated}
-                <button
-                    class="sidebar-nav sidebar-nav-inactive justify-center px-0 hover:text-status-fail"
-                    onclick={() => authStore.logout()}
-                    title={$_('auth.logout')}
-                    aria-label={$_('auth.logout')}
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                    </svg>
-                </button>
-            {:else if authStore.isGuest}
-                <button
-                    class="sidebar-nav sidebar-nav-inactive justify-center px-0"
-                    onclick={() => authStore.requestLogin()}
-                    title={$_('auth.login')}
-                    aria-label={$_('auth.login')}
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
-                    </svg>
-                </button>
-            {/if}
-        {/if}
-    </div>
+        </div>
+
+    {/if}
 
     <div class="shrink-0 border-t border-line-soft p-3">
         <div class="flex items-center {collapsed ? 'flex-col gap-1' : 'justify-around gap-1'}">
@@ -415,3 +433,26 @@
         </div>
     </div>
 </aside>
+
+<style>
+    /* The places and the status share one column, which scrolls only as a last resort. Measured in rem,
+       which here follows the reader's text size: while the column is at least 30 rem tall (a short
+       window at the usual text size) the status readings give way first, down to their heading and
+       first reading, and scroll inside the card under a pinned Health link. With much larger text the
+       card keeps every word and the column scrolls instead. */
+    [data-sidebar-scroll] {
+        container: sidebar-scroll / size;
+    }
+
+    @container sidebar-scroll (height >= 30rem) {
+        [data-sidebar-status],
+        [data-sidebar-status-card] {
+            min-height: 0;
+        }
+
+        [data-sidebar-status-readings] {
+            min-height: 3rem;
+            overflow-y: auto;
+        }
+    }
+</style>

@@ -6,11 +6,12 @@ import sidebarSource from './Sidebar.svelte?raw';
 import telemetryGraphSource from './SystemTelemetryGraph.svelte?raw';
 
 describe('Sidebar hybrid refresh', () => {
-    it('keeps the large brand mark centred above the navigation', () => {
+    it('keeps the large brand mark centred above the navigation, and beside its name on a short window', () => {
         expect(sidebarSource).toContain('data-sidebar-brand');
         expect(sidebarSource).toContain("sizes={collapsed ? '40px' : '64px'}");
-        expect(sidebarSource).toContain("collapsed ? 'h-10 w-10' : 'h-16 w-16'");
+        expect(sidebarSource).toContain("collapsed ? 'h-10 w-10' : 'h-16 w-16 compact-height:h-10 compact-height:w-10'");
         expect(sidebarSource).toContain('items-center text-center');
+        expect(sidebarSource).toContain("{collapsed ? '' : 'compact-height:flex-row compact-height:text-left'}");
     });
 
     it('groups observation and management routes with a stronger active state', () => {
@@ -67,6 +68,20 @@ describe('Sidebar hybrid refresh', () => {
     it('keeps navigation and bottom controls reachable on short viewports', () => {
         expect(sidebarSource).toContain('[@media(max-height:42rem)]:hidden');
         expect(sidebarSource).toContain('[@media(max-height:42rem)]:py-3');
+        // On a short window the brand sits beside its mark, the status readings give way inside the card
+        // with the Health link pinned at its foot, and only past that do the places and the status scroll
+        // together. The controls below never scroll, so the language menu is never clipped.
+        expect(sidebarSource).toContain('<div class="flex min-h-0 flex-1 flex-col overflow-y-auto" data-sidebar-scroll>');
+        expect(sidebarSource).toContain('<nav class="shrink-0 px-3 py-4"');
+        expect(sidebarSource).toContain('data-sidebar-status class="mt-auto flex flex-col');
+        expect(sidebarSource).toMatch(/class="focus-ring" role="group" tabindex="0" aria-labelledby="sidebar-status-title" data-sidebar-status-readings/);
+        // Only at the usual text size (the column at least 30 rem tall) do the readings give way.
+        expect(sidebarSource).toContain('container: sidebar-scroll / size;');
+        expect(sidebarSource).toMatch(/@container sidebar-scroll \(height >= 30rem\) \{[\s\S]*?\[data-sidebar-status-readings\] \{\s*min-height: 3rem;\s*overflow-y: auto;/);
+        expect(sidebarSource).toContain('flex min-h-7 shrink-0 items-center justify-between');
+        expect(sidebarSource.indexOf('data-sidebar-scroll')).toBeLessThan(sidebarSource.indexOf('<LanguageSelector'));
+        // An owner with sign-in off has no account to show, so no empty band.
+        expect(sidebarSource).toMatch(/\{#if authStore\.isAuthenticated \|\| authStore\.isGuest\}\s*<div class="shrink-0 border-t border-line-soft p-3" data-sidebar-account-band>/);
     });
 
     it('states resource readings as one plain line in the card, on a neutral surface', () => {

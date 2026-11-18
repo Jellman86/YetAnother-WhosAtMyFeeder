@@ -93,7 +93,7 @@ describe('the Leaderboard does its work when it is looked at', () => {
 
 describe('content that arrives late has its space held', () => {
     it('keeps the footer below the fold while a page reads its data', () => {
-        expect(appSource).toMatch(/<main id="main-content" class="min-h-svh /);
+        expect(appSource).toMatch(/<main id="main-content" class="[^"]*\bmin-h-svh\b/);
     });
 
     it('opens the Leaderboard on a short contact sheet with every photograph sized to its cell', () => {
