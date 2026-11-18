@@ -83,7 +83,7 @@ has already completed setup does not reopen the wizard.
 Public Access lets anyone with the link browse your detections while the settings and every
 management action stay behind your login.
 
-![Settings → Sharing & integrations: an Authentication card with the enable switch, admin username and a saved password shown as ***REDACTED***, beside a Public Access card with separate switches for enabling public access, showing camera names, sharing audio, and sharing photographs](../images/settings-security.png)
+![Settings → Sharing & integrations: the Sign-in card switched on, with the profile picture, the owner user name and the new password fields, then Public access switched off](../images/settings-security.png)
 
 - **Enable:** in **Settings → Sharing & integrations**, turn on **Enable public access**.
 - Guests cannot change settings, delete, hide, or reclassify detections, or start new AI

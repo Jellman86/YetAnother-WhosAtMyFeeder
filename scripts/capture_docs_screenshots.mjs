@@ -1,6 +1,6 @@
 // Run from the repository root after starting the current UI on port 4189:
 // APP_BRANCH=stable npm --prefix apps/ui run dev -- --host 127.0.0.1 --port 4189 --strictPort
-// node scripts/capture_docs_screenshots.mjs
+// node scripts/capture_docs_screenshots.mjs [--settings-only | --garden-only]
 // Every API response is local and read-only. This never connects to a live server.
 import { createRequire } from 'node:module';
 import { readFile, mkdir } from 'node:fs/promises';
@@ -15,6 +15,8 @@ if (!['127.0.0.1', 'localhost'].includes(baseUrl.hostname) || !['http:', 'https:
 }
 const images = resolve('docs/images');
 const gardenOnly = process.argv.includes('--garden-only');
+// Only the Settings figures, for a change to Settings alone.
+const settingsOnly = process.argv.includes('--settings-only');
 const version = (await readFile('VERSION', 'utf8')).trim();
 const catalog = JSON.parse(await readFile('scripts/fixtures/documentation-models.json', 'utf8'));
 const DINO = 'dinov2_b14_inat21_metadata_336';
@@ -157,6 +159,15 @@ await context.route(url => url.origin === baseUrl.origin && (url.pathname === '/
     if (path.endsWith('/labels')) return json({ labels: ['Prunella modularis', 'Erithacus rubecula'] });
     if (path.endsWith('/filters')) return json({ cameras: ['feeder'], species: records.map(r => ({ value: r.scientific_name, display_name: r.common_name, common_name: r.common_name, scientific_name: r.scientific_name, count: 1 })), camera_counts: { feeder: 2 }, totals: { total: 2, favorites: 0, audio_matched: 0 } });
     if (path.endsWith('/detections') || path.endsWith('/species') || path.endsWith('/events')) return json([]);
+    // Storage is measured in the background and polled; the example measurement is complete at once.
+    if (path === '/api/cache/measurement') return json({ id: 'docs-measurement', status: 'completed', stats: {
+        storage_available: true, cache_clips: true, retention_days: 0, retention_source: 'history',
+        snapshot_count: 120, snapshot_size_bytes: 52428800, snapshot_size_mb: 50,
+        clip_count: 40, clip_size_bytes: 268435456, clip_size_mb: 256,
+        preview_count: 40, preview_size_bytes: 20971520, preview_size_mb: 20,
+        archive_favorites: 8, archive_count: 8, archive_durable: 8, archive_failed: 0, archive_pending: 0, archive_size_bytes: 39845888, archive_size_mb: 38,
+        total_size_bytes: 341835776, total_size_mb: 326
+    } });
     if (path.endsWith('/cache/stats')) return json({ storage_available: true, total_size_mb: 326, snapshot_count: 120, clip_count: 40, favorite_archive: { captures: 8, completed: 8, failed: 0, pending: 0, size_mb: 38 } });
     return json({});
 });
@@ -169,15 +180,36 @@ async function shot(name, locator) {
     await locator.screenshot({ path: `${images}/${name}.png`, animations: 'disabled' });
     captured.push(name); console.log(`Captured ${name}`);
 }
-async function openSettings(tab) {
-    await page.goto(`${base}/browser-tests/settings-backfill.html`);
-    await page.getByRole('link', { name: tab, exact: true }).click();
+// Settings is organised by task in six sections; a part is opened by its route, as a link would.
+async function openSettings(route) {
+    await page.goto(`${base}/browser-tests/settings-backfill.html?route=${encodeURIComponent(route)}`);
+    await page.locator('[data-settings-content]').waitFor();
     await page.waitForTimeout(350);
+}
+async function openMoreOptions() {
+    const toggle = page.locator('[data-settings-more] > h2 > button');
+    if ((await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click();
+    await page.locator('[data-settings-more-body]').waitFor();
+    await page.waitForTimeout(350);
+}
+/**
+ * A section's settings, at most 850 px tall, from its top or from the heading `from` names: the part
+ * a document shows.
+ */
+async function shotSection(name, section, from) {
+    const content = page.locator(`[data-settings-section="${section}"]`);
+    await content.waitFor({ state: 'visible' });
+    await page.evaluate(() => document.fonts.ready);
+    const box = await content.boundingBox();
+    const start = from ? (await content.getByRole('heading', { name: from, exact: true }).first().boundingBox()).y : box.y;
+    const height = Math.min(box.y + box.height - start, 850);
+    await page.screenshot({ path: `${images}/${name}.png`, clip: { x: box.x, y: start, width: box.width, height }, animations: 'disabled', fullPage: true });
+    captured.push(name); console.log(`Captured ${name}`);
 }
 await mkdir(images, { recursive: true });
 try {
     if (gardenOnly) {
-        await openSettings('Beta features');
+        await openSettings('/settings/beta');
         await page.locator('[data-garden-model="automatic_check"]').getByText('Required · Not downloaded').waitFor();
         await shot('settings-garden-cameras', page.locator('[data-garden-beta-settings]'));
         await page.goto(`${base}/browser-tests/garden.html`);
@@ -186,27 +218,39 @@ try {
         await page.getByText('Country filter: GBR', { exact: true }).waitFor();
         await shot('garden-review', page.locator('#app'));
     } else {
-    await openSettings('Connection');
+    await openSettings('/settings/cameras');
     await shot('settings-map', page.locator('[data-settings-navigation]'));
-    for (const [tab, name] of [['Connection','settings-connection'],['Detection','settings-detection'],['Integrations','settings-integrations'],['Notifications','settings-notifications'],['Security','settings-security'],['Data','settings-data']]) {
-        await openSettings(tab);
-        const content = page.locator('main > div > div.space-y-6').last();
-        if (await content.count()) {
-            const box = await content.boundingBox();
-            await page.screenshot({ path: `${images}/${name}.png`, clip: { x: box.x, y: box.y, width: box.width, height: Math.min(box.height, 850) }, animations: 'disabled' });
-            captured.push(name); console.log(`Captured ${name}`);
-        }
+    // Each figure keeps its file name, so the documents that show it need no change.
+    for (const [route, name, section, from] of [
+        ['/settings/cameras', 'settings-connection', 'cameras'],
+        ['/settings/identification', 'settings-detection', 'identification'],
+        ['/settings/alerts', 'settings-notifications', 'alerts'],
+        // The sign-in and guest access the authentication guide describes, below the feeder's location.
+        ['/settings/sharing', 'settings-security', 'sharing', 'Sign-in'],
+        ['/settings/storage', 'settings-data', 'storage']
+    ]) {
+        await openSettings(route);
+        await shotSection(name, section, from);
     }
-    await openSettings('Detection');
-    const selectedModel = page.locator('section[aria-labelledby="selected-model-name"]');
+    // BirdNET-Go is set up with the cameras, under Cameras & connection's More options.
+    await openSettings('/settings/cameras');
+    await openMoreOptions();
+    await shot('settings-integrations', page.locator('[data-settings-part-more="birdnet"]'));
+    await openSettings('/settings/models');
+    // The chosen model's card in the model list, with its memory estimate and location guidance.
+    const selectedModel = page.locator('[data-current-model]');
     await selectedModel.evaluate(el => el.scrollIntoView({ block: 'center' }));
     await page.waitForTimeout(100);
     const modelBox = await selectedModel.boundingBox();
     await page.screenshot({ path: `${images}/model-manager-dino.png`, clip: { x: Math.max(0,modelBox.x-12), y: Math.max(0,modelBox.y-12), width: modelBox.width+24, height: modelBox.height+24 }, animations: 'disabled' });
     captured.push('model-manager-dino');
     await page.setViewportSize({ width: 760, height: 1600 });
-    await page.goto(`${base}/browser-tests/media-settings.html`);
-    await shot('settings-media-retention', page.locator('section').filter({ has: page.getByRole('heading', { name: 'Photos and video', exact: true }) }));
+    // The Photos and video card as Storage & upkeep shows it, with the example storage measurement.
+    await openSettings('/settings/storage');
+    const media = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Photos and video', exact: true }) }).first();
+    await media.getByText('326 MB', { exact: true }).waitFor();
+    await shot('settings-media-retention', media);
+    if (!settingsOnly) {
     await page.setViewportSize({ width: 1280, height: 960 });
     await page.goto(`${base}/browser-tests/model-eval.html`);
     await page.getByText('Compatibility check only', { exact: true }).waitFor();
@@ -285,6 +329,7 @@ try {
     await page.waitForTimeout(500);
     await page.getByRole('button', { name: /European Robin.*Identify/ }).waitFor();
     await shot('detection-photo-review', page.getByRole('dialog'));
+    }
     }
     if (errors.length) throw new Error(`Browser errors: ${errors.join('; ')}`);
     console.log(JSON.stringify({ captured, pageErrors: errors }, null, 2));
