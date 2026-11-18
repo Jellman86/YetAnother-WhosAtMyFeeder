@@ -54,15 +54,15 @@ test('after a recorded scan that found nothing, the reason says so instead of as
     await openMaintenance(page, null, { runs: [{ kind: 'timezone_scan', status: 'completed', finished_at: '2026-11-13T20:21:00Z', checked: 500, changed: 0 }] });
     const apply = page.getByRole('button', { name: 'Apply timezone repair', exact: true });
     await expect(apply).toBeDisabled();
-    await expect(apply).toHaveAccessibleDescription('Nothing to repair: the last scan found no detections that need it.');
-    await expect(page.locator('[data-maintenance-last-run="timezone_scan"]')).toContainText('none of 500 detections need a repair');
+    await expect(apply).toHaveAccessibleDescription('Nothing to repair: the last scan found no captures that need it.');
+    await expect(page.locator('[data-maintenance-last-run="timezone_scan"]')).toContainText('none of 500 captures need a repair');
 });
 
 test('a scan whose Frigate lookups failed is never shown as an all-clear', async ({ page }) => {
     await openMaintenance(page, null, { runs: [{ kind: 'timezone_scan', status: 'completed', finished_at: '2026-11-13T20:21:00Z', checked: 40, changed: 0, unchecked: 40 }] });
-    await expect(page.locator('[data-maintenance-last-run="timezone_scan"]')).toHaveText(/could not check 40 of 40 detections \(Frigate did not answer\)\. Scan again\.$/);
+    await expect(page.locator('[data-maintenance-last-run="timezone_scan"]')).toHaveText(/could not check 40 of 40 captures \(Frigate did not answer\)\. Scan again\.$/);
     await expect(page.getByRole('button', { name: 'Apply timezone repair', exact: true }))
-        .toHaveAccessibleDescription('The last scan could not check 40 detections (Frigate did not answer). Scan again.');
+        .toHaveAccessibleDescription('The last scan could not check 40 captures (Frigate did not answer). Scan again.');
 });
 
 test('a backfill that is still running says so and when it started', async ({ page }) => {

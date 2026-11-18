@@ -61,8 +61,8 @@ test('shrinking retention shows the count, and cancelling the confirmation saves
 
     await page.locator('#retention-days').selectOption('7');
     const note = page.locator('[data-retention-deletion-note]');
-    await expect(note).toContainText('Saving this permanently deletes 42 detections older than 7 days at the next cleanup (on restart, then every 24 hours).');
-    await expect(note).toContainText('Favourites and the newest 3 detections of each species are kept.');
+    await expect(note).toContainText('Saving this permanently deletes 42 captures older than 7 days at the next cleanup (on restart, then every 24 hours).');
+    await expect(note).toContainText('Favourites and the newest 3 captures of each species are kept.');
     await expect(page.locator('#retention-days')).toHaveAttribute('aria-describedby', 'retention-deletion-note');
     // The summary still describes the saved policy.
     await expect(summary).not.toContainText('older than the saved window');
@@ -71,7 +71,7 @@ test('shrinking retention shows the count, and cancelling the confirmation saves
     await page.getByRole('button', { name: 'Save changes', exact: true }).click();
     const dialog = page.getByRole('alertdialog').or(page.getByRole('dialog'));
     await expect(dialog).toContainText('Delete older history?');
-    await expect(dialog.getByRole('button', { name: 'Save and delete 42 detections' })).toBeVisible();
+    await expect(dialog.getByRole('button', { name: 'Save and delete 42 captures' })).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath('retention-confirm.png') });
     await dialog.getByRole('button', { name: 'Cancel' }).click();
     await expect(dialog).toHaveCount(0);
@@ -79,7 +79,7 @@ test('shrinking retention shows the count, and cancelling the confirmation saves
     expect(fixture.saves).toEqual([]);
 
     await page.getByRole('button', { name: 'Save changes', exact: true }).click();
-    await dialog.getByRole('button', { name: 'Save and delete 42 detections' }).click();
+    await dialog.getByRole('button', { name: 'Save and delete 42 captures' }).click();
     await expect.poll(() => fixture.saves.length).toBe(1);
     expect(fixture.saves[0].retention_days).toBe(7);
     await expect(note).toHaveCount(0);
@@ -101,7 +101,7 @@ test('Purge Old Records says why it is unavailable while history is kept forever
     await expect(purge).toHaveAccessibleDescription('Nothing to purge: history is kept forever.');
 
     await page.locator('#retention-days').selectOption('365');
-    await expect(page.locator('[data-retention-deletion-note]')).toContainText('Saving this permanently deletes 1 detection older than 365 days');
+    await expect(page.locator('[data-retention-deletion-note]')).toContainText('Saving this permanently deletes 1 capture older than 365 days');
 });
 
 test('with automatic cleanup off, saving is not presented as a deletion', async ({ page }) => {
@@ -121,8 +121,8 @@ test('the irreversible actions end Storage & upkeep, after More options and outs
     await expect(page.locator('[data-settings-danger] [data-danger-actions]')).toHaveCount(1);
     // The last section, a plain heading: each action asks first in its own confirmation.
     await expect(page.getByRole('heading', { name: 'Delete data', exact: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Delete corrections' })).toHaveAccessibleDescription(/Detections and photos stay/);
+    await expect(page.getByRole('button', { name: 'Delete corrections' })).toHaveAccessibleDescription(/Captures and photos stay/);
     await expect(page.getByRole('button', { name: 'Delete all favourites' })).toHaveAccessibleDescription(/Removes every favourite marker/);
-    await expect(page.getByRole('button', { name: 'Delete all history' })).toHaveAccessibleDescription(/Deletes every detection/);
+    await expect(page.getByRole('button', { name: 'Delete all history' })).toHaveAccessibleDescription(/Deletes every capture/);
     await page.locator('[data-danger-actions]').screenshot({ path: testInfo.outputPath('danger-zone.png') });
 });

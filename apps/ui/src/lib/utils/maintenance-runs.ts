@@ -7,13 +7,13 @@ const COMPLETED: Record<RunKind, { key: string; fallback: string; none?: string 
     taxonomy: { key: 'settings.maintenance.last_run_taxonomy', fallback: 'Last run {when}: {changed} of {checked} names repaired.' },
     timezone_scan: {
         key: 'settings.maintenance.last_run_timezone_scan',
-        fallback: 'Last scan {when}: {changed} of {checked} detections need a repair.',
-        none: 'Last scan {when}: none of {checked} detections need a repair.',
+        fallback: 'Last scan {when}: {changed} of {checked} captures need a repair.',
+        none: 'Last scan {when}: none of {checked} captures need a repair.',
     },
-    timezone_repair: { key: 'settings.maintenance.last_run_timezone_repair', fallback: 'Last repair {when}: {changed} detections repaired.' },
+    timezone_repair: { key: 'settings.maintenance.last_run_timezone_repair', fallback: 'Last repair {when}: {changed} captures repaired.' },
     analyze_unknowns: { key: 'settings.maintenance.last_run_analyze', fallback: 'Last run {when}: {changed} visits queued for video analysis.' },
     detections: { key: 'settings.maintenance.last_run_backfill', fallback: 'Last run {when}: {changed} visits added or updated from {checked} Frigate events.' },
-    weather: { key: 'settings.maintenance.last_run_weather', fallback: 'Last run {when}: weather filled in for {changed} of {checked} detections.' },
+    weather: { key: 'settings.maintenance.last_run_weather', fallback: 'Last run {when}: weather filled in for {changed} of {checked} captures.' },
 };
 
 /** One line per job: when it last ran and what it found, whether it is running, or that no run is recorded. */
@@ -43,13 +43,15 @@ export function lastRunSentence(
     const values = { when: when ?? '', checked: run.checked ?? 0, changed: run.changed ?? 0, unchecked: run.unchecked ?? 0 };
     // Detections Frigate did not answer for were not checked, so they are never an all-clear.
     if (kind === 'timezone_scan' && values.unchecked > 0) {
-        const parts = [translate('settings.maintenance.last_run_timezone_scan_incomplete', { default: 'Last scan {when} could not check {unchecked} of {checked} detections (Frigate did not answer).', values })];
+        const parts = [translate('settings.maintenance.last_run_timezone_scan_incomplete', { default: 'Last scan {when} could not check {unchecked} of {checked} captures (Frigate did not answer).', values })];
         if (values.changed > 0) parts.push(translate('settings.maintenance.last_run_timezone_scan_rest', { default: '{changed} of the rest need a repair.', values }));
         parts.push(translate('settings.maintenance.scan_again', { default: 'Scan again.' }));
         return parts.join(' ');
     }
     const wording = COMPLETED[kind];
     if (wording.none && values.changed === 0) {
+        // The key is built here, so no search for the literal finds it: maintenance-runs.test.ts
+        // holds every language to having it.
         return translate(`${wording.key}_none`, { default: wording.none, values });
     }
     return translate(wording.key, { default: wording.fallback, values });

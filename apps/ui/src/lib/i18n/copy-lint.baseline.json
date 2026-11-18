@@ -14,31 +14,11 @@
     "zh/events": 1,
     "zh/garden": 1
   },
-  "backend-prose": {
-    "de/settings": 1,
-    "en/settings": 1,
-    "es/settings": 1,
-    "fr/settings": 1,
-    "it/settings": 1,
-    "ja/settings": 1,
-    "pt/settings": 1,
-    "ru/settings": 1,
-    "zh/settings": 1
-  },
   "glossary": {
-    "de/settings": 43,
-    "en/settings": 43
+    "de/settings": 2,
+    "en/settings": 2
   },
   "unit-spacing": {
-    "de/settings": 4,
-    "en/settings": 4,
-    "es/settings": 4,
-    "fr/jobs": 1,
-    "fr/settings": 1,
-    "it/settings": 4,
-    "ja/settings": 3,
-    "pt/settings": 4,
-    "ru/settings": 3,
-    "zh/settings": 3
+    "fr/jobs": 1
   }
 }

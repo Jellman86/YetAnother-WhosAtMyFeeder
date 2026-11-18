@@ -49,7 +49,7 @@ test('a cleared or out-of-range storage limit keeps the saved limit and says why
         await limit.blur();
         await expect(chosen).toHaveText('0 / 2048 / intensive');
         await expect(limit).toHaveAttribute('aria-invalid', 'true');
-        await expect(limit).toHaveAccessibleDescription(/Enter a size from 0\.5 to 1024 GB\. The limit stays at 2 GB until you do\./);
+        await expect(limit).toHaveAccessibleDescription(/Enter a size from 0\.5 to 1024 GB\. The limit stays at 2 GB until you do\./);
         await expect(page.getByRole('status', { name: 'Storage limit invalid' })).toHaveText('true');
     }
     await limit.fill('3');
