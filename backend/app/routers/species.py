@@ -326,6 +326,29 @@ def _pick_preferred_species_search_result(existing: dict, candidate: dict) -> di
     return existing
 
 
+def _dedupe_species_search_results(results: list[dict]) -> list[dict]:
+    """One row per species, in first-seen order, keeping the row with the fullest taxonomy.
+
+    The surviving row borrows any name or id it lacks from the row it replaces, so merging never
+    loses a name one of the labels had already resolved.
+    """
+    deduped: dict[str, dict] = {}
+    for result in results:
+        key = _species_search_result_key(result)
+        existing = deduped.get(key)
+        if existing is None:
+            deduped[key] = result
+            continue
+        survivor = _pick_preferred_species_search_result(existing, result)
+        replaced = result if survivor is existing else existing
+        merged = dict(survivor)
+        for field in ("scientific_name", "common_name", "taxa_id"):
+            if merged.get(field) in (None, "") and replaced.get(field) not in (None, ""):
+                merged[field] = replaced[field]
+        deduped[key] = merged
+    return list(deduped.values())
+
+
 async def _hydrate_species_search_results(
     results: list[dict],
     lang: str,
@@ -540,7 +563,7 @@ async def search_species(
             seen = set()
             matches = [m for m in seen_here + labels[:limit] if not (m in seen or seen.add(m))]
 
-        deduped_results: dict[str, dict] = {}
+        looked_up: list[dict] = []
         for label in matches:
             sci_name, common_name, taxa_id = await _lookup_species_search_taxonomy(
                 db,
@@ -555,22 +578,15 @@ async def search_species(
                 "common_name": common_name,
                 "taxa_id": taxa_id,
             }
-            key = _species_search_result_key(result)
-            existing = deduped_results.get(key)
-            deduped_results[key] = _pick_preferred_species_search_result(existing, result) if existing else result
+            looked_up.append(result)
 
-        results = list(deduped_results.values())[:limit]
+        results = _dedupe_species_search_results(looked_up)[:limit]
 
     if hydrate_missing and results:
         await _hydrate_species_search_results(results, lang)
         # Hydration can reveal that two labels name the same species after the
         # first pass already decided they were different.
-        deduped: dict[str, dict] = {}
-        for result in results:
-            key = _species_search_result_key(result)
-            existing = deduped.get(key)
-            deduped[key] = _pick_preferred_species_search_result(existing, result) if existing else result
-        results = list(deduped.values())
+        results = _dedupe_species_search_results(results)
 
     return results
 
