@@ -459,7 +459,7 @@ async def test_species_search_hydration_does_not_leave_two_rows_for_one_species(
     settings.public_access.enabled = False
 
     resolved = {
-        "Parus major": ("Parus major", "Great Tit", 145252),
+        "Parus major": ("Parus major", "Большая синица", 145252),
         "Большая синица": (None, None, None),
     }
 
@@ -493,4 +493,62 @@ async def test_species_search_hydration_does_not_leave_two_rows_for_one_species(
     assert response.status_code == 200, response.text
     payload = response.json()
     assert len(payload) == 1, f"one species was offered twice: {payload}"
-    assert payload[0]["scientific_name"] == "Parus major"
+    # The row with the fullest taxonomy survives, under the reader's own name.
+    assert payload[0] == {
+        "id": "Parus major",
+        "display_name": "Parus major",
+        "scientific_name": "Parus major",
+        "common_name": "Большая синица",
+        "taxa_id": 145252,
+    }
+
+
+def test_dedupe_species_search_results_keeps_order_and_fills_the_survivors_gaps():
+    from app.routers.species import _dedupe_species_search_results
+
+    stored_label = {
+        "id": "Большая синица",
+        "display_name": "Большая синица",
+        "scientific_name": "Parus major",
+        "common_name": "Большая синица",
+        "taxa_id": None,
+    }
+    other_species = {
+        "id": "Cyanistes caeruleus",
+        "display_name": "Cyanistes caeruleus",
+        "scientific_name": "Cyanistes caeruleus",
+        "common_name": "Blue Tit",
+        "taxa_id": 144849,
+    }
+    classifier_label = {
+        "id": "Parus major",
+        "display_name": "Parus major",
+        "scientific_name": "Parus major",
+        "common_name": None,
+        "taxa_id": 145252,
+    }
+
+    results = _dedupe_species_search_results([stored_label, other_species, classifier_label])
+
+    assert results == [
+        {
+            "id": "Parus major",
+            "display_name": "Parus major",
+            "scientific_name": "Parus major",
+            "common_name": "Большая синица",
+            "taxa_id": 145252,
+        },
+        other_species,
+    ]
+    assert classifier_label["common_name"] is None, "the inputs are left as they were"
+
+
+def test_dedupe_species_search_results_leaves_distinct_species_alone():
+    from app.routers.species import _dedupe_species_search_results
+
+    rows = [
+        {"id": "a", "display_name": "a", "scientific_name": None, "common_name": None, "taxa_id": None},
+        {"id": "b", "display_name": "b", "scientific_name": None, "common_name": None, "taxa_id": None},
+    ]
+
+    assert _dedupe_species_search_results(rows) == rows

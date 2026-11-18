@@ -2,4 +2,4 @@
   taxonomy cache could not resolve, such as "Большая синица", and the model's own label named the
   same species ("Parus major"), the picker offered both as separate rows once their scientific
   names were filled in. It now merges them after the names are filled in, keeping the row with the
-  fullest taxonomy. Thanks to @darkslen1 for the fix.
+  fullest taxonomy and any name the other row had already found. Thanks to @darkslen1 for the fix.
