@@ -442,3 +442,55 @@ async def test_species_search_does_not_rank_history_for_guests(client: httpx.Asy
     assert response.status_code == 200, response.text
     assert [row["display_name"] for row in response.json()] == labels
     ranking.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_species_search_hydration_does_not_leave_two_rows_for_one_species(
+    client: httpx.AsyncClient,
+):
+    """A species must appear once even when only hydration reveals its identity.
+
+    Detection labels keep whatever the model wrote, which can be a local common
+    name the taxonomy cache cannot resolve. Hydration fills the scientific name
+    after the first dedupe, so a classifier label naming the same species
+    survived beside it and the picker showed two identical rows.
+    """
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+
+    resolved = {
+        "Parus major": ("Parus major", "Great Tit", 145252),
+        "Большая синица": (None, None, None),
+    }
+
+    async def fake_lookup(_db, *, label: str, lang: str):
+        return resolved[label]
+
+    async def fake_get_names(_label: str):
+        return {"scientific_name": "Parus major", "common_name": "Great Tit", "taxa_id": 145252}
+
+    with (
+        patch("app.routers.species.get_classifier", return_value=_MockClassifier(["Parus major"])),
+        patch(
+            "app.repositories.species_repository.SpeciesRepository.most_detected_labels",
+            new=AsyncMock(return_value=["Большая синица"]),
+        ),
+        patch("app.routers.species._lookup_species_search_taxonomy", AsyncMock(side_effect=fake_lookup)),
+        patch(
+            "app.routers.species.taxonomy_service.get_names",
+            new=AsyncMock(side_effect=fake_get_names),
+        ),
+        patch(
+            "app.routers.species.taxonomy_service.get_localized_common_name",
+            new=AsyncMock(return_value="Большая синица"),
+        ),
+    ):
+        response = await client.get(
+            "/api/species/search?q=&limit=20&hydrate_missing=true",
+            headers={"Accept-Language": "ru"},
+        )
+
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert len(payload) == 1, f"one species was offered twice: {payload}"
+    assert payload[0]["scientific_name"] == "Parus major"
