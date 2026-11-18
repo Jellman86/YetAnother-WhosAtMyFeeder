@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { sessionTests } from '../../settings/session-tests.svelte';
     import { _, locale } from 'svelte-i18n';
     import { formatDate } from '../../utils/datetime';
     import SettingsCard from './_primitives/SettingsCard.svelte';
@@ -68,7 +69,14 @@
         // Each check stands alone: a missing URL never stops the MQTT or pipeline checks from running.
         bnResult = await runSequentialDiagnostic(steps, (stages) => (bnStages = stages), { independent: true });
         bnRunning = false;
+        sessionTests.record('audio', bnResult.ok);
     }
+
+    // Offered to the status column while the test is on the page, which is while audio is on.
+    $effect(() => {
+        if (!birdnetEnabled) return;
+        return sessionTests.provide(['audio'], runBirdNetDiagnostic);
+    });
 
     let birdnetMappingOptions = $derived.by(() => {
         const seen = new Set<string>();
@@ -206,6 +214,7 @@
             type="button"
             onclick={runBirdNetDiagnostic}
             disabled={bnRunning}
+            data-settings-test="audio"
             aria-label={$_('settings.integrations.birdnet.test_button')}
             class="w-full sm:w-auto {buttonPrimaryClass}"
         >

@@ -49,6 +49,10 @@ _QUEUED_JOB_STATUSES = frozenset({"queued", "retrying"})
 
 # The order an owner should fix things in: nothing arrives without the broker, nothing is saved
 # without Frigate or a writable media folder, nothing is named without the model.
+# The broker pressure levels that degrade the MQTT verdict, each named as its own cause
+# ("pressure_<level>"); the status column words every one, so a new level needs its words too.
+MQTT_PRESSURE_LEVELS: frozenset[str] = frozenset({"high", "critical"})
+
 _FIX_ORDER: tuple[SubsystemKey, ...] = (
     "mqtt",
     "frigate",
@@ -102,7 +106,7 @@ def _mqtt_verdict(inputs: SystemStatusInputs) -> SubsystemVerdict:
         return SubsystemVerdict(key="mqtt", state="error", cause=state)
     health = inputs.mqtt_health
     pressure = str(health.get("pressure_level") or "").lower()
-    if pressure in {"high", "critical"}:
+    if pressure in MQTT_PRESSURE_LEVELS:
         return SubsystemVerdict(key="mqtt", state="degraded", cause=f"pressure_{pressure}")
     if health.get("backlog_wait_active") or health.get("recent_handler_slot_wait_exhaustion"):
         return SubsystemVerdict(key="mqtt", state="degraded", cause="backlog")

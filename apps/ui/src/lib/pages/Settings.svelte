@@ -93,6 +93,9 @@
     import StorageSection from '../components/settings/sections/StorageSection.svelte';
     import DisplaySection from '../components/settings/sections/DisplaySection.svelte';
     import SectionAside from '../components/settings/sections/SectionAside.svelte';
+    import { sessionTests, type TestedSubsystem } from '../settings/session-tests.svelte';
+    import { draftSignature } from '../settings/draft-signature';
+    import { NOTIFICATION_CHANNELS_SECTION_ID } from '../settings/notification-policy';
     import { settingsMoreId, settingsPartIsInMore } from '../settings/settings-more';
     import {
         loadConnectionSettings,
@@ -1455,6 +1458,37 @@
         field?.scrollIntoView({ block: 'center' });
         field?.focus({ preventScroll: true });
     }
+
+    // The status column offers each part's test where it is run: the connection test and the channel
+    // tests on their section's first screen, BirdNET-Go's under Cameras & connection's More options.
+    async function openSectionTest(key: TestedSubsystem): Promise<void> {
+        const part = key === 'notifications' ? 'notifications' : 'connection';
+        if (key === 'audio') disclosures.setOpen(settingsMoreId('cameras'), true);
+        openSection(settingsSectionOfPart(part));
+        const selector = key === 'notifications'
+            ? '[data-settings-test="notifications"]:not([disabled])'
+            : `[data-settings-test="${key === 'audio' ? 'audio' : 'connection'}"]`;
+        const button = await fieldInOpenedPart(SETTINGS_PART_LOADERS[part], () => document.querySelector<HTMLElement>(selector));
+        // No test to run yet: with no channel ready, the channels' heading, where one is set up; with
+        // BirdNET-Go switched off on this page, its switch. Focus always moves to where to go on.
+        const target = button ?? (key === 'notifications'
+            ? document.getElementById(`${NOTIFICATION_CHANNELS_SECTION_ID}-title`)
+            : key === 'audio' ? document.querySelector<HTMLElement>('[data-settings-part-more="birdnet"] button[aria-checked]') : null);
+        if (target && !button && !target.matches('button, a, input, select, textarea')) target.setAttribute('tabindex', '-1');
+        target?.scrollIntoView({ block: 'center' });
+        target?.focus({ preventScroll: true });
+    }
+
+    // A test from the status column runs with the values on this page. Its result carries the
+    // section's unsaved changes as a signature, so an edit, a Discard or a Save after it retires it.
+    function unsavedSignature(key: TestedSubsystem): string {
+        const section: SettingsSection = key === 'notifications' ? 'alerts' : 'cameras';
+        const fields = changedSettingFields.filter((field) => settingsFieldSection(field) === section);
+        if (fields.length === 0) return '';
+        const payload = buildSettingsPayload() as Record<string, unknown>;
+        return draftSignature(JSON.stringify(fields.map((field) => [field, payload[field] ?? null])));
+    }
+    onMount(() => sessionTests.trackDraft(unsavedSignature));
 
     // Beta features names the Garden cameras but they are chosen in Connection, so the link lands
     // on the camera list itself rather than at the top of a section whose first card is Frigate.
@@ -3152,7 +3186,7 @@
 </script>
 
 {#snippet sectionAside(placement: 'top' | 'side')}
-    <SectionAside section={activeSection} {placement} onOpenPart={openPart} onOpenHealth={onNavigate ? () => onNavigate('/system-health') : undefined} />
+    <SectionAside section={activeSection} {placement} onOpenPart={openPart} onOpenTest={openSectionTest} onOpenHealth={onNavigate ? () => onNavigate('/system-health') : undefined} />
 {/snippet}
 
 {#snippet pageNavigation()}

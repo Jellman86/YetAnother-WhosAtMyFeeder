@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { sessionTests } from '../../settings/session-tests.svelte';
     import { _ } from 'svelte-i18n';
     import type { TestEmailRequest, TestEmailResponse, OAuthAuthorizeResponse } from '../../api';
     import SecretInput from './_primitives/SecretInput.svelte';
@@ -147,13 +148,14 @@
             ntResult = { ok: false, message: text };
         } finally {
             ntRunning = false;
+            if (ntResult) sessionTests.record('notifications', ntResult.ok, channelLabel);
         }
     }
 
     const runDiscordTest = () => runNotificationTest('discord', 'Discord', () => testNotification('discord', { webhook_url: discordWebhook }));
     const runPushoverTest = () => runNotificationTest('pushover', 'Pushover', () => testNotification('pushover', { user_key: pushoverUserKey, api_token: pushoverApiToken }));
     const runTelegramTest = () => runNotificationTest('telegram', 'Telegram', () => testNotification('telegram', { bot_token: telegramBotToken, chat_id: telegramChatId }));
-    const runEmailTest = () => runNotificationTest('email', 'Email', async () => {
+    const runEmailTest = () => runNotificationTest('email', $_('settings.email.title'), async () => {
         const result = await sendTestEmail();
         return { status: 'ok', message: result.message || $_('settings.email.test_email_sent') };
     });
@@ -217,6 +219,7 @@
             <button
                 type="button"
                 onclick={runDiscordTest}
+                data-settings-test="notifications"
                 disabled={ntRunning || !discordReady}
                 aria-describedby={discordReady ? undefined : 'discord-test-reason'}
                 class="btn btn-secondary min-h-11 px-4"
@@ -277,6 +280,7 @@
             <button
                 type="button"
                 onclick={runPushoverTest}
+                data-settings-test="notifications"
                 disabled={ntRunning || !pushoverReady}
                 aria-describedby={pushoverReady ? undefined : 'pushover-test-reason'}
                 class="btn btn-secondary min-h-11 px-4"
@@ -373,6 +377,7 @@
             <button
                 type="button"
                 onclick={runTelegramTest}
+                data-settings-test="notifications"
                 disabled={ntRunning || !telegramReady}
                 aria-describedby={telegramReady ? undefined : 'telegram-test-reason'}
                 class="btn btn-secondary min-h-11 px-4"
@@ -660,6 +665,7 @@
             <button
                 type="button"
                 onclick={runEmailTest}
+                data-settings-test="notifications"
                 disabled={ntRunning || !emailReady}
                 aria-describedby={emailReady ? undefined : 'email-test-reason'}
                 class="btn btn-secondary min-h-11 px-4"
