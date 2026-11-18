@@ -60,7 +60,7 @@
         recordingClipCapabilityLoading = false,
         camerasLoading,
         loadCameras,
-        region = 'all'
+        region
     }: {
         frigateUrl: string;
         frigateIngestLabels: string;
@@ -90,15 +90,12 @@
         recordingClipCapabilityLoading: boolean;
         camerasLoading: boolean;
         loadCameras: () => Promise<void>;
-        /**
-         * Which cards to show: the ones most owners need (`main`), the rest under the section's More
-         * options (`more`), or both.
-         */
-        region?: 'main' | 'more' | 'all';
+        /** Which cards to show: the ones most owners need (`main`), or the rest under More options (`more`). */
+        region: 'main' | 'more';
     } = $props();
 
-    const showMain = $derived(region !== 'more');
-    const showMore = $derived(region !== 'main');
+    const showMain = $derived(region === 'main');
+    const showMore = $derived(region === 'more');
 
     const watchSettings = $derived<CameraWatchSettings>({
         cameras: selectedCameras,
