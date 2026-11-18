@@ -483,7 +483,7 @@
 
 {#snippet filterFields()}
             <label class="space-y-1.5">
-                <span class="text-xs font-semibold text-muted">{$_('audio.filter.window', { default: 'Window' })}</span>
+                <span class="block text-xs font-semibold leading-4 text-muted">{$_('audio.filter.window', { default: 'Window' })}</span>
                 <select bind:value={days} class="select-base min-h-11 font-semibold focus-visible:ring-2 focus-visible:ring-focus">
                     <option value={1}>{$_('audio.filter.24h', { default: '24 hours' })}</option>
                     <option value={7}>{$_('audio.filter.7d', { default: '7 days' })}</option>
@@ -493,19 +493,19 @@
                 </select>
             </label>
             <label class="space-y-1.5">
-                <span class="text-xs font-semibold text-muted">{$_('audio.filter.species', { default: 'Species' })}</span>
+                <span class="block text-xs font-semibold leading-4 text-muted">{$_('audio.filter.species', { default: 'Species' })}</span>
                 <input bind:value={speciesFilter} class="input-base min-h-11 focus-visible:ring-2 focus-visible:ring-focus" placeholder={$_('audio.filter.species_placeholder', { default: 'Any species' })} />
             </label>
             <label class="space-y-1.5">
-                <span class="text-xs font-semibold text-muted">{$_('audio.filter.source', { default: 'Source' })}</span>
+                <span class="block text-xs font-semibold leading-4 text-muted">{$_('audio.filter.source', { default: 'Source' })}</span>
                 <input bind:value={sourceFilter} class="input-base min-h-11 focus-visible:ring-2 focus-visible:ring-focus" placeholder={$_('audio.filter.source_placeholder', { default: 'Any source' })} />
             </label>
             <label class="space-y-1.5">
-                <span class="flex justify-between gap-2 text-xs font-semibold text-muted">
+                <span class="flex justify-between gap-2 text-xs font-semibold leading-4 text-muted">
                     <span>{$_('audio.filter.min_confidence', { default: 'Min confidence' })}</span>
                     <span class="tabular-nums text-accent-ink">{confidencePercent(minConfidence)}</span>
                 </span>
-                <input bind:value={minConfidence} type="range" min="0" max="1" step="0.05" class="min-h-11 w-full accent-accent focus-visible:ring-2 focus-visible:ring-focus" aria-valuetext={confidencePercent(minConfidence)} />
+                <input bind:value={minConfidence} type="range" min="0" max="1" step="0.05" class="block min-h-11 w-full accent-accent focus-visible:ring-2 focus-visible:ring-focus" aria-valuetext={confidencePercent(minConfidence)} />
             </label>
 {/snippet}
 

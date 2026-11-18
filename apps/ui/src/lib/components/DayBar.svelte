@@ -104,8 +104,8 @@
     </div>
 
     <dl class="day-bar-figures card-base grid overflow-hidden">
-        <!-- A figure that carries a note holds its line while it is read, so the note arriving
-             does not make the band taller. -->
+        <!-- A figure that can carry a note holds its line while it is read and after, whether or not a
+             note arrives, so neither the note arriving nor its absence changes the band's height. -->
         {#snippet figure(hook: string, label: string, value: number | null, pending: boolean, tone: 'plain' | 'attention' | 'clear' = 'plain', note: string = '', title: string = '', noted: boolean = false)}
             <div class="flex min-w-0 flex-col gap-1.5 px-5 py-4" {title} data-day-bar-figure={hook}>
                 <dt class="wrap-break-word text-sm text-muted">{label}</dt>
@@ -119,9 +119,11 @@
                     </span>
                     {#if note && value !== null}
                         <span class="min-w-0 wrap-break-word text-xs {tone === 'clear' ? 'text-status-ok' : 'text-muted'}">{note}</span>
-                    {:else if noted && value === null && pending}
+                    {:else if noted}
                         <span class="flex h-4 items-center" aria-hidden="true">
-                            <span class="h-2.5 w-20 max-w-full rounded-sm bg-line animate-pulse motion-reduce:animate-none" data-loading-placeholder></span>
+                            {#if value === null && pending}
+                                <span class="h-2.5 w-20 max-w-full rounded-sm bg-line animate-pulse motion-reduce:animate-none" data-loading-placeholder></span>
+                            {/if}
                         </span>
                     {/if}
                 </dd>

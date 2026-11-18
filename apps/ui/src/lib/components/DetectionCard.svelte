@@ -315,7 +315,7 @@
              the card is the same height when the analysis ends. The card's edge stays one pixel wide
              for the same reason; the analysis is shown by its ring. -->
         <div
-            class="pointer-events-none relative z-20 mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 {selectionMode ? '[&_*]:pointer-events-none!' : '*:pointer-events-auto'} {analysisActive ? 'invisible' : ''}"
+            class="pointer-events-none relative z-20 flex flex-wrap items-center gap-x-3 gap-y-1 {selectionMode ? '[&_*]:pointer-events-none!' : '*:pointer-events-auto'} {analysisActive ? 'invisible' : ''}"
             inert={analysisActive}
             data-detection-card-readings
         >
@@ -422,8 +422,9 @@
         </div>
 
         <!-- No weather here: it does not help tell one visit from the next, and the record states it once. -->
-        <!-- Compact metadata line: date + camera -->
-        <div class="flex items-center gap-1.5 text-2xs text-muted font-medium flex-wrap">
+        <!-- Compact metadata line: date + camera. It takes the card's spare height, so the readings stay
+             right under the name and level with the cards beside it, with or without a captures footer. -->
+        <div class="mt-auto flex items-center gap-1.5 text-2xs text-muted font-medium flex-wrap">
             <span>{formatDate(detection.detection_time)}</span>
             <Separator />
             <span class="wrap-break-word">{detection.camera_name}</span>
