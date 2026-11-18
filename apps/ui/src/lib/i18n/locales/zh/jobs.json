@@ -311,5 +311,21 @@
   "state_idle": "空闲",
   "state_queued": "排队中",
   "state_running": "运行中",
-  "work_lane_analyze_unknowns": "为“未知鸟类”访问命名"
+  "work_lane_analyze_unknowns": "为“未知鸟类”访问命名",
+  "health_dismiss": {
+    "dismiss": "忽略",
+    "dismissing": "正在忽略…",
+    "effect": "对此安装上的所有人隐藏。实时检查会继续，如果再次发生会重新显示。",
+    "live_note": "检查通过后会自动消失。",
+    "show_dismissed": "{count, plural, other {显示 # 个已忽略的项目}}",
+    "hide_dismissed": "收起已忽略的项目",
+    "dismissed_note": "已对此安装上的所有人隐藏。实时检查会继续，再次发生的项目会重新显示。清除错误记录也会删除这些项目。",
+    "last_seen": "最近一次发生：{at}",
+    "restore": "恢复",
+    "restoring": "正在恢复…",
+    "dismissed_status": "已忽略。如果再次发生会重新显示。",
+    "restored_status": "已恢复，重新出现在列表中。",
+    "dismiss_failed": "无法忽略。请重试；如果仍然失败，请检查 YA-WAMF 是否在运行。",
+    "restore_failed": "无法恢复。请重试；如果仍然失败，请检查 YA-WAMF 是否在运行。"
+  }
 }

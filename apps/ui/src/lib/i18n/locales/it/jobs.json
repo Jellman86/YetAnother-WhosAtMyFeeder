@@ -311,5 +311,21 @@
   "state_idle": "Inattivo",
   "state_queued": "In coda",
   "state_running": "In esecuzione",
-  "work_lane_analyze_unknowns": "Nominare le visite «uccello sconosciuto»"
+  "work_lane_analyze_unknowns": "Nominare le visite «uccello sconosciuto»",
+  "health_dismiss": {
+    "dismiss": "Ignora",
+    "dismissing": "Rimozione…",
+    "effect": "Lo nasconde per tutti su questa installazione. I controlli in tempo reale continuano e riappare se succede di nuovo.",
+    "live_note": "Si risolve da solo quando il controllo torna a passare.",
+    "show_dismissed": "{count, plural, one {Mostra # elemento ignorato} other {Mostra # elementi ignorati}}",
+    "hide_dismissed": "Nascondi elementi ignorati",
+    "dismissed_note": "Nascosti per tutti su questa installazione. I controlli in tempo reale continuano e un elemento riappare se succede di nuovo. Cancella cronologia errori rimuove anche questi.",
+    "last_seen": "Ultima volta {at}",
+    "restore": "Ripristina",
+    "restoring": "Ripristino…",
+    "dismissed_status": "Ignorato. Riappare se succede di nuovo.",
+    "restored_status": "Ripristinato. È di nuovo nell’elenco.",
+    "dismiss_failed": "Impossibile ignorare questo elemento. Riprova; se continua a non riuscire, controlla che YA-WAMF sia in esecuzione.",
+    "restore_failed": "Impossibile ripristinare questo elemento. Riprova; se continua a non riuscire, controlla che YA-WAMF sia in esecuzione."
+  }
 }

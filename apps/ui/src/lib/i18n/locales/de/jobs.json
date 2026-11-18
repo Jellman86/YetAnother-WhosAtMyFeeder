@@ -311,5 +311,21 @@
   "state_idle": "Untätig",
   "state_queued": "In der Warteschlange",
   "state_running": "Läuft",
-  "work_lane_analyze_unknowns": "Benennung von „Unbekannter Vogel“-Besuchen"
+  "work_lane_analyze_unknowns": "Benennung von „Unbekannter Vogel“-Besuchen",
+  "health_dismiss": {
+    "dismiss": "Ausblenden",
+    "dismissing": "Wird ausgeblendet…",
+    "effect": "Blendet dies für alle auf dieser Installation aus. Laufende Prüfungen gehen weiter, und es erscheint wieder, wenn es erneut auftritt.",
+    "live_note": "Verschwindet von selbst, sobald die Prüfung wieder besteht.",
+    "show_dismissed": "{count, plural, one {# ausgeblendete Meldung anzeigen} other {# ausgeblendete Meldungen anzeigen}}",
+    "hide_dismissed": "Ausgeblendete Meldungen verbergen",
+    "dismissed_note": "Für alle auf dieser Installation ausgeblendet. Laufende Prüfungen gehen weiter, und eine Meldung erscheint wieder, wenn sie erneut auftritt. „Fehlerverlauf löschen“ entfernt auch diese.",
+    "last_seen": "Zuletzt aufgetreten: {at}",
+    "restore": "Wieder anzeigen",
+    "restoring": "Wird wieder angezeigt…",
+    "dismissed_status": "Ausgeblendet. Es erscheint wieder, wenn es erneut auftritt.",
+    "restored_status": "Wieder angezeigt. Es steht wieder in der Liste.",
+    "dismiss_failed": "Das konnte nicht ausgeblendet werden. Versuchen Sie es erneut; schlägt es weiter fehl, prüfen Sie, ob YA-WAMF läuft.",
+    "restore_failed": "Das konnte nicht wieder angezeigt werden. Versuchen Sie es erneut; schlägt es weiter fehl, prüfen Sie, ob YA-WAMF läuft."
+  }
 }

@@ -311,5 +311,21 @@
   "state_idle": "Inactif",
   "state_queued": "En file d’attente",
   "state_running": "En cours",
-  "work_lane_analyze_unknowns": "Nommer les visites « oiseau inconnu »"
+  "work_lane_analyze_unknowns": "Nommer les visites « oiseau inconnu »",
+  "health_dismiss": {
+    "dismiss": "Masquer",
+    "dismissing": "Masquage…",
+    "effect": "Le masque pour tout le monde sur cette installation. Les vérifications en direct continuent, et il réapparaît s’il se reproduit.",
+    "live_note": "Disparaît de lui-même quand la vérification réussit.",
+    "show_dismissed": "{count, plural, one {Afficher # élément masqué} other {Afficher # éléments masqués}}",
+    "hide_dismissed": "Cacher les éléments masqués",
+    "dismissed_note": "Masqués pour tout le monde sur cette installation. Les vérifications en direct continuent, et un élément réapparaît s’il se reproduit. Effacer l’historique des erreurs les supprime aussi.",
+    "last_seen": "Dernière fois {at}",
+    "restore": "Rétablir",
+    "restoring": "Rétablissement…",
+    "dismissed_status": "Masqué. Il réapparaît s’il se reproduit.",
+    "restored_status": "Rétabli. Il figure de nouveau dans la liste.",
+    "dismiss_failed": "Impossible de masquer cet élément. Réessayez ; si l’échec persiste, vérifiez que YA-WAMF fonctionne.",
+    "restore_failed": "Impossible de rétablir cet élément. Réessayez ; si l’échec persiste, vérifiez que YA-WAMF fonctionne."
+  }
 }

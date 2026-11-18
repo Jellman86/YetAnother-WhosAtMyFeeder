@@ -81,7 +81,7 @@ describe('Health page', () => {
         // Open incidents join the connection problems in the verdict card; the panel below holds
         // only what is over, so it can never say "0 open" beside a degraded verdict.
         expect(errorsSource).toContain('let openItems = $derived(');
-        expect(errorsSource).toContain('{#each openItems as item (item.key)}');
+        expect(errorsSource).toContain('{#each openItems as item, index (item.key)}');
         expect(errorsSource).toContain('data-health-earlier-incidents');
         expect(errorsSource).not.toContain('data-health-current-issues');
         expect(errorsSource).not.toMatch(/\.length\.toLocaleString\(\)\} (open|events)/);
