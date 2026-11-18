@@ -273,11 +273,9 @@ async def _lookup_species_search_taxonomy(
         if text and text not in candidates:
             candidates.append(text)
 
-    repo = SpeciesRepository(db)
-    for candidate in candidates:
-        taxonomy = await repo.lookup_taxonomy(candidate, lang)
-        if taxonomy:
-            return taxonomy
+    taxonomy = await SpeciesRepository(db).lookup_taxonomy_for_names(candidates, lang)
+    if taxonomy:
+        return taxonomy
 
     scientific_name, common_name = _parse_species_alias_label(label)
     return scientific_name, common_name, None
