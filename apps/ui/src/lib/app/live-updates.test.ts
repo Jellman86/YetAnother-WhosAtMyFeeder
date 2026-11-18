@@ -482,6 +482,9 @@ describe('LiveUpdateCoordinator reclassify fallback', () => {
         const busy = status({ analysis: queue(8, 1) });
         coordinator.applySystemStatus(busy, null);
         expect(notificationItems.some((item) => item.id === 'reclassify:progress')).toBe(true);
+        // The job's card is in Storage & upkeep's More options, which this route opens.
+        expect(notificationItems.find((item) => item.id === 'reclassify:progress')?.meta?.route).toBe('/settings/maintenance');
+        expect(calls.upsertRunning.find((job) => job.id === 'reclassify:progress')?.route).toBe('/settings/maintenance');
         expect(calls.remove).toEqual([]);
         expect(calls.notificationRemoves).toEqual([]);
 

@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { openSettings, saveBar as unsaved, type FixtureSettings } from './settings-page-mock';
+import { openMoreOptions, openSettings, saveBar as unsaved, type FixtureSettings } from './settings-page-mock';
 
 // Settings → Display holds its choices in the one Settings draft and loads its tab body on
 // first use. The saved choices must load into the tab, an edit must survive leaving the tab, and
@@ -22,6 +22,8 @@ test('Appearance loads on first open, shows the saved choices and saves edits wi
     expect(harness.moduleRequests('AppearanceSettings.svelte')).toBe(0);
 
     await page.getByRole('link', { name: 'Display', exact: true }).click();
+    // Dates, names and the Explorer layout are under Display's More options.
+    await openMoreOptions(page);
     await expect(page.locator('#date-format-select')).toHaveValue('ymd');
     expect(harness.moduleRequests('AppearanceSettings.svelte')).toBe(1);
     await expect(page.locator('#time-format-select')).toHaveValue('12h');
@@ -39,6 +41,8 @@ test('Appearance loads on first open, shows the saved choices and saves edits wi
     await expect(page.locator('#mqtt-server')).toBeVisible();
     await expect(unsaved(page)).toBeVisible();
     await page.getByRole('link', { name: 'Display', exact: true }).click();
+    // Dates, names and the Explorer layout are under Display's More options.
+    await openMoreOptions(page);
     await expect(page.locator('#time-format-select')).toHaveValue('24h');
 
     await page.getByRole('button', { name: 'Save changes', exact: true }).click();
@@ -56,6 +60,8 @@ test('Appearance loads on first open, shows the saved choices and saves edits wi
 test('switching the naming style back to the saved one leaves nothing to apply', async ({ page }) => {
     await openSettings(page, SAVED_APPEARANCE);
     await page.getByRole('link', { name: 'Display', exact: true }).click();
+    // Dates, names and the Explorer layout are under Display's More options.
+    await openMoreOptions(page);
     const scientific = page.getByRole('radiogroup', { name: /Bird naming style/ }).getByRole('radio', { name: /^Strictly scientific/i });
     const hobbyist = page.getByRole('radiogroup', { name: /Bird naming style/ }).getByRole('radio', { name: /^Scientific name first/ });
     await expect(hobbyist).toBeChecked();

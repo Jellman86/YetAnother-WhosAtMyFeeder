@@ -14,6 +14,7 @@
     });
 </script>
 <AppearanceSettings
+    region="main"
     currentTheme={theme}
     currentLocale="en"
     {draft}

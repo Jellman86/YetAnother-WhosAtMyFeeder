@@ -6,8 +6,11 @@
     import type { AccessibilityDraft } from '../../../settings/accessibility-section';
     import type { WeatherUnitSystem } from '../../../utils/weather-units';
     import { loadAccessibilitySettings, loadAppearanceSettings, loadUnitsSettings } from './part-loaders';
+    import SectionMore from './SectionMore.svelte';
 
-    // Display: how YA-WAMF looks and reads. Holds what were the Appearance and Accessibility tabs.
+    // Display: theme, text size, language and accessibility first; dates, names, the Explorer
+    // layout, fonts and colours, and units under More options. Holds what were the Appearance and
+    // Accessibility tabs.
     interface Props {
         currentTheme: Theme;
         currentLocale: string;
@@ -39,6 +42,34 @@
             loader={loadAppearanceSettings}
             label={$_('settings.tabs.appearance')}
             props={{
+                region: 'main',
+                currentTheme,
+                currentLocale,
+                draft: appearanceDraft,
+                onchange: onAppearanceChange,
+                setTheme,
+                setLanguage
+            }}
+        />
+    </div>
+
+    <div class="space-y-8" data-settings-part="accessibility">
+        <LazyRoute
+            loader={loadAccessibilitySettings}
+            label={$_('settings.tabs.accessibility')}
+            props={{
+                draft: accessibilityDraft,
+                onchange: onAccessibilityChange
+            }}
+        />
+    </div>
+
+    <SectionMore section="display" summary={$_('settings.more.display', { default: 'Date and time format, how birds are named, the Explorer layout, fonts and colours, and units' })}>
+        <LazyRoute
+            loader={loadAppearanceSettings}
+            label={$_('settings.tabs.appearance')}
+            props={{
+                region: 'more',
                 currentTheme,
                 currentLocale,
                 draft: appearanceDraft,
@@ -54,16 +85,5 @@
         <UnitsSettings bind:locationWeatherUnitSystem />
         {/snippet}
         </LazyRoute>
-    </div>
-
-    <div class="space-y-8" data-settings-part="accessibility">
-        <LazyRoute
-            loader={loadAccessibilitySettings}
-            label={$_('settings.tabs.accessibility')}
-            props={{
-                draft: accessibilityDraft,
-                onchange: onAccessibilityChange
-            }}
-        />
-    </div>
+    </SectionMore>
 </div>

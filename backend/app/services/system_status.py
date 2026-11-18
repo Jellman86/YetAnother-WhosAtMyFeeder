@@ -25,6 +25,7 @@ from app.utils.diagnostic_redaction import redact_connection_error
 from app.models.analysis_status import AnalysisStatusResponse
 from app.models.jobs import JobsSnapshotResponse
 from app.models.service_connections import ServiceConnectionsResponse
+from app.services.model_readiness import identification_readiness
 from app.models.system_status import (
     CameraHealthReading,
     JobsProgress,
@@ -57,6 +58,11 @@ _FIX_ORDER: tuple[SubsystemKey, ...] = (
     "notifications",
     "audio",
 )
+
+# An optional part that was never downloaded is described by its own chip and panel, not counted
+# against the install: no finder is bundled or downloaded on its own, so counting it would leave
+# every install without one degraded, with a standing notification Health could not name.
+_OPTIONAL_PARTS_MISSING: frozenset[tuple[SubsystemKey, str]] = frozenset({("finder", "not_downloaded")})
 
 
 @dataclass(frozen=True)
@@ -124,6 +130,11 @@ def _finder_health(inputs: SystemStatusInputs) -> dict[str, Any]:
 
 def _classifier_verdict(inputs: SystemStatusInputs) -> SubsystemVerdict:
     health = inputs.classifier_health
+    # A chosen model whose files are not on this install names nothing, whatever the runtime's own
+    # health says: workers load it only on the first visit. The same rule words the Models status
+    # line (identification_readiness), so the status chip and the page cannot disagree.
+    if identification_readiness(inputs.classifier_status) == "missing":
+        return SubsystemVerdict(key="classifier", state="error", cause="model_missing")
     if not health:
         return SubsystemVerdict(key="classifier", state="unknown", cause="unmeasured")
     status = str(health.get("status") or "").lower()
@@ -152,6 +163,11 @@ def _finder_verdict(inputs: SystemStatusInputs) -> SubsystemVerdict:
         return SubsystemVerdict(key="finder", state="degraded", cause="cpu_fallback")
     if not str(finder.get("model_id") or ""):
         return SubsystemVerdict(key="finder", state="off", cause="none_selected")
+    # A chosen finder that is not downloaded runs nowhere until someone downloads it. The spec may
+    # describe an installed fallback, so the chosen finder's own files are what count.
+    crop = inputs.classifier_status.get("crop_detector")
+    if isinstance(crop, dict) and crop.get("chosen_installed", crop.get("installed")) is False:
+        return SubsystemVerdict(key="finder", state="degraded", cause="not_downloaded")
     return SubsystemVerdict(key="finder", state="ok", cause="ready")
 
 
@@ -194,7 +210,7 @@ def _overall_verdict(inputs: SystemStatusInputs, subsystems: list[SubsystemVerdi
         return OverallVerdict(state="degraded", cause="pipeline_critical")
     for key in _FIX_ORDER:
         verdict = by_key[key]
-        if verdict.state == "degraded":
+        if verdict.state == "degraded" and (key, verdict.cause) not in _OPTIONAL_PARTS_MISSING:
             return OverallVerdict(state="degraded", cause=verdict.cause, subsystem=key)
     if inputs.event_pipeline is not None and str(pipeline.get("status") or "") != "ok":
         return OverallVerdict(state="degraded", cause="pipeline_degraded")

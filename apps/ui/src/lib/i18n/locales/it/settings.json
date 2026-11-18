@@ -146,7 +146,11 @@
     "frigate_missing_behavior_note": "Questa policy viene applicata durante le scansioni manuali e i controlli pianificati. Usa segna come mancante quando YA-WAMF deve conservare i rilevamenti più a lungo di Frigate.",
     "purge_missing_media": "Esegui ora la scansione integrità media",
     "auto_purge_missing_media": "Esegui ogni giorno la scansione integrità media",
-    "purge_missing_media_confirm": "Scansionare i rilevamenti il cui evento, clip o istantanea Frigate manca e applicare la policy configurata?",
+    "purge_missing_media_confirm_delete": "Le visite il cui evento, clip o istantanea di Frigate non c’è più vengono eliminate da YA-WAMF, con foto e video. I preferiti restano e vengono segnati come mancanti. Quante siano si sa solo dopo la scansione. L’operazione non può essere annullata.",
+    "purge_missing_media_confirm_mark": "Le visite il cui evento, clip o istantanea di Frigate non c’è più vengono segnate come mancanti. Foto e record restano. Non viene eliminato nulla.",
+    "purge_missing_media_confirm_keep": "Le visite il cui evento, clip o istantanea di Frigate non c’è più restano invariate. Non viene eliminato nulla.",
+    "purge_missing_media_confirm_unsaved": "La scelta non salvata vale solo dopo Salva.",
+    "purge_missing_media_delete_button": "Scansiona ed elimina",
     "media_integrity_note": "Queste scansioni applicano la policy selezionata per i mancanti a monte invece di eliminare sempre i rilevamenti.",
     "auto_purge_missing_clips": "Esegui automaticamente (ogni giorno)",
     "auto_purge_missing_snapshots": "Esegui automaticamente (ogni giorno)",
@@ -297,15 +301,25 @@
       "storage": "Archiviazione",
       "notifications": "Avvisi"
     },
-    "sharing_note": "Qui nulla dipende da una connessione misurata. L’accesso e l’accesso ospite si impostano qui; ogni servizio in Altre opzioni indica se è attivo."
+    "sharing_note": "Qui nulla dipende da una connessione misurata. L’accesso e l’accesso ospite si impostano qui; ogni servizio in Altre opzioni indica se è attivo.",
+    "cause": {
+      "classifier": {
+        "model_missing": "non presente in questa installazione"
+      },
+      "finder": {
+        "not_downloaded": "non scaricato"
+      }
+    }
   },
   "more": {
     "title": "Altre opzioni",
     "cameras": "Dettagli di Frigate, origine dell’immagine, clip e BirdNET-Go",
     "sharing": "eBird, iNaturalist, BirdWeather, meteo di Home Assistant, informazioni sulle specie, IA e telemetria",
     "identification": "Specie bloccate, filtro di areale, controlli video, hardware e funzioni beta",
-    "alerts": "Pausa, lingua, link e filtro delle specie",
-    "alerts_garden": "Pausa, lingua, link, filtro delle specie e avvisi sugli animali del giardino"
+    "alerts": "Raffreddamento, lingua, link e filtro delle specie",
+    "alerts_garden": "Raffreddamento, lingua, link, filtro delle specie e avvisi sugli animali del giardino",
+    "storage": "Quando Frigate perde una visita, e le attività che riparano o completano la cronologia",
+    "display": "Formato di data e ora, nomi degli uccelli, layout dell’Explorer, caratteri e colori, e unità"
   },
   "debug": {
     "llm_prompt_style_label": "Stile del prompt",
@@ -910,7 +924,7 @@
     },
     "link_open_connection": "Apri Connessione",
     "channels_title": "Canali",
-    "details_title": "Ritmo, lingua, link e specie",
+    "details_title": "Raffreddamento, lingua, link e specie",
     "garden_title": "Avvisi sugli animali del giardino",
     "channels_desc": "Dove vanno gli avvisi. Attiva un canale per configurarlo."
   },
@@ -1697,7 +1711,9 @@
   "save_rule": "Le modifiche alle impostazioni aspettano finché non scegli Salva modifiche. Pulsanti come Prova, Esegui e Scarica agiscono subito.",
   "appearance": {
     "typography_title": "Caratteri e colori",
-    "scope": "Tema, dimensione del testo e lingua cambiano subito su questo dispositivo. Il resto vale per chiunque usi questa installazione dopo il salvataggio."
+    "scope_device": "Tema, dimensione del testo e lingua cambiano subito su questo dispositivo.",
+    "scope_everyone": "Queste impostazioni valgono per chiunque usi questa installazione dopo il salvataggio.",
+    "more_title": "Date, nomi e layout"
   },
   "theme_scope": "Cambia subito, solo su questo dispositivo.",
   "maintenance": {

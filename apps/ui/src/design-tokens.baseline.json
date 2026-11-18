@@ -385,8 +385,8 @@
     "arbitrary": 2
   },
   "lib/components/settings/MaintenanceSettings.svelte": {
-    "palette": 157,
-    "dark": 78,
+    "palette": 144,
+    "dark": 72,
     "arbitrary": 0
   },
   "lib/components/settings/ModelSettings.svelte": {

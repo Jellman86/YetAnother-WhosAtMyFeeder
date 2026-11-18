@@ -59,6 +59,7 @@
     "mqtt_down": "Der MQTT-Broker ist nicht verbunden, daher können keine neuen Besuche erfasst werden.",
     "mqtt_not_configured": "Es ist kein MQTT-Broker eingerichtet, daher können keine Besuche erfasst werden.",
     "frigate_down": "Frigate antwortet nicht, daher können neue Besuche nicht gespeichert werden.",
+    "model_missing": "Das gewählte Bestimmungsmodell ist auf dieser Installation nicht vorhanden, daher kann kein Vogel benannt werden.",
     "pipeline_critical": "YA-WAMF ist bei der Verarbeitung dessen, was Frigate gesendet hat, gescheitert. Öffnen Sie „Zustand“, um zu sehen, was fehlgeschlagen ist.",
     "other": "Etwas funktioniert nicht wie vorgesehen. Öffnen Sie die Seite Zustand, um zu sehen, was."
   }

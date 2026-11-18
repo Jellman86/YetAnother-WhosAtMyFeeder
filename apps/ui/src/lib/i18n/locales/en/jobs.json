@@ -215,7 +215,9 @@
     "mqtt_stopped": "The MQTT service is not running, so no new visits can be recorded.",
     "mqtt_stopped_next": "Restart YA-WAMF to start it again.",
     "frigate_down": "Frigate at {url} is not answering, so new visits cannot be saved.",
-    "frigate_down_next": "Check its address in Settings → Cameras & connection and that Frigate is running."
+    "frigate_down_next": "Check its address in Settings → Cameras & connection and that Frigate is running.",
+    "model_missing": "The chosen identification model is not on this install, so no bird can be named.",
+    "model_missing_next": "Download it, or choose one that is installed, in Settings → Identifying birds."
   },
   "errors_clear_effect": "Removes recorded errors and incidents now. Live checks carry on.",
   "earlier_incidents_title": "Earlier incidents",

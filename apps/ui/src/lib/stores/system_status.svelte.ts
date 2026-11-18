@@ -17,7 +17,7 @@ export const STATUS_FALLBACK_READ_MS = 60_000;
 export const STATUS_STALE_AFTER_MS = 90_000;
 
 /** Why the install is degraded, in the words the notification already has keys for. */
-export type HealthNotificationCause = 'mqtt_down' | 'mqtt_not_configured' | 'frigate_down' | 'pipeline_critical' | 'other';
+export type HealthNotificationCause = 'mqtt_down' | 'mqtt_not_configured' | 'frigate_down' | 'model_missing' | 'pipeline_critical' | 'other';
 
 type StatusListener = (next: SystemStatus, previous: SystemStatus | null) => void;
 
@@ -194,6 +194,7 @@ export function statusNotificationCause(snapshot: SystemStatus): HealthNotificat
     if (subsystem === 'mqtt' && cause === 'disconnected') return 'mqtt_down';
     if (subsystem === 'mqtt' && cause === 'not_configured') return 'mqtt_not_configured';
     if (subsystem === 'frigate' && cause === 'unreachable') return 'frigate_down';
+    if (subsystem === 'classifier' && cause === 'model_missing') return 'model_missing';
     if (cause === 'pipeline_critical') return 'pipeline_critical';
     return 'other';
 }

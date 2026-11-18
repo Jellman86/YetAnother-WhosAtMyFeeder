@@ -218,6 +218,7 @@ describe('status helpers', () => {
         expect(degraded('disconnected', 'mqtt')).toBe('mqtt_down');
         expect(degraded('not_configured', 'mqtt')).toBe('mqtt_not_configured');
         expect(degraded('unreachable', 'frigate')).toBe('frigate_down');
+        expect(degraded('model_missing', 'classifier')).toBe('model_missing');
         expect(degraded('pipeline_critical', null)).toBe('pipeline_critical');
         expect(degraded('not_writable', 'storage')).toBe('other');
     });

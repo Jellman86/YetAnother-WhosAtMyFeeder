@@ -146,7 +146,11 @@
     "frigate_missing_behavior_note": "此策略会在手动扫描和计划检查期间应用。当 YA-WAMF 需要比 Frigate 更长时间保留检测时，请使用标记缺失。",
     "purge_missing_media": "立即运行媒体完整性扫描",
     "auto_purge_missing_media": "每天运行媒体完整性扫描",
-    "purge_missing_media_confirm": "要扫描 Frigate 事件、片段或快照缺失的检测并应用已配置策略吗？",
+    "purge_missing_media_confirm_delete": "Frigate 事件、片段或快照已不存在的到访会连同照片和视频从 YA-WAMF 中删除。收藏会保留并标记为缺失。数量要等扫描完成后才知道。此操作无法撤销。",
+    "purge_missing_media_confirm_mark": "Frigate 事件、片段或快照已不存在的到访会被标记为缺失。照片和记录会保留。不会删除任何内容。",
+    "purge_missing_media_confirm_keep": "Frigate 事件、片段或快照已不存在的到访保持不变。不会删除任何内容。",
+    "purge_missing_media_confirm_unsaved": "未保存的选择只有在保存后才生效。",
+    "purge_missing_media_delete_button": "扫描并删除",
     "media_integrity_note": "这些扫描会应用所选的上游缺失策略，而不是始终删除检测。",
     "auto_purge_missing_clips": "自动运行（每日）",
     "auto_purge_missing_snapshots": "自动运行（每日）",
@@ -297,15 +301,25 @@
       "storage": "存储",
       "notifications": "提醒"
     },
-    "sharing_note": "这里没有需要测量的连接。登录和访客访问在这里设置；“更多选项”中的每个服务都会显示是否已开启。"
+    "sharing_note": "这里没有需要测量的连接。登录和访客访问在这里设置；“更多选项”中的每个服务都会显示是否已开启。",
+    "cause": {
+      "classifier": {
+        "model_missing": "不在此安装中"
+      },
+      "finder": {
+        "not_downloaded": "未下载"
+      }
+    }
   },
   "more": {
     "title": "更多选项",
     "cameras": "Frigate 详情、图像来源、剪辑和 BirdNET-Go",
     "sharing": "eBird、iNaturalist、BirdWeather、Home Assistant 天气、物种信息、AI 和遥测",
     "identification": "屏蔽的物种、分布范围筛选、视频检查、硬件和测试版功能",
-    "alerts": "冷却时间、语言、链接和物种筛选",
-    "alerts_garden": "冷却时间、语言、链接、物种筛选和花园动物提醒"
+    "alerts": "冷却、语言、链接和物种筛选",
+    "alerts_garden": "冷却、语言、链接、物种筛选和花园动物提醒",
+    "storage": "Frigate 丢失到访时的处理，以及修复或补全历史的任务",
+    "display": "日期和时间格式、鸟类名称、Explorer 布局、字体和颜色以及单位"
   },
   "debug": {
     "llm_prompt_style_label": "提示风格",
@@ -910,7 +924,7 @@
     },
     "link_open_connection": "打开“连接”",
     "channels_title": "渠道",
-    "details_title": "间隔、语言、链接和物种",
+    "details_title": "冷却、语言、链接和物种",
     "garden_title": "花园动物提醒",
     "channels_desc": "通知发送到的地方。开启某个渠道即可进行设置。"
   },
@@ -1697,7 +1711,9 @@
   "save_rule": "设置的更改会等到您选择“保存更改”后才生效。测试、运行和下载等按钮会立即执行。",
   "appearance": {
     "typography_title": "字体和颜色",
-    "scope": "主题、文字大小和语言会在此设备上立即更改。其余设置保存后，对使用此安装的所有人生效。"
+    "scope_device": "主题、文字大小和语言会在此设备上立即更改。",
+    "scope_everyone": "这些设置保存后适用于使用此安装的所有人。",
+    "more_title": "日期、名称和布局"
   },
   "theme_scope": "立即更改，仅限此设备。",
   "maintenance": {

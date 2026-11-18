@@ -59,6 +59,7 @@
     "mqtt_down": "Le broker MQTT n’est pas connecté : aucune nouvelle détection ne peut arriver.",
     "mqtt_not_configured": "Aucun broker MQTT n’est défini : aucune détection ne peut arriver.",
     "frigate_down": "Frigate ne répond pas : les nouvelles détections ne peuvent pas être enregistrées.",
+    "model_missing": "Le modèle d’identification choisi n’est pas sur cette installation : aucun oiseau ne peut être nommé.",
     "pipeline_critical": "La chaîne de détection a une défaillance critique.",
     "other": "Quelque chose ne fonctionne pas comme prévu. Ouvrez la page État pour voir quoi."
   }

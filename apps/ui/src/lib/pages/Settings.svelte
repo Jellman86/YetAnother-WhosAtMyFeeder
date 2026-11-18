@@ -96,6 +96,7 @@
     import { settingsMoreId, settingsPartIsInMore } from '../settings/settings-more';
     import {
         loadConnectionSettings,
+        loadGardenNotificationSettings,
         SETTINGS_PART_LOADERS
     } from '../components/settings/sections/part-loaders';
     import SettingsPage from '../components/settings/_primitives/SettingsPage.svelte';
@@ -1467,9 +1468,14 @@
     async function openGardenAlerts(): Promise<void> {
         disclosures.setOpen(settingsMoreId('alerts'), true);
         openSection(settingsSectionOfPart('notifications'));
-        const alerts = await fieldInOpenedPart(SETTINGS_PART_LOADERS.notifications, () => document.querySelector<HTMLElement>('[data-garden-alerts]'));
-        alerts?.scrollIntoView({ block: 'start' });
-        alerts?.querySelector<HTMLElement>('button[aria-checked]')?.focus({ preventScroll: true });
+        // The block is drawn at once, but its switch comes with Garden alerts' own code, so the wait
+        // is for the switch itself.
+        const toggle = await fieldInOpenedPart(
+            () => Promise.all([SETTINGS_PART_LOADERS.notifications(), loadGardenNotificationSettings()]),
+            () => document.querySelector<HTMLElement>('[data-garden-alerts] button[aria-checked]')
+        );
+        document.querySelector<HTMLElement>('[data-garden-alerts]')?.scrollIntoView({ block: 'start' });
+        toggle?.focus({ preventScroll: true });
     }
 
     // Drive taxonomy status from the derived active section so router-driven changes
@@ -1831,13 +1837,28 @@
     }
 
     async function handlePurgeMissingMedia() {
-        const confirmed = await confirmAction({
-            title: $_('settings.data.purge_missing_media', { default: 'Run media integrity scan now' }),
-            message: $_('settings.data.purge_missing_media_confirm', {
-                default: 'Scan detections whose Frigate event, clip, or snapshot is missing and apply the configured policy?'
-            }),
-            confirmLabel: $_('settings.data.purge_missing_media', { default: 'Run media integrity scan now' })
-        });
+        // The scan applies the saved policy, so the question words that one. It cannot count what a
+        // delete would remove before the scan has looked, so it says so instead of naming a figure.
+        const savedPolicy = normalizeFrigateMissingBehavior(settingsStore.settings?.frigate_missing_behavior);
+        const unsavedPolicy = savedPolicy !== frigateMissingBehavior
+            ? ` ${$_('settings.data.purge_missing_media_confirm_unsaved', { default: 'Your unsaved choice applies only after Save.' })}`
+            : '';
+        const confirmed = await confirmAction(savedPolicy === 'delete'
+            ? {
+                title: $_('settings.data.purge_missing_media', { default: 'Run media integrity scan now' }),
+                message: $_('settings.data.purge_missing_media_confirm_delete', {
+                    default: 'Visits whose Frigate event, clip or snapshot is gone are deleted from YA-WAMF, with their photos and video. Favourites are kept and marked missing. How many is not known until the scan has run. This cannot be undone.'
+                }) + unsavedPolicy,
+                confirmLabel: $_('settings.data.purge_missing_media_delete_button', { default: 'Scan and delete' }),
+                tone: 'danger'
+            }
+            : {
+                title: $_('settings.data.purge_missing_media', { default: 'Run media integrity scan now' }),
+                message: (savedPolicy === 'keep'
+                    ? $_('settings.data.purge_missing_media_confirm_keep', { default: 'Visits whose Frigate event, clip or snapshot is gone are left unchanged. Nothing is deleted.' })
+                    : $_('settings.data.purge_missing_media_confirm_mark', { default: 'Visits whose Frigate event, clip or snapshot is gone are marked missing. Their photos and records are kept. Nothing is deleted.' })) + unsavedPolicy,
+                confirmLabel: $_('settings.data.purge_missing_media', { default: 'Run media integrity scan now' })
+            });
         if (!confirmed) return;
 
         purgingMissingMedia = true;

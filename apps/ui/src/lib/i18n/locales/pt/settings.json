@@ -146,7 +146,11 @@
     "frigate_missing_behavior_note": "Esta política é aplicada durante verificações manuais e agendadas. Use marcar como ausente quando o YA-WAMF deve reter detecções por mais tempo que o Frigate.",
     "purge_missing_media": "Executar verificação de integridade de mídia agora",
     "auto_purge_missing_media": "Executar verificação de integridade de mídia diariamente",
-    "purge_missing_media_confirm": "Verificar detecções cujo evento, clipe ou captura do Frigate está ausente e aplicar a política configurada?",
+    "purge_missing_media_confirm_delete": "As visitas cujo evento, clipe ou instantâneo do Frigate não existe mais são excluídas do YA-WAMF, com suas fotos e vídeos. Os favoritos são mantidos e marcados como ausentes. Quantas são só se sabe depois da verificação. Esta ação não pode ser desfeita.",
+    "purge_missing_media_confirm_mark": "As visitas cujo evento, clipe ou instantâneo do Frigate não existe mais são marcadas como ausentes. Suas fotos e registros são mantidos. Nada é excluído.",
+    "purge_missing_media_confirm_keep": "As visitas cujo evento, clipe ou instantâneo do Frigate não existe mais ficam como estão. Nada é excluído.",
+    "purge_missing_media_confirm_unsaved": "Sua escolha não salva só vale depois de Salvar.",
+    "purge_missing_media_delete_button": "Verificar e excluir",
     "media_integrity_note": "Estas verificações aplicam a política de ausentes upstream selecionada em vez de sempre excluir detecções.",
     "auto_purge_missing_clips": "Executar automaticamente (diariamente)",
     "auto_purge_missing_snapshots": "Executar automaticamente (diariamente)",
@@ -297,15 +301,25 @@
       "storage": "Armazenamento",
       "notifications": "Alertas"
     },
-    "sharing_note": "Nada aqui depende de uma conexão medida. O login e o acesso de convidados são definidos aqui; cada serviço em Mais opções indica se está ligado."
+    "sharing_note": "Nada aqui depende de uma conexão medida. O login e o acesso de convidados são definidos aqui; cada serviço em Mais opções indica se está ligado.",
+    "cause": {
+      "classifier": {
+        "model_missing": "não está nesta instalação"
+      },
+      "finder": {
+        "not_downloaded": "não baixado"
+      }
+    }
   },
   "more": {
     "title": "Mais opções",
     "cameras": "Detalhes do Frigate, origem da imagem, clipes e BirdNET-Go",
     "sharing": "eBird, iNaturalist, BirdWeather, tempo do Home Assistant, informações das espécies, IA e telemetria",
     "identification": "Espécies bloqueadas, filtro de área de distribuição, verificações de vídeo, hardware e funções beta",
-    "alerts": "Pausa, idioma, link e filtro de espécies",
-    "alerts_garden": "Pausa, idioma, link, filtro de espécies e alertas de animais do jardim"
+    "alerts": "Resfriamento, idioma, link e filtro de espécies",
+    "alerts_garden": "Resfriamento, idioma, link, filtro de espécies e alertas de animais do jardim",
+    "storage": "Quando o Frigate perde uma visita, e as tarefas que reparam ou completam o histórico",
+    "display": "Formato de data e hora, como as aves são nomeadas, o layout do Explorer, fontes e cores, e unidades"
   },
   "debug": {
     "llm_prompt_style_label": "Estilo de prompt",
@@ -910,7 +924,7 @@
     },
     "link_open_connection": "Abrir Conexão",
     "channels_title": "Canais",
-    "details_title": "Ritmo, idioma, links e espécies",
+    "details_title": "Resfriamento, idioma, links e espécies",
     "garden_title": "Alertas de animais do jardim",
     "channels_desc": "Para onde vão os alertas. Ative um canal para configurá-lo."
   },
@@ -1697,7 +1711,9 @@
   "save_rule": "As alterações nas configurações esperam até você escolher Salvar alterações. Botões como Testar, Executar e Baixar agem na hora.",
   "appearance": {
     "typography_title": "Fontes e cores",
-    "scope": "Tema, tamanho do texto e idioma mudam na hora neste dispositivo. O resto vale para todos que usam esta instalação depois de salvar."
+    "scope_device": "Tema, tamanho do texto e idioma mudam na hora neste dispositivo.",
+    "scope_everyone": "Estas opções valem para todas as pessoas que usam esta instalação depois de salvar.",
+    "more_title": "Datas, nomes e layout"
   },
   "theme_scope": "Muda na hora, só neste dispositivo.",
   "maintenance": {

@@ -16,7 +16,6 @@
     let {
         maintenanceMaxConcurrent = $bindable(1),
         autoAnalyzeUnknowns = $bindable(false),
-        clearingFavorites,
         taxonomyStatus,
         syncingTaxonomy,
         timezoneRepairPreview,
@@ -33,24 +32,18 @@
         weatherBackfilling,
         weatherBackfillResult,
         weatherBackfillTotal = $bindable(0),
-        resettingDatabase,
-        clearingFeedback,
         analyzingUnknowns,
         analysisStatus,
         analysisTotal,
-        handleClearFavorites,
         handleStartTaxonomySync,
         handlePreviewTimezoneRepair,
         handleApplyTimezoneRepair,
         handleBackfill,
         handleWeatherBackfill,
         handleAnalyzeUnknowns,
-        handleResetDatabase,
-        handleClearFeedback,
     }: {
         maintenanceMaxConcurrent: number;
         autoAnalyzeUnknowns: boolean;
-        clearingFavorites: boolean;
         taxonomyStatus: TaxonomySyncStatus | null;
         syncingTaxonomy: boolean;
         timezoneRepairPreview: TimezoneRepairPreview | null;
@@ -67,20 +60,15 @@
         weatherBackfilling: boolean;
         weatherBackfillResult: WeatherBackfillResult | null;
         weatherBackfillTotal: number;
-        resettingDatabase: boolean;
-        clearingFeedback: boolean;
         analyzingUnknowns: boolean;
         analysisStatus: AnalysisStatus | null;
         analysisTotal: number;
-        handleClearFavorites: () => Promise<void>;
         handleStartTaxonomySync: () => Promise<void>;
         handlePreviewTimezoneRepair: () => Promise<void>;
         handleApplyTimezoneRepair: () => Promise<void>;
         handleBackfill: () => Promise<void>;
         handleWeatherBackfill: () => Promise<void>;
         handleAnalyzeUnknowns: () => Promise<void>;
-        handleResetDatabase: () => Promise<void>;
-        handleClearFeedback: () => Promise<void>;
     } = $props();
 
     const safeCount = (value: unknown): number => {
@@ -184,8 +172,6 @@
     }
 
     const buttonNeutralClass = 'btn btn-secondary min-h-11 px-4 py-3';
-    const buttonDangerOutlineClass = 'btn btn-danger min-h-11 px-4 py-3';
-    const buttonDangerSolidClass = 'btn btn-danger-solid min-h-11 px-4 py-3';
 </script>
 
 {#snippet spinner()}
@@ -196,7 +182,7 @@
 {/snippet}
 
 <div class="space-y-6">
-    <SettingsCard title={$_('settings.data.taxonomy_title')}>
+    <SettingsCard level={3} title={$_('settings.data.taxonomy_title')}>
         <SettingsRow
             label={$_('settings.maintenance.taxonomy_row', { default: 'Repair species names' })}
             description={`${$_('settings.data.taxonomy_desc')} ${lastRunLine('taxonomy')}`}
@@ -224,6 +210,7 @@
     </SettingsCard>
 
     <SettingsCard
+        level={3}
         title={$_('settings.data.timezone_repair_title', { default: 'Timezone repair' })}
         description={$_('settings.data.timezone_repair_desc', { default: 'Validate older detection timestamps against Frigate and repair only safe whole-hour timezone offsets.' })}
     >
@@ -323,6 +310,7 @@
     </SettingsCard>
 
     <SettingsCard
+        level={3}
         title={$_('settings.data.backfill_title')}
         description={$_('settings.data.backfill_desc')}
     >
@@ -483,7 +471,7 @@
         </AdvancedSection>
     </SettingsCard>
 
-    <SettingsCard title={$_('settings.data.batch_analysis_title')}>
+    <SettingsCard level={3} title={$_('settings.data.batch_analysis_title')}>
         <SettingsRow
             label={$_('settings.maintenance.analyse_row', { default: 'Analyse Unknown bird visits again' })}
             description={`${$_('settings.data.batch_analysis_long_desc')} ${lastRunLine('analyze_unknowns')}`}
@@ -550,6 +538,7 @@
     </SettingsCard>
 
     <SettingsCard
+        level={3}
         id="maintenance-concurrency"
         title={$_('settings.data.maintenance_jobs_title', { default: 'Jobs at once' })}
         description={$_('settings.data.maintenance_jobs_desc', { default: 'The jobs above run one at a time, so they never compete with bird identification.' })}
@@ -571,66 +560,5 @@
                     oninput={(v) => (maintenanceMaxConcurrent = Number(v) || 1)}
                 />
             </SettingsRow>
-    </SettingsCard>
-
-    <SettingsCard
-        id="data-danger"
-        title={$_('settings.danger.title')}
-        description={$_('settings.danger.subtitle')}
-    >
-        <!-- One block per action, narrowest reach first, each consequence beside its own button. -->
-        <ul class="@container divide-y divide-red-500/15" data-danger-actions>
-            <li class="flex flex-col gap-3 p-4 @xl:flex-row @xl:items-center @xl:justify-between @xl:gap-6" data-danger-action="feedback">
-                <div class="min-w-0 space-y-1">
-                    <h3 class="text-sm font-semibold text-slate-900 dark:text-white">{$_('settings.danger.feedback_title', { default: 'Personalization data' })}</h3>
-                    <p id="danger-feedback-consequence" class="text-xs leading-snug text-slate-600 dark:text-slate-300">
-                        {$_('settings.danger.clear_feedback_desc', { default: 'Clearing personalization feedback will delete all manual tag corrections the AI uses to adjust confidence scores. This will revert the classifier to its baseline accuracy.' })}
-                        {$_('settings.danger.clear_feedback_hint', { default: 'This does not delete detections or media. Re-ranking will begin learning again as you make new manual corrections.' })}
-                    </p>
-                </div>
-                <button
-                    type="button"
-                    onclick={handleClearFeedback}
-                    disabled={clearingFeedback}
-                    aria-describedby="danger-feedback-consequence"
-                    class="shrink-0 {buttonDangerOutlineClass}"
-                >
-                    {#if clearingFeedback}{@render spinner()}{/if}
-                    {clearingFeedback ? $_('settings.danger.clearing_feedback', { default: 'Clearing...' }) : $_('settings.danger.clear_feedback_button', { default: 'Clear Personalization Data' })}
-                </button>
-            </li>
-            <li class="flex flex-col gap-3 p-4 @xl:flex-row @xl:items-center @xl:justify-between @xl:gap-6" data-danger-action="favorites">
-                <div class="min-w-0 space-y-1">
-                    <h3 class="text-sm font-semibold text-slate-900 dark:text-white">{$_('settings.danger.favorites_title', { default: 'Favourites' })}</h3>
-                    <p id="danger-favorites-consequence" class="text-xs leading-snug text-slate-600 dark:text-slate-300">{$_('settings.data.clear_favorites_desc')}</p>
-                </div>
-                <button
-                    type="button"
-                    onclick={handleClearFavorites}
-                    disabled={clearingFavorites}
-                    aria-describedby="danger-favorites-consequence"
-                    class="shrink-0 {buttonDangerOutlineClass}"
-                >
-                    {#if clearingFavorites}{@render spinner()}{/if}
-                    {clearingFavorites ? $_('settings.data.cleaning') : $_('settings.data.clear_favorites_button')}
-                </button>
-            </li>
-            <li class="flex flex-col gap-3 p-4 @xl:flex-row @xl:items-center @xl:justify-between @xl:gap-6" data-danger-action="reset">
-                <div class="min-w-0 space-y-1">
-                    <h3 class="text-sm font-semibold text-slate-900 dark:text-white">{$_('settings.danger.reset_title', { default: 'Database and media cache' })}</h3>
-                    <p id="danger-reset-consequence" class="text-xs leading-snug text-slate-600 dark:text-slate-300">{$_('settings.danger.reset_desc')}</p>
-                </div>
-                <button
-                    type="button"
-                    onclick={handleResetDatabase}
-                    disabled={resettingDatabase}
-                    aria-describedby="danger-reset-consequence"
-                    class="shrink-0 {buttonDangerSolidClass}"
-                >
-                    {#if resettingDatabase}{@render spinner()}{/if}
-                    {resettingDatabase ? $_('settings.danger.resetting') : $_('settings.danger.reset_button')}
-                </button>
-            </li>
-        </ul>
     </SettingsCard>
 </div>

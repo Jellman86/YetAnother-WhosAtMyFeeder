@@ -60,6 +60,7 @@
         authStore.showSettings
             ? openHealthItems(
                 systemStatusStore.snapshot?.connections ?? incidentWorkspaceStore.workspacePayload?.connections ?? null,
+                systemStatusStore.snapshot,
                 incidentWorkspaceStore.currentIssues.length
             )
             : null

@@ -58,8 +58,9 @@ test('a former tab\'s address lands on its part inside the section, below the pa
     await openOwnerShell(page);
     await page.goto('/settings/maintenance');
     await expectSection(page, '/settings/storage', 'Storage & upkeep', '#maintenance');
+    // Maintenance is under More options, which the address opens; its cards are third-level headings.
     const part = page.locator('[data-settings-part="maintenance"]');
-    await expect(part.getByRole('heading', { level: 2 }).first()).toBeVisible();
+    await expect(part.getByRole('heading', { level: 3 }).first()).toBeVisible();
     // Scrolled to: the part starts at or near the top of the window, not below the Data part.
     await expect.poll(async () => Math.round((await part.boundingBox())?.y ?? 9999)).toBeLessThan(200);
 });

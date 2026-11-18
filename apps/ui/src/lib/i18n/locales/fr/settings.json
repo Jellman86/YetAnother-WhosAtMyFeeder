@@ -146,7 +146,11 @@
     "frigate_missing_behavior_note": "Cette règle s’applique aux scans manuels et aux contrôles planifiés. Utilisez le marquage comme manquant lorsque YA-WAMF doit conserver les détections plus longtemps que Frigate.",
     "purge_missing_media": "Lancer le contrôle d’intégrité des médias maintenant",
     "auto_purge_missing_media": "Lancer le contrôle d’intégrité des médias chaque jour",
-    "purge_missing_media_confirm": "Scanner les détections dont l’événement, le clip ou l’instantané Frigate manque et appliquer la règle configurée ?",
+    "purge_missing_media_confirm_delete": "Les visites dont l’événement, le clip ou l’instantané Frigate a disparu sont supprimées de YA-WAMF, avec leurs photos et vidéos. Les favoris sont conservés et marqués manquants. Leur nombre n’est connu qu’après le contrôle. Cette action est irréversible.",
+    "purge_missing_media_confirm_mark": "Les visites dont l’événement, le clip ou l’instantané Frigate a disparu sont marquées manquantes. Leurs photos et fiches sont conservées. Rien n’est supprimé.",
+    "purge_missing_media_confirm_keep": "Les visites dont l’événement, le clip ou l’instantané Frigate a disparu restent inchangées. Rien n’est supprimé.",
+    "purge_missing_media_confirm_unsaved": "Votre choix non enregistré ne s’applique qu’après Enregistrer.",
+    "purge_missing_media_delete_button": "Contrôler et supprimer",
     "media_integrity_note": "Ces scans appliquent la règle sélectionnée pour les éléments manquants en amont au lieu de toujours supprimer les détections.",
     "auto_purge_missing_clips": "Exécuter automatiquement (quotidien)",
     "auto_purge_missing_snapshots": "Exécuter automatiquement (quotidien)",
@@ -297,7 +301,15 @@
       "storage": "Stockage",
       "notifications": "Alertes"
     },
-    "sharing_note": "Rien ici ne dépend d’une connexion mesurée. La connexion et l’accès invité se règlent ici ; chaque service sous Plus d’options indique s’il est activé."
+    "sharing_note": "Rien ici ne dépend d’une connexion mesurée. La connexion et l’accès invité se règlent ici ; chaque service sous Plus d’options indique s’il est activé.",
+    "cause": {
+      "classifier": {
+        "model_missing": "absent de cette installation"
+      },
+      "finder": {
+        "not_downloaded": "non téléchargé"
+      }
+    }
   },
   "more": {
     "title": "Plus d’options",
@@ -305,7 +317,9 @@
     "sharing": "eBird, iNaturalist, BirdWeather, météo Home Assistant, informations sur les espèces, IA et télémétrie",
     "identification": "Espèces bloquées, filtre d’aire de répartition, vérifications vidéo, matériel et fonctions bêta",
     "alerts": "Délai, langue, lien et filtre d’espèces",
-    "alerts_garden": "Délai, langue, lien, filtre d’espèces et alertes sur les animaux du jardin"
+    "alerts_garden": "Délai, langue, lien, filtre d’espèces et alertes sur les animaux du jardin",
+    "storage": "Quand Frigate perd une visite, et les tâches qui réparent ou complètent l’historique",
+    "display": "Format de date et d’heure, noms des oiseaux, disposition de l’Explorer, polices et couleurs, et unités"
   },
   "debug": {
     "llm_prompt_style_label": "Style de prompt",
@@ -910,7 +924,7 @@
     },
     "link_open_connection": "Ouvrir Connexion",
     "channels_title": "Canaux",
-    "details_title": "Rythme, langue, liens et espèces",
+    "details_title": "Délai, langue, liens et espèces",
     "garden_title": "Alertes sur les animaux du jardin",
     "channels_desc": "Où partent les alertes. Activez un canal pour le configurer."
   },
@@ -1697,7 +1711,9 @@
   "save_rule": "Les changements de réglages attendent que vous choisissiez Enregistrer les modifications. Les boutons comme Tester, Lancer et Télécharger agissent tout de suite.",
   "appearance": {
     "typography_title": "Polices et couleurs",
-    "scope": "Le thème, la taille du texte et la langue changent tout de suite sur cet appareil. Le reste s’applique à tous les utilisateurs de cette installation une fois enregistré."
+    "scope_device": "Le thème, la taille du texte et la langue changent tout de suite sur cet appareil.",
+    "scope_everyone": "Ces réglages s’appliquent à tous les utilisateurs de cette installation une fois enregistrés.",
+    "more_title": "Dates, noms et disposition"
   },
   "theme_scope": "Change tout de suite, sur cet appareil seulement.",
   "maintenance": {

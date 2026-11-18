@@ -66,6 +66,8 @@ Some settings have since moved within that map:
 | Blocked labels, range filter, Frigate and video, **Hardware** (with the runtime report), Beta features | Identifying birds | Identifying birds, under **More options** |
 | Garden animal alerts | Beta features (Garden, Alerts) | Alerts, under **More options**, marked Beta |
 | Notification cooldown, language, link and species filter | Alerts | Alerts, under **More options** |
+| When Frigate loses a visit; the repair and fill-in jobs, with **Jobs at once** | Storage & upkeep | Storage & upkeep, under **More options** |
+| Date and time format, naming style, Explorer layout, fonts and colours, Units | Display | Display, under **More options** |
 
 Edits wait in one draft across every section. While anything differs from what is saved, a short
 bar at the bottom of the page counts the changes, with **Discard changes** (puts every saved value
@@ -452,7 +454,10 @@ See [Reverse Proxy](reverse-proxy.md) for routing, HTTPS headers and live-stream
 
 ## Storage & upkeep
 
-What is kept and for how long, a backup of these settings, and the jobs that repair or fill in the history.
+What is kept and for how long, and a backup of these settings, come first. **More options** holds
+what happens when Frigate loses a visit, and the jobs that repair or fill in the history (an
+address such as `/settings/maintenance` opens it at the jobs). **Delete data** is last, outside
+More options.
 
 ### Data
 
@@ -555,7 +560,8 @@ Security (see [Telemetry](../features/telemetry.md)).
 
 ### Maintenance
 
-Jobs that repair or fill in the history, and the actions that delete it. Every button here acts
+Under **More options**: jobs that repair or fill in the history. The actions that delete it are
+in **Delete data**, the last card of the section. Every button here acts
 straight away; only **Run automatically (daily)** and **Jobs at once** wait for **Save changes**.
 Each job says when to run it and what it changes, and has a line for its last run ("Last run
 15/11/2026 09:30: 7 of 120 names repaired.", or "No run recorded yet."), read from the server's
@@ -613,18 +619,21 @@ How YA-WAMF looks and names birds, and contrast, a reading font, motion and spok
 
 ### Appearance
 
-How the interface reads.
+How the interface reads. **Theme**, **Text size** and **Language** come first and change at once on
+this device; the accessibility switches follow. **More options** holds the choices saved for
+everyone: the date and time formats, how birds are named, the Explorer layout, fonts and colours,
+and **Units**.
 
 | Setting | Options |
 |---|---|
-| **Bird Naming Style** | **Standard** (common name primary, scientific subtitle), **Hobbyist** (scientific primary, common subtitle), or **Strictly Scientific** (scientific only). |
-| **Explorer layout** | **Cards** shows a snapshot per detection; **List** shows one compact row each, with times aligned for scanning. |
+| **Bird Naming Style** | Under More options. **Standard** (common name primary, scientific subtitle), **Hobbyist** (scientific primary, common subtitle), or **Strictly Scientific** (scientific only). |
+| **Explorer layout** | Under More options. **Cards** shows a snapshot per detection; **List** shows one compact row each, with times aligned for scanning. |
 | **Theme** | Light or dark, plus the colour and font themes. |
 | **Text size** | Smallest (75%), Smaller (81%), **Standard** (87.5%, default), Large (100%), Larger (112.5%), Extra large (125%) or Largest (150%). Saved separately on each device. |
 | **Language** | The interface language. Notifications have their own language setting. |
-| **Date format** | Follow browser language (default), United Kingdom (DD/MM/YYYY), United States (MM/DD/YYYY), or Japan/China (YYYY-MM-DD). Date and time choices are saved independently. |
-| **Time format** | 12 hour, 24 hour, or **Follow browser language**. |
-| **Units** | **Display units**: `Metric`, `Imperial`, or `British` (°C with mph and mm). Temperature, wind, rain and distances across the UI follow it. Saved for everyone who opens this install, not only this device. |
+| **Date format** | Under More options. Follow browser language (default), United Kingdom (DD/MM/YYYY), United States (MM/DD/YYYY), or Japan/China (YYYY-MM-DD). Date and time choices are saved independently. |
+| **Time format** | Under More options. 12 hour, 24 hour, or **Follow browser language**. |
+| **Units** | Under More options. **Display units**: `Metric`, `Imperial`, or `British` (°C with mph and mm). Temperature, wind, rain and distances across the UI follow it. Saved for everyone who opens this install, not only this device. |
 
 ### Accessibility
 

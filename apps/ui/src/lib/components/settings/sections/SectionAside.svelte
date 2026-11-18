@@ -6,6 +6,7 @@
     import { systemStatusStore, verdictFor } from '../../../stores/system_status.svelte';
     import type { SubsystemKey, SubsystemVerdict } from '../../../api/status';
     import { toAppPath } from '../../../app/url-base';
+    import { statusStateKey } from '../../../settings/status-words';
     import { SETTINGS_SECTION_PARTS, settingsPartPath, type SettingsPart, type SettingsSection } from '../../../settings/settings-route';
 
     interface Props {
@@ -45,8 +46,8 @@
     const verdicts = $derived(keys.map((key) => ({ key, verdict: verdictFor(snapshot, key) })));
     const parts = $derived(SETTINGS_SECTION_PARTS[section]);
 
-    function stateLabel(state: SubsystemVerdict['state']): string {
-        return $_(`settings.status.state.${state}`);
+    function stateLabel(key: SubsystemKey, verdict: SubsystemVerdict | null): string {
+        return $_(statusStateKey(key, verdict));
     }
 
     function openPart(event: MouseEvent, part: SettingsPart): void {
@@ -77,7 +78,7 @@
                     <StatusChip
                         tone={STATE_TONE[verdict?.state ?? 'unknown']}
                         label={$_('settings.status.chip', {
-                            values: { name: $_(`settings.status.subsystem.${key}`), state: stateLabel(verdict?.state ?? 'unknown') },
+                            values: { name: $_(`settings.status.subsystem.${key}`), state: stateLabel(key, verdict) },
                             default: '{name}: {state}'
                         })}
                         title={verdict?.cause}

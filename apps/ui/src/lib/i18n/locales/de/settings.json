@@ -146,7 +146,11 @@
     "frigate_missing_behavior_note": "Diese Richtlinie wird bei manuellen Scans und geplanten Prüfungen angewendet. Verwenden Sie „Als fehlend markieren“, wenn YA-WAMF Erkennungen länger als Frigate behalten soll.",
     "purge_missing_media": "Medienintegritäts-Scan jetzt ausführen",
     "auto_purge_missing_media": "Medienintegritäts-Scan täglich ausführen",
-    "purge_missing_media_confirm": "Erkennungen scannen, deren Frigate-Ereignis, Clip oder Schnappschuss fehlt, und die konfigurierte Richtlinie anwenden?",
+    "purge_missing_media_confirm_delete": "Besuche, deren Frigate-Ereignis, Clip oder Schnappschuss fehlt, werden mit ihren Fotos und Videos aus YA-WAMF gelöscht. Favoriten bleiben erhalten und werden als fehlend markiert. Wie viele es sind, steht erst nach dem Scan fest. Dies kann nicht rückgängig gemacht werden.",
+    "purge_missing_media_confirm_mark": "Besuche, deren Frigate-Ereignis, Clip oder Schnappschuss fehlt, werden als fehlend markiert. Ihre Fotos und Einträge bleiben erhalten. Es wird nichts gelöscht.",
+    "purge_missing_media_confirm_keep": "Besuche, deren Frigate-Ereignis, Clip oder Schnappschuss fehlt, bleiben unverändert. Es wird nichts gelöscht.",
+    "purge_missing_media_confirm_unsaved": "Ihre ungespeicherte Auswahl gilt erst nach dem Speichern.",
+    "purge_missing_media_delete_button": "Scannen und löschen",
     "media_integrity_note": "Diese Scans wenden die ausgewählte Upstream-Fehlend-Richtlinie an, statt Erkennungen immer zu löschen.",
     "auto_purge_missing_clips": "Automatisch ausführen (täglich)",
     "auto_purge_missing_snapshots": "Automatisch ausführen (täglich)",
@@ -297,7 +301,15 @@
       "storage": "Speicher",
       "notifications": "Benachrichtigungen"
     },
-    "sharing_note": "Hier hängt nichts von einer gemessenen Verbindung ab. Anmeldung und Gastzugang werden hier eingestellt; jeder Dienst unter Weitere Optionen zeigt, ob er eingeschaltet ist."
+    "sharing_note": "Hier hängt nichts von einer gemessenen Verbindung ab. Anmeldung und Gastzugang werden hier eingestellt; jeder Dienst unter Weitere Optionen zeigt, ob er eingeschaltet ist.",
+    "cause": {
+      "classifier": {
+        "model_missing": "nicht auf dieser Installation"
+      },
+      "finder": {
+        "not_downloaded": "nicht heruntergeladen"
+      }
+    }
   },
   "more": {
     "title": "Weitere Optionen",
@@ -305,7 +317,9 @@
     "sharing": "eBird, iNaturalist, BirdWeather, Home-Assistant-Wetter, Arteninformationen, KI und Telemetrie",
     "identification": "Blockierte Arten, Verbreitungsfilter, Videoprüfungen, Hardware und Beta-Funktionen",
     "alerts": "Abkühlzeit, Sprache, Link und Artenfilter",
-    "alerts_garden": "Abkühlzeit, Sprache, Link, Artenfilter und Benachrichtigungen zu Gartentieren"
+    "alerts_garden": "Abkühlzeit, Sprache, Link, Artenfilter und Benachrichtigungen zu Gartentieren",
+    "storage": "Wenn Frigate einen Besuch verliert, und die Aufgaben, die den Verlauf reparieren oder ergänzen",
+    "display": "Datums- und Zeitformat, Vogelnamen, Explorer-Ansicht, Schriften und Farben sowie Einheiten"
   },
   "debug": {
     "llm_prompt_style_label": "Prompt-Stil",
@@ -910,7 +924,7 @@
     },
     "link_open_connection": "Verbindung öffnen",
     "channels_title": "Kanäle",
-    "details_title": "Abstand, Sprache, Links und Arten",
+    "details_title": "Abkühlzeit, Sprache, Links und Arten",
     "garden_title": "Benachrichtigungen zu Gartentieren",
     "channels_desc": "Wohin Benachrichtigungen gehen. Schalten Sie einen Kanal ein, um ihn einzurichten."
   },
@@ -1697,7 +1711,9 @@
   "save_rule": "Änderungen an Einstellungen warten, bis Sie „Änderungen speichern“ wählen. Schaltflächen wie Testen, Ausführen und Herunterladen wirken sofort.",
   "appearance": {
     "typography_title": "Schriften und Farben",
-    "scope": "Design, Textgröße und Sprache ändern sich sofort auf diesem Gerät. Der Rest gilt nach dem Speichern für alle, die diese Installation nutzen."
+    "scope_device": "Design, Textgröße und Sprache ändern sich sofort auf diesem Gerät.",
+    "scope_everyone": "Diese Einstellungen gelten nach dem Speichern für alle, die diese Installation nutzen.",
+    "more_title": "Datum, Namen und Ansicht"
   },
   "theme_scope": "Ändert sich sofort, nur auf diesem Gerät.",
   "maintenance": {

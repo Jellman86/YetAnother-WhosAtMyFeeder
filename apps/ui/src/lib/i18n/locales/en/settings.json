@@ -159,7 +159,11 @@
     "frigate_missing_behavior_note": "This policy is applied during manual scans and scheduled checks. Use mark-missing when YA-WAMF should keep detections longer than Frigate.",
     "purge_missing_media": "Run media integrity scan now",
     "auto_purge_missing_media": "Run media integrity scan periodically",
-    "purge_missing_media_confirm": "Scan detections whose Frigate event, clip, or snapshot is missing and apply the configured policy?",
+    "purge_missing_media_confirm_delete": "Visits whose Frigate event, clip or snapshot is gone are deleted from YA-WAMF, with their photos and video. Favourites are kept and marked missing. How many is not known until the scan has run. This cannot be undone.",
+    "purge_missing_media_confirm_mark": "Visits whose Frigate event, clip or snapshot is gone are marked missing. Their photos and records are kept. Nothing is deleted.",
+    "purge_missing_media_confirm_keep": "Visits whose Frigate event, clip or snapshot is gone are left unchanged. Nothing is deleted.",
+    "purge_missing_media_confirm_unsaved": "Your unsaved choice applies only after Save.",
+    "purge_missing_media_delete_button": "Scan and delete",
     "media_integrity_note": "Re-checks a batch of detections against Frigate every few hours and applies the upstream-missing behaviour above. It never changes anything while Frigate is unreachable, and a long history takes several runs to work through.",
     "auto_purge_missing_clips": "Run automatically (daily)",
     "auto_purge_missing_snapshots": "Run automatically (daily)",
@@ -297,7 +301,15 @@
       "storage": "Storage",
       "notifications": "Alerts"
     },
-    "sharing_note": "Nothing here depends on a measured connection. Sign-in and guest access are set here; each service under More options says whether it is on."
+    "sharing_note": "Nothing here depends on a measured connection. Sign-in and guest access are set here; each service under More options says whether it is on.",
+    "cause": {
+      "classifier": {
+        "model_missing": "not on this install"
+      },
+      "finder": {
+        "not_downloaded": "not downloaded"
+      }
+    }
   },
   "more": {
     "title": "More options",
@@ -305,7 +317,9 @@
     "sharing": "eBird, iNaturalist, BirdWeather, Home Assistant weather, species information, AI and telemetry",
     "identification": "Blocked species, the range filter, video checks, hardware and Beta features",
     "alerts": "Cooldown, language, the link and the species filter",
-    "alerts_garden": "Cooldown, language, the link, the species filter and Garden animal alerts"
+    "alerts_garden": "Cooldown, language, the link, the species filter and Garden animal alerts",
+    "storage": "When Frigate loses a visit, and the jobs that repair or fill in the history",
+    "display": "Date and time format, how birds are named, the Explorer layout, fonts and colours, and units"
   },
   "debug": {
     "llm_prompt_style_label": "Prompt style",
@@ -910,7 +924,7 @@
     },
     "link_open_connection": "Open Connection",
     "channels_title": "Channels",
-    "details_title": "Pacing, language, links and species",
+    "details_title": "Cooldown, language, links and species",
     "garden_title": "Garden animal alerts",
     "channels_desc": "Where alerts go. Turn a channel on to set it up."
   },
@@ -1697,7 +1711,9 @@
   "save_rule": "Changes to settings wait until you choose Save changes. Buttons such as Test, Run and Download act straight away.",
   "appearance": {
     "typography_title": "Fonts and colours",
-    "scope": "Theme, text size and language change at once on this device. The rest apply to everyone who uses this install once you save."
+    "scope_device": "Theme, text size and language change at once on this device.",
+    "scope_everyone": "These apply to everyone who uses this install once you save.",
+    "more_title": "Dates, names and layout"
   },
   "theme_scope": "Changes at once, on this device only.",
   "maintenance": {

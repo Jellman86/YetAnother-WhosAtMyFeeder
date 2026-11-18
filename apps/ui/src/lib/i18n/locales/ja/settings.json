@@ -146,7 +146,11 @@
     "frigate_missing_behavior_note": "このポリシーは手動スキャンとスケジュールされたチェックで適用されます。YA-WAMF で Frigate より長く検出を保持したい場合は欠落マークを使用してください。",
     "purge_missing_media": "メディア整合性スキャンを今すぐ実行",
     "auto_purge_missing_media": "メディア整合性スキャンを毎日実行",
-    "purge_missing_media_confirm": "Frigate のイベント、クリップ、またはスナップショットが欠落している検出をスキャンし、設定されたポリシーを適用しますか？",
+    "purge_missing_media_confirm_delete": "Frigate のイベント、クリップ、スナップショットが失われた訪問は、写真と動画とともに YA-WAMF から削除されます。お気に入りは保持され、欠落としてマークされます。件数はスキャンが終わるまでわかりません。この操作は元に戻せません。",
+    "purge_missing_media_confirm_mark": "Frigate のイベント、クリップ、スナップショットが失われた訪問は欠落としてマークされます。写真と記録は保持されます。何も削除されません。",
+    "purge_missing_media_confirm_keep": "Frigate のイベント、クリップ、スナップショットが失われた訪問はそのまま残ります。何も削除されません。",
+    "purge_missing_media_confirm_unsaved": "保存していない選択は、保存した後にのみ適用されます。",
+    "purge_missing_media_delete_button": "スキャンして削除",
     "media_integrity_note": "これらのスキャンは、常に検出を削除するのではなく、選択した upstream 欠落ポリシーを適用します。",
     "auto_purge_missing_clips": "自動実行（毎日）",
     "auto_purge_missing_snapshots": "自動実行（毎日）",
@@ -297,15 +301,25 @@
       "storage": "ストレージ",
       "notifications": "アラート"
     },
-    "sharing_note": "ここには測定される接続はありません。サインインとゲストアクセスはここで設定します。「その他のオプション」の各サービスに、オンかどうかが表示されます。"
+    "sharing_note": "ここには測定される接続はありません。サインインとゲストアクセスはここで設定します。「その他のオプション」の各サービスに、オンかどうかが表示されます。",
+    "cause": {
+      "classifier": {
+        "model_missing": "このインストールにありません"
+      },
+      "finder": {
+        "not_downloaded": "未ダウンロード"
+      }
+    }
   },
   "more": {
     "title": "その他のオプション",
     "cameras": "Frigate の詳細、画像の取得元、クリップ、BirdNET-Go",
     "sharing": "eBird、iNaturalist、BirdWeather、Home Assistant の天気、種の情報、AI、テレメトリー",
     "identification": "ブロックした種、分布域フィルター、動画チェック、ハードウェア、ベータ機能",
-    "alerts": "待機時間、言語、リンク、種のフィルター",
-    "alerts_garden": "待機時間、言語、リンク、種のフィルター、庭の動物のアラート"
+    "alerts": "クールダウン、言語、リンク、種のフィルター",
+    "alerts_garden": "クールダウン、言語、リンク、種のフィルター、庭の動物のアラート",
+    "storage": "Frigate が訪問を失ったときの扱いと、履歴を修復・補完するジョブ",
+    "display": "日付と時刻の形式、鳥の名前の表示、Explorer のレイアウト、フォントと色、単位"
   },
   "debug": {
     "llm_prompt_style_label": "プロンプトスタイル",
@@ -910,7 +924,7 @@
     },
     "link_open_connection": "接続を開く",
     "channels_title": "チャンネル",
-    "details_title": "間隔、言語、リンク、種",
+    "details_title": "クールダウン、言語、リンク、種",
     "garden_title": "庭の動物のアラート",
     "channels_desc": "通知の送信先です。チャンネルをオンにすると設定できます。"
   },
@@ -1697,7 +1711,9 @@
   "save_rule": "設定の変更は「変更を保存」を選ぶまで反映されません。テスト、実行、ダウンロードなどのボタンはすぐに動作します。",
   "appearance": {
     "typography_title": "フォントと色",
-    "scope": "テーマ、文字サイズ、言語はこの端末ですぐに変わります。それ以外は保存すると、このインストールを使う全員に適用されます。"
+    "scope_device": "テーマ、文字サイズ、言語はこの端末ですぐに変わります。",
+    "scope_everyone": "これらは保存すると、このインストールを使う全員に適用されます。",
+    "more_title": "日付、名前、レイアウト"
   },
   "theme_scope": "この端末だけで、すぐに変わります。",
   "maintenance": {

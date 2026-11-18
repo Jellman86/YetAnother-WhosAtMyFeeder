@@ -59,6 +59,7 @@
     "mqtt_down": "Il broker MQTT non è connesso, quindi non possono arrivare nuovi rilevamenti.",
     "mqtt_not_configured": "Nessun broker MQTT è impostato, quindi non possono arrivare rilevamenti.",
     "frigate_down": "Frigate non risponde, quindi i nuovi rilevamenti non possono essere salvati.",
+    "model_missing": "Il modello di identificazione scelto non è su questa installazione, quindi nessun uccello può essere nominato.",
     "pipeline_critical": "La pipeline dei rilevamenti ha un errore critico.",
     "other": "Qualcosa non funziona come dovrebbe. Apri Stato per vedere cosa."
   }

@@ -82,6 +82,13 @@ export function settingsSectionPath(section: SettingsSection, part?: SettingsPar
 }
 
 /** The address that opens a part: its section, at the part. */
+/**
+ * Where the upkeep jobs (batch analysis among them) are shown: their cards in Storage & upkeep, under
+ * More options, which this route opens. A job notification kept from before the cards moved opens
+ * them here too, as its route is written again whenever the job reports.
+ */
+export const MAINTENANCE_JOBS_ROUTE = '/settings/maintenance';
+
 export function settingsPartPath(part: SettingsPart): string {
     return settingsSectionPath(settingsSectionOfPart(part), part);
 }

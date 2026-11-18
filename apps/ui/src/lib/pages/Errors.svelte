@@ -23,7 +23,7 @@
     } from '../utils/pipeline-health';
     import { getFrigateMediaAdvisory, getVideoClassifierCardState } from '../errors/health';
     import { STATUS_SURFACE, STATUS_TONE, statusLabelKey, statusTone } from '../utils/status-tone';
-    import { connectionProblems, frigateCardStatus, healthVerdict, mqttCardStatus, pipelineCardStatus, type ConnectionProblem } from '../utils/connection-health';
+    import { frigateCardStatus, healthProblems, healthVerdict, mqttCardStatus, pipelineCardStatus, type HealthProblem } from '../utils/connection-health';
     import { diagnosticWordsKey } from '../utils/diagnostic-words';
     import { connectionCauseMessage } from '../api/error-message';
     import { serviceConnectionsStore } from '../stores/service_connections.svelte';
@@ -140,7 +140,7 @@
     // of them disagree; the workspace's own reading stands in until the first status arrives.
     const pushedStatus = $derived(systemStatusStore.snapshot);
     let connections = $derived(pushedStatus?.connections ?? workspacePayload?.connections ?? null);
-    let problems = $derived(connectionProblems(connections));
+    let problems = $derived(healthProblems(connections, pushedStatus));
     // Everything open, from the one workspace reading: the failed connections, then any incident
     // not yet resolved. The verdict card lists these, so a count elsewhere can never disagree.
     let openItems = $derived([
@@ -421,7 +421,7 @@
     }
 
     /** One short item per failed connection: what is wrong, then what to do. */
-    function problemItem(problem: ConnectionProblem): { title: string; next: string } {
+    function problemItem(problem: HealthProblem): { title: string; next: string } {
         const server = connections ? `${connections.mqtt.server}:${connections.mqtt.port}` : '';
         const url = connections?.frigate.url ?? '';
         switch (problem) {
@@ -444,6 +444,11 @@
                 return {
                     title: $_('jobs.errors_problem.frigate_down', { values: { url }, default: 'Frigate at {url} is not answering, so new visits cannot be saved.' }),
                     next: $_('jobs.errors_problem.frigate_down_next', { default: 'Check its address in Settings → Cameras & connection and that Frigate is running.' })
+                };
+            case 'model_missing':
+                return {
+                    title: $_('jobs.errors_problem.model_missing', { default: 'The chosen identification model is not on this install, so no bird can be named.' }),
+                    next: $_('jobs.errors_problem.model_missing_next', { default: 'Download it, or choose one that is installed, in Settings → Identifying birds.' })
                 };
         }
     }

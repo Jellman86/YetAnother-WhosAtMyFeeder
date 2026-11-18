@@ -215,7 +215,9 @@
     "mqtt_stopped": "MQTTサービスが動作していないため、新しい検出は届きません。",
     "mqtt_stopped_next": "YA-WAMFを再起動すると再開します。",
     "frigate_down": "{url} のFrigateが応答しないため、新しい検出を保存できません。",
-    "frigate_down_next": "設定 → カメラと接続 でアドレスを確認し、Frigateが動作していることを確認してください。"
+    "frigate_down_next": "設定 → カメラと接続 でアドレスを確認し、Frigateが動作していることを確認してください。",
+    "model_missing": "選択した識別モデルがこのインストールにないため、鳥に名前を付けられません。",
+    "model_missing_next": "設定 → 鳥の識別 でダウンロードするか、インストール済みのモデルを選んでください。"
   },
   "errors_clear_effect": "記録されたエラーとインシデントを今すぐ削除します。ライブのチェックは続きます。",
   "earlier_incidents_title": "過去のインシデント",

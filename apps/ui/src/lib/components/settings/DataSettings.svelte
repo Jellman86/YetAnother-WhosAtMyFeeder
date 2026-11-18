@@ -45,7 +45,10 @@
         handleCacheCleanup,
         handleExportConfigBackup,
         handleImportConfigBackup,
+        region
     }: {
+        /** What is kept and the backup on the section's first screen, or the rest under More options. */
+        region: 'main' | 'more';
         maintenanceStats: MaintenanceStats | null;
         /** What saving a shorter retention deletes; null when the choice deletes nothing new. */
         retentionNote?: string | null;
@@ -81,7 +84,7 @@
         handleImportConfigBackup: (file: File) => Promise<void>;
     } = $props();
 
-    let configImportInput: HTMLInputElement | null = null;
+    let configImportInput = $state<HTMLInputElement | null>(null);
 
     const safeCount = (value: unknown): number => {
         const parsed = Number(value ?? 0);
@@ -207,6 +210,7 @@
 
 
     <div class="space-y-8">
+        {#if region === 'main'}
         <SettingsCard title={$_('settings.data.retention_title')}>
             {#if maintenanceStats}
                 <p class="text-sm text-slate-700 dark:text-slate-200" data-history-summary>
@@ -267,8 +271,11 @@
             </div>
             <p class="text-xs text-slate-600 dark:text-slate-400">{$_('settings.data.auto_cleanup_note')}</p>
         </SettingsCard>
+        {/if}
 
+        {#if region === 'more'}
         <SettingsCard
+            level={3}
             id="data-missing-media"
             title={$_('settings.data.missing_media_title', { default: 'When Frigate loses a visit' })}
             description={$_('settings.data.missing_media_desc', { default: 'Frigate deletes old events on its own schedule. This decides what YA-WAMF keeps when one is gone.' })}
@@ -319,8 +326,10 @@
                 />
             </SettingsRow>
         </SettingsCard>
+        {/if}
     </div>
 
+    {#if region === 'main'}
     <SettingsCard title={$_('settings.data.cache_title', { default: 'Photos and video' })}>
         <p class="text-sm text-slate-600 dark:text-slate-300" data-media-always-kept>
             {$_('settings.data.cache_always_kept', { default: 'Photos, full-visit clips and previews are kept with their visits until the history window or the storage limit removes them.' })}
@@ -590,7 +599,9 @@
             {/if}
         </AdvancedSection>
     </SettingsCard>
+    {/if}
 
+    {#if region === 'main'}
     <SettingsCard
         title={$_('settings.data.config_backup_title', { default: 'Configuration backup' })}
         description={$_('settings.data.config_backup_desc', { default: 'Export or restore the complete YA-WAMF configuration as JSON, including secrets.' })}
@@ -654,4 +665,5 @@
             </p>
         </div>
     </SettingsCard>
+    {/if}
 </div>

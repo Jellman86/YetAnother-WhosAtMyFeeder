@@ -205,7 +205,8 @@ describe('where a refused field is shown', () => {
         expect(settingsFieldPlace('audio_buffer_hours')?.disclosures).toEqual(['settings-more-cameras', 'integrations-birdnet-advanced']);
     });
 
-    it('shows a refused concurrency on Maintenance with nothing to open, since Jobs at once is a plain section', () => {
-        expect(settingsFieldPlace('maintenance_max_concurrent')?.disclosures ?? []).toEqual([]);
+    it('shows a refused concurrency by opening Storage\'s More options, since Jobs at once is a plain card inside it', () => {
+        expect(settingsFieldPlace('maintenance_max_concurrent')?.disclosures).toEqual(['settings-more-storage']);
+        expect(settingsFieldPlace('media_cache_max_size_mb')?.disclosures ?? []).toEqual([]);
     });
 });

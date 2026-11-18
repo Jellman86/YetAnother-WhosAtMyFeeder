@@ -44,13 +44,23 @@ describe('destructive actions ask in the app, never through the browser', () => 
         ['handleResetDatabase', 'settings.danger.reset_button'],
         ['handleClearFavorites', 'settings.data.clear_favorites_confirm'],
         ['handleClearFeedback', 'settings.danger.clear_feedback_button'],
-        ['handlePurgeMissingMedia', 'settings.data.purge_missing_media_confirm']
+        ['handlePurgeMissingMedia', 'settings.data.purge_missing_media_confirm_delete']
     ])('%s asks before it deletes anything', (name, key) => {
         const body = handler(settingsSource, name);
         const asked = body.indexOf('await confirmAction(');
         expect(asked, `${name} confirms`).toBeGreaterThan(-1);
         expect(body).toContain(key);
         expect(body.indexOf('if (!confirmed)')).toBeGreaterThan(asked);
+    });
+
+    it('the media integrity scan words the saved policy, and under Delete says it cannot be undone', () => {
+        // The scan applies the saved policy, and it can delete; nothing counts what before it runs.
+        const body = handler(settingsSource, 'handlePurgeMissingMedia');
+        expect(body).toContain('normalizeFrigateMissingBehavior(settingsStore.settings?.frigate_missing_behavior)');
+        expect(body).toContain("savedPolicy === 'delete'");
+        expect(body).toContain("tone: 'danger'");
+        expect(body).toContain('This cannot be undone.');
+        expect(body).toContain('How many is not known until the scan has run.');
     });
 
     it('purging with unlimited retention skips the question, since nothing would be deleted', () => {

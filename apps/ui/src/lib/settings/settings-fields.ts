@@ -154,6 +154,8 @@ const SHARING_MORE = settingsMoreId('sharing');
 const IDENTIFICATION_MORE = settingsMoreId('identification');
 // Alerts' More options: the cooldown, language, link, species filter and Garden animal alerts.
 const ALERTS_MORE = settingsMoreId('alerts');
+// Storage & upkeep's More options: what happens when Frigate loses a visit, and the upkeep jobs.
+const STORAGE_MORE = settingsMoreId('storage');
 
 const FIELD_PLACES: Readonly<Record<string, SettingsFieldPlace>> = {
     frigate_url: { labelKey: 'settings.frigate.url', inputId: 'frigate-url' },
@@ -169,7 +171,7 @@ const FIELD_PLACES: Readonly<Record<string, SettingsFieldPlace>> = {
     video_classification_max_retries: { labelKey: 'settings.detection.video_retries', inputId: 'video-retries', disclosures: [IDENTIFICATION_MORE, 'detection-frigate-video'] },
     video_classification_frames: { labelKey: 'settings.detection.video_frames', inputId: 'video-frames', disclosures: [IDENTIFICATION_MORE, 'detection-frigate-video'] },
     media_cache_max_size_mb: { labelKey: 'settings.data.storage_limit', inputId: 'cache-max-size-gb' },
-    maintenance_max_concurrent: { labelKey: 'settings.data.maintenance_max_concurrent', inputId: 'maintenance-max-concurrent' },
+    maintenance_max_concurrent: { labelKey: 'settings.data.maintenance_max_concurrent', inputId: 'maintenance-max-concurrent', disclosures: [STORAGE_MORE] },
     garden_labels: { labelKey: 'garden.labels', inputId: 'garden-labels', disclosures: [IDENTIFICATION_MORE, 'garden-section-cameras'] },
     garden_motion_confidence: { labelKey: 'garden.confidence', inputId: 'garden-motion-confidence', disclosures: [IDENTIFICATION_MORE, 'garden-section-cameras'] },
     garden_naming_threshold: { labelKey: 'settings.beta.garden_naming_threshold', inputId: 'garden-naming-threshold' },

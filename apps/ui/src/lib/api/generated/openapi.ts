@@ -580,6 +580,7 @@ export interface components {
 };
     ClassifierCropStatus: {
     active_provider?: string | null;
+    chosen_installed?: boolean | null;
     chosen_model_id?: string;
     cpu_fallback?: components['schemas']['ClassifierFinderCPUFallback'] | null;
     device_check?: components['schemas']['ClassifierCropDeviceCheck'] | null;
