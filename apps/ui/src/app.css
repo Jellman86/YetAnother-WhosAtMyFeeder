@@ -534,8 +534,9 @@ html[data-theme='dark'] {
   @apply focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-surface;
 }
 
-/* A Settings part's heading that an address landed on holds focus, so the next Tab starts there; it
-   shows the kit's ring when the landing came from the keyboard. */
+/* A Settings part's heading that an address landed on holds focus, so the next Tab starts there. It
+   shows the kit's ring unless the reader last used a pointer: after a key, and also on an address opened
+   cold or pasted, which the browser treats as keyboard focus, so the ring says where focus now is. */
 [data-settings-landed]:focus-visible {
   @apply rounded-md outline-hidden ring-2 ring-focus ring-offset-2 ring-offset-surface;
 }

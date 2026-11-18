@@ -140,29 +140,44 @@ test('a newer address wins over a landing still in progress', async ({ page }) =
     expect(await page.evaluate(() => window.scrollY)).toBe(0);
 });
 
-test('going to another section while a part landing holds leaves the reader where they went', async ({ page }) => {
+test('going to the section top while a part landing waits, with no input, keeps the reader at the top', async ({ page }) => {
     await openOwnerShell(page);
     await slowPartReads(page, 1200);
     await page.goto('/settings/beta');
-    // Away to another section before the landing's reads have answered: it does not pull the page back.
-    await settingsNav(page).getByRole('link', { name: 'Cameras & connection', exact: true }).click();
-    await expectSection(page, '/settings/cameras', 'Cameras & connection');
-    // From here on, count every scroll a script asks for: the Cameras section's own reads may still
-    // change its height, but nothing from the Beta landing may scroll the page once the reader has left.
+    await expectSection(page, '/settings/identification', 'Identifying birds', '#beta');
+    // The same section's top, by the browser's own navigation (Back, a history entry): no wheel, key or
+    // press, so only the address change can call the Beta landing off.
     await page.evaluate(() => {
-        const counted = window as unknown as { landingScrolls: number };
-        counted.landingScrolls = 0;
-        const scroll = Element.prototype.scrollIntoView;
-        Element.prototype.scrollIntoView = function (this: Element, ...args: Parameters<Element['scrollIntoView']>) {
-            counted.landingScrolls += 1;
-            return scroll.apply(this, args);
-        };
+        history.pushState(null, '', '/settings/identification');
+        dispatchEvent(new PopStateEvent('popstate'));
     });
+    await expect.poll(() => hash(page)).toBe('');
     await settled(page, 2500);
-    expect(pathname(page)).toBe('/settings/cameras');
-    expect(await page.evaluate(() => (window as unknown as { landingScrolls: number }).landingScrolls)).toBe(0);
+    expect(pathname(page)).toBe('/settings/identification');
+    expect(await page.evaluate(() => window.scrollY)).toBe(0);
 });
 
+test('a landed part stays put when something above the section appears, even where the browser keeps no reader\'s place', async ({ page }) => {
+    // Safari has no scroll anchoring; turning it off here makes Chromium behave the same.
+    await page.addInitScript(() => document.addEventListener('DOMContentLoaded', () => { document.documentElement.style.overflowAnchor = 'none'; document.body.style.overflowAnchor = 'none'; }));
+    await openOwnerShell(page);
+    await page.goto('/settings/beta');
+    await expectAtPart(page, 'beta');
+    // Where it landed: the top of the window, or above it as far as a short page lets it go.
+    const partTop = () => page.evaluate(() => Math.round(document.querySelector('[data-settings-part="beta"]')?.getBoundingClientRect().top ?? 9999));
+    const landedAt = await partTop();
+    // The shell's jobs strip appearing above the section, as it does when a job starts: 103px.
+    await page.evaluate(() => {
+        const strip = document.createElement('div');
+        strip.style.height = '103px';
+        strip.setAttribute('data-test-strip', '');
+        document.querySelector('main')?.prepend(strip);
+    });
+    await page.waitForTimeout(500);
+    expect(Math.abs((await partTop()) - landedAt)).toBeLessThanOrEqual(2);
+});
+
+// A ratchet more than a proof: the code before the landing waited also left a wheeled page alone.
 test('the reader\'s own scroll ends the hold, so the page never pulls them back to the part', async ({ page }) => {
     await openOwnerShell(page);
     await slowPartReads(page, 1200);

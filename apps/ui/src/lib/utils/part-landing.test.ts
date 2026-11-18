@@ -1,5 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { holdInPlace, whenSectionReady } from './part-landing';
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
+import { holdInPlace, watchElementSizes, whenSectionReady } from './part-landing';
 
 /** A source the test drives: `fire()` reports to whatever is listening, as a ResizeObserver or the
  *  document's input events would. */
@@ -21,53 +21,121 @@ describe('holdInPlace', () => {
     beforeEach(() => vi.useFakeTimers());
     afterEach(() => vi.useRealTimers());
 
-    it('puts the part back in place every time the content around it changes size', () => {
-        const resize = source();
+    /** A part whose top the test moves, and the scrolls the hold asks for. */
+    function part(top = 0): { position: () => number; move: (to: number) => void; scrollBy: Mock<(by: number) => void> } {
+        let current = top;
+        const scrollBy = vi.fn<(by: number) => void>((by) => {
+            current -= by;
+        });
+        return { position: () => current, move: (to) => (current = to), scrollBy };
+    }
+
+    it('puts the part back where it landed by however far something has moved it', () => {
+        const change = source();
         const intent = source();
-        const place = vi.fn();
-        holdInPlace({ watch: resize.listen, listenForIntent: intent.listen, place });
-        resize.fire();
-        resize.fire();
-        expect(place).toHaveBeenCalledTimes(2);
+        const landed = part();
+        holdInPlace({ watch: change.listen, listenForIntent: intent.listen, position: landed.position, scrollBy: landed.scrollBy });
+        // The shell's jobs strip appears above the section, 103px tall.
+        landed.move(103);
+        change.fire();
+        expect(landed.scrollBy).toHaveBeenCalledWith(103);
+        expect(landed.position()).toBe(0);
+    });
+
+    it('scrolls nothing when a change has not moved the part', () => {
+        const change = source();
+        const intent = source();
+        const landed = part();
+        holdInPlace({ watch: change.listen, listenForIntent: intent.listen, position: landed.position, scrollBy: landed.scrollBy });
+        change.fire();
+        landed.move(0.4);
+        change.fire();
+        expect(landed.scrollBy).not.toHaveBeenCalled();
     });
 
     it('lets go when the reader acts, so their own scroll or keys are never undone', () => {
-        const resize = source();
+        const change = source();
         const intent = source();
-        const place = vi.fn();
-        holdInPlace({ watch: resize.listen, listenForIntent: intent.listen, place });
+        const landed = part();
+        holdInPlace({ watch: change.listen, listenForIntent: intent.listen, position: landed.position, scrollBy: landed.scrollBy });
         intent.fire();
-        resize.fire();
-        expect(place).not.toHaveBeenCalled();
-        expect(resize.listening()).toBe(false);
+        landed.move(103);
+        change.fire();
+        expect(landed.scrollBy).not.toHaveBeenCalled();
+        expect(change.listening()).toBe(false);
         expect(intent.listening()).toBe(false);
     });
 
     it('lets go after the longest hold, however slowly the content arrives', async () => {
-        const resize = source();
+        const change = source();
         const intent = source();
-        const place = vi.fn();
-        holdInPlace({ watch: resize.listen, listenForIntent: intent.listen, place, maxMs: 3000 });
+        const landed = part();
+        holdInPlace({ watch: change.listen, listenForIntent: intent.listen, position: landed.position, scrollBy: landed.scrollBy, maxMs: 3000 });
         await vi.advanceTimersByTimeAsync(2999);
-        resize.fire();
-        expect(place).toHaveBeenCalledTimes(1);
+        landed.move(50);
+        change.fire();
+        expect(landed.scrollBy).toHaveBeenCalledTimes(1);
         await vi.advanceTimersByTimeAsync(1);
-        resize.fire();
-        expect(place).toHaveBeenCalledTimes(1);
-        expect(resize.listening()).toBe(false);
+        landed.move(50);
+        change.fire();
+        expect(landed.scrollBy).toHaveBeenCalledTimes(1);
+        expect(change.listening()).toBe(false);
     });
 
     it('stops at once when the caller stops it (a newer address, leaving the page)', () => {
-        const resize = source();
+        const change = source();
         const intent = source();
-        const place = vi.fn();
-        const stop = holdInPlace({ watch: resize.listen, listenForIntent: intent.listen, place });
+        const landed = part();
+        const stop = holdInPlace({ watch: change.listen, listenForIntent: intent.listen, position: landed.position, scrollBy: landed.scrollBy });
         stop();
         stop();
-        resize.fire();
-        expect(place).not.toHaveBeenCalled();
-        expect(resize.listening()).toBe(false);
+        landed.move(103);
+        change.fire();
+        expect(landed.scrollBy).not.toHaveBeenCalled();
+        expect(change.listening()).toBe(false);
         expect(intent.listening()).toBe(false);
+    });
+
+    it('stops when the part is gone', () => {
+        const change = source();
+        const intent = source();
+        let gone = false;
+        const scrollBy = vi.fn<(by: number) => void>();
+        holdInPlace({ watch: change.listen, listenForIntent: intent.listen, position: () => (gone ? null : 0), scrollBy });
+        gone = true;
+        change.fire();
+        expect(scrollBy).not.toHaveBeenCalled();
+        expect(change.listening()).toBe(false);
+    });
+});
+
+describe('watchElementSizes', () => {
+    it('reports a change of any of the elements, and stops watching them all', () => {
+        const observed: Element[] = [];
+        let report: () => void = () => {};
+        let disconnected = false;
+        class FakeResizeObserver {
+            constructor(callback: () => void) {
+                report = callback;
+            }
+            observe(element: Element): void {
+                observed.push(element);
+            }
+            disconnect(): void {
+                disconnected = true;
+            }
+        }
+        vi.stubGlobal('ResizeObserver', FakeResizeObserver);
+        const section = {} as Element;
+        const page = {} as Element;
+        const onChange = vi.fn();
+        const stop = watchElementSizes(section, page)(onChange);
+        expect(observed).toEqual([section, page]);
+        report();
+        expect(onChange).toHaveBeenCalledTimes(1);
+        stop();
+        expect(disconnected).toBe(true);
+        vi.unstubAllGlobals();
     });
 });
 

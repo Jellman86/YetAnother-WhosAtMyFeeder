@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { apiFetch, onRequestsIdle } from './core';
+import { apiFetch, apiFetchJson, onRequestsIdle } from './core';
 
 afterEach(() => {
     vi.restoreAllMocks();
@@ -30,6 +30,7 @@ describe('onRequestsIdle', () => {
         expect(idle).not.toHaveBeenCalled();
         held.answer();
         await request;
+        await settled();
         expect(idle).toHaveBeenCalledTimes(1);
     });
 
@@ -43,4 +44,59 @@ describe('onRequestsIdle', () => {
         await request;
         expect(idle).not.toHaveBeenCalled();
     });
+
+    it('a waiter that throws neither fails the request that finished nor keeps the others from being told', async () => {
+        const reported = vi.spyOn(console, 'error').mockImplementation(() => {});
+        const held = heldFetch();
+        const request = apiFetch('/api/settings');
+        const later = vi.fn();
+        onRequestsIdle(() => {
+            throw new Error('a waiter failed');
+        });
+        onRequestsIdle(later);
+        held.answer();
+        await expect(request).resolves.toBeInstanceOf(Response);
+        await settled();
+        expect(later).toHaveBeenCalledTimes(1);
+        expect(reported).toHaveBeenCalled();
+    });
+
+    it('counts a request finished however it ends: refused by the network, aborted, timed out or answered with an error', async () => {
+        vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new TypeError('Failed to fetch'))));
+        await expect(apiFetch('/api/settings')).rejects.toThrow('Failed to fetch');
+        await expectIdle();
+
+        vi.stubGlobal('fetch', vi.fn((_url: string, options?: RequestInit) => new Promise<Response>((_resolve, reject) => {
+            options?.signal?.addEventListener('abort', () => reject(options.signal?.reason));
+        })));
+        const caller = new AbortController();
+        const aborted = apiFetch('/api/settings', { signal: caller.signal });
+        caller.abort(new DOMException('Left the page', 'AbortError'));
+        await expect(aborted).rejects.toThrow('Left the page');
+        await expectIdle();
+
+        vi.useFakeTimers();
+        const timedOut = apiFetch('/api/settings', { timeoutMs: 1000 });
+        const timedOutResult = expect(timedOut).rejects.toThrow('timed out');
+        await vi.advanceTimersByTimeAsync(1000);
+        await timedOutResult;
+        vi.useRealTimers();
+        await expectIdle();
+
+        vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(new Response('<html>Server error</html>', { status: 500 }))));
+        await expect(apiFetchJson('/api/settings', { timeoutMs: 1000 })).rejects.toThrow();
+        await expectIdle();
+    });
 });
+
+/** Lets the idle report, which runs after the request has settled, arrive. */
+async function settled(): Promise<void> {
+    await new Promise((done) => setTimeout(done, 0));
+}
+
+async function expectIdle(): Promise<void> {
+    await settled();
+    const idle = vi.fn();
+    onRequestsIdle(idle);
+    expect(idle).toHaveBeenCalledTimes(1);
+}
