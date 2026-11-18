@@ -9,5 +9,16 @@
     "not_authorised": "{service}: ユーザー名またはパスワードが拒否されました。確認するか、匿名クライアントを受け付ける場合は認証をオフにしてください。",
     "unreachable": "{service}: {address} に接続できません。アドレスとポートを確認してください。",
     "unreachable_url": "{service}: {address} に接続できません。アドレス、スキーム（http か https）、ポートを確認してください。"
+  },
+  "delivery": {
+    "not_configured": "{channel} はまだ設定されていません。必要な情報を入力してから、もう一度テストしてください。",
+    "no_answer_address": "{channel} から応答がありませんでした。Webhook URL を確認してから、もう一度テストしてください。",
+    "no_answer_network": "{channel} から応答がありませんでした。YA-WAMF がインターネットに接続できるか確認してから、もう一度テストしてください。",
+    "timeout": "{channel} の応答に時間がかかりすぎました。少し待ってから、もう一度テストしてください。",
+    "refused_discord": "{channel} がメッセージを拒否しました。Webhook URL を確認してから、もう一度テストしてください。",
+    "refused_pushover": "{channel} がメッセージを拒否しました。ユーザーキーと API トークンを確認してから、もう一度テストしてください。",
+    "refused_telegram": "{channel} がメッセージを拒否しました。ボットトークンとチャット ID を確認してから、もう一度テストしてください。",
+    "rate_limited": "{channel} が現在メッセージを制限しています。1 分ほど待ってから、もう一度テストしてください。",
+    "provider_error": "{channel} 側でエラーが報告されました。数分待ってから、もう一度テストしてください。"
   }
 }

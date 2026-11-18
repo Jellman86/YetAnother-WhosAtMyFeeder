@@ -84,4 +84,39 @@ describe('errors a person reads are worded here, in their language', () => {
         await locale.set('de');
         expect(connectionCauseMessage('host_not_found', 'mqtt', 'mqtt.invalid:1883')).not.toContain('was not found');
     });
+
+    it('words a channel test that was not delivered from its cause code, never from the server’s English', async () => {
+        const payload = { status: 'error', cause: 'no_answer', channel: 'discord', message: 'Discord did not answer. Check the webhook address, then test again.' };
+        await locale.set('en');
+        expect(extractApiErrorMessage(payload, 'HTTP 502')).toBe('Discord did not answer. Check the webhook address, then test again.');
+        expect(extractApiErrorMessage({ ...payload, channel: 'telegram' }, 'HTTP 502')).toBe(
+            'Telegram did not answer. Check that YA-WAMF can reach the internet, then test again.'
+        );
+        expect(extractApiErrorMessage({ ...payload, cause: 'refused', channel: 'pushover' }, 'HTTP 502')).toBe(
+            'Pushover refused the message. Check the user key and API token, then test again.'
+        );
+        await locale.set('de');
+        const german = extractApiErrorMessage(payload, 'HTTP 502');
+        expect(german).toContain('Discord');
+        expect(german).not.toContain('did not answer');
+        expect(german).toMatch(/Prüfen Sie/);
+        await locale.set('en');
+    });
+
+    it('has a sentence with a next step for every cause on every channel', async () => {
+        await locale.set('en');
+        for (const channel of ['discord', 'pushover', 'telegram']) {
+            for (const cause of ['not_configured', 'no_answer', 'timeout', 'refused', 'rate_limited', 'provider_error']) {
+                const sentence = extractApiErrorMessage({ cause, channel, message: 'server sentence' }, 'HTTP 502');
+                expect(sentence, `${channel} ${cause}`).not.toBe('server sentence');
+                expect(sentence, `${channel} ${cause}`).toMatch(/then test again\.$/);
+            }
+        }
+    });
+
+    it('falls back to the server’s sentence for a delivery cause or channel it does not know', async () => {
+        await locale.set('en');
+        expect(extractApiErrorMessage({ cause: 'something_new', channel: 'discord', message: 'A new failure.' }, 'HTTP 502')).toBe('A new failure.');
+        expect(extractApiErrorMessage({ cause: 'refused', channel: 'carrier_pigeon', message: 'A new channel.' }, 'HTTP 502')).toBe('A new channel.');
+    });
 });

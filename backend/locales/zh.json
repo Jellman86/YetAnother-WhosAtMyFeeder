@@ -91,8 +91,9 @@
       "not_enabled": "邮件通知未启用",
       "recipient_not_configured": "收件人邮箱未配置",
       "smtp_incomplete": "SMTP 配置不完整",
-      "send_failed": "发送测试邮件失败",
-      "send_error": "发送测试邮件失败：{error}",
+      "send_failed": "邮件服务器没有接受测试邮件。请检查 SMTP 主机、端口、用户名和密码，然后重新测试。",
+      "send_failed_oauth": "{provider} 没有接受测试邮件。请重新连接账户，然后重新测试。",
+      "send_timeout": "邮件服务器响应时间过长。请检查 SMTP 主机和端口，然后重新测试。",
       "invalid_state": "OAuth 状态无效，请重试。",
       "state_expired": "OAuth 状态已过期，请重试。",
       "email_missing": "提供方未返回电子邮件地址。"

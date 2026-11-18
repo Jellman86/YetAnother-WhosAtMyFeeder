@@ -91,8 +91,9 @@
       "not_enabled": "Notifiche email non abilitate",
       "recipient_not_configured": "Email destinatario non configurata",
       "smtp_incomplete": "Configurazione SMTP incompleta",
-      "send_failed": "Impossibile inviare email di test",
-      "send_error": "Impossibile inviare email di test: {error}",
+      "send_failed": "Il server di posta non ha accettato l'email di prova. Controlla host SMTP, porta, nome utente e password, poi riprova.",
+      "send_failed_oauth": "{provider} non ha accettato l'email di prova. Ricollega l'account, poi riprova.",
+      "send_timeout": "Il server di posta ha impiegato troppo tempo a rispondere. Controlla host SMTP e porta, poi riprova.",
       "invalid_state": "Stato OAuth non valido. Riprova.",
       "state_expired": "Stato OAuth scaduto. Riprova.",
       "email_missing": "Indirizzo email non restituito dal provider."

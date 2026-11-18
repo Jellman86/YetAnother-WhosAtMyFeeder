@@ -91,8 +91,9 @@
       "not_enabled": "Email notifications not enabled",
       "recipient_not_configured": "Recipient email not configured",
       "smtp_incomplete": "SMTP configuration incomplete",
-      "send_failed": "Failed to send test email",
-      "send_error": "Failed to send test email: {error}",
+      "send_failed": "The mail server did not accept the test email. Check the SMTP host, port, user name and password, then test again.",
+      "send_failed_oauth": "{provider} did not accept the test email. Reconnect the account, then test again.",
+      "send_timeout": "The mail server took too long to answer. Check the SMTP host and port, then test again.",
       "invalid_state": "Invalid OAuth state. Please try again.",
       "state_expired": "OAuth state expired. Please try again.",
       "email_missing": "Email address not returned by provider."

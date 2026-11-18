@@ -152,7 +152,7 @@ async def test_notification_test_failure_message_keeps_url_credentials_out(monke
     monkeypatch.setattr(settings.auth, "enabled", False)
     monkeypatch.setattr(
         notification_service,
-        "_send_discord",
+        "deliver_discord",
         AsyncMock(side_effect=httpx.ConnectError(f"cannot connect to {url}/webhook")),
     )
 
