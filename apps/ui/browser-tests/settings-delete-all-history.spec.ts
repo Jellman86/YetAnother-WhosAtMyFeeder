@@ -51,13 +51,13 @@ test('the question counts the detections first and cannot be confirmed until it 
     await page.getByRole('button', { name: 'Delete all history', exact: true }).click();
     const dialog = page.getByRole('alertdialog');
     const confirm = dialog.getByRole('button', { name: 'Delete all history permanently', exact: true });
-    await expect(dialog).toContainText('Counting the detections this would delete…');
+    await expect(dialog).toContainText('Counting the captures this would delete…');
     await expect(dialog).not.toContainText(/\d/);
     await expect(confirm).toBeDisabled();
     await page.screenshot({ path: testInfo.outputPath('delete-all-counting.png') });
 
     fixture.release();
-    await expect(dialog).toContainText('Delete all 931 detections, hidden ones included, every cached photo and clip, every archived favourite, and the daily totals that keep older Leaderboard history? This cannot be undone.');
+    await expect(dialog).toContainText('Delete all 931 captures, hidden ones included, every cached photo and clip, every archived favourite, and the daily totals that keep older Leaderboard history? This cannot be undone.');
     await expect(confirm).toBeEnabled();
     await page.screenshot({ path: testInfo.outputPath('delete-all-counted.png') });
     expect(fixture.resets).toBe(0);
@@ -74,12 +74,12 @@ test('detections that arrive after the count stop the delete, and the owner is a
     await page.getByRole('button', { name: 'Delete all history', exact: true }).click();
     const dialog = page.getByRole('alertdialog');
     const confirm = dialog.getByRole('button', { name: 'Delete all history permanently', exact: true });
-    await expect(dialog).toContainText('Delete all 931 detections');
+    await expect(dialog).toContainText('Delete all 931 captures');
 
     // Two visits are recorded while the question is still on screen.
     fixture.serverCount = 933;
     await confirm.click();
-    await expect(dialog).toContainText('The number of detections changed while this was open. Delete all 933 detections, hidden ones included');
+    await expect(dialog).toContainText('The number of captures changed while this was open. Delete all 933 captures, hidden ones included');
     expect(fixture.resets).toBe(0);
     await page.screenshot({ path: testInfo.outputPath('delete-all-count-changed.png') });
 
@@ -93,7 +93,7 @@ test('a count that cannot be read is left out, and the question still says it ca
     fixture.release();
     await page.getByRole('button', { name: 'Delete all history', exact: true }).click();
     const dialog = page.getByRole('alertdialog');
-    await expect(dialog).toContainText('Delete all detections, every cached photo and clip, every archived favourite, and the daily totals that keep older Leaderboard history? The number of detections could not be read. This cannot be undone.');
+    await expect(dialog).toContainText('Delete all captures, every cached photo and clip, every archived favourite, and the daily totals that keep older Leaderboard history? The number of captures could not be read. This cannot be undone.');
     await expect(dialog).not.toContainText(/\d/);
     await expect(dialog.getByRole('button', { name: 'Delete all history permanently', exact: true })).toBeEnabled();
     await page.screenshot({ path: testInfo.outputPath('delete-all-uncounted.png') });
@@ -108,7 +108,7 @@ test('an answer without a whole number is not read as zero', async ({ page }) =>
     fixture.release();
     await page.getByRole('button', { name: 'Delete all history', exact: true }).click();
     const dialog = page.getByRole('alertdialog');
-    await expect(dialog).toContainText('The number of detections could not be read.');
+    await expect(dialog).toContainText('The number of captures could not be read.');
     await expect(dialog).not.toContainText(/\d/);
 });
 
@@ -116,7 +116,7 @@ test('cancelling while it counts deletes nothing, even after the count arrives',
     const fixture = await openDangerZone(page, stats(931));
     await page.getByRole('button', { name: 'Delete all history', exact: true }).click();
     const dialog = page.getByRole('alertdialog');
-    await expect(dialog).toContainText('Counting the detections this would delete…');
+    await expect(dialog).toContainText('Counting the captures this would delete…');
     // Focus lands on the safe answer; Escape is answered by the dialog that holds it.
     await expect(dialog.getByRole('button', { name: 'Cancel', exact: true })).toBeFocused();
     await page.keyboard.press('Escape');

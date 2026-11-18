@@ -24,7 +24,7 @@ describe('lastRunSentence', () => {
 
     it('says what a timezone scan found', () => {
         expect(lastRunSentence(run({ kind: 'timezone_scan', checked: 40, changed: 0 }), 'timezone_scan', { translate, formatWhen })).toBe(
-            'Last scan 15/11/2026 09:30: none of 40 detections need a repair.'
+            'Last scan 15/11/2026 09:30: none of 40 captures need a repair.'
         );
     });
 
@@ -37,11 +37,11 @@ describe('lastRunSentence', () => {
     it('says a scan whose lookups failed could not check them, never that nothing needs a repair', () => {
         const failed = run({ kind: 'timezone_scan', checked: 40, changed: 0, unchecked: 40 });
         expect(lastRunSentence(failed, 'timezone_scan', { translate, formatWhen })).toBe(
-            'Last scan 15/11/2026 09:30 could not check 40 of 40 detections (Frigate did not answer). Scan again.'
+            'Last scan 15/11/2026 09:30 could not check 40 of 40 captures (Frigate did not answer). Scan again.'
         );
         const partly = run({ kind: 'timezone_scan', checked: 40, changed: 2, unchecked: 10 });
         expect(lastRunSentence(partly, 'timezone_scan', { translate, formatWhen })).toBe(
-            'Last scan 15/11/2026 09:30 could not check 10 of 40 detections (Frigate did not answer). 2 of the rest need a repair. Scan again.'
+            'Last scan 15/11/2026 09:30 could not check 10 of 40 captures (Frigate did not answer). 2 of the rest need a repair. Scan again.'
         );
     });
 
@@ -96,5 +96,31 @@ describe('timezoneRepairBlockedReason', () => {
 
     it('allows the repair once a scan found something', () => {
         expect(timezoneRepairBlockedReason({ summary: { repair_candidate_count: 2 } })).toBeNull();
+    });
+});
+
+describe('the keys these sentences ask for', () => {
+    // Some are built here from a base key ("…_none"), so a search for the literal key does not find
+    // them. This reads the keys back from the function itself and holds every language to them.
+    it('are all defined in every language, including the ones built from a base key', async () => {
+        const { authoredLocale } = await import('../i18n/authored-locales');
+        const { SUPPORTED_LOCALES } = await import('../i18n/locale-partition');
+        const asked = new Set<string>();
+        const record = (key: string, options?: { default?: string }): string => { asked.add(key); return options?.default ?? key; };
+        const kinds = ['taxonomy', 'timezone_scan', 'timezone_repair', 'analyze_unknowns', 'detections', 'weather'] as const;
+        for (const kind of kinds) {
+            for (const state of [{}, { changed: 0 }, { unchecked: 3 }, { status: 'running' }, { status: 'cancelled' }, { status: 'failed' }, { finished_at: null, status: 'failed' }] as const) {
+                lastRunSentence(run({ kind, ...state } as Partial<MaintenanceLastRun>), kind, { translate: record, formatWhen });
+            }
+        }
+        lastRunSentence(null, 'taxonomy', { translate: record, formatWhen });
+        expect(asked).toContain('settings.maintenance.last_run_timezone_scan_none');
+        const defined = (root: unknown, key: string): boolean => key.split('.').every((part) => {
+            if (typeof root !== 'object' || root === null || !(part in root)) return false;
+            root = (root as Record<string, unknown>)[part];
+            return true;
+        });
+        const missing = SUPPORTED_LOCALES.flatMap((language) => [...asked].filter((key) => !defined(authoredLocale(language), key)).map((key) => `${language} ${key}`));
+        expect(missing).toEqual([]);
     });
 });

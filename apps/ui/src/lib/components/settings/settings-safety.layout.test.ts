@@ -39,7 +39,7 @@ describe('history retention', () => {
     it('says why Purge Old Records is unavailable', () => {
         expect(dataSource).toContain("aria-describedby={purgeDisabledReason ? 'purge-disabled-reason' : undefined}");
         expect(en.settings.data.purge_disabled_forever).toBe('Nothing to purge: history is kept forever.');
-        expect(en.settings.data.purge_disabled_none).toBe('No detections are older than {days} days.');
+        expect(en.settings.data.purge_disabled_none).toBe('No captures are older than {days} days.');
     });
 });
 

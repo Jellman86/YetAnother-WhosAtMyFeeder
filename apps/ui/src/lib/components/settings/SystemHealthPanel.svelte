@@ -206,7 +206,7 @@
                 {@render headerActions()}
             {:else}
                 <p class="text-xs text-muted">
-                    {$_('settings.system_health.window', { default: 'Last 30 minutes, sampled every 5 s' })}
+                    {$_('settings.system_health.window', { default: 'Last 30 minutes, sampled every 5 s' })}
                 </p>
             {/if}
         {/snippet}
@@ -231,7 +231,7 @@
                 <div class="min-w-0">
                     {#if headerActions}
                         <p class="mb-2 text-xs text-muted">
-                            {$_('settings.system_health.window', { default: 'Last 30 minutes, sampled every 5 s' })}
+                            {$_('settings.system_health.window', { default: 'Last 30 minutes, sampled every 5 s' })}
                         </p>
                     {/if}
 
@@ -555,7 +555,7 @@
                     </div>
                     <p class="mt-3 text-xs text-muted">
                         {$_('settings.system_health.note', {
-                            default: "CPU and memory are read from this container's own processes. Accelerator cells name the runtime a classifier worker actually loaded; NPU utilisation is device-wide and cannot be divided honestly between workers. Anything else on the host is measured only as the CPU remainder."
+                            default: "CPU and memory are read from this container's own processes. Accelerator cells name the runtime a model worker actually loaded; NPU utilisation is device-wide and cannot be divided honestly between workers. Anything else on the host is measured only as the CPU remainder."
                         })}
                     </p>
                 </div>
