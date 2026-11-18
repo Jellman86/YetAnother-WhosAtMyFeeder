@@ -311,5 +311,26 @@
   "state_idle": "アイドル",
   "state_queued": "待機中",
   "state_running": "実行中",
-  "work_lane_analyze_unknowns": "「不明な鳥」の訪問に名前を付ける"
+  "work_lane_analyze_unknowns": "「不明な鳥」の訪問に名前を付ける",
+  "health_dismiss": {
+    "dismiss": "非表示にする",
+    "dismissing": "非表示にしています…",
+    "effect": "このインストールのすべての人に対して非表示にします。ライブのチェックは続き、再び起きると表示されます。",
+    "live_note": "チェックが通ると自動的に消えます。",
+    "show_dismissed": "{count, plural, other {非表示の項目を表示 (#件)}}",
+    "hide_dismissed": "非表示の項目を隠す",
+    "dismissed_note": "このインストールのすべての人に対して非表示です。ライブのチェックは続き、再び起きた項目は表示されます。エラー履歴を消去すると、これらも削除されます。",
+    "last_seen": "最後に発生: {at}",
+    "restore": "再表示",
+    "restoring": "再表示しています…",
+    "dismissed_status": "非表示にしました。再び起きると表示されます。",
+    "restored_status": "再表示しました。一覧に戻りました。",
+    "dismiss_failed": "非表示にできませんでした。もう一度お試しください。続けて失敗する場合は、YA-WAMF が動作しているか確認してください。",
+    "restore_failed": "再表示できませんでした。もう一度お試しください。続けて失敗する場合は、YA-WAMF が動作しているか確認してください。",
+    "dismissed_heading": "非表示の項目",
+    "happened_again": "このページを開いている間に再び起きたため、まだ一覧にあります。新しい発生も隠すには、もう一度非表示にしてください。",
+    "already_cleared": "エラー履歴の消去や再起動などで、すでにエラー履歴から消えていたため、非表示にするものはありませんでした。",
+    "earlier_empty_with_dismissed": "{count, plural, other {ほかに解消したものはありません。非表示のインシデント # 件が下にあります。}}",
+    "backend_empty_with_dismissed": "{count, plural, other {バックエンドはほかに何も記録していません。非表示の項目 # 件が下にあります。}}接続の問題はここではなく、このページの上部に表示されます。"
+  }
 }

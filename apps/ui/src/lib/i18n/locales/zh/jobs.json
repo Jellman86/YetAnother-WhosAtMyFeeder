@@ -311,5 +311,26 @@
   "state_idle": "空闲",
   "state_queued": "排队中",
   "state_running": "运行中",
-  "work_lane_analyze_unknowns": "为“未知鸟类”访问命名"
+  "work_lane_analyze_unknowns": "为“未知鸟类”访问命名",
+  "health_dismiss": {
+    "dismiss": "忽略",
+    "dismissing": "正在忽略…",
+    "effect": "对此安装上的所有人隐藏。实时检查会继续，如果再次发生会重新显示。",
+    "live_note": "检查通过后会自动消失。",
+    "show_dismissed": "{count, plural, other {显示 # 个已忽略的项目}}",
+    "hide_dismissed": "收起已忽略的项目",
+    "dismissed_note": "已对此安装上的所有人隐藏。实时检查会继续，再次发生的项目会重新显示。清除错误记录也会删除这些项目。",
+    "last_seen": "最近一次发生：{at}",
+    "restore": "恢复",
+    "restoring": "正在恢复…",
+    "dismissed_status": "已忽略。如果再次发生会重新显示。",
+    "restored_status": "已恢复，重新出现在列表中。",
+    "dismiss_failed": "无法忽略。请重试；如果仍然失败，请检查 YA-WAMF 是否在运行。",
+    "restore_failed": "无法恢复。请重试；如果仍然失败，请检查 YA-WAMF 是否在运行。",
+    "dismissed_heading": "已忽略",
+    "happened_again": "此页面打开期间它再次发生，所以仍在列表中。再次忽略即可同时隐藏新的发生。",
+    "already_cleared": "它已经不在错误记录中（例如清除错误记录或重启之后），所以没有可忽略的内容。",
+    "earlier_empty_with_dismissed": "{count, plural, other {没有其他已解决的事件；下方列出了 # 个已忽略的事件。}}",
+    "backend_empty_with_dismissed": "{count, plural, other {后端没有记录其他内容；下方列出了 # 个已忽略的项目。}}连接问题显示在此页面顶部，而不是这里。"
+  }
 }

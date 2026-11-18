@@ -38,6 +38,35 @@ many times it was recorded and when it was first and last seen (for example **×
 and severity match and their messages differ only in identifiers or numbers. The newest occurrence
 supplies the event shown.
 
+## Dismissing a warning
+
+Each entry in **Backend warnings and errors**, each earlier incident and each open incident that
+comes from a recorded warning has **Dismiss**. It hides that item on Health for everyone on this
+install, and the counts and the open-issue number in the sidebar stop including it. Nothing is
+deleted: **Show N dismissed** lists what is hidden, each with **Restore**, and a diagnostics bundle
+still carries dismissed items, marked `dismissed`.
+
+- **It comes back if it happens again.** A dismissal names one backend entry, by its component,
+  reason code and entry, and how many occurrences of it you saw. Any occurrence recorded after those
+  shows the entry again, and with it any incident built from it. Occurrences are counted, not timed,
+  so a clock that steps back cannot keep a repeat hidden. One recorded while the page was open,
+  which you had not seen, is not covered: the page says it happened again and keeps it listed.
+- **Only what is still in the history can be dismissed.** If it left the history before you
+  clicked (Clear error history in another tab, or a restart), the page says there was nothing to
+  dismiss rather than claiming it did.
+- **An incident is hidden only while every entry it is built from is dismissed.** Dismissing an
+  incident dismisses those entries, so its warnings leave **Backend warnings and errors** with it.
+- **Live checks are never dismissed.** The verdict still comes from the live checks. An incident a
+  live check shows open now, or has no reading for yet (Frigate's availability while the MQTT
+  broker reconnects, for example), offers no **Dismiss** and says it clears by itself when the
+  check passes; the MQTT and Frigate connection problems have none either. With every live check
+  passing, dismissing the recorded incidents can leave the verdict Healthy, because the verdict is
+  those checks.
+- **Clear error history** still removes everything, dismissals included.
+- **Dismissals reset on restart.** They are kept in memory beside the history they hide, and that
+  history is in memory too. A restart, including a deploy, empties both together, so nothing
+  dismissed can come back without a new occurrence, and no dismissal outlives what it named.
+
 ## While Frigate is starting
 
 Frigate and YA-WAMF usually restart together. For its first seconds Frigate answers every request

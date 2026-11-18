@@ -1,6 +1,6 @@
 import asyncio
 from datetime import datetime, timezone
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
@@ -23,6 +23,11 @@ _VIDEO_DIAGNOSTIC_COMPONENTS = {"auto_video_classifier", "video_classifier"}
 _VIDEO_BREAKER_REASON_CODES = {"video_circuit_open", "video_circuit_opened", "circuit_open"}
 
 
+class DiagnosticDismissalStateResponse(BaseModel):
+    dismissed_count: int = Field(description="How many occurrences the dismissal covers; a later one ends it.")
+    dismissed_at: str = Field(description="When the owner dismissed it.")
+
+
 class BackendDiagnosticEventResponse(BaseModel):
     id: str
     source: str
@@ -42,6 +47,11 @@ class BackendDiagnosticEventResponse(BaseModel):
     count: int = Field(1, description="How many times this fault was recorded; repeats share one entry.")
     first_seen: str | None = Field(None, description="When the first occurrence was recorded.")
     last_seen: str | None = Field(None, description="When the newest occurrence was recorded; equals `timestamp`.")
+    dismissed: bool = Field(
+        False,
+        description="Hidden on Health by the owner. False again once an occurrence newer than the dismissal is recorded.",
+    )
+    dismissal: DiagnosticDismissalStateResponse | None = Field(None, description="Set while `dismissed` is true.")
 
 
 class BackendDiagnosticsSnapshotResponse(BaseModel):
@@ -49,6 +59,7 @@ class BackendDiagnosticsSnapshotResponse(BaseModel):
     capacity: int
     total_events: int = Field(description="Distinct entries held, after repeats are grouped.")
     total_occurrences: int = Field(0, description="Recorded occurrences across every entry held.")
+    dismissed_events: int = Field(0, description="Entries held that the owner has dismissed, across every entry held.")
     filtered_events: int
     returned_events: int
     severity_counts: dict[str, int]
@@ -104,6 +115,7 @@ class DiagnosticsBundleSummaryResponse(BaseModel):
     backfill_running_jobs: int
     backfill_failed_jobs: int
     video_sample_format: str = "unknown"
+    dismissed_events: int = 0
 
 
 class DiagnosticsBundleServerResponse(BaseModel):
@@ -150,6 +162,39 @@ class DiagnosticsBundleResponse(BaseModel):
 class ClearDiagnosticsWorkspaceResponse(BaseModel):
     cleared_events: int
     remaining_events: int
+
+
+DiagnosticEntryId = Annotated[str, Field(min_length=1, max_length=64)]
+
+
+class DiagnosticDismissalEntryRequest(BaseModel):
+    id: DiagnosticEntryId
+    count: int = Field(ge=1, strict=True, description="How many occurrences the owner saw, the entry's `count`.")
+
+
+class DismissDiagnosticsRequest(BaseModel):
+    entries: list[DiagnosticDismissalEntryRequest] = Field(min_length=1, max_length=200)
+
+
+class DiagnosticDismissalResponse(BaseModel):
+    id: str
+    component: str
+    reason_code: str
+    dismissed_count: int
+    dismissed_at: str
+
+
+class DismissDiagnosticsResponse(BaseModel):
+    dismissed: list[DiagnosticDismissalResponse]
+    missing: list[str] = Field(description="Entries no longer in the history, so there was nothing to dismiss.")
+
+
+class RestoreDiagnosticsRequest(BaseModel):
+    ids: list[DiagnosticEntryId] = Field(min_length=1, max_length=200)
+
+
+class RestoreDiagnosticsResponse(BaseModel):
+    restored: list[str] = Field(description="Entries that were dismissed and now show again.")
 
 
 def _is_video_diagnostic_event(event: dict[str, Any]) -> bool:
@@ -333,6 +378,7 @@ async def _collect_bundle_payload(limit: int) -> dict[str, Any]:
             "backfill_running_jobs": len(backfill_focus.get("running_jobs") or []),
             "backfill_failed_jobs": len(backfill_focus.get("failed_jobs") or []),
             "video_sample_format": media_sample.get("codec_tag") or "unknown",
+            "dismissed_events": int(backend_diagnostics.get("dismissed_events") or 0),
         },
         "server": {
             "service": health.get("service") or "unknown",
@@ -408,3 +454,26 @@ async def clear_owner_workspace_diagnostics(
         "cleared_events": cleared_events,
         "remaining_events": 0,
     }
+
+
+@router.post("/dismissals", response_model=DismissDiagnosticsResponse)
+async def dismiss_owner_workspace_diagnostics(
+    body: DismissDiagnosticsRequest,
+    _auth: AuthContext = Depends(require_owner),
+):
+    """Hide backend history entries on Health for everyone, each up to the occurrences the owner saw.
+
+    Nothing is deleted: a newer occurrence shows the entry again, restore shows it now, and
+    clearing the error history removes the dismissals with everything else.
+    """
+    result = error_diagnostics_history.dismiss([(entry.id, entry.count) for entry in body.entries])
+    return {"dismissed": result.dismissed, "missing": result.missing}
+
+
+@router.post("/dismissals/restore", response_model=RestoreDiagnosticsResponse)
+async def restore_owner_workspace_diagnostics(
+    body: RestoreDiagnosticsRequest,
+    _auth: AuthContext = Depends(require_owner),
+):
+    """Show dismissed backend history entries on Health again."""
+    return {"restored": error_diagnostics_history.restore(body.ids)}

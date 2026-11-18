@@ -1716,6 +1716,23 @@
             "title": "Count",
             "type": "integer"
           },
+          "dismissal": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DiagnosticDismissalStateResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Set while `dismissed` is true."
+          },
+          "dismissed": {
+            "default": false,
+            "description": "Hidden on Health by the owner. False again once an occurrence newer than the dismissal is recorded.",
+            "title": "Dismissed",
+            "type": "boolean"
+          },
           "event_id": {
             "anyOf": [
               {
@@ -1866,6 +1883,12 @@
             },
             "title": "Component Counts",
             "type": "object"
+          },
+          "dismissed_events": {
+            "default": 0,
+            "description": "Entries held that the owner has dismissed, across every entry held.",
+            "title": "Dismissed Events",
+            "type": "integer"
           },
           "events": {
             "items": {
@@ -7847,6 +7870,81 @@
         "title": "DetectionsTimelineWeatherPoint",
         "type": "object"
       },
+      "DiagnosticDismissalEntryRequest": {
+        "properties": {
+          "count": {
+            "description": "How many occurrences the owner saw, the entry's `count`.",
+            "minimum": 1.0,
+            "title": "Count",
+            "type": "integer"
+          },
+          "id": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "count"
+        ],
+        "title": "DiagnosticDismissalEntryRequest",
+        "type": "object"
+      },
+      "DiagnosticDismissalResponse": {
+        "properties": {
+          "component": {
+            "title": "Component",
+            "type": "string"
+          },
+          "dismissed_at": {
+            "title": "Dismissed At",
+            "type": "string"
+          },
+          "dismissed_count": {
+            "title": "Dismissed Count",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "reason_code": {
+            "title": "Reason Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "component",
+          "reason_code",
+          "dismissed_count",
+          "dismissed_at"
+        ],
+        "title": "DiagnosticDismissalResponse",
+        "type": "object"
+      },
+      "DiagnosticDismissalStateResponse": {
+        "properties": {
+          "dismissed_at": {
+            "description": "When the owner dismissed it.",
+            "title": "Dismissed At",
+            "type": "string"
+          },
+          "dismissed_count": {
+            "description": "How many occurrences the dismissal covers; a later one ends it.",
+            "title": "Dismissed Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "dismissed_count",
+          "dismissed_at"
+        ],
+        "title": "DiagnosticDismissalStateResponse",
+        "type": "object"
+      },
       "DiagnosticsBundleResponse": {
         "properties": {
           "backend_diagnostics": {
@@ -7973,6 +8071,11 @@
             "title": "Diagnostic Events",
             "type": "integer"
           },
+          "dismissed_events": {
+            "default": 0,
+            "title": "Dismissed Events",
+            "type": "integer"
+          },
           "health_status": {
             "title": "Health Status",
             "type": "string"
@@ -8070,6 +8173,49 @@
           "startup_warnings"
         ],
         "title": "DiagnosticsWorkspaceResponse",
+        "type": "object"
+      },
+      "DismissDiagnosticsRequest": {
+        "properties": {
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/DiagnosticDismissalEntryRequest"
+            },
+            "maxItems": 200,
+            "minItems": 1,
+            "title": "Entries",
+            "type": "array"
+          }
+        },
+        "required": [
+          "entries"
+        ],
+        "title": "DismissDiagnosticsRequest",
+        "type": "object"
+      },
+      "DismissDiagnosticsResponse": {
+        "properties": {
+          "dismissed": {
+            "items": {
+              "$ref": "#/components/schemas/DiagnosticDismissalResponse"
+            },
+            "title": "Dismissed",
+            "type": "array"
+          },
+          "missing": {
+            "description": "Entries no longer in the history, so there was nothing to dismiss.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Missing",
+            "type": "array"
+          }
+        },
+        "required": [
+          "dismissed",
+          "missing"
+        ],
+        "title": "DismissDiagnosticsResponse",
         "type": "object"
       },
       "DownloadProgress": {
@@ -16697,6 +16843,43 @@
           "cached"
         ],
         "title": "RecordingClipFetchResponse",
+        "type": "object"
+      },
+      "RestoreDiagnosticsRequest": {
+        "properties": {
+          "ids": {
+            "items": {
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 200,
+            "minItems": 1,
+            "title": "Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "ids"
+        ],
+        "title": "RestoreDiagnosticsRequest",
+        "type": "object"
+      },
+      "RestoreDiagnosticsResponse": {
+        "properties": {
+          "restored": {
+            "description": "Entries that were dismissed and now show again.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Restored",
+            "type": "array"
+          }
+        },
+        "required": [
+          "restored"
+        ],
+        "title": "RestoreDiagnosticsResponse",
         "type": "object"
       },
       "RevalidationProfile": {
@@ -28305,6 +28488,114 @@
           }
         ],
         "summary": "Get Service Connections",
+        "tags": [
+          "diagnostics",
+          "diagnostics"
+        ]
+      }
+    },
+    "/api/diagnostics/dismissals": {
+      "post": {
+        "description": "Hide backend history entries on Health for everyone, each up to the occurrences the owner saw.\n\nNothing is deleted: a newer occurrence shows the entry again, restore shows it now, and\nclearing the error history removes the dismissals with everything else.",
+        "operationId": "dismiss_owner_workspace_diagnostics_api_diagnostics_dismissals_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DismissDiagnosticsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DismissDiagnosticsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Dismiss Owner Workspace Diagnostics",
+        "tags": [
+          "diagnostics",
+          "diagnostics"
+        ]
+      }
+    },
+    "/api/diagnostics/dismissals/restore": {
+      "post": {
+        "description": "Show dismissed backend history entries on Health again.",
+        "operationId": "restore_owner_workspace_diagnostics_api_diagnostics_dismissals_restore_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RestoreDiagnosticsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RestoreDiagnosticsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Restore Owner Workspace Diagnostics",
         "tags": [
           "diagnostics",
           "diagnostics"

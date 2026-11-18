@@ -1768,7 +1768,21 @@ The callback exception grants no owner role and does not expand cookie authentic
   refreshed with a single `api/version` request (5 s timeout) before it is returned. A state change
   is pushed to owners over `GET /api/sse` as `{"type": "service_connections_changed"}` with no
   payload; guests never receive it.
-- `POST /api/diagnostics/clear`
+- `POST /api/diagnostics/clear` — removes every backend history entry, and every dismissal with it.
+- `POST /api/diagnostics/dismissals` — hides backend history entries on Health for everyone (owner
+  only). The body is `{"entries": [{"id": "<entry id>", "count": <the entry's count>}]}`, 1 to 200
+  entries, `count` an integer of at least 1. Each dismissal covers the entry up to the number of
+  occurrences the owner saw, never past the occurrences the entry has; any occurrence recorded
+  after those ends the dismissal. Occurrences are counted rather than timed, so a clock that steps
+  back cannot keep a repeat hidden. The answer is `{"dismissed": [{id, component, reason_code,
+  dismissed_count, dismissed_at}], "missing": [ids]}`, where `missing` names entries no longer in
+  the history. Dismissals are not persisted: they live in memory beside the history, which is in
+  memory too, so a clear or a restart removes both together.
+- `POST /api/diagnostics/dismissals/restore` — shows dismissed entries again (owner only). The body
+  is `{"ids": [...]}`, 1 to 200; the answer is `{"restored": [ids that had a dismissal]}`.
+  In `GET /api/diagnostics/errors`, the workspace and the bundle, every event carries `dismissed`
+  and, while it is true, `dismissal` (`dismissed_count`, `dismissed_at`); the snapshot counts
+  `dismissed_events`, and the bundle summary repeats that count.
 
 ### Model evaluation (owner)
 

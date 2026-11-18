@@ -311,5 +311,26 @@
   "state_idle": "Ocioso",
   "state_queued": "Na fila",
   "state_running": "Em execução",
-  "work_lane_analyze_unknowns": "Nomear visitas de “ave desconhecida”"
+  "work_lane_analyze_unknowns": "Nomear visitas de “ave desconhecida”",
+  "health_dismiss": {
+    "dismiss": "Dispensar",
+    "dismissing": "Dispensando…",
+    "effect": "Oculta isto para todos nesta instalação. As verificações ao vivo continuam, e volta a aparecer se acontecer de novo.",
+    "live_note": "Some sozinho quando a verificação passar.",
+    "show_dismissed": "{count, plural, one {Mostrar # dispensado} other {Mostrar # dispensados}}",
+    "hide_dismissed": "Ocultar dispensados",
+    "dismissed_note": "Ocultos para todos nesta instalação. As verificações ao vivo continuam, e um item volta a aparecer se acontecer de novo. Limpar histórico de erros também os remove.",
+    "last_seen": "Aconteceu pela última vez {at}",
+    "restore": "Restaurar",
+    "restoring": "Restaurando…",
+    "dismissed_status": "Dispensado. Volta a aparecer se acontecer de novo.",
+    "restored_status": "Restaurado. Está na lista de novo.",
+    "dismiss_failed": "Não foi possível dispensar. Tente novamente; se continuar falhando, verifique se o YA-WAMF está em execução.",
+    "restore_failed": "Não foi possível restaurar. Tente novamente; se continuar falhando, verifique se o YA-WAMF está em execução.",
+    "dismissed_heading": "Dispensados",
+    "happened_again": "Aconteceu de novo enquanto esta página estava aberta, por isso continua na lista. Dispense de novo para ocultar também a nova ocorrência.",
+    "already_cleared": "Isto já tinha saído do histórico de erros, por exemplo após Limpar histórico de erros ou uma reinicialização, então não havia nada a dispensar.",
+    "earlier_empty_with_dismissed": "{count, plural, one {Nada mais foi resolvido; # incidente dispensado está listado abaixo.} other {Nada mais foi resolvido; # incidentes dispensados estão listados abaixo.}}",
+    "backend_empty_with_dismissed": "{count, plural, one {O backend não registrou mais nada; # item dispensado está listado abaixo.} other {O backend não registrou mais nada; # itens dispensados estão listados abaixo.}} Problemas de conexão aparecem no topo desta página, não aqui."
+  }
 }

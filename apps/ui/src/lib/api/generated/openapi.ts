@@ -262,6 +262,8 @@ export interface components {
     context?: Record<string, unknown> | null;
     correlation_key?: string | null;
     count?: number;
+    dismissal?: components['schemas']['DiagnosticDismissalStateResponse'] | null;
+    dismissed?: boolean;
     event_id?: string | null;
     first_seen?: string | null;
     id: string;
@@ -281,6 +283,7 @@ export interface components {
     capacity: number;
     captured_at: string;
     component_counts: Record<string, number>;
+    dismissed_events?: number;
     events: Array<components['schemas']['BackendDiagnosticEventResponse']>;
     filtered_events: number;
     returned_events: number;
@@ -1104,6 +1107,21 @@ export interface components {
     temp_avg?: number | null;
     wind_avg?: number | null;
 };
+    DiagnosticDismissalEntryRequest: {
+    count: number;
+    id: string;
+};
+    DiagnosticDismissalResponse: {
+    component: string;
+    dismissed_at: string;
+    dismissed_count: number;
+    id: string;
+    reason_code: string;
+};
+    DiagnosticDismissalStateResponse: {
+    dismissed_at: string;
+    dismissed_count: number;
+};
     DiagnosticsBundleResponse: {
     backend_diagnostics: components['schemas']['BackendDiagnosticsSnapshotResponse'];
     classifier: Record<string, unknown>;
@@ -1130,6 +1148,7 @@ export interface components {
     backfill_running_jobs: number;
     backfill_stale_jobs: number;
     diagnostic_events: number;
+    dismissed_events?: number;
     health_status: string;
     startup_warning_count: number;
     video_sample_format?: string;
@@ -1145,6 +1164,13 @@ export interface components {
     system_telemetry?: components['schemas']['SystemTelemetryHistoryResponse'] | null;
     taxonomy_repair: Record<string, unknown>;
     workspace_schema_version: string;
+};
+    DismissDiagnosticsRequest: {
+    entries: Array<components['schemas']['DiagnosticDismissalEntryRequest']>;
+};
+    DismissDiagnosticsResponse: {
+    dismissed: Array<components['schemas']['DiagnosticDismissalResponse']>;
+    missing: Array<string>;
 };
     DownloadProgress: {
     error?: string | null;
@@ -2339,6 +2365,12 @@ export interface components {
     event_id: string;
     recording_state: "complete" | "partial";
     status: "ready" | "partial";
+};
+    RestoreDiagnosticsRequest: {
+    ids: Array<string>;
+};
+    RestoreDiagnosticsResponse: {
+    restored: Array<string>;
 };
     RevalidationProfile: {
     blocked: boolean;
@@ -3971,6 +4003,24 @@ export interface paths {
       query: never;
       requestBody: unknown;
       response: components['schemas']['ServiceConnectionsResponse'];
+    };
+  };
+  "/api/diagnostics/dismissals": {
+    post: {
+      operationId: "dismiss_owner_workspace_diagnostics_api_diagnostics_dismissals_post";
+      path: never;
+      query: never;
+      requestBody: components['schemas']['DismissDiagnosticsRequest'];
+      response: components['schemas']['DismissDiagnosticsResponse'];
+    };
+  };
+  "/api/diagnostics/dismissals/restore": {
+    post: {
+      operationId: "restore_owner_workspace_diagnostics_api_diagnostics_dismissals_restore_post";
+      path: never;
+      query: never;
+      requestBody: components['schemas']['RestoreDiagnosticsRequest'];
+      response: components['schemas']['RestoreDiagnosticsResponse'];
     };
   };
   "/api/diagnostics/errors": {

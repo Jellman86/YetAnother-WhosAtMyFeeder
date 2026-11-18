@@ -311,5 +311,26 @@
   "state_idle": "Idle",
   "state_queued": "Queued",
   "state_running": "Running",
-  "work_lane_analyze_unknowns": "Naming Unknown bird visits"
+  "work_lane_analyze_unknowns": "Naming Unknown bird visits",
+  "health_dismiss": {
+    "dismiss": "Dismiss",
+    "dismissing": "Dismissing…",
+    "effect": "Hides this for everyone on this install. Live checks carry on, and it shows again if it happens again.",
+    "live_note": "Clears by itself when the check passes.",
+    "show_dismissed": "{count, plural, one {Show # dismissed} other {Show # dismissed}}",
+    "hide_dismissed": "Hide dismissed",
+    "dismissed_note": "Hidden for everyone on this install. Live checks carry on, and an item shows again if it happens again. Clear error history removes these too.",
+    "last_seen": "Last happened {at}",
+    "restore": "Restore",
+    "restoring": "Restoring…",
+    "dismissed_status": "Dismissed. It shows again if it happens again.",
+    "restored_status": "Restored. It is listed again.",
+    "dismiss_failed": "That could not be dismissed. Try again; if it keeps failing, check that YA-WAMF is running.",
+    "restore_failed": "That could not be restored. Try again; if it keeps failing, check that YA-WAMF is running.",
+    "dismissed_heading": "Dismissed",
+    "happened_again": "It happened again while this page was open, so it is still listed. Dismiss it again to hide the newer occurrence too.",
+    "already_cleared": "This had already left the error history, for example after Clear error history or a restart, so there was nothing to dismiss.",
+    "earlier_empty_with_dismissed": "{count, plural, one {Nothing else has cleared; # dismissed incident is listed below.} other {Nothing else has cleared; # dismissed incidents are listed below.}}",
+    "backend_empty_with_dismissed": "{count, plural, one {The backend has recorded nothing else; # dismissed item is listed below.} other {The backend has recorded nothing else; # dismissed items are listed below.}} Connection problems are listed at the top of this page, not here."
+  }
 }

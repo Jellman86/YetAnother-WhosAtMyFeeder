@@ -1,4 +1,5 @@
 from copy import deepcopy
+from dataclasses import dataclass, field
 import os
 import re
 import time
@@ -46,6 +47,35 @@ def _normalize_optional_dict(value: Any) -> dict[str, Any] | None:
     return value if isinstance(value, dict) else None
 
 
+def _occurrences(value: Any) -> int | None:
+    if isinstance(value, bool) or not isinstance(value, int):
+        return None
+    return value if value >= 1 else None
+
+
+def dismissal_covers(dismissal: dict[str, Any] | None, entry: dict[str, Any]) -> bool:
+    """Whether a dismissal still hides an entry.
+
+    A dismissal names one entry by its id, component and reason code, and how many occurrences
+    the owner had seen. Any occurrence recorded after those shows the entry again. Occurrences are
+    counted rather than timed, so a clock that steps back cannot keep a repeat hidden.
+    """
+    if not dismissal:
+        return False
+    if dismissal.get("component") != entry.get("component") or dismissal.get("reason_code") != entry.get("reason_code"):
+        return False
+    seen = _occurrences(dismissal.get("dismissed_count"))
+    recorded = _occurrences(entry.get("count", 1))
+    return seen is not None and recorded is not None and recorded <= seen
+
+
+@dataclass
+class DismissResult:
+    dismissed: list[dict[str, Any]] = field(default_factory=list)
+    # Entries that left the history (cleared, restarted or pushed out) before the dismissal arrived.
+    missing: list[str] = field(default_factory=list)
+
+
 class ErrorDiagnosticsHistory:
     """Bounded in-memory diagnostics history for operator-visible error bundles.
 
@@ -66,6 +96,9 @@ class ErrorDiagnosticsHistory:
         # without copying it.
         self._revision = 0
         self._secret_provider = secret_provider
+        # Entry id -> the owner's dismissal of it. Held beside the history it hides, so a clear or
+        # a restart, which empty the history, take the dismissals with it.
+        self._dismissals: dict[str, dict[str, Any]] = {}
 
     def _secrets(self) -> Sequence[str] | None:
         try:
@@ -108,6 +141,19 @@ class ErrorDiagnosticsHistory:
             for key, value in record.items()
         }
 
+    @staticmethod
+    def _with_dismissal(record: dict[str, Any], dismissal: dict[str, Any] | None) -> dict[str, Any]:
+        covers = dismissal_covers(dismissal, record)
+        return {
+            **record,
+            "dismissed": covers,
+            "dismissal": (
+                {"dismissed_count": dismissal["dismissed_count"], "dismissed_at": dismissal["dismissed_at"]}
+                if covers and dismissal
+                else None
+            ),
+        }
+
     @property
     def revision(self) -> int:
         return self._revision
@@ -120,6 +166,7 @@ class ErrorDiagnosticsHistory:
         with self._lock:
             cleared = len(self._events)
             self._events.clear()
+            self._dismissals.clear()
             self._counter = 0
             self._revision += 1
             return cleared
@@ -191,8 +238,47 @@ class ErrorDiagnosticsHistory:
             sanitized = self._sanitized(record, secrets)
             self._events[group_key] = sanitized
             while len(self._events) > self._capacity:
-                self._events.popitem(last=False)
+                _evicted_key, evicted = self._events.popitem(last=False)
+                self._dismissals.pop(evicted["id"], None)
             return deepcopy(sanitized)
+
+    def dismiss(self, entries: Sequence[tuple[str, int]], *, now: str | None = None) -> DismissResult:
+        """Hide entries for everyone, each up to the number of occurrences the owner saw.
+
+        The dismissal never reaches past the occurrences the entry has, so a stale or invented
+        count cannot hide an occurrence that has not happened yet.
+        """
+        dismissed_at = _normalize_string(now) or datetime.now(timezone.utc).isoformat()
+        result = DismissResult()
+        with self._lock:
+            by_id = {entry["id"]: entry for entry in self._events.values()}
+            for entry_id, seen in entries:
+                entry = by_id.get(entry_id)
+                seen_count = _occurrences(seen)
+                recorded = _occurrences(entry.get("count", 1)) if entry else None
+                if entry is None or seen_count is None or recorded is None:
+                    result.missing.append(entry_id)
+                    continue
+                dismissal = {
+                    "id": entry_id,
+                    "component": entry["component"],
+                    "reason_code": entry["reason_code"],
+                    "dismissed_count": min(seen_count, recorded),
+                    "dismissed_at": dismissed_at,
+                }
+                self._dismissals[entry_id] = dismissal
+                result.dismissed.append(dict(dismissal))
+            if result.dismissed:
+                self._revision += 1
+        return result
+
+    def restore(self, entry_ids: Sequence[str]) -> list[str]:
+        """Show dismissed entries again; returns the ids that had a dismissal."""
+        with self._lock:
+            restored = [entry_id for entry_id in entry_ids if self._dismissals.pop(entry_id, None) is not None]
+            if restored:
+                self._revision += 1
+        return restored
 
     def snapshot(
         self,
@@ -209,6 +295,7 @@ class ErrorDiagnosticsHistory:
 
         with self._lock:
             events = list(reversed(self._events.values()))
+            dismissals = dict(self._dismissals)
 
         def _matches(record: dict[str, Any]) -> bool:
             if source_filter and str(record.get("source", "")).lower() != source_filter:
@@ -221,7 +308,10 @@ class ErrorDiagnosticsHistory:
 
         filtered = [record for record in events if _matches(record)]
         secrets = self._secrets()
-        returned = [self._sanitized(record, secrets) for record in filtered[:bounded_limit]]
+        returned = [
+            self._with_dismissal(self._sanitized(record, secrets), dismissals.get(record["id"]))
+            for record in filtered[:bounded_limit]
+        ]
 
         severity_counts = Counter(str(record.get("severity", "warning")) for record in returned)
         component_counts = Counter(str(record.get("component", "unknown")) for record in returned)
@@ -231,6 +321,7 @@ class ErrorDiagnosticsHistory:
             "capacity": self._capacity,
             "total_events": len(events),
             "total_occurrences": sum(int(record.get("count", 1)) for record in events),
+            "dismissed_events": sum(dismissal_covers(dismissals.get(record["id"]), record) for record in events),
             "filtered_events": len(filtered),
             "returned_events": len(returned),
             "severity_counts": dict(severity_counts),
