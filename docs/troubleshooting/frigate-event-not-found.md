@@ -93,6 +93,17 @@ You can control this in **Settings → Storage & upkeep → Media integrity**:
 
 ---
 
+## A snapshot Frigate does not have
+
+Frigate publishes `new` over MQTT for objects it may discard a moment later. Asking for their
+snapshot then returns 404, which is expected. YA-WAMF retries once, tries the uncropped snapshot,
+the thumbnail, its own cache and a frame from the recording, and logs the missing snapshot once
+per event at `info` (`Frigate has no snapshot for this event`, `reason=snapshot_not_found`).
+`GET /health` counts these events in `event_pipeline.snapshot_not_found_events`, and every
+fallback that supplied the image in `event_pipeline.stage_fallbacks.classify_snapshot`. None of
+this is a Health warning. Only when every fallback fails is the event lost, and that is still
+recorded as `drop_classify_snapshot_unavailable`.
+
 ## Related reason codes
 
 `event_not_found` is one of a family of Frigate media/event conditions. On the

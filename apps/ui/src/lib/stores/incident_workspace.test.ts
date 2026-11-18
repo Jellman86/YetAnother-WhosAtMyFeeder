@@ -493,6 +493,33 @@ describe('RF-DETR CPU fallback health', () => {
     });
 });
 
+describe('Frigate availability incidents', () => {
+    const offline = { id: 'frigate-offline', component: 'mqtt_service', source: 'mqtt',
+        reason_code: 'frigate_went_offline', severity: 'warning' as const,
+        message: 'Frigate has gone offline (frigate/available: offline). No new detections until Frigate restarts.',
+        timestamp: '2026-11-18T06:58:43Z' };
+    const workspaceWith = (status: string | undefined) => ({ health: { mqtt: { frigate_availability: { status } } },
+        workspace_schema_version: 'test', classifier: {}, taxonomy_repair: {}, maintenance_coordinator: {}, focused_diagnostics: {}, startup_warnings: [],
+        backend_diagnostics: { captured_at: offline.timestamp, capacity: 500, total_events: 1, filtered_events: 1,
+            returned_events: 1, severity_counts: { warning: 1 }, component_counts: { mqtt_service: 1 }, events: [offline] } });
+
+    it('keeps a restart blip in history as resolved once Frigate says it is online again', () => {
+        const store = createIncidentWorkspaceStore();
+        store.ingestWorkspacePayload(workspaceWith('online'));
+        expect(store.currentIssues).toHaveLength(0);
+        expect(store.recentIncidents.map((incident) => [incident.primaryReasonCode, incident.status]))
+            .toEqual([['frigate_went_offline', 'resolved']]);
+    });
+
+    it('keeps an outage open while Frigate is still offline, or while its availability is unknown', () => {
+        const store = createIncidentWorkspaceStore();
+        store.ingestWorkspacePayload(workspaceWith('offline'));
+        expect(store.currentIssues.map((incident) => incident.status)).toEqual(['open']);
+        store.ingestWorkspacePayload(workspaceWith('unknown'));
+        expect(store.currentIssues.map((incident) => incident.status)).toEqual(['open']);
+    });
+});
+
 describe('incident workspace refresh', () => {
     it('never lets an older reading overwrite a newer one, and says which read was applied', async () => {
         const releases: Array<(payload: never) => void> = [];

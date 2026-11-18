@@ -463,9 +463,14 @@ decodes a tiny test recording on each render node and uses the first that works.
 | `probe_failed` | The GPU could not decode the test recording. Check the render group (`ls -ln /dev/dri`) and host driver. |
 | `decode_failed` | Three recordings in a row fell back to the CPU, so GPU decode stays off until restart. |
 
-The last three states also appear as a warning in **Diagnostics** once motion collection runs,
-and every recording that falls back to the CPU is counted in one **Diagnostics** entry. Decoding
-falls back to the CPU for one recording at a time, so a GPU problem never stops collection.
+The last three states also appear as a warning in **Diagnostics** once motion collection runs.
+Decoding falls back to the CPU for one recording at a time, so a GPU problem never stops
+collection. A fallback the next recording recovers from is counted as information
+(`hardware_decode_fallback`), not a warning. A second fallback in a row records the
+`hardware_decode_fallback_repeated` warning, one recording before the third switches GPU
+decode off and the state becomes `decode_failed`. A GPU that recovers in between but fails often
+records the `hardware_decode_fallback_frequent` warning once 3 of its last 10 GPU decodes have
+fallen back; it stays on, since it still decodes most recordings.
 
 The GPU returns the same frames and pixels as CPU decoding, so the detector sees what it
 always saw. Each sample is the frame OpenCV's seek would return, worked out from the

@@ -67,6 +67,16 @@ log = structlog.get_logger()
 UNREADABLE_WINDOW_SECONDS = 3600
 # One odd recording falling back to the CPU is not a broken GPU; this many in a row is.
 MOTION_HARDWARE_FALLBACK_LIMIT = 3
+# A fallback the next recording recovered from is information. Two in a row means the GPU did
+# not recover on the next try, which is the earliest point it is worth an owner's attention,
+# one recording before the limit above moves collection to the CPU and Health says so.
+MOTION_HARDWARE_FALLBACK_WARN_AFTER = 2
+# A GPU that recovers between failures never reaches two in a row, so the rate is watched too:
+# this many fallbacks among the last MOTION_HARDWARE_FALLBACK_RATE_WINDOW GPU decodes. Three in ten
+# is a GPU failing a third of the time, a fault worth a look; one or two scattered across ten
+# recordings is the odd recording the information entry already counts.
+MOTION_HARDWARE_FALLBACK_RATE_COUNT = 3
+MOTION_HARDWARE_FALLBACK_RATE_WINDOW = 10
 # The parent's deadline for one recording scan; the decoder's own timeouts fit inside it.
 MOTION_WORKER_TIMEOUT_SECONDS = 45
 # Decoder states that mean the image expected the GPU and something on the host prevented it.
@@ -116,6 +126,8 @@ class GardenMotionService:
         self.decoder: MotionDecoder | None = None
         self.decoder_reported = False
         self.hardware_fallbacks = 0
+        # True for each recent GPU decode that fell back to the CPU, newest last.
+        self.recent_gpu_decodes: deque[bool] = deque(maxlen=MOTION_HARDWARE_FALLBACK_RATE_WINDOW)
         # Cameras whose recordings the GPU cannot match to OpenCV's frames, said once each.
         self.software_cameras: set[str] = set()
         self.worker = GardenWarmWorker(
@@ -278,6 +290,7 @@ class GardenMotionService:
     def _note_decoder(self, camera: str, used: str | None) -> None:
         if used == "vaapi":
             self.hardware_fallbacks = 0
+            self.recent_gpu_decodes.append(False)
         elif used == "software" and camera not in self.software_cameras:
             self.software_cameras.add(camera)
             log.info(
@@ -288,17 +301,52 @@ class GardenMotionService:
             )
         elif used == "software_fallback":
             self.hardware_fallbacks += 1
-            log.warning("garden_motion_hardware_decode_fallback", camera=camera, consecutive=self.hardware_fallbacks)
-            # One stable identity, so intermittent fallbacks coalesce into a counted incident even
-            # when successes in between keep the decoder switched on.
-            error_diagnostics_history.record(
-                source="garden_motion",
-                component="motion_decoder",
-                reason_code="hardware_decode_fallback",
-                message="A motion recording could not be decoded on the Intel GPU, so it was decoded on the CPU.",
-                severity="warning",
-                context={"camera": camera},
-            )
+            self.recent_gpu_decodes.append(True)
+            recent_fallbacks = sum(self.recent_gpu_decodes)
+            if (
+                self.hardware_fallbacks < MOTION_HARDWARE_FALLBACK_WARN_AFTER
+                and recent_fallbacks >= MOTION_HARDWARE_FALLBACK_RATE_COUNT
+            ):
+                log.warning(
+                    "garden_motion_hardware_decode_fallback_frequent",
+                    camera=camera,
+                    fallbacks=recent_fallbacks,
+                    decodes=len(self.recent_gpu_decodes),
+                )
+                error_diagnostics_history.record(
+                    source="garden_motion",
+                    component="motion_decoder",
+                    reason_code="hardware_decode_fallback_frequent",
+                    message="Motion recordings keep falling back from the Intel GPU to the CPU, though the GPU "
+                    "recovers in between.",
+                    severity="warning",
+                    context={"camera": camera, "fallbacks": recent_fallbacks, "decodes": len(self.recent_gpu_decodes)},
+                )
+            elif self.hardware_fallbacks < MOTION_HARDWARE_FALLBACK_WARN_AFTER:
+                log.info("garden_motion_hardware_decode_fallback", camera=camera, consecutive=self.hardware_fallbacks)
+                # One stable identity, so fallbacks the GPU recovers from coalesce into one counted
+                # entry even when successes in between keep the decoder switched on.
+                error_diagnostics_history.record(
+                    source="garden_motion",
+                    component="motion_decoder",
+                    reason_code="hardware_decode_fallback",
+                    message="A motion recording could not be decoded on the Intel GPU, so it was decoded on the CPU.",
+                    severity="info",
+                    context={"camera": camera},
+                )
+            else:
+                log.warning(
+                    "garden_motion_hardware_decode_fallback", camera=camera, consecutive=self.hardware_fallbacks
+                )
+                error_diagnostics_history.record(
+                    source="garden_motion",
+                    component="motion_decoder",
+                    reason_code="hardware_decode_fallback_repeated",
+                    message="Several motion recordings in a row could not be decoded on the Intel GPU, so they "
+                    "were decoded on the CPU.",
+                    severity="warning",
+                    context={"camera": camera, "consecutive": self.hardware_fallbacks},
+                )
             if self.hardware_fallbacks >= MOTION_HARDWARE_FALLBACK_LIMIT:
                 self.decoder = MotionDecoder("decode_failed")
                 self._report_decoder()

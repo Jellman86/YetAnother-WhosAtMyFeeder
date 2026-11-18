@@ -603,3 +603,32 @@ def test_reported_hold_average_never_exceeds_the_reported_hold_maximum():
     assert status["hold_ms_max"] == 12.0
     assert status["hold_ms_avg"] <= status["hold_ms_max"]
     assert status["hold_ms_lifetime_max"] == 4000.0
+
+
+@pytest.mark.asyncio
+async def test_a_hold_taken_through_the_privacy_wrapper_names_the_route_not_the_wrapper(tmp_path, monkeypatch):
+    """Twelve routes take their connection through `privacy_checked_db`.
+
+    Labelling the wrapper made a slow hold from any of them read as
+    `app.utils.public_access:privacy_checked_db`, which names no route and
+    sends a diagnosis nowhere.
+    """
+    from app import database as database_module
+    from app.utils.public_access import privacy_checked_db
+
+    pool = DatabasePool(str(tmp_path / "pool-wrapper-label.db"), pool_size=2)
+    await pool.initialize()
+    monkeypatch.setattr(database_module, "_db_pool", pool)
+
+    seen: dict[str, object] = {}
+
+    async def guest_history_route():
+        async with privacy_checked_db(database_module.get_db):
+            seen["label"] = pool.get_status()["longest_active_hold_label"]
+
+    try:
+        await guest_history_route()
+    finally:
+        await pool.close_all()
+
+    assert seen["label"] == f"{__name__}:guest_history_route"

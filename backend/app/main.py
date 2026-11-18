@@ -1267,6 +1267,7 @@ def build_health_payload() -> dict[str, object]:
             "stage_timeouts": {},
             "stage_failures": {},
             "stage_fallbacks": {},
+            "snapshot_not_found_events": 0,
             "drop_reasons": {},
             "last_stage_timeout": None,
             "last_stage_failure": None,

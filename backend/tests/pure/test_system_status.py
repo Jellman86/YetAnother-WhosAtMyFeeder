@@ -578,6 +578,10 @@ def test_the_incident_signals_are_the_ones_the_incident_workspace_resolves_from(
             {"ml": {"background_image": {"background_throttled": True, "queued": 4}}},
             {"ml": {"background_image": {"background_throttled": False, "queued": 0}}},
         ),
+        (
+            {"mqtt": {"frigate_availability": {"status": "offline"}}},
+            {"mqtt": {"frigate_availability": {"status": "online"}}},
+        ),
     ],
 )
 def test_a_stateful_recovery_moves_both_revisions(before, after):

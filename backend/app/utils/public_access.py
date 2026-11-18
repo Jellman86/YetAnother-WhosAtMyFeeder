@@ -10,7 +10,7 @@ from typing import Iterator
 from fastapi import HTTPException
 
 from app.config import settings
-from app.database import DatabasePoolTimeout
+from app.database import DatabasePoolTimeout, connection_passthrough
 from app.utils.api_datetime import utc_naive_datetime
 
 
@@ -152,6 +152,7 @@ def public_event_visible(event, now: datetime | None = None) -> bool:
 
 
 @asynccontextmanager
+@connection_passthrough
 async def privacy_checked_db(factory):
     """A failed visibility lookup never grants access or exposes database details."""
     try:

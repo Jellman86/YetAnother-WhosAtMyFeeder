@@ -235,6 +235,8 @@ class EventProcessor:
         self._stage_timeouts: Counter[str] = Counter()
         self._stage_failures: Counter[str] = Counter()
         self._stage_fallbacks: Counter[str] = Counter()
+        # Events Frigate announced and then kept no snapshot for: expected, so counted rather than warned.
+        self._snapshot_not_found_events = 0
         self._drop_reasons: Counter[str] = Counter()
         self._recent_outcomes: deque[dict[str, Any]] = deque(maxlen=50)
         self._last_stage_timeout: dict[str, Any] | None = None
@@ -424,6 +426,7 @@ class EventProcessor:
             "stage_timeouts": stage_timeouts,
             "stage_failures": stage_failures,
             "stage_fallbacks": stage_fallbacks,
+            "snapshot_not_found_events": self._snapshot_not_found_events,
             "drop_reasons": drop_reasons,
             "expected_drops": sum(expected_drop_reasons.values()),
             "fault_drops": sum(fault_drop_reasons.values()),
@@ -1429,6 +1432,14 @@ class EventProcessor:
                     camera=getattr(event, "camera", None),
                     start_time_ts=getattr(event, "start_time_ts", None),
                 )
+                if last_snapshot_error == "snapshot_not_found":
+                    self._snapshot_not_found_events += 1
+                    log.info(
+                        "Frigate has no snapshot for this event",
+                        event_id=event.frigate_event,
+                        reason=last_snapshot_error,
+                        fallback=snapshot_source,
+                    )
                 snapshot_provenance = cached_snapshot_input_provenance({"source": snapshot_source})
                 if snapshot_source == "frigate_recording_snapshot" and snapshot_data:
                     # The fallback's source label cannot carry alignment. Verify
