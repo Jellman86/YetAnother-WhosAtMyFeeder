@@ -124,7 +124,7 @@ photos and video** and **Limit the space photos and video use** can still evict 
 keeps detection history and leaves archived favourites alone. Removed bytes cannot be restored
 from YA-WAMF itself; do not assume Frigate still has them.
 
-![Photos and video settings showing a newest-capture photo floor, a per-species media maximum and a storage limit](../images/settings-media-retention.png)
+![The Photos and video card with a storage limit and the per-species limits: keeping photos of each species' newest visits, and limiting visits per species with photos and video](../images/settings-media-retention.png)
 
 ## Storage
 

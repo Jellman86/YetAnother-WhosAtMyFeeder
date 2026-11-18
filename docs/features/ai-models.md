@@ -136,7 +136,7 @@ Parallel ViT EU and BioCLIP 2.5. These are additional choices, not an automatic 
 existing selections. The page gives their coverage, download sizes, memory estimates and
 host-gated provider limits.
 
-![Model Manager showing the selected location-aware DINOv2 model, its memory estimate, saved-location guidance and current Intel NPU runtime](../images/model-manager-dino.png)
+![The identification model in use in Settings → Identifying birds: the location-aware DINOv2 model, with what it is, its memory estimate and its location guidance](../images/model-manager-dino.png)
 
 DINOv2 uses the saved feeder coordinates at inference time. Set them in **Settings → Sharing & integrations
 → Location**, or in the setup wizard's model step, before validating. A complete `(0, 0)` is valid;

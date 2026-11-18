@@ -106,7 +106,7 @@ a control:
 
 > Tell me about **new visits** that are at least **70% sure** of **any species** on **Discord**
 
-![Settings → Alerts: the Global Notification Filters card reading "Tell me about new visits that are at least 70% sure of any species on nowhere yet", with the notification cooldown, notification language, and the three species filter modes beneath](../images/settings-notifications.png)
+![Settings → Alerts: the Global Notification Filters card reading "Tell me about new visits that are at least 70% sure of any species on no channel yet", then the Channels card with Discord, Pushover, Telegram and email](../images/settings-notifications.png)
 
 ### Minimum confidence
 Only alert at or above this score (default `0.7`). Raise it to reduce alerts for lower-confidence

@@ -119,7 +119,7 @@ shown first. **More options** holds the rest of Frigate's settings (the labels t
 public Frigate URL, the image used for the first identification, and clips) and the
 [BirdNET-Go](#birdnet-go) connection.
 
-![Frigate settings with the server URL, the Frigate labels to act on and the public Frigate URL, beside the Cameras to watch list where the feeder camera watches for birds as a Feeder. The labels and the public URL are now under More options.](../images/settings-connection.png)
+![Settings → Cameras & connection: the Frigate server URL, the MQTT broker's address, port and sign-in with Test Frigate and MQTT, then the Cameras to watch list where the feeder camera watches for birds](../images/settings-connection.png)
 
 | Setting | Description |
 |---------|-------------|
@@ -172,7 +172,7 @@ browser URL** is the public address dashboard links open, and falls back to the 
 empty. **Test Audio detection** runs the broker publish and a mock detection through the real
 pipeline. See [BirdNET-Go](../integrations/birdnet-go.md).
 
-![The BirdNET-Go card with the integration switched on, the internal URL the backend uses and the browser URL dashboard links open](../images/settings-integrations.png)
+![The BirdNET-Go card under Cameras & connection's More options, switched on, with the internal URL the backend uses, the browser URL dashboard links open, the MQTT topic and Test BirdNET-Go](../images/settings-integrations.png)
 
 ## Identifying birds
 
@@ -220,7 +220,7 @@ closed until a different one appears. Then:
   compute** with the debug interface on) and **Runtime report** sections. The report opens on its
   own when the runtime has something to report, or when a save refuses a value inside it.
 
-![Settings → Identifying birds: the status line, then the Models card with the identification model lineup and the two bird finder choices, each showing download size, estimated RAM and the device it runs on](../images/settings-detection.png)
+![Settings → Identifying birds: the Naming threshold card with the threshold, the minimum confidence floor and Learn from my corrections, the status line naming the model in use, then the Models card with the bird model region and the identification model in use](../images/settings-detection.png)
 
 | Setting | Default | Description |
 |---------|---------|-------------|
@@ -324,7 +324,7 @@ come first. **More options** holds the cooldown, the notification language, the 
 species filter, and while Garden animals is on, Garden's own alerts. The sentence's species words
 open More options at the species filter.
 
-![Settings → Alerts: the Global Notification Filters card reading "Tell me about new visits that are at least 70% sure of any species on no channel yet", with the notification cooldown, language, and the three species filter modes beneath](../images/settings-notifications.png)
+![Settings → Alerts: the Global Notification Filters card reading "Tell me about new visits that are at least 70% sure of any species on no channel yet", then the Channels card with Discord, Pushover, Telegram and email, and More options folded with the cooldown, language, link and species filter](../images/settings-notifications.png)
 
 The filter reads as a sentence — *Tell me about **new visits** that are at least **70% sure**
 of **any species** on **Discord*** — and each highlighted part is a control.
@@ -446,7 +446,7 @@ on the leaderboard.
 
 Who can reach YA-WAMF, and what a visitor can see.
 
-![Settings → Sharing & integrations: an Authentication card with the enable switch, admin username and a redacted saved password, beside a Public Access card with separate switches for camera names, audio, photographs and video](../images/settings-security.png)
+![Settings → Sharing & integrations: the Sign-in card switched on, with the profile picture, the owner user name and the new password fields, then Public access switched off, and More options folded with the other services](../images/settings-security.png)
 
 - **Authentication** — enable login, set the owner username and password, and choose the
   session lifetime. Saved passwords display as `***REDACTED***` and are preserved when you
@@ -478,7 +478,7 @@ loses a visit, and the configuration backup. Repair and fill-in jobs, and the ac
 history, are in [Maintenance](#maintenance). Telemetry, what leaves this installation, is in
 Security (see [Telemetry](../features/telemetry.md)).
 
-![Settings → Storage & upkeep with retention controls and Photos and video settings for locally kept media, Frigate event-clip copies and storage limits](../images/settings-data.png)
+![Settings → Storage & upkeep: the Retention policy card keeping everything, then Photos and video with Frigate event-clip copies, 326 MB used, 8 archived favourites and a 2 GB storage limit](../images/settings-data.png)
 
 - **Retention Policy** — **History Duration** sets how long sightings are kept
   (`maintenance.retention_days`; **Keep everything** is the default). Cleanup runs once at
@@ -547,7 +547,7 @@ Security (see [Telemetry](../features/telemetry.md)).
   frame when a reviewed bird cannot be matched safely. This does not track individual
   birds between frames. See [Video analysis](../features/video-analysis.md).
 
-![Photos and video settings explain always-kept photographs and generated media, optional Frigate event-clip copies, media retention and per-species storage limits](../images/settings-media-retention.png)
+![The Photos and video card: Frigate event-clip copies, the space used and archived favourites, a 2 GB storage limit, and the per-species limits opened, keeping photos of each species' newest visits and limiting visits per species to 50](../images/settings-media-retention.png)
 
 - **Limit the space photos and video use** — a switch, with the limit in GB beside it once it is
   on; the line under it says what the rules add up to. It periodically removes the oldest

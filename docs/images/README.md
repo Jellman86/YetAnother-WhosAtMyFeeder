@@ -32,6 +32,8 @@ In another terminal, from the repository root:
 node scripts/capture_docs_screenshots.mjs
 # Capture only the garden prototype controls and empty review view:
 node scripts/capture_docs_screenshots.mjs --garden-only
+# Capture only the Settings figures, for a change to Settings alone:
+node scripts/capture_docs_screenshots.mjs --settings-only
 ```
 
 Port 4189 keeps this capture separate from the browser regression suite. For
@@ -95,15 +97,15 @@ example counts or runtime values into product guarantees.
 | `add-observation.png` | Upload, Analyse, Review and Save flow before anything is added |
 | `settings-garden-cameras.png` | Garden animal settings under Beta features in setup order: steps, the Garden camera summary, labels, proposal threshold, Garden models, automatic naming, notifications and capture outcomes. Refreshed 31 October 2026 |
 | `garden-review.png` | Owner review prototype, separate views and first-capture guidance |
-| `settings-map.png` | Grouped Settings navigation and setup-wizard entry point |
-| `settings-connection.png` | Frigate, MQTT and the Cameras to watch list. Refreshed 31 October 2026, before the Frigate labels and public URL moved under More options; to be retaken |
-| `settings-detection.png` | Saved Intel NPU preference and actual worker runtime status |
-| `model-manager-dino.png` | Selected DINO model, memory estimate and location guidance |
-| `settings-integrations.png` | The BirdNET-Go card, shown in Cameras & connection under More options. Taken before it moved there from Integrations; to be retaken |
-| `settings-notifications.png` | Global notification filters and channel controls |
-| `settings-security.png` | Authentication and public-access controls |
-| `settings-data.png` | History retention and separate photo/video storage limits |
-| `settings-media-retention.png` | Always-kept photos/video and optional storage limits |
+| `settings-map.png` | The six Settings sections and the setup-wizard entry point. Refreshed 18 November 2026 |
+| `settings-connection.png` | Cameras & connection: Frigate, the MQTT broker with its test, and the Cameras to watch list. Refreshed 18 November 2026 |
+| `settings-detection.png` | Identifying birds: the naming threshold card, the status line and the model in use. Refreshed 18 November 2026 |
+| `model-manager-dino.png` | The DINO model in use, its memory estimate and location guidance. Refreshed 18 November 2026 |
+| `settings-integrations.png` | The BirdNET-Go card, in Cameras & connection under More options. Refreshed 18 November 2026 |
+| `settings-notifications.png` | Alerts: the delivery sentence and the channels. Refreshed 18 November 2026 |
+| `settings-security.png` | Sharing & integrations: sign-in and public access. Refreshed 18 November 2026 |
+| `settings-data.png` | Storage & upkeep: history retention and the Photos and video card with an example measurement. Refreshed 18 November 2026 |
+| `settings-media-retention.png` | The Photos and video card in Storage & upkeep, with the per-species limits opened. Refreshed 18 November 2026 |
 | `settings-health.png` | System status and recorded visits in the What happened timeline |
 | `support-bundle.png` | Fresh diagnostics capture, issue notes and download controls |
 | `model-evaluation-compatibility.png` | A provider check only: fastest passing provider, typical time, provider checks in words and the files it wrote |
