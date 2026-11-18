@@ -1247,8 +1247,8 @@
     // time it opens in this visit; the page's own refresh and the actions in a section read them again.
     type SectionReading = 'cameras' | 'classifier' | 'storage' | 'cache' | 'version' | 'recordingClips' | 'audioSources' | 'backfill';
     const READINGS_BY_SECTION: Partial<Record<SettingsSection, readonly SectionReading[]>> = {
-        // BirdNET-Go is set up with the cameras, so its sources are read here and mapped to them.
-        cameras: ['cameras', 'recordingClips', 'audioSources'],
+        // BirdNET-Go's sources are read when its mapping is shown (audioSourcesShown below), not here.
+        cameras: ['cameras', 'recordingClips'],
         // Models reads the classifier itself, when the pushed model revision moves.
         // Security names the running version.
         sharing: ['version'],
@@ -1274,7 +1274,8 @@
 
     /** The open section's readings again, for the page's own refresh. */
     function rereadSection(section: SettingsSection): Promise<void>[] {
-        return (READINGS_BY_SECTION[section] ?? []).map((reading) => {
+        const readings = [...(READINGS_BY_SECTION[section] ?? []), ...(section === 'cameras' && audioSourcesShown ? ['audioSources' as const] : [])];
+        return readings.map((reading) => {
             readingsTaken.add(reading);
             return takeReading(reading, sectionReadings?.signal);
         });
@@ -1287,8 +1288,24 @@
 
     function rereadAfterSave(): void {
         for (const reading of SAVE_DEPENDENT_READINGS) readingsTaken.delete(reading);
-        if (sectionReadings) readForSection(activeSection, sectionReadings.signal);
+        if (sectionReadings) {
+            readForSection(activeSection, sectionReadings.signal);
+            if (audioSourcesShown) readOnce('audioSources', sectionReadings.signal);
+        }
     }
+
+    // BirdNET-Go's sources map its microphones to the cameras, under Cameras & connection's More
+    // options and only while audio is on. They are read the first time that is shown in this visit,
+    // not every time the section opens, so an install without BirdNET-Go never asks for them.
+    const audioSourcesShown = $derived(
+        activeSection === 'cameras' && disclosures.isOpen(settingsMoreId('cameras')) === true && birdnetEnabled
+    );
+    $effect(() => {
+        if (!audioSourcesShown || !authStore.showSettings) return;
+        untrack(() => {
+            if (sectionReadings) readOnce('audioSources', sectionReadings.signal);
+        });
+    });
 
     // A backfill started here or elsewhere is followed while it runs, in whichever section is open,
     // so its end is announced wherever you are. The pushed jobs say when one is running; an idle
@@ -1306,14 +1323,16 @@
     });
 
     function readForSection(section: SettingsSection, signal: AbortSignal): void {
-        for (const reading of READINGS_BY_SECTION[section] ?? []) {
-            if (readingsTaken.has(reading)) continue;
-            readingsTaken.add(reading);
-            // A reading cancelled by leaving was not taken: the section reads it again when it reopens.
-            void takeReading(reading, signal).finally(() => {
-                if (signal.aborted) readingsTaken.delete(reading);
-            });
-        }
+        for (const reading of READINGS_BY_SECTION[section] ?? []) readOnce(reading, signal);
+    }
+
+    function readOnce(reading: SectionReading, signal: AbortSignal): void {
+        if (readingsTaken.has(reading)) return;
+        readingsTaken.add(reading);
+        // A reading cancelled by leaving was not taken: the section reads it again when it reopens.
+        void takeReading(reading, signal).finally(() => {
+            if (signal.aborted) readingsTaken.delete(reading);
+        });
     }
 
     $effect(() => {

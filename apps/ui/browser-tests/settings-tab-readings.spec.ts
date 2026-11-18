@@ -118,15 +118,52 @@ test("leaving Connection cancels its recording-support read while the body is st
     await expectCancelledOnLeaving(page, () => tabLink(page, 'Display').click());
 });
 
+test('BirdNET-Go\'s sources are read when its mapping is shown, once, and not for an install with audio off', async ({ page }) => {
+    let sourceReads = 0;
+    await openSettings(page, { birdnet_enabled: true }, {
+        route: '/settings/cameras',
+        respond: (path) => {
+            if (path.endsWith('/audio/sources')) sourceReads += 1;
+            return undefined;
+        }
+    });
+    // Opening the section asks Frigate, not BirdNET-Go: the mapping is under More options.
+    await page.waitForTimeout(1_000);
+    expect(sourceReads).toBe(0);
+    await openMoreOptions(page);
+    await expect.poll(() => sourceReads).toBe(1);
+    // Closing and opening More options again in this visit reads nothing new.
+    await page.locator('[data-settings-more] > h2 > button').click();
+    await openMoreOptions(page);
+    await page.waitForTimeout(1_000);
+    expect(sourceReads).toBe(1);
+});
+
+test('with audio off, opening More options reads no BirdNET-Go sources', async ({ page }) => {
+    let sourceReads = 0;
+    await openSettings(page, { birdnet_enabled: false }, {
+        route: '/settings/cameras',
+        respond: (path) => {
+            if (path.endsWith('/audio/sources')) sourceReads += 1;
+            return undefined;
+        }
+    });
+    await openMoreOptions(page);
+    await page.waitForTimeout(1_000);
+    expect(sourceReads).toBe(0);
+});
+
 test('leaving Cameras & connection cancels its BirdNET-Go sources read while the body is still arriving', async ({ page }) => {
     await stallBodies(page, '/api/audio/sources');
     await openSettings(page, {}, { route: '/settings/cameras' });
+    await openMoreOptions(page);
     await expectCancelledOnLeaving(page, () => tabLink(page, 'Display').click());
 });
 
 test('leaving Settings altogether cancels the open tab\'s helper read', async ({ page }) => {
     await stallBodies(page, '/api/audio/sources');
     await openSettings(page, {}, { route: '/settings/cameras' });
+    await openMoreOptions(page);
     await expectCancelledOnLeaving(page, () => page.getByRole('button', { name: 'Leave Settings', exact: true }).click());
 });
 
