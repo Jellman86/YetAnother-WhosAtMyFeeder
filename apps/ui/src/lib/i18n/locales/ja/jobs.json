@@ -327,6 +327,10 @@
     "restored_status": "再表示しました。一覧に戻りました。",
     "dismiss_failed": "非表示にできませんでした。もう一度お試しください。続けて失敗する場合は、YA-WAMF が動作しているか確認してください。",
     "restore_failed": "再表示できませんでした。もう一度お試しください。続けて失敗する場合は、YA-WAMF が動作しているか確認してください。",
-    "dismissed_heading": "非表示の項目"
+    "dismissed_heading": "非表示の項目",
+    "happened_again": "このページを開いている間に再び起きたため、まだ一覧にあります。新しい発生も隠すには、もう一度非表示にしてください。",
+    "already_cleared": "エラー履歴の消去や再起動などで、すでにエラー履歴から消えていたため、非表示にするものはありませんでした。",
+    "earlier_empty_with_dismissed": "{count, plural, other {ほかに解消したものはありません。非表示のインシデント # 件が下にあります。}}",
+    "backend_empty_with_dismissed": "{count, plural, other {バックエンドはほかに何も記録していません。非表示の項目 # 件が下にあります。}}接続の問題はここではなく、このページの上部に表示されます。"
   }
 }

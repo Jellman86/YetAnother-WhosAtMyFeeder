@@ -327,6 +327,10 @@
     "restored_status": "Rétabli. Il figure de nouveau dans la liste.",
     "dismiss_failed": "Impossible de masquer cet élément. Réessayez ; si l’échec persiste, vérifiez que YA-WAMF fonctionne.",
     "restore_failed": "Impossible de rétablir cet élément. Réessayez ; si l’échec persiste, vérifiez que YA-WAMF fonctionne.",
-    "dismissed_heading": "Masqués"
+    "dismissed_heading": "Masqués",
+    "happened_again": "Cela s’est reproduit pendant que cette page était ouverte, donc l’élément reste dans la liste. Masquez-le de nouveau pour masquer aussi la nouvelle occurrence.",
+    "already_cleared": "Cet élément avait déjà quitté l’historique des erreurs, par exemple après Effacer l’historique des erreurs ou un redémarrage, il n’y avait donc rien à masquer.",
+    "earlier_empty_with_dismissed": "{count, plural, one {Rien d’autre n’a été résolu ; # incident masqué figure plus bas.} other {Rien d’autre n’a été résolu ; # incidents masqués figurent plus bas.}}",
+    "backend_empty_with_dismissed": "{count, plural, one {Le backend n’a rien enregistré d’autre ; # élément masqué figure plus bas.} other {Le backend n’a rien enregistré d’autre ; # éléments masqués figurent plus bas.}} Les problèmes de connexion sont indiqués en haut de cette page, pas ici."
   }
 }

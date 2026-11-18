@@ -1108,19 +1108,19 @@ export interface components {
     wind_avg?: number | null;
 };
     DiagnosticDismissalEntryRequest: {
+    count: number;
     id: string;
-    last_seen: string;
 };
     DiagnosticDismissalResponse: {
     component: string;
     dismissed_at: string;
-    dismissed_through: string;
+    dismissed_count: number;
     id: string;
     reason_code: string;
 };
     DiagnosticDismissalStateResponse: {
     dismissed_at: string;
-    dismissed_through: string;
+    dismissed_count: number;
 };
     DiagnosticsBundleResponse: {
     backend_diagnostics: components['schemas']['BackendDiagnosticsSnapshotResponse'];

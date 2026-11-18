@@ -24,7 +24,7 @@ _VIDEO_BREAKER_REASON_CODES = {"video_circuit_open", "video_circuit_opened", "ci
 
 
 class DiagnosticDismissalStateResponse(BaseModel):
-    dismissed_through: str = Field(description="The newest occurrence the dismissal covers.")
+    dismissed_count: int = Field(description="How many occurrences the dismissal covers; a later one ends it.")
     dismissed_at: str = Field(description="When the owner dismissed it.")
 
 
@@ -169,7 +169,7 @@ DiagnosticEntryId = Annotated[str, Field(min_length=1, max_length=64)]
 
 class DiagnosticDismissalEntryRequest(BaseModel):
     id: DiagnosticEntryId
-    last_seen: datetime = Field(description="The newest occurrence the owner saw, the entry's `last_seen`.")
+    count: int = Field(ge=1, strict=True, description="How many occurrences the owner saw, the entry's `count`.")
 
 
 class DismissDiagnosticsRequest(BaseModel):
@@ -180,7 +180,7 @@ class DiagnosticDismissalResponse(BaseModel):
     id: str
     component: str
     reason_code: str
-    dismissed_through: str
+    dismissed_count: int
     dismissed_at: str
 
 
@@ -461,12 +461,12 @@ async def dismiss_owner_workspace_diagnostics(
     body: DismissDiagnosticsRequest,
     _auth: AuthContext = Depends(require_owner),
 ):
-    """Hide backend history entries on Health for everyone, each up to the occurrence the owner saw.
+    """Hide backend history entries on Health for everyone, each up to the occurrences the owner saw.
 
     Nothing is deleted: a newer occurrence shows the entry again, restore shows it now, and
     clearing the error history removes the dismissals with everything else.
     """
-    result = error_diagnostics_history.dismiss([(entry.id, entry.last_seen.isoformat()) for entry in body.entries])
+    result = error_diagnostics_history.dismiss([(entry.id, entry.count) for entry in body.entries])
     return {"dismissed": result.dismissed, "missing": result.missing}
 
 

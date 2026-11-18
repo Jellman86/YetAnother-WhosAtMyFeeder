@@ -7872,22 +7872,22 @@
       },
       "DiagnosticDismissalEntryRequest": {
         "properties": {
+          "count": {
+            "description": "How many occurrences the owner saw, the entry's `count`.",
+            "minimum": 1.0,
+            "title": "Count",
+            "type": "integer"
+          },
           "id": {
             "maxLength": 64,
             "minLength": 1,
             "title": "Id",
             "type": "string"
-          },
-          "last_seen": {
-            "description": "The newest occurrence the owner saw, the entry's `last_seen`.",
-            "format": "date-time",
-            "title": "Last Seen",
-            "type": "string"
           }
         },
         "required": [
           "id",
-          "last_seen"
+          "count"
         ],
         "title": "DiagnosticDismissalEntryRequest",
         "type": "object"
@@ -7902,9 +7902,9 @@
             "title": "Dismissed At",
             "type": "string"
           },
-          "dismissed_through": {
-            "title": "Dismissed Through",
-            "type": "string"
+          "dismissed_count": {
+            "title": "Dismissed Count",
+            "type": "integer"
           },
           "id": {
             "title": "Id",
@@ -7919,7 +7919,7 @@
           "id",
           "component",
           "reason_code",
-          "dismissed_through",
+          "dismissed_count",
           "dismissed_at"
         ],
         "title": "DiagnosticDismissalResponse",
@@ -7932,14 +7932,14 @@
             "title": "Dismissed At",
             "type": "string"
           },
-          "dismissed_through": {
-            "description": "The newest occurrence the dismissal covers.",
-            "title": "Dismissed Through",
-            "type": "string"
+          "dismissed_count": {
+            "description": "How many occurrences the dismissal covers; a later one ends it.",
+            "title": "Dismissed Count",
+            "type": "integer"
           }
         },
         "required": [
-          "dismissed_through",
+          "dismissed_count",
           "dismissed_at"
         ],
         "title": "DiagnosticDismissalStateResponse",
@@ -28496,7 +28496,7 @@
     },
     "/api/diagnostics/dismissals": {
       "post": {
-        "description": "Hide backend history entries on Health for everyone, each up to the occurrence the owner saw.\n\nNothing is deleted: a newer occurrence shows the entry again, restore shows it now, and\nclearing the error history removes the dismissals with everything else.",
+        "description": "Hide backend history entries on Health for everyone, each up to the occurrences the owner saw.\n\nNothing is deleted: a newer occurrence shows the entry again, restore shows it now, and\nclearing the error history removes the dismissals with everything else.",
         "operationId": "dismiss_owner_workspace_diagnostics_api_diagnostics_dismissals_post",
         "requestBody": {
           "content": {

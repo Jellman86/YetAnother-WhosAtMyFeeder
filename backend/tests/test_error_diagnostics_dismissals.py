@@ -30,19 +30,16 @@ def test_a_dismissed_entry_is_marked_dismissed_and_kept():
     history = ErrorDiagnosticsHistory()
     entry = _record(history, at="2026-11-18T07:00:00+00:00")
 
-    result = history.dismiss([(entry["id"], entry["last_seen"])], now="2026-11-18T07:05:00+00:00")
+    result = history.dismiss([(entry["id"], entry["count"])], now="2026-11-18T07:05:00+00:00")
 
     assert result.missing == []
     assert [(item["id"], item["component"], item["reason_code"]) for item in result.dismissed] == [
         (entry["id"], "event_processor", "stage_timeout")
     ]
-    assert result.dismissed[0]["dismissed_through"] == "2026-11-18T07:00:00+00:00"
+    assert result.dismissed[0]["dismissed_count"] == 1
     event = _events_by_id(history)[entry["id"]]
     assert event["dismissed"] is True
-    assert event["dismissal"] == {
-        "dismissed_through": "2026-11-18T07:00:00+00:00",
-        "dismissed_at": "2026-11-18T07:05:00+00:00",
-    }
+    assert event["dismissal"] == {"dismissed_count": 1, "dismissed_at": "2026-11-18T07:05:00+00:00"}
     snapshot = history.snapshot()
     assert snapshot["total_events"] == 1 and snapshot["dismissed_events"] == 1
 
@@ -50,7 +47,7 @@ def test_a_dismissed_entry_is_marked_dismissed_and_kept():
 def test_a_new_occurrence_after_the_dismissal_shows_the_entry_again():
     history = ErrorDiagnosticsHistory()
     entry = _record(history, at="2026-11-18T07:00:00+00:00")
-    history.dismiss([(entry["id"], entry["last_seen"])], now="2026-11-18T07:05:00+00:00")
+    history.dismiss([(entry["id"], entry["count"])], now="2026-11-18T07:05:00+00:00")
 
     repeat = _record(history, at="2026-11-18T07:10:00+00:00")
 
@@ -67,9 +64,36 @@ def test_an_occurrence_the_owner_had_not_seen_yet_is_not_dismissed_with_the_olde
     seen = _record(history, at="2026-11-18T07:00:00+00:00")
     _record(history, at="2026-11-18T07:01:00+00:00")
 
-    history.dismiss([(seen["id"], seen["last_seen"])], now="2026-11-18T07:02:00+00:00")
+    history.dismiss([(seen["id"], seen["count"])], now="2026-11-18T07:02:00+00:00")
 
     assert _events_by_id(history)[seen["id"]]["dismissed"] is False
+
+
+def test_a_repeat_shows_again_even_when_the_clock_has_stepped_back():
+    """An NTP correction or a resumed VM can stamp a new occurrence earlier than the dismissal.
+
+    The rule counts occurrences, so the repeat shows whatever the clock says.
+    """
+    history = ErrorDiagnosticsHistory()
+    entry = _record(history, at="2026-11-18T07:00:00+00:00")
+    history.dismiss([(entry["id"], entry["count"])], now="2026-11-18T07:05:00+00:00")
+
+    _record(history, at="2026-11-18T06:30:00+00:00")
+
+    event = _events_by_id(history)[entry["id"]]
+    assert event["count"] == 2 and event["dismissed"] is False
+
+
+def test_a_dismissal_never_reaches_past_the_occurrences_that_exist():
+    """A page that sends a count from the future cannot hide an occurrence not yet recorded."""
+    history = ErrorDiagnosticsHistory()
+    entry = _record(history, at="2026-11-18T07:00:00+00:00")
+
+    result = history.dismiss([(entry["id"], 99)], now="2026-11-18T07:05:00+00:00")
+    assert result.dismissed[0]["dismissed_count"] == 1
+    _record(history, at="2026-11-18T07:10:00+00:00")
+
+    assert _events_by_id(history)[entry["id"]]["dismissed"] is False
 
 
 def test_a_different_fault_is_never_hidden_by_another_ones_dismissal():
@@ -77,7 +101,7 @@ def test_a_different_fault_is_never_hidden_by_another_ones_dismissal():
     timeout = _record(history, at="2026-11-18T07:00:00+00:00")
     failure = _record(history, at="2026-11-18T07:00:00+00:00", reason_code="stage_failure")
 
-    history.dismiss([(timeout["id"], timeout["last_seen"])], now="2026-11-18T07:05:00+00:00")
+    history.dismiss([(timeout["id"], timeout["count"])], now="2026-11-18T07:05:00+00:00")
 
     events = _events_by_id(history)
     assert events[timeout["id"]]["dismissed"] is True
@@ -87,7 +111,7 @@ def test_a_different_fault_is_never_hidden_by_another_ones_dismissal():
 def test_restore_shows_a_dismissed_entry_again():
     history = ErrorDiagnosticsHistory()
     entry = _record(history, at="2026-11-18T07:00:00+00:00")
-    history.dismiss([(entry["id"], entry["last_seen"])], now="2026-11-18T07:05:00+00:00")
+    history.dismiss([(entry["id"], entry["count"])], now="2026-11-18T07:05:00+00:00")
 
     assert history.restore([entry["id"], "diag:gone"]) == [entry["id"]]
     assert _events_by_id(history)[entry["id"]]["dismissed"] is False
@@ -97,7 +121,7 @@ def test_restore_shows_a_dismissed_entry_again():
 def test_an_entry_no_longer_in_the_history_is_reported_missing_not_dismissed():
     history = ErrorDiagnosticsHistory()
 
-    result = history.dismiss([("diag:1:1", "2026-11-18T07:00:00+00:00")], now="2026-11-18T07:05:00+00:00")
+    result = history.dismiss([("diag:1:1", 1)], now="2026-11-18T07:05:00+00:00")
 
     assert result.dismissed == [] and result.missing == ["diag:1:1"]
 
@@ -105,7 +129,7 @@ def test_an_entry_no_longer_in_the_history_is_reported_missing_not_dismissed():
 def test_clear_error_history_removes_dismissals_with_everything_else():
     history = ErrorDiagnosticsHistory()
     entry = _record(history, at="2026-11-18T07:00:00+00:00")
-    history.dismiss([(entry["id"], entry["last_seen"])], now="2026-11-18T07:05:00+00:00")
+    history.dismiss([(entry["id"], entry["count"])], now="2026-11-18T07:05:00+00:00")
 
     history.clear()
     fresh = _record(history, at="2026-11-18T07:10:00+00:00")
@@ -119,7 +143,7 @@ def test_dismissing_and_restoring_move_the_revision_so_other_pages_read_again():
     entry = _record(history, at="2026-11-18T07:00:00+00:00")
     before = history.revision
 
-    history.dismiss([(entry["id"], entry["last_seen"])], now="2026-11-18T07:05:00+00:00")
+    history.dismiss([(entry["id"], entry["count"])], now="2026-11-18T07:05:00+00:00")
     dismissed = history.revision
     history.restore([entry["id"]])
 
@@ -129,7 +153,7 @@ def test_dismissing_and_restoring_move_the_revision_so_other_pages_read_again():
 def test_a_dismissal_leaves_with_the_entry_it_covers():
     history = ErrorDiagnosticsHistory(max_events=1)
     entry = _record(history, at="2026-11-18T07:00:00+00:00")
-    history.dismiss([(entry["id"], entry["last_seen"])], now="2026-11-18T07:05:00+00:00")
+    history.dismiss([(entry["id"], entry["count"])], now="2026-11-18T07:05:00+00:00")
 
     _record(history, at="2026-11-18T07:06:00+00:00", reason_code="stage_failure")
 
@@ -167,7 +191,7 @@ async def test_the_owner_dismisses_and_restores_a_warning_through_the_api(client
     entry = _record(error_diagnostics_history, at="2026-11-18T07:00:00+00:00")
 
     dismissed = await client.post(
-        "/api/diagnostics/dismissals", json={"entries": [{"id": entry["id"], "last_seen": entry["last_seen"]}]}
+        "/api/diagnostics/dismissals", json={"entries": [{"id": entry["id"], "count": entry["count"]}]}
     )
     assert dismissed.status_code == 200, dismissed.text
     body = dismissed.json()
@@ -187,9 +211,7 @@ async def test_the_owner_dismisses_and_restores_a_warning_through_the_api(client
 @pytest.mark.asyncio
 async def test_the_export_bundle_keeps_dismissed_warnings_marked_as_dismissed(client, owner_access):
     entry = _record(error_diagnostics_history, at="2026-11-18T07:00:00+00:00")
-    await client.post(
-        "/api/diagnostics/dismissals", json={"entries": [{"id": entry["id"], "last_seen": entry["last_seen"]}]}
-    )
+    await client.post("/api/diagnostics/dismissals", json={"entries": [{"id": entry["id"], "count": entry["count"]}]})
 
     bundle = (await client.get("/api/diagnostics/bundle")).json()
 
@@ -202,7 +224,7 @@ async def test_the_export_bundle_keeps_dismissed_warnings_marked_as_dismissed(cl
 @pytest.mark.parametrize(
     "path,body",
     [
-        ("/api/diagnostics/dismissals", {"entries": [{"id": "diag:1:1", "last_seen": "2026-11-18T07:00:00Z"}]}),
+        ("/api/diagnostics/dismissals", {"entries": [{"id": "diag:1:1", "count": 1}]}),
         ("/api/diagnostics/dismissals/restore", {"ids": ["diag:1:1"]}),
     ],
 )
@@ -219,7 +241,7 @@ async def test_only_the_owner_can_dismiss_or_restore(client, path, body):
 
 
 @pytest.mark.asyncio
-async def test_a_dismissal_names_at_least_one_entry_and_a_real_time(client, owner_access):
+async def test_a_dismissal_names_at_least_one_entry_and_an_occurrence_count(client, owner_access):
     assert (await client.post("/api/diagnostics/dismissals", json={"entries": []})).status_code == 422
-    bad_time = {"entries": [{"id": "diag:1:1", "last_seen": "yesterday"}]}
-    assert (await client.post("/api/diagnostics/dismissals", json=bad_time)).status_code == 422
+    for bad in ({"id": "diag:1:1"}, {"id": "diag:1:1", "count": 0}, {"id": "diag:1:1", "count": "many"}):
+        assert (await client.post("/api/diagnostics/dismissals", json={"entries": [bad]})).status_code == 422

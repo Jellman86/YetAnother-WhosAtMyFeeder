@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { BackendDiagnosticEvent, DiagnosticsWorkspacePayload } from '../api/diagnostics';
 import { asGuarded } from '../test-support/guarded';
-import { createIncidentWorkspaceStore } from './incident_workspace.svelte';
+import { createIncidentWorkspaceStore, dismissOutcome } from './incident_workspace.svelte';
 
 function entry(overrides: Partial<BackendDiagnosticEvent> = {}): BackendDiagnosticEvent {
     return {
@@ -81,17 +81,46 @@ describe('dismissed Health items', () => {
         expect(store.dismissedIncidents).toHaveLength(0);
     });
 
-    it('names the entries and the occurrence the owner saw when an incident is dismissed', () => {
+    it('names the entries and how many occurrences the owner saw when an incident is dismissed', () => {
         const store = createIncidentWorkspaceStore();
         store.ingestWorkspacePayload(workspace([
             entry({ id: 'diag:1:1', correlation_key: 'camera:patio' }),
-            entry({ id: 'diag:1:2', correlation_key: 'camera:patio', reason_code: 'stage_timeout', last_seen: '2026-11-18T07:02:00Z' })
+            entry({ id: 'diag:1:2', correlation_key: 'camera:patio', reason_code: 'stage_timeout', count: 4 })
         ]));
 
         expect(store.dismissalEntries(store.currentIssues[0])).toEqual([
-            { id: 'diag:1:1', last_seen: '2026-11-18T07:00:00.123456+00:00' },
-            { id: 'diag:1:2', last_seen: '2026-11-18T07:02:00Z' }
+            { id: 'diag:1:1', count: 1 },
+            { id: 'diag:1:2', count: 4 }
         ]);
+    });
+
+    it('treats a stateful incident whose live check has no reading as live, so it cannot be dismissed', () => {
+        const store = createIncidentWorkspaceStore();
+        // The finder's state is not in this reading at all: unmeasured, so never hidden.
+        const finder = entry({ component: 'bird_finder', reason_code: 'rfdetr_cpu_fallback', severity: 'warning', dismissed: true });
+        store.ingestWorkspacePayload(workspace([finder], { ml: {} }));
+
+        expect(store.currentIssues.map((incident) => [incident.live, incident.dismissed])).toEqual([[true, false]]);
+        expect(store.dismissedIncidents).toHaveLength(0);
+    });
+
+    it('lets a stateful incident be dismissed once its live check has measured it closed', () => {
+        const store = createIncidentWorkspaceStore();
+        const finder = entry({ component: 'bird_finder', reason_code: 'rfdetr_cpu_fallback', severity: 'warning', dismissed: true });
+        store.ingestWorkspacePayload(workspace([finder], { ml: { bird_finder: { active: false } } }));
+
+        expect(store.dismissedIncidents.map((incident) => [incident.live, incident.dismissed])).toEqual([[false, true]]);
+    });
+
+    it('says whether an item is still listed after a read', () => {
+        const store = createIncidentWorkspaceStore();
+        store.ingestWorkspacePayload(workspace([entry({ id: 'diag:1:1' }), entry({ id: 'diag:1:2', reason_code: 'stage_failure', dismissed: true })]));
+
+        expect(store.isListed('entry:diag:1:1')).toBe(true);
+        expect(store.isListed('entry:diag:1:2')).toBe(false);
+        expect(store.isListed('incident:event_processor:drop_classify_snapshot_timeout')).toBe(true);
+        expect(store.isListed('incident:event_processor:stage_failure')).toBe(false);
+        expect(store.isListed('entry:diag:gone')).toBe(false);
     });
 
     it('exports every incident, the dismissed ones marked as dismissed', () => {
@@ -113,12 +142,31 @@ describe('dismissed Health items', () => {
         const restore = vi.fn(() => Promise.resolve({ restored: ['diag:1:1'] }));
         const store = createIncidentWorkspaceStore(fetchWorkspace, { dismiss, restore });
 
-        await store.dismissRemote([{ id: 'diag:1:1', last_seen: '2026-11-18T07:00:00Z' }]);
-        expect(dismiss).toHaveBeenCalledWith([{ id: 'diag:1:1', last_seen: '2026-11-18T07:00:00Z' }]);
+        const result = await store.dismissRemote([{ id: 'diag:1:1', count: 1 }]);
+        expect(dismiss).toHaveBeenCalledWith([{ id: 'diag:1:1', count: 1 }]);
+        expect(result).toEqual({ dismissed: [], missing: [] });
         expect(store.dismissedIncidents).toHaveLength(1);
 
         await store.restoreRemote(['diag:1:1']);
         expect(restore).toHaveBeenCalledWith(['diag:1:1']);
         expect(fetchWorkspace).toHaveBeenCalledTimes(2);
+    });
+});
+
+describe('what a dismissal did', () => {
+    const covered = { id: 'diag:1:1', component: 'event_processor', reason_code: 'stage_timeout', dismissed_count: 1, dismissed_at: '2026-11-18T07:05:00Z' };
+
+    it('is a dismissal only when the server hid it and the next read no longer lists it', () => {
+        expect(dismissOutcome({ dismissed: [covered], missing: [] }, false)).toBe('dismissed');
+    });
+
+    it('says it happened again when a newer occurrence keeps it listed', () => {
+        // The page saw one occurrence; a second arrived before the click, so the server hid only the first.
+        expect(dismissOutcome({ dismissed: [covered], missing: [] }, true)).toBe('happened_again');
+    });
+
+    it('says it was already cleared when the server no longer has it', () => {
+        // A clear in another tab, the history's limit, or a restart emptied it before the click.
+        expect(dismissOutcome({ dismissed: [], missing: ['diag:1:1'] }, false)).toBe('already_cleared');
     });
 });

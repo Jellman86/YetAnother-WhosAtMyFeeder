@@ -4,7 +4,7 @@
     import type { DiagnosticDismissalEntry } from '../api/diagnostics';
     import { onMount, tick } from 'svelte';
     import { _ } from 'svelte-i18n';
-    import { incidentWorkspaceStore } from '../stores/incident_workspace.svelte';
+    import { dismissOutcome, incidentWorkspaceStore } from '../stores/incident_workspace.svelte';
     import {
         jobDiagnosticsStore,
         type DiagnosticsExportOptions,
@@ -189,10 +189,29 @@
     /** The item whose Dismiss or Restore is on its way, so only its button waits. */
     let dismissing = $state<string | null>(null);
     let restoring = $state<string | null>(null);
-    /** A failed Dismiss or Restore, shown in the card it happened in. */
-    let dismissError = $state<{ card: DismissedCard; message: string } | null>(null);
+    /**
+     * What a Dismiss or Restore did when it is not the plain result (it failed, the fault happened
+     * again, or the entry had already gone), shown in the card it happened in. It takes focus when
+     * nothing else on the card can, so a keyboard user is never dropped to the top of the page.
+     */
+    let dismissNotice = $state<{ card: DismissedCard; message: string; tone: 'error' | 'info' } | null>(null);
     let dismissStatus = $state('');
-    let dismissedLists = $state<Record<DismissedCard, { focusToggle: () => void } | null>>({ earlier: null, backend: null });
+    let dismissedLists = $state<Record<DismissedCard, { focusToggle: () => boolean } | null>>({ earlier: null, backend: null });
+    let dismissNoticeLines = $state<Record<DismissedCard, HTMLParagraphElement | null>>({ earlier: null, backend: null });
+
+    /** The card's Show dismissed, then the other card's, then the card's notice. */
+    function focusAfterDismissal(card: DismissedCard): void {
+        const other: DismissedCard = card === 'earlier' ? 'backend' : 'earlier';
+        if (dismissedLists[card]?.focusToggle()) return;
+        if (dismissedLists[other]?.focusToggle()) return;
+        dismissNoticeLines[card]?.focus();
+    }
+
+    function focusDismissButton(key: string): boolean {
+        const button = document.querySelector<HTMLButtonElement>(`[data-health-dismiss-key="${CSS.escape(key)}"]`);
+        button?.focus();
+        return button !== null;
+    }
     let startupWarnings = $derived(workspacePayload?.startup_warnings ?? []);
     let captureLabel = $state('');
     let reportNotes = $state('');
@@ -327,16 +346,28 @@
     async function dismissItem(key: string, entries: DiagnosticDismissalEntry[], card: DismissedCard) {
         if (dismissing || restoring || entries.length === 0) return;
         dismissing = key;
-        dismissError = null;
+        dismissNotice = null;
         dismissStatus = '';
         try {
-            await incidentWorkspaceStore.dismissRemote(entries);
-            dismissStatus = $_('jobs.health_dismiss.dismissed_status', { default: 'Dismissed. It shows again if it happens again.' });
+            const result = await incidentWorkspaceStore.dismissRemote(entries);
+            // Enabled again before focus moves, since a disabled button cannot take it.
             dismissing = null;
-            await tick();
-            dismissedLists[card]?.focusToggle();
+            const outcome = dismissOutcome(result, incidentWorkspaceStore.isListed(key));
+            if (outcome === 'dismissed') {
+                dismissStatus = $_('jobs.health_dismiss.dismissed_status', { default: 'Dismissed. It shows again if it happens again.' });
+                await tick();
+                focusAfterDismissal(card);
+            } else if (outcome === 'happened_again') {
+                dismissNotice = { card, tone: 'info', message: $_('jobs.health_dismiss.happened_again', { default: 'It happened again while this page was open, so it is still listed. Dismiss it again to hide the newer occurrence too.' }) };
+                await tick();
+                if (!focusDismissButton(key)) dismissNoticeLines[card]?.focus();
+            } else {
+                dismissNotice = { card, tone: 'info', message: $_('jobs.health_dismiss.already_cleared', { default: 'This had already left the error history, for example after Clear error history or a restart, so there was nothing to dismiss.' }) };
+                await tick();
+                dismissNoticeLines[card]?.focus();
+            }
         } catch (error) {
-            dismissError = { card, message: $_('jobs.health_dismiss.dismiss_failed', { default: 'That could not be dismissed. Try again; if it keeps failing, check that YA-WAMF is running.' }) };
+            dismissNotice = { card, tone: 'error', message: $_('jobs.health_dismiss.dismiss_failed', { default: 'That could not be dismissed. Try again; if it keeps failing, check that YA-WAMF is running.' }) };
             jobDiagnosticsStore.recordError({
                 source: 'runtime',
                 component: 'incident_workspace',
@@ -353,20 +384,25 @@
     async function restoreItem(item: DismissedHealthItem, card: DismissedCard) {
         if (dismissing || restoring) return;
         restoring = item.key;
-        dismissError = null;
+        dismissNotice = null;
         dismissStatus = '';
         try {
             await incidentWorkspaceStore.restoreRemote(item.entryIds);
-            dismissStatus = $_('jobs.health_dismiss.restored_status', { default: 'Restored. It is listed again.' });
+            const restoredText = $_('jobs.health_dismiss.restored_status', { default: 'Restored. It is listed again.' });
             // Enabled again before focus moves, since a disabled button cannot take it.
             restoring = null;
             await tick();
-            // Back to the restored row's own Dismiss, or to Show dismissed when the row is not on screen.
-            const restored = document.querySelector<HTMLButtonElement>(`[data-health-dismiss-key="${CSS.escape(item.key)}"]`);
-            if (restored) restored.focus();
-            else dismissedLists[card]?.focusToggle();
+            // Back to the restored row's own Dismiss, then Show dismissed; when neither is on screen
+            // (the last item came back to a row beyond the lists' limits), the notice says so and takes focus.
+            if (focusDismissButton(item.key) || dismissedLists[card]?.focusToggle()) {
+                dismissStatus = restoredText;
+            } else {
+                dismissNotice = { card, tone: 'info', message: restoredText };
+                await tick();
+                dismissNoticeLines[card]?.focus();
+            }
         } catch (error) {
-            dismissError = { card, message: $_('jobs.health_dismiss.restore_failed', { default: 'That could not be restored. Try again; if it keeps failing, check that YA-WAMF is running.' }) };
+            dismissNotice = { card, tone: 'error', message: $_('jobs.health_dismiss.restore_failed', { default: 'That could not be restored. Try again; if it keeps failing, check that YA-WAMF is running.' }) };
             jobDiagnosticsStore.recordError({
                 source: 'runtime',
                 component: 'incident_workspace',
@@ -941,8 +977,14 @@
 {/snippet}
 
 {#snippet dismissedFooter(card: DismissedCard, items: DismissedHealthItem[])}
-    {#if dismissError?.card === card}
-        <p class="mt-4 text-sm font-semibold text-status-fail" role="alert" data-health-dismiss-error>{dismissError.message}</p>
+    {#if dismissNotice?.card === card}
+        <p
+            bind:this={dismissNoticeLines[card]}
+            tabindex="-1"
+            class="mt-4 text-sm font-semibold focus-ring {dismissNotice.tone === 'error' ? 'text-status-fail' : 'text-strong'}"
+            role={dismissNotice.tone === 'error' ? 'alert' : undefined}
+            data-health-dismiss-notice={dismissNotice.tone}
+        >{dismissNotice.message}</p>
     {/if}
     <HealthDismissedItems bind:this={dismissedLists[card]} {items} {restoring} onrestore={(item) => restoreItem(item, card)} />
 {/snippet}
@@ -1302,7 +1344,9 @@
                         <p class="mt-4 text-sm font-semibold text-status-fail" role="alert">{$_('jobs.errors_clear_failed', { default: 'The error history could not be cleared. Try again; if it keeps failing, check that YA-WAMF is running.' })}</p>
                     {/if}
                     {#if recentIncidents.length === 0}
-                        <StateBlock class="mt-4" state="empty" cause={$_('jobs.earlier_incidents_empty', { default: 'Nothing has cleared since the error history was last cleared.' })} />
+                        <StateBlock class="mt-4" state="empty" cause={dismissedEarlier.length > 0
+                            ? $_('jobs.health_dismiss.earlier_empty_with_dismissed', { values: { count: dismissedEarlier.length }, default: '{count, plural, one {Nothing else has cleared; # dismissed incident is listed below.} other {Nothing else has cleared; # dismissed incidents are listed below.}}' })
+                            : $_('jobs.earlier_incidents_empty', { default: 'Nothing has cleared since the error history was last cleared.' })} />
                     {:else}
                         <ul class="mt-4 divide-y divide-line-soft">
                             {#each recentIncidents.slice(0, 6) as incident, index (incident.id)}
@@ -1326,7 +1370,9 @@
                     data-health-backend-diagnostics
                 >
                     {#if backendEvents.length === 0}
-                        <StateBlock class="mt-4" state="empty" cause={$_('jobs.errors_backend_empty', { default: 'The backend has recorded no warnings or errors since the error history was last cleared. Connection problems are listed at the top of this page, not here.' })} />
+                        <StateBlock class="mt-4" state="empty" cause={dismissedBackend.length > 0
+                            ? $_('jobs.health_dismiss.backend_empty_with_dismissed', { values: { count: dismissedBackend.length }, default: '{count, plural, one {The backend has recorded nothing else; # dismissed item is listed below.} other {The backend has recorded nothing else; # dismissed items are listed below.}} Connection problems are listed at the top of this page, not here.' })
+                            : $_('jobs.errors_backend_empty', { default: 'The backend has recorded no warnings or errors since the error history was last cleared. Connection problems are listed at the top of this page, not here.' })} />
                     {:else}
                         <!-- One ruled row per diagnostic: the state in a worded chip, the cause in the reader's
                              language where it is known, and the backend's own words under Technical details. -->
@@ -1340,7 +1386,7 @@
                                         <StatusChip tone={STATUS_TONE[statusTone(event.severity ?? 'warning')]} label={statusLabel(event.severity ?? 'warning')} title={event.severity} />
                                         <div class="flex items-center gap-3">
                                             <span class="text-xs tabular-nums text-ink">{formatDateTime(Date.parse(event.timestamp))}</span>
-                                            {@render dismissButton(`entry:${event.id}`, titleId, [{ id: event.id, last_seen: event.last_seen ?? event.timestamp }], 'backend')}
+                                            {@render dismissButton(`entry:${event.id}`, titleId, [{ id: event.id, count: Math.max(1, event.count ?? 1) }], 'backend')}
                                         </div>
                                     </div>
                                     <p id={titleId} class="mt-2 wrap-break-word text-sm font-semibold text-strong" data-health-diagnostic-title>{worded.title}</p>

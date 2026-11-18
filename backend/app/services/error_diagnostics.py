@@ -47,30 +47,26 @@ def _normalize_optional_dict(value: Any) -> dict[str, Any] | None:
     return value if isinstance(value, dict) else None
 
 
-def _instant(value: Any) -> datetime | None:
-    if not isinstance(value, str):
+def _occurrences(value: Any) -> int | None:
+    if isinstance(value, bool) or not isinstance(value, int):
         return None
-    try:
-        parsed = datetime.fromisoformat(value.strip())
-    except ValueError:
-        return None
-    return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=timezone.utc)
+    return value if value >= 1 else None
 
 
 def dismissal_covers(dismissal: dict[str, Any] | None, entry: dict[str, Any]) -> bool:
     """Whether a dismissal still hides an entry.
 
-    A dismissal names one entry by its id, component and reason code, and the newest occurrence
-    the owner saw. An occurrence recorded after that shows the entry again. A time that cannot
-    be read never hides anything.
+    A dismissal names one entry by its id, component and reason code, and how many occurrences
+    the owner had seen. Any occurrence recorded after those shows the entry again. Occurrences are
+    counted rather than timed, so a clock that steps back cannot keep a repeat hidden.
     """
     if not dismissal:
         return False
     if dismissal.get("component") != entry.get("component") or dismissal.get("reason_code") != entry.get("reason_code"):
         return False
-    through = _instant(dismissal.get("dismissed_through"))
-    last_seen = _instant(entry.get("last_seen") or entry.get("timestamp"))
-    return through is not None and last_seen is not None and last_seen <= through
+    seen = _occurrences(dismissal.get("dismissed_count"))
+    recorded = _occurrences(entry.get("count", 1))
+    return seen is not None and recorded is not None and recorded <= seen
 
 
 @dataclass
@@ -152,7 +148,7 @@ class ErrorDiagnosticsHistory:
             **record,
             "dismissed": covers,
             "dismissal": (
-                {"dismissed_through": dismissal["dismissed_through"], "dismissed_at": dismissal["dismissed_at"]}
+                {"dismissed_count": dismissal["dismissed_count"], "dismissed_at": dismissal["dismissed_at"]}
                 if covers and dismissal
                 else None
             ),
@@ -246,11 +242,11 @@ class ErrorDiagnosticsHistory:
                 self._dismissals.pop(evicted["id"], None)
             return deepcopy(sanitized)
 
-    def dismiss(self, entries: Sequence[tuple[str, str]], *, now: str | None = None) -> DismissResult:
-        """Hide entries, each up to the occurrence the owner saw (`last_seen`), for everyone.
+    def dismiss(self, entries: Sequence[tuple[str, int]], *, now: str | None = None) -> DismissResult:
+        """Hide entries for everyone, each up to the number of occurrences the owner saw.
 
-        The dismissal never reaches past the entry's own newest occurrence, so a clock ahead of
-        the server cannot hide an occurrence that has not happened yet.
+        The dismissal never reaches past the occurrences the entry has, so a stale or invented
+        count cannot hide an occurrence that has not happened yet.
         """
         dismissed_at = _normalize_string(now) or datetime.now(timezone.utc).isoformat()
         result = DismissResult()
@@ -258,16 +254,16 @@ class ErrorDiagnosticsHistory:
             by_id = {entry["id"]: entry for entry in self._events.values()}
             for entry_id, seen in entries:
                 entry = by_id.get(entry_id)
-                seen_at = _instant(seen)
-                newest = _instant(entry.get("last_seen")) if entry else None
-                if entry is None or seen_at is None or newest is None:
+                seen_count = _occurrences(seen)
+                recorded = _occurrences(entry.get("count", 1)) if entry else None
+                if entry is None or seen_count is None or recorded is None:
                     result.missing.append(entry_id)
                     continue
                 dismissal = {
                     "id": entry_id,
                     "component": entry["component"],
                     "reason_code": entry["reason_code"],
-                    "dismissed_through": min(seen_at, newest).isoformat(),
+                    "dismissed_count": min(seen_count, recorded),
                     "dismissed_at": dismissed_at,
                 }
                 self._dismissals[entry_id] = dismissal

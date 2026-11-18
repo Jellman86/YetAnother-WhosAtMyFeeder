@@ -30,9 +30,14 @@
     let toggle = $state<HTMLButtonElement | null>(null);
     const listId = $props.id();
 
-    /** Where focus goes after a dismissal, so a keyboard user is not dropped to the top of the page. */
-    export function focusToggle(): void {
-        toggle?.focus();
+    /**
+     * Where focus goes after a dismissal, so a keyboard user is not dropped to the top of the page.
+     * False when there is no toggle, because nothing from this card is dismissed.
+     */
+    export function focusToggle(): boolean {
+        if (!toggle || items.length === 0) return false;
+        toggle.focus();
+        return true;
     }
 </script>
 

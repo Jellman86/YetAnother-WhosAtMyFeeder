@@ -1,4 +1,4 @@
-import type { BackendDiagnosticEvent, DiagnosticDismissalEntry, DiagnosticsWorkspacePayload } from '../api/diagnostics';
+import type { BackendDiagnosticEvent, DiagnosticDismissalEntry, DiagnosticsWorkspacePayload, DismissDiagnosticsResponse } from '../api/diagnostics';
 import { mapGuarded, type Guarded } from '../api/core';
 import { clearDiagnosticsWorkspace, dismissDiagnostics, fetchDiagnosticsWorkspace, restoreDiagnostics } from '../api/diagnostics';
 import { STATEFUL_INCIDENTS, readSignal } from './incident-signals';
@@ -25,7 +25,10 @@ interface IncidentRecord {
     lastSeenAt: number;
     evidenceRefs: string[];
     primaryReasonCode: string;
-    /** Open because a live check says so now, so it can be neither dismissed nor hidden. */
+    /**
+     * Decided by a live check that has not measured it closed (open now, or no reading yet), so it
+     * can be neither dismissed nor hidden.
+     */
     live: boolean;
     /** Every backend entry it is built from is dismissed, up to the occurrence the owner saw. */
     dismissed: boolean;
@@ -188,6 +191,27 @@ function isStatefulIncidentOpen(
     return incident ? incident.isOpen((path) => readSignal(health, path)) : null;
 }
 
+/** A stateful incident is live unless its check measured it closed; anything else is a recorded one. */
+function isLiveIncident(component: string, reasonCode: string, health: Record<string, unknown> | null): boolean {
+    const normalizedComponent = normalizeString(component).toLowerCase();
+    const normalizedReason = normalizeString(reasonCode).toLowerCase();
+    const stateful = STATEFUL_INCIDENTS.some(
+        (candidate) => candidate.component === normalizedComponent && candidate.reasons.includes(normalizedReason)
+    );
+    return stateful && isStatefulIncidentOpen(component, reasonCode, health) !== false;
+}
+
+export type DismissOutcome = 'dismissed' | 'happened_again' | 'already_cleared';
+
+/**
+ * What a Dismiss did, from the server's answer and the read after it. Only an item the server hid
+ * and the next read no longer lists was dismissed; the page never says so otherwise.
+ */
+export function dismissOutcome(result: DismissDiagnosticsResponse, stillListed: boolean): DismissOutcome {
+    if (result.dismissed.length === 0 && result.missing.length > 0) return 'already_cleared';
+    return stillListed ? 'happened_again' : 'dismissed';
+}
+
 function deriveEventStatus(
     component: string,
     reasonCode: string,
@@ -304,10 +328,21 @@ class IncidentWorkspaceStore {
     }
 
     /** Hide entries for everyone on this install, then read the workspace that now says so. */
-    async dismissRemote(entries: DiagnosticDismissalEntry[]): Promise<void> {
-        if (entries.length === 0) return;
-        await this.dismissals.dismiss(entries);
+    async dismissRemote(entries: DiagnosticDismissalEntry[]): Promise<DismissDiagnosticsResponse> {
+        if (entries.length === 0) return { dismissed: [], missing: [] };
+        const result = await this.dismissals.dismiss(entries);
         await this.refresh();
+        return result;
+    }
+
+    /** Whether an item (`incident:<id>` or `entry:<id>`) is listed, undismissed, in the latest read. */
+    isListed(key: string): boolean {
+        if (key.startsWith('incident:')) {
+            const id = key.slice('incident:'.length);
+            return [...this.currentIssues, ...this.recentIncidents].some((incident) => incident.id === id);
+        }
+        const id = key.startsWith('entry:') ? key.slice('entry:'.length) : key;
+        return this.backendEvents.some((event) => event.id === id && event.dismissed !== true);
     }
 
     async restoreRemote(ids: string[]): Promise<void> {
@@ -321,7 +356,7 @@ class IncidentWorkspaceStore {
         const refs = new Set(incident.evidenceRefs);
         return this.backendEvents
             .filter((event) => refs.has(normalizeString(event.id)))
-            .map((event) => ({ id: event.id, last_seen: event.last_seen ?? event.timestamp }));
+            .map((event) => ({ id: event.id, count: Math.max(1, event.count ?? 1) }));
     }
 
     /** Every incident for a diagnostics bundle, dismissed ones included and marked. */
@@ -445,7 +480,7 @@ class IncidentWorkspaceStore {
             const evidenceRefs = [normalizeString(event.id)].filter(Boolean);
             if (jobId) evidenceRefs.push(`job:${jobId}`);
             everyEntryDismissed.set(key, (everyEntryDismissed.get(key) ?? true) && event.dismissed === true);
-            const live = isStatefulIncidentOpen(event.component, event.reason_code, currentHealth) === true;
+            const live = isLiveIncident(event.component, event.reason_code, currentHealth);
             const existing = grouped.get(key);
             if (!existing) {
                 grouped.set(key, {
