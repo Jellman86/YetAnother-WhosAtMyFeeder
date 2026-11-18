@@ -19,7 +19,7 @@ function portrait(event = 'dunnock', name = 'Dunnock') {
 // A default install's report: image work runs in worker processes that have started.
 const RUNNING = { runtime_source: 'worker', image_execution_mode: 'subprocess', active_model_installed: true, effective_model_id: 'Bird classifier', active_provider: 'CPU' };
 
-async function open(page: Page, onPortrait: (route: Route) => Promise<void>, classifier: Record<string, unknown> = RUNNING, activity: Record<string, string> = {}) {
+async function open(page: Page, onPortrait: (route: Route) => Promise<void>, classifier: Record<string, unknown> = RUNNING, activity: Record<string, string> = {}, version = '2.9.15') {
     page.on('pageerror', error => { throw error; });
     await page.route('https://fonts.googleapis.com/**', route => route.fulfill({ body: '' }));
     await page.route('https://fonts.gstatic.com/**', route => route.abort());
@@ -29,7 +29,7 @@ async function open(page: Page, onPortrait: (route: Route) => Promise<void>, cla
         if (path === '/api/about/portrait') return onPortrait(route);
         if (path.endsWith('.jpg')) return route.fulfill({ contentType: 'image/svg+xml', body: image });
         if (path.endsWith('.webm')) return route.fulfill({ contentType: 'video/webm', body: 'fixture' });
-        if (path === '/api/version') return route.fulfill({ json: { version: '2.9.15', base_version: '2.9.15', git_hash: 'fixture', branch: 'dev' } });
+        if (path === '/api/version') return route.fulfill({ json: { version, base_version: '2.9.15', git_hash: 'fixture', branch: 'dev' } });
         if (path === '/api/about/community') return route.fulfill({ json: { enabled: true, active_installs: 812 } });
         if (path === '/api/classifier/status') return route.fulfill({ json: classifier });
         if (path === '/api/models/activity') return route.fulfill({ json: { activity } });
@@ -203,3 +203,40 @@ test('a guest is told the model\'s own state and never asks for work in progress
     await expect(page.locator('[data-pipeline-step="classifier"]')).toContainText('Needs a download');
     expect(asked).toEqual([]);
 });
+
+// A development build checked out by name carries its branch in the version; a long one must not
+// widen the chip, rewrap the title or move the portrait and the prose beneath it.
+const LONG_VERSION = '2.9.15-m4/settings-by-task-accessibility-per-device-with-a-default-for-everyone+0123abc';
+
+for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 844 }]) {
+    test(`a long branch name in the version moves nothing at ${viewport.width}px`, async ({ page }) => {
+        await page.setViewportSize(viewport);
+        const measure = async (version: string) => {
+            await open(page, route => route.fulfill({ json: portrait() }), RUNNING, {}, version);
+            const chip = page.locator('[data-about-version]');
+            await expect(chip).toHaveText(`v${version}`);
+            await expect(page.locator('[data-feeder-portrait-visit]')).toBeVisible();
+            const [title, prose, portraitBox, slot, chipBox] = await Promise.all([
+                page.locator('#about-project-heading').boundingBox(),
+                page.locator('#about-project .max-w-prose').boundingBox(),
+                page.locator('[data-feeder-portrait-visit]').boundingBox(),
+                page.locator('[data-about-version-slot]').boundingBox(),
+                chip.boundingBox()
+            ]);
+            return { title, prose, portrait: portraitBox, slot, chip: chipBox, tooltip: await chip.getAttribute('title') };
+        };
+        const short = await measure('2.9.15');
+        const long = await measure(LONG_VERSION);
+        // The title, the portrait and the prose stand exactly where they stood with a short version.
+        for (const key of ['title', 'portrait', 'prose'] as const) {
+            expect(long[key]?.y, key).toBeCloseTo(short[key]?.y ?? -1, 0);
+            expect(long[key]?.width, key).toBeCloseTo(short[key]?.width ?? -1, 0);
+        }
+        // The chip keeps to its slot, cut short, and its title says the whole version.
+        expect(long.chip && long.slot && long.chip.x + long.chip.width <= long.slot.x + long.slot.width + 1).toBe(true);
+        expect(long.slot?.width).toBeCloseTo(short.slot?.width ?? -1, 0);
+        expect(long.tooltip).toContain(`v${LONG_VERSION}`);
+        expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(0);
+    });
+}
+
