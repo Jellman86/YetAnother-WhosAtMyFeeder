@@ -972,6 +972,39 @@ async def test_gpu_fallbacks_that_recover_on_the_next_recording_are_counted_as_i
 
 
 @pytest.mark.asyncio
+async def test_a_gpu_that_falls_back_on_every_other_recording_is_a_warning(collector, monkeypatch):
+    """Never two in a row, so the consecutive rule never fires, but half the recordings fail."""
+    from app.services import garden_motion
+    from app.services.error_diagnostics import ErrorDiagnosticsHistory
+    from app.services.garden_motion import MOTION_HARDWARE_FALLBACK_RATE_COUNT
+
+    history = ErrorDiagnosticsHistory()
+    monkeypatch.setattr(garden_motion, "error_diagnostics_history", history)
+    collector.decoder = MotionDecoder("vaapi", "/dev/dri/renderD128")
+    collector.decoder_reported = True
+    monkeypatch.setattr("app.services.garden_motion.time.time", lambda: 5000.0)
+    records = [{"start_time": 4400.0, "end_time": 4970.0, "motion": 5}]
+    monkeypatch.setattr("app.services.garden_motion.frigate_client.get", _records_get(records, []))
+    scans = 2 * MOTION_HARDWARE_FALLBACK_RATE_COUNT - 1
+    decoders = iter(["software_fallback", "vaapi"] * MOTION_HARDWARE_FALLBACK_RATE_COUNT)
+    monkeypatch.setattr(
+        collector,
+        "_native",
+        AsyncMock(side_effect=lambda *args: {"outcome": "no_candidate", "decoder": next(decoders)}),
+    )
+    for _ in range(scans):
+        collector.next_scan = 0
+        await collector.scan_once()
+    warnings = [event for event in history.snapshot(source="garden_motion")["events"] if event["severity"] != "info"]
+    assert [(event["reason_code"], event["severity"]) for event in warnings] == [
+        ("hardware_decode_fallback_frequent", "warning")
+    ]
+    assert warnings[0]["context"]["fallbacks"] == MOTION_HARDWARE_FALLBACK_RATE_COUNT
+    # The consecutive rule never fired, so GPU decode stays on; Health's CPU state is unchanged.
+    assert collector.decode_health()["state"] == "vaapi"
+
+
+@pytest.mark.asyncio
 async def test_a_gpu_fallback_that_repeats_on_the_next_recording_is_a_warning(collector, monkeypatch):
     from app.services import garden_motion
     from app.services.error_diagnostics import ErrorDiagnosticsHistory
