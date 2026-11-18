@@ -68,3 +68,45 @@ async def test_frigate_client_failure_logs_keep_url_credentials_out(monkeypatch,
     for secret in (*secrets, AUTH_TOKEN):
         assert secret not in rendered
     assert "frigate.example.test:8443" in rendered
+
+
+async def _snapshot_answering(status_code: int):
+    async def frigate_answers() -> bool:
+        return True
+
+    client = FrigateClient()
+    client._client = httpx.AsyncClient(transport=httpx.MockTransport(lambda request: httpx.Response(status_code)))
+    client.readiness = FrigateReadinessGate(frigate_answers)
+    try:
+        with capture_logs() as records:
+            result = await client.get_snapshot_with_error("1794988555.071635-1tgeb3")
+    finally:
+        await client.close()
+    return result, records
+
+
+@pytest.mark.asyncio
+async def test_a_snapshot_frigate_does_not_have_is_an_answer_not_a_warning(monkeypatch):
+    """Frigate publishes `new` for objects it later discards; asking for their snapshot gets 404.
+
+    The caller decides what a missing snapshot means and tries its fallbacks, so the client
+    reporting every 404 as a warning turned one expected event into three to five warnings.
+    """
+    monkeypatch.setattr(settings.frigate, "frigate_url", "http://frigate.example.test:5000")
+
+    (snapshot, error), records = await _snapshot_answering(404)
+
+    assert (snapshot, error) == (None, "snapshot_not_found")
+    assert [record for record in records if record.get("log_level") in {"warning", "error"}] == []
+
+
+@pytest.mark.asyncio
+async def test_a_snapshot_frigate_fails_to_serve_is_still_a_warning(monkeypatch):
+    monkeypatch.setattr(settings.frigate, "frigate_url", "http://frigate.example.test:5000")
+
+    (snapshot, error), records = await _snapshot_answering(500)
+
+    assert (snapshot, error) == (None, "snapshot_http_500")
+    assert [record["event"] for record in records if record.get("log_level") == "warning"] == [
+        "Failed to fetch snapshot"
+    ]

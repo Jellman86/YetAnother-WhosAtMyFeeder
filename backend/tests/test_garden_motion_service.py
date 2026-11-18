@@ -872,7 +872,8 @@ async def test_repeated_gpu_failures_switch_collection_to_cpu_decode_until_resta
         await collector.scan_once()
     assert devices == ["/dev/dri/renderD128"] * MOTION_HARDWARE_FALLBACK_LIMIT + [None]
     events = [call.args[0] for call in warning.call_args_list]
-    assert events.count("garden_motion_hardware_decode_fallback") == MOTION_HARDWARE_FALLBACK_LIMIT
+    # The first fallback is information; each one after it in a row is a warning.
+    assert events.count("garden_motion_hardware_decode_fallback") == MOTION_HARDWARE_FALLBACK_LIMIT - 1
     assert collector.decode_health()["state"] == "decode_failed"
     assert record.call_args.kwargs["reason_code"] == "hardware_decode_decode_failed"
 
@@ -940,7 +941,7 @@ async def test_an_unusable_recording_from_a_gpu_scan_is_skipped_not_retried(coll
 
 
 @pytest.mark.asyncio
-async def test_every_gpu_fallback_reaches_diagnostics_as_one_counted_incident(collector, monkeypatch):
+async def test_gpu_fallbacks_that_recover_on_the_next_recording_are_counted_as_information(collector, monkeypatch):
     from app.services import garden_motion
     from app.services.error_diagnostics import ErrorDiagnosticsHistory
 
@@ -964,7 +965,37 @@ async def test_every_gpu_fallback_reaches_diagnostics_as_one_counted_incident(co
     events = history.snapshot(source="garden_motion")["events"]
     fallbacks = [event for event in events if event["reason_code"] == "hardware_decode_fallback"]
     assert len(fallbacks) == 1 and fallbacks[0]["count"] == 2
+    assert fallbacks[0]["severity"] == "info"
     assert fallbacks[0]["context"] == {"camera": "patio"}
+    assert [event for event in events if event["severity"] != "info"] == []
+    assert collector.decode_health()["state"] == "vaapi"
+
+
+@pytest.mark.asyncio
+async def test_a_gpu_fallback_that_repeats_on_the_next_recording_is_a_warning(collector, monkeypatch):
+    from app.services import garden_motion
+    from app.services.error_diagnostics import ErrorDiagnosticsHistory
+    from app.services.garden_motion import MOTION_HARDWARE_FALLBACK_WARN_AFTER
+
+    history = ErrorDiagnosticsHistory()
+    monkeypatch.setattr(garden_motion, "error_diagnostics_history", history)
+    collector.decoder = MotionDecoder("vaapi", "/dev/dri/renderD128")
+    collector.decoder_reported = True
+    monkeypatch.setattr("app.services.garden_motion.time.time", lambda: 5000.0)
+    records = [{"start_time": 4400.0, "end_time": 4970.0, "motion": 5}]
+    monkeypatch.setattr("app.services.garden_motion.frigate_client.get", _records_get(records, []))
+    monkeypatch.setattr(
+        collector, "_native", AsyncMock(return_value={"outcome": "no_candidate", "decoder": "software_fallback"})
+    )
+    for _ in range(MOTION_HARDWARE_FALLBACK_WARN_AFTER):
+        collector.next_scan = 0
+        await collector.scan_once()
+    warnings = [event for event in history.snapshot(source="garden_motion")["events"] if event["severity"] != "info"]
+    assert [(event["reason_code"], event["severity"]) for event in warnings] == [
+        ("hardware_decode_fallback_repeated", "warning")
+    ]
+    assert warnings[0]["context"] == {"camera": "patio", "consecutive": MOTION_HARDWARE_FALLBACK_WARN_AFTER}
+    # Still on the GPU until the switch-off limit; the Health card keeps saying so.
     assert collector.decode_health()["state"] == "vaapi"
 
 

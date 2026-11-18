@@ -162,7 +162,8 @@ class FrigateClient:
             if resp.status_code == 200:
                 return resp.content, None
             if resp.status_code == 404:
-                log.warning("Failed to fetch snapshot", event_id=event_id, status=resp.status_code)
+                # Frigate announces objects it later discards; the caller decides what a missing one means.
+                log.debug("Snapshot not found", event_id=event_id)
                 return None, "snapshot_not_found"
             log.warning("Failed to fetch snapshot", event_id=event_id, status=resp.status_code)
             return None, f"snapshot_http_{resp.status_code}"

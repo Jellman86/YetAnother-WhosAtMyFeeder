@@ -11,7 +11,8 @@ export const INCIDENT_SIGNAL_PATHS = [
     'ml.background_image.background_throttled',
     'ml.background_image.queued',
     'ml.worker_pools.live.circuit_open',
-    'ml.worker_pools.background.circuit_open'
+    'ml.worker_pools.background.circuit_open',
+    'mqtt.frigate_availability.status'
 ] as const;
 
 export type IncidentSignalPath = (typeof INCIDENT_SIGNAL_PATHS)[number];
@@ -59,5 +60,17 @@ export const STATEFUL_INCIDENTS: readonly StatefulIncident[] = [
         isOpen: (read) => Boolean(read('ml.background_image.background_throttled')) && Number(read('ml.background_image.queued') ?? 0) > 0
     },
     { component: 'ml_worker_live', reasons: ['circuit_open'], isOpen: (read) => Boolean(read('ml.worker_pools.live.circuit_open')) },
-    { component: 'ml_worker_background', reasons: ['circuit_open'], isOpen: (read) => Boolean(read('ml.worker_pools.background.circuit_open')) }
+    { component: 'ml_worker_background', reasons: ['circuit_open'], isOpen: (read) => Boolean(read('ml.worker_pools.background.circuit_open')) },
+    {
+        // A restart blip stays in history as resolved; an outage stays open while Frigate is offline
+        // and while its availability is unknown, so an unmeasured Frigate is never called healthy.
+        component: 'mqtt_service',
+        reasons: ['frigate_went_offline'],
+        isOpen: (read) => {
+            const availability = read('mqtt.frigate_availability.status');
+            if (availability === 'online') return false;
+            if (availability === 'offline') return true;
+            return null;
+        }
+    }
 ];

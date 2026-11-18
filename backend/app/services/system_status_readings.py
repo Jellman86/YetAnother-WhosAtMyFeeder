@@ -128,14 +128,15 @@ class SystemStatusReadings:
         )
         dispatcher = notification_dispatcher.get_status()
         validation = provider_revalidation.status()
+        mqtt_health = mqtt_service.get_status()
         return SystemStatusInputs(
             startup_instance_id=self._startup_instance_id(),
             connections=connections,
             jobs=jobs,
             analysis=build_analysis_status(),
-            mqtt_health=mqtt_service.get_status(),
+            mqtt_health=mqtt_health,
             classifier_health=classifier_health,
-            incident_health={"ml": classifier_health},
+            incident_health={"ml": classifier_health, "mqtt": mqtt_health},
             classifier_status=classifier_status,
             provider_validation_state=str(validation.get("state") or "idle"),
             media_storage_available=bool(media_cache.available),

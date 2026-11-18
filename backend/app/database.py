@@ -11,10 +11,15 @@ from datetime import datetime, timezone
 from pathlib import Path
 from contextlib import asynccontextmanager, contextmanager, closing
 from contextvars import ContextVar
-from typing import Optional
+from collections.abc import Callable
+from types import CodeType
+from typing import Optional, ParamSpec, TypeVar
 from app.utils.system_stats import get_process_uid_gid
 
 log = structlog.get_logger()
+
+_P = ParamSpec("_P")
+_R = TypeVar("_R")
 
 DEFAULT_DB_POOL_SIZE = int(os.environ.get("DB_POOL_SIZE", "5"))
 DEFAULT_DB_BUSY_TIMEOUT_MS = int(os.environ.get("DB_BUSY_TIMEOUT_MS", "30000"))
@@ -884,18 +889,29 @@ async def close_db():
         _db_pool = None
 
 
+# Wrappers that take a connection on their caller's behalf. A label naming one of them
+# would read the same for every route that uses it.
+_CONNECTION_PASSTHROUGH_CODES: set[CodeType] = set()
+
+
+def connection_passthrough(func: Callable[_P, _R]) -> Callable[_P, _R]:
+    """Mark `func` as plumbing, so a slow hold taken through it names its caller instead."""
+    _CONNECTION_PASSTHROUGH_CODES.add(func.__code__)
+    return func
+
+
 def _caller_label() -> str:
     """Identify the code holding a connection, for diagnostics.
 
-    Walks out of this module and `contextlib`'s wrapper frames so the label
-    names the caller rather than the plumbing between them. Best-effort: a
-    label is never worth raising over.
+    Walks out of this module, `contextlib`'s wrapper frames and any
+    `connection_passthrough` wrapper so the label names the caller rather than
+    the plumbing between them. Best-effort: a label is never worth raising over.
     """
     try:
         frame = sys._getframe(1)
         while frame is not None:
             module = frame.f_globals.get("__name__", "")
-            if module not in ("contextlib", __name__):
+            if module not in ("contextlib", __name__) and frame.f_code not in _CONNECTION_PASSTHROUGH_CODES:
                 return f"{module}:{frame.f_code.co_name}"
             frame = frame.f_back
     except Exception:

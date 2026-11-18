@@ -348,6 +348,7 @@ INCIDENT_SIGNAL_PATHS: tuple[str, ...] = (
     "ml.background_image.queued",
     "ml.worker_pools.live.circuit_open",
     "ml.worker_pools.background.circuit_open",
+    "mqtt.frigate_availability.status",
 )
 
 

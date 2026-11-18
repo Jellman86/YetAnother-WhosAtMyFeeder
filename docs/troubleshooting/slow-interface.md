@@ -36,6 +36,10 @@ The fields that matter:
 | `longest_active_hold_label` | What is holding a connection at this moment. Useful while a stall is happening. |
 | `nested_acquires` | Times a request already holding a connection asked for a second. This is the shape that can deadlock a small pool; `last_nested_acquire_label` names the code. |
 
+A route that takes its connection through the guest privacy check (`privacy_checked_db`) is
+labelled with the route itself, for example `app.routers.audio:get_audio_summary`, never with the
+check.
+
 Both `acquire_wait_max_ms` and `hold_ms_max` cover the last five minutes, so they fall back to
 normal once the problem passes. The `*_lifetime_max` fields keep the all-time peak for context and
 do not affect health status.

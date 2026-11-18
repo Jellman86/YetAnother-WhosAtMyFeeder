@@ -1388,7 +1388,9 @@ any first frame, so it names the same device the backend will load.
 
 `crop_detector.cpu_fallback` reports `active`, `model_id`, `provider`, `reason_code`,
 `reason` and `action` for last-resort RF-DETR CPU use. `/health` and the diagnostics
-workspace expose the same condition as `ml.bird_finder`; an active condition
+workspace expose the same condition as `ml.bird_finder`, so `ml.bird_finder.active` is true
+only while the finder is on that CPU fallback; `false` means it is not on the fallback, not
+that the finder is off; an active condition
 degrades health and records a `bird_finder` / `rfdetr_cpu_fallback` warning only
 when an Intel accelerator is packaged and present and the saved preference is
 neither `cpu` nor `intel_cpu`. A device check that passed after the last frame
