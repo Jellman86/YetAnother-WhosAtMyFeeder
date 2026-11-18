@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { snapToWholeLines } from '../utils/whole-lines';
     import { pointerMayPrefetch } from '../app/route-prefetch';
     import { avatarStore } from '../stores/avatar.svelte';
     import { onMount } from 'svelte';
@@ -276,7 +277,16 @@
                          Health stays at its foot (see the style below), so the issues link is never the part cut
                          off. A tab stop of its own, so the keyboard can scroll it where the browser does not. -->
                     <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-                    <div class="focus-ring" role="group" tabindex="0" aria-labelledby="sidebar-status-title" data-sidebar-status-readings>
+                    <!-- At rest the readings show whole lines only: their height ends after the last line that
+                         fits, and the rest is scrolled to, so no line is ever shown cut through its letters. -->
+                    <div
+                        class="focus-ring"
+                        role="group"
+                        tabindex="0"
+                        aria-labelledby="sidebar-status-title"
+                        data-sidebar-status-readings
+                        use:snapToWholeLines={{ lines: ':scope > *, li', container: '[data-sidebar-scroll]' }}
+                    >
                         <h2 id="sidebar-status-title" class="mb-2 text-xs font-semibold leading-4 text-ink">
                             {$_('status.title')}
                         </h2>
@@ -456,4 +466,5 @@
             overflow-y: auto;
         }
     }
+
 </style>

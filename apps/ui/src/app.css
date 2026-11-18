@@ -512,22 +512,19 @@ html[data-theme='dark'] {
   @apply bg-accent-line/30 text-inherit;
 }
 
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+/* Scrollbars are the platform's own. Styling ::-webkit-scrollbar turns off macOS's overlay
+   scrollbars in Safari and Chrome, so every scrolling panel kept a bar and the page moved sideways
+   when a dialog took the bar away. `color-scheme` above already gives the native bar the right
+   colours in each mode. */
+
+/* A strip that scrolls sideways under a thin bar, or none (when its edge already says there is more).
+   The standard properties, unlike ::-webkit-scrollbar, leave macOS's overlay scrollbars in place. */
+@utility scrollbar-thin {
+  scrollbar-width: thin;
 }
 
-::-webkit-scrollbar-track {
-  @apply bg-transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  @apply bg-line-strong/50 rounded-full border-2 border-transparent bg-clip-padding;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  @apply bg-line-strong/75;
+@utility scrollbar-none {
+  scrollbar-width: none;
 }
 
 /* The keyboard focus ring: two opaque pixels of the focus colour, set off from the control by two
@@ -896,14 +893,9 @@ html.theme-bluetit.dark {
   --surface-sunken: 5 10 20;
 }
 
-/* ── 2. Scrollbar & Selection ── */
+/* ── 2. Selection ── */
 
 .theme-bluetit ::selection { background: rgba(37, 99, 235, 0.22); }
-
-.theme-bluetit:not(.dark) ::-webkit-scrollbar-thumb { background-color: #a4b6d4; }
-.theme-bluetit:not(.dark) ::-webkit-scrollbar-thumb:hover { background-color: #8a9ec4; }
-.theme-bluetit.dark ::-webkit-scrollbar-thumb { background-color: #293d5e; }
-.theme-bluetit.dark ::-webkit-scrollbar-thumb:hover { background-color: #354d72; }
 
 /* ── 14. AI Analysis Surface & Markdown ──
  * `.ai-markdown-surface` descendants are globalised in DetectionModal.svelte,
