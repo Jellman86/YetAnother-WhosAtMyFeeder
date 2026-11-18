@@ -326,6 +326,7 @@
     "dismissed_status": "Ausgeblendet. Es erscheint wieder, wenn es erneut auftritt.",
     "restored_status": "Wieder angezeigt. Es steht wieder in der Liste.",
     "dismiss_failed": "Das konnte nicht ausgeblendet werden. Versuchen Sie es erneut; schlägt es weiter fehl, prüfen Sie, ob YA-WAMF läuft.",
-    "restore_failed": "Das konnte nicht wieder angezeigt werden. Versuchen Sie es erneut; schlägt es weiter fehl, prüfen Sie, ob YA-WAMF läuft."
+    "restore_failed": "Das konnte nicht wieder angezeigt werden. Versuchen Sie es erneut; schlägt es weiter fehl, prüfen Sie, ob YA-WAMF läuft.",
+    "dismissed_heading": "Ausgeblendet"
   }
 }

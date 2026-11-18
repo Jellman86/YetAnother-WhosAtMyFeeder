@@ -326,6 +326,7 @@
     "dismissed_status": "Dismissed. It shows again if it happens again.",
     "restored_status": "Restored. It is listed again.",
     "dismiss_failed": "That could not be dismissed. Try again; if it keeps failing, check that YA-WAMF is running.",
-    "restore_failed": "That could not be restored. Try again; if it keeps failing, check that YA-WAMF is running."
+    "restore_failed": "That could not be restored. Try again; if it keeps failing, check that YA-WAMF is running.",
+    "dismissed_heading": "Dismissed"
   }
 }

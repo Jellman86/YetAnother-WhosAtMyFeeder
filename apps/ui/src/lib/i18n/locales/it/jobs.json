@@ -326,6 +326,7 @@
     "dismissed_status": "Ignorato. Riappare se succede di nuovo.",
     "restored_status": "Ripristinato. È di nuovo nell’elenco.",
     "dismiss_failed": "Impossibile ignorare questo elemento. Riprova; se continua a non riuscire, controlla che YA-WAMF sia in esecuzione.",
-    "restore_failed": "Impossibile ripristinare questo elemento. Riprova; se continua a non riuscire, controlla che YA-WAMF sia in esecuzione."
+    "restore_failed": "Impossibile ripristinare questo elemento. Riprova; se continua a non riuscire, controlla che YA-WAMF sia in esecuzione.",
+    "dismissed_heading": "Ignorati"
   }
 }

@@ -326,6 +326,7 @@
     "dismissed_status": "已忽略。如果再次发生会重新显示。",
     "restored_status": "已恢复，重新出现在列表中。",
     "dismiss_failed": "无法忽略。请重试；如果仍然失败，请检查 YA-WAMF 是否在运行。",
-    "restore_failed": "无法恢复。请重试；如果仍然失败，请检查 YA-WAMF 是否在运行。"
+    "restore_failed": "无法恢复。请重试；如果仍然失败，请检查 YA-WAMF 是否在运行。",
+    "dismissed_heading": "已忽略"
   }
 }

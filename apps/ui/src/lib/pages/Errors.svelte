@@ -155,19 +155,27 @@
     let faultEvents = $derived(faultDiagnostics(workspacePayload?.backend_diagnostics?.events ?? []));
     let backendEvents = $derived(faultEvents.filter((event) => !event.dismissed));
     let dismissedIncidents = $derived(incidentWorkspaceStore.dismissedIncidents);
+    type DismissedCard = 'earlier' | 'backend';
+    function dismissedIncidentItem(incident: (typeof dismissedIncidents)[number]): DismissedHealthItem {
+        return {
+            key: `incident:${incident.id}`,
+            title: diagnosticWords(incident.primaryReasonCode).title,
+            lastSeenAt: incident.lastSeenAt,
+            entryIds: incidentWorkspaceStore.dismissalEntries(incident).map((entry) => entry.id)
+        };
+    }
+    /** Dismissed incidents that had cleared: listed at the foot of Earlier incidents, where they were. */
+    let dismissedEarlier = $derived(
+        dismissedIncidents.filter((incident) => incident.status === 'resolved').map(dismissedIncidentItem)
+    );
     /**
-     * One row per thing the owner dismissed: each dismissed incident, and each dismissed entry that
-     * no dismissed incident already covers, so Restore is never offered twice for the same entry.
+     * Everything else dismissed, at the foot of Backend warnings and errors: open incidents, and each
+     * dismissed entry no dismissed incident already covers, so Restore is never offered twice.
      */
-    let dismissedItems = $derived.by((): DismissedHealthItem[] => {
+    let dismissedBackend = $derived.by((): DismissedHealthItem[] => {
         const covered = new Set(dismissedIncidents.flatMap((incident) => incident.evidenceRefs));
         return [
-            ...dismissedIncidents.map((incident) => ({
-                key: `incident:${incident.id}`,
-                title: diagnosticWords(incident.primaryReasonCode).title,
-                lastSeenAt: incident.lastSeenAt,
-                entryIds: incidentWorkspaceStore.dismissalEntries(incident).map((entry) => entry.id)
-            })),
+            ...dismissedIncidents.filter((incident) => incident.status !== 'resolved').map(dismissedIncidentItem),
             ...faultEvents
                 .filter((event) => event.dismissed && !covered.has(event.id))
                 .map((event) => ({
@@ -181,9 +189,10 @@
     /** The item whose Dismiss or Restore is on its way, so only its button waits. */
     let dismissing = $state<string | null>(null);
     let restoring = $state<string | null>(null);
-    let dismissError = $state('');
+    /** A failed Dismiss or Restore, shown in the card it happened in. */
+    let dismissError = $state<{ card: DismissedCard; message: string } | null>(null);
     let dismissStatus = $state('');
-    let dismissedList = $state<{ focusToggle: () => void } | null>(null);
+    let dismissedLists = $state<Record<DismissedCard, { focusToggle: () => void } | null>>({ earlier: null, backend: null });
     let startupWarnings = $derived(workspacePayload?.startup_warnings ?? []);
     let captureLabel = $state('');
     let reportNotes = $state('');
@@ -315,19 +324,19 @@
     }
 
     /** Hide an item for everyone, then hand focus to Show dismissed so the keyboard is not lost. */
-    async function dismissItem(key: string, entries: DiagnosticDismissalEntry[]) {
+    async function dismissItem(key: string, entries: DiagnosticDismissalEntry[], card: DismissedCard) {
         if (dismissing || restoring || entries.length === 0) return;
         dismissing = key;
-        dismissError = '';
+        dismissError = null;
         dismissStatus = '';
         try {
             await incidentWorkspaceStore.dismissRemote(entries);
             dismissStatus = $_('jobs.health_dismiss.dismissed_status', { default: 'Dismissed. It shows again if it happens again.' });
             dismissing = null;
             await tick();
-            dismissedList?.focusToggle();
+            dismissedLists[card]?.focusToggle();
         } catch (error) {
-            dismissError = $_('jobs.health_dismiss.dismiss_failed', { default: 'That could not be dismissed. Try again; if it keeps failing, check that YA-WAMF is running.' });
+            dismissError = { card, message: $_('jobs.health_dismiss.dismiss_failed', { default: 'That could not be dismissed. Try again; if it keeps failing, check that YA-WAMF is running.' }) };
             jobDiagnosticsStore.recordError({
                 source: 'runtime',
                 component: 'incident_workspace',
@@ -341,10 +350,10 @@
         }
     }
 
-    async function restoreItem(item: DismissedHealthItem) {
+    async function restoreItem(item: DismissedHealthItem, card: DismissedCard) {
         if (dismissing || restoring) return;
         restoring = item.key;
-        dismissError = '';
+        dismissError = null;
         dismissStatus = '';
         try {
             await incidentWorkspaceStore.restoreRemote(item.entryIds);
@@ -355,9 +364,9 @@
             // Back to the restored row's own Dismiss, or to Show dismissed when the row is not on screen.
             const restored = document.querySelector<HTMLButtonElement>(`[data-health-dismiss-key="${CSS.escape(item.key)}"]`);
             if (restored) restored.focus();
-            else dismissedList?.focusToggle();
+            else dismissedLists[card]?.focusToggle();
         } catch (error) {
-            dismissError = $_('jobs.health_dismiss.restore_failed', { default: 'That could not be restored. Try again; if it keeps failing, check that YA-WAMF is running.' });
+            dismissError = { card, message: $_('jobs.health_dismiss.restore_failed', { default: 'That could not be restored. Try again; if it keeps failing, check that YA-WAMF is running.' }) };
             jobDiagnosticsStore.recordError({
                 source: 'runtime',
                 component: 'incident_workspace',
@@ -917,18 +926,25 @@
     </dl>
 {/snippet}
 
-{#snippet dismissButton(key: string, titleId: string, entries: DiagnosticDismissalEntry[])}
+{#snippet dismissButton(key: string, titleId: string, entries: DiagnosticDismissalEntry[], card: DismissedCard)}
     <button
         type="button"
-        class="btn btn-ghost min-h-11 shrink-0 px-3 py-2 text-xs"
+        class="btn btn-secondary min-h-11 shrink-0 px-3 py-2 text-xs"
         aria-describedby="{titleId} health-dismiss-effect"
         disabled={dismissing !== null || restoring !== null || clearing}
-        onclick={() => dismissItem(key, entries)}
+        onclick={() => dismissItem(key, entries, card)}
         data-health-dismiss
         data-health-dismiss-key={key}
     >
         {dismissing === key ? $_('jobs.health_dismiss.dismissing', { default: 'Dismissing…' }) : $_('jobs.health_dismiss.dismiss', { default: 'Dismiss' })}
     </button>
+{/snippet}
+
+{#snippet dismissedFooter(card: DismissedCard, items: DismissedHealthItem[])}
+    {#if dismissError?.card === card}
+        <p class="mt-4 text-sm font-semibold text-status-fail" role="alert" data-health-dismiss-error>{dismissError.message}</p>
+    {/if}
+    <HealthDismissedItems bind:this={dismissedLists[card]} {items} {restoring} onrestore={(item) => restoreItem(item, card)} />
 {/snippet}
 
 {#snippet technicalDetails(lines: string[])}
@@ -990,7 +1006,7 @@
                                                         <!-- A live check shows this open now, so dismissing it could hide a real failure. -->
                                                         <p class="py-3 text-xs text-ink" data-health-live-incident>{$_('jobs.health_dismiss.live_note', { default: 'Clears by itself when the check passes.' })}</p>
                                                     {:else}
-                                                        {@render dismissButton(`incident:${item.incident.id}`, titleId, incidentWorkspaceStore.dismissalEntries(item.incident))}
+                                                        {@render dismissButton(`incident:${item.incident.id}`, titleId, incidentWorkspaceStore.dismissalEntries(item.incident), 'backend')}
                                                     {/if}
                                                 </div>
                                                 {@render technicalDetails(incidentDetails(item.incident))}
@@ -1291,16 +1307,17 @@
                         <ul class="mt-4 divide-y divide-line-soft">
                             {#each recentIncidents.slice(0, 6) as incident, index (incident.id)}
                                 {@const titleId = `health-earlier-${index}`}
-                                <li class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-1.5" data-health-earlier-incident>
+                                <li class="flex flex-wrap items-start justify-between gap-x-3 gap-y-1 py-2.5" data-health-earlier-incident>
                                     <div class="min-w-0 flex-1 basis-48">
                                         <p id={titleId} class="text-sm font-semibold text-strong">{diagnosticWords(incident.primaryReasonCode).title}</p>
                                         <span class="text-xs tabular-nums text-muted">{formatDateTime(incident.lastSeenAt)}</span>
                                     </div>
-                                    {@render dismissButton(`incident:${incident.id}`, titleId, incidentWorkspaceStore.dismissalEntries(incident))}
+                                    {@render dismissButton(`incident:${incident.id}`, titleId, incidentWorkspaceStore.dismissalEntries(incident), 'earlier')}
                                 </li>
                             {/each}
                         </ul>
                     {/if}
+                    {@render dismissedFooter('earlier', dismissedEarlier)}
                 </Panel>
 
                 <Panel
@@ -1318,14 +1335,15 @@
                                 {@const worded = diagnosticWords(event.reason_code)}
                                 {@const titleId = `health-diagnostic-${index}`}
                                 <li class="py-3" data-health-diagnostic>
+                                    <!-- The state, the time and Dismiss share the top row, so the title below keeps the card's full measure. -->
                                     <div class="flex flex-wrap items-center justify-between gap-2">
                                         <StatusChip tone={STATUS_TONE[statusTone(event.severity ?? 'warning')]} label={statusLabel(event.severity ?? 'warning')} title={event.severity} />
-                                        <span class="text-xs tabular-nums text-ink">{formatDateTime(Date.parse(event.timestamp))}</span>
+                                        <div class="flex items-center gap-3">
+                                            <span class="text-xs tabular-nums text-ink">{formatDateTime(Date.parse(event.timestamp))}</span>
+                                            {@render dismissButton(`entry:${event.id}`, titleId, [{ id: event.id, last_seen: event.last_seen ?? event.timestamp }], 'backend')}
+                                        </div>
                                     </div>
-                                    <div class="mt-2 flex flex-wrap items-start justify-between gap-x-3">
-                                        <p id={titleId} class="min-w-0 flex-1 basis-48 self-center wrap-break-word text-sm font-semibold text-strong" data-health-diagnostic-title>{worded.title}</p>
-                                        {@render dismissButton(`entry:${event.id}`, titleId, [{ id: event.id, last_seen: event.last_seen ?? event.timestamp }])}
-                                    </div>
+                                    <p id={titleId} class="mt-2 wrap-break-word text-sm font-semibold text-strong" data-health-diagnostic-title>{worded.title}</p>
                                     {#if worded.next}
                                         <p class="mt-0.5 text-sm text-ink">{worded.next}</p>
                                     {/if}
@@ -1352,16 +1370,13 @@
                             {/each}
                         </ul>
                     {/if}
+                    {@render dismissedFooter('backend', dismissedBackend)}
                 </Panel>
             </div>
 
-            <!-- ── Dismissed: hidden by the owner, kept and restorable ── -->
+            <!-- What Dismiss does, and what it did, for screen readers; the visible words are in each card. -->
             <span id="health-dismiss-effect" class="sr-only">{$_('jobs.health_dismiss.effect', { default: 'Hides this for everyone on this install. Live checks carry on, and it shows again if it happens again.' })}</span>
             <span class="sr-only" role="status" data-health-dismiss-status>{dismissStatus}</span>
-            {#if dismissError}
-                <p class="text-sm font-semibold text-status-fail" role="alert" data-health-dismiss-error>{dismissError}</p>
-            {/if}
-            <HealthDismissedItems bind:this={dismissedList} items={dismissedItems} {restoring} onrestore={restoreItem} />
 
             <!-- ── Diagnostics export ──────────────────────────────────────
                  Engineer-facing plumbing: useful when reporting a problem, noise on a

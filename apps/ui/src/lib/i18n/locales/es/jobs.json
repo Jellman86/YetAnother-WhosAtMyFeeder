@@ -326,6 +326,7 @@
     "dismissed_status": "Descartado. Vuelve a aparecer si ocurre de nuevo.",
     "restored_status": "Restaurado. Vuelve a estar en la lista.",
     "dismiss_failed": "No se pudo descartar. Inténtalo de nuevo; si sigue fallando, comprueba que YA-WAMF esté en marcha.",
-    "restore_failed": "No se pudo restaurar. Inténtalo de nuevo; si sigue fallando, comprueba que YA-WAMF esté en marcha."
+    "restore_failed": "No se pudo restaurar. Inténtalo de nuevo; si sigue fallando, comprueba que YA-WAMF esté en marcha.",
+    "dismissed_heading": "Descartados"
   }
 }

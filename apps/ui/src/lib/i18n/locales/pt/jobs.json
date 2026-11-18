@@ -326,6 +326,7 @@
     "dismissed_status": "Dispensado. Volta a aparecer se acontecer de novo.",
     "restored_status": "Restaurado. Está na lista de novo.",
     "dismiss_failed": "Não foi possível dispensar. Tente novamente; se continuar falhando, verifique se o YA-WAMF está em execução.",
-    "restore_failed": "Não foi possível restaurar. Tente novamente; se continuar falhando, verifique se o YA-WAMF está em execução."
+    "restore_failed": "Não foi possível restaurar. Tente novamente; se continuar falhando, verifique se o YA-WAMF está em execução.",
+    "dismissed_heading": "Dispensados"
   }
 }

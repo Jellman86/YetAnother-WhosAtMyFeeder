@@ -51,8 +51,9 @@ function fixtureWorkspace(entries: FixtureEntry[]) {
     };
 }
 
-async function openHealth(page: Page, theme: Theme = 'light'): Promise<{ entries: FixtureEntry[]; posts: string[] }> {
+async function openHealth(page: Page, theme: Theme = 'light', extra: FixtureEntry[] = []): Promise<{ entries: FixtureEntry[]; posts: string[] }> {
     const entries: FixtureEntry[] = [
+        ...extra,
         { id: 'diag:fixture:1', component: 'event_processor', reason_code: 'drop_classify_snapshot_timeout', message: 'Dropped event due to classify_snapshot_timeout', last_seen: '2026-11-18T07:40:00Z', dismissed: false },
         { id: 'diag:fixture:2', component: 'event_processor', reason_code: 'stage_failure', message: 'Stage save_and_notify failed', last_seen: '2026-11-18T07:30:00Z', dismissed: false }
     ];
@@ -77,7 +78,7 @@ async function openHealth(page: Page, theme: Theme = 'light'): Promise<{ entries
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto('/system-health');
     await expect(page.getByRole('heading', { level: 1, name: 'Health' })).toBeVisible({ timeout: 15_000 });
-    await expect(page.locator('[data-health-diagnostic]')).toHaveCount(2);
+    await expect(page.locator('[data-health-diagnostic]')).toHaveCount(2 + extra.length);
     return { entries, posts };
 }
 
@@ -111,6 +112,10 @@ test('a warning can be dismissed, shown again under Show dismissed and restored,
     await expect(dismissedList).toBeVisible();
     await expect(dismissedList.locator('[data-health-dismissed-item]')).toHaveCount(1);
     await expect(dismissedList).toContainText('Last happened');
+    // The dismissed list is the foot of the card it came from, not a card of its own.
+    await expect(backend.locator('[data-health-dismissed]')).toBeVisible();
+    const restoreBox = await dismissedList.getByRole('button', { name: 'Restore' }).boundingBox();
+    expect(restoreBox && restoreBox.height >= 44).toBe(true);
 
     await page.keyboard.press('Tab');
     const restore = dismissedList.getByRole('button', { name: 'Restore' });
@@ -155,3 +160,19 @@ for (const theme of ['light', 'dark'] as const) {
         expect(results.violations.map((violation) => `${violation.id}: ${violation.nodes.map((node) => node.target.join(' ')).join(', ')}`)).toEqual([]);
     });
 }
+
+test('an earlier incident dismissed is listed at the foot of Earlier incidents', async ({ page }) => {
+    // A paused-video incident whose live check has since passed is an earlier incident.
+    await openHealth(page, 'light', [
+        { id: 'diag:fixture:3', component: 'video_classifier', reason_code: 'circuit_open', message: 'Video analysis paused', last_seen: '2026-11-18T06:00:00Z', dismissed: false }
+    ]);
+    const earlier = page.locator('[data-health-earlier-incidents]');
+    await expect(earlier.locator('[data-health-earlier-incident]')).toHaveCount(1);
+    await earlier.getByRole('button', { name: 'Dismiss' }).click();
+
+    await expect(earlier.locator('[data-health-earlier-incident]')).toHaveCount(0);
+    const toggle = earlier.locator('[data-health-dismissed-toggle]');
+    await expect(toggle).toBeFocused();
+    await expect(toggle).toHaveText('Show 1 dismissed');
+    await expect(page.locator('[data-health-backend-diagnostics] [data-health-dismissed]')).toHaveCount(0);
+});
