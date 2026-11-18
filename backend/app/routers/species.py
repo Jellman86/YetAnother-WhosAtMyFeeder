@@ -563,6 +563,14 @@ async def search_species(
 
     if hydrate_missing and results:
         await _hydrate_species_search_results(results, lang)
+        # Hydration can reveal that two labels name the same species after the
+        # first pass already decided they were different.
+        deduped: dict[str, dict] = {}
+        for result in results:
+            key = _species_search_result_key(result)
+            existing = deduped.get(key)
+            deduped[key] = _pick_preferred_species_search_result(existing, result) if existing else result
+        results = list(deduped.values())
 
     return results
 
