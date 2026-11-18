@@ -246,6 +246,9 @@
         <svg class="mt-1 h-4 w-4 shrink-0 text-muted" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true" data-notification-chevron>
             <path d="m6 3.5 4.5 4.5L6 12.5" stroke-linecap="round" stroke-linejoin="round" />
         </svg>
+    {:else}
+        <!-- The chevron's room, kept: every row's time and progress bar end on the same edge. -->
+        <span class="h-4 w-4 shrink-0" aria-hidden="true" data-notification-chevron-space></span>
     {/if}
 {/snippet}
 

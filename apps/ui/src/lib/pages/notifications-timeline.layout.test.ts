@@ -128,4 +128,11 @@ describe('a job that stopped reporting', () => {
         expect(en.notifications.job_stopped).toContain('Nothing is still running');
         expect(en.notifications.job_stopped).toContain('{time}');
     });
+
+    it("keeps every row's time and progress on one right edge, with or without a chevron", () => {
+        // A row that opens nothing has no chevron; without a spacer of the chevron's width its time
+        // and progress bar ran 16px further right than the rows around it.
+        expect(source).toContain('<span class="h-4 w-4 shrink-0" aria-hidden="true" data-notification-chevron-space></span>');
+        expect(source).toContain('<svg class="mt-1 h-4 w-4 shrink-0 text-muted"');
+    });
 });

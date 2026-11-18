@@ -1187,26 +1187,28 @@
                 imperial: $_('common.unit_mph', { default: 'mph' })
             });
             parts.push(
-                [$_('detection.weather_wind'), speed, formatWindDirection(detection.weather_wind_direction)]
+                [`${$_('detection.weather_wind')}\u00a0${speed}`, formatWindDirection(detection.weather_wind_direction)]
                     .filter(Boolean)
                     .join(' ')
             );
         }
         if (detection.weather_cloud_cover !== undefined && detection.weather_cloud_cover !== null) {
-            parts.push(`${$_('detection.weather_cloud')} ${Math.round(detection.weather_cloud_cover)}%`);
+            parts.push(`${$_('detection.weather_cloud')}\u00a0${Math.round(detection.weather_cloud_cover)}%`);
         }
         if (detection.weather_rain !== undefined && detection.weather_rain !== null && detection.weather_rain > 0) {
-            parts.push(`${$_('detection.weather_rain')} ${formatPrecip(detection.weather_rain)}`);
+            parts.push(`${$_('detection.weather_rain')}\u00a0${formatPrecip(detection.weather_rain)}`);
         }
         if (detection.weather_snowfall !== undefined && detection.weather_snowfall !== null && detection.weather_snowfall > 0) {
-            parts.push(`${$_('detection.weather_snow')} ${formatPrecip(detection.weather_snowfall)}`);
+            parts.push(`${$_('detection.weather_snow')}\u00a0${formatPrecip(detection.weather_snowfall)}`);
         }
         // Measured by a light sensor at the detection (#945); never estimated from the weather.
         const light = formatIlluminance(detection.illuminance_lux);
         if (light !== null) {
-            parts.push(`${$_('detection.weather_light', { default: 'Light' })} ${light}`);
+            parts.push(`${$_('detection.weather_light', { default: 'Light' })}\u00a0${light}`);
         }
-        return parts.join(' · ');
+        // Each label is tied to its figure, and each separator to the reading before it, so a wrapped
+        // line never splits "Cloud cover" from its percentage or starts with "·".
+        return parts.join('\u00a0· ');
     });
     async function handleManualTag(selection: SearchResult) {
         if (!authStore.hasOwnerAccess) return;
@@ -1702,7 +1704,7 @@
                                                 type="button"
                                                 onclick={handleFavoriteToggle}
                                                 disabled={favoritePending}
-                                                class="pointer-events-auto inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border shadow-lg backdrop-blur-xs transition-colors disabled:opacity-60 focus-ring-on-dark {detection.is_favorite ? 'border-on-media-accent bg-accent text-accent-fg hover:bg-accent-hover' : 'border-on-media/35 bg-media/45 text-on-media hover:bg-media/60'}"
+                                                class="pointer-events-auto inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border max-sm:shadow-lg backdrop-blur-xs transition-colors disabled:opacity-60 focus-ring-on-dark {detection.is_favorite ? 'border-on-media-accent bg-accent text-accent-fg hover:bg-accent-hover' : 'border-on-media/35 bg-media/45 text-on-media hover:bg-media/60'}"
                                                 title={detection.is_favorite ? $_('detection.favorite_remove', { default: 'Remove favorite' }) : $_('detection.favorite_add', { default: 'Add favorite' })}
                                                 aria-label={detection.is_favorite ? $_('detection.favorite_remove', { default: 'Remove favorite' }) : $_('detection.favorite_add', { default: 'Add favorite' })}
                                             >
@@ -1733,7 +1735,7 @@
                                                 }}
                                                 title={fullVisitFetched ? $_('video_player.full_visit_ready', { default: 'Full visit clip ready' }) : $_('detection.play_video', { values: { species: primaryName } })}
                                                 aria-label={fullVisitFetched ? $_('detection.play_full_visit', { values: { species: primaryName }, default: 'Play full visit clip of {species}' }) : $_('detection.play_video', { values: { species: primaryName } })}
-                                                class="pointer-events-auto inline-flex h-11 min-w-11 items-center justify-center rounded-full border shadow-xl backdrop-blur-xs transition-colors duration-150 focus:outline-hidden focus:ring-2 focus:ring-focus-on-dark {fullVisitFetched ? 'gap-2 border-on-media-accent/30 bg-accent px-3 text-accent-fg hover:bg-accent-hover' : 'w-11 border-on-media/25 bg-media/55 text-on-media'}"
+                                                class="pointer-events-auto inline-flex h-11 min-w-11 items-center justify-center rounded-full border max-sm:shadow-xl backdrop-blur-xs transition-colors duration-150 focus:outline-hidden focus:ring-2 focus:ring-focus-on-dark {fullVisitFetched ? 'gap-2 border-on-media-accent/30 bg-accent px-3 text-accent-fg hover:bg-accent-hover' : 'w-11 border-on-media/25 bg-media/55 text-on-media'}"
                                             >
                                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                                                     <path d="M8 5v14l11-7z"/>
@@ -1744,7 +1746,7 @@
                                             </button>
                                         {/if}
                                         {#if isManualObservation}
-                                            <div class="inline-flex min-h-11 items-center gap-2 rounded-full border border-on-media/25 bg-media/55 px-3.5 text-xs font-bold text-on-media shadow-xl backdrop-blur-xs">
+                                            <div class="inline-flex min-h-11 items-center gap-2 rounded-full border border-on-media/25 bg-media/55 px-3.5 text-xs font-bold text-on-media max-sm:shadow-xl backdrop-blur-xs">
                                                 <svg class="h-4 w-4 text-on-media-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 16V4m0 0L8 8m4-4 4 4M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4" /></svg>
                                                 {$_('detection.uploaded', { default: 'Uploaded' })}
                                             </div>
@@ -1763,7 +1765,7 @@
                                                 }}
                                                 disabled={fullVisitFetchState === 'fetching'}
                                                 aria-label={fullVisitFetchLabel}
-                                                class="pointer-events-auto inline-flex min-h-11 items-center gap-2 rounded-full border border-on-media/25 bg-media/55 px-4 py-2 text-2xs font-semibold text-on-media shadow-xl backdrop-blur-xs transition-colors duration-150 hover:bg-accent-hover disabled:cursor-wait disabled:opacity-75 focus:outline-hidden focus:ring-2 focus:ring-focus-on-dark"
+                                                class="pointer-events-auto inline-flex min-h-11 items-center gap-2 rounded-full border border-on-media/25 bg-media/55 px-4 py-2 text-2xs font-semibold text-on-media max-sm:shadow-xl backdrop-blur-xs transition-colors duration-150 hover:bg-accent-hover disabled:cursor-wait disabled:opacity-75 focus:outline-hidden focus:ring-2 focus:ring-focus-on-dark"
                                             >
                                                 {#if fullVisitFetchState === 'fetching'}
                                                     <span class="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent"></span>
@@ -1779,7 +1781,7 @@
                                         {/if}
                                         {#if frigateIssueBadgeVisible}
                                             <div
-                                                class="inline-flex h-11 w-11 items-center justify-center rounded-full border border-on-media-fail/70 bg-media/55 text-on-media-fail shadow-lg backdrop-blur-xs"
+                                                class="inline-flex h-11 w-11 items-center justify-center rounded-full border border-on-media-fail/70 bg-media/55 text-on-media-fail max-sm:shadow-lg backdrop-blur-xs"
                                                 title={videoFailureInsight.summary}
                                                 aria-label={videoFailureInsight.summary}
                                                 role="img"
@@ -1844,7 +1846,7 @@
                                 })}
                                 loading="lazy"
                                 onerror={() => { failedSpeciesReferenceUrl = speciesInfo?.thumbnail_url ?? null; }}
-                                class="h-12 w-12 shrink-0 rounded-full border border-line object-cover"
+                                class="h-12 w-12 shrink-0 rounded-full border border-line bg-surface-raised object-cover"
                                 data-detection-species-reference
                             />
                         {/if}
