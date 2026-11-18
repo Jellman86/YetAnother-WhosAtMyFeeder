@@ -114,6 +114,7 @@
     } from '../settings/inference-providers';
     import { getErrorMessage } from '../utils/error-handling';
     import { createSupersedingRead } from '../utils/latest-request';
+    import { layoutSettled, watchElementSize } from '../utils/layout-settled';
 
     // Every tab is its own chunk, loaded when it is opened (see the loaders above).
     import { appearanceSection, type AppearanceDraft } from '../settings/appearance-section';
@@ -1433,6 +1434,9 @@
         return false;
     }
 
+    // Counts landings, so a slower earlier one never scrolls after a newer address has landed.
+    let revealGeneration = 0;
+
     async function revealPart(part: SettingsPart): Promise<void> {
         const section = settingsSectionOfPart(part);
         const parts = SETTINGS_SECTION_PARTS[section];
@@ -1449,7 +1453,17 @@
             window.scrollTo({ top: 0 });
             return;
         }
-        target?.scrollIntoView({ block: 'start' });
+        if (!target) return;
+        // The parts above still fill in after their code arrives (the model list, then Hardware under
+        // it, More options' own parts), so the page scrolls once the section has stopped changing size:
+        // scrolling first left the part moving under the reader (a layout shift of 0.6 at 1440 px).
+        // A reader who scrolls meanwhile, or a newer address, keeps their own place.
+        const generation = ++revealGeneration;
+        const startY = window.scrollY;
+        const sectionRoot = document.querySelector(`[data-settings-section="${section}"]`);
+        if (sectionRoot) await layoutSettled(watchElementSize(sectionRoot));
+        if (generation !== revealGeneration || Math.abs(window.scrollY - startY) > 1) return;
+        document.querySelector<HTMLElement>(`[data-settings-part="${part}"]`)?.scrollIntoView({ block: 'start' });
     }
 
     // The fragment that names a part. The app follows it through navigation, Back and Forward and a
