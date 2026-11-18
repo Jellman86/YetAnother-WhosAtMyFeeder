@@ -104,6 +104,24 @@ describe('dismissed Health items', () => {
         expect(store.dismissedIncidents).toHaveLength(0);
     });
 
+    it('keeps a Frigate outage undismissable while its availability is unknown, as after an MQTT reconnect', () => {
+        const store = createIncidentWorkspaceStore();
+        const offline = entry({ source: 'mqtt', component: 'mqtt_service', reason_code: 'frigate_went_offline', severity: 'warning', dismissed: true });
+
+        store.ingestWorkspacePayload(workspace([offline], { mqtt: { frigate_availability: { status: 'unknown' } } }));
+        expect(store.currentIssues.map((incident) => [incident.status, incident.live, incident.dismissed])).toEqual([['open', true, false]]);
+        expect(store.dismissedIncidents).toHaveLength(0);
+
+        // Measured offline: still live and listed.
+        store.ingestWorkspacePayload(workspace([offline], { mqtt: { frigate_availability: { status: 'offline' } } }));
+        expect(store.currentIssues.map((incident) => [incident.live, incident.dismissed])).toEqual([[true, false]]);
+
+        // Measured online: a resolved blip, which the owner's dismissal may now hide.
+        store.ingestWorkspacePayload(workspace([offline], { mqtt: { frigate_availability: { status: 'online' } } }));
+        expect(store.currentIssues).toHaveLength(0);
+        expect(store.dismissedIncidents.map((incident) => [incident.status, incident.live, incident.dismissed])).toEqual([['resolved', false, true]]);
+    });
+
     it('lets a stateful incident be dismissed once its live check has measured it closed', () => {
         const store = createIncidentWorkspaceStore();
         const finder = entry({ component: 'bird_finder', reason_code: 'rfdetr_cpu_fallback', severity: 'warning', dismissed: true });
