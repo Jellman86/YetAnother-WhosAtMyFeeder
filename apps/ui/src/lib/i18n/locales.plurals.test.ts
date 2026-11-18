@@ -71,8 +71,6 @@ const COUNT_BEFORE_INVARIANT_WORD = new Set([
     'notifications.bell_unread',
     'settings.data.archive_failed_count',
     'settings.data.archive_usage_detail',
-    'settings.detection.model_manager_count',
-    'settings.detection.model_manager_show_advanced',
     'taxonomy.more'
 ]);
 
