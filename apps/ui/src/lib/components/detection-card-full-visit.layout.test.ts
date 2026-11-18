@@ -21,7 +21,12 @@ describe('detection card full-visit fetch wiring', () => {
         expect(detectionCardSource).toContain('h-4 w-4 items-center justify-center rounded-full');
         expect(detectionCardSource).not.toContain("video_player.full_visit_badge', { default: 'Full visit' })}</span>");
         // The readings line sits above the record's own button, so play keeps its action.
-        expect(detectionCardSource).toMatch(/relative z-20 mt-auto flex[^"]*items-center/);
+        expect(detectionCardSource).toMatch(/relative z-20 flex[^"]*items-center/);
+        // The readings follow the name, and the date line takes the spare height: a card with a
+        // captures footer is shorter inside, and readings pinned to the bottom sat higher in it
+        // than in the cards beside it.
+        expect(detectionCardSource).not.toMatch(/relative z-20 mt-auto flex/);
+        expect(detectionCardSource).toContain('<div class="mt-auto flex items-center gap-1.5 text-2xs text-muted font-medium flex-wrap">');
         // Under an analysis the readings keep their place but are inert and hidden.
         expect(detectionCardSource).toContain('inert={analysisActive}');
         expect(detectionCardSource).toContain('{#if canPlayVideo}');
