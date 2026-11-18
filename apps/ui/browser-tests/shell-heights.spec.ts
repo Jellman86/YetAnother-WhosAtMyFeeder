@@ -64,6 +64,82 @@ for (const size of [{ width: 1920, height: 900 }, { width: 1440, height: 800 }, 
     }
 }
 
+// A 13-inch MacBook Air's whole screen and a 1080p monitor: the status readings fit their card, so they
+// do not scroll. Their CPU and NPU line once overhung its 16px line by about 2px, which made the readings
+// scroll by that much at every size.
+for (const size of [{ width: 1470, height: 956 }, { width: 1920, height: 1080 }]) {
+    for (const options of [{}, { german: true }]) {
+        test(`at ${size.width} × ${size.height} in ${options.german ? 'German' : 'English'} the status readings fit, with nothing to scroll`, async ({ page }) => {
+            await open(page, size, options);
+            const readings = page.locator('[data-sidebar-status-readings]');
+            await expect(readings.locator('[data-telemetry-readout]')).toBeVisible(READY);
+            const fit = await readings.evaluate((node) => ({
+                overflow: node.scrollHeight - node.clientHeight,
+                // Inline text's box is as tall as its font, whatever the line: the readings are boxes on the
+                // line, so no font can make them overhang it. (The fixture's fallback font happens to fit
+                // either way; the app's own faces did not.)
+                inlineReadings: [...node.querySelectorAll('[data-telemetry-readout] > *')].filter((child) => getComputedStyle(child).display === 'inline').length
+            }));
+            expect(fit.overflow).toBeLessThanOrEqual(0);
+            expect(fit.inlineReadings).toBe(0);
+        });
+    }
+}
+
+// A MacBook window: Safari on a 13-inch Air's 1470 × 956 screen leaves about 820 px under its menu bar
+// and toolbar, and a window with the Dock in view is shorter still. The readings scroll inside their card
+// there, and at rest they show whole lines only: every line is wholly in view or wholly below it, never
+// cut through its letters. Each width is checked across a run of heights, so wherever the card's room
+// happens to end, no line is left in part.
+async function linesCutAtTheFoot(page: Page): Promise<string[]> {
+    return page.locator('[data-sidebar-status-readings]').evaluate((node) => {
+        const box = node.getBoundingClientRect();
+        // A line is a row of words: a list that holds rows runs past the fold by design.
+        return [...node.querySelectorAll<HTMLElement>(':scope > *, li')]
+            .filter((line) => !line.querySelector('li'))
+            .map((line) => line.getBoundingClientRect())
+            .filter((line) => line.height > 0 && line.top < box.bottom - 1 && line.bottom > box.bottom + 1)
+            .map((line) => `${Math.round(line.top - box.top)}–${Math.round(line.bottom - box.top)} in ${Math.round(box.height)} at ${innerHeight}`);
+    });
+}
+
+for (const size of [{ width: 1470, height: 820 }, { width: 1440, height: 760 }]) {
+    for (const options of [{}, { german: true }]) {
+        test(`at ${size.width} × ${size.height} and around it, in ${options.german ? 'German' : 'English'}, the status readings show only whole lines`, async ({ page }) => {
+            await open(page, size, options);
+            await expect(page.locator('[data-sidebar-status-readings] [data-status-row]').first()).toBeVisible(READY);
+            for (let height = size.height - 40; height <= size.height + 40; height += 4) {
+                await page.setViewportSize({ width: size.width, height });
+                await expect.poll(() => linesCutAtTheFoot(page), { timeout: 3_000 }).toEqual([]);
+            }
+        });
+    }
+}
+
+// The readings are a tab stop, and their focus ring is drawn outside their box. Whether or not they scroll
+// (a short window, and one where they fit), the ring is drawn: the pixels just below the box change when
+// they take keyboard focus. A mask on the readings once clipped the ring away entirely.
+for (const size of [{ width: 1440, height: 760 }, { width: 1470, height: 956 }]) {
+    test(`at ${size.width} × ${size.height} the status readings show their focus ring`, async ({ page }) => {
+        await open(page, size);
+        const readings = page.locator('[data-sidebar-status-readings]');
+        // The telemetry row is always drawn; its reading may not be, since the graph samples only while
+        // its row is on screen, and at 1440 × 760 the row sits below the readings' whole lines.
+        await expect(readings.locator('[data-system-telemetry]')).toBeAttached(READY);
+        const box = await readings.boundingBox();
+        expect(box).not.toBeNull();
+        if (!box) return;
+        const band = { x: Math.floor(box.x), y: Math.ceil(box.y + box.height) + 1, width: Math.floor(box.width), height: 3 };
+        const resting = await page.screenshot({ clip: band, animations: 'allow' });
+        await page.keyboard.press('Tab');
+        await readings.focus();
+        await expect(readings).toBeFocused();
+        expect(await readings.evaluate((node) => node.matches(':focus-visible'))).toBe(true);
+        const focused = await page.screenshot({ clip: band, animations: 'allow' });
+        expect(focused.equals(resting), 'the focus ring is drawn below the readings').toBe(false);
+    });
+}
+
 test('at 2560 px the page and its footer are centred with gutters, and at 1920 px they use the width', async ({ page }) => {
     await open(page, { width: 2560, height: 1440 });
     const sidebar = await page.locator('#app-sidebar').boundingBox();

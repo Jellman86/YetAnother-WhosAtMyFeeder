@@ -74,7 +74,7 @@ describe('Sidebar hybrid refresh', () => {
         expect(sidebarSource).toContain('<div class="flex min-h-0 flex-1 flex-col overflow-y-auto" data-sidebar-scroll>');
         expect(sidebarSource).toContain('<nav class="shrink-0 px-3 py-4"');
         expect(sidebarSource).toContain('data-sidebar-status class="mt-auto flex flex-col');
-        expect(sidebarSource).toMatch(/class="focus-ring" role="group" tabindex="0" aria-labelledby="sidebar-status-title" data-sidebar-status-readings/);
+        expect(sidebarSource).toMatch(/class="focus-ring"\s+role="group"\s+tabindex="0"\s+aria-labelledby="sidebar-status-title"\s+data-sidebar-status-readings/);
         // Only at the usual text size (the column at least 30 rem tall) do the readings give way.
         expect(sidebarSource).toContain('container: sidebar-scroll / size;');
         expect(sidebarSource).toMatch(/@container sidebar-scroll \(height >= 30rem\) \{[\s\S]*?\[data-sidebar-status-readings\] \{\s*min-height: 3rem;\s*overflow-y: auto;/);
@@ -114,5 +114,17 @@ describe('Sidebar hybrid refresh', () => {
         expect(failure).toContain('stale = history.length > 0;');
         expect(failure).not.toContain('history = []');
         expect(telemetryGraphSource).toContain("system_telemetry.last_reading");
+    });
+
+    it('shows the status readings in whole lines at rest, instead of cutting a line of words', () => {
+        expect(sidebarSource).toContain("use:snapToWholeLines={{ lines: ':scope > *, li', container: '[data-sidebar-scroll]' }}");
+        // Nothing is drawn over the readings: a mask on them, a tab stop, clipped their focus ring, and a fade
+        // or an edge over a line reads as cut or underlined text.
+        expect(sidebarSource).not.toContain('mask-image');
+        expect(sidebarSource).not.toContain('[data-sidebar-status-readings]::after');
+    });
+
+    it('keeps a wrapped status state at the right edge, in the column of the others', () => {
+        expect(connectionStatusSource).toContain('class="ml-auto text-right font-semibold');
     });
 });

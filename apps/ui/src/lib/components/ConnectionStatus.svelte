@@ -94,11 +94,12 @@
                     <span class="flex h-4 w-3 items-center justify-center" aria-hidden="true">
                         <span class="h-2 w-2 {DOT[row.tone]}" data-status-dot></span>
                     </span>
-                    <!-- A state too long for the row drops under its label instead of being cut. -->
+                    <!-- A state too long for the row drops under its label instead of being cut, and keeps
+                         to the right edge there, so every state still reads down one column. -->
                     <span class="flex min-w-0 flex-wrap items-baseline justify-between gap-x-2 text-xs leading-4">
                         <span class="text-muted" data-status-label>{say(row.label)}</span>
                         <span
-                            class="font-semibold {row.tone === 'attention' ? 'text-status-attention' : 'text-strong'}"
+                            class="ml-auto text-right font-semibold {row.tone === 'attention' ? 'text-status-attention' : 'text-strong'}"
                             data-status-state
                         >{say(row.state)}</span>
                     </span>

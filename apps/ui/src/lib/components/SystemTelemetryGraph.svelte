@@ -134,10 +134,13 @@
 <div
     bind:this={container}
     data-system-telemetry
-    class="mt-2 flex min-h-4 items-center justify-between gap-2 text-xs leading-4 text-muted"
+    class="mt-2 flex min-h-4 items-center justify-between gap-2 overflow-y-clip text-xs leading-4 text-muted"
 >
     {#if current}
-        <p class="min-w-0 tabular-nums" data-telemetry-readout data-telemetry-stale={stale}>
+        <!-- A flex row, so each reading is a box on the 16px line, and the row clips what overhangs it
+             vertically: the faces' font boxes are taller than the line, and Chromium counted that overhang
+             (about 1.5px) as something to scroll to, so the status card scrolled at every window size. -->
+        <p class="flex min-w-0 flex-wrap items-baseline gap-x-1 tabular-nums" data-telemetry-readout data-telemetry-stale={stale}>
             {#if stale}
                 <span>{$_('system_telemetry.last_reading', { default: 'Last reading' })}:</span>
             {/if}
