@@ -70,20 +70,23 @@ export function connectionCauseMessage(cause: string, service: string, address: 
 
 const DELIVERY_CHANNELS: Record<string, string> = { discord: 'Discord', pushover: 'Pushover', telegram: 'Telegram' };
 const DELIVERY_CAUSES: Record<string, string> = {
-    not_configured: '{channel} is not set up yet. Enter its details, then test again.',
+    not_configured_discord: '{channel} is not set up yet. Enter the webhook address, then test again.',
+    not_configured_pushover: '{channel} is not set up yet. Enter the user key and API token, then test again.',
+    not_configured_telegram: '{channel} is not set up yet. Enter the bot token and chat ID, then test again.',
     no_answer_address: '{channel} did not answer. Check the webhook address, then test again.',
     no_answer_network: '{channel} did not answer. Check that YA-WAMF can reach the internet, then test again.',
     timeout: '{channel} took too long to answer. Wait a moment, then test again.',
     refused_discord: '{channel} refused the message. Check the webhook address, then test again.',
     refused_pushover: '{channel} refused the message. Check the user key and API token, then test again.',
     refused_telegram: '{channel} refused the message. Check the bot token and chat ID, then test again.',
+    unexpected_reply: 'Something answered in place of {channel}. Check for a proxy or sign-in page between YA-WAMF and the internet, then test again.',
     rate_limited: '{channel} is limiting messages for now. Wait a minute, then test again.',
     provider_error: '{channel} reported a problem on its side. Wait a few minutes, then test again.'
 };
 
 /** The sentence a cause has on a channel: what to check depends on which credentials the channel takes. */
 function deliverySentenceKey(cause: string, channel: string): string {
-    if (cause === 'refused') return `refused_${channel}`;
+    if (cause === 'refused' || cause === 'not_configured') return `${cause}_${channel}`;
     // Only Discord's address is the owner's to get wrong; the others have one fixed address.
     if (cause === 'no_answer') return channel === 'discord' ? 'no_answer_address' : 'no_answer_network';
     return cause;

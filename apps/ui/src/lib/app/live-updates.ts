@@ -9,6 +9,7 @@ import { statusNotificationCause, verdictFor } from '../stores/system_status.sve
 import { MAINTENANCE_JOBS_ROUTE } from '../settings/settings-route';
 import { createRetryingReader, type RetryingReader } from './retrying-reader';
 import { guardedValue, mapGuarded, type Guarded } from '../api/core';
+import { newBirdAnnouncement } from './live-announcement';
 
 const STALE_PROCESS_MAX_AGE_MS = 45 * 60 * 1000;
 const ORPHAN_PROCESS_GRACE_MS = 2 * 60 * 1000;
@@ -459,7 +460,7 @@ export class LiveUpdateCoordinator {
                 const newDetection = toDetection(payload.data);
                 this.deps.detectionsStore.addDetection(newDetection);
                 if (this.deps.accessibility.liveAnnouncements) {
-                    this.deps.announcer.announce(`New bird detected: ${newDetection.display_name} at ${newDetection.camera_name}`);
+                    this.deps.announcer.announce(newBirdAnnouncement(newDetection.display_name, newDetection.camera_name));
                 }
                 this.addDetectionNotification(newDetection);
                 return;

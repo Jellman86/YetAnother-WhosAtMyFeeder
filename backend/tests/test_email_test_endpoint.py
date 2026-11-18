@@ -98,3 +98,35 @@ async def test_email_test_reports_a_failed_oauth_send_with_what_to_do(monkeypatc
     assert response.json()["detail"] == (
         f"{name} did not accept the test email. Reconnect the account, then test again."
     )
+
+
+@pytest.mark.asyncio
+async def test_email_test_reports_an_oauth_provider_that_takes_too_long_without_naming_smtp(monkeypatch, smtp_channel):
+    monkeypatch.setattr(smtp_channel, "use_oauth", True)
+    monkeypatch.setattr(smtp_channel, "oauth_provider", "gmail")
+    monkeypatch.setattr(smtp_service, "send_email_oauth", AsyncMock(side_effect=asyncio.TimeoutError()))
+
+    response = await _press_email_test()
+
+    assert response.status_code == 504
+    assert response.json()["detail"] == "Gmail took too long to answer. Wait a moment, then test again."
+
+
+@pytest.mark.asyncio
+async def test_email_test_that_cannot_be_prepared_does_not_blame_the_mail_server(monkeypatch, smtp_channel):
+    from app.routers import email as email_router
+
+    send = AsyncMock(return_value=True)
+    monkeypatch.setattr(smtp_service, "send_email_password", send)
+
+    def broken_font(*_args, **_kwargs):
+        raise RuntimeError(f"template data broke near {SMTP_PASSWORD}")
+
+    monkeypatch.setattr(email_router, "get_email_font_family", broken_font)
+
+    response = await _press_email_test()
+
+    assert response.status_code == 500
+    assert response.json()["detail"] == "YA-WAMF could not prepare the test email. Open Health, then test again."
+    assert SMTP_PASSWORD not in response.text
+    send.assert_not_awaited()

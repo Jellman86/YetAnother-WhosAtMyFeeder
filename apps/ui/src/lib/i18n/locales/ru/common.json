@@ -1,5 +1,6 @@
 {
   "loading": "Загрузка…",
+  "live_new_bird": "Новая птица: {species}, камера {camera}",
   "error": "Ошибка",
   "success": "Успех",
   "cancel": "Отмена",

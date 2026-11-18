@@ -13,6 +13,7 @@
         props,
         content,
         label,
+        loadingText,
         onLoadError
     }: {
         loader: () => Promise<PageModule>;
@@ -21,6 +22,8 @@
         /** Renders the loaded page itself, for a host that binds to the page's props. */
         content?: Snippet<[LoadedPage]>;
         label: string;
+        /** The loading sentence, for a part whose name does not read well after "Opening". */
+        loadingText?: string;
         onLoadError?: (error: unknown) => void;
     } = $props();
 
@@ -125,7 +128,7 @@
                     <circle class="opacity-25" cx="12" cy="12" r="9" stroke="currentColor" stroke-width="3" />
                     <path class="opacity-80" fill="currentColor" d="M21 12a9 9 0 0 0-9-9v3a6 6 0 0 1 6 6h3Z" />
                 </svg>
-                {$_('route_load.loading', { default: 'Opening {page}…', values: { page: label } })}
+                {loadingText ?? $_('route_load.loading', { default: 'Opening {page}…', values: { page: label } })}
             </div>
         {/if}
     </div>

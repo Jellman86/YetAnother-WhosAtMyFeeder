@@ -1,5 +1,6 @@
 {
   "loading": "Laden…",
+  "live_new_bird": "Neuer Vogel: {species} an {camera}",
   "error": "Fehler",
   "success": "Erfolg",
   "cancel": "Abbrechen",

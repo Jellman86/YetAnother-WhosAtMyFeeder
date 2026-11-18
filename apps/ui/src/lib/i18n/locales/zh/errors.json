@@ -11,13 +11,16 @@
     "unreachable_url": "{service}：无法连接到 {address}。请检查地址、协议（http 或 https）和端口。"
   },
   "delivery": {
-    "not_configured": "{channel} 尚未设置。请填写相关信息，然后重新测试。",
+    "not_configured_discord": "{channel} 尚未设置。请输入 Webhook 地址，然后重新测试。",
+    "not_configured_pushover": "{channel} 尚未设置。请输入用户密钥和 API 令牌，然后重新测试。",
+    "not_configured_telegram": "{channel} 尚未设置。请输入机器人令牌和聊天 ID，然后重新测试。",
     "no_answer_address": "{channel} 没有响应。请检查 Webhook 地址，然后重新测试。",
     "no_answer_network": "{channel} 没有响应。请确认 YA-WAMF 可以访问互联网，然后重新测试。",
     "timeout": "{channel} 响应时间过长。请稍等片刻，然后重新测试。",
     "refused_discord": "{channel} 拒绝了这条消息。请检查 Webhook 地址，然后重新测试。",
     "refused_pushover": "{channel} 拒绝了这条消息。请检查用户密钥和 API 令牌，然后重新测试。",
     "refused_telegram": "{channel} 拒绝了这条消息。请检查机器人令牌和聊天 ID，然后重新测试。",
+    "unexpected_reply": "有其他服务代替 {channel} 作出了响应。请检查 YA-WAMF 与互联网之间是否有代理或登录页面，然后重新测试。",
     "rate_limited": "{channel} 目前正在限制消息。请等待一分钟，然后重新测试。",
     "provider_error": "{channel} 报告其自身出现问题。请等待几分钟，然后重新测试。"
   }

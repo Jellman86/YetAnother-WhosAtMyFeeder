@@ -7,10 +7,12 @@ here ever sees a credential.
 
 from typing import Literal
 
-from app.services.notifications.message import DeliveryResult
+from app.services.notifications.message import UNREADABLE_REPLY, DeliveryResult
 
 DeliveryChannel = Literal["discord", "pushover", "telegram"]
-DeliveryFailureCause = Literal["not_configured", "no_answer", "timeout", "refused", "rate_limited", "provider_error"]
+DeliveryFailureCause = Literal[
+    "not_configured", "no_answer", "timeout", "refused", "unexpected_reply", "rate_limited", "provider_error"
+]
 
 # What a send answers when the channel has no credentials to send with.
 NOT_CONFIGURED = "NotConfigured"
@@ -32,6 +34,8 @@ def classify_delivery_failure(result: DeliveryResult) -> DeliveryFailureCause:
     """The cause of a delivery that was not accepted, from its error type and status."""
     if result.error_type == NOT_CONFIGURED:
         return "not_configured"
+    if result.error_type == UNREADABLE_REPLY:
+        return "unexpected_reply"
     status = result.status_code
     if status is not None:
         if status == 429:
@@ -54,6 +58,11 @@ def describe_delivery_failure(cause: DeliveryFailureCause, channel: DeliveryChan
         return f"{name} took too long to answer. Wait a moment, then test again."
     if cause == "refused":
         return f"{name} refused the message. {_CREDENTIAL_CHECKS[channel]}, then test again."
+    if cause == "unexpected_reply":
+        return (
+            f"Something answered in place of {name}. "
+            "Check for a proxy or sign-in page between YA-WAMF and the internet, then test again."
+        )
     if cause == "rate_limited":
         return f"{name} is limiting messages for now. Wait a minute, then test again."
     if cause == "provider_error":

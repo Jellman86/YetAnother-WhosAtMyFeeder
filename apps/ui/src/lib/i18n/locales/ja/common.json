@@ -1,5 +1,6 @@
 {
   "loading": "読み込み中…",
+  "live_new_bird": "新しい鳥: {species}（{camera}）",
   "error": "エラー",
   "success": "成功",
   "cancel": "キャンセル",

@@ -141,7 +141,11 @@
 
     <SectionMore section="identification" summary={$_('settings.more.identification', { default: 'Blocked species, the range filter, video checks, hardware and Beta features' })}>
         <div class="space-y-8" data-settings-detection-more>
-            <LazyRoute loader={loadDetectionSettings} label={$_('settings.tabs.detection')}>
+            <LazyRoute
+                loader={loadDetectionSettings}
+                label={$_('settings.tabs.detection')}
+                loadingText={$_('settings.more.identification_loading', { default: 'Opening more options…' })}
+            >
             {#snippet content(DetectionSettings)}
             <DetectionSettings
                 bind:trustFrigateSublabel

@@ -27,6 +27,8 @@ from app.services.notifications.message import DeliveryResult
         (DeliveryResult(sent=False, error_type="HTTPStatusError", status_code=503), "provider_error"),
         # The provider answered 200 and still said no, as Telegram's "ok": false does.
         (DeliveryResult(sent=False, status_code=200), "refused"),
+        # Something answered 200 with a body the channel never sends, as a proxy or captive portal does.
+        (DeliveryResult(sent=False, error_type="UnreadableReply", status_code=200), "unexpected_reply"),
         (DeliveryResult(sent=False), "no_answer"),
     ],
 )
@@ -80,3 +82,11 @@ def test_the_payload_carries_the_cause_code_the_channel_and_the_english_sentence
         "channel": "telegram",
         "message": "Telegram took too long to answer. Wait a moment, then test again.",
     }
+
+
+@pytest.mark.parametrize("channel, name", [("discord", "Discord"), ("pushover", "Pushover"), ("telegram", "Telegram")])
+def test_a_reply_the_channel_never_sends_points_at_something_in_between(channel, name):
+    assert describe_delivery_failure("unexpected_reply", channel) == (
+        f"Something answered in place of {name}. "
+        "Check for a proxy or sign-in page between YA-WAMF and the internet, then test again."
+    )

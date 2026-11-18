@@ -6,6 +6,7 @@ per-channel transports in `notifications.transports` only render and deliver a m
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from typing import Protocol
 
 
 @dataclass(frozen=True)
@@ -52,3 +53,24 @@ class DeliveryResult:
     sent: bool
     error_type: str | None = None
     status_code: int | None = None
+
+
+# The error type of a reply the channel never sends, such as a proxy's or a sign-in page's.
+UNREADABLE_REPLY = "UnreadableReply"
+
+
+class _JsonReply(Protocol):
+    def json(self) -> object: ...
+
+
+def channel_reply(response: _JsonReply) -> dict[str, object] | None:
+    """The JSON object a channel answers with, or None when the body is anything else.
+
+    A proxy or captive portal answers 200 with a page of its own. That is not the channel
+    accepting the message, and its text is never kept.
+    """
+    try:
+        body = response.json()
+    except ValueError:
+        return None
+    return body if isinstance(body, dict) else None

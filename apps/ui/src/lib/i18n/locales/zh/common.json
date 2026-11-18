@@ -1,5 +1,6 @@
 {
   "loading": "加载中…",
+  "live_new_bird": "新的鸟：{species}，{camera}",
   "error": "错误",
   "success": "成功",
   "cancel": "取消",

@@ -94,6 +94,8 @@
       "send_failed": "Der Mailserver hat die Test-E-Mail nicht angenommen. Prüfen Sie SMTP-Host, Port, Benutzername und Passwort und testen Sie dann erneut.",
       "send_failed_oauth": "{provider} hat die Test-E-Mail nicht angenommen. Verbinden Sie das Konto neu und testen Sie dann erneut.",
       "send_timeout": "Der Mailserver hat zu lange nicht geantwortet. Prüfen Sie SMTP-Host und Port und testen Sie dann erneut.",
+      "send_timeout_oauth": "{provider} hat zu lange nicht geantwortet. Warten Sie einen Moment und testen Sie dann erneut.",
+      "prepare_failed": "YA-WAMF konnte die Test-E-Mail nicht vorbereiten. Öffnen Sie Zustand und testen Sie dann erneut.",
       "invalid_state": "Ungültiger OAuth-Status. Bitte erneut versuchen.",
       "state_expired": "Der OAuth-Status ist abgelaufen. Bitte erneut versuchen.",
       "email_missing": "Der Anbieter hat keine E-Mail-Adresse zurückgegeben."

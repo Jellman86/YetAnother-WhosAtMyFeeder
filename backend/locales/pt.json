@@ -94,6 +94,8 @@
       "send_failed": "O servidor de email não aceitou o email de teste. Verifique o host SMTP, a porta, o nome de utilizador e a palavra-passe e teste novamente.",
       "send_failed_oauth": "{provider} não aceitou o email de teste. Volte a ligar a conta e teste novamente.",
       "send_timeout": "O servidor de email demorou demasiado a responder. Verifique o host SMTP e a porta e teste novamente.",
+      "send_timeout_oauth": "{provider} demorou demasiado a responder. Aguarde um momento e teste novamente.",
+      "prepare_failed": "O YA-WAMF não conseguiu preparar o email de teste. Abra Saúde e teste novamente.",
       "invalid_state": "Estado OAuth inválido. Por favor, tente novamente.",
       "state_expired": "Estado OAuth expirado. Por favor, tente novamente.",
       "email_missing": "Endereço de email não retornado pelo provedor."

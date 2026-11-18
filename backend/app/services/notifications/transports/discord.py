@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 
 import httpx
 
-from app.services.notifications.message import DeliveryResult, NotificationMessage
+from app.services.notifications.message import UNREADABLE_REPLY, DeliveryResult, NotificationMessage, channel_reply
 from app.services.notifications.transports.http_logging import redact_webhook_url
 
 _MARKDOWN = re.compile(r"([\\`*_~|>\[\]()])")
@@ -76,6 +76,11 @@ class DiscordTransport:
                 else:
                     response = await self._client.post(webhook, json=payload)
             response.raise_for_status()
+            # With `wait`, Discord answers with the message it created. A relay that speaks Discord's
+            # webhook may answer with no body; a body that is something else, such as a proxy's
+            # page, is not the message being accepted.
+            if response.content and channel_reply(response) is None:
+                return DeliveryResult(sent=False, error_type=UNREADABLE_REPLY, status_code=response.status_code)
             return DeliveryResult(sent=True, status_code=response.status_code)
         except httpx.HTTPStatusError as error:
             return DeliveryResult(sent=False, error_type=type(error).__name__, status_code=error.response.status_code)

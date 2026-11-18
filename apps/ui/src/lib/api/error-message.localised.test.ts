@@ -106,12 +106,23 @@ describe('errors a person reads are worded here, in their language', () => {
     it('has a sentence with a next step for every cause on every channel', async () => {
         await locale.set('en');
         for (const channel of ['discord', 'pushover', 'telegram']) {
-            for (const cause of ['not_configured', 'no_answer', 'timeout', 'refused', 'rate_limited', 'provider_error']) {
+            for (const cause of ['not_configured', 'no_answer', 'timeout', 'refused', 'unexpected_reply', 'rate_limited', 'provider_error']) {
                 const sentence = extractApiErrorMessage({ cause, channel, message: 'server sentence' }, 'HTTP 502');
                 expect(sentence, `${channel} ${cause}`).not.toBe('server sentence');
                 expect(sentence, `${channel} ${cause}`).toMatch(/then test again\.$/);
             }
         }
+    });
+
+    it('names the fields a channel is missing, and a reply that came from something in between', async () => {
+        await locale.set('en');
+        const missing = { cause: 'not_configured', message: 'server sentence' };
+        expect(extractApiErrorMessage({ ...missing, channel: 'discord' }, 'HTTP 400')).toBe('Discord is not set up yet. Enter the webhook address, then test again.');
+        expect(extractApiErrorMessage({ ...missing, channel: 'pushover' }, 'HTTP 400')).toBe('Pushover is not set up yet. Enter the user key and API token, then test again.');
+        expect(extractApiErrorMessage({ ...missing, channel: 'telegram' }, 'HTTP 400')).toBe('Telegram is not set up yet. Enter the bot token and chat ID, then test again.');
+        expect(extractApiErrorMessage({ cause: 'unexpected_reply', channel: 'telegram', message: 'server sentence' }, 'HTTP 502')).toBe(
+            'Something answered in place of Telegram. Check for a proxy or sign-in page between YA-WAMF and the internet, then test again.'
+        );
     });
 
     it('falls back to the server’s sentence for a delivery cause or channel it does not know', async () => {
