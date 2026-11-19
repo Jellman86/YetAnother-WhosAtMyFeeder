@@ -207,7 +207,7 @@ test('a window with no calls says so in the grid, not as an empty grid', async (
 test('a grid that cannot be read says so in its own frame, and the list and other figures stay', async ({ page }) => {
     await page.route('**/api/audio/activity-heatmap?*', route => route.fulfill({ status: 503, json: { detail: 'History temporarily unavailable.' } }));
     await page.route('**/api/audio/history?*', route => route.fulfill({ json: {
-        items: [{ id: 1, birdnet_id: 501, species: 'Dunnock', confidence: 0.91, timestamp: '2026-09-26T08:15:00Z', source_name: 'BirdCam' }],
+        items: [{ id: 1, birdnet_id: null, species: 'Dunnock', confidence: 0.91, timestamp: '2026-09-26T08:15:00Z', source_name: 'BirdCam' }],
         total: 1, limit: 25, offset: 0,
     } }));
     await page.reload();

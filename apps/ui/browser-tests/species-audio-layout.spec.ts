@@ -121,11 +121,12 @@ test('at 1440 px Audio history keeps the log in the main column with the figures
     // The figures sit at the head of the right-hand column, level with the log's top.
     expect(figures.x).toBeGreaterThan(log.x + log.width - 1);
     expect(Math.abs(figures.y - log.y)).toBeLessThanOrEqual(1);
-    // Species and sources follow directly under them in the same column, 2rem apart as before.
+    // Species and sources follow directly under them in the same column, 2rem apart as before: the
+    // log's height opens no gap under the figures.
     expect(Math.abs(side.x - figures.x)).toBeLessThanOrEqual(1);
     expect(Math.abs(side.width - figures.width)).toBeLessThanOrEqual(1);
-    expect(side.y - (figures.y + figures.height)).toBeGreaterThanOrEqual(31);
-    expect(side.y - (figures.y + figures.height)).toBeLessThanOrEqual(33);
+    const twoRem = await page.evaluate(() => 2 * parseFloat(getComputedStyle(document.documentElement).fontSize));
+    expect(Math.abs(side.y - (figures.y + figures.height) - twoRem)).toBeLessThanOrEqual(1);
 });
 
 test('every Audio history chart has its data as a table', async ({ page }) => {
