@@ -827,7 +827,7 @@
                     <div class="relative mt-6 chart-h w-full"><canvas use:chartjs={dailyChartConfig()} aria-label={$_('audio.chart.daily_title', { default: 'Calls heard over time' })}></canvas></div>
                 {/key}
             {:else}
-                <div class="flex h-60 items-center justify-center text-sm font-semibold text-muted">{$_('audio.chart.empty', { default: 'No calls heard in this window.' })}</div>
+                <div class="flex h-60 items-center justify-center text-sm text-muted">{$_('audio.chart.empty', { default: 'No calls heard in this window.' })}</div>
             {/if}
         </ChartFigure>
 
@@ -845,7 +845,7 @@
                         <ActivityHeatmap cells={heatmap.cells} maxCellCount={heatmap.max_cell_count} dark={isDark} dayLabel={weekdayLabel} unit="calls" />
                     </div>
                 {:else}
-                    <div class="flex h-60 items-center justify-center text-sm font-semibold text-muted" data-audio-heatmap-empty>{$_('audio.chart.empty', { default: 'No calls heard in this window.' })}</div>
+                    <div class="flex h-60 items-center justify-center text-sm text-muted" data-audio-heatmap-empty>{$_('audio.chart.empty', { default: 'No calls heard in this window.' })}</div>
                 {/if}
             </ChartFigure>
             <ChartFigure
@@ -871,7 +871,7 @@
                         </div>
                     {/key}
                 {:else}
-                    <div class="flex h-60 items-center justify-center text-sm font-semibold text-muted">{$_('audio.chart.empty', { default: 'No calls heard in this window.' })}</div>
+                    <div class="flex h-60 items-center justify-center text-sm text-muted">{$_('audio.chart.empty', { default: 'No calls heard in this window.' })}</div>
                 {/if}
             </ChartFigure>
         </div>
