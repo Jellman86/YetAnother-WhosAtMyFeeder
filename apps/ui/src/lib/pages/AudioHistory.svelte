@@ -504,7 +504,7 @@
 {/snippet}
 
 {#snippet filterActions(after?: () => void)}
-    <div class="flex items-end gap-2">
+    <div class="flex flex-wrap items-end gap-2">
         <button type="submit" class="btn btn-primary min-h-11 px-4" disabled={loading}>{$_('common.apply', { default: 'Apply' })}</button>
         <button type="button" class="btn btn-secondary min-h-11 px-4" onclick={() => { clearFilters(); after?.(); }} disabled={loading}>{$_('common.clear', { default: 'Clear' })}</button>
     </div>
