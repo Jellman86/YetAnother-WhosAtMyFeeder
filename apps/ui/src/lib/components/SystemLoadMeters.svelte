@@ -18,7 +18,7 @@
     let container: HTMLDivElement;
 
     const meters = $derived(
-        loadMeters(history, $_('system_telemetry.cpu', { default: 'CPU' }), $_('state.not_measured', { default: 'Not measured' }))
+        loadMeters(history, $_('system_telemetry.cpu', { default: 'CPU' }), $_('ui.state.not_measured', { default: 'Not measured' }))
     );
 
     function watched(): boolean {
