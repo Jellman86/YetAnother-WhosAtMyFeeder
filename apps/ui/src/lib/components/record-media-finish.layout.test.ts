@@ -8,11 +8,12 @@ describe('the record draws its media controls, conditions and reference photo cl
         modalSource.indexOf('data-detection-details-column')
     );
 
-    it('casts a shadow from its media buttons only where they float over the photo', () => {
-        // From `sm` the buttons sit in the black band under the photo, and a shadow there spilled
-        // onto the white panel below it as a grey smudge.
-        expect(mediaActions).not.toMatch(/[\s"]shadow-(lg|xl)\s/);
-        expect(mediaActions.match(/max-sm:shadow-(lg|xl)/g)?.length).toBeGreaterThanOrEqual(5);
+    it('casts a shadow from its media buttons, which float over the photo at every width', () => {
+        // The buttons sit on the photograph's lower edge on every screen, so each keeps the shadow that
+        // lifts it off the picture; none is left to a band of its own under the photo.
+        expect(mediaActions.match(/[\s"]shadow-(lg|xl)\s/g)?.length).toBeGreaterThanOrEqual(5);
+        expect(mediaActions).not.toContain('max-sm:shadow-');
+        expect(modalSource).toContain('pointer-events-none absolute inset-x-4 bottom-full z-30 mb-3 flex flex-wrap items-center gap-2" data-detection-media-actions');
     });
 
     it('never starts a wrapped Conditions line with a separator, or parts a label from its figure', () => {

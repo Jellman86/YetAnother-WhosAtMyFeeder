@@ -584,6 +584,7 @@ test.describe('the frame strip marks the photograph honestly', () => {
         await expect.poll(() => plan.requests.some((request) => request.includes('/snapshot/candidates/tit__'))).toBe(true);
         await settle(page);
         await expect(page.locator('[data-review-queue-modal]').getByText('Chosen', { exact: true })).toHaveCount(0);
+        await expect(page.locator('[data-review-queue-modal] [data-frame-strip-chosen]')).toHaveCount(0);
     });
 
     test('the chosen moment keeps a picture when its own thumbnail is missing, and choosing another moves the mark', async ({ page }, testInfo) => {
@@ -600,8 +601,9 @@ test.describe('the frame strip marks the photograph honestly', () => {
             src: image.getAttribute('src') ?? '', loaded: image.complete && image.naturalWidth > 0
         })));
         expect(chosen.some((image) => image.loaded), 'the chosen moment lost its picture').toBe(true);
-        await expect(triggers.nth(1)).toContainText('Chosen');
-        await expect(triggers.nth(0)).not.toContainText('Chosen');
+        // The mark is a check on the thumbnail, never a word that has to fit inside it.
+        await expect(triggers.nth(1).locator('[data-frame-strip-chosen]')).toHaveCount(1);
+        await expect(triggers.nth(0).locator('[data-frame-strip-chosen]')).toHaveCount(0);
         await page.screenshot({ path: testInfo.outputPath('wren-strip.png') });
 
         const firstSnapshotReads = plan.requests.filter((request) => request.startsWith('GET /api/frigate/wren/snapshot.jpg')).length;

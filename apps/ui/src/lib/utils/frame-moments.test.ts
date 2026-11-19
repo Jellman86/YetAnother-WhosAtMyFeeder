@@ -7,6 +7,8 @@ import {
     groupCandidatesIntoMoments,
     momentThumbnailUrl,
     preferredCandidate,
+    outlineLabelClass,
+    outlineLabelPlace,
     wholeSceneOutline
 } from './frame-moments';
 
@@ -267,4 +269,30 @@ it('keeps counted-bird context evidence out of photograph choices', () => {
     const moments = groupCandidatesIntoMoments([context, photo]);
     expect(moments).toHaveLength(1);
     expect(preferredCandidate(moments[0])?.candidate_id).toBe('photo');
+});
+
+describe('outlineLabelPlace', () => {
+    it('hangs the label above the box, clear of the crop it names', () => {
+        expect(outlineLabelPlace({ left: 200, top: 180, width: 60, height: 60 }, 560)).toEqual({ block: 'above', inline: 'start' });
+    });
+
+    it('moves the label below a box too near the top of the frame to fit one above', () => {
+        expect(outlineLabelPlace({ left: 200, top: 6, width: 60, height: 60 }, 560).block).toBe('below');
+    });
+
+    it('ends the label at the box\'s right edge when it would run out of the frame', () => {
+        expect(outlineLabelPlace({ left: 520, top: 180, width: 30, height: 60 }, 560).inline).toBe('end');
+        // An unmeasured frame gives no reason to move it.
+        expect(outlineLabelPlace({ left: 520, top: 180, width: 30, height: 60 }, 0).inline).toBe('start');
+    });
+
+    it('never places the label inside the box', () => {
+        for (const block of ['above', 'below'] as const) {
+            for (const inline of ['start', 'end'] as const) {
+                const classes = outlineLabelClass({ block, inline });
+                expect(classes).toMatch(/\b(bottom-full|top-full)\b/);
+                expect(classes).not.toMatch(/\b(top-0|bottom-0|inset)\b/);
+            }
+        }
+    });
 });

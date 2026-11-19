@@ -350,7 +350,11 @@ async function textFaults(page: Page, scope: string): Promise<TextFault[]> {
                 }
             }
             if (seen.right - seen.left < 1 || seen.bottom - seen.top < 1) continue;
-            if (cutBy) say(node as Text, 'cut off', cutBy);
+            // A line clamp is a stated shortening, not a cut: the record's species summary is three
+            // lines at every text size, with "Read more" under it for the rest. Whether a summary
+            // reaches a fourth line depends on its length and its column, not on the text size.
+            const clamped = cutBy !== null && getComputedStyle(cutBy).getPropertyValue('-webkit-line-clamp') !== 'none' && cutBy.matches('[data-detection-reference-text]');
+            if (cutBy && !clamped) say(node as Text, 'cut off', cutBy);
             const lines = [...range.getClientRects()]
                 .map((line) => ({ left: Math.max(line.left, seen.left), top: Math.max(line.top, seen.top), right: Math.min(line.right, seen.right), bottom: Math.min(line.bottom, seen.bottom) }))
                 .filter((line) => line.right - line.left > 0 && line.bottom - line.top > 0);

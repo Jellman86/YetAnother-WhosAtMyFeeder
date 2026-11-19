@@ -23,9 +23,11 @@
         subject?: 'bird' | 'animal';
         /** Chrome around the lineage, such as a rule above it, drawn only when there is a lineage. */
         class?: string;
+        /** True once the read has ended with no lineage to show, so a host can lay itself out without one. */
+        absent?: boolean;
     }
 
-    let { scientificName, commonName = null, subject = 'bird', class: className = '' }: Props = $props();
+    let { scientificName, commonName = null, subject = 'bird', class: className = '', absent = $bindable(false) }: Props = $props();
 
     let catalogueLineage = $state.raw<Taxon[] | null>(null);
     // One bird, one name: the species this record is about is named as its heading names it.
@@ -41,6 +43,7 @@
         const name = scientificName.trim();
         catalogueLineage = null;
         loading = Boolean(name);
+        absent = !name;
         if (!name) return;
         const controller = new AbortController();
         fetchSpeciesLineage(name, controller.signal)
@@ -53,7 +56,9 @@
                 logger.debug('Lineage unavailable', { scientificName: name, error });
             })
             .finally(() => {
-                if (!controller.signal.aborted) loading = false;
+                if (controller.signal.aborted) return;
+                loading = false;
+                absent = steps.length <= 1;
             });
         return () => controller.abort();
     });

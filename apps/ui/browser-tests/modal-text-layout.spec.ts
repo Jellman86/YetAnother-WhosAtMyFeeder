@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { LINEAGE } from './record-layout-fixture';
 
 // Isolate layout from the external font service. app.css @imports it and WebKit applies no app
 // styles until it answers, so a slow answer left the modal mounted and observed unstyled; the
@@ -180,6 +181,8 @@ test('the record is walked by keyboard in the order it is read', async ({ page }
         if (path.endsWith('/snapshot/status')) return route.fulfill({ json: { available: true, high_quality_bird_crop_enabled: true, source: 'frigate_snapshot' } });
         if (path.endsWith('.jpg')) return route.fulfill({ contentType: 'image/svg+xml', body:
             '<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="600"><rect width="1000" height="600" fill="#64748b"/></svg>' });
+        // The catalogue holds the bird: its family tree and description fill the reference column.
+        if (path === '/api/taxonomy/lineage') return route.fulfill({ json: { lineage: LINEAGE } });
         if (path.startsWith('/api/species/') && path.endsWith('/info')) return route.fulfill({ json: {
             title: 'Dunnock', extract: 'The dunnock is a small passerine. '.repeat(40), summary_source: 'Wikipedia',
             summary_source_url: 'https://en.wikipedia.org/wiki/Dunnock'
@@ -196,8 +199,8 @@ test('the record is walked by keyboard in the order it is read', async ({ page }
     // One close button, in a strip nothing scrolls under.
     await expect(modal.locator('[data-dialog-close]')).toHaveCount(1);
 
-    // The long article is a few lines and a link, after every decision: at this width in the side
-    // column beside them, read once the identification column is done.
+    // The long article is a few lines and a link, after every decision: at this width in the
+    // reference column beside them, read once the decision column is done.
     const referenceText = modal.locator('[data-detection-reference-text]');
     expect((await referenceText.boundingBox())!.height).toBeLessThan(90);
     await expect(modal.locator('[data-detection-secondary-column] [data-detection-reference-text]')).toHaveCount(1);
@@ -230,7 +233,8 @@ test('the record is walked by keyboard in the order it is read', async ({ page }
             const active = document.activeElement as HTMLElement | null;
             if (!active || active === document.body) return null;
             active.scrollIntoView({ block: 'nearest' });
-            const column = active.closest('[data-detection-details-column]');
+            // The decision stands under the photograph and the reference in the column beside it.
+            const column = active.closest('[data-detection-primary-column], [data-detection-details-column]');
             const part = active.closest('[data-detection-primary-column], [data-detection-secondary-column]');
             return {
                 name: (active.getAttribute('aria-label') ?? active.textContent ?? '').trim().slice(0, 60),

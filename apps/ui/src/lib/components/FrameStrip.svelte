@@ -580,11 +580,11 @@
                                 iconClass="h-4 w-4"
                             />
                             {#if chosen && marksChoice}
-                                <!-- Held between the thumbnail's own edges. Hung from the left alone, a word wider
-                                     than the thumbnail stuck out past the last frame and lengthened the strip
-                                     after it had been scrolled to its end. -->
-                                <span class="pointer-events-none absolute inset-x-0.5 bottom-1.5 rounded-sm bg-on-media-accent px-0.5 text-center text-3xs font-bold leading-4 wrap-anywhere text-media">
-                                    {$_('detection.frame_chosen_badge', { default: 'Chosen' })}
+                                <!-- A mark, not a word: no translation of "Chosen" fits a 48px thumbnail whole.
+                                     The check sits on the corner, clear of the bird, and the button's pressed
+                                     state and the pop-out say it in words. -->
+                                <span class="pointer-events-none absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-on-media-accent text-media ring-2 ring-media" aria-hidden="true" data-frame-strip-chosen>
+                                    <svg class="h-2.5 w-2.5" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m2.5 6.2 2.3 2.3 4.7-5" stroke-linecap="round" stroke-linejoin="round" /></svg>
                                 </span>
                             {/if}
                         </button>

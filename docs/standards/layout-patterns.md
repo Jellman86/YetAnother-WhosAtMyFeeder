@@ -394,20 +394,45 @@ candidates and the confirm action, and the confirm action names the thing it wil
 ### Record (a detection)
 
 ```
-slim bar: subject, camera, time, close
-[ media, 1.1fr ]               [ decision rail, 1fr ]
-  photograph                     identification, stated once
-  frame strip                    confirm / pick a different species / score again
-                                 supporting analysis, facts, then the reference and Details
-from 1280px the record widens; where it is at least 72 rem wide (1280px at the usual text size, not at
-double text) the reference gets a column of its own:
-[ media, 2/5 ]   [ identification, actions, facts, 3/10 ]   [ lineage, reference, AI, Details, 3/10 ]
-on a phone, one column: the photograph with its star and play buttons on its lower edge (no band
-under it), then the identification and its actions, then the finder and the visit's frames; held
-sideways (a short screen below 1024px) the photograph and the identification stand side by side, so
-the identification is on the first screen. From 1024px the record is side by side at any height, and
-the photograph keeps its shape at the top of its column
+slim bar: subject, close
+from 1024px, a record whose species has a reference to read (a named species):
+[ photograph and decision, 1fr ]        [ reference, 1.2fr ]
+  photograph, its buttons on its edge     family tree
+  frame strip                             about the species, nearby sightings
+  identification, stated once             AI note
+  confirm / pick a different species      Details
+  find more birds
+  supporting analysis, counted birds, facts
+each column scrolls by itself, in a dialog of one height, so neither is left with empty ground
+a record with no reference (an unnamed bird) is one narrow column, as tall as what it holds
+on a phone, one column: the photograph, the identification and its actions, the finder and the
+visit's frames, the analysis and facts, then the reference; held sideways on a phone or small tablet
+(a short screen below 1024px) the photograph stands alone beside everything else, so the
+identification is on the first screen
 ```
+
+The decision sits with the picture it is made from, and the reference is a reading column of its
+own. Before this the record was three columns of three heights under one scroll, and the column
+that held only the photograph was half empty. Two rules keep it from coming back. The dialog has a
+fixed height from 1024px, and each column scrolls inside it, so a short column never sets a tall
+box. And the photograph gives up height (`record-photo-cap`, 52% of its column) before the
+identification under it leaves the first screen; where the screen is tall enough it is a 4:3 frame.
+`browser-tests/record-layout.spec.ts` holds both columns to at most 96px of empty ground at 1024,
+1280, 1440, 1920 and 2560px in both themes.
+
+The photograph's frame is the same size before and after its picture arrives. A picture shown whole
+(a tall crop, a scene in a 4:3 frame) stands on a soft fill of its own colours, never on black bars.
+From 1024px the photograph and the frame strip are one object on the media ground (`media-frame`),
+and it ends where the frames end. Nothing else sits on that ground: the star, play and "Back to the
+crop" float on the photograph's lower edge, "Use the whole scene as the photograph" is the one
+button under a pinned scene, and the finder ("Find more birds") is a row of the decision panel.
+The column's ground is a well (`dialog-well`) and the decision and its evidence are two raised
+panels on it (`panel-raised`); see Depth in [`design-tokens.md`](design-tokens.md).
+
+A label never covers what it labels. The whole scene's "Chosen" tag hangs outside the crop's
+outline, above it, or below when the crop touches the top of the frame (`outlineLabelPlace` in
+`utils/frame-moments.ts`, shared with the review queue). The chosen thumbnail in the strip carries
+a check on its corner, not the word: no translation of "Chosen" fits a 48px thumbnail whole.
 
 The rail's "Identified as" heading names the bird once and titles the dialog. The photograph does
 not repeat the name, the common-name control is an action ("Change the common name") rather than a

@@ -891,6 +891,17 @@ img[data-media-failed] {
   max-height: 50dvh;
 }
 
+/* The record's photograph-and-decision column measures its own height, so the photograph in it
+   can give way before the identification under it leaves the first screen. Only where the column
+   has a height of its own to measure (two scrolling columns, from 1024px). */
+@utility record-evidence {
+  container-type: size;
+}
+
+@utility record-photo-cap {
+  max-height: 52cqh;
+}
+
 /* Pulsing status indicator */
 @utility status-pulse {
   @apply relative;
