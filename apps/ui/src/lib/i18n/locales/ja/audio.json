@@ -1,25 +1,22 @@
 {
   "chart": {
     "heard": "検出数",
-    "daily_title": "時間ごとのアクティビティ",
-    "daily_sub": "1日ごとの BirdNET-Go 音声検出数",
-    "hourly_title": "時間帯",
+    "daily_title": "聞こえた鳴き声の推移",
+    "heatmap_title": "時間帯と曜日別の聞こえた鳴き声",
     "species_title": "種の構成",
-    "empty": "この期間にアクティビティはありません。",
+    "empty": "この期間に聞こえた鳴き声はありません。",
     "other_species": "その他の種",
     "unavailable": "履歴を読み込めない間は表示できません。",
     "col_day": "日",
-    "col_hour": "時刻",
     "col_calls": "鳴き声",
     "col_species": "種"
   },
   "stat": {
-    "heard": "検出数",
+    "heard": "聞こえた鳴き声",
     "heard_sub": "この期間の BirdNET-Go 検出",
     "species": "種",
     "species_sub": "この期間に聞こえた種",
-    "peak_hour": "ピーク時間",
-    "peak_hour_sub": "{count, plural, other {# 件の検出}}",
+    "busiest_hour": "最も活発な時間帯",
     "no_activity": "まだアクティビティはありません",
     "sources": "音源",
     "sources_sub": "マイクまたはストリーム",
@@ -76,5 +73,10 @@
   },
   "not_shared_title": "音声は公開されていません",
   "not_shared_body": "このインスタンスの所有者はゲスト向けの音声をオフにしています。",
-  "summary_title": "この期間"
+  "summary_title": "この期間",
+  "calls_heard": "{count, plural, other {聞こえた鳴き声 # 件}}",
+  "heatmap": {
+    "grid_label": "曜日と時間ごとの聞こえた鳴き声。矢印キーで枠を読み上げます。",
+    "per_hour": "1時間枠あたりの聞こえた鳴き声"
+  }
 }

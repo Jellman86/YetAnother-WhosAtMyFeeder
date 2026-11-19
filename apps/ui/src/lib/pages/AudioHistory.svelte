@@ -6,7 +6,9 @@
         fetchAudioHistory,
         setAudioHidden,
         fetchAudioSummary,
+        fetchAudioActivityHeatmap,
         fetchSpeciesInfo,
+        type AudioActivityHeatmapResponse,
         type AudioHistoryDetection,
         type AudioHistoryResponse,
         type AudioSummaryResponse,
@@ -27,18 +29,21 @@
     } from './audio-history-filters';
     import { withAuthParams } from '../api/core';
     import { appApiPath, toAppPath } from '../app/url-base';
-    import { formatCalendarDay, formatDate, formatDateTime, formatHour, formatTime } from '../utils/datetime';
+    import { formatCalendarDay, formatDate, formatDateTime, formatHour, formatShortDay, formatTime } from '../utils/datetime';
     import { getErrorMessage, isTransientRequestError } from '../utils/error-handling';
     import { logger } from '../utils/logger';
     import FilterSheet from '../components/ui/FilterSheet.svelte';
     import ChartFigure from '../components/ui/ChartFigure.svelte';
+    import Segmented from '../components/ui/Segmented.svelte';
+    import ActivityHeatmap from '../components/ActivityHeatmap.svelte';
+    import { busiestHourOfDay, weekdayHourTable } from '../leaderboard/heatmap';
     import LazyModal from '../components/LazyModal.svelte';
     import { loadSpeciesDetailModal } from '../components/lazy-dialogs';
     import { doughnutInsightPlugin } from '../actions/chartjs-doughnut';
     import { audioSpeciesMix } from './audio-species-mix';
     import { SCORE_TEXT, scoreBand } from '../utils/score-tone';
     import { audioReading } from './audio-history-state';
-    import { dailySeries, hourlySeries } from './audio-chart-series';
+    import { dailySeries } from './audio-chart-series';
     import { whenNearViewport } from '../actions/near-viewport';
 
     const PAGE_SIZE = 25;
@@ -47,24 +52,25 @@
     let lastHiddenId = $state<number | null>(null);
     let visibilityError = $state<string | null>(null);
 
-    let days = $state(DEFAULT_AUDIO_HISTORY_FILTERS.days);
     let speciesFilter = $state(DEFAULT_AUDIO_HISTORY_FILTERS.species);
     let sourceFilter = $state(DEFAULT_AUDIO_HISTORY_FILTERS.source);
     let minConfidence = $state(DEFAULT_AUDIO_HISTORY_FILTERS.minConfidence);
     // The list, charts and paging follow what was applied, never the half-edited form.
     let applied = $state<AudioHistoryFilters>({ ...DEFAULT_AUDIO_HISTORY_FILTERS });
     const filtersChanged = $derived(
-        audioHistoryFiltersDiffer({ days, species: speciesFilter, source: sourceFilter, minConfidence }, applied)
+        audioHistoryFiltersDiffer({ days: applied.days, species: speciesFilter, source: sourceFilter, minConfidence }, applied)
     );
     let filterSheetOpen = $state(false);
+    const WINDOW_DAYS = [1, 7, 30, 90, 365] as const;
+    const windowOptions = $derived(WINDOW_DAYS.map((value) => ({ value: String(value), label: windowLabel(value) })));
     // A phone's sheet. From the md breakpoint the fields stand inline, so the sheet, and the scroll
     // lock it holds, go away with the width; a draft then stays in the inline form beside its Apply.
     const inlineFilters = new MediaQuery('min-width: 768px', false);
     const filterSheetShown = $derived(filterSheetOpen && !inlineFilters.current);
-    // What the list shows, in words, beside the phone's Filters button.
+    // What the filters narrow the list to, in words, beside the phone's Filters button; the window
+    // has its own control beside it.
     const appliedSummary = $derived(
         [
-            windowLabel(applied.days),
             applied.species.trim(),
             applied.source.trim(),
             applied.minConfidence > 0 ? `≥ ${confidencePercent(applied.minConfidence)}` : ''
@@ -74,6 +80,7 @@
     let failedSpectrograms = $state<Record<number, true>>({});
     let history = $state<AudioHistoryResponse | null>(null);
     let summary = $state<AudioSummaryResponse | null>(null);
+    let heatmap = $state.raw<AudioActivityHeatmapResponse | null>(null);
     let loading = $state(true);
     // The read's own words, kept for Technical details; the page states the failure in its own sentence.
     let error = $state<string | null>(null);
@@ -151,13 +158,13 @@
     /** A reading is on screen: numbers can be shown, and zero means none were heard. */
     const measured = $derived(reading === 'ready' || reading === 'empty' || reading === 'stale');
     let hasDaily = $derived((summary?.daily_counts?.length ?? 0) > 0);
-    let hasHourly = $derived((summary?.hourly_counts?.length ?? 0) > 0);
+    let hasHeatmap = $derived((heatmap?.total_count ?? 0) > 0);
     let hasSpecies = $derived((summary?.top_species?.length ?? 0) > 0);
-    let peakHour = $derived.by(() => {
-        const counts = summary?.hourly_counts ?? [];
-        if (!counts.length) return null;
-        return counts.reduce((best, item) => (item.count > best.count ? item : best), counts[0]);
-    });
+    // Read from the grid, which is in the viewer's time zone, so the figure names the hour the grid outlines.
+    let busiestHour = $derived(busiestHourOfDay(heatmap?.cells ?? []));
+    const heatmapTable = $derived(
+        weekdayHourTable(heatmap?.cells ?? [], { day: $_('audio.chart.col_day', { default: 'Day' }), weekday: weekdayLabel, hour: formatHour })
+    );
 
     function requestParams(includePaging = true) {
         return {
@@ -174,16 +181,19 @@
         requestKey: () => JSON.stringify(requestParams(true)),
         fetchHistory: () => fetchAudioHistory(requestParams(true)),
         fetchSummary: () => fetchAudioSummary(requestParams(false)),
+        fetchHeatmap: () => fetchAudioActivityHeatmap(requestParams(false)),
         begin: () => { loading = true; error = null; stale = false; },
-        apply: (nextHistory, nextSummary) => {
+        apply: (nextHistory, nextSummary, nextHeatmap) => {
             history = nextHistory;
             summary = nextSummary;
+            heatmap = nextHeatmap;
             readAt = Date.now();
             hiddenChartState = { theme: '', indices: [] };
         },
         clear: () => {
             history = null;
             summary = null;
+            heatmap = null;
             readAt = null;
             if (authStore.isGuest) selectedSpecies = null;
         },
@@ -248,28 +258,56 @@
         return $_('audio.filter.1y', { default: '1 year' });
     }
 
+    function weekdayLabel(dayOfWeek: number): string {
+        if (dayOfWeek === 1) return $_('leaderboard.weekday_mon', { default: 'Mon' });
+        if (dayOfWeek === 2) return $_('leaderboard.weekday_tue', { default: 'Tue' });
+        if (dayOfWeek === 3) return $_('leaderboard.weekday_wed', { default: 'Wed' });
+        if (dayOfWeek === 4) return $_('leaderboard.weekday_thu', { default: 'Thu' });
+        if (dayOfWeek === 5) return $_('leaderboard.weekday_fri', { default: 'Fri' });
+        if (dayOfWeek === 6) return $_('leaderboard.weekday_sat', { default: 'Sat' });
+        return $_('leaderboard.weekday_sun', { default: 'Sun' });
+    }
+
+    /** The window the server counted, which for a guest is the shared one, not the one chosen. */
+    function windowRange(): string {
+        const start = heatmap?.window_start ? formatShortDay(heatmap.window_start) : '';
+        const end = heatmap?.window_end ? formatShortDay(heatmap.window_end) : '';
+        return start && end ? `${start}-${end}` : '';
+    }
+
+    function callsHeard(count: number): string {
+        return $_('audio.calls_heard', { values: { count }, default: '{count, plural, one {# call heard} other {# calls heard}}' });
+    }
+
+    /** The window applies as it is chosen, as the Leaderboard's span does; the other filters wait for Apply. */
+    function chooseWindow(next: number): void {
+        if (!WINDOW_DAYS.includes(next as (typeof WINDOW_DAYS)[number]) || next === applied.days) return;
+        applied = { ...applied, days: next };
+        offset = 0;
+        void loadAudioHistory();
+    }
+
     function applyFilters(event?: SubmitEvent) {
         event?.preventDefault();
-        applied = settledAudioHistoryFilters({ days, species: speciesFilter, source: sourceFilter, minConfidence });
+        applied = settledAudioHistoryFilters({ days: applied.days, species: speciesFilter, source: sourceFilter, minConfidence });
         offset = 0;
         void loadAudioHistory();
     }
 
     /** Leaving the sheet without Apply leaves the list as it was, so the fields go back to what it shows. */
     function dismissFilterSheet(): void {
-        days = applied.days;
         speciesFilter = applied.species;
         sourceFilter = applied.source;
         minConfidence = applied.minConfidence;
         filterSheetOpen = false;
     }
 
+    /** Clears what narrows the list; the window is its own control and stays as chosen. */
     function clearFilters() {
-        days = DEFAULT_AUDIO_HISTORY_FILTERS.days;
         speciesFilter = DEFAULT_AUDIO_HISTORY_FILTERS.species;
         sourceFilter = DEFAULT_AUDIO_HISTORY_FILTERS.source;
         minConfidence = DEFAULT_AUDIO_HISTORY_FILTERS.minConfidence;
-        applied = { ...DEFAULT_AUDIO_HISTORY_FILTERS };
+        applied = { ...DEFAULT_AUDIO_HISTORY_FILTERS, days: applied.days };
         offset = 0;
         void loadAudioHistory();
     }
@@ -306,7 +344,7 @@
         return `${birdnetExternalUrl.replace(/\/$/, '')}/ui/detections/${birdnet_id}`;
     }
 
-    // Calls over time and by hour take the colour theme's primary, as the Leaderboard trend does;
+    // Calls over time take the colour theme's primary, as the Leaderboard trend does;
     // species take the shared colour-blind-safe species palette, so a species reads the same here.
     let audioPrimary = $derived(themeStore.colorTheme === 'bluetit' ? '#2563eb' : '#0d9488');
     let audioPrimaryFill = $derived(themeStore.colorTheme === 'bluetit' ? 'rgba(37,99,235,0.18)' : 'rgba(13,148,136,0.18)');
@@ -316,7 +354,6 @@
 
     // One series per chart, drawn by the canvas and listed by its table, so the two always agree.
     const dailyPoints = $derived(dailySeries(summary?.daily_counts ?? [], formatCalendarDay));
-    const hourlyPoints = $derived(hourlySeries(summary?.hourly_counts ?? [], formatHour));
 
     let dailyChartConfig = $derived((): CanvasChartConfig => {
         const points = summary?.daily_counts ?? [];
@@ -348,39 +385,6 @@
                 },
                 scales: {
                     x: { ticks: { color: chartTickColor, maxTicksLimit: 6 }, grid: { display: false } },
-                    y: { beginAtZero: true, ticks: { color: chartTickColor, precision: 0 }, grid: { color: isDark ? 'rgba(148,163,184,0.12)' : 'rgba(148,163,184,0.2)' } },
-                },
-            },
-        };
-    });
-
-    let hourlyChartConfig = $derived((): CanvasChartConfig => {
-        const counts = hourlyPoints.map((point) => point.count);
-        const labels = hourlyPoints.map((point) => String(point.hour).padStart(2, '0'));
-        return {
-            type: 'bar',
-            data: {
-                labels,
-                datasets: [{
-                    label: $_('audio.chart.heard', { default: 'Heard' }),
-                    data: counts,
-                    backgroundColor: audioPrimary,
-                    borderRadius: 4,
-                    barPercentage: 0.8,
-                    categoryPercentage: 0.9,
-                    maxBarThickness: 48,
-                }],
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                animation: reduceMotion ? false : { duration: 200 },
-                plugins: {
-                    legend: { display: false },
-                    tooltip: { callbacks: { title: (items) => `${labels[items[0]?.dataIndex] ?? '00'}:00` } },
-                },
-                scales: {
-                    x: { ticks: { color: chartTickColor, autoSkip: false, minRotation: 0, maxRotation: 0, callback: (value) => Number(value) % 3 === 0 ? `${labels[Number(value)]}:00` : '' }, grid: { display: false } },
                     y: { beginAtZero: true, ticks: { color: chartTickColor, precision: 0 }, grid: { color: isDark ? 'rgba(148,163,184,0.12)' : 'rgba(148,163,184,0.2)' } },
                 },
             },
@@ -451,7 +455,7 @@
 
 {#snippet statValue(value: string)}
     {#if measured}
-        <dd class="mt-1 text-2xl font-bold tabular-nums text-strong">{value}</dd>
+        <dd class="mt-1 font-display text-2xl font-bold tabular-nums text-strong">{value}</dd>
     {:else if reading === 'failed'}
         <!-- Not measured, so said in words at body size, never as a zero (layout-patterns 5). -->
         <dd class="mt-2 text-sm font-semibold text-ink" data-audio-stat-unavailable>{$_('audio.stat.not_available', { default: 'Not available' })}</dd>
@@ -482,25 +486,15 @@
 {/snippet}
 
 {#snippet filterFields()}
-            <label class="space-y-1.5">
-                <span class="block text-xs font-semibold leading-4 text-muted">{$_('audio.filter.window', { default: 'Window' })}</span>
-                <select bind:value={days} class="select-base min-h-11 font-semibold focus-visible:ring-2 focus-visible:ring-focus">
-                    <option value={1}>{$_('audio.filter.24h', { default: '24 hours' })}</option>
-                    <option value={7}>{$_('audio.filter.7d', { default: '7 days' })}</option>
-                    <option value={30}>{$_('audio.filter.30d', { default: '30 days' })}</option>
-                    <option value={90}>{$_('audio.filter.90d', { default: '90 days' })}</option>
-                    <option value={365}>{$_('audio.filter.1y', { default: '1 year' })}</option>
-                </select>
-            </label>
-            <label class="space-y-1.5">
+            <label class="block space-y-1.5">
                 <span class="block text-xs font-semibold leading-4 text-muted">{$_('audio.filter.species', { default: 'Species' })}</span>
                 <input bind:value={speciesFilter} class="input-base min-h-11 focus-visible:ring-2 focus-visible:ring-focus" placeholder={$_('audio.filter.species_placeholder', { default: 'Any species' })} />
             </label>
-            <label class="space-y-1.5">
+            <label class="block space-y-1.5">
                 <span class="block text-xs font-semibold leading-4 text-muted">{$_('audio.filter.source', { default: 'Source' })}</span>
                 <input bind:value={sourceFilter} class="input-base min-h-11 focus-visible:ring-2 focus-visible:ring-focus" placeholder={$_('audio.filter.source_placeholder', { default: 'Any source' })} />
             </label>
-            <label class="space-y-1.5">
+            <label class="block space-y-1.5">
                 <span class="flex justify-between gap-2 text-xs font-semibold leading-4 text-muted">
                     <span>{$_('audio.filter.min_confidence', { default: 'Min confidence' })}</span>
                     <span class="tabular-nums text-accent-ink">{confidencePercent(minConfidence)}</span>
@@ -517,21 +511,38 @@
 {/snippet}
 
 <div class="space-y-10" data-audio-history-page data-audio-reading={reading}>
-    <!-- At 1280 px and wider the log has the main column and what summarises it (the window's
-         figures, the most heard species, the sources) stands beside it; on a phone the log comes first. -->
-    <div class="grid grid-cols-1 gap-10 xl:grid-cols-12 xl:gap-x-10" data-audio-history-layout>
-    <div class="min-w-0 space-y-6 xl:col-span-8 2xl:col-span-9">
-    <section data-audio-history-filters aria-label={$_('events.filters.title', { default: 'Filters' })}>
-        <!-- A phone gets one Filters button and a sheet; a wider window has the fields in a row. -->
-        <div class="flex flex-wrap items-center justify-between gap-3 md:hidden">
-            <p class="min-w-0 text-sm text-muted" data-audio-filters-summary>{appliedSummary}</p>
-            <button type="button" class="btn btn-secondary min-h-11 px-4" aria-haspopup="dialog" aria-expanded={filterSheetShown} aria-controls="audio-filter-sheet" onclick={() => (filterSheetOpen = true)} data-audio-filters-open>
-                {$_('events.filters.title', { default: 'Filters' })}
-            </button>
+    <!-- The window first, in the Leaderboard's place and with its control: on a phone a select beside
+         the Filters button, from 640 px a segmented bar. It applies as it is chosen; what narrows the
+         list (species, source, confidence) waits for Apply, inline from 768 px and in a sheet below. -->
+    <section class="border-y border-line py-3 sm:py-4" data-audio-history-controls data-audio-history-filters aria-label={$_('events.filters.title', { default: 'Filters' })}>
+        <div class="flex flex-wrap items-center gap-x-4 gap-y-3">
+            <label class="sm:hidden">
+                <span class="sr-only">{$_('audio.filter.window', { default: 'Window' })}</span>
+                <select class="select-base min-h-11 w-auto py-2 text-sm" value={String(applied.days)} onchange={(event) => chooseWindow(Number(event.currentTarget.value))} data-audio-window-select>
+                    {#each windowOptions as option (option.value)}<option value={option.value}>{option.label}</option>{/each}
+                </select>
+            </label>
+            <div class="hidden sm:block">
+                <Segmented
+                    value={String(applied.days)}
+                    options={windowOptions}
+                    onchange={(next) => chooseWindow(Number(next))}
+                    label={$_('audio.filter.window', { default: 'Window' })}
+                    width="content"
+                    size="sm"
+                    data-audio-window-bar
+                />
+            </div>
+            <div class="flex min-w-0 flex-1 items-center justify-end gap-3 md:hidden">
+                <p class="min-w-0 text-right text-sm text-muted" data-audio-filters-summary>{appliedSummary}</p>
+                <button type="button" class="btn btn-secondary min-h-11 shrink-0 px-4" aria-haspopup="dialog" aria-expanded={filterSheetShown} aria-controls="audio-filter-sheet" onclick={() => (filterSheetOpen = true)} data-audio-filters-open>
+                    {$_('events.filters.title', { default: 'Filters' })}
+                </button>
+            </div>
         </div>
-        <form class="hidden border-b border-line-soft pb-6 md:grid md:grid-cols-2 md:gap-4 xl:grid-cols-4 2xl:grid-cols-5" onsubmit={applyFilters}>
+        <form class="mt-4 hidden md:grid md:grid-cols-3 md:gap-4 xl:grid-cols-4" onsubmit={applyFilters}>
             {@render filterFields()}
-            <div class="md:col-span-2 xl:col-span-4 2xl:col-span-1 2xl:self-end">{@render filterActions()}</div>
+            <div class="md:col-span-3 xl:col-span-1 xl:self-end">{@render filterActions()}</div>
         </form>
         <p class="{filtersChanged ? 'mt-3' : ''} text-sm font-semibold text-status-attention" role="status" data-audio-filters-changed>{filtersChanged ? $_('audio.filter.changed', { default: 'Filters changed. Apply to update the list.' }) : ''}</p>
     </section>
@@ -543,6 +554,12 @@
             </form>
         </FilterSheet>
     {/if}
+
+    <!-- At 1280 px and wider the log has the main column and what summarises it (the window's
+         figures, the most heard species, the sources) stands beside it, as the Leaderboard's standing
+         figures stand beside its wall; on a phone the log comes first. -->
+    <div class="grid grid-cols-1 gap-10 xl:grid-cols-12 xl:gap-x-10" data-audio-history-layout>
+    <div class="min-w-0 space-y-6 xl:col-span-8 2xl:col-span-9">
 
     <section class="space-y-5" data-audio-history-log aria-labelledby="audio-history-title">
         <div class="flex flex-wrap items-start justify-between gap-4">
@@ -684,32 +701,36 @@
     </div>
 
     <aside class="min-w-0 space-y-8 xl:col-span-4 2xl:col-span-3" aria-labelledby="audio-summary-title" data-audio-history-side>
-        <section class="border-y border-line-soft" data-audio-history-summary aria-busy={reading === 'loading'}>
+        <!-- The Leaderboard's standing band: the same ruled list, figures and spacing, in the same
+             order (species, the count, the busiest hour), with this page's own unit, calls heard. -->
+        <section data-audio-history-summary aria-busy={reading === 'loading'}>
             <h2 id="audio-summary-title" class="sr-only">{$_('audio.summary_title', { default: 'This window' })}</h2>
-        <dl class="grid grid-cols-2 gap-x-6 gap-y-5 py-5 md:grid-cols-4 xl:grid-cols-2">
-            <div class="min-w-0">
-                <dt class="text-xs font-semibold text-muted">{$_('audio.stat.heard', { default: 'Heard' })}</dt>
-                {@render statValue((summary?.total ?? 0).toLocaleString())}
-                <dd class="mt-1 text-xs text-muted">{$_('audio.stat.heard_sub', { default: 'Calls BirdNET-Go heard in this window' })}</dd>
+            <div class="@container">
+            <dl class="grid grid-cols-1 gap-x-6 gap-y-5 border-y border-line py-5 @xs:grid-cols-2 @2xl:grid-cols-4" data-audio-standing>
+                <div class="min-w-0">
+                    <dt class="text-xs font-semibold text-muted">{$_('audio.stat.species', { default: 'Species' })}</dt>
+                    {@render statValue((summary?.species_count ?? 0).toLocaleString())}
+                    <dd class="text-xs text-muted">{$_('audio.stat.species_sub', { default: 'Heard in this window' })}</dd>
+                </div>
+                <div class="min-w-0">
+                    <dt class="text-xs font-semibold text-muted">{$_('audio.stat.heard', { default: 'Calls heard' })}</dt>
+                    {@render statValue((summary?.total ?? 0).toLocaleString())}
+                    <dd class="text-xs text-muted">{$_('audio.stat.heard_sub', { default: 'Calls BirdNET-Go heard in this window' })}</dd>
+                </div>
+                <div class="min-w-0">
+                    <dt class="text-xs font-semibold text-muted">{$_('audio.stat.busiest_hour', { default: 'Busiest hour' })}</dt>
+                    {@render statValue(busiestHour ? formatHour(busiestHour.hour) : '—')}
+                    {#if measured}
+                        <dd class="text-xs text-muted">{busiestHour ? callsHeard(busiestHour.count) : $_('audio.stat.no_calls', { default: 'No calls in this window' })}</dd>
+                    {/if}
+                </div>
+                <div class="min-w-0">
+                    <dt class="text-xs font-semibold text-muted">{$_('audio.stat.sources', { default: 'Sources' })}</dt>
+                    {@render statValue((summary?.source_count ?? 0).toLocaleString())}
+                    <dd class="text-xs text-muted">{$_('audio.stat.sources_sub', { default: 'Microphones or streams' })}</dd>
+                </div>
+            </dl>
             </div>
-            <div class="min-w-0">
-                <dt class="text-xs font-semibold text-muted">{$_('audio.stat.species', { default: 'Species' })}</dt>
-                {@render statValue((summary?.species_count ?? 0).toLocaleString())}
-                <dd class="mt-1 text-xs text-muted">{$_('audio.stat.species_sub', { default: 'Heard in this window' })}</dd>
-            </div>
-            <div class="min-w-0">
-                <dt class="text-xs font-semibold text-muted">{$_('audio.stat.peak_hour', { default: 'Peak hour' })}</dt>
-                {@render statValue(peakHour ? formatHour(peakHour.hour) : '—')}
-                {#if measured}
-                    <dd class="mt-1 text-xs text-muted">{peakHour ? $_('audio.stat.peak_hour_sub', { values: { count: peakHour.count }, default: '{count, plural, one {# call} other {# calls}}' }) : $_('audio.stat.no_calls', { default: 'No calls in this window' })}</dd>
-                {/if}
-            </div>
-            <div class="min-w-0">
-                <dt class="text-xs font-semibold text-muted">{$_('audio.stat.sources', { default: 'Sources' })}</dt>
-                {@render statValue((summary?.source_count ?? 0).toLocaleString())}
-                <dd class="mt-1 text-xs text-muted">{$_('audio.stat.sources_sub', { default: 'Microphones or streams' })}</dd>
-            </div>
-        </dl>
         </section>
             <section use:whenNearViewport={() => (topSpeciesNear = true)}>
                 <h2 class="text-base font-bold text-strong">{$_('audio.top_species', { default: 'Top heard species' })}</h2>
@@ -753,7 +774,7 @@
                         {/each}
                     </ol>
                 {:else}
-                    <p class="mt-4 border-y border-line-soft py-6 text-sm text-muted">{$_('audio.chart.empty', { default: 'No activity in this window.' })}</p>
+                    <p class="mt-4 border-y border-line-soft py-6 text-sm text-muted">{$_('audio.chart.empty', { default: 'No calls heard in this window.' })}</p>
                 {/if}
             </section>
 
@@ -782,56 +803,65 @@
     </aside>
     </div>
 
-    <!-- Charts take the page's full width; each has its data as a table. -->
-    <section class="min-w-0 space-y-8 border-t border-line-soft pt-8" data-audio-history-analytics aria-labelledby="audio-analytics-title">
-        <div class="max-w-prose">
-            <h2 id="audio-analytics-title" class="text-xl font-bold text-strong">{$_('leaderboard.analytics_section')}</h2>
-            <p class="mt-1 text-sm text-muted">{$_('audio.chart.daily_sub', { default: 'Calls BirdNET-Go heard per day' })}</p>
-        </div>
+    <!-- The Leaderboard's analytics, in its order and frames: the window said once for the section,
+         each chart's count of calls heard in its caption, and each chart's data as a table. Charts take
+         the page's full width; the grid and the species share a row from 1280 px. -->
+    <section class="min-w-0 space-y-8 border-t border-line pt-8" data-audio-history-analytics aria-labelledby="audio-analytics-title">
+        <header class="flex flex-wrap items-end justify-between gap-3">
+            <div>
+                <h2 id="audio-analytics-title" class="text-xl font-bold text-strong">{$_('leaderboard.analytics_section', { default: 'Analytics' })}</h2>
+                <p class="text-sm text-muted" data-audio-analytics-window>{windowLabel(applied.days)}{windowRange() ? ` · ${windowRange()}` : ''}</p>
+            </div>
+        </header>
 
         <ChartFigure
-            title={$_('audio.chart.daily_title', { default: 'Activity over time' })}
+            title={$_('audio.chart.daily_title', { default: 'Calls heard over time' })}
+            description={measured ? callsHeard(summary?.total ?? 0) : undefined}
             table={measured && hasDaily ? { columns: [$_('audio.chart.col_day', { default: 'Day' }), $_('audio.chart.col_calls', { default: 'Calls' })], rows: dailyPoints.map((point) => [point.label, point.count.toLocaleString()]) } : { columns: [], rows: [] }}
-            class="border-y border-line-soft py-6"
+            class="border-y border-line py-6"
         >
             {#if !measured}
                 {@render chartPending()}
             {:else if hasDaily}
                 {#key `${applied.days}-${isDark}-${reduceMotion}`}
-                    <div class="relative mt-3 chart-h w-full"><canvas use:chartjs={dailyChartConfig()} aria-label={$_('audio.chart.daily_title', { default: 'Activity over time' })}></canvas></div>
+                    <div class="relative mt-6 chart-h w-full"><canvas use:chartjs={dailyChartConfig()} aria-label={$_('audio.chart.daily_title', { default: 'Calls heard over time' })}></canvas></div>
                 {/key}
             {:else}
-                <div class="flex h-60 items-center justify-center text-sm font-semibold text-muted">{$_('audio.chart.empty', { default: 'No activity in this window.' })}</div>
+                <div class="flex h-60 items-center justify-center text-sm font-semibold text-muted">{$_('audio.chart.empty', { default: 'No calls heard in this window.' })}</div>
             {/if}
         </ChartFigure>
 
-        <div class="grid min-w-0 gap-8 lg:grid-cols-2">
+        <div class="grid min-w-0 grid-cols-1 gap-8 xl:grid-cols-5">
             <ChartFigure
-                title={$_('audio.chart.hourly_title', { default: 'Time of day' })}
-                table={measured && hasHourly ? { columns: [$_('audio.chart.col_hour', { default: 'Hour' }), $_('audio.chart.col_calls', { default: 'Calls' })], rows: hourlyPoints.map((point) => [point.label, point.count.toLocaleString()]) } : { columns: [], rows: [] }}
+                title={$_('audio.chart.heatmap_title', { default: 'Calls heard by hour and weekday' })}
+                description={measured ? callsHeard(heatmap?.total_count ?? 0) : undefined}
+                table={measured && hasHeatmap ? heatmapTable : { columns: [], rows: [] }}
+                class="min-w-0 xl:col-span-3"
             >
                 {#if !measured}
                     {@render chartPending()}
-                {:else if hasHourly}
-                    {#key `${applied.days}-${isDark}-${reduceMotion}`}
-                        <div class="relative mt-3 h-60 w-full"><canvas use:chartjs={hourlyChartConfig()} aria-label={$_('audio.chart.hourly_title', { default: 'Time of day' })}></canvas></div>
-                    {/key}
+                {:else if hasHeatmap && heatmap}
+                    <div class="mt-4" data-audio-heatmap>
+                        <ActivityHeatmap cells={heatmap.cells} maxCellCount={heatmap.max_cell_count} dark={isDark} dayLabel={weekdayLabel} unit="calls" />
+                    </div>
                 {:else}
-                    <div class="flex h-60 items-center justify-center text-sm font-semibold text-muted">{$_('audio.chart.empty', { default: 'No activity in this window.' })}</div>
+                    <div class="flex h-60 items-center justify-center text-sm font-semibold text-muted" data-audio-heatmap-empty>{$_('audio.chart.empty', { default: 'No calls heard in this window.' })}</div>
                 {/if}
             </ChartFigure>
             <ChartFigure
-                title={$_('audio.chart.species_title', { default: 'Species mix' })}
+                title={$_('audio.chart.species_title', { default: 'Species composition' })}
+                description={measured ? callsHeard(summary?.total ?? 0) : undefined}
                 table={measured && hasSpecies ? { columns: [$_('audio.chart.col_species', { default: 'Species' }), $_('audio.chart.col_calls', { default: 'Calls' })], rows: speciesMix.map((item) => [item.species, item.count.toLocaleString()]) } : { columns: [], rows: [] }}
+                class="min-w-0 xl:col-span-2"
             >
                 {#if !measured}
                     {@render chartPending()}
                 {:else if hasSpecies}
                     {#key `${applied.days}-${isDark}-${reduceMotion}`}
-                        <div class="relative mt-3 chart-h w-full"><canvas use:chartjs={speciesDonutConfig()} bind:this={speciesChartEl} aria-label={$_('audio.chart.species_title', { default: 'Species mix' })}></canvas></div>
-                        <div class="mt-2 flex flex-wrap justify-center gap-2" role="group" aria-label={$_('audio.chart.species_title', { default: 'Species mix' })}>
+                        <div class="relative mt-3 chart-h w-full"><canvas use:chartjs={speciesDonutConfig()} bind:this={speciesChartEl} aria-label={$_('audio.chart.species_title', { default: 'Species composition' })}></canvas></div>
+                        <div class="mt-2 flex flex-wrap justify-center gap-x-1" role="group" aria-label={$_('audio.chart.species_title', { default: 'Species composition' })}>
                             {#each speciesMix as item, index}
-                                <button type="button" class="btn btn-ghost min-h-9 gap-1.5 px-2 text-xs focus-visible:ring-2 focus-visible:ring-focus {hiddenChartSpecies.includes(index) ? 'opacity-45 line-through' : ''}"
+                                <button type="button" class="btn btn-ghost min-h-11 gap-1.5 px-2 text-xs focus-visible:ring-2 focus-visible:ring-focus {hiddenChartSpecies.includes(index) ? 'opacity-45 line-through' : ''}"
                                     aria-pressed={!hiddenChartSpecies.includes(index)} aria-label="{hiddenChartSpecies.includes(index) ? $_('common.show') : $_('common.hide')} {item.species} {item.count.toLocaleString()}" onclick={() => toggleSpeciesSlice(index)}>
                                     <span class="h-2.5 w-2.5 rounded-xs" style="background-color: {item.other ? otherSpeciesColor : audioSpeciesColor(index)}"></span>{item.species}
                                     <!-- The slice's count beside its name, "Other species" included, so the ring is readable without hovering it. -->
@@ -841,7 +871,7 @@
                         </div>
                     {/key}
                 {:else}
-                    <div class="flex h-60 items-center justify-center text-sm font-semibold text-muted">{$_('audio.chart.empty', { default: 'No activity in this window.' })}</div>
+                    <div class="flex h-60 items-center justify-center text-sm font-semibold text-muted">{$_('audio.chart.empty', { default: 'No calls heard in this window.' })}</div>
                 {/if}
             </ChartFigure>
         </div>
