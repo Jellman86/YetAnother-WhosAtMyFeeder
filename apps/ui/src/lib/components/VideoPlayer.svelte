@@ -846,7 +846,7 @@
 
 <div
     bind:this={modalElement}
-    class="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-media-raised/90 backdrop-blur-md p-4 sm:p-6 overflow-y-auto overscroll-contain"
+    class="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-media/85 backdrop-blur-md p-4 sm:p-6 overflow-y-auto overscroll-contain"
     onclick={handleBackdropClick}
     onkeydown={(event) => event.key === 'Escape' && onClose()}
     role="dialog"
@@ -855,7 +855,10 @@
     tabindex="-1"
 >
     <div class="relative w-full max-w-4xl mx-auto animate-in fade-in zoom-in-95 duration-200 max-h-[calc(100dvh-2rem)] sm:max-h-[calc(100dvh-3rem)] overflow-y-auto overscroll-contain">
-        <div class="rounded-2xl overflow-hidden ring-1 ring-on-media/10 bg-media shadow-2xl">
+        <!-- One object on the backdrop: the header, the picture and its controls share a frame a step
+             lighter than the backdrop, with an edge, so the player has an outline in every theme and
+             the picture stays the brightest thing in it. -->
+        <div class="overflow-hidden rounded-2xl bg-media-raised media-frame" data-video-player-frame>
             <!-- The shared dialog header on the player's dark ground. The player's own controls say
                  whether it is playing, so the header carries no second status. -->
             <DialogHeader
@@ -925,10 +928,10 @@
                     {/if}
                 </div>
             {/if}
-        </div>
 
         {#if !videoError}
-            <div class="mt-2 px-1 flex flex-col gap-2 text-2xs sm:flex-row sm:items-center sm:justify-between">
+            <div class="border-t border-on-media/15 px-3 py-3 sm:px-4" data-video-player-controls>
+            <div class="flex flex-col gap-2 text-2xs sm:flex-row sm:items-center sm:justify-between">
                 <!-- The shortcuts need a keyboard, so a phone is told nothing about them. -->
                 <p class="order-2 hidden text-on-media/80 sm:order-1 sm:block">
                         <span>
@@ -982,13 +985,13 @@
                 </div>
             </div>
             {#if playbackState === 'buffering'}
-                <div class="mt-1 text-2xs text-on-media/80 px-1">
+                <div class="mt-2 text-2xs text-on-media/80">
                     {$_('video_player.buffering_hint', { default: 'Buffering video stream...' })}
                 </div>
             {/if}
 
             {#if canManageShareLinks && shareManagerOpen}
-                <div id="video-share-manager" class="mt-2 rounded-xl border border-on-media/20 bg-media-raised/55 p-3 text-xs text-on-media/90">
+                <div id="video-share-manager" class="mt-3 rounded-xl border border-on-media/20 bg-media/40 p-3 text-xs text-on-media/90">
                     <div class="flex items-center justify-between gap-2 mb-2">
                         <p class="font-semibold text-2xs text-on-media/80">{$_('video_player.share_manage_title', { default: 'Active share links' })}</p>
                         <span class="text-2xs text-on-media/80">{activeShareLinks.length}</span>
@@ -1095,6 +1098,8 @@
                     {/if}
                 </div>
             {/if}
+            </div>
         {/if}
+        </div>
     </div>
 </div>
