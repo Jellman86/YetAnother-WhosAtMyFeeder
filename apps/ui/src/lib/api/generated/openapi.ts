@@ -117,6 +117,18 @@ export interface components {
     state?: string | null;
     updated_at?: string | null;
 };
+    AudioActivityHeatmapCell: {
+    count: number;
+    day_of_week: number;
+    hour: number;
+};
+    AudioActivityHeatmapResponse: {
+    cells: Array<components['schemas']['AudioActivityHeatmapCell']>;
+    max_cell_count: number;
+    total_count: number;
+    window_end: string;
+    window_start: string;
+};
     AudioContextDetectionResponse: {
     birdnet_id?: number | null;
     confidence: number;
@@ -3447,6 +3459,22 @@ export interface paths {
       query: never;
       requestBody: unknown;
       response: unknown;
+    };
+  };
+  "/api/audio/activity-heatmap": {
+    get: {
+      operationId: "get_audio_activity_heatmap_api_audio_activity_heatmap_get";
+      path: never;
+      query: {
+    days?: number;
+    end_date?: string | null;
+    min_confidence?: number | null;
+    source?: string | null;
+    species?: string | null;
+    start_date?: string | null;
+};
+      requestBody: unknown;
+      response: components['schemas']['AudioActivityHeatmapResponse'];
     };
   };
   "/api/audio/clip/{birdnet_id}": {

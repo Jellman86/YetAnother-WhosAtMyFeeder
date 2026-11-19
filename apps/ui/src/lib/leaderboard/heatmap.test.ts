@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { busiestHourOfDay, dayTotals, heatmapFill, hourlyTotals, moveGridPosition, peakCell } from './heatmap';
+import { busiestHourOfDay, dayTotals, heatmapFill, hourlyTotals, moveGridPosition, peakCell, weekdayHourTable } from './heatmap';
 
 function lightness(hex: string): number {
     const [r, g, b] = [1, 3, 5].map((offset) => parseInt(hex.slice(offset, offset + 2), 16));
@@ -86,5 +86,23 @@ describe('moving through the grid with the keyboard', () => {
 
     it('ignores keys that are not movement', () => {
         expect(moveGridPosition({ row: 3, hour: 5 }, 'Enter', 7)).toBeNull();
+    });
+});
+
+describe('weekdayHourTable', () => {
+    const labels = { day: 'Day', weekday: (day: number) => `d${day}`, hour: (hour: number) => `${hour}h` };
+
+    it('lists Monday to Sunday with every hour, an empty slot as zero', () => {
+        const table = weekdayHourTable([{ day_of_week: 0, hour: 23, count: 5 }, { day_of_week: 1, hour: 6, count: 1200 }], labels);
+        expect(table.columns).toHaveLength(25);
+        expect(table.columns.slice(0, 2)).toEqual(['Day', '0h']);
+        expect(table.rows.map((row) => row[0])).toEqual(['d1', 'd2', 'd3', 'd4', 'd5', 'd6', 'd0']);
+        expect(table.rows[0][7]).toBe((1200).toLocaleString());
+        expect(table.rows[6][24]).toBe('5');
+        expect(table.rows[3][10]).toBe('0');
+    });
+
+    it('has no table when the grid has no cells', () => {
+        expect(weekdayHourTable([], labels)).toEqual({ columns: [], rows: [] });
     });
 });

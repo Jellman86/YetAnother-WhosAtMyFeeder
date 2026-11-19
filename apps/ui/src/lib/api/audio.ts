@@ -12,6 +12,8 @@ export type AudioHistoryResponse = paths['/api/audio/history']['get']['response'
 
 export type AudioSummaryResponse = paths['/api/audio/summary']['get']['response'];
 
+export type AudioActivityHeatmapResponse = paths['/api/audio/activity-heatmap']['get']['response'];
+
 export async function fetchRecentAudio(limit: number = 10, signal?: AbortSignal): Promise<AudioDetection[]> {
     const response = await apiFetch(`${API_BASE}/audio/recent?limit=${limit}`, {
         signal,
@@ -45,6 +47,19 @@ export async function fetchAudioSummary(
         timeoutMs: 15_000
     });
     return handleResponse<AudioSummaryResponse>(response);
+}
+
+/** Calls heard by weekday and hour, over the same window and filters as the summary. */
+export async function fetchAudioActivityHeatmap(
+    params: Omit<AudioHistoryParams, 'limit' | 'offset'> = {},
+    signal?: AbortSignal
+): Promise<AudioActivityHeatmapResponse> {
+    const query = buildAudioHistoryParams(params);
+    const response = await apiFetch(`${API_BASE}/audio/activity-heatmap?${query.toString()}`, {
+        signal,
+        timeoutMs: 15_000
+    });
+    return handleResponse<AudioActivityHeatmapResponse>(response);
 }
 
 export type AudioSpeciesLeaderboardItem = paths['/api/audio/species']['get']['response']['species'][number];

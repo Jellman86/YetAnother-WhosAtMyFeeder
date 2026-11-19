@@ -1,25 +1,22 @@
 {
   "chart": {
     "heard": "Heard",
-    "daily_title": "Activity over time",
-    "daily_sub": "Calls BirdNET-Go heard per day",
-    "hourly_title": "Time of day",
-    "species_title": "Species mix",
-    "empty": "No activity in this window.",
+    "daily_title": "Calls heard over time",
+    "heatmap_title": "Calls heard by hour and weekday",
+    "species_title": "Species composition",
+    "empty": "No calls heard in this window.",
     "other_species": "Other species",
     "unavailable": "Not available while the history cannot be read.",
     "col_day": "Day",
-    "col_hour": "Hour",
     "col_calls": "Calls",
     "col_species": "Species"
   },
   "stat": {
-    "heard": "Heard",
+    "heard": "Calls heard",
     "heard_sub": "Calls BirdNET-Go heard in this window",
     "species": "Species",
     "species_sub": "Heard in this window",
-    "peak_hour": "Peak hour",
-    "peak_hour_sub": "{count, plural, one {# call} other {# calls}}",
+    "busiest_hour": "Busiest hour",
     "no_activity": "No activity yet",
     "sources": "Sources",
     "sources_sub": "Microphones or streams",
@@ -76,5 +73,12 @@
   },
   "not_shared_title": "Audio is not shared publicly",
   "not_shared_body": "The owner of this instance has turned off audio for guests.",
-  "summary_title": "This window"
+  "summary_title": "This window",
+  "calls_heard": "{count, plural, one {# call heard} other {# calls heard}}",
+  "heatmap": {
+    "grid_label": "Calls heard by hour and weekday. Use the arrow keys to read a slot.",
+    "per_hour": "calls heard in one hour slot",
+    "read_failed": "Calls heard by hour and weekday could not be read, so this grid and the busiest hour are not shown. Everything else on the page was read."
+  },
+  "side_label": "Most heard species and sources"
 }

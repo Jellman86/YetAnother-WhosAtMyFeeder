@@ -19,9 +19,11 @@
         dayLabel: (dayOfWeek: number) => string;
         /** The species the grid is limited to, named in the reading; null for every species. */
         subject?: string | null;
+        /** What a cell counts: the camera's stored captures, or the calls BirdNET-Go heard. */
+        unit?: 'captures' | 'calls';
     }
 
-    let { cells, maxCellCount, dark, dayLabel, subject = null }: Props = $props();
+    let { cells, maxCellCount, dark, dayLabel, subject = null, unit = 'captures' }: Props = $props();
     const uid = $props.id();
 
     function cellId(row: number, hour: number): string {
@@ -63,6 +65,9 @@
     }
 
     function countLabel(count: number): string {
+        if (unit === 'calls') {
+            return $_('audio.calls_heard', { values: { count }, default: '{count, plural, one {# call heard} other {# calls heard}}' });
+        }
         if (subject) {
             return $_('leaderboard.heatmap_subject_many', {
                 values: { count, subject },
@@ -168,7 +173,7 @@
         style="grid-template-columns: 2.25rem repeat(24, minmax(0, 3rem)) 2.5rem; grid-template-rows: 2.5rem 1.25rem repeat(7, auto);"
         role="grid"
         tabindex="0"
-        aria-label={`${$_('leaderboard.heatmap_grid_label', { default: 'Activity by weekday and hour. Use the arrow keys to read a slot.' })}${subject ? ` ${subject}.` : ''}`}
+        aria-label={`${unit === 'calls' ? $_('audio.heatmap.grid_label', { default: 'Calls heard by hour and weekday. Use the arrow keys to read a slot.' }) : $_('leaderboard.heatmap_grid_label', { default: 'Activity by weekday and hour. Use the arrow keys to read a slot.' })}${subject ? ` ${subject}.` : ''}`}
         aria-activedescendant={active ? cellId(active.row, active.hour) : undefined}
         onpointermove={onPointerMove}
         onpointerleave={onPointerLeave}
@@ -243,7 +248,7 @@
             0
             <span class="inline-block h-2 w-24 rounded-full" style="background-image: {heatmapLegendGradient(dark)}"></span>
             {maxCellCount.toLocaleString()}
-            <span>{$_('leaderboard.heatmap_per_hour', { default: 'captures in one hour slot' })}</span>
+            <span>{unit === 'calls' ? $_('audio.heatmap.per_hour', { default: 'calls heard in one hour slot' }) : $_('leaderboard.heatmap_per_hour', { default: 'captures in one hour slot' })}</span>
         </span>
         {#if peak}
             <span class="inline-flex items-center gap-1.5">

@@ -1,25 +1,22 @@
 {
   "chart": {
     "heard": "Gehört",
-    "daily_title": "Aktivität im Zeitverlauf",
-    "daily_sub": "Von BirdNET-Go gehörte Rufe pro Tag",
-    "hourly_title": "Tageszeit",
-    "species_title": "Artenverteilung",
-    "empty": "Keine Aktivität in diesem Zeitraum.",
+    "daily_title": "Gehörte Rufe im Zeitverlauf",
+    "heatmap_title": "Gehörte Rufe nach Stunde und Wochentag",
+    "species_title": "Artenzusammensetzung",
+    "empty": "Keine gehörten Rufe in diesem Zeitraum.",
     "other_species": "Andere Arten",
     "unavailable": "Nicht verfügbar, solange der Verlauf nicht gelesen werden kann.",
     "col_day": "Tag",
-    "col_hour": "Stunde",
     "col_calls": "Rufe",
     "col_species": "Art"
   },
   "stat": {
-    "heard": "Gehört",
+    "heard": "Gehörte Rufe",
     "heard_sub": "Von BirdNET-Go gehörte Rufe in diesem Zeitraum",
     "species": "Arten",
     "species_sub": "In diesem Zeitraum gehört",
-    "peak_hour": "Aktivste Stunde",
-    "peak_hour_sub": "{count, plural, one {# Ruf} other {# Rufe}}",
+    "busiest_hour": "Aktivste Stunde",
     "no_activity": "Noch keine Aktivität",
     "sources": "Quellen",
     "sources_sub": "Mikrofone oder Streams",
@@ -76,5 +73,12 @@
   },
   "not_shared_title": "Audio wird nicht öffentlich geteilt",
   "not_shared_body": "Die Besitzerin oder der Besitzer dieser Instanz hat Audio für Gäste deaktiviert.",
-  "summary_title": "Dieser Zeitraum"
+  "summary_title": "Dieser Zeitraum",
+  "calls_heard": "{count, plural, one {# gehörter Ruf} other {# gehörte Rufe}}",
+  "heatmap": {
+    "grid_label": "Gehörte Rufe nach Stunde und Wochentag. Mit den Pfeiltasten ein Feld vorlesen.",
+    "per_hour": "gehörte Rufe pro Stundenfeld",
+    "read_failed": "Gehörte Rufe nach Stunde und Wochentag konnten nicht gelesen werden, daher fehlen dieses Raster und die aktivste Stunde. Alles andere auf der Seite wurde gelesen."
+  },
+  "side_label": "Am häufigsten gehörte Arten und Quellen"
 }

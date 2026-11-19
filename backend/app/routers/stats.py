@@ -12,6 +12,7 @@ from app.repositories.detection_repository import DetectionRepository
 from app.repositories.bird_observation_repository import BirdObservationRepository
 from app.repositories.health_repository import HealthRepository
 from app.services.uptime import HEARTBEAT_INTERVAL_MINUTES, build_uptime_window
+from app.services.weekday_hour_grid import weekday_hour_grid
 from app.models import APIModel, DailyTotalsCoverage, DetectionResponse
 from app.config import settings
 from app.services.accelerator_telemetry import DrmProbeSnapshot
@@ -1330,38 +1331,17 @@ async def get_detection_activity_heatmap(
         utc_hourly_counts = await repo.get_activity_heatmap_utc_hourly_counts(
             window_start, window_end, species_name=species_name
         )
-        counts: dict[int, dict[int, int]] = {}
-        for bucket_start, count in utc_hourly_counts:
-            local_bucket = bucket_start.replace(tzinfo=timezone.utc).astimezone(user_tz)
-            day_of_week = (local_bucket.weekday() + 1) % 7  # 0=Sunday..6=Saturday
-            hour = local_bucket.hour
-            counts.setdefault(day_of_week, {})
-            counts[day_of_week][hour] = counts[day_of_week].get(hour, 0) + int(count)
-        cells: list[DetectionsActivityHeatmapCell] = []
-        total_count = 0
-        max_cell_count = 0
-
-        for day_of_week in range(7):
-            day_counts = counts.get(day_of_week, {})
-            for hour in range(24):
-                count = int(day_counts.get(hour, 0))
-                cells.append(
-                    DetectionsActivityHeatmapCell(
-                        day_of_week=day_of_week,
-                        hour=hour,
-                        count=count,
-                    )
-                )
-                total_count += count
-                if count > max_cell_count:
-                    max_cell_count = count
+        grid = weekday_hour_grid(utc_hourly_counts, user_tz)
 
         return DetectionsActivityHeatmapResponse(
             span=span,
             window_start=window_start.replace(tzinfo=timezone.utc).isoformat(),
             window_end=window_end.replace(tzinfo=timezone.utc).isoformat(),
-            total_count=total_count,
-            max_cell_count=max_cell_count,
+            total_count=grid.total_count,
+            max_cell_count=grid.max_cell_count,
             species=species_name,
-            cells=cells,
+            cells=[
+                DetectionsActivityHeatmapCell(day_of_week=cell.day_of_week, hour=cell.hour, count=cell.count)
+                for cell in grid.cells
+            ],
         )

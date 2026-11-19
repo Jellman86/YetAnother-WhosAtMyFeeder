@@ -656,6 +656,35 @@ class AudioHistoryRepository:
             "sources": sources,
         }
 
+    async def get_audio_activity_utc_hourly_counts(
+        self,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+        species: Optional[str] = None,
+        source: Optional[str] = None,
+        min_confidence: Optional[float] = None,
+        maximum_end: datetime | None = None,
+    ) -> list[tuple[datetime, int]]:
+        """Visible calls per UTC hour, under exactly the filters the history summary applies."""
+        where_sql, params = self._build_audio_history_filter(
+            start_date=start_date,
+            end_date=end_date,
+            species=species,
+            source=source,
+            min_confidence=min_confidence,
+            maximum_end=maximum_end,
+        )
+        async with self.db.execute(
+            f"""SELECT strftime('%Y-%m-%d %H:00:00', timestamp) AS bucket_start, COUNT(*)
+                FROM audio_detections
+                {where_sql}
+                GROUP BY bucket_start
+                ORDER BY bucket_start ASC""",
+            params,
+        ) as cursor:
+            rows = await cursor.fetchall()
+        return [(datetime.fromisoformat(row[0]), int(row[1])) for row in rows if row[0] and int(row[1] or 0) > 0]
+
     async def pending_audio_scientific_names(self) -> list[tuple[str, int]]:
         """Distinct names on audio rows that carry no identity yet, with row counts."""
         async with self.db.execute(

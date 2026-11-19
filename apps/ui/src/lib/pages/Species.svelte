@@ -78,7 +78,7 @@
     import type { TemperatureUnit } from '../utils/temperature';
     import { evidenceFor, isCorroborated, trendMeasured, type SpeciesEvidence } from '../leaderboard/evidence';
     import { heardFor, heardLookup, needsSpeciesCheck, parseSpeciesPageLink } from '../leaderboard/species-checks';
-    import { busiestHourOfDay } from '../leaderboard/heatmap';
+    import { busiestHourOfDay, weekdayHourTable } from '../leaderboard/heatmap';
     import ActivityHeatmap from '../components/ActivityHeatmap.svelte';
     import { otherSeriesColor, speciesSeriesColor, SPECIES_SERIES_SLOTS } from '../leaderboard/species-palette';
 
@@ -1456,16 +1456,9 @@
         }
         return chartTable($_('common.period', { default: 'Period' }), (config.data.labels ?? []).map(String), [...series, ...weather], figureValue);
     });
-    const heatmapTable = $derived.by(() => {
-        const cells = shownHeatmap?.cells ?? [];
-        if (!cells.length) return { columns: [], rows: [] };
-        const counts = new Map(cells.map((cell) => [`${cell.day_of_week}-${cell.hour}`, Math.max(0, cell.count)] as const));
-        const hours = Array.from({ length: 24 }, (_, hour) => hour);
-        return {
-            columns: [$_('leaderboard.sort_by_day', { default: 'Day' }), ...hours.map((hour) => formatHour(hour))],
-            rows: [1, 2, 3, 4, 5, 6, 0].map((day) => [weekdayLabel(day), ...hours.map((hour) => (counts.get(`${day}-${hour}`) ?? 0).toLocaleString())])
-        };
-    });
+    const heatmapTable = $derived(
+        weekdayHourTable(shownHeatmap?.cells ?? [], { day: $_('leaderboard.sort_by_day', { default: 'Day' }), weekday: weekdayLabel, hour: formatHour })
+    );
     const compositionTable = $derived.by(() => {
         const { labels, series } = donutSeries();
         return shareTable(

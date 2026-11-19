@@ -1,25 +1,22 @@
 {
   "chart": {
     "heard": "Entendues",
-    "daily_title": "Activité dans le temps",
-    "daily_sub": "Détections BirdNET-Go entendues par jour",
-    "hourly_title": "Heure de la journée",
-    "species_title": "Répartition des espèces",
-    "empty": "Aucune activité sur cette période.",
+    "daily_title": "Chants entendus dans le temps",
+    "heatmap_title": "Chants entendus par heure et jour de la semaine",
+    "species_title": "Composition des espèces",
+    "empty": "Aucun chant entendu sur cette période.",
     "other_species": "Autres espèces",
     "unavailable": "Indisponible tant que l’historique ne peut pas être lu.",
     "col_day": "Jour",
-    "col_hour": "Heure",
     "col_calls": "Chants",
     "col_species": "Espèce"
   },
   "stat": {
-    "heard": "Entendues",
+    "heard": "Chants entendus",
     "heard_sub": "Détections BirdNET-Go sur cette période",
     "species": "Espèces",
     "species_sub": "Entendues sur cette période",
-    "peak_hour": "Heure de pointe",
-    "peak_hour_sub": "{count, plural, one {# détection} other {# détections}}",
+    "busiest_hour": "Heure la plus active",
     "no_activity": "Aucune activité pour le moment",
     "sources": "Sources",
     "sources_sub": "Microphones ou flux",
@@ -76,5 +73,12 @@
   },
   "not_shared_title": "L'audio n'est pas partagé publiquement",
   "not_shared_body": "Le propriétaire de cette instance a désactivé l'audio pour les invités.",
-  "summary_title": "Cette période"
+  "summary_title": "Cette période",
+  "calls_heard": "{count, plural, one {# chant entendu} other {# chants entendus}}",
+  "heatmap": {
+    "grid_label": "Chants entendus par heure et jour de la semaine. Utilisez les flèches pour lire un créneau.",
+    "per_hour": "chants entendus par créneau d’une heure",
+    "read_failed": "Les chants entendus par heure et jour de la semaine n’ont pas pu être lus : cette grille et l’heure la plus active ne sont pas affichées. Tout le reste de la page a été lu."
+  },
+  "side_label": "Espèces les plus entendues et sources"
 }

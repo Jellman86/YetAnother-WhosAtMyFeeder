@@ -18,6 +18,11 @@ const summary = {
     sources: [{ source_name: 'BirdCam', count: 73, last_heard: '2026-09-26T12:00:00Z' }],
 };
 
+// The same 73 calls by weekday and hour: Monday 08:00 is the busiest slot.
+const heatmapCells = Array.from({ length: 7 * 24 }, (_, index) => ({ day_of_week: Math.floor(index / 24), hour: index % 24, count: 0 }));
+for (const [day, hour, count] of [[1, 8, 18], [1, 9, 12], [2, 8, 9], [3, 6, 14], [5, 18, 20]] as const) heatmapCells[day * 24 + hour].count = count;
+const heatmap = { window_start: '2026-08-27T12:00:00Z', window_end: '2026-09-26T12:00:00Z', total_count: 73, max_cell_count: 20, cells: heatmapCells };
+
 test.beforeEach(async ({ page }) => {
     await page.route(url => url.pathname.startsWith('/api/'), async route => {
         const path = new URL(route.request().url()).pathname;
@@ -25,6 +30,8 @@ test.beforeEach(async ({ page }) => {
             await route.fulfill({ json: { items: [], total: 0, limit: 25, offset: 0 } });
         } else if (path === '/api/audio/summary') {
             await route.fulfill({ json: summary });
+        } else if (path === '/api/audio/activity-heatmap') {
+            await route.fulfill({ json: heatmap });
         } else if (path === '/api/settings' || path.includes('/species/') && path.endsWith('/info')) {
             await route.fulfill({ json: {} });
         } else {
@@ -37,8 +44,8 @@ test.beforeEach(async ({ page }) => {
 
 test('audio charts draw, toggle species and fit the viewport', async ({ page }, testInfo) => {
     const canvases = page.locator('[data-audio-history-analytics] canvas');
-    await expect(canvases).toHaveCount(3);
-    await expect.poll(() => canvases.evaluateAll(nodes => nodes.map(node => Boolean((node as HTMLCanvasElement & { __chartjs?: unknown }).__chartjs)))).toEqual([true, true, true]);
+    await expect(canvases).toHaveCount(2);
+    await expect.poll(() => canvases.evaluateAll(nodes => nodes.map(node => Boolean((node as HTMLCanvasElement & { __chartjs?: unknown }).__chartjs)))).toEqual([true, true]);
 
     const rendered = await canvases.evaluateAll(nodes => nodes.map(node => {
         const canvas = node as HTMLCanvasElement;
@@ -59,7 +66,7 @@ test('audio charts draw, toggle species and fit the viewport', async ({ page }, 
     // The plotted coordinates settle after the configured 250 ms animation.
     await page.waitForTimeout(350);
 
-    for (const canvas of [canvases.nth(0), canvases.nth(1)]) {
+    for (const canvas of [canvases.nth(0)]) {
         const point = await canvas.evaluate(node => {
             const chart = (node as HTMLCanvasElement & { __chartjs?: { getDatasetMeta(index: number): { data: Array<{ x: number; y: number }> } } }).__chartjs;
             const element = chart?.getDatasetMeta(0).data[8] ?? chart?.getDatasetMeta(0).data[1];
@@ -73,7 +80,7 @@ test('audio charts draw, toggle species and fit the viewport', async ({ page }, 
         })).toBeGreaterThan(0);
     }
 
-    const donut = canvases.nth(2);
+    const donut = canvases.nth(1);
     await page.getByRole('button', { name: 'Hide Dunnock' }).focus();
     await page.keyboard.press('Enter');
     await expect.poll(() => donut.evaluate(node => (node as HTMLCanvasElement & { __chartjs?: { getDataVisibility(index: number): boolean } }).__chartjs?.getDataVisibility(0))).toBe(false);
@@ -93,11 +100,11 @@ test('audio charts respect reduced motion', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.reload();
     const canvases = page.locator('[data-audio-history-analytics] canvas');
-    await expect(canvases).toHaveCount(3);
+    await expect(canvases).toHaveCount(2);
     await expect.poll(() => canvases.evaluateAll(nodes => nodes.map(node => {
         const chart = (node as HTMLCanvasElement & { __chartjs?: { options: { animation: unknown } } }).__chartjs;
         return chart?.options.animation === false;
-    }))).toEqual([true, true, true]);
+    }))).toEqual([true, true]);
 });
 
 test('a full species legend leaves the donut readable on phones', async ({ page, isMobile }, testInfo) => {
@@ -115,7 +122,7 @@ test('a full species legend leaves the donut readable on phones', async ({ page,
         },
     }));
     await page.getByRole('button', { name: 'Refresh' }).click();
-    const donut = page.locator('[data-audio-history-analytics] canvas').nth(2);
+    const donut = page.locator('[data-audio-history-analytics] canvas').nth(1);
     await expect.poll(() => donut.evaluate(node => {
         const chart = (node as HTMLCanvasElement & { __chartjs?: { data: { labels: string[] }; chartArea: { top: number; bottom: number } } }).__chartjs;
         return chart?.data.labels.length === 8 ? chart.chartArea.bottom - chart.chartArea.top : 0;
@@ -153,4 +160,71 @@ test('a spectrogram that fails to load falls back to the placeholder', async ({ 
     await expect(page.locator('[data-audio-history-table]')).toContainText('Dunnock');
     await expect(page.locator('[data-audio-spectrogram]')).toHaveCount(0);
     await expect(page.locator('[data-audio-history-table] svg[aria-hidden="true"]').first()).toBeVisible();
+});
+
+test('the hour of day is a weekday-by-hour grid of calls heard, read with the same filters as the summary', async ({ page, isMobile }) => {
+    test.skip(isMobile, 'drives the window bar and inline filters, which are the desktop controls; the phone sheet has its own spec');
+    const requests: URLSearchParams[] = [];
+    await page.route('**/api/audio/activity-heatmap?*', route => {
+        requests.push(new URL(route.request().url()).searchParams);
+        return route.fulfill({ json: heatmap });
+    });
+    await page.reload();
+    const grid = page.locator('[data-audio-heatmap] [role="grid"]');
+    await expect(grid).toBeVisible();
+    await expect(grid.locator('[role="gridcell"]')).toHaveCount(7 * 24);
+    // Each slot reads in calls heard, never as captures or visits.
+    await expect(grid.getByRole('gridcell', { name: /^Fri 18:00 to 19:00: 20 calls heard\. Busiest slot$/ })).toHaveCount(1);
+    await expect(grid.getByRole('gridcell', { name: /^Mon 08:00 to 09:00: 18 calls heard$/ })).toHaveCount(1);
+    await expect(page.locator('[data-audio-heatmap]')).toContainText('calls heard in one hour slot');
+    await expect(page.locator('[data-audio-heatmap]')).not.toContainText(/capture|visit/i);
+    // The busiest hour is the grid's own, and the window line names the window the server counted.
+    await expect(page.locator('[data-audio-standing]')).toContainText('Busiest hour');
+    await expect(page.locator('[data-audio-standing]')).toContainText('08:00');
+    await expect(page.locator('[data-audio-standing]')).toContainText('27 calls heard');
+    await expect(page.locator('[data-audio-analytics-window]')).toHaveText(/^30 days · .+-.+$/);
+
+    // The grid follows the page: a new window and an applied species are both sent.
+    await page.locator('[data-audio-window-bar] [data-segment="7"]').click();
+    await expect.poll(() => requests.at(-1)?.get('days')).toBe('7');
+    await page.getByRole('textbox', { name: 'Species' }).fill('Dunnock');
+    await page.getByRole('textbox', { name: 'Species' }).press('Enter');
+    await expect.poll(() => requests.at(-1)?.get('species')).toBe('Dunnock');
+    expect(requests.at(-1)?.get('days')).toBe('7');
+
+    // Its data is a table too, a row per weekday.
+    const figure = page.locator('[data-audio-history-analytics] figure').filter({ has: page.locator('[data-audio-heatmap]') });
+    await figure.locator('summary').filter({ hasText: 'Show the data as a table' }).click();
+    await expect(figure.locator('table tbody tr')).toHaveCount(7);
+});
+
+test('a window with no calls says so in the grid, not as an empty grid', async ({ page }) => {
+    await page.route('**/api/audio/activity-heatmap?*', route => route.fulfill({ json: { ...heatmap, total_count: 0, max_cell_count: 0, cells: heatmapCells.map(cell => ({ ...cell, count: 0 })) } }));
+    await page.reload();
+    await expect(page.locator('[data-audio-heatmap-empty]')).toHaveText('No calls heard in this window.');
+    await expect(page.locator('[data-audio-heatmap]')).toHaveCount(0);
+});
+
+test('a grid that cannot be read says so in its own frame, and the list and other figures stay', async ({ page }) => {
+    await page.route('**/api/audio/activity-heatmap?*', route => route.fulfill({ status: 503, json: { detail: 'History temporarily unavailable.' } }));
+    await page.route('**/api/audio/history?*', route => route.fulfill({ json: {
+        items: [{ id: 1, birdnet_id: null, species: 'Dunnock', confidence: 0.91, timestamp: '2026-09-26T08:15:00Z', source_name: 'BirdCam' }],
+        total: 1, limit: 25, offset: 0,
+    } }));
+    await page.reload();
+    await expect(page.locator('[data-audio-heatmap-failed]')).toContainText('could not be read');
+    await expect(page.locator('[data-audio-heatmap]')).toHaveCount(0);
+    // The page as a whole was read: no page-level failure, the list and the summary's figures are on show.
+    await expect(page.locator('[data-audio-read-failed]')).toHaveCount(0);
+    await expect(page.locator('[data-audio-history-table]')).toContainText('Dunnock');
+    await expect(page.locator('[data-audio-standing]')).toContainText('73');
+    // Only the figure that comes from the grid is withheld, in words.
+    await expect(page.locator('[data-audio-standing] [data-audio-stat-unavailable]')).toHaveCount(1);
+    await expect(page.locator('[data-audio-history-analytics] canvas')).toHaveCount(2);
+
+    // Retrying reads it again.
+    await page.unroute('**/api/audio/activity-heatmap?*');
+    await page.locator('[data-audio-heatmap-failed]').getByRole('button', { name: 'Retry' }).click();
+    await expect(page.locator('[data-audio-heatmap] [role="grid"]')).toBeVisible();
+    await expect(page.locator('[data-audio-standing] [data-audio-stat-unavailable]')).toHaveCount(0);
 });

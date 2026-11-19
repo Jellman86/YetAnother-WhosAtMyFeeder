@@ -1,25 +1,22 @@
 {
   "chart": {
     "heard": "听测",
-    "daily_title": "活动趋势",
-    "daily_sub": "每日 BirdNET-Go 听测次数",
-    "hourly_title": "时段",
+    "daily_title": "听到的鸣叫趋势",
+    "heatmap_title": "按小时和星期听到的鸣叫",
     "species_title": "物种构成",
-    "empty": "此时间范围内没有活动。",
+    "empty": "此时间范围内没有听到鸣叫。",
     "other_species": "其他物种",
     "unavailable": "在无法读取历史记录时不可用。",
     "col_day": "日期",
-    "col_hour": "小时",
     "col_calls": "鸣声",
     "col_species": "物种"
   },
   "stat": {
-    "heard": "听测",
+    "heard": "听到的鸣叫",
     "heard_sub": "此时段内的 BirdNET-Go 检测",
     "species": "物种",
     "species_sub": "此时段内听到的物种",
-    "peak_hour": "高峰时段",
-    "peak_hour_sub": "{count, plural, other {# 次检测}}",
+    "busiest_hour": "最活跃时段",
     "no_activity": "尚无活动",
     "sources": "来源",
     "sources_sub": "麦克风或音频流",
@@ -76,5 +73,12 @@
   },
   "not_shared_title": "音频未公开共享",
   "not_shared_body": "此实例的所有者已为访客关闭音频。",
-  "summary_title": "本时段"
+  "summary_title": "本时段",
+  "calls_heard": "{count, plural, other {听到 # 次鸣叫}}",
+  "heatmap": {
+    "grid_label": "按小时和星期听到的鸣叫。使用方向键读取时段。",
+    "per_hour": "每小时格内听到的鸣叫",
+    "read_failed": "无法读取按小时和星期听到的鸣叫，因此不显示此网格和最活跃时段。页面上的其他内容均已读取。"
+  },
+  "side_label": "最常听到的物种和音源"
 }

@@ -136,6 +136,40 @@ async def test_guest_audio_windows_filter_before_counts_and_source_discovery(pri
 
 
 @pytest.mark.asyncio
+async def test_guest_call_grid_counts_only_what_the_guest_summary_counts(private_history):
+    owner_headers = {"Authorization": f"Bearer {create_access_token('owner')}"}
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://fixture") as client:
+        grid = await client.get("/api/audio/activity-heatmap?days=3650")
+        summary = await client.get("/api/audio/summary?days=3650")
+        owner = await client.get("/api/audio/activity-heatmap?days=3650", headers=owner_headers)
+    assert grid.status_code == 200, grid.text
+    # The guest window drops "Old" and hiding drops "Hidden", exactly as the summary does.
+    assert grid.json()["total_count"] == summary.json()["total"] == 2
+    assert owner.json()["total_count"] == 3
+    # The window it states is the guest's clamped one, not the ten years asked for.
+    assert grid.json()["window_start"] > owner.json()["window_start"]
+
+
+@pytest.mark.asyncio
+async def test_guest_call_grid_ignores_a_source_filter_when_sources_are_private(private_history, monkeypatch):
+    monkeypatch.setattr(settings.public_access, "show_camera_names", False)
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://fixture") as client:
+        named = await client.get("/api/audio/activity-heatmap?days=3650&source=source-Visible")
+        unnamed = await client.get("/api/audio/activity-heatmap?days=3650&source=no-such-source")
+    # A guest cannot probe source names through the counts: the filter is dropped, not applied.
+    assert named.json()["total_count"] == unnamed.json()["total_count"] == 2
+
+
+@pytest.mark.asyncio
+async def test_guest_call_grid_is_refused_when_audio_is_not_shared(private_history, monkeypatch):
+    monkeypatch.setattr(settings.public_access, "show_audio", False)
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://fixture") as client:
+        response = await client.get("/api/audio/activity-heatmap")
+    assert response.status_code == 403
+    assert "cells" not in response.text
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("event_context", [False, True])
 async def test_guest_context_clamps_before_mapping_counts_and_limit(private_history, event_context):
     today, _ = private_history
@@ -255,6 +289,7 @@ async def test_guest_sse_never_carries_raw_object_or_owner_payload(private_histo
         ("/api/audio/history", "GET"),
         ("/api/audio/recent", "GET"),
         ("/api/audio/summary", "GET"),
+        ("/api/audio/activity-heatmap", "GET"),
         (
             "/api/audio/heard-groups?start_date="
             + datetime.now(timezone.utc).strftime("%Y-%m-%dT00:00:00Z")

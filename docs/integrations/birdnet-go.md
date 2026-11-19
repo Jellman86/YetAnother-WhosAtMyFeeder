@@ -17,6 +17,11 @@ nothing" apart from "the correlation window missed it":
 
 ![Audio History: counts for detections heard, audio-derived species, peak hour and number of sources, above filters for window, species, source and minimum confidence, and a detection history table pairing each spectrogram with its species, time, source and confidence](../images/audio-history.png)
 
+Below the log, **Analytics** shows calls heard over time, calls heard by weekday and hour in your
+own time zone (the Leaderboard's activity grid, counting calls rather than captures), and the
+species composition. Every figure follows the window chosen at the top of the page and the applied
+filters, so the grid's total always matches **Calls heard**.
+
 ## Setup
 
 ### 1. MQTT Topic

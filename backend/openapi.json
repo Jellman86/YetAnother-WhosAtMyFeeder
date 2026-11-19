@@ -862,6 +862,66 @@
         "title": "ArchiveStatusResponse",
         "type": "object"
       },
+      "AudioActivityHeatmapCell": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "day_of_week": {
+            "title": "Day Of Week",
+            "type": "integer"
+          },
+          "hour": {
+            "title": "Hour",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "day_of_week",
+          "hour",
+          "count"
+        ],
+        "title": "AudioActivityHeatmapCell",
+        "type": "object"
+      },
+      "AudioActivityHeatmapResponse": {
+        "description": "Calls heard per local weekday and hour: the same cell shape as the camera grid's.",
+        "properties": {
+          "cells": {
+            "items": {
+              "$ref": "#/components/schemas/AudioActivityHeatmapCell"
+            },
+            "title": "Cells",
+            "type": "array"
+          },
+          "max_cell_count": {
+            "title": "Max Cell Count",
+            "type": "integer"
+          },
+          "total_count": {
+            "title": "Total Count",
+            "type": "integer"
+          },
+          "window_end": {
+            "title": "Window End",
+            "type": "string"
+          },
+          "window_start": {
+            "title": "Window Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "window_start",
+          "window_end",
+          "total_count",
+          "max_cell_count",
+          "cells"
+        ],
+        "title": "AudioActivityHeatmapResponse",
+        "type": "object"
+      },
       "AudioContextDetectionResponse": {
         "properties": {
           "birdnet_id": {
@@ -25713,6 +25773,150 @@
         "summary": "Get Visit Film",
         "tags": [
           "about"
+        ]
+      }
+    },
+    "/api/audio/activity-heatmap": {
+      "get": {
+        "description": "Calls heard by weekday and hour in the viewer's time zone, over the summary's window and filters.",
+        "operationId": "get_audio_activity_heatmap_api_audio_activity_heatmap_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "maximum": 3650,
+              "minimum": 1,
+              "title": "Days",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "start_date",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Start Date"
+            }
+          },
+          {
+            "in": "query",
+            "name": "end_date",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "End Date"
+            }
+          },
+          {
+            "in": "query",
+            "name": "species",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 120,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Species"
+            }
+          },
+          {
+            "in": "query",
+            "name": "source",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 120,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source"
+            }
+          },
+          {
+            "in": "query",
+            "name": "min_confidence",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 1.0,
+                  "minimum": 0.0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Min Confidence"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AudioActivityHeatmapResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Get Audio Activity Heatmap",
+        "tags": [
+          "audio",
+          "audio"
         ]
       }
     },

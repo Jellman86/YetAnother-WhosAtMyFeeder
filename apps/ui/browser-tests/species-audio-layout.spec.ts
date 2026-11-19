@@ -81,18 +81,25 @@ test('the wall\'s preview opens inside the main landmark', async ({ page }) => {
     expect(await popout.evaluate((node) => Boolean(node.closest('main')))).toBe(true);
 });
 
-test('on a phone Audio history puts the log first and its filters in a sheet', async ({ page }) => {
+test('on a phone Audio history puts the window\'s figures before the log and its filters in a sheet', async ({ page }) => {
     await open(page, '/audio', '[data-audio-top-species-button]', WIDTHS[0]);
     await expect(page.locator('[data-audio-history-filters] form')).toBeHidden();
     const opener = page.locator('[data-audio-filters-open]');
     await expect(opener).toBeVisible();
-    // The log is read before the summary that stands beside it on a desktop.
-    const order = await page.evaluate(() => {
-        const log = document.querySelector('[data-audio-history-log]');
-        const summary = document.querySelector('[data-audio-history-summary]');
-        return Boolean(log && summary && log.compareDocumentPosition(summary) & Node.DOCUMENT_POSITION_FOLLOWING);
-    });
-    expect(order).toBe(true);
+    // How the window stands is read first, as on the Leaderboard: in the page and on screen, the
+    // figures come before the first call, and they are drawn once.
+    const figures = page.locator('[data-audio-history-summary]');
+    await expect(figures).toHaveCount(1);
+    const firstCall = page.locator('[data-audio-history-table] tbody tr').first();
+    await expect(firstCall).toBeVisible();
+    expect(await figures.evaluate((node) => {
+        const call = document.querySelector('[data-audio-history-table] tbody tr');
+        return Boolean(call && node.compareDocumentPosition(call) & Node.DOCUMENT_POSITION_FOLLOWING);
+    })).toBe(true);
+    const [figuresBox, callBox] = await Promise.all([figures.boundingBox(), firstCall.boundingBox()]);
+    expect(figuresBox && callBox && figuresBox.y + figuresBox.height <= callBox.y).toBe(true);
+    // The species and sources still follow the log, and their landmark has its own name.
+    await expect(page.getByRole('complementary', { name: 'Most heard species and sources' })).toHaveCount(1);
     await opener.click();
     const sheet = page.getByRole('dialog', { name: 'Filters' });
     await expect(sheet).toBeVisible();
@@ -102,6 +109,24 @@ test('on a phone Audio history puts the log first and its filters in a sheet', a
     await page.keyboard.press('Escape');
     await expect(sheet).toBeHidden();
     await expect(opener).toBeFocused();
+});
+
+test('at 1440 px Audio history keeps the log in the main column with the figures, then species and sources, beside it', async ({ page }) => {
+    await open(page, '/audio', '[data-audio-top-species-button]', WIDTHS[3]);
+    const [log, figures, side] = await Promise.all(
+        ['[data-audio-history-log]', '[data-audio-history-summary]', '[data-audio-history-side]'].map((selector) => page.locator(selector).boundingBox())
+    );
+    expect(log && figures && side).toBeTruthy();
+    if (!log || !figures || !side) return;
+    // The figures sit at the head of the right-hand column, level with the log's top.
+    expect(figures.x).toBeGreaterThan(log.x + log.width - 1);
+    expect(Math.abs(figures.y - log.y)).toBeLessThanOrEqual(1);
+    // Species and sources follow directly under them in the same column, 2rem apart as before: the
+    // log's height opens no gap under the figures.
+    expect(Math.abs(side.x - figures.x)).toBeLessThanOrEqual(1);
+    expect(Math.abs(side.width - figures.width)).toBeLessThanOrEqual(1);
+    const twoRem = await page.evaluate(() => 2 * parseFloat(getComputedStyle(document.documentElement).fontSize));
+    expect(Math.abs(side.y - (figures.y + figures.height) - twoRem)).toBeLessThanOrEqual(1);
 });
 
 test('every Audio history chart has its data as a table', async ({ page }) => {

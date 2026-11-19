@@ -1,25 +1,22 @@
 {
   "chart": {
     "heard": "Ascoltate",
-    "daily_title": "Attività nel tempo",
-    "daily_sub": "Rilevamenti BirdNET-Go ascoltati al giorno",
-    "hourly_title": "Ora del giorno",
-    "species_title": "Distribuzione delle specie",
-    "empty": "Nessuna attività in questo periodo.",
+    "daily_title": "Canti uditi nel tempo",
+    "heatmap_title": "Canti uditi per ora e giorno della settimana",
+    "species_title": "Composizione delle specie",
+    "empty": "Nessun canto udito in questo periodo.",
     "other_species": "Altre specie",
     "unavailable": "Non disponibile finché la cronologia non può essere letta.",
     "col_day": "Giorno",
-    "col_hour": "Ora",
     "col_calls": "Canti",
     "col_species": "Specie"
   },
   "stat": {
-    "heard": "Ascoltate",
+    "heard": "Canti uditi",
     "heard_sub": "Rilevamenti BirdNET-Go in questo periodo",
     "species": "Specie",
     "species_sub": "Sentite in questo periodo",
-    "peak_hour": "Ora di punta",
-    "peak_hour_sub": "{count, plural, one {# rilevamento} other {# rilevamenti}}",
+    "busiest_hour": "Ora più attiva",
     "no_activity": "Nessuna attività per ora",
     "sources": "Fonti",
     "sources_sub": "Microfoni o flussi",
@@ -76,5 +73,12 @@
   },
   "not_shared_title": "L'audio non è condiviso pubblicamente",
   "not_shared_body": "Il proprietario di questa istanza ha disattivato l'audio per gli ospiti.",
-  "summary_title": "Questo periodo"
+  "summary_title": "Questo periodo",
+  "calls_heard": "{count, plural, one {# canto udito} other {# canti uditi}}",
+  "heatmap": {
+    "grid_label": "Canti uditi per ora e giorno della settimana. Usa le frecce per leggere una fascia.",
+    "per_hour": "canti uditi per fascia oraria",
+    "read_failed": "Non è stato possibile leggere i canti uditi per ora e giorno della settimana, quindi questa griglia e l’ora più attiva non sono mostrate. Tutto il resto della pagina è stato letto."
+  },
+  "side_label": "Specie più udite e sorgenti"
 }

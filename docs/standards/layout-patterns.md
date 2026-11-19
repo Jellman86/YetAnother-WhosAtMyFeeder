@@ -636,6 +636,29 @@ crops keep that evidence, including a selected alternative bird. Older photograp
 choices without exact recording alignment stay still: a film from the original tracked bird
 must not cover a photograph of a different bird. Changing the photograph invalidates the film.
 
+### Listening log (Audio history)
+
+```
+window: the Leaderboard's segmented bar in its place (a select on a phone), applied as chosen;
+  species, source and confidence beside it wait for Apply (inline from 768 px, in a sheet below)
+standing band: species, calls heard, busiest hour, sources (first on a phone, as the Leaderboard's is)
+call history (the log) | from 1280 px the standing band, then the top heard species and the sources,
+  stand beside it in one right-hand column; the log spans both of that column's rows
+analytics at full width: calls heard over time, then calls heard by hour and weekday beside the
+  species composition
+```
+
+Audio history is the Leaderboard's sibling, not its twin: the Leaderboard ranks species over a
+window, Audio history is the record of what was heard. The two read the same way so they can be
+compared: the same window control, the same ruled `dl` of figures, the same Analytics heading with
+the window said once, and the same `ChartFigure` frames, order and colours. Every figure and caption
+counts **calls heard**, never visits or bare "activity", because one bird singing for ten minutes
+can give dozens of calls; the grid (`ActivityHeatmap` with `unit="calls"`) labels its own scale. The
+grid, the summary and the log are one reading (`pages/audio-history-loader.ts`), so the grid's total
+always equals the "Calls heard" figure and its busiest hour is the viewer's local hour. The grid is a
+view of the log, not part of it: if only the grid cannot be read, its frame says so with Retry and the
+busiest hour says "Not available", while the log and the other figures stay.
+
 ### Reference (About)
 
 ```
@@ -694,7 +717,7 @@ column beside it; below that they follow it, the two history lists side by side 
 | `TopVisitors` | A full-width band | Place it in the context rail; it lays out horizontally and compresses badly |
 | `InstancePipeline` | Deployment state as a flow | Use it as a settings surface |
 | `ReviewQueueModal` | Working a queue item by item | Use for viewing one record; that is `DetectionModal` |
-| `ActivityHeatmap` | A weekday by hour grid that reads a slot on hover, tap or arrow keys, with hour and day totals in its margins | Rely on native `title` tooltips; they arrive late and never on touch |
+| `ActivityHeatmap` | A weekday by hour grid that reads a slot on hover, tap or arrow keys, with hour and day totals in its margins; `unit` names what a cell counts (captures on the Leaderboard, calls heard on Audio history) | Rely on native `title` tooltips; they arrive late and never on touch |
 | `CameraWatchRow` | One Frigate camera in **Settings → Cameras & connection → Cameras to watch**, shaped as a settings row: the camera's name and Preview on the left; "Watch for" (Off, Birds, Garden animals or Both, as one select) and, while it watches birds, its role (select) in the control column; motion photos below while it watches Garden animals | Add a second camera list for one subject elsewhere; link to this list and summarise instead |
 | `BetaFeatureCard` | One feature on **Settings → Identifying birds**: name, one-line description, its switch (staged, applied with the page), a worded status line with an amber dot only when the owner must act, its settings only while on, and what off means while off | Add a feature's settings outside its card, or invent a beta feature to fill the list |
 | `BetaSection` | A collapsible group of one beta feature's settings: the heading is the disclosure button, and a closed section stays mounted but hidden so a download or status read inside keeps running | Nest cards inside it; sections are separated by hairlines |
