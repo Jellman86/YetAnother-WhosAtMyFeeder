@@ -1,7 +1,8 @@
-import type { AudioHistoryResponse, AudioSummaryResponse } from '../api';
+import type { AudioActivityHeatmapResponse, AudioHistoryResponse, AudioSummaryResponse } from '../api';
 
 /**
- * Keep history and its aggregate projection in the same latest-request epoch.
+ * Keep history and its aggregate projections (the summary and the weekday-by-hour grid) in the same
+ * latest-request epoch, so every figure on the page counts the same calls.
  *
  * A failed refresh of the request already on screen keeps that reading and reports it stale; a
  * failed read of anything else (another window, filter or page) withdraws what was shown, because
@@ -12,8 +13,9 @@ export function createAudioHistoryLoader(options: {
     requestKey?: () => string;
     fetchHistory: () => Promise<AudioHistoryResponse>;
     fetchSummary: () => Promise<AudioSummaryResponse>;
+    fetchHeatmap: () => Promise<AudioActivityHeatmapResponse>;
     begin: () => void;
-    apply: (history: AudioHistoryResponse, summary: AudioSummaryResponse) => void;
+    apply: (history: AudioHistoryResponse, summary: AudioSummaryResponse, heatmap: AudioActivityHeatmapResponse) => void;
     clear: () => void;
     fail: (error: unknown, state: { stale: boolean }) => void;
     finish: () => void;
@@ -30,9 +32,13 @@ export function createAudioHistoryLoader(options: {
             }
             options.begin();
             try {
-                const [history, summary] = await Promise.all([options.fetchHistory(), options.fetchSummary()]);
+                const [history, summary, heatmap] = await Promise.all([
+                    options.fetchHistory(),
+                    options.fetchSummary(),
+                    options.fetchHeatmap()
+                ]);
                 if (requestGeneration === generation) {
-                    options.apply(history, summary);
+                    options.apply(history, summary, heatmap);
                     shownKey = key;
                 }
             } catch (error) {

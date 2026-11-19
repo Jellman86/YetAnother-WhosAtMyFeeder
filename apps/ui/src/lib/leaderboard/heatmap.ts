@@ -96,3 +96,23 @@ export function moveGridPosition(position: GridPosition, key: string, rows: numb
     if (key === 'End') return { ...position, hour: 23 };
     return null;
 }
+
+/** The weekday order every grid and its table read in: Monday first, Sunday last. */
+const TABLE_DAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
+
+/**
+ * The grid as a table, a row per weekday and a column per hour, for anyone who cannot read the
+ * colours. Empty when there are no cells, so a chart with nothing drawn has no table either.
+ */
+export function weekdayHourTable(
+    cells: readonly HeatmapCell[],
+    labels: { day: string; weekday: (dayOfWeek: number) => string; hour: (hour: number) => string }
+): { columns: string[]; rows: string[][] } {
+    if (!cells.length) return { columns: [], rows: [] };
+    const counts = new Map(cells.map((cell) => [`${cell.day_of_week}-${cell.hour}`, Math.max(0, cell.count)] as const));
+    const hours = Array.from({ length: 24 }, (_, hour) => hour);
+    return {
+        columns: [labels.day, ...hours.map((hour) => labels.hour(hour))],
+        rows: TABLE_DAY_ORDER.map((day) => [labels.weekday(day), ...hours.map((hour) => (counts.get(`${day}-${hour}`) ?? 0).toLocaleString())])
+    };
+}
