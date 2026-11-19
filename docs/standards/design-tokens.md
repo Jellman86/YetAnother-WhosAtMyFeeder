@@ -57,9 +57,10 @@ tone has its own icon shape. `utils/status-tone.ts` maps a reported backend stat
 CPU and up to three accelerators, and the sidebar's meters for the CPU and the primary accelerator.
 They are categorical, not semantic. A colour theme never repaints them, and they keep clear of the
 accent, the focus ring and every status tone, so a line never reads as a link or as a state. Each
-line also has its own dash pattern, so a series is never told by colour alone. The order keeps
-neighbouring colours apart for colour-blind readers; a fifth line is left out and named in words
-rather than given a recycled colour.
+line also has its own dash pattern, so a series is never told by colour alone. The contrast test
+checks that the colours are clearly apart for normal vision; for colour-blind readers some pairs come
+close, and the dash is what tells those lines apart. A fifth line is left out and named in words
+rather than given a recycled colour or dash.
 
 ### What the tests prove
 

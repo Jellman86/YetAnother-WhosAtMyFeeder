@@ -95,14 +95,15 @@
                     <span class="flex h-4 w-3 items-center justify-center" aria-hidden="true">
                         <span class="{DOT[row.tone]}" data-status-dot></span>
                     </span>
-                    <!-- A state too long for the row drops under its label instead of being cut, and keeps
-                         to the right edge there, so every state still reads down one column. -->
+                    <!-- A state too long for the row drops under its label instead of being cut, and starts
+                         where the label starts: alone on its line, justify-between puts it at the start, not
+                         right-aligned under nothing. Beside its label it still takes the right edge. -->
                     <span class="flex min-w-0 flex-wrap items-baseline justify-between gap-x-2 text-xs leading-4">
                         <span class="text-muted" data-status-label>{say(row.label)}</span>
                         <!-- One weight for the rows: a state that is fine is plain ink, and only one that
                              needs a person is set apart, in its tone and a heavier weight. -->
                         <span
-                            class="ml-auto text-right {row.tone === 'attention' ? 'font-semibold text-status-attention' : 'text-ink'}"
+                            class="{row.tone === 'attention' ? 'font-semibold text-status-attention' : 'text-ink'}"
                             data-status-state
                         >{say(row.state)}</span>
                     </span>

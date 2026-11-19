@@ -38,32 +38,36 @@ export function appendTelemetrySample(
 export interface LoadMeter {
     id: 'cpu' | 'accelerator';
     label: string;
-    /** The reading, 0 to 100, for the meter's fill. */
+    /** Whether the latest sample read this device. A meter that was not is kept, said not measured. */
+    measured: boolean;
+    /** The reading, 0 to 100, for the meter's fill: 0 when the latest sample did not read it. */
     percent: number;
-    /** The reading as the card says it, in whole percent. */
+    /** The reading as the card says it, in whole percent, or the words for a reading not taken. */
     shown: string;
     /** The meter's fill class, shared with the Health chart's series. */
     fill: string;
 }
 
 /**
- * The latest sample as meters: the CPU, then the accelerator the server names as primary. A reading
- * that was not taken has no meter, so an unmeasured device is never drawn as an empty one.
+ * The meters for the recent samples: the CPU, then the accelerator the server names as primary. A
+ * device gets a meter once any sample in the window has read it, and keeps it while the window
+ * remembers that reading, so one missed sample says "not measured" in its row instead of making the
+ * row vanish and the card below it jump. A device no sample has read has no meter, so an unmeasured
+ * device is never drawn as an empty one.
  */
-export function loadMeters(point: TelemetryPoint | undefined, cpuLabel: string): LoadMeter[] {
-    if (!point) return [];
+export function loadMeters(history: readonly TelemetryPoint[], cpuLabel: string, notMeasured: string): LoadMeter[] {
+    const latest = history.at(-1);
+    if (!latest) return [];
     const meters: LoadMeter[] = [];
-    if (point.cpu !== null) {
-        meters.push({ id: 'cpu', label: cpuLabel, percent: point.cpu, shown: `${Math.round(point.cpu)}%`, fill: CPU_STYLE.fill });
+    const reading = (value: number | null) =>
+        value === null ? { measured: false, percent: 0, shown: notMeasured } : { measured: true, percent: value, shown: `${Math.round(value)}%` };
+
+    if (history.some((point) => point.cpu !== null)) {
+        meters.push({ id: 'cpu', label: cpuLabel, ...reading(latest.cpu), fill: CPU_STYLE.fill });
     }
-    if (point.accelerator !== null && point.acceleratorLabel) {
-        meters.push({
-            id: 'accelerator',
-            label: point.acceleratorLabel,
-            percent: point.accelerator,
-            shown: `${Math.round(point.accelerator)}%`,
-            fill: PRIMARY_ACCELERATOR_STYLE.fill
-        });
+    const acceleratorLabel = latest.acceleratorLabel ?? history.findLast((point) => point.acceleratorLabel)?.acceleratorLabel ?? null;
+    if (acceleratorLabel && history.some((point) => point.accelerator !== null)) {
+        meters.push({ id: 'accelerator', label: acceleratorLabel, ...reading(latest.accelerator), fill: PRIMARY_ACCELERATOR_STYLE.fill });
     }
     return meters;
 }

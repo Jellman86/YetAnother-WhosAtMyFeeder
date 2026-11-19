@@ -128,8 +128,16 @@ describe('Sidebar hybrid refresh', () => {
         expect(sidebarSource).not.toContain('[data-sidebar-status-readings]::after');
     });
 
-    it('keeps a wrapped status state at the right edge, in the column of the others', () => {
-        expect(connectionStatusSource).toContain('class="ml-auto text-right {row.tone');
+    it('lets a wrapped status state start under its label, not right-aligned under nothing', () => {
+        // Beside its label, justify-between keeps it at the right edge; alone on its line, at the start
+        // (status-feed.spec.ts measures both).
+        expect(connectionStatusSource).toContain('flex min-w-0 flex-wrap items-baseline justify-between');
+        expect(connectionStatusSource).not.toContain('ml-auto text-right');
+    });
+
+    it('says a failed sample\'s figures are old before they are read, and mutes them', () => {
+        expect(loadMetersSource.indexOf('data-telemetry-last-reading')).toBeLessThan(loadMetersSource.indexOf('data-telemetry-readout'));
+        expect(loadMetersSource).toContain("stale || !meter.measured ? 'text-muted' : 'text-ink'");
     });
 
     it('sets the rows in one weight, and only a state that needs a person apart', () => {

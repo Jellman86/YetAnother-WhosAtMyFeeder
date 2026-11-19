@@ -181,7 +181,8 @@
   /* The lines of a load chart, in a fixed order: the Health chart's CPU and accelerators and the
      sidebar's meters. Categorical, not semantic: they never follow the colour theme, and they keep
      clear of the accent, the focus ring and every status tone, so no line reads as a link or a
-     state. Validated for colour-blind separation in each mode (design-tokens.contrast.test.ts). */
+     state. The contrast test (design-tokens.contrast.test.ts) checks normal-vision separation and
+     contrast in each mode; for colour-blind readers each line's own dash carries the difference. */
   --color-series-1: rgb(var(--series-1));
   --color-series-2: rgb(var(--series-2));
   --color-series-3: rgb(var(--series-3));

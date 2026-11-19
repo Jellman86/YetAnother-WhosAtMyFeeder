@@ -164,14 +164,27 @@ describe('the lines the panel draws', () => {
     it('keeps the colours whatever the order of the devices, the sidebar\'s accelerator first', () => {
         const npu = accelerator();
         const gpu = accelerator({ id: 'gpu-0', kind: 'gpu', label: 'Intel GPU', scope: 'app' });
-        const series = chartSeries({ points: [], accelerators: [gpu, npu], accelerator: { kind: 'npu', label: 'NPU' } }, 'CPU');
+        const series = chartSeries({ points: [], accelerators: [gpu, npu] }, 'CPU');
 
-        // The sidebar shows the NPU, so the NPU wears the second colour here too.
+        // The server shows a whole-device counter in the sidebar before an app-scoped one, so the NPU
+        // wears the second colour here too.
         expect(series.map((line) => [line.id, line.colour])).toEqual([
             ['cpu', 'series-1'],
             ['accel0', 'series-2'],
             ['gpu-0', 'series-3']
         ]);
+    });
+
+    it('never swaps two lines\' colours when one device misses a reading', () => {
+        const first = accelerator({ id: 'card0', kind: 'gpu', label: 'GPU', scope: 'app' });
+        const second = accelerator({ id: 'card1', kind: 'gpu', label: 'GPU', scope: 'app' });
+        const colours = (latest: Record<string, number | null>) =>
+            chartSeries({ points: [{ ...point(0, 10), accelerators: latest }], accelerators: [first, second] }, 'CPU')
+                .map((line) => [line.id, line.colour]);
+
+        const bothRead = colours({ card0: 40, card1: 20 });
+        expect(colours({ card0: null, card1: 20 })).toEqual(bothRead);
+        expect(bothRead).toEqual([['cpu', 'series-1'], ['card0', 'series-2'], ['card1', 'series-3']]);
     });
 
     it('draws at most three accelerators rather than recycling a colour, and names the rest', () => {

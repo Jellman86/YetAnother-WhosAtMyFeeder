@@ -238,9 +238,10 @@ export interface ChartSeries extends SeriesStyle {
 }
 
 /**
- * One style per line, in a fixed order: the CPU first, then up to three accelerators. The order
- * is what keeps neighbouring colours apart for colour-blind readers (docs/standards/design-tokens.md),
- * so a fifth line is never given a recycled colour; see {@link undrawnAccelerators}.
+ * One style per line, in a fixed order: the CPU first, then up to three accelerators. Each has its
+ * own colour and its own dash, and the dash is what tells lines apart for every reader, colour-blind
+ * ones included (docs/standards/design-tokens.md). A fifth line is never given a recycled colour or
+ * dash; see {@link undrawnAccelerators}.
  */
 export const SERIES_STYLES: readonly SeriesStyle[] = [
     { colour: 'series-1', stroke: 'stroke-series-1', fill: 'bg-series-1', marker: 'text-series-1', dash: null },
@@ -259,19 +260,20 @@ const MAX_ACCELERATOR_LINES = SERIES_STYLES.length - 1;
 
 type HistoryLike = Pick<SystemTelemetryHistory, 'points'> & {
     accelerators?: Accelerator[];
-    /** The accelerator the sidebar draws, so it can wear the same colour on both. */
-    accelerator?: SystemTelemetryHistory['accelerator'];
 };
 
-function isPrimary(accelerator: Accelerator, primary: HistoryLike['accelerator']): boolean {
-    return Boolean(primary) && accelerator.kind === primary?.kind && accelerator.label === primary?.label;
-}
-
-/** Readable accelerators, the sidebar's own first so it takes the second colour on both surfaces. */
+/**
+ * Readable accelerators, the sidebar's own first so it takes the second colour on both surfaces.
+ * The server names the sidebar's accelerator from each sample (the first measured whole-device
+ * counter, else the first measured one), so a single missed reading can move it. The lead here is
+ * found the same way from what does not change between polls, whether a device's counter can be
+ * read at all, so one missed reading never swaps two lines' colours and dashes. Whenever every
+ * device reads, it is the same device the server names.
+ */
 function readableAccelerators(history: HistoryLike): Accelerator[] {
     const readable = (history.accelerators ?? []).filter((accelerator) => !accelerator.unreadable);
-    const primary = readable.findIndex((accelerator) => isPrimary(accelerator, history.accelerator));
-    return primary > 0 ? [readable[primary], ...readable.slice(0, primary), ...readable.slice(primary + 1)] : readable;
+    const lead = readable.findIndex((accelerator) => accelerator.scope === 'device');
+    return lead > 0 ? [readable[lead], ...readable.slice(0, lead), ...readable.slice(lead + 1)] : readable;
 }
 
 /**

@@ -8,7 +8,7 @@
     import { appendTelemetrySample, loadMeters, type TelemetryPoint } from './systemLoadMeters';
 
     let history = $state<TelemetryPoint[]>([]);
-    /** The last sample failed (a visitor may be rate-limited): the graph keeps it, marked as not current. */
+    /** The last sample failed (a visitor may be rate-limited): the meters keep it, marked as not current. */
     let stale = $state(false);
     let failures = 0;
     let sampling = false;
@@ -17,7 +17,9 @@
     let nextSample: number | null = null;
     let container: HTMLDivElement;
 
-    const meters = $derived(loadMeters(history.at(-1), $_('system_telemetry.cpu', { default: 'CPU' })));
+    const meters = $derived(
+        loadMeters(history, $_('system_telemetry.cpu', { default: 'CPU' }), $_('state.not_measured', { default: 'Not measured' }))
+    );
 
     function watched(): boolean {
         return inViewport && !document.hidden;
@@ -78,7 +80,7 @@
         }
     }
 
-    // Nothing is sampled while no one can see the graph, and a gap is not drawn as a continuous line.
+    // Nothing is sampled while no one can see the meters, and a reading from before a pause is not shown as current.
     function pause(): void {
         cancelNextSample();
         history = [];
@@ -117,11 +119,17 @@
     The load as meters, one row each for the CPU and the accelerator: its name, a bar that fills, and
     the figure. Each bar wears its series' colour on the Health chart, and the figure says the value,
     so nothing rests on the colour. A tall bar is the warning; the card adds no colour of its own, since
-    a busy host is not a fault. Rows sit in the card's own flow, never behind the status rows, and the
-    block keeps a row's height before the first reading, so nothing below it moves when one arrives.
+    a busy host is not a fault. Rows sit in the card's own flow, never behind the status rows. The block
+    keeps one row's height before the first reading; a host with an accelerator grows by its second row
+    when that reading arrives, which for an owner is the status already in hand, so at once. After that a
+    missed sample keeps its row, said not measured, so the card does not jump with every gap.
 -->
 <div bind:this={container} data-system-telemetry class="mt-3 min-h-4 overflow-y-clip text-xs leading-4">
     {#if meters.length > 0}
+        {#if stale}
+            <!-- A failed sample keeps the last figures, said to be old before they are read, and muted with them. -->
+            <p class="mb-1 text-muted" data-telemetry-last-reading>{$_('system_telemetry.last_reading', { default: 'Last reading' })}</p>
+        {/if}
         <!-- One grid, so every bar starts and ends on the same lines whatever the names are. The figures are
              clipped vertically with the block: the faces' font boxes are taller than the line, and Chromium
              counted that overhang (about 1.5px) as something to scroll to. -->
@@ -137,15 +145,11 @@
                         <span class="block h-1.5 overflow-hidden rounded-full bg-track {stale ? 'opacity-50' : ''}" aria-hidden="true">
                             <span class="block h-full rounded-full {meter.fill}" style="width: {meter.percent}%"></span>
                         </span>
-                        <span class="text-right text-ink">{meter.shown}</span>
+                        <span class="text-right {stale || !meter.measured ? 'text-muted' : 'text-ink'}" data-telemetry-figure>{meter.shown}</span>
                     </dd>
                 </div>
             {/each}
         </dl>
-        {#if stale}
-            <!-- A failed sample keeps the last figures, said to be old rather than passed off as current. -->
-            <p class="mt-1 text-muted" data-telemetry-last-reading>{$_('system_telemetry.last_reading', { default: 'Last reading' })}</p>
-        {/if}
     {/if}
 </div>
 
