@@ -3,7 +3,7 @@ import appSource from '../../App.svelte?raw';
 import connectionStatusSource from './ConnectionStatus.svelte?raw';
 import statusMappingSource from '../utils/system-status.ts?raw';
 import sidebarSource from './Sidebar.svelte?raw';
-import telemetryGraphSource from './SystemTelemetryGraph.svelte?raw';
+import loadMetersSource from './SystemLoadMeters.svelte?raw';
 
 describe('Sidebar hybrid refresh', () => {
     it('keeps the large brand mark centred above the navigation, and beside its name on a short window', () => {
@@ -84,36 +84,40 @@ describe('Sidebar hybrid refresh', () => {
         expect(sidebarSource).toMatch(/\{#if authStore\.isAuthenticated \|\| authStore\.isGuest\}\s*<div class="shrink-0 border-t border-line-soft p-3" data-sidebar-account-band>/);
     });
 
-    it('states resource readings as one plain line in the card, on a neutral surface', () => {
-        expect(sidebarSource).toContain("import SystemTelemetryGraph from './SystemTelemetryGraph.svelte'");
-        expect(sidebarSource).toContain('<SystemTelemetryGraph />');
+    it('shows the load as labelled meters in the card, on a neutral surface', () => {
+        expect(sidebarSource).toContain("import SystemLoadMeters from './SystemLoadMeters.svelte'");
+        expect(sidebarSource).toContain('<SystemLoadMeters />');
         // The readings are text in the card's own flow: nothing is drawn behind the rows, and
         // nothing is positioned over them, so the rows and the link can grow or wrap freely.
-        expect(telemetryGraphSource).not.toContain('absolute');
-        expect(telemetryGraphSource).not.toContain('use:portal');
-        expect(telemetryGraphSource).toContain('tabular-nums');
-        expect(telemetryGraphSource).toContain('min-h-4');
-        // Muted body ink, not link or series colours: a reading is not something to click.
-        expect(telemetryGraphSource).not.toMatch(/text-(?:brand|indigo)-/);
+        expect(loadMetersSource).not.toContain('absolute');
+        expect(loadMetersSource).not.toContain('use:portal');
+        expect(loadMetersSource).toContain('tabular-nums');
+        expect(loadMetersSource).toContain('min-h-4');
+        // Each meter is named in words and says its figure; the bar wears the Health chart's series
+        // colour as a fill, never as text, and never a link or status colour.
+        expect(loadMetersSource).toContain('<dt class="text-muted">{meter.label}</dt>');
+        expect(loadMetersSource).toContain('{meter.shown}');
+        expect(loadMetersSource).toContain('{meter.fill}');
+        expect(loadMetersSource).not.toMatch(/text-(?:brand|indigo|accent|status|series)-|bg-status-/);
         const card = sidebarSource.slice(sidebarSource.indexOf('data-sidebar-status class'));
         expect(card).not.toMatch(/bg-gradient|bg-linear|from-|overflow-hidden/);
     });
 
     it('samples telemetry only while the status card is actually visible', () => {
-        expect(telemetryGraphSource).toContain('IntersectionObserver');
-        expect(telemetryGraphSource).toContain('return inViewport && !document.hidden;');
-        expect(telemetryGraphSource).toContain('history = []');
-        expect(telemetryGraphSource).not.toContain('setInterval');
+        expect(loadMetersSource).toContain('IntersectionObserver');
+        expect(loadMetersSource).toContain('return inViewport && !document.hidden;');
+        expect(loadMetersSource).toContain('history = []');
+        expect(loadMetersSource).not.toContain('setInterval');
     });
 
     it('paces telemetry to the visitor budget and keeps a failed reading marked as not current', () => {
-        expect(telemetryGraphSource).toContain('telemetrySampleDelayMs({');
-        expect(telemetryGraphSource).toContain('guest: authStore.isGuest');
-        expect(telemetryGraphSource).toContain('cap: authStore.publicAccessRateLimitPerMinute');
-        const failure = telemetryGraphSource.slice(telemetryGraphSource.indexOf('} catch {'), telemetryGraphSource.indexOf('} finally {'));
+        expect(loadMetersSource).toContain('telemetrySampleDelayMs({');
+        expect(loadMetersSource).toContain('guest: authStore.isGuest');
+        expect(loadMetersSource).toContain('cap: authStore.publicAccessRateLimitPerMinute');
+        const failure = loadMetersSource.slice(loadMetersSource.indexOf('} catch {'), loadMetersSource.indexOf('} finally {'));
         expect(failure).toContain('stale = history.length > 0;');
         expect(failure).not.toContain('history = []');
-        expect(telemetryGraphSource).toContain("system_telemetry.last_reading");
+        expect(loadMetersSource).toContain("system_telemetry.last_reading");
     });
 
     it('shows the status readings in whole lines at rest, instead of cutting a line of words', () => {
@@ -124,7 +128,24 @@ describe('Sidebar hybrid refresh', () => {
         expect(sidebarSource).not.toContain('[data-sidebar-status-readings]::after');
     });
 
-    it('keeps a wrapped status state at the right edge, in the column of the others', () => {
-        expect(connectionStatusSource).toContain('class="ml-auto text-right font-semibold');
+    it('lets a wrapped status state start under its label, not right-aligned under nothing', () => {
+        // Beside its label, justify-between keeps it at the right edge; alone on its line, at the start
+        // (status-feed.spec.ts measures both).
+        expect(connectionStatusSource).toContain('flex min-w-0 flex-wrap items-baseline justify-between');
+        expect(connectionStatusSource).not.toContain('ml-auto text-right');
+    });
+
+    it('says a failed sample\'s figures are old before they are read, and mutes them', () => {
+        expect(loadMetersSource.indexOf('data-telemetry-last-reading')).toBeLessThan(loadMetersSource.indexOf('data-telemetry-readout'));
+        expect(loadMetersSource).toContain("stale || !meter.measured ? 'text-muted' : 'text-ink'");
+    });
+
+    it('sets the rows in one weight, and only a state that needs a person apart', () => {
+        expect(connectionStatusSource).toContain("row.tone === 'attention' ? 'font-semibold text-status-attention' : 'text-ink'");
+        // The way to Health is the card's foot: its own words, at the start of the row, in body ink.
+        const link = sidebarSource.slice(sidebarSource.indexOf('data-sidebar-status-link\n                            data-health-attention'));
+        expect(sidebarSource).toMatch(/flex min-h-7 shrink-0 items-center justify-between gap-x-2 rounded-md border-t border-line-soft px-1 pt-2 text-xs leading-4 text-ink/);
+        expect(link).toContain("<span>{$_('status.open_health', { default: 'Health' })}</span>");
+        expect(link).not.toContain('ml-auto');
     });
 });

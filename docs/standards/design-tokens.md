@@ -51,13 +51,26 @@ tone has its own icon shape. `utils/status-tone.ts` maps a reported backend stat
 (`STATUS_TONE`) and to its translated label. Amber is still limited to the components named in
 `ATTENTION_COMPONENTS` (`colour-language.layout.test.ts`), each with the work it waits on.
 
+### Chart series
+
+`series-1` to `series-4` colour the lines of a load chart, in that fixed order: the Health chart's
+CPU and up to three accelerators, and the sidebar's meters for the CPU and the primary accelerator.
+They are categorical, not semantic. A colour theme never repaints them, and they keep clear of the
+accent, the focus ring and every status tone, so a line never reads as a link or as a state. Each
+line also has its own dash pattern, so a series is never told by colour alone. The contrast test
+checks that the colours are clearly apart for normal vision; for colour-blind readers some pairs come
+close, and the dash is what tells those lines apart. A fifth line is left out and named in words
+rather than given a recycled colour or dash.
+
 ### What the tests prove
 
 [`design-tokens.contrast.test.ts`](../../apps/ui/src/design-tokens.contrast.test.ts) reads the
 values `app.css` declares and checks every foreground against every ground it can sit on, in
 classic and bluetit, light and dark, and high contrast over both: words 4.5:1 (7:1 in high
 contrast), marks and edges 3:1, every status ink on its own soft ground, and the words on every
-filled control. A token that is missing in one mode fails too.
+filled control. A token that is missing in one mode fails too. The chart series are held apart
+from each other and from the accent, focus and status colours in every mode, at 3:1 on the chart's
+panel and, for the two meter colours, on the card and the meter's track.
 
 ## Primitives
 
@@ -99,7 +112,7 @@ npm run tokens:baseline    # lower the baseline after migrating a file; refuses 
 ```
 
 The few places that genuinely need a literal colour sit in the test's `ALLOWLIST`, each with its
-reason: the colour-theme picker's swatches, and the categorical load series on the Health chart.
+reason: the colour-theme picker's swatches, and the categorical CPU-share segments on the Health page.
 In `app.css` the high-contrast repaint rules name the older classes in order to override them
 inside the mode. They are nested in one top-level `.high-contrast { … }` rule, and the ratchet
 parses the stylesheet with postcss and skips only the selectors of rules nested in that one rule
