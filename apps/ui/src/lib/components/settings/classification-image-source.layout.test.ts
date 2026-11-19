@@ -7,6 +7,7 @@ import componentSource from './ClassificationImageSourceSetting.svelte?raw';
 import connectionSettingsSource from './ConnectionSettings.svelte?raw';
 import settingsPageSource from '../../pages/Settings.svelte?raw';
 import settingsApiSource from '../../api/settings.ts?raw';
+import generatedApiSource from '../../api/generated/openapi.ts?raw';
 import type { ClassificationImageSource } from '../../api/settings';
 import { authoredLocale } from '../../i18n/authored-locales';
 import deSettings from '../../i18n/locales/de/settings.json';
@@ -186,7 +187,9 @@ describe('initial classification image wiring', () => {
     });
 
     it('keeps the owner-only setting out of the guest settings payload', () => {
-        const publicSettings = settingsApiSource.slice(settingsApiSource.indexOf('export interface PublicSettings'));
+        // The guest payload's type is the generated contract, so its schema is what a guest can receive.
+        expect(settingsApiSource).toContain("export type PublicSettings = components['schemas']['PublicSettings'];");
+        const publicSettings = generatedApiSource.slice(generatedApiSource.indexOf('    PublicSettings: {'));
         const publicSettingsBody = publicSettings.slice(0, publicSettings.indexOf('}'));
 
         expect(publicSettingsBody).toContain('clips_enabled');
