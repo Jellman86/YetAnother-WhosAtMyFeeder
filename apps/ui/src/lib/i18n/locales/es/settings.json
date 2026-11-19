@@ -1413,6 +1413,7 @@
     "measurement_gap": "No hay una lectura de uso para esta muestra. Las filas de procesos de abajo muestran el acelerador cargado; este vacío no demuestra un cambio a la CPU.",
     "unreadable_nvidia": "{label} está presente, pero su controlador no publica ningún contador de uso que un contenedor pueda leer.",
     "unreadable_accelerator": "{label} está presente, pero su contador no se puede leer desde dentro del contenedor.",
+    "undrawn_accelerator": "{label} se mide, pero el gráfico dibuja como máximo tres aceleradores, así que su línea no aparece.",
     "table_region": "Trabajo por proceso",
     "chart_title": "Carga de los últimos 30 minutos",
     "col_time": "Hora"

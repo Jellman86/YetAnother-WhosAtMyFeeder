@@ -62,7 +62,7 @@
   "lib/components/DetectionModal.svelte": {
     "palette": 0,
     "dark": 0,
-    "arbitrary": 4
+    "arbitrary": 3
   },
   "lib/components/DetectionRow.svelte": {
     "palette": 0,

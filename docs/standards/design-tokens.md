@@ -33,6 +33,25 @@ All are Tailwind 4 theme colours, so they work with every colour utility (`bg-`,
 | `media`, `on-media` | A photograph's or the video player's dark ground, and what sits on it. The same in every mode. |
 | `focus` | The keyboard focus ring (`focus-ring`). |
 
+### Depth
+
+Depth comes from light, and it has four parts, each a kit class in `app.css`. Use them together;
+do not write a shadow or a backdrop colour in a component.
+
+| Class | What it is |
+| --- | --- |
+| `dialog-scrim` | The dimmed page behind a dialog. Darker than the dialog in every theme, so the dialog is the brightest surface on screen. |
+| `dialog-surface` | The dialog itself: the `surface` fill, an edge (`--dialog-edge`) and the dialog elevation (`--elevation-dialog`: a close contact shadow and a wide soft one). |
+| `dialog-well` | Recessed ground inside a dialog (`surface-sunken`), for a column that holds panels. |
+| `panel-raised` | A panel standing on a well: `surface`, an edge and the small panel elevation (`--elevation-panel`). It groups what belongs together. On plain dialog ground a panel stays `card-base`. |
+| `media-frame` | The edge and lift of a photograph or a player as one object (`--media-edge`). It paints no ground: the component sets it, `bg-media` under a picture, `bg-media-raised` for the player's bars. |
+
+Dark mode has no light to cast a shadow on, so there the lift is carried by a lighter surface and a
+firmer edge, and the scrim is deeper. High contrast has no shadows at all: every raised surface is
+told by its yellow edge. Depth is never decoration: no gradients, no glow, no frosted panels. The
+record dialog and the video player use all of it; other dialogs still paint their own backdrop and
+shadow and should move onto these classes when they are next touched.
+
 ### Status tones
 
 Five tones, each with an ink (`text-status-ok`, also its icon or dot), a soft ground
@@ -51,13 +70,26 @@ tone has its own icon shape. `utils/status-tone.ts` maps a reported backend stat
 (`STATUS_TONE`) and to its translated label. Amber is still limited to the components named in
 `ATTENTION_COMPONENTS` (`colour-language.layout.test.ts`), each with the work it waits on.
 
+### Chart series
+
+`series-1` to `series-4` colour the lines of a load chart, in that fixed order: the Health chart's
+CPU and up to three accelerators, and the sidebar's meters for the CPU and the primary accelerator.
+They are categorical, not semantic. A colour theme never repaints them, and they keep clear of the
+accent, the focus ring and every status tone, so a line never reads as a link or as a state. Each
+line also has its own dash pattern, so a series is never told by colour alone. The contrast test
+checks that the colours are clearly apart for normal vision; for colour-blind readers some pairs come
+close, and the dash is what tells those lines apart. A fifth line is left out and named in words
+rather than given a recycled colour or dash.
+
 ### What the tests prove
 
 [`design-tokens.contrast.test.ts`](../../apps/ui/src/design-tokens.contrast.test.ts) reads the
 values `app.css` declares and checks every foreground against every ground it can sit on, in
 classic and bluetit, light and dark, and high contrast over both: words 4.5:1 (7:1 in high
 contrast), marks and edges 3:1, every status ink on its own soft ground, and the words on every
-filled control. A token that is missing in one mode fails too.
+filled control. A token that is missing in one mode fails too. The chart series are held apart
+from each other and from the accent, focus and status colours in every mode, at 3:1 on the chart's
+panel and, for the two meter colours, on the card and the meter's track.
 
 ## Primitives
 
@@ -99,7 +131,7 @@ npm run tokens:baseline    # lower the baseline after migrating a file; refuses 
 ```
 
 The few places that genuinely need a literal colour sit in the test's `ALLOWLIST`, each with its
-reason: the colour-theme picker's swatches, and the categorical load series on the Health chart.
+reason: the colour-theme picker's swatches, and the categorical CPU-share segments on the Health page.
 In `app.css` the high-contrast repaint rules name the older classes in order to override them
 inside the mode. They are nested in one top-level `.high-contrast { … }` rule, and the ratchet
 parses the stylesheet with postcss and skips only the selectors of rules nested in that one rule

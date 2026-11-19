@@ -68,6 +68,8 @@
     let openIndex = $state<number | null>(null);
     // With one moment there is nothing to choose between, so it carries no "Chosen" mark.
     const marksChoice = $derived(moments.length > 1);
+    // With nothing kept there is no strip to draw: the words and the regenerate button share one row.
+    const noFrames = $derived(!loading && moments.length === 0);
     // An earlier photograph is not a frame of the clip, so a strip holding one, like a strip of
     // several birds' crops, counts photo options rather than frames.
     let removedPhoto = $state<{ eventId: string; candidateId: string } | null>(null);
@@ -497,7 +499,7 @@
 
 <div
     bind:this={rootEl}
-    class="flex flex-col gap-1 px-3 pb-3"
+    class="flex px-3 pb-3 {noFrames ? 'flex-row items-center gap-3' : 'flex-col gap-1'}"
     data-frame-strip
     aria-busy={loading || busy}
     onpointermove={() => { hoverPaused = false; }}
@@ -508,7 +510,7 @@
 >
     <!-- The count and the hint wrap by the width they have, so enlarged text is never cut off; the
          row keeps one line's room while frames load, without forcing them onto one line. -->
-    <div class="flex min-h-5 flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 px-1 text-2xs font-semibold text-on-media/80" aria-live="polite" data-frame-strip-status>
+    <div class="flex min-h-5 min-w-0 flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 px-1 text-2xs font-semibold text-on-media/80 {noFrames ? 'grow' : ''}" aria-live="polite" data-frame-strip-status>
         <span class="min-w-0 wrap-break-word">
             {#if loading}
                 {$_('detection.snapshot_candidates_loading', { default: 'Loading frames...' })}
@@ -530,8 +532,8 @@
             </span>
         {/if}
     </div>
-    <div class="flex min-w-0 items-center gap-1.5">
-        <div class="snapshot-strip-shell relative min-w-0 flex-1" data-snapshot-strip-shell>
+    <div class="flex min-w-0 items-center gap-1.5 {noFrames ? 'shrink-0' : ''}">
+        <div class="snapshot-strip-shell relative min-w-0 flex-1 {noFrames ? 'hidden' : ''}" data-snapshot-strip-shell>
             <div
                 bind:this={scrollerEl}
                 class="snapshot-strip -my-2 flex min-w-0 gap-1.5 overflow-x-auto px-1 py-3"
@@ -580,11 +582,11 @@
                                 iconClass="h-4 w-4"
                             />
                             {#if chosen && marksChoice}
-                                <!-- Held between the thumbnail's own edges. Hung from the left alone, a word wider
-                                     than the thumbnail stuck out past the last frame and lengthened the strip
-                                     after it had been scrolled to its end. -->
-                                <span class="pointer-events-none absolute inset-x-0.5 bottom-1.5 rounded-sm bg-on-media-accent px-0.5 text-center text-3xs font-bold leading-4 wrap-anywhere text-media">
-                                    {$_('detection.frame_chosen_badge', { default: 'Chosen' })}
+                                <!-- A mark, not a word: no translation of "Chosen" fits a 48px thumbnail whole.
+                                     The check sits on the corner, clear of the bird, and the button's pressed
+                                     state and the pop-out say it in words. -->
+                                <span class="pointer-events-none absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-on-media-accent text-media ring-2 ring-media" aria-hidden="true" data-frame-strip-chosen>
+                                    <svg class="h-2.5 w-2.5" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m2.5 6.2 2.3 2.3 4.7-5" stroke-linecap="round" stroke-linejoin="round" /></svg>
                                 </span>
                             {/if}
                         </button>

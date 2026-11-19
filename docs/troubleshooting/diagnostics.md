@@ -25,7 +25,9 @@ The sidebar's **System status** list follows the same readings, in words:
 | **Audio** | **Listening**, **Not listening**, **Off** | Audio detections arrive through the broker, so it is **Listening** only while the broker session is up. |
 | **Alerts** | **On**, **Off** | Whether notifications are switched on. |
 
-Under the rows is the current CPU and accelerator load, and one line that opens the Health page. It
+Under the rows is the current load: a meter for the CPU and one for the accelerator, each named,
+with its percentage and its bar in the same colour as its line on the Health chart. The card ends
+with one line that opens the Health page. It
 reads **Health** while nothing is open, and **2 issues need attention** (with the number) while
 the Health page lists open items in its verdict (a failed connection or an unresolved incident); the
 two always count the same thing.

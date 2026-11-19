@@ -10,7 +10,11 @@ describe('additional bird controls', () => {
         expect(modal).toMatch(/new BirdScan\(\s*\(\) => hasOwnerDetectionActions/);
         const component = modal.slice(modal.indexOf('<BirdScanControl'), modal.indexOf('<BirdScanControl') + 600);
         expect(component).toContain('scan={birdScan}');
-        expect(modal.slice(modal.indexOf('<BirdScanControl') - 100, modal.indexOf('<BirdScanControl'))).toContain('{#if hasOwnerDetectionActions}');
+        // It stands in the owner-only block that holds the identification actions, not on the photograph.
+        const control = modal.indexOf('<BirdScanControl');
+        const ownerBlock = modal.slice(modal.lastIndexOf('{#if hasOwnerDetectionActions}', control), control);
+        expect(ownerBlock).toContain('data-detection-identification-actions');
+        expect(modal.slice(modal.indexOf('{#snippet visitStrip()}'), modal.indexOf('{#snippet decision()}'))).not.toContain('<BirdScanControl');
         const completion = modal.slice(modal.indexOf('async function refreshBirdsAfterScan'), modal.indexOf('async function handleGenerateSnapshotCandidates'));
         expect(completion).toContain('countedBirds = response.birds');
         expect(completion).not.toContain('handleApplySnapshot');

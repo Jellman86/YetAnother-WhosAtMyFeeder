@@ -1,3 +1,4 @@
 {
-  "last_reading": "Letzter Messwert"
+  "last_reading": "Letzter Messwert",
+  "cpu": "CPU"
 }

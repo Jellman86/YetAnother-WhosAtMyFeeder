@@ -97,7 +97,10 @@ describe('the frame strip is one ordered set of moments (#256)', () => {
 
     it('marks the photograph in place rather than staging a preview', () => {
         expect(stripSource).toContain('aria-pressed={chosen}');
-        expect(stripSource).toContain('detection.frame_chosen_badge');
+        // A check on the thumbnail's corner, not a word: "Chosen" broke mid-word in a 48px thumbnail.
+        expect(stripSource).toContain('data-frame-strip-chosen');
+        expect(stripSource).not.toContain('detection.frame_chosen_badge');
+        expect(stripSource).not.toContain('wrap-anywhere text-media');
         expect(stripSource).toContain('detection.frame_is_photograph');
         expect(stripSource).not.toContain('Preview, not saved');
         expect(stripSource).not.toContain('snapshot_save');
@@ -151,7 +154,8 @@ describe('the frame strip is one ordered set of moments (#256)', () => {
 describe('the record uses the strip and drops the framing toggle (#256)', () => {
     it('mounts the strip in the media footer (after the identification when the record stacks) and hands it the grouped moments', () => {
         const footerStart = modalSource.indexOf('data-detection-media-footer');
-        expect(modalSource.indexOf('{#if !recordStacked}{@render visitStrip()}{/if}', footerStart)).toBeGreaterThan(footerStart);
+        expect(modalSource.indexOf('{#if !recordStacked && showInlineFramePicker}', footerStart)).toBeGreaterThan(footerStart);
+        expect(modalSource.indexOf('{@render visitStrip()}', footerStart)).toBeGreaterThan(footerStart);
         const pickerStart = modalSource.indexOf('data-detection-inline-frame-picker', modalSource.indexOf('{#snippet visitStrip()}'));
         expect(pickerStart).toBeGreaterThan(-1);
         const picker = modalSource.slice(pickerStart, pickerStart + 1400);
@@ -233,7 +237,9 @@ describe('the record uses the strip and drops the framing toggle (#256)', () => 
 
     it('stacks its controls full width on a phone and lets the rail name the bird', () => {
         expect(modalSource).toContain('class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-start" data-detection-identification-actions');
-        expect(modalSource).toContain('class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center" data-detection-whole-scene-actions');
+        // One action under the photograph, full width on a phone; the way back is on the photograph.
+        expect(modalSource).toContain('class="btn btn-primary btn-focus-on-dark min-h-11 gap-2 px-4 text-sm max-sm:grow"');
+        expect(modalSource).toContain('data-detection-whole-scene-back');
         // The rail's "Identified as" names the bird, and titles the dialog; the photograph never repeats it.
         expect(modalSource).not.toContain('data-detection-media-title');
         expect(modalSource).toContain('<h3 id="detection-modal-title" class="font-display text-2xl font-bold text-strong">{primaryName}</h3>');

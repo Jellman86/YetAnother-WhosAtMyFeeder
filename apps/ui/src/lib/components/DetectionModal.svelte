@@ -52,7 +52,7 @@
     import RecordInaturalist from './record/RecordInaturalist.svelte';
     import RecordSpeciesReference from './record/RecordSpeciesReference.svelte';
     import RecordVideoStatusNotice from './record/RecordVideoStatusNotice.svelte';
-    import { currentMoment, groupCandidatesIntoMoments, preferredCandidate, type FrameMoment } from '../utils/frame-moments';
+    import { currentMoment, groupCandidatesIntoMoments, outlineLabelClass, outlineLabelPlace, preferredCandidate, type FrameMoment } from '../utils/frame-moments';
     import { WholeScenePeek } from '../utils/whole-scene-peek.svelte';
     import { photoFitFor, type PhotoFit } from '../utils/photo-fit';
     import { speciesPickerNames } from '../utils/species-picker';
@@ -929,7 +929,15 @@
         }
         measureWholeScene();
         window.addEventListener('resize', measureWholeScene);
-        return () => window.removeEventListener('resize', measureWholeScene);
+        // The frame also changes size while the window does not: pinning the scene makes room under
+        // the photograph for its action, and the outlines have to follow the picture.
+        const frame = sceneImageEl;
+        const observer = frame ? new ResizeObserver(measureWholeScene) : null;
+        if (frame) observer?.observe(frame);
+        return () => {
+            window.removeEventListener('resize', measureWholeScene);
+            observer?.disconnect();
+        };
     });
     onDestroy(wholeScene.destroy);
     const canGenerateSnapshotCandidates = $derived(
@@ -942,6 +950,23 @@
     // finder follow the identification instead of standing between it and the photograph.
     const recordSideBySide = new MediaQuery('(min-width: 1024px), ((min-width: 640px) and (max-height: 640px))', true);
     const recordStacked = $derived(!recordSideBySide.current);
+    // Held sideways on a phone or small tablet the photograph stands alone in its column, and the
+    // identification heads the column beside it.
+    const recordShortLandscape = new MediaQuery('(min-width: 640px) and (max-width: 1023.98px) and (max-height: 640px)', false);
+    // What stands under the photograph down to the identification buttons, in rem, so the photograph
+    // can leave room for it on the first screen (`record-photo-cap`): the column's margins and the
+    // identification with its score and buttons; the visit's frames, where the record has them; and
+    // the one action a pinned whole scene adds. Nothing here waits on a read except the pin, which
+    // is the reader's own act, so the frame does not change size while the record loads.
+    // The star, play and "Back to the crop" float on the photograph's lower edge: a label on the
+    // picture keeps clear of this much of its foot.
+    const PHOTOGRAPH_CONTROLS_ROOM = 64;
+    const RECORD_UNDER_PHOTO = { decision: 18.5, frames: 7.5, sceneAction: 3.5 };
+    const recordUnderPhotoRem = $derived(
+        RECORD_UNDER_PHOTO.decision
+        + (hasOwnerDetectionActions && hasFrameSource ? RECORD_UNDER_PHOTO.frames : 0)
+        + (wholeScene.pinned ? RECORD_UNDER_PHOTO.sceneAction : 0)
+    );
     const showInlineFramePicker = $derived(
         hasOwnerDetectionActions
         && hasFrameSource
@@ -955,6 +980,11 @@
 
     const UNKNOWN_SPECIES_LABELS = new Set(['unknown', 'unknown bird', 'background']);
     const isUnknownSpecies = $derived(UNKNOWN_SPECIES_LABELS.has((detection.display_name || '').trim().toLowerCase()));
+    // A named species brings its family tree and reference, enough for a column of their own.
+    // Without a name there is neither, and the record is one narrow column, not a wide box with an
+    // empty side. The shape is decided from what the record holds when it opens, never from a read
+    // that has yet to answer, so the dialog does not change width while it loads.
+    const recordHasReference = $derived(!isUnknownSpecies && Boolean(detection.scientific_name));
 
     // "Gone" needs a not-found answer; a Frigate that could not be asked gets its own words.
     const frigateReading = $derived(frigateEventReading(detection));
@@ -1504,14 +1534,6 @@
 </script>
 
 {#snippet visitStrip()}
-    {#if hasOwnerDetectionActions}
-        <BirdScanControl
-            scan={birdScan}
-            sceneImageUrl={scanFrameCandidate?.image_url ?? null}
-            disabled={snapshotApplyPending || snapshotGeneratePending || countedBirdsLoading}
-            stepAside
-        />
-    {/if}
     {#if showInlineFramePicker}
         <!-- One ordered strip of the visit's moments (#256). Where a frame came from is not
              shown; choosing one changes the photograph and nothing else. -->
@@ -1536,274 +1558,13 @@
     {/if}
 {/snippet}
 
-<div
-    data-detection-detail-modal
-    class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto overscroll-contain bg-media/60 p-0 backdrop-blur-xs sm:p-4"
-    data-theme={isDarkMode ? 'dark' : 'light'}
-    onclick={(e) => {
-        if (e.target === e.currentTarget) {
-            onClose();
-        }
-    }}
-    onkeydown={(e) => {
-        if (e.key !== 'Escape') return;
-        // A pinned whole scene closes first; the record stays open.
-        if (wholeScene.pinned) {
-            e.preventDefault();
-            resetMediaView();
-            return;
-        }
-        onClose();
-    }}
-    role="dialog"
-    aria-modal="true"
-    aria-labelledby="detection-modal-title"
-    tabindex="-1"
->
-    <div
-        bind:this={modalElement}
-        data-theme={isDarkMode ? 'dark' : 'light'}
-        class="relative flex max-h-dvh w-full max-w-5xl flex-col overflow-hidden rounded-none border border-line-soft bg-surface shadow-2xl sm:max-h-[92vh] sm:rounded-2xl xl:max-w-7xl"
-        role="document"
-        tabindex="-1"
-    >
-
-        <!-- Reclassification Overlay (covers entire modal content) -->
-        {#if reclassifyProgress}
-            <ReclassificationOverlay progress={reclassifyProgress} />
-        {/if}
-
-        <!-- The shared dialog header, so nothing scrolls under the close button. The record's heading is
-             the species name below, so the strip carries a quiet label rather than a second heading. -->
-        <DialogHeader
-            label={$_('detection.record_label', { default: 'Record' })}
-            onClose={onClose}
-            closeData={{ 'data-detection-modal-close': true }}
-            data-detection-modal-header
-        />
-
-        <!-- Side by side from 1024px, and on a phone or tablet held sideways (a short screen), where a
-             photograph above the identification would push it off the first screen. -->
-        <div class="flex-1 overflow-y-auto flex flex-col @container lg:overflow-hidden lg:grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] xl:grid-cols-5 sm:max-lg:short:grid sm:max-lg:short:grid-cols-2 sm:max-lg:short:overflow-hidden">
-                <!-- The photograph keeps its own shape at the top of its column, with its buttons and frames under
-                     it; the rest of a tall column is page, not a black band around the picture. -->
-                <div class="flex min-h-0 shrink-0 flex-col bg-media lg:shrink lg:overflow-y-auto lg:border-r lg:border-line lg:bg-surface xl:col-span-2 sm:max-lg:short:shrink sm:max-lg:short:overflow-y-auto sm:max-lg:short:border-r sm:max-lg:short:border-line">
-                    <div class="relative min-w-0 aspect-4/3 min-h-72 shrink-0 overflow-hidden bg-media sm:aspect-video short:min-h-0 max-sm:max-lg:short:max-h-half-screen" data-detection-photograph>
-                        {#if photographDrawnUrl}
-                            <img data-detection-media-ambient src={photographDrawnUrl} alt="" aria-hidden="true" class="absolute inset-0 h-full w-full scale-110 object-cover opacity-25 blur-2xl" />
-                        {/if}
-                        <div class="absolute inset-0 bg-media/55" aria-hidden="true"></div>
-                        <!-- The photograph stays drawn under a peek, and only steps aside once the whole
-                             scene has actually loaded over it. -->
-                        <MediaImage
-                            sources={photographSources}
-                            alt={detection.display_name}
-                            class="relative h-full w-full {photographIsCrop && photographFit === 'cover' ? 'object-cover' : 'object-contain'} {wholeSceneReady ? 'opacity-0' : ''}"
-                            placeholderClass="text-on-media/80"
-                            iconClass="h-10 w-10"
-                            onload={(image) => {
-                                photographDrawnUrl = image.getAttribute('src');
-                                // A tall crop would be cut to a band: it is shown whole over the ambient fill (#481).
-                                photographFit = photoFitFor(image);
-                            }}
-                        />
-                        {#if canPeekWholeScene && wholeScene.showing}
-                            <MediaImage
-                                bind:element={sceneImageEl}
-                                sources={wholeSceneSources}
-                                alt=""
-                                class="absolute inset-0 h-full w-full object-contain {wholeSceneReady ? 'opacity-100' : 'opacity-0'}"
-                                placeholderClass="hidden"
-                                onload={wholeSceneLoaded}
-                                onfail={wholeSceneFailed}
-                                data-detection-whole-scene-image
-                            />
-                        {/if}
-                        {#if canPeekWholeScene}
-                            <!-- The whole scene is a look, not a mode (#256). Hover or focus peeks at it with
-                                 same-frame crops outlined; a click pins it and offers the one rescue that needs it. -->
-                            <button
-                                type="button"
-                                class="absolute inset-0 z-10 {wholeScene.pinned ? 'cursor-zoom-out' : 'cursor-zoom-in'} focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-on-dark"
-                                data-detection-whole-scene-peek
-                                aria-pressed={wholeScene.pinned}
-                                aria-label={wholeScene.pinned
-                                    ? $_('detection.whole_scene_back', { default: 'Back to the crop' })
-                                    : $_('detection.whole_scene_show', { default: 'Show the whole scene' })}
-                                onmouseenter={wholeScene.enter}
-                                onmouseleave={wholeScene.leave}
-                                onfocus={wholeScene.show}
-                                onblur={wholeScene.leave}
-                                onclick={(event) => { event.stopPropagation(); wholeScene.toggle(); }}
-                            ></button>
-                            {#if wholeSceneReady && wholeScene.outline}
-                                <div
-                                    class="pointer-events-none absolute z-20 rounded-xs border-2 border-solid border-evidence {wholeScene.otherOutlines.length === 0 ? 'shadow-[0_0_0_9999px_rgba(2,6,23,0.35)]' : ''}"
-                                    style="left: {wholeScene.outline.left}px; top: {wholeScene.outline.top}px; width: {wholeScene.outline.width}px; height: {wholeScene.outline.height}px;"
-                                    data-detection-whole-scene-outline
-                                    aria-hidden="true"
-                                ><span class="absolute left-0 top-0 rounded-sm bg-evidence px-1.5 py-0.5 text-3xs font-bold text-media">{$_('detection.frame_chosen_badge', { default: 'Chosen' })}</span></div>
-                                {#each wholeScene.otherOutlines as outline}
-                                    <div
-                                        class="pointer-events-none absolute z-10 rounded-xs border-2 border-dashed border-on-media/90"
-                                        style="left: {outline.left}px; top: {outline.top}px; width: {outline.width}px; height: {outline.height}px;"
-                                        data-detection-other-bird-outline
-                                        aria-hidden="true"
-                                    ></div>
-                                {/each}
-                            {/if}
-                            {#if wholeSceneReady}
-                                <span
-                                    class="pointer-events-none absolute left-3 top-3 z-30 rounded-full border border-on-media/15 bg-media/70 px-2.5 py-1 text-2xs font-semibold text-on-media backdrop-blur-xs"
-                                    data-detection-whole-scene-chip
-                                >
-                                    {wholeScene.otherOutlines.length > 0
-                                        ? $_('detection.whole_scene_multiple_outlined', { values: { count: wholeScene.otherOutlines.length + 1 }, default: 'Whole scene, {count, plural, one {# crop region outlined} other {# crop regions outlined}}' })
-                                        : wholeScene.pinned
-                                            ? $_('detection.whole_scene_chip_pinned', { default: 'Whole scene, the crop is outlined' })
-                                            : $_('detection.whole_scene_chip', { default: 'Whole scene' })}
-                                </span>
-                            {/if}
-                        {/if}
-                    </div>
-                        <div
-                            class="relative flex shrink-0 flex-col bg-media {mediaFooterHasActions ? 'sm:pt-4' : ''}"
-                            data-detection-media-footer
-                        >
-                            {#if mediaFooterHasActions}
-                            <!-- On a phone the star and play buttons sit on the photograph's lower edge rather than in a
-                                 black band of their own under it, so the identification starts a band higher. -->
-                            <div class="flex flex-col gap-3 px-5 {showInlineFramePicker ? 'sm:pb-2' : 'sm:pb-5'} {wholeScene.pinned && wholeSceneReady ? 'max-sm:py-3' : ''}">
-                                {#if wholeScene.pinned && wholeSceneReady}
-                                    <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center" data-detection-whole-scene-actions>
-                                        <button
-                                            type="button"
-                                            class="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-on-media/25 bg-media/55 px-4 text-2xs font-semibold text-on-media shadow-xl backdrop-blur-xs transition-colors hover:bg-media/70 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-on-dark"
-                                            disabled={snapshotApplyPending || snapshotGeneratePending}
-                                            onclick={(event) => { event.stopPropagation(); void useWholeSceneAsPhotograph(); }}
-                                        >
-                                            {#if snapshotApplyPending}
-                                                <span class="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden="true"></span>
-                                            {/if}
-                                            {$_('detection.whole_scene_use', { default: 'Use the whole scene as the photograph' })}
-                                        </button>
-                                        <button
-                                            type="button"
-                                            class="inline-flex min-h-11 items-center justify-center rounded-full border border-on-media/25 bg-media/40 px-4 text-2xs font-semibold text-on-media/85 shadow-xl backdrop-blur-xs transition-colors hover:bg-media/60 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-on-dark"
-                                            onclick={(event) => { event.stopPropagation(); resetMediaView(); }}
-                                        >
-                                            {$_('detection.whole_scene_back', { default: 'Back to the crop' })}
-                                        </button>
-                                    </div>
-                                {/if}
-
-                                {#if canShowFavoriteAction || canPlayVideo || showFetchFullVisitAction || isManualObservation || frigateIssueBadgeVisible}
-                                    <div class="flex flex-wrap items-center gap-2 max-sm:pointer-events-none max-sm:absolute max-sm:inset-x-4 max-sm:bottom-full max-sm:z-30 max-sm:mb-3" data-detection-media-actions>
-                                        {#if canShowFavoriteAction}
-                                            <button
-                                                type="button"
-                                                onclick={handleFavoriteToggle}
-                                                disabled={favoritePending}
-                                                class="pointer-events-auto inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border max-sm:shadow-lg backdrop-blur-xs transition-colors disabled:opacity-60 focus-ring-on-dark {detection.is_favorite ? 'border-on-media-accent bg-accent text-accent-fg hover:bg-accent-hover' : 'border-on-media/35 bg-media/45 text-on-media hover:bg-media/60'}"
-                                                title={detection.is_favorite ? $_('detection.favorite_remove', { default: 'Remove favorite' }) : $_('detection.favorite_add', { default: 'Add favorite' })}
-                                                aria-label={detection.is_favorite ? $_('detection.favorite_remove', { default: 'Remove favorite' }) : $_('detection.favorite_add', { default: 'Add favorite' })}
-                                            >
-                                                {#if favoritePending}
-                                                    <span class="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent"></span>
-                                                {:else}
-                                                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill={detection.is_favorite ? 'currentColor' : 'none'} stroke="currentColor" stroke-width="1.8">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M11.05 2.927c.3-.921 1.603-.921 1.902 0l2.02 6.217a1 1 0 00.95.69h6.54c.969 0 1.371 1.24.588 1.81l-5.29 3.844a1 1 0 00-.364 1.118l2.02 6.217c.3.921-.755 1.688-1.539 1.118l-5.29-3.844a1 1 0 00-1.175 0l-5.29 3.844c-.783.57-1.838-.197-1.539-1.118l2.02-6.217a1 1 0 00-.364-1.118L.98 11.644c-.783-.57-.38-1.81.588-1.81h6.54a1 1 0 00.95-.69l2.02-6.217z" />
-                                                    </svg>
-                                                {/if}
-                                            </button>
-                                        {/if}
-                                        {#if canPlayVideo}
-                                            <button
-                                                type="button"
-                                                onclick={(e) => {
-                                                    e.preventDefault();
-                                                    e.stopPropagation();
-                                                    onPlayVideo?.(detection.frigate_event, 'user');
-                                                }}
-                                                onpointerdown={(e) => {
-                                                    e.preventDefault();
-                                                    e.stopPropagation();
-                                                }}
-                                                ontouchstart={(e) => {
-                                                    e.preventDefault();
-                                                    e.stopPropagation();
-                                                }}
-                                                title={fullVisitFetched ? $_('video_player.full_visit_ready', { default: 'Full visit clip ready' }) : $_('detection.play_video', { values: { species: primaryName } })}
-                                                aria-label={fullVisitFetched ? $_('detection.play_full_visit', { values: { species: primaryName }, default: 'Play full visit clip of {species}' }) : $_('detection.play_video', { values: { species: primaryName } })}
-                                                class="pointer-events-auto inline-flex h-11 min-w-11 items-center justify-center rounded-full border max-sm:shadow-xl backdrop-blur-xs transition-colors duration-150 focus:outline-hidden focus:ring-2 focus:ring-focus-on-dark {fullVisitFetched ? 'gap-2 border-on-media-accent/30 bg-accent px-3 text-accent-fg hover:bg-accent-hover' : 'w-11 border-on-media/25 bg-media/55 text-on-media'}"
-                                            >
-                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                                                    <path d="M8 5v14l11-7z"/>
-                                                </svg>
-                                                {#if fullVisitFetched}
-                                                    <span class="text-2xs font-semibold">{$_('video_player.full_visit_action', { default: 'Full visit' })}</span>
-                                                {/if}
-                                            </button>
-                                        {/if}
-                                        {#if isManualObservation}
-                                            <div class="inline-flex min-h-11 items-center gap-2 rounded-full border border-on-media/25 bg-media/55 px-3.5 text-xs font-bold text-on-media max-sm:shadow-xl backdrop-blur-xs">
-                                                <svg class="h-4 w-4 text-on-media-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 16V4m0 0L8 8m4-4 4 4M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4" /></svg>
-                                                {$_('detection.uploaded', { default: 'Uploaded' })}
-                                            </div>
-                                        {/if}
-                                        {#if showFetchFullVisitAction}
-                                            <button
-                                                type="button"
-                                                onclick={handleFetchFullVisitClick}
-                                                onpointerdown={(e) => {
-                                                    e.preventDefault();
-                                                    e.stopPropagation();
-                                                }}
-                                                ontouchstart={(e) => {
-                                                    e.preventDefault();
-                                                    e.stopPropagation();
-                                                }}
-                                                disabled={fullVisitFetchState === 'fetching'}
-                                                aria-label={fullVisitFetchLabel}
-                                                class="pointer-events-auto inline-flex min-h-11 items-center gap-2 rounded-full border border-on-media/25 bg-media/55 px-4 py-2 text-2xs font-semibold text-on-media max-sm:shadow-xl backdrop-blur-xs transition-colors duration-150 hover:bg-accent-hover disabled:cursor-wait disabled:opacity-75 focus:outline-hidden focus:ring-2 focus:ring-focus-on-dark"
-                                            >
-                                                {#if fullVisitFetchState === 'fetching'}
-                                                    <span class="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent"></span>
-                                                {:else}
-                                                    <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
-                                                        <path d="M10 3v8"></path>
-                                                        <path d="M7 8l3 3 3-3"></path>
-                                                        <path d="M4 14h12"></path>
-                                                    </svg>
-                                                {/if}
-                                                <span>{fullVisitFetchLabel}</span>
-                                            </button>
-                                        {/if}
-                                        {#if frigateIssueBadgeVisible}
-                                            <div
-                                                class="inline-flex h-11 w-11 items-center justify-center rounded-full border border-on-media-fail/70 bg-media/55 text-on-media-fail max-sm:shadow-lg backdrop-blur-xs"
-                                                title={videoFailureInsight.summary}
-                                                aria-label={videoFailureInsight.summary}
-                                                role="img"
-                                            >
-                                                <img src={FRIGATE_LOGO_URL} alt="" aria-hidden="true" class="h-4 w-4 rounded-[3px] bg-on-media/95 p-0.5 object-contain" />
-                                            </div>
-                                        {/if}
-                                    </div>
-                                {/if}
-                            </div>
-                            {/if}
-
-                            {#if !recordStacked}{@render visitStrip()}{/if}
-                        </div>
-                </div>
-
-            <div data-detection-details-column class="flex min-w-0 flex-1 flex-col gap-5 wrap-break-word lg:overflow-y-auto sm:max-lg:short:overflow-y-auto p-5 sm:p-6 xl:col-span-3 @6xl:grid @6xl:grid-cols-2 @6xl:items-start @6xl:gap-x-8 {showTagDropdown ? 'blur-xs pointer-events-none select-none' : ''}">
+{#snippet decision()}
             <!-- The identification and what it rests on: the decision first. -->
-            <div class="flex min-w-0 flex-col gap-5" data-detection-primary-column>
+            <div class="flex min-w-0 flex-col gap-5 wrap-break-word lg:gap-4 {recordShortLandscape.current ? '' : 'p-5 sm:p-6 lg:p-0'} {showTagDropdown ? 'blur-xs pointer-events-none select-none' : ''}" data-detection-primary-column>
+            <div class="flex min-w-0 flex-col gap-5 {recordShortLandscape.current ? '' : 'lg:panel-raised lg:p-5'}" data-detection-decision-panel>
             {#if isManualObservation && detection.observation_notes}
                 <div class="border-l-2 border-accent-line pl-3">
-                    <div class="text-3xs font-bold text-muted">{$_('detection.observation_notes', { default: 'Observation notes' })}</div>
+                    <div class="text-3xs font-semibold text-muted">{$_('detection.observation_notes', { default: 'Observation notes' })}</div>
                     <p class="mt-1 whitespace-pre-wrap text-sm leading-6 text-ink">{detection.observation_notes}</p>
                 </div>
             {/if}
@@ -1811,7 +1572,7 @@
                 <div data-manual-observation-location class="border-l-2 border-line pl-3">
                     <div class="flex items-center justify-between gap-3">
                         <div>
-                            <div class="text-3xs font-bold text-muted">{$_('manual_observation.location.title', { default: 'Sighting location' })}</div>
+                            <div class="text-3xs font-semibold text-muted">{$_('manual_observation.location.title', { default: 'Sighting location' })}</div>
                             <p class="mt-1 text-xs tabular-nums text-muted">{detection.observation_latitude.toFixed(5)}, {detection.observation_longitude.toFixed(5)}</p>
                         </div>
                         {#if detection.observation_location_source === 'image_metadata'}
@@ -1892,7 +1653,7 @@
 
                 {#if currentClassificationSource !== 'manual'}
                     <div class="mt-2 flex flex-wrap items-center gap-2.5">
-                        <span class="text-sm font-bold tabular-nums text-strong">
+                        <span class="text-sm font-semibold tabular-nums text-strong">
                             {Math.round((detection.score || 0) * 100)}%
                         </span>
                         <span class="text-xs text-muted">
@@ -2063,15 +1824,26 @@
                         </li>
                     </ul>
                 {/if}
-                <!-- Always present for an owner, so a reason that comes or goes is announced; it says why
-                     the finder is not under the photograph, after the identification it would follow. -->
+                <!-- The finder, with the decision it informs: one row that lines up with the panel. When it
+                     cannot run it steps aside for the line under it, which is always present for an owner so
+                     that a reason that comes or goes is announced. -->
+                <BirdScanControl
+                    scan={birdScan}
+                    sceneImageUrl={scanFrameCandidate?.image_url ?? null}
+                    disabled={snapshotApplyPending || snapshotGeneratePending || countedBirdsLoading}
+                    stepAside
+                />
                 <p class={scanStandingText ? 'text-xs text-muted' : 'sr-only'} role="status" aria-live="polite" data-detection-scan-standing>{#if scanStandingText}<span class="font-semibold text-ink">{$_('detection.bird_scan.action', { default: 'Find more birds' })}:</span> {scanStandingText}{/if}</p>
             {/if}
-                <!-- On a phone or tablet held upright the visit's frames and the finder come after the
-                     identification, so the decision is read first; on its own dark ground, as under the photograph. -->
-                {#if recordStacked && (hasOwnerDetectionActions || showInlineFramePicker)}
+                <!-- On a phone or tablet held upright the visit's frames come after the identification, so
+                     the decision is read first; on their own dark ground, as under the photograph. -->
+                {#if recordStacked && showInlineFramePicker}
                     <div class="overflow-hidden rounded-xl bg-media py-3" data-detection-stacked-strip>{@render visitStrip()}</div>
                 {/if}
+            </div>
+
+            <!-- What the identification rests on, and the facts of the sighting. -->
+            <div class="flex min-w-0 flex-col gap-5 {recordShortLandscape.current ? '' : 'lg:panel-raised lg:p-5'}" data-detection-evidence-panel>
 
             {#if domesticMatch?.declared}
                 <div class="card-base space-y-2 p-3 text-sm text-ink" data-detection-domestic-bird>
@@ -2152,7 +1924,7 @@
             {#if detection.video_classification_status === 'completed' || (detection.video_classification_label && detection.video_classification_label !== detection.display_name)}
                 <div class="p-4 rounded-2xl bg-surface-raised border border-line animate-in fade-in slide-in-from-top-2">
                     <div class="flex items-center justify-between mb-2">
-                        <p class="text-3xs font-bold text-ink">
+                        <p class="text-3xs font-semibold text-muted">
                             {completedClassificationTitle}
                         </p>
                         {#if detection.video_classification_score}
@@ -2162,13 +1934,13 @@
                             </span>
                         {/if}
                     </div>
-                    <p class="text-sm font-bold text-strong">
+                    <p class="text-sm font-semibold text-strong">
                         {detection.video_classification_label === detection.scientific_name
                             ? $birdNames(detection, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary).primary
                             : detection.video_classification_label}
                     </p>
                     {#if detection.video_result_blocked}
-                        <p class="text-3xs font-bold text-ink mt-0.5">
+                        <p class="text-3xs font-semibold text-ink mt-0.5">
                             {$_('detection.video_analysis.blocked_label', { default: 'Matched a blocked species: not applied' })}
                         </p>
                     {/if}
@@ -2180,7 +1952,7 @@
             {/if}
             {#if videoAnalysisActive && !reclassifyProgress}
                 <div class="p-4 rounded-2xl bg-surface border border-line" role="status">
-                    <p class="text-xs font-bold text-muted">
+                    <p class="text-xs font-semibold text-muted">
                         {videoAnalysisStatus === 'pending'
                             ? $_('detection.video_analysis.queued', { default: 'Video analysis queued' })
                             : $_('detection.video_analysis.preparing', { default: 'Preparing video analysis' })}
@@ -2324,11 +2096,287 @@
                 {/key}
             {/if}
             </div>
+            </div>
+{/snippet}
 
-            <!-- Reference for the species and the record: beside the identification where the record is wide
-                 enough in rem (from 1280px at the usual text size), under it otherwise, so a larger text size
-                 keeps one column of whole words rather than two narrow ones. -->
-            <div class="flex min-w-0 flex-col gap-5" data-detection-secondary-column>
+<div
+    data-detection-detail-modal
+    class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto overscroll-contain dialog-scrim p-0 backdrop-blur-xs sm:p-4"
+    data-theme={isDarkMode ? 'dark' : 'light'}
+    onclick={(e) => {
+        if (e.target === e.currentTarget) {
+            onClose();
+        }
+    }}
+    onkeydown={(e) => {
+        if (e.key !== 'Escape') return;
+        // A pinned whole scene closes first; the record stays open.
+        if (wholeScene.pinned) {
+            e.preventDefault();
+            resetMediaView();
+            return;
+        }
+        onClose();
+    }}
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="detection-modal-title"
+    tabindex="-1"
+>
+    <div
+        bind:this={modalElement}
+        data-theme={isDarkMode ? 'dark' : 'light'}
+        class="relative flex max-h-dvh w-full max-w-5xl flex-col overflow-hidden rounded-none dialog-surface sm:max-h-[92vh] sm:rounded-2xl {recordHasReference ? 'lg:h-208 xl:max-w-6xl' : 'lg:max-w-xl'}"
+        role="document"
+        tabindex="-1"
+    >
+
+        <!-- Reclassification Overlay (covers entire modal content) -->
+        {#if reclassifyProgress}
+            <ReclassificationOverlay progress={reclassifyProgress} />
+        {/if}
+
+        <!-- The shared dialog header, so nothing scrolls under the close button. The record's heading is
+             the species name below, so the strip carries a quiet label rather than a second heading. -->
+        <DialogHeader
+            label={$_('detection.record_label', { default: 'Record' })}
+            onClose={onClose}
+            closeData={{ 'data-detection-modal-close': true }}
+            data-detection-modal-header
+        />
+
+        <!-- From 1024px a record with a reference to read stands in two columns that each scroll: the
+             photograph with the decision under it, and the reference beside them. A record with no
+             reference is one narrow column. Held sideways on a phone or small tablet (a short screen), the
+             photograph stands beside everything else, so the identification is on the first screen. -->
+        <div class="flex-1 overflow-y-auto flex flex-col {recordHasReference ? 'lg:grid lg:grid-cols-2 lg:grid-rows-1 lg:overflow-hidden' : 'lg:dialog-well'} sm:max-lg:short:grid sm:max-lg:short:grid-cols-2 sm:max-lg:short:grid-rows-1 sm:max-lg:short:overflow-hidden">
+            <div class="flex min-w-0 shrink-0 flex-col lg:gap-4 lg:p-4 {recordHasReference ? 'lg:dialog-well lg:min-h-0 lg:shrink lg:overflow-y-auto lg:border-r lg:border-line' : ''} sm:max-lg:short:min-h-0 sm:max-lg:short:shrink sm:max-lg:short:overflow-y-auto sm:max-lg:short:border-r sm:max-lg:short:border-line" data-detection-evidence-column>
+                <!-- The photograph keeps its own shape at the top of its column, with the visit's frames under
+                     it, one object on the media ground. It gives up height before the identification under
+                     it leaves the first screen. -->
+                <div class="flex shrink-0 flex-col bg-media lg:overflow-hidden lg:rounded-2xl lg:media-frame" data-detection-media>
+                    <div class="relative min-w-0 aspect-4/3 min-h-72 shrink-0 overflow-hidden bg-media sm:max-lg:aspect-video lg:min-h-0 short:min-h-0 max-sm:max-lg:short:max-h-half-screen {recordHasReference ? 'lg:record-photo-cap' : 'lg:record-photo-cap-narrow'}" style:--record-under-photo="{recordUnderPhotoRem}rem" data-detection-photograph>
+                        {#if photographDrawnUrl}
+                            <img data-detection-media-ambient src={photographDrawnUrl} alt="" aria-hidden="true" class="absolute inset-0 h-full w-full scale-110 object-cover opacity-60 blur-2xl" />
+                        {/if}
+                        <!-- A photograph shown whole stands on a soft fill of its own colours, dimmed enough that
+                             the picture stays the brightest thing in its frame; never on black bars. -->
+                        <div class="absolute inset-0 bg-media/35" aria-hidden="true"></div>
+                        <!-- The photograph stays drawn under a peek, and only steps aside once the whole
+                             scene has actually loaded over it. -->
+                        <MediaImage
+                            sources={photographSources}
+                            alt={detection.display_name}
+                            class="relative h-full w-full {photographIsCrop && photographFit === 'cover' ? 'object-cover' : 'object-contain'} {wholeSceneReady ? 'opacity-0' : ''}"
+                            placeholderClass="text-on-media/80"
+                            iconClass="h-10 w-10"
+                            onload={(image) => {
+                                photographDrawnUrl = image.getAttribute('src');
+                                // A tall crop would be cut to a band: it is shown whole over the ambient fill (#481).
+                                photographFit = photoFitFor(image);
+                            }}
+                        />
+                        {#if canPeekWholeScene && wholeScene.showing}
+                            <MediaImage
+                                bind:element={sceneImageEl}
+                                sources={wholeSceneSources}
+                                alt=""
+                                class="absolute inset-0 h-full w-full object-contain {wholeSceneReady ? 'opacity-100' : 'opacity-0'}"
+                                placeholderClass="hidden"
+                                onload={wholeSceneLoaded}
+                                onfail={wholeSceneFailed}
+                                data-detection-whole-scene-image
+                            />
+                        {/if}
+                        {#if canPeekWholeScene}
+                            <!-- The whole scene is a look, not a mode (#256). Hover or focus peeks at it with
+                                 same-frame crops outlined; a click pins it and offers the one rescue that needs it. -->
+                            <button
+                                type="button"
+                                class="absolute inset-0 z-10 {wholeScene.pinned ? 'cursor-zoom-out' : 'cursor-zoom-in'} focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-on-dark"
+                                data-detection-whole-scene-peek
+                                aria-pressed={wholeScene.pinned}
+                                aria-label={wholeScene.pinned
+                                    ? $_('detection.whole_scene_back', { default: 'Back to the crop' })
+                                    : $_('detection.whole_scene_show', { default: 'Show the whole scene' })}
+                                onmouseenter={wholeScene.enter}
+                                onmouseleave={wholeScene.leave}
+                                onfocus={wholeScene.show}
+                                onblur={wholeScene.leave}
+                                onclick={(event) => { event.stopPropagation(); wholeScene.toggle(); }}
+                            ></button>
+                            {#if wholeSceneReady && wholeScene.outline}
+                                <div
+                                    class="pointer-events-none absolute z-20 rounded-xs border-2 border-solid border-evidence {wholeScene.otherOutlines.length === 0 ? 'shadow-[0_0_0_9999px_rgba(2,6,23,0.35)]' : ''}"
+                                    style="left: {wholeScene.outline.left}px; top: {wholeScene.outline.top}px; width: {wholeScene.outline.width}px; height: {wholeScene.outline.height}px;"
+                                    data-detection-whole-scene-outline
+                                    aria-hidden="true"
+                                ><span class="absolute whitespace-nowrap rounded-sm bg-evidence px-1.5 py-0.5 text-3xs font-semibold text-media {outlineLabelClass(outlineLabelPlace(wholeScene.outline, { width: sceneImageEl?.clientWidth ?? 0, height: sceneImageEl?.clientHeight ?? 0 }, PHOTOGRAPH_CONTROLS_ROOM))}" data-detection-whole-scene-label>{$_('detection.frame_chosen_badge', { default: 'Chosen' })}</span></div>
+                                {#each wholeScene.otherOutlines as outline}
+                                    <div
+                                        class="pointer-events-none absolute z-10 rounded-xs border-2 border-dashed border-on-media/90"
+                                        style="left: {outline.left}px; top: {outline.top}px; width: {outline.width}px; height: {outline.height}px;"
+                                        data-detection-other-bird-outline
+                                        aria-hidden="true"
+                                    ></div>
+                                {/each}
+                            {/if}
+                            {#if wholeSceneReady}
+                                <span
+                                    class="pointer-events-none absolute left-3 top-3 z-30 rounded-full border border-on-media/15 bg-media/70 px-2.5 py-1 text-2xs font-semibold text-on-media backdrop-blur-xs"
+                                    data-detection-whole-scene-chip
+                                >
+                                    {wholeScene.otherOutlines.length > 0
+                                        ? $_('detection.whole_scene_multiple_outlined', { values: { count: wholeScene.otherOutlines.length + 1 }, default: 'Whole scene, {count, plural, one {# crop region outlined} other {# crop regions outlined}}' })
+                                        : wholeScene.pinned
+                                            ? $_('detection.whole_scene_chip_pinned', { default: 'Whole scene, the crop is outlined' })
+                                            : $_('detection.whole_scene_chip', { default: 'Whole scene' })}
+                                </span>
+                            {/if}
+                        {/if}
+                    </div>
+                        <div
+                            class="relative flex shrink-0 flex-col bg-media"
+                            data-detection-media-footer
+                        >
+                            {#if mediaFooterHasActions}
+                            <!-- The star and play buttons sit on the photograph's lower edge rather than in a black
+                                 band of their own under it, so the identification starts a band higher. -->
+                            <div class="flex flex-col gap-3 px-4 {wholeScene.pinned && wholeSceneReady ? 'pt-3' : ''}">
+                                {#if wholeScene.pinned && wholeSceneReady}
+                                    <div class="flex" data-detection-whole-scene-actions>
+                                        <button
+                                            type="button"
+                                            class="btn btn-primary btn-focus-on-dark min-h-11 gap-2 px-4 text-sm max-sm:grow"
+                                            disabled={snapshotApplyPending || snapshotGeneratePending}
+                                            onclick={(event) => { event.stopPropagation(); void useWholeSceneAsPhotograph(); }}
+                                        >
+                                            {#if snapshotApplyPending}
+                                                <span class="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden="true"></span>
+                                            {/if}
+                                            {$_('detection.whole_scene_use', { default: 'Use the whole scene as the photograph' })}
+                                        </button>
+                                    </div>
+                                {/if}
+
+                                <div class="pointer-events-none absolute inset-x-4 bottom-full z-30 mb-3 flex flex-wrap items-center gap-2" data-detection-media-actions>
+                                        {#if canShowFavoriteAction}
+                                            <button
+                                                type="button"
+                                                onclick={handleFavoriteToggle}
+                                                disabled={favoritePending}
+                                                class="pointer-events-auto inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border shadow-lg backdrop-blur-xs transition-colors disabled:opacity-60 focus-ring-on-dark {detection.is_favorite ? 'border-on-media-accent bg-accent text-accent-fg hover:bg-accent-hover' : 'border-on-media/35 bg-media/45 text-on-media hover:bg-media/60'}"
+                                                title={detection.is_favorite ? $_('detection.favorite_remove', { default: 'Remove favorite' }) : $_('detection.favorite_add', { default: 'Add favorite' })}
+                                                aria-label={detection.is_favorite ? $_('detection.favorite_remove', { default: 'Remove favorite' }) : $_('detection.favorite_add', { default: 'Add favorite' })}
+                                            >
+                                                {#if favoritePending}
+                                                    <span class="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent"></span>
+                                                {:else}
+                                                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill={detection.is_favorite ? 'currentColor' : 'none'} stroke="currentColor" stroke-width="1.8">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M11.05 2.927c.3-.921 1.603-.921 1.902 0l2.02 6.217a1 1 0 00.95.69h6.54c.969 0 1.371 1.24.588 1.81l-5.29 3.844a1 1 0 00-.364 1.118l2.02 6.217c.3.921-.755 1.688-1.539 1.118l-5.29-3.844a1 1 0 00-1.175 0l-5.29 3.844c-.783.57-1.838-.197-1.539-1.118l2.02-6.217a1 1 0 00-.364-1.118L.98 11.644c-.783-.57-.38-1.81.588-1.81h6.54a1 1 0 00.95-.69l2.02-6.217z" />
+                                                    </svg>
+                                                {/if}
+                                            </button>
+                                        {/if}
+                                        {#if canPlayVideo}
+                                            <button
+                                                type="button"
+                                                onclick={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    onPlayVideo?.(detection.frigate_event, 'user');
+                                                }}
+                                                onpointerdown={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                }}
+                                                ontouchstart={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                }}
+                                                title={fullVisitFetched ? $_('video_player.full_visit_ready', { default: 'Full visit clip ready' }) : $_('detection.play_video', { values: { species: primaryName } })}
+                                                aria-label={fullVisitFetched ? $_('detection.play_full_visit', { values: { species: primaryName }, default: 'Play full visit clip of {species}' }) : $_('detection.play_video', { values: { species: primaryName } })}
+                                                class="pointer-events-auto inline-flex h-11 min-w-11 items-center justify-center rounded-full border shadow-xl backdrop-blur-xs transition-colors duration-150 focus:outline-hidden focus:ring-2 focus:ring-focus-on-dark {fullVisitFetched ? 'gap-2 border-on-media-accent/30 bg-accent px-3 text-accent-fg hover:bg-accent-hover' : 'w-11 border-on-media/25 bg-media/55 text-on-media'}"
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                                    <path d="M8 5v14l11-7z"/>
+                                                </svg>
+                                                {#if fullVisitFetched}
+                                                    <span class="text-2xs font-semibold">{$_('video_player.full_visit_action', { default: 'Full visit' })}</span>
+                                                {/if}
+                                            </button>
+                                        {/if}
+                                        {#if isManualObservation}
+                                            <div class="inline-flex min-h-11 items-center gap-2 rounded-full border border-on-media/25 bg-media/55 px-3.5 text-xs font-semibold text-on-media shadow-xl backdrop-blur-xs">
+                                                <svg class="h-4 w-4 text-on-media-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 16V4m0 0L8 8m4-4 4 4M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4" /></svg>
+                                                {$_('detection.uploaded', { default: 'Uploaded' })}
+                                            </div>
+                                        {/if}
+                                        {#if showFetchFullVisitAction}
+                                            <button
+                                                type="button"
+                                                onclick={handleFetchFullVisitClick}
+                                                onpointerdown={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                }}
+                                                ontouchstart={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                }}
+                                                disabled={fullVisitFetchState === 'fetching'}
+                                                aria-label={fullVisitFetchLabel}
+                                                class="pointer-events-auto inline-flex min-h-11 items-center gap-2 rounded-full border border-on-media/25 bg-media/55 px-4 py-2 text-2xs font-semibold text-on-media shadow-xl backdrop-blur-xs transition-colors duration-150 hover:bg-accent-hover disabled:cursor-wait disabled:opacity-75 focus:outline-hidden focus:ring-2 focus:ring-focus-on-dark"
+                                            >
+                                                {#if fullVisitFetchState === 'fetching'}
+                                                    <span class="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent"></span>
+                                                {:else}
+                                                    <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                                                        <path d="M10 3v8"></path>
+                                                        <path d="M7 8l3 3 3-3"></path>
+                                                        <path d="M4 14h12"></path>
+                                                    </svg>
+                                                {/if}
+                                                <span>{fullVisitFetchLabel}</span>
+                                            </button>
+                                        {/if}
+                                        {#if frigateIssueBadgeVisible}
+                                            <div
+                                                class="inline-flex h-11 w-11 items-center justify-center rounded-full border border-on-media-fail/70 bg-media/55 text-on-media-fail shadow-lg backdrop-blur-xs"
+                                                title={videoFailureInsight.summary}
+                                                aria-label={videoFailureInsight.summary}
+                                                role="img"
+                                            >
+                                                <img src={FRIGATE_LOGO_URL} alt="" aria-hidden="true" class="h-4 w-4 rounded-[3px] bg-on-media/95 p-0.5 object-contain" />
+                                            </div>
+                                        {/if}
+                                        {#if wholeScene.pinned && wholeSceneReady}
+                                            <!-- The way back sits on the photograph it changes, at the end of its row of controls. -->
+                                            <button
+                                                type="button"
+                                                class="btn btn-focus-on-dark photo-chip pointer-events-auto ml-auto min-h-11 border border-on-media/25 px-3 text-xs shadow-lg"
+                                                onclick={(event) => { event.stopPropagation(); resetMediaView(); }}
+                                                data-detection-whole-scene-back
+                                            >
+                                                {$_('detection.whole_scene_back', { default: 'Back to the crop' })}
+                                            </button>
+                                        {/if}
+                                </div>
+                            </div>
+                            {/if}
+
+                            {#if !recordStacked && showInlineFramePicker}<div class="pt-3" data-detection-footer-strip>{@render visitStrip()}</div>{/if}
+                        </div>
+                </div>
+
+                {#if !recordShortLandscape.current}{@render decision()}{/if}
+            </div>
+
+            <!-- Reference for the species and the record, and the identifiers last. Held sideways on a
+                 phone this column also holds the decision, above the reference. -->
+            <div data-detection-details-column class="flex min-w-0 flex-1 flex-col gap-5 wrap-break-word px-5 pb-5 sm:px-6 sm:pb-6 {recordHasReference ? 'lg:overflow-y-auto lg:pt-6' : 'lg:px-4 lg:pb-4'} sm:max-lg:short:overflow-y-auto sm:max-lg:short:pt-6">
+            {#if recordShortLandscape.current}{@render decision()}{/if}
+            <div class="flex min-w-0 flex-col gap-5 {showTagDropdown ? 'blur-xs pointer-events-none select-none' : ''}" data-detection-secondary-column>
             {#if !isUnknownSpecies && detection.scientific_name}
                 <TaxonomyLineage scientificName={detection.scientific_name} commonName={detection.common_name} />
             {/if}

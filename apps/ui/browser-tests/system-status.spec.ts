@@ -110,11 +110,18 @@ test('the count is the link: one line, with the way in at its end', async ({ pag
     await expect(page).toHaveURL(/\/system-health$/);
 });
 
-test('the card is a plain neutral surface with the readings as text, not a link', async ({ page }) => {
+test('the card is a plain neutral surface with the load as named meters, not a link', async ({ page }) => {
     await openShell(page, 'light', workspace([]));
     await expect(card(page).getByRole('heading', { name: 'System status' })).toBeVisible();
     const readout = card(page).locator('[data-telemetry-readout]');
-    await expect(readout).toHaveText(/^\s*CPU \d+%\s*·\s*NPU \d+%\s*$/, { timeout: 15_000 });
+    // Each meter is named and says its figure, so the bar's length and colour are never the only cue.
+    const meters = readout.locator('[data-telemetry-meter]');
+    await expect(meters).toHaveText([/^\s*CPU\s*\d+%\s*$/, /^\s*NPU\s*\d+%\s*$/], { timeout: 15_000 });
+    await expect(readout.locator('dt')).toHaveText(['CPU', 'NPU']);
+    // The bars wear the Health chart's series colours: the CPU's and the first accelerator's, never one shared colour.
+    const fills = await readout.locator('dd span[aria-hidden="true"] > span').evaluateAll((bars) => bars.map((bar) => getComputedStyle(bar).backgroundColor));
+    expect(fills).toHaveLength(2);
+    expect(fills[0]).not.toBe(fills[1]);
     const surface = await card(page).evaluate(node => {
         const style = getComputedStyle(node);
         const readout = node.querySelector('[data-telemetry-readout]') as HTMLElement;

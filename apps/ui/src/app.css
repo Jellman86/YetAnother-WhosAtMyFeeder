@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Instrument+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&family=Playfair+Display:wght@600;700&family=Source+Serif+4:wght@400;600;700&family=Sora:wght@500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Instrument+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&family=Playfair+Display:wght@600;700&family=Source+Serif+4:ital,wght@0,400;0,600;0,700;1,400;1,600;1,700&family=Sora:wght@500;600;700&display=swap');
 
 /* Classes are read from the app source only, never from tests, fixtures or documentation.
    Unit tests quote class names in their assertions, retired ones included, so they are left out. */
@@ -178,6 +178,15 @@
   --color-on-media-fail: rgb(var(--on-media-fail));
   /* Rain over a time series: the precipitation bands on the Leaderboard's timeline and their key. */
   --color-rain-band: rgb(var(--rain-band));
+  /* The lines of a load chart, in a fixed order: the Health chart's CPU and accelerators and the
+     sidebar's meters. Categorical, not semantic: they never follow the colour theme, and they keep
+     clear of the accent, the focus ring and every status tone, so no line reads as a link or a
+     state. The contrast test (design-tokens.contrast.test.ts) checks normal-vision separation and
+     contrast in each mode; for colour-blind readers each line's own dash carries the difference. */
+  --color-series-1: rgb(var(--series-1));
+  --color-series-2: rgb(var(--series-2));
+  --color-series-3: rgb(var(--series-3));
+  --color-series-4: rgb(var(--series-4));
 
   /* Semantic success, deliberately NOT theme-driven. `accent` is a brand colour and the
      bluetit theme paints it amber, which is reserved for "needs a person"
@@ -300,6 +309,15 @@
   --surface-raised: 241 245 249;
   --line: 214 222 232;
   --line-soft: 229 234 241;
+  /* Depth, from light. A dialog stands over a scrim that dims the page behind it, lifted by a
+     close contact shadow and a wide soft one; a panel inside it stands on a sunken well, lifted by
+     a small shadow. Dark mode has no light to cast a shadow on, so there the lift is carried by a
+     lighter surface and a firmer edge, and the scrim is deeper than the dialog. */
+  --scrim: 2 6 23;
+  --scrim-strength: 0.6;
+  --elevation-dialog: 0 2px 6px -1px rgb(15 23 42 / 0.14), 0 28px 64px -16px rgb(15 23 42 / 0.5);
+  --elevation-panel: 0 1px 2px rgb(15 23 42 / 0.06), 0 3px 8px -3px rgb(15 23 42 / 0.12);
+  --dialog-edge: var(--line);
   /* The smallest any text is drawn. Half the browser's own text size (the root with the reader's
      Appearance size divided back out) plus a third of the root: 12px at the smallest Appearance
      size, a little more at each larger one, and never a fixed pixel count, so it doubles with
@@ -353,9 +371,17 @@
   --status-neutral-line: 100 116 139;
   --media: 0 0 0;
   --media-raised: 15 23 42;
+  /* The hairline round a media object: on-media white at about a fifth, as a solid colour. */
+  --media-edge: 61 68 84;
   --on-media-fail: 253 164 175;
   --rain-band: 56 189 248;
   --on-media: 255 255 255;
+  /* Violet, sky, plum, pink: the CPU and the first accelerator, the pair on show most, are the
+     furthest apart. */
+  --series-1: 119 47 221;
+  --series-2: 0 140 206;
+  --series-3: 145 0 128;
+  --series-4: 248 81 174;
 }
 
 html.dark,
@@ -364,6 +390,11 @@ html[data-theme='dark'] {
   --surface-raised: 30 41 59;
   --line: 51 65 85;
   --line-soft: 34 46 66;
+  --scrim: 0 0 0;
+  --scrim-strength: 0.72;
+  --elevation-dialog: 0 28px 64px -16px rgb(0 0 0 / 0.85);
+  --elevation-panel: 0 1px 2px rgb(0 0 0 / 0.5);
+  --dialog-edge: 71 85 105;
   --focus: var(--brand-400);
 
   /* Semantic tokens, dark. The status grounds are quiet tints of the panel, not the deep 950
@@ -400,6 +431,11 @@ html[data-theme='dark'] {
   --ai-code: var(--brand-200);
   --ai-muted: 148 163 184;
   --ai-marker: var(--brand-300);
+  /* The same four hues, stepped for the dark ground: violet, sky, orchid, deep pink. */
+  --series-1: 144 72 253;
+  --series-2: 8 154 195;
+  --series-3: 227 110 253;
+  --series-4: 217 9 129;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
@@ -550,6 +586,37 @@ html[data-theme='dark'] {
    Hierarchy comes from type and spacing, so every block need not float. */
 @utility card-base {
   @apply rounded-2xl border border-line-soft bg-surface transition-colors duration-200;
+}
+
+/* Depth for dialogs (docs/standards/ui-ux.md, Depth). Four parts, each one job:
+   the scrim dims the page so the dialog is the brightest surface on screen; the dialog surface is
+   edged and lifted off it; a well is the recessed ground inside a dialog; and a raised panel
+   stands on a well to group what belongs together. A panel on plain dialog ground stays `card-base`. */
+@utility dialog-scrim {
+  background-color: rgb(var(--scrim) / var(--scrim-strength));
+}
+
+@utility dialog-surface {
+  @apply bg-surface;
+  border: 1px solid rgb(var(--dialog-edge));
+  box-shadow: var(--elevation-dialog);
+}
+
+@utility dialog-well {
+  @apply bg-surface-sunken;
+}
+
+@utility panel-raised {
+  @apply rounded-2xl border border-line bg-surface;
+  box-shadow: var(--elevation-panel);
+}
+
+/* A photograph or a player as an object: a light hairline edge, so it keeps its outline on a dark
+   well and on the scrim, and the same lift as a dialog. The component sets the ground. In high
+   contrast the edge is the theme's own rule colour. */
+@utility media-frame {
+  border: 1px solid rgb(var(--media-edge));
+  box-shadow: var(--elevation-dialog);
 }
 
 /* A dashboard or page section: the card chrome with the section's own padding. */
@@ -843,6 +910,20 @@ img[data-media-failed] {
   max-height: 50dvh;
 }
 
+/* The record's photograph gives up height so the decision under it stays on the first screen.
+   Its most is what the dialog can show (92vh at most, 52rem with a reference column, less the
+   header) less what stands under the photograph down to the identification buttons, which the
+   record states in rem as `--record-under-photo`. In rem and vh only, so the frame never changes
+   size as the record's contents arrive. It keeps 10rem at least: past that the reader scrolls. */
+@utility record-photo-cap {
+  max-height: max(10rem, calc(min(52rem, 92vh) - 4rem - var(--record-under-photo, 18rem)));
+}
+
+/* The same in a record of one narrow column, and never taller than the two-column photograph. */
+@utility record-photo-cap-narrow {
+  max-height: max(10rem, min(22rem, calc(92vh - 4rem - var(--record-under-photo, 18rem))));
+}
+
 /* Pulsing status indicator */
 @utility status-pulse {
   @apply relative;
@@ -1030,6 +1111,18 @@ html.high-contrast.high-contrast.high-contrast {
   --status-neutral-soft: 0 0 0;
   --status-neutral-line: 255 255 255;
   --media-raised: 0 0 0;
+  /* No shadows on black: every raised surface is told by its yellow edge. */
+  --scrim: 0 0 0;
+  --scrim-strength: 0.85;
+  --elevation-dialog: none;
+  --elevation-panel: none;
+  --dialog-edge: 255 255 0;
+  --media-edge: 255 255 0;
+  /* Chart lines on black, clear of the yellow accent and the cyan focus ring. */
+  --series-1: 164 119 255;
+  --series-2: 33 210 250;
+  --series-3: 201 33 206;
+  --series-4: 255 113 214;
 
   /* The inks. Each is 7:1 or better on black; meaning still never rests on the hue alone. */
   --hc-ink: #ffffff;

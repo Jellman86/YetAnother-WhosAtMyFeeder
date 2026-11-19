@@ -138,7 +138,7 @@ const PALETTE_EXCEPTIONS: Record<string, { families: string[]; reason: string }>
     },
     'components/settings/SystemHealthPanel.svelte': {
         families: ['amber', 'blue', 'teal', 'violet'],
-        reason: 'categorical CPU-share series, chosen for colour-vision separation and always named; a series is not a state'
+        reason: 'categorical CPU-share segments, chosen for colour-vision separation and always named; a segment is not a state'
     },
 };
 

@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page, type Request } from '@playwright/test';
 import { NOT_RECORDED_HEADER, replayFeeder } from '../accessibility-mock';
 
 /**
@@ -80,8 +80,20 @@ function watch(page: Page): Watch {
         else seen.failures.push(`console: ${message.text()} (${message.location().url})`);
     });
     page.on('pageerror', (error) => seen.failures.push(`page error: ${error.message}`));
+    // A script still loading when the test moves on is cancelled by that navigation, not broken: the
+    // browser reports it as aborted. Count it only if the page had not navigated since it was asked for.
+    // A script the server cannot give is still caught, by its status below.
+    let navigations = 0;
+    const askedDuring = new WeakMap<Request, number>();
+    page.on('framenavigated', (frame) => {
+        if (frame === page.mainFrame()) navigations += 1;
+    });
+    page.on('request', (request) => askedDuring.set(request, navigations));
     page.on('requestfailed', (request) => {
-        if (request.resourceType() === 'script') seen.failures.push(`script failed: ${request.url()} ${request.failure()?.errorText ?? ''}`);
+        if (request.resourceType() !== 'script') return;
+        const error = request.failure()?.errorText ?? '';
+        if (error === 'net::ERR_ABORTED' && askedDuring.get(request) !== navigations) return;
+        seen.failures.push(`script failed: ${request.url()} ${error}`);
     });
     page.on('response', (response) => {
         const url = new URL(response.url());

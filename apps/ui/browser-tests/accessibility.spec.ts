@@ -269,10 +269,18 @@ async function doubleTheText(page: Page): Promise<void> {
         const marked = (window as unknown as { textOwners?: Element[] });
         if (!marked.textOwners) {
             const owners = new Set<Element>();
+            // Words a screen reader hears but nobody sees (sr-only: a box of a pixel, clipped) are not
+            // text on show. WCAG 1.4.4 is about what is drawn, and Chromium could report such a label's
+            // old size after the root doubled, which failed this check now and then on CI.
+            const drawn = (owner: Element): boolean => {
+                if (owner.closest('.sr-only')) return false;
+                const box = owner.getBoundingClientRect();
+                return box.width > 1 && box.height > 1;
+            };
             const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
             for (let node = walker.nextNode(); node; node = walker.nextNode()) {
                 const owner = node.parentElement;
-                if (owner && node.textContent?.trim() && !owner.closest('script, style, noscript, option, canvas, .leaflet-container') && owner.checkVisibility()) owners.add(owner);
+                if (owner && node.textContent?.trim() && !owner.closest('script, style, noscript, option, canvas, .leaflet-container') && owner.checkVisibility() && drawn(owner)) owners.add(owner);
             }
             marked.textOwners = [...owners];
         }
@@ -344,7 +352,14 @@ async function textFaults(page: Page, scope: string): Promise<TextFault[]> {
                 }
                 if (style.overflowY !== 'visible') {
                     const hides = seen.top < frame.top - TOLERANCE || seen.bottom > frame.bottom + TOLERANCE;
-                    if (hides && !cutBy && (style.overflowY === 'hidden' || style.overflowY === 'clip')) cutBy = around;
+                    // A line clamp is a stated shortening, not a cut: the record's species summary is
+                    // three lines at every text size, with "Read more" under it for the rest. Only that
+                    // box's own shortening past its last line is passed over; a cut at its top or its
+                    // sides, and any box further out that cuts the lines it does show, still counts.
+                    const clampShortens = around.matches('[data-detection-reference-text]')
+                        && style.getPropertyValue('-webkit-line-clamp') !== 'none'
+                        && seen.top >= frame.top - TOLERANCE;
+                    if (hides && !cutBy && !clampShortens && (style.overflowY === 'hidden' || style.overflowY === 'clip')) cutBy = around;
                     seen.top = Math.max(seen.top, frame.top);
                     seen.bottom = Math.min(seen.bottom, frame.bottom);
                 }

@@ -38,7 +38,8 @@
     "browser-tests/lazy-modal.ts",
     "browser-tests/score-tone.ts",
     "browser-tests/manual-observation.ts",
-    "browser-tests/status-feed.ts"
+    "browser-tests/status-feed.ts",
+    "browser-tests/record-layout.ts"
   ],
   "ignore": [
     "scripts/*.d.mts"

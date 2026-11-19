@@ -196,8 +196,8 @@ test('the record is walked by keyboard in the order it is read', async ({ page }
     // One close button, in a strip nothing scrolls under.
     await expect(modal.locator('[data-dialog-close]')).toHaveCount(1);
 
-    // The long article is a few lines and a link, after every decision: at this width in the side
-    // column beside them, read once the identification column is done.
+    // The long article is a few lines and a link, after every decision: at this width in the
+    // reference column beside them, read once the decision column is done.
     const referenceText = modal.locator('[data-detection-reference-text]');
     expect((await referenceText.boundingBox())!.height).toBeLessThan(90);
     await expect(modal.locator('[data-detection-secondary-column] [data-detection-reference-text]')).toHaveCount(1);
@@ -230,7 +230,8 @@ test('the record is walked by keyboard in the order it is read', async ({ page }
             const active = document.activeElement as HTMLElement | null;
             if (!active || active === document.body) return null;
             active.scrollIntoView({ block: 'nearest' });
-            const column = active.closest('[data-detection-details-column]');
+            // The decision stands under the photograph and the reference in the column beside it.
+            const column = active.closest('[data-detection-primary-column], [data-detection-details-column]');
             const part = active.closest('[data-detection-primary-column], [data-detection-secondary-column]');
             return {
                 name: (active.getAttribute('aria-label') ?? active.textContent ?? '').trim().slice(0, 60),
