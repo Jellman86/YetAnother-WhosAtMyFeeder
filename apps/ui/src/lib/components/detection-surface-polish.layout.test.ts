@@ -115,8 +115,8 @@ describe('detection surface polish', () => {
     it('keeps media controls and snapshot choices in one ordered footer flow', () => {
         const footerStart = detectionModalSource.indexOf('data-detection-media-footer');
         const actionStart = detectionModalSource.indexOf('data-detection-media-actions', footerStart);
-        // The frames and the finder are one snippet, drawn in the footer after the media controls on a
-        // side-by-side layout, and after the identification when the record stacks.
+        // The frames are one snippet, drawn in the footer after the media controls on a side-by-side
+        // layout, and after the identification when the record stacks.
         const pickerStart = detectionModalSource.indexOf('{#if !recordStacked && showInlineFramePicker}<div class="pt-3" data-detection-footer-strip>{@render visitStrip()}</div>{/if}', footerStart);
         const strip = detectionModalSource.slice(detectionModalSource.indexOf('{#snippet visitStrip()}'), detectionModalSource.indexOf('{/snippet}', detectionModalSource.indexOf('{#snippet visitStrip()}')));
         expect(strip).toContain('data-detection-inline-frame-picker');
@@ -140,7 +140,7 @@ describe('detection surface polish', () => {
         expect(sceneActions).toContain('class="btn btn-primary btn-focus-on-dark min-h-11 gap-2 px-4 text-sm max-sm:grow"');
         expect(sceneActions).not.toContain('detection.whole_scene_back');
         expect(sceneActions).not.toContain('rounded-full border border-on-media/25');
-        expect(detectionModalSource).toContain('class="btn btn-on-dark pointer-events-auto ml-auto min-h-11 bg-media/60 px-3 text-xs shadow-lg backdrop-blur-xs hover:bg-media/80"');
+        expect(detectionModalSource).toContain('class="btn btn-focus-on-dark photo-chip pointer-events-auto ml-auto min-h-11 border border-on-media/25 px-3 text-xs shadow-lg"');
         expect(detectionModalSource).not.toContain("absolute bottom-0 left-0 right-0 p-5 {showInlineFramePicker ? 'pb-28' : ''}");
         expect(detectionModalSource).not.toContain('absolute inset-x-0 bottom-0 z-20 flex flex-col gap-1');
         // Peeking stays non-mutating. Only a named action changes the photograph.
@@ -294,10 +294,12 @@ describe('detection surface polish', () => {
         expect(decision).not.toContain('<TaxonomyLineage');
         expect(detectionModalSource.indexOf('<TaxonomyLineage')).toBeGreaterThan(secondary);
         // Two scrolling columns only where the species brings a reference to fill the second.
-        expect(detectionModalSource).toContain("{recordHasReference ? 'lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] lg:grid-rows-1 lg:overflow-hidden' : 'lg:dialog-well'}");
-        expect(detectionModalSource).toContain("sm:rounded-2xl {recordHasReference ? 'lg:h-208 xl:max-w-6xl' : 'lg:max-w-2xl'}");
-        // The photograph gives up height before the identification under it leaves the first screen.
-        expect(detectionModalSource).toContain("{recordHasReference ? 'lg:record-photo-cap' : 'lg:max-h-half-screen'}");
+        expect(detectionModalSource).toContain("{recordHasReference ? 'lg:grid lg:grid-cols-2 lg:grid-rows-1 lg:overflow-hidden' : 'lg:dialog-well'}");
+        expect(detectionModalSource).toContain("sm:rounded-2xl {recordHasReference ? 'lg:h-208 xl:max-w-6xl' : 'lg:max-w-xl'}");
+        // The photograph gives up height so the identification and its buttons stay on the first screen,
+        // by what the record says stands under it.
+        expect(detectionModalSource).toContain("{recordHasReference ? 'lg:record-photo-cap' : 'lg:record-photo-cap-narrow'}");
+        expect(detectionModalSource).toContain('style:--record-under-photo="{recordUnderPhotoRem}rem"');
         // The star and play buttons sit on the photograph's lower edge at every width.
         expect(detectionModalSource).toContain('absolute inset-x-4 bottom-full z-30 mb-3 flex flex-wrap items-center gap-2" data-detection-media-actions');
         // Held sideways, photograph and identification stand side by side.

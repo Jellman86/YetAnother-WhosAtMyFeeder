@@ -1,5 +1,4 @@
 import { expect, test, type Page } from '@playwright/test';
-import { LINEAGE } from './record-layout-fixture';
 
 /**
  * The record uses the space each device gives it. The photograph's own buttons sit on its lower edge,
@@ -15,8 +14,6 @@ async function openRecord(page: Page, size: { width: number; height: number }): 
         if (path.endsWith('/snapshot/candidates')) return route.fulfill({ json: { candidates: [], birds: [], current_source: 'frigate_snapshot' } });
         if (path.endsWith('/snapshot/status')) return route.fulfill({ json: { available: true, high_quality_bird_crop_enabled: true, source: 'frigate_snapshot' } });
         if (path.endsWith('.jpg')) return route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="4" height="3"/>' });
-        // The catalogue holds the bird, so the record has a reference column to stand beside the decision.
-        if (path === '/api/taxonomy/lineage') return route.fulfill({ json: { lineage: LINEAGE } });
         if (path.startsWith('/api/audio/context/') || path === '/api/species/search' || path.includes('/conversation')) return route.fulfill({ json: [] });
         return route.fulfill({ json: {} });
     });
@@ -109,8 +106,10 @@ test('on a wide screen the photograph keeps its shape at the top of its column, 
     const column = await page.locator('[data-detection-evidence-column]').boundingBox();
     expect(photo && column).toBeTruthy();
     if (!photo || !column) return;
-    // 4:3 at the width it is given, not stretched to the column's height, a small margin inside the column.
-    expect(Math.abs(photo.height - photo.width * 3 / 4)).toBeLessThan(3);
+    // At most 4:3 at the width it is given and no flatter than 3:2 here, not stretched to the column's
+    // height, a small margin inside the column.
+    expect(photo.height).toBeLessThanOrEqual(photo.width * 3 / 4 + 1);
+    expect(photo.height / photo.width).toBeGreaterThan(0.62);
     expect(photo.y - column.y).toBeLessThanOrEqual(24);
     // What surrounds the photograph is the dialog's own ground, not black.
     const ground = await page.locator('[data-detection-evidence-column]').evaluate((node) => getComputedStyle(node).backgroundColor);

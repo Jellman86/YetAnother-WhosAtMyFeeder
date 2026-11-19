@@ -72,10 +72,12 @@ for (const size of WIDE) {
     }
 }
 
-test('where the screen is tall enough the photograph is framed 4:3, not in a wide band, and a tall crop is shown whole', async ({ page }) => {
+test('the photograph is framed, not in a wide band, and a tall crop is shown whole', async ({ page }) => {
     await openRecordLayout(page, { width: 1920, height: 1080 });
     const photo = await page.locator('[data-detection-photograph]').boundingBox();
-    expect(photo && Math.abs(photo.height - photo.width * 3 / 4)).toBeLessThan(3);
+    // No taller than 4:3, and where the screen allows no flatter than 3:2: the old frame was 16:9.
+    expect(photo && photo.height <= photo.width * 3 / 4 + 1).toBe(true);
+    expect(photo && photo.height / photo.width).toBeGreaterThan(0.62);
     const fit = await page.locator('[data-detection-photograph] img:not([data-detection-media-ambient])').first()
         .evaluate((image) => getComputedStyle(image).objectFit);
     expect(fit).toBe('contain');
@@ -202,7 +204,7 @@ for (const theme of ['dark', 'light'] as const) {
         await expect(use).toHaveClass(/\bbtn-primary\b/);
         expect((await use.boundingBox())?.height).toBeLessThanOrEqual(48);
         const back = page.getByRole('button', { name: 'Back to the crop' }).and(page.locator('[data-detection-whole-scene-back]'));
-        await expect(back).toHaveClass(/\bbtn-on-dark\b/);
+        await expect(back).toHaveClass(/\bphoto-chip\b/);
         const backBox = await back.boundingBox();
         const star = await page.locator('[data-detection-media-actions] button').first().boundingBox();
         expect(backBox && star && photo && Math.abs(backBox.y - star.y) < 2 && backBox.y + backBox.height <= photo.y + photo.height).toBe(true);
@@ -224,14 +226,115 @@ test('a crop at the top of the frame is named from under its outline', async ({ 
     expect(label.y).toBeGreaterThanOrEqual(photo.y);
 });
 
-test('a species the catalogue does not hold settles into one column, with its description under the facts', async ({ page }) => {
-    await openRecordLayout(page, { width: 1440, height: 900 }, { lineage: false });
-    await expect(page.locator('[data-taxonomy-lineage]')).toHaveCount(0);
-    // Once the catalogue has answered, there is no family tree to fill a second column.
+test('the dialog keeps its width while the lineage is read, and when the catalogue does not hold the species', async ({ page }) => {
+    // The shape comes from what the record holds when it opens. A read that answers late, answers
+    // with nothing or fails moves nothing: the reference column still has the description to show.
+    let release: () => void = () => {};
+    const held = new Promise<void>((resolve) => { release = resolve; });
+    await openRecordLayout(page, { width: 1440, height: 900 }, { lineage: false, lineageHeld: held });
     const dialog = page.locator('[data-detection-detail-modal] [role="document"]').first();
-    await expect.poll(async () => (await dialog.boundingBox())?.width ?? 0).toBeLessThanOrEqual(700);
-    const facts = await page.locator('[data-detection-facts]').boundingBox();
+    const photograph = page.locator('[data-detection-photograph]');
+    const before = { dialog: await dialog.boundingBox(), photograph: await photograph.boundingBox() };
+    expect(before.dialog?.width ?? 0).toBeGreaterThan(1100);
+    const answered = page.waitForResponse((response) => new URL(response.url()).pathname === '/api/taxonomy/lineage');
+    release();
+    await answered;
+    await page.waitForTimeout(300);
+    await expect(page.locator('[data-taxonomy-lineage]')).toHaveCount(0);
+    expect(await dialog.boundingBox()).toEqual(before.dialog);
+    expect(await photograph.boundingBox()).toEqual(before.photograph);
+    // The reference keeps its column, beside the decision.
     const reference = await page.locator('[data-detection-reference]').boundingBox();
-    expect(facts && reference && reference.y >= facts.y + facts.height - 1 && Math.abs(reference.x - facts.x) < 40).toBe(true);
-    await noSidewaysScroll(page);
+    const facts = await page.locator('[data-detection-facts]').boundingBox();
+    expect(reference && facts && reference.x >= facts.x + facts.width - 1).toBe(true);
+});
+
+test('a lineage read that fails leaves the record in its two columns', async ({ page }) => {
+    await openRecordLayout(page, { width: 1440, height: 900 }, { lineage: 'fails' });
+    await page.waitForTimeout(300);
+    const dialog = await page.locator('[data-detection-detail-modal] [role="document"]').first().boundingBox();
+    expect(dialog?.width ?? 0).toBeGreaterThan(1100);
+});
+
+/**
+ * The decision is on the first screen. Opened and not scrolled, the name, the score and both
+ * identification buttons are whole inside the dialog, on laptops as well as on large screens, with
+ * or without a reference column, and with the whole scene pinned and its own action showing.
+ */
+const FIRST_SCREEN = [{ width: 1280, height: 800 }, { width: 1366, height: 768 }, { width: 1440, height: 900 }, { width: 1920, height: 1080 }];
+const STATES = [
+    { name: 'a long record', options: {}, pin: false },
+    { name: 'a long record with kept frames', options: { frames: true }, pin: false },
+    { name: 'a long record with the whole scene pinned', options: { frames: true }, pin: true },
+    { name: 'a short record', options: { record: 'short' as const }, pin: false }
+];
+for (const size of FIRST_SCREEN) {
+    for (const state of STATES) {
+        test(`${state.name} at ${size.width} × ${size.height} shows the name, the score and both buttons without scrolling`, async ({ page }) => {
+            await openRecordLayout(page, size, state.options);
+            if (state.pin) {
+                await page.locator('[data-detection-whole-scene-peek]').click();
+                await expect(page.locator('[data-detection-whole-scene-actions] button')).toBeVisible();
+                await expect(page.locator('[data-detection-whole-scene-outline]')).toBeVisible();
+            }
+            // What can be seen without scrolling: the photograph's column where it scrolls by itself,
+            // else the dialog's one scrolling body.
+            const seen = await page.locator('[data-detection-evidence-column]').evaluate((column) => {
+                const scroller = getComputedStyle(column).overflowY === 'auto' ? column : column.parentElement as HTMLElement;
+                const box = scroller.getBoundingClientRect();
+                return { top: box.top, bottom: Math.min(box.bottom, innerHeight), scrolled: scroller.scrollTop };
+            });
+            expect(seen.scrolled).toBe(0);
+            for (const part of ['[data-detection-identity]', '[data-record-score-bar]', '[data-detection-confirm]', '[data-detection-pick]']) {
+                const box = await page.locator(part).boundingBox();
+                expect(box, part).toBeTruthy();
+                if (!box) continue;
+                expect(box.y, `${part} starts on the first screen`).toBeGreaterThanOrEqual(seen.top);
+                expect(box.y + box.height, `${part} ends on the first screen`).toBeLessThanOrEqual(seen.bottom);
+            }
+            // The photograph is still a picture, not a sliver, and the outline still sits on its crop.
+            const photo = await page.locator('[data-detection-photograph]').boundingBox();
+            expect(photo?.height ?? 0).toBeGreaterThanOrEqual(150);
+            if (state.pin && photo) {
+                // Pinning made room under the photograph for the scene's action. The crop is the
+                // middle of the scene, so its outline settles on the middle of the smaller frame.
+                const offCentre = async (): Promise<number> => {
+                    const outline = await page.locator('[data-detection-whole-scene-outline]').boundingBox();
+                    if (!outline) return Number.POSITIVE_INFINITY;
+                    return Math.max(Math.abs(outline.x + outline.width / 2 - (photo.x + photo.width / 2)), Math.abs(outline.y + outline.height / 2 - (photo.y + photo.height / 2)));
+                };
+                await expect.poll(offCentre).toBeLessThan(12);
+            }
+        });
+    }
+}
+
+test('a short record\'s photograph is no larger than a long record\'s', async ({ page }) => {
+    await openRecordLayout(page, { width: 1440, height: 900 });
+    const long = await page.locator('[data-detection-photograph]').boundingBox();
+    await openRecordLayout(page, { width: 1440, height: 900 }, { record: 'short' });
+    const short = await page.locator('[data-detection-photograph]').boundingBox();
+    expect(long && short && short.height <= long.height + 1 && short.width <= long.width * 1.2).toBe(true);
+});
+
+test('a visit with no kept frames says so in one compact row under the photograph', async ({ page }) => {
+    await openRecordLayout(page, { width: 1440, height: 900 });
+    const footer = await page.locator('[data-detection-media-footer]').boundingBox();
+    expect(footer?.height ?? 0).toBeLessThanOrEqual(72);
+    const words = await page.locator('[data-frame-strip-status]').boundingBox();
+    const again = await page.locator('[data-frame-strip] button').last().boundingBox();
+    expect(words && again && words.y < again.y + again.height && again.y < words.y + words.height).toBe(true);
+});
+
+test('a crop the full height of the frame keeps its name on the picture, clear of the buttons', async ({ page }) => {
+    await openRecordLayout(page, { width: 1440, height: 900 }, { frames: true, cropAtTop: true, cropFullHeight: true });
+    await page.locator('[data-detection-whole-scene-peek]').click();
+    await expect(page.locator('[data-detection-whole-scene-outline]')).toBeVisible();
+    const label = await page.locator('[data-detection-whole-scene-label]').boundingBox();
+    const photo = await page.locator('[data-detection-photograph]').boundingBox();
+    const controls = await page.locator('[data-detection-media-actions]').boundingBox();
+    expect(label && photo && controls).toBeTruthy();
+    if (!label || !photo || !controls) return;
+    expect(label.y >= photo.y && label.y + label.height <= photo.y + photo.height).toBe(true);
+    expect(label.y + label.height).toBeLessThanOrEqual(controls.y);
 });

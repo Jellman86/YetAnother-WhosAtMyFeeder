@@ -404,7 +404,8 @@ from 1024px, a record whose species has a reference to read (a named species):
   find more birds
   supporting analysis, counted birds, facts
 each column scrolls by itself, in a dialog of one height, so neither is left with empty ground
-a record with no reference (an unnamed bird) is one narrow column, as tall as what it holds
+a record with no named species (an unknown bird, or no scientific name) is one narrow column, as
+tall as what it holds, with a photograph no larger than the two-column one
 on a phone, one column: the photograph, the identification and its actions, the finder and the
 visit's frames, the analysis and facts, then the reference; held sideways on a phone or small tablet
 (a short screen below 1024px) the photograph stands alone beside everything else, so the
@@ -413,25 +414,37 @@ identification is on the first screen
 
 The decision sits with the picture it is made from, and the reference is a reading column of its
 own. Before this the record was three columns of three heights under one scroll, and the column
-that held only the photograph was half empty. Two rules keep it from coming back. The dialog has a
+that held only the photograph was half empty. The shape is decided from what the record holds when
+it opens (a named species has a reference column), never from a read that has yet to answer: a
+lineage that arrives late, comes back empty or fails changes nothing, so the dialog never changes
+width while it loads. Two rules keep the empty column from coming back. The dialog has a
 fixed height from 1024px, and each column scrolls inside it, so a short column never sets a tall
-box. And the photograph gives up height (`record-photo-cap`, 52% of its column) before the
-identification under it leaves the first screen; where the screen is tall enough it is a 4:3 frame.
+box. And the photograph gives up height (`record-photo-cap`) so that the name, the score and both
+identification buttons are on the first screen: its most is what the dialog can show less what the
+record says stands under it (`--record-under-photo`: the identification, the visit's frames, a
+pinned scene's action), in rem and vh so the frame never changes size as the record loads. Where
+the screen is tall it is at most a 4:3 frame. `record-layout.spec.ts` holds the first screen at
+1280 × 800, 1366 × 768, 1440 × 900 and 1920 × 1080, for a long record, a short one and a pinned
+whole scene.
 `browser-tests/record-layout.spec.ts` holds both columns to at most 96px of empty ground at 1024,
 1280, 1440, 1920 and 2560px in both themes.
 
 The photograph's frame is the same size before and after its picture arrives. A picture shown whole
-(a tall crop, a scene in a 4:3 frame) stands on a soft fill of its own colours, never on black bars.
+(a tall crop, a wide scene) stands on a soft fill of its own colours, never on black bars.
 From 1024px the photograph and the frame strip are one object on the media ground (`media-frame`),
 and it ends where the frames end. Nothing else sits on that ground: the star, play and "Back to the
 crop" float on the photograph's lower edge, "Use the whole scene as the photograph" is the one
-button under a pinned scene, and the finder ("Find more birds") is a row of the decision panel.
+button under a pinned scene, and the finder ("Find more birds") is a row of the decision panel,
+under the identification's actions. A visit with no kept frames says so in one compact row.
 The column's ground is a well (`dialog-well`) and the decision and its evidence are two raised
 panels on it (`panel-raised`); see Depth in [`design-tokens.md`](design-tokens.md).
 
-A label never covers what it labels. The whole scene's "Chosen" tag hangs outside the crop's
-outline, above it, or below when the crop touches the top of the frame (`outlineLabelPlace` in
-`utils/frame-moments.ts`, shared with the review queue). The chosen thumbnail in the strip carries
+A label never covers what it labels where it has anywhere else to go. The whole scene's "Chosen"
+tag hangs outside the crop's outline, above it, or below when the crop touches the top of the frame.
+Where neither is on the picture (a crop the full height of the frame, or one that ends under the
+buttons on the photograph's foot) it sits inside the outline's top corner, so the tag is never
+clipped away or hidden (`outlineLabelPlace` in `utils/frame-moments.ts`, shared with the review
+queue). The chosen thumbnail in the strip carries
 a check on its corner, not the word: no translation of "Chosen" fits a 48px thumbnail whole.
 
 The rail's "Identified as" heading names the bird once and titles the dialog. The photograph does

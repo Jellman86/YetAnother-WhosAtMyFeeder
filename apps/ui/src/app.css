@@ -591,11 +591,10 @@ html[data-theme='dark'] {
   box-shadow: var(--elevation-panel);
 }
 
-/* A photograph or a player as an object: the fixed dark media ground with a light hairline edge,
-   so it keeps its outline on a dark well and on the scrim, and the same lift as a dialog. In high
+/* A photograph or a player as an object: a light hairline edge, so it keeps its outline on a dark
+   well and on the scrim, and the same lift as a dialog. The component sets the ground. In high
    contrast the edge is the theme's own rule colour. */
 @utility media-frame {
-  @apply bg-media-raised;
   border: 1px solid rgb(var(--media-edge));
   box-shadow: var(--elevation-dialog);
 }
@@ -891,15 +890,18 @@ img[data-media-failed] {
   max-height: 50dvh;
 }
 
-/* The record's photograph-and-decision column measures its own height, so the photograph in it
-   can give way before the identification under it leaves the first screen. Only where the column
-   has a height of its own to measure (two scrolling columns, from 1024px). */
-@utility record-evidence {
-  container-type: size;
+/* The record's photograph gives up height so the decision under it stays on the first screen.
+   Its most is what the dialog can show (92vh at most, 52rem with a reference column, less the
+   header) less what stands under the photograph down to the identification buttons, which the
+   record states in rem as `--record-under-photo`. In rem and vh only, so the frame never changes
+   size as the record's contents arrive. It keeps 10rem at least: past that the reader scrolls. */
+@utility record-photo-cap {
+  max-height: max(10rem, calc(min(52rem, 92vh) - 4rem - var(--record-under-photo, 18rem)));
 }
 
-@utility record-photo-cap {
-  max-height: 52cqh;
+/* The same in a record of one narrow column, and never taller than the two-column photograph. */
+@utility record-photo-cap-narrow {
+  max-height: max(10rem, min(22rem, calc(92vh - 4rem - var(--record-under-photo, 18rem))));
 }
 
 /* Pulsing status indicator */

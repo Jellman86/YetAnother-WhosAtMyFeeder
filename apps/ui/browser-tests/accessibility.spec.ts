@@ -344,17 +344,20 @@ async function textFaults(page: Page, scope: string): Promise<TextFault[]> {
                 }
                 if (style.overflowY !== 'visible') {
                     const hides = seen.top < frame.top - TOLERANCE || seen.bottom > frame.bottom + TOLERANCE;
-                    if (hides && !cutBy && (style.overflowY === 'hidden' || style.overflowY === 'clip')) cutBy = around;
+                    // A line clamp is a stated shortening, not a cut: the record's species summary is
+                    // three lines at every text size, with "Read more" under it for the rest. Only that
+                    // box's own shortening past its last line is passed over; a cut at its top or its
+                    // sides, and any box further out that cuts the lines it does show, still counts.
+                    const clampShortens = around.matches('[data-detection-reference-text]')
+                        && style.getPropertyValue('-webkit-line-clamp') !== 'none'
+                        && seen.top >= frame.top - TOLERANCE;
+                    if (hides && !cutBy && !clampShortens && (style.overflowY === 'hidden' || style.overflowY === 'clip')) cutBy = around;
                     seen.top = Math.max(seen.top, frame.top);
                     seen.bottom = Math.min(seen.bottom, frame.bottom);
                 }
             }
             if (seen.right - seen.left < 1 || seen.bottom - seen.top < 1) continue;
-            // A line clamp is a stated shortening, not a cut: the record's species summary is three
-            // lines at every text size, with "Read more" under it for the rest. Whether a summary
-            // reaches a fourth line depends on its length and its column, not on the text size.
-            const clamped = cutBy !== null && getComputedStyle(cutBy).getPropertyValue('-webkit-line-clamp') !== 'none' && cutBy.matches('[data-detection-reference-text]');
-            if (cutBy && !clamped) say(node as Text, 'cut off', cutBy);
+            if (cutBy) say(node as Text, 'cut off', cutBy);
             const lines = [...range.getClientRects()]
                 .map((line) => ({ left: Math.max(line.left, seen.left), top: Math.max(line.top, seen.top), right: Math.min(line.right, seen.right), bottom: Math.min(line.bottom, seen.bottom) }))
                 .filter((line) => line.right - line.left > 0 && line.bottom - line.top > 0);

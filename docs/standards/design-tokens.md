@@ -44,7 +44,7 @@ do not write a shadow or a backdrop colour in a component.
 | `dialog-surface` | The dialog itself: the `surface` fill, an edge (`--dialog-edge`) and the dialog elevation (`--elevation-dialog`: a close contact shadow and a wide soft one). |
 | `dialog-well` | Recessed ground inside a dialog (`surface-sunken`), for a column that holds panels. |
 | `panel-raised` | A panel standing on a well: `surface`, an edge and the small panel elevation (`--elevation-panel`). It groups what belongs together. On plain dialog ground a panel stays `card-base`. |
-| `media-frame` | The edge and lift of a photograph or a player as one object (`--media-edge`). The component sets the ground: `bg-media` under a picture, `bg-media-raised` for the player's bars. |
+| `media-frame` | The edge and lift of a photograph or a player as one object (`--media-edge`). It paints no ground: the component sets it, `bg-media` under a picture, `bg-media-raised` for the player's bars. |
 
 Dark mode has no light to cast a shadow on, so there the lift is carried by a lighter surface and a
 firmer edge, and the scrim is deeper. High contrast has no shadows at all: every raised surface is

@@ -288,7 +288,7 @@ export function wholeSceneOutline(
 }
 
 export interface OutlineLabelPlace {
-    block: 'above' | 'below';
+    block: 'above' | 'below' | 'inside';
     inline: 'start' | 'end';
 }
 
@@ -296,18 +296,26 @@ export interface OutlineLabelPlace {
 const OUTLINE_LABEL_ROOM = { height: 24, width: 96 };
 
 /**
- * Where an outline's label hangs so it never covers what the outline marks: outside the box, above
- * it, or below it when the box sits too near the top of the frame for a label to fit. It starts at
- * the box's left edge unless that would run it out of the frame, where it ends at the right edge.
+ * Where an outline's label hangs so it stays on the picture and covers as little of what the
+ * outline marks as it can: outside the box, above it; below it when the box sits too near the top
+ * of the frame; and, when there is room on neither side (a crop the full height of the frame, or
+ * one that ends where controls float over the picture's foot), inside the box's top corner, which
+ * is always on the picture. `footRoom` is the height at the frame's foot that controls cover. It
+ * starts at the box's left edge unless that would run it out of the frame, where it ends at the
+ * right edge. An unmeasured frame gives no reason to move it from above.
  */
-export function outlineLabelPlace(outline: OutlineBox, frameWidth: number): OutlineLabelPlace {
+export function outlineLabelPlace(outline: OutlineBox, frame: { width: number; height: number }, footRoom = 0): OutlineLabelPlace {
+    const fitsAbove = outline.top >= OUTLINE_LABEL_ROOM.height;
+    const fitsBelow = frame.height > 0 && outline.top + outline.height + OUTLINE_LABEL_ROOM.height <= frame.height - footRoom;
     return {
-        block: outline.top >= OUTLINE_LABEL_ROOM.height ? 'above' : 'below',
-        inline: frameWidth > 0 && outline.left + OUTLINE_LABEL_ROOM.width > frameWidth ? 'end' : 'start'
+        block: fitsAbove || frame.height <= 0 ? 'above' : fitsBelow ? 'below' : 'inside',
+        inline: frame.width > 0 && outline.left + OUTLINE_LABEL_ROOM.width > frame.width ? 'end' : 'start'
     };
 }
 
 /** The classes that hang an outline's label at a place, shared by every surface that draws one. */
 export function outlineLabelClass(place: OutlineLabelPlace): string {
-    return `${place.block === 'above' ? 'bottom-full mb-1' : 'top-full mt-1'} ${place.inline === 'start' ? '-left-0.5' : '-right-0.5'}`;
+    const block = place.block === 'above' ? 'bottom-full mb-1' : place.block === 'below' ? 'top-full mt-1' : 'top-0';
+    const edge = place.block === 'inside' ? '0' : '-0.5';
+    return `${block} ${place.inline === 'start' ? `${edge === '0' ? 'left-0' : '-left-0.5'}` : `${edge === '0' ? 'right-0' : '-right-0.5'}`}`;
 }

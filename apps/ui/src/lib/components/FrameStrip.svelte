@@ -68,6 +68,8 @@
     let openIndex = $state<number | null>(null);
     // With one moment there is nothing to choose between, so it carries no "Chosen" mark.
     const marksChoice = $derived(moments.length > 1);
+    // With nothing kept there is no strip to draw: the words and the regenerate button share one row.
+    const noFrames = $derived(!loading && moments.length === 0);
     // An earlier photograph is not a frame of the clip, so a strip holding one, like a strip of
     // several birds' crops, counts photo options rather than frames.
     let removedPhoto = $state<{ eventId: string; candidateId: string } | null>(null);
@@ -497,7 +499,7 @@
 
 <div
     bind:this={rootEl}
-    class="flex flex-col gap-1 px-3 pb-3"
+    class="flex px-3 pb-3 {noFrames ? 'flex-row items-center gap-3' : 'flex-col gap-1'}"
     data-frame-strip
     aria-busy={loading || busy}
     onpointermove={() => { hoverPaused = false; }}
@@ -508,7 +510,7 @@
 >
     <!-- The count and the hint wrap by the width they have, so enlarged text is never cut off; the
          row keeps one line's room while frames load, without forcing them onto one line. -->
-    <div class="flex min-h-5 flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 px-1 text-2xs font-semibold text-on-media/80" aria-live="polite" data-frame-strip-status>
+    <div class="flex min-h-5 min-w-0 flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 px-1 text-2xs font-semibold text-on-media/80 {noFrames ? 'grow' : ''}" aria-live="polite" data-frame-strip-status>
         <span class="min-w-0 wrap-break-word">
             {#if loading}
                 {$_('detection.snapshot_candidates_loading', { default: 'Loading frames...' })}
@@ -530,8 +532,8 @@
             </span>
         {/if}
     </div>
-    <div class="flex min-w-0 items-center gap-1.5">
-        <div class="snapshot-strip-shell relative min-w-0 flex-1" data-snapshot-strip-shell>
+    <div class="flex min-w-0 items-center gap-1.5 {noFrames ? 'shrink-0' : ''}">
+        <div class="snapshot-strip-shell relative min-w-0 flex-1 {noFrames ? 'hidden' : ''}" data-snapshot-strip-shell>
             <div
                 bind:this={scrollerEl}
                 class="snapshot-strip -my-2 flex min-w-0 gap-1.5 overflow-x-auto px-1 py-3"

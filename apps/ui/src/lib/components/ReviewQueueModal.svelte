@@ -617,7 +617,7 @@
                                     style="left: {wholeScene.outline.left}px; top: {wholeScene.outline.top}px; width: {wholeScene.outline.width}px; height: {wholeScene.outline.height}px;"
                                     data-review-whole-scene-outline
                                     aria-hidden="true"
-                                ><span class="absolute whitespace-nowrap rounded-sm bg-evidence px-1.5 py-0.5 text-3xs font-bold text-slate-950 {outlineLabelClass(outlineLabelPlace(wholeScene.outline, sceneEl?.clientWidth ?? 0))}" data-review-whole-scene-label>{$_('detection.frame_chosen_badge', { default: 'Chosen' })}</span></div>
+                                ><span class="absolute whitespace-nowrap rounded-sm bg-evidence px-1.5 py-0.5 text-3xs font-bold text-slate-950 {outlineLabelClass(outlineLabelPlace(wholeScene.outline, { width: sceneEl?.clientWidth ?? 0, height: sceneEl?.clientHeight ?? 0 }))}" data-review-whole-scene-label>{$_('detection.frame_chosen_badge', { default: 'Chosen' })}</span></div>
                                 {#each wholeScene.otherOutlines as outline}
                                     <div
                                         class="pointer-events-none absolute z-10 rounded-xs border-2 border-dashed border-white/90"

@@ -929,7 +929,15 @@
         }
         measureWholeScene();
         window.addEventListener('resize', measureWholeScene);
-        return () => window.removeEventListener('resize', measureWholeScene);
+        // The frame also changes size while the window does not: pinning the scene makes room under
+        // the photograph for its action, and the outlines have to follow the picture.
+        const frame = sceneImageEl;
+        const observer = frame ? new ResizeObserver(measureWholeScene) : null;
+        if (frame) observer?.observe(frame);
+        return () => {
+            window.removeEventListener('resize', measureWholeScene);
+            observer?.disconnect();
+        };
     });
     onDestroy(wholeScene.destroy);
     const canGenerateSnapshotCandidates = $derived(
@@ -945,6 +953,20 @@
     // Held sideways on a phone or small tablet the photograph stands alone in its column, and the
     // identification heads the column beside it.
     const recordShortLandscape = new MediaQuery('(min-width: 640px) and (max-width: 1023.98px) and (max-height: 640px)', false);
+    // What stands under the photograph down to the identification buttons, in rem, so the photograph
+    // can leave room for it on the first screen (`record-photo-cap`): the column's margins and the
+    // identification with its score and buttons; the visit's frames, where the record has them; and
+    // the one action a pinned whole scene adds. Nothing here waits on a read except the pin, which
+    // is the reader's own act, so the frame does not change size while the record loads.
+    // The star, play and "Back to the crop" float on the photograph's lower edge: a label on the
+    // picture keeps clear of this much of its foot.
+    const PHOTOGRAPH_CONTROLS_ROOM = 64;
+    const RECORD_UNDER_PHOTO = { decision: 18.5, frames: 7.5, sceneAction: 3.5 };
+    const recordUnderPhotoRem = $derived(
+        RECORD_UNDER_PHOTO.decision
+        + (hasOwnerDetectionActions && hasFrameSource ? RECORD_UNDER_PHOTO.frames : 0)
+        + (wholeScene.pinned ? RECORD_UNDER_PHOTO.sceneAction : 0)
+    );
     const showInlineFramePicker = $derived(
         hasOwnerDetectionActions
         && hasFrameSource
@@ -958,11 +980,11 @@
 
     const UNKNOWN_SPECIES_LABELS = new Set(['unknown', 'unknown bird', 'background']);
     const isUnknownSpecies = $derived(UNKNOWN_SPECIES_LABELS.has((detection.display_name || '').trim().toLowerCase()));
-    // A named species brings its family tree and reference, enough to fill a column of their own.
-    // Without them (an unnamed bird, or one the catalogue does not hold) the record is one narrow
-    // column, not a wide box with an empty side.
-    let lineageAbsent = $state(false);
-    const recordHasReference = $derived(!isUnknownSpecies && Boolean(detection.scientific_name) && !lineageAbsent);
+    // A named species brings its family tree and reference, enough for a column of their own.
+    // Without a name there is neither, and the record is one narrow column, not a wide box with an
+    // empty side. The shape is decided from what the record holds when it opens, never from a read
+    // that has yet to answer, so the dialog does not change width while it loads.
+    const recordHasReference = $derived(!isUnknownSpecies && Boolean(detection.scientific_name));
 
     // "Gone" needs a not-found answer; a Frigate that could not be asked gets its own words.
     const frigateReading = $derived(frigateEventReading(detection));
@@ -1802,9 +1824,9 @@
                         </li>
                     </ul>
                 {/if}
-                <!-- Always present for an owner, so a reason that comes or goes is announced; it says why
-                     the finder is not under the photograph, after the identification it would follow. -->
-                <!-- The finder, with the decision it informs: one row that lines up with the panel. -->
+                <!-- The finder, with the decision it informs: one row that lines up with the panel. When it
+                     cannot run it steps aside for the line under it, which is always present for an owner so
+                     that a reason that comes or goes is announced. -->
                 <BirdScanControl
                     scan={birdScan}
                     sceneImageUrl={scanFrameCandidate?.image_url ?? null}
@@ -1813,8 +1835,8 @@
                 />
                 <p class={scanStandingText ? 'text-xs text-muted' : 'sr-only'} role="status" aria-live="polite" data-detection-scan-standing>{#if scanStandingText}<span class="font-semibold text-ink">{$_('detection.bird_scan.action', { default: 'Find more birds' })}:</span> {scanStandingText}{/if}</p>
             {/if}
-                <!-- On a phone or tablet held upright the visit's frames and the finder come after the
-                     identification, so the decision is read first; on its own dark ground, as under the photograph. -->
+                <!-- On a phone or tablet held upright the visit's frames come after the identification, so
+                     the decision is read first; on their own dark ground, as under the photograph. -->
                 {#if recordStacked && showInlineFramePicker}
                     <div class="overflow-hidden rounded-xl bg-media py-3" data-detection-stacked-strip>{@render visitStrip()}</div>
                 {/if}
@@ -2104,7 +2126,7 @@
     <div
         bind:this={modalElement}
         data-theme={isDarkMode ? 'dark' : 'light'}
-        class="relative flex max-h-dvh w-full max-w-5xl flex-col overflow-hidden rounded-none dialog-surface sm:max-h-[92vh] sm:rounded-2xl {recordHasReference ? 'lg:h-208 xl:max-w-6xl' : 'lg:max-w-2xl'}"
+        class="relative flex max-h-dvh w-full max-w-5xl flex-col overflow-hidden rounded-none dialog-surface sm:max-h-[92vh] sm:rounded-2xl {recordHasReference ? 'lg:h-208 xl:max-w-6xl' : 'lg:max-w-xl'}"
         role="document"
         tabindex="-1"
     >
@@ -2127,13 +2149,13 @@
              photograph with the decision under it, and the reference beside them. A record with no
              reference is one narrow column. Held sideways on a phone or small tablet (a short screen), the
              photograph stands beside everything else, so the identification is on the first screen. -->
-        <div class="flex-1 overflow-y-auto flex flex-col {recordHasReference ? 'lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] lg:grid-rows-1 lg:overflow-hidden' : 'lg:dialog-well'} sm:max-lg:short:grid sm:max-lg:short:grid-cols-2 sm:max-lg:short:grid-rows-1 sm:max-lg:short:overflow-hidden">
-            <div class="flex min-w-0 shrink-0 flex-col lg:gap-4 lg:p-4 {recordHasReference ? 'lg:record-evidence lg:dialog-well lg:min-h-0 lg:shrink lg:overflow-y-auto lg:border-r lg:border-line' : ''} sm:max-lg:short:min-h-0 sm:max-lg:short:shrink sm:max-lg:short:overflow-y-auto sm:max-lg:short:border-r sm:max-lg:short:border-line" data-detection-evidence-column>
+        <div class="flex-1 overflow-y-auto flex flex-col {recordHasReference ? 'lg:grid lg:grid-cols-2 lg:grid-rows-1 lg:overflow-hidden' : 'lg:dialog-well'} sm:max-lg:short:grid sm:max-lg:short:grid-cols-2 sm:max-lg:short:grid-rows-1 sm:max-lg:short:overflow-hidden">
+            <div class="flex min-w-0 shrink-0 flex-col lg:gap-4 lg:p-4 {recordHasReference ? 'lg:dialog-well lg:min-h-0 lg:shrink lg:overflow-y-auto lg:border-r lg:border-line' : ''} sm:max-lg:short:min-h-0 sm:max-lg:short:shrink sm:max-lg:short:overflow-y-auto sm:max-lg:short:border-r sm:max-lg:short:border-line" data-detection-evidence-column>
                 <!-- The photograph keeps its own shape at the top of its column, with the visit's frames under
                      it, one object on the media ground. It gives up height before the identification under
                      it leaves the first screen. -->
                 <div class="flex shrink-0 flex-col bg-media lg:overflow-hidden lg:rounded-2xl lg:media-frame" data-detection-media>
-                    <div class="relative min-w-0 aspect-4/3 min-h-72 shrink-0 overflow-hidden bg-media sm:max-lg:aspect-video lg:min-h-0 short:min-h-0 max-sm:max-lg:short:max-h-half-screen {recordHasReference ? 'lg:record-photo-cap' : 'lg:max-h-half-screen'}" data-detection-photograph>
+                    <div class="relative min-w-0 aspect-4/3 min-h-72 shrink-0 overflow-hidden bg-media sm:max-lg:aspect-video lg:min-h-0 short:min-h-0 max-sm:max-lg:short:max-h-half-screen {recordHasReference ? 'lg:record-photo-cap' : 'lg:record-photo-cap-narrow'}" style:--record-under-photo="{recordUnderPhotoRem}rem" data-detection-photograph>
                         {#if photographDrawnUrl}
                             <img data-detection-media-ambient src={photographDrawnUrl} alt="" aria-hidden="true" class="absolute inset-0 h-full w-full scale-110 object-cover opacity-60 blur-2xl" />
                         {/if}
@@ -2189,7 +2211,7 @@
                                     style="left: {wholeScene.outline.left}px; top: {wholeScene.outline.top}px; width: {wholeScene.outline.width}px; height: {wholeScene.outline.height}px;"
                                     data-detection-whole-scene-outline
                                     aria-hidden="true"
-                                ><span class="absolute whitespace-nowrap rounded-sm bg-evidence px-1.5 py-0.5 text-3xs font-semibold text-media {outlineLabelClass(outlineLabelPlace(wholeScene.outline, sceneImageEl?.clientWidth ?? 0))}" data-detection-whole-scene-label>{$_('detection.frame_chosen_badge', { default: 'Chosen' })}</span></div>
+                                ><span class="absolute whitespace-nowrap rounded-sm bg-evidence px-1.5 py-0.5 text-3xs font-semibold text-media {outlineLabelClass(outlineLabelPlace(wholeScene.outline, { width: sceneImageEl?.clientWidth ?? 0, height: sceneImageEl?.clientHeight ?? 0 }, PHOTOGRAPH_CONTROLS_ROOM))}" data-detection-whole-scene-label>{$_('detection.frame_chosen_badge', { default: 'Chosen' })}</span></div>
                                 {#each wholeScene.otherOutlines as outline}
                                     <div
                                         class="pointer-events-none absolute z-10 rounded-xs border-2 border-dashed border-on-media/90"
@@ -2237,8 +2259,7 @@
                                     </div>
                                 {/if}
 
-                                {#if mediaFooterHasActions}
-                                    <div class="pointer-events-none absolute inset-x-4 bottom-full z-30 mb-3 flex flex-wrap items-center gap-2" data-detection-media-actions>
+                                <div class="pointer-events-none absolute inset-x-4 bottom-full z-30 mb-3 flex flex-wrap items-center gap-2" data-detection-media-actions>
                                         {#if canShowFavoriteAction}
                                             <button
                                                 type="button"
@@ -2333,15 +2354,14 @@
                                             <!-- The way back sits on the photograph it changes, at the end of its row of controls. -->
                                             <button
                                                 type="button"
-                                                class="btn btn-on-dark pointer-events-auto ml-auto min-h-11 bg-media/60 px-3 text-xs shadow-lg backdrop-blur-xs hover:bg-media/80"
+                                                class="btn btn-focus-on-dark photo-chip pointer-events-auto ml-auto min-h-11 border border-on-media/25 px-3 text-xs shadow-lg"
                                                 onclick={(event) => { event.stopPropagation(); resetMediaView(); }}
                                                 data-detection-whole-scene-back
                                             >
                                                 {$_('detection.whole_scene_back', { default: 'Back to the crop' })}
                                             </button>
                                         {/if}
-                                    </div>
-                                {/if}
+                                </div>
                             </div>
                             {/if}
 
@@ -2352,12 +2372,13 @@
                 {#if !recordShortLandscape.current}{@render decision()}{/if}
             </div>
 
-            <!-- Reference for the species and the record, and the identifiers last. -->
+            <!-- Reference for the species and the record, and the identifiers last. Held sideways on a
+                 phone this column also holds the decision, above the reference. -->
             <div data-detection-details-column class="flex min-w-0 flex-1 flex-col gap-5 wrap-break-word px-5 pb-5 sm:px-6 sm:pb-6 {recordHasReference ? 'lg:overflow-y-auto lg:pt-6' : 'lg:px-4 lg:pb-4'} sm:max-lg:short:overflow-y-auto sm:max-lg:short:pt-6">
             {#if recordShortLandscape.current}{@render decision()}{/if}
             <div class="flex min-w-0 flex-col gap-5 {showTagDropdown ? 'blur-xs pointer-events-none select-none' : ''}" data-detection-secondary-column>
             {#if !isUnknownSpecies && detection.scientific_name}
-                <TaxonomyLineage scientificName={detection.scientific_name} commonName={detection.common_name} bind:absent={lineageAbsent} />
+                <TaxonomyLineage scientificName={detection.scientific_name} commonName={detection.common_name} />
             {/if}
 
             {#if !isUnknownSpecies && detection.display_name}

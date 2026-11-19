@@ -1,5 +1,4 @@
 import { test, expect, type Page } from '@playwright/test';
-import { LINEAGE } from './record-layout-fixture';
 
 // Isolate layout from the external font service. app.css @imports it and WebKit applies no app
 // styles until it answers, so a slow answer left the modal mounted and observed unstyled; the
@@ -181,8 +180,6 @@ test('the record is walked by keyboard in the order it is read', async ({ page }
         if (path.endsWith('/snapshot/status')) return route.fulfill({ json: { available: true, high_quality_bird_crop_enabled: true, source: 'frigate_snapshot' } });
         if (path.endsWith('.jpg')) return route.fulfill({ contentType: 'image/svg+xml', body:
             '<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="600"><rect width="1000" height="600" fill="#64748b"/></svg>' });
-        // The catalogue holds the bird: its family tree and description fill the reference column.
-        if (path === '/api/taxonomy/lineage') return route.fulfill({ json: { lineage: LINEAGE } });
         if (path.startsWith('/api/species/') && path.endsWith('/info')) return route.fulfill({ json: {
             title: 'Dunnock', extract: 'The dunnock is a small passerine. '.repeat(40), summary_source: 'Wikipedia',
             summary_source_url: 'https://en.wikipedia.org/wiki/Dunnock'
