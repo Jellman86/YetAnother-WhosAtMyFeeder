@@ -1643,7 +1643,9 @@ snapshot, not a destructive queue-control API.
   - `GET /api/audio/recent`
   - `GET /api/audio/history` — persisted BirdNET detections; `matched_visual_event_id` identifies a
     completed automatic video classification that agrees by species, time window, and source mapping
-  - `GET /api/audio/summary`
+  - `GET /api/audio/summary`. Its `hourly_counts` is **deprecated**: it counts calls by UTC hour, the
+    UI no longer reads it, and `GET /api/audio/activity-heatmap` gives calls by the viewer's local
+    weekday and hour instead. It stays in the response so existing clients keep working
   - `GET /api/audio/activity-heatmap` — calls heard by weekday and hour, in the zone the
     `X-Timezone` header names (UTC without it). It takes the summary's window (`days`, or
     `start_date`/`end_date`) and filters (`species`, `source`, `min_confidence`), so its
