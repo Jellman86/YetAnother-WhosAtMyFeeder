@@ -7,7 +7,8 @@
   bar (a select on a phone) and applies as soon as you choose it; species, source and confidence
   still wait for Apply, and Clear leaves the window as it is. The figures strip, the Analytics
   heading with its dates, and the chart order, frames and captions now match the Leaderboard's,
-  and every figure says "calls heard".
+  and every figure says "calls heard". On a phone the figures now come before the call list, as
+  the Leaderboard's do. If only the grid cannot be read, it says so with Retry and the list stays.
 - **New endpoint:** `GET /api/audio/activity-heatmap` counts calls heard by weekday and hour over
   the same window and filters as `GET /api/audio/summary`, with the same guest rules
   ([API reference](docs/api.md)).

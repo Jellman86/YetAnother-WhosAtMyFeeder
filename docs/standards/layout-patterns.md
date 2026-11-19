@@ -599,8 +599,9 @@ must not cover a photograph of a different bird. Changing the photograph invalid
 ```
 window: the Leaderboard's segmented bar in its place (a select on a phone), applied as chosen;
   species, source and confidence beside it wait for Apply (inline from 768 px, in a sheet below)
-call history (the log, first on a phone) | standing band: species, calls heard, busiest hour, sources;
-  then the top heard species and the sources (a side column from 1280 px)
+standing band: species, calls heard, busiest hour, sources (first on a phone, as the Leaderboard's is)
+call history (the log) | from 1280 px the standing band, then the top heard species and the sources,
+  stand beside it in one right-hand column; the log spans both of that column's rows
 analytics at full width: calls heard over time, then calls heard by hour and weekday beside the
   species composition
 ```
@@ -612,7 +613,9 @@ the window said once, and the same `ChartFigure` frames, order and colours. Ever
 counts **calls heard**, never visits or bare "activity", because one bird singing for ten minutes
 can give dozens of calls; the grid (`ActivityHeatmap` with `unit="calls"`) labels its own scale. The
 grid, the summary and the log are one reading (`pages/audio-history-loader.ts`), so the grid's total
-always equals the "Calls heard" figure and its busiest hour is the viewer's local hour.
+always equals the "Calls heard" figure and its busiest hour is the viewer's local hour. The grid is a
+view of the log, not part of it: if only the grid cannot be read, its frame says so with Retry and the
+busiest hour says "Not available", while the log and the other figures stay.
 
 ### Reference (About)
 

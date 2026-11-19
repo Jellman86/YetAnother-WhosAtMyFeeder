@@ -570,7 +570,7 @@
          wider the log has the main column across both rows and the figures, then the most heard
          species and the sources, stand beside it in the right-hand column. Rendered once, placed by
          the grid. -->
-    <div class="grid grid-cols-1 gap-10 xl:grid-cols-12 xl:grid-rows-[auto_1fr] xl:gap-x-10 xl:gap-y-8" data-audio-history-layout>
+    <div class="grid grid-cols-1 gap-10 xl:grid-cols-12 xl:gap-x-10 xl:gap-y-8" data-audio-history-layout>
     <!-- The Leaderboard's standing band: the same ruled list, figures and spacing, in the same
          order (species, the count, the busiest hour), with this page's own unit, calls heard. -->
     <section class="min-w-0 xl:col-span-4 xl:col-start-9 xl:row-start-1 2xl:col-span-3 2xl:col-start-10" aria-labelledby="audio-summary-title" aria-busy={reading === 'loading'} data-audio-history-summary>
@@ -907,3 +907,14 @@
     </LazyModal>
 {/if}
 {/if}
+
+<style>
+    /* From 1280px the log spans the right-hand column's two rows: the window's figures, then the
+       most heard species and sources. The first row is only as tall as the figures, so the log's
+       height never opens a gap under them (the Dashboard's desk does the same). */
+    @media (min-width: 1280px) {
+        [data-audio-history-layout] {
+            grid-template-rows: auto 1fr;
+        }
+    }
+</style>

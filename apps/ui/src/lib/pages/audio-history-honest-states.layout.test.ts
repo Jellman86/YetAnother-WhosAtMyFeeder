@@ -8,7 +8,7 @@ const audioLocales = import.meta.glob<{ chart: { heatmap_title: string }; heatma
 describe('Audio history keeps loading, measured-empty, failed and stale apart', () => {
     it('shows a figure only for a reading, never a zero for a pending or failed read', () => {
         expect(source).toContain('audioReading({ loading, error, stale, total: summary?.total ?? null })');
-        expect(source).toContain('{#snippet statValue(value: string)}');
+        expect(source).toContain('{#snippet statValue(value: string, unavailable: boolean = false)}');
         expect(source).toContain('data-audio-stat-pending');
         expect(source).toContain('data-audio-stat-unavailable');
         // No stat writes its zero straight into the page.
@@ -72,6 +72,8 @@ describe('Audio history keeps loading, measured-empty, failed and stale apart', 
         expect(source.indexOf('data-audio-history-summary')).toBeLessThan(source.indexOf('data-audio-history-log'));
         expect(source).toMatch(/<aside[^>]*aria-label=\{\$_\('audio\.side_label'/);
         expect(source).not.toMatch(/<aside[^>]*aria-labelledby="audio-summary-title"/);
+        // The log spans both rows of the right-hand column without stretching the figures' row.
+        expect(source).toContain('grid-template-rows: auto 1fr;');
     });
 
     it('leaves nothing of the hour bar chart the grid replaced', () => {
