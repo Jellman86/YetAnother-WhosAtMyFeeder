@@ -359,13 +359,13 @@ measurement, never derived, and is not rewritten later. Live `detection` and
   exact UTC `start_time`/`end_time`, which take precedence, `species`, `camera`, `favorites`,
   `audio_confirmed_only`, `only_hidden`, `multiple_species_only` and `sort` (`newest`, `oldest`,
   `confidence`). Returns `visits`, `total` (every matching visit, so a client can tell how many
-  pages remain) and `gap_seconds`. Frigate is asked about each visit's `representative` capture
+  pages remain) and `gap_seconds`, the visit gap these visits were grouped with. Frigate is asked about each visit's `representative` capture
   only, at most one call per visit on the page. `latest` and `peak_capture` report the photo and
   clip this server holds, with `frigate_event_check: "not_checked"`. Each visit includes
   `visit_id` (its first accessible capture ID), start/end, full `capture_count`, best score, review/audio/owner-confirmation
   state, representative/latest records and owner-only busiest counted capture. Grouping uses
-  canonical species, actual camera and a 60-second inactivity gap after the running latest
-  verified event end; historical captures without bounds use capture time. Unknown and manual
+  canonical species, actual camera and an inactivity gap of `visit_gap_seconds` (the owner's
+  setting, 60 by default) after the running latest verified event end; historical captures without bounds use capture time. Unknown and manual
   records remain separate. It does not identify individual birds. `owner_confirmed`
   aggregates explicit owner species confirmations from accessible visit members,
   independently of model confidence and matching audio. Another favourite may represent
@@ -577,7 +577,8 @@ species identification have separate reviews; `frigate_label` remains an upstrea
   has already acted on it. `awaiting_check` counts those held candidates in scope; it is 0 for
   guests. Each visit includes `id`, `kind` (`visit` or `position`), start/end,
   `capture_count` and its latest `representative`. Canonical identity, camera and
-  review state separate timed stays; gaps over 60 seconds start another stay.
+  review state separate timed stays; a gap longer than the bird visit gap (`visit_gap_seconds`)
+  starts another stay.
   Pending motion proposals retain fixed-anchor position stacks instead of joining by time.
   Optional `page_start`/`page_end` select whole groups by latest capture time after grouping,
   for mixed bird pages. Newest order uses [start,end); oldest order uses (start,end].
@@ -1072,7 +1073,7 @@ Notes:
   is not set up) or `unavailable` (set up, but the lookup failed: `reported_nearby` is null, or comes
   from an expired report kept after a failed refresh and during its 15-minute back-off, which is not a
   current check); `window_visit_count` and
-  `window_prev_visit_count` fold captures of one canonical species on one camera with a 60-second inactivity gap, as the
+  `window_prev_visit_count` fold captures of one canonical species on one camera with the visit gap (`visit_gap_seconds`), as the
   dashboard does, while `window_count` stays frames)
 
 ### Taxonomy
@@ -1101,7 +1102,7 @@ stores it (parentheses included when the source writes them), or null when unrec
 - `GET /api/taxonomy/facts?ids=` — what this install recorded of each taxon, for one open level of
   the family tree in one request. `ids` repeats, 1 to 100 catalogue ids (422 outside that); repeats
   are answered once and an id the catalogue does not hold is left out. Per taxon: `visits` (bird
-  visits by the shared 60-second visit rule plus confirmed Garden visits, 0 when none),
+  visits by the shared visit rule plus confirmed Garden visits, 0 when none),
   `species_seen` (species at or beneath it with a visit), `first_seen`, `last_seen` (the most recent
   visit), `heard` and `last_heard` (visible BirdNET-Go detections; `heard` is null when audio is not
   shared with the reader), `sources` (`camera`, `garden`) and `photo`. A group rolls these up over
@@ -1131,7 +1132,7 @@ stores it (parentheses included when the source writes them), or null when unrec
   `counted_captures` (captures with at least one stored bird observation) for the same daily
   window. These counts cover analyzed captures and may count the same bird in later captures.
   Visits for the same window use the leaderboard's rule (a frame opens a visit unless the
-  same canonical species was on the same camera within 60 seconds of the running latest verified event end, or capture time when the end is unavailable): `visit_count`, `hourly_visits`
+  same canonical species was on the same camera within the visit gap, `visit_gap_seconds`, of the running latest verified event end, or capture time when the end is unavailable): `visit_count`, `hourly_visits`
   (24 local-hour buckets by when each visit began), `camera_visits` (visits and last sighting per
   camera; `null` for a guest who may not see camera names) and `visit_count` on each `top_species`
   entry, which is now ordered by visits. `total_count` and `hourly_distribution` still count frames.
@@ -1320,11 +1321,15 @@ A detection set aside is dropped with reason `filter_out_of_range`, and `POST
   new one is public or owner-only by decision rather than by whether anyone remembered.
   `bird_counting_enabled` says whether new captures are analysed to count birds (high-quality
   snapshots on, with clips available), so the Dashboard can hold its counted-birds figure while
-  the day loads.
+  the day loads. `visit_gap_seconds` is the visit gap, so a guest's page groups captures into the
+  same visits as the owner's.
 - `POST /api/settings` (owner)
 
 Settings writes are partial and use the flat API field names, rather than the nested
-`config.json` layout. Omitted fields stay unchanged. Empty or redacted secrets retain
+`config.json` layout. `visit_gap_seconds` (stored as `visits.gap_seconds`, 5 to 300, default 60)
+sets the visit gap: captures of one species on one camera no further apart than this are one visit,
+for birds and Garden animals. It applies to the next query, with no restart. Days already sealed
+into daily totals keep the visit counts they were sealed with. Omitted fields stay unchanged. Empty or redacted secrets retain
 the saved value; they do not clear it. A provider or execution-mode change reloads
 the classifier, as does a saved-coordinate change. Invalid requests are rejected
 before changing any settings, including public-access controls. Every refusal a form save can
@@ -1555,7 +1560,7 @@ return 422. It does not reclassify saved detections or wait indefinitely for an 
   invalidates it, including when that change happens during rendering. Legacy films without
   matching provenance are not served.
 - `GET /api/about/portrait?utc_offset_minutes=` (guest-rate-limited). This feeder in a few facts:
-  `started_at`, `visits` (the shared 60-second visit rule), `detections`, `species`,
+  `started_at`, `visits` (the shared visit rule), `detections`, `species`,
   `busiest_day` (the viewer's calendar day, from the offset), `newest_arrival` (seen at least three
   times or confirmed) and `latest_visit` (with `film_url` once made). `scope` is `shared` for a
   guest, whose facts cover only the shared window of `shared_days`.
