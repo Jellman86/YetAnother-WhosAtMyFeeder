@@ -265,7 +265,7 @@ test('the sidebar status is a list inside a live region, and its link is named b
  */
 async function doubleTheText(page: Page): Promise<void> {
     // Every run of text on show, by the size it is drawn at, before and after the root doubles.
-    const sizes = (): Promise<number[]> => page.evaluate(() => {
+    const sizes = (): Promise<{ size: number; owner: string }[]> => page.evaluate(() => {
         const marked = (window as unknown as { textOwners?: Element[] });
         if (!marked.textOwners) {
             const owners = new Set<Element>();
@@ -276,7 +276,10 @@ async function doubleTheText(page: Page): Promise<void> {
             }
             marked.textOwners = [...owners];
         }
-        return marked.textOwners.map((owner) => (owner.isConnected ? parseFloat(getComputedStyle(owner).fontSize) : 0));
+        return marked.textOwners.map((owner) => ({
+            size: owner.isConnected ? parseFloat(getComputedStyle(owner).fontSize) : 0,
+            owner: `${owner.tagName.toLowerCase()}.${[...owner.classList].join('.')} "${(owner.textContent ?? '').trim().slice(0, 40)}"`
+        }));
     });
     const before = await sizes();
     await page.evaluate(() => {
@@ -289,9 +292,9 @@ async function doubleTheText(page: Page): Promise<void> {
     const after = await sizes();
     // Doubling the root must double the text itself, the smallest print included: a size held up
     // by a floor in pixels grows less than the page around it, and its clipping is never tested.
-    const grew = before.flatMap((size, index) => (size > 0 && after[index] > 0 ? [{ from: size, ratio: Math.round((after[index] / size) * 100) / 100 }] : []));
+    const grew = before.flatMap(({ size, owner }, index) => (size > 0 && after[index].size > 0 ? [{ from: size, owner, ratio: Math.round((after[index].size / size) * 100) / 100 }] : []));
     expect(new Set(grew.map((entry) => entry.from)).size, 'several text sizes are on show').toBeGreaterThanOrEqual(3);
-    const short = [...new Set(grew.filter((entry) => entry.ratio < 1.98 || entry.ratio > 2.02).map((entry) => `${entry.from}px grew ${entry.ratio}x`))];
+    const short = [...new Set(grew.filter((entry) => entry.ratio < 1.98 || entry.ratio > 2.02).map((entry) => `${entry.from}px grew ${entry.ratio}x: ${entry.owner}`))];
     expect(short).toEqual([]);
 }
 
