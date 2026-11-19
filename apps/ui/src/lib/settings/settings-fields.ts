@@ -41,6 +41,8 @@ const EXACT_FIELD_PARTS: Readonly<Record<string, SettingsPart>> = {
     trust_frigate_sublabel: 'detection',
     write_frigate_sublabel: 'detection',
     personalized_rerank_enabled: 'detection',
+    // How captures become visits sits beside the naming threshold.
+    visit_gap_seconds: 'detection',
     auto_video_classification: 'detection',
     image_execution_mode: 'models',
     inference_provider: 'models',

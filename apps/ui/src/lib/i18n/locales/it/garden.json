@@ -132,7 +132,7 @@
     "empty_dismissed": "Nessuna cattura del giardino scartata",
     "visit_captures": "{count, plural, one {# cattura in questa visita} other {# catture in questa visita}}",
     "visit_heading": "{count, plural, one {# cattura in questa visita} other {# catture in questa visita}}",
-    "visit_help": "Stessa telecamera e stesso animale, catture a meno di un minuto l'una dall'altra, come vengono raggruppate le visite degli uccelli. Può comunque trattarsi di più animali.",
+    "visit_help": "Stessa telecamera e stesso animale, catture a non più di {seconds, plural, one {# secondo} other {# secondi}} l'una dall'altra, come vengono raggruppate le visite degli uccelli. Può comunque trattarsi di più animali.",
     "suggested_as": "Suggerito come",
     "eyebrow_capture": "Cattura del giardino",
     "fact_source": "Proposto da",

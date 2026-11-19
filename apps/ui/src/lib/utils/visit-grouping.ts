@@ -29,8 +29,22 @@ export interface DetectionVisit {
     window?: { startTime?: string; endTime?: string };
 }
 
-/** Frames further apart than this are separate approaches, not one visit. */
+/** Frames further apart than this are separate approaches, not one visit, until the owner sets a gap. */
 export const VISIT_GAP_MS = 60 * 1000;
+
+/** The range the backend accepts for `visit_gap_seconds`. */
+const MIN_VISIT_GAP_SECONDS = 5;
+const MAX_VISIT_GAP_SECONDS = 300;
+
+/**
+ * The owner's visit gap in milliseconds, or the default while it is unread or unusable, so a
+ * grouping never runs on a gap the backend would refuse.
+ */
+export function visitGapMs(seconds: number | null | undefined): number {
+    if (typeof seconds !== 'number' || !Number.isInteger(seconds)) return VISIT_GAP_MS;
+    if (seconds < MIN_VISIT_GAP_SECONDS || seconds > MAX_VISIT_GAP_SECONDS) return VISIT_GAP_MS;
+    return seconds * 1000;
+}
 
 /** The dashboard is a "today" surface; Explorer holds the longer history. */
 const DESK_WINDOW_MS = 24 * 60 * 60 * 1000;

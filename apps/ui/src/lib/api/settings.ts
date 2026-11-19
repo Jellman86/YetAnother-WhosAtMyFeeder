@@ -209,6 +209,8 @@ export interface Settings {
     accessibility_reduced_motion: boolean;
     accessibility_live_announcements: boolean;
     appearance_explorer_view?: 'cards' | 'list';
+    /** Captures of one species on one camera this many seconds apart or closer are one visit. */
+    visit_gap_seconds?: number;
     appearance_font_theme?: string;
     appearance_color_theme?: string;
     auth_enabled: boolean;
@@ -314,13 +316,7 @@ export async function importConfigBackup(payload: unknown): Promise<ConfigBackup
 }
 
 /** The display preferences a viewer needs, served to guest and owner alike. */
-export interface PublicSettings {
-    classification_threshold: number;
-    ebird_default_days_back: number;
-    clips_enabled: boolean;
-    recording_clip_enabled: boolean;
-    bird_counting_enabled: boolean;
-}
+export type PublicSettings = components['schemas']['PublicSettings'];
 
 export async function fetchPublicSettings(): Promise<PublicSettings> {
     const response = await apiFetch(`${API_BASE}/settings/public`);

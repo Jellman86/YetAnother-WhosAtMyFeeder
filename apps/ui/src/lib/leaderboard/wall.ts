@@ -37,6 +37,8 @@ export interface WallOptions {
     /** Visits whose film is made, from the portraits route. */
     filmEvents: ReadonlySet<string>;
     featured?: number;
+    /** The owner's visit gap; the default gap when it is not given. */
+    gapMs?: number;
 }
 
 /**
@@ -66,7 +68,7 @@ export function wallTiles(detections: readonly Detection[], rows: readonly Showc
             detection.has_snapshot !== false &&
             detection.display_name.trim().toLowerCase() !== UNRESOLVED_LABEL
     );
-    const visits = groupDetectionsIntoVisits(shown, { reviewThreshold: options.reviewThreshold });
+    const visits = groupDetectionsIntoVisits(shown, { reviewThreshold: options.reviewThreshold, gapMs: options.gapMs });
 
     const tiles = visits.flatMap((visit): WallTile[] => {
         const best = visit.best;

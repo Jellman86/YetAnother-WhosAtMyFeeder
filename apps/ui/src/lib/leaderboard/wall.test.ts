@@ -67,6 +67,12 @@ describe('the leaderboard wall', () => {
         expect(tiles.map((tile) => tile.frigateEvent)).toEqual(['b2', 'b1']);
     });
 
+    it("follows the owner's visit gap, so a busy feeder's quick returns are separate visits (#1044)", () => {
+        const returns = [capture('t3', 'Great Tit', 0, {}, 0), capture('t2', 'Great Tit', 0, {}, 8), capture('t1', 'Great Tit', 0, {}, 30)];
+        expect(wallTiles(returns, [row('Great Tit', 1)], options).map((tile) => tile.captures)).toEqual([3]);
+        expect(wallTiles(returns, [row('Great Tit', 1)], { ...options, gapMs: 10 * SECOND }).map((tile) => tile.captures)).toEqual([2, 1]);
+    });
+
     it('leaves out hidden captures, ones with no stored photograph and unresolved birds', () => {
         const tiles = wallTiles(
             [

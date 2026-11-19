@@ -27,7 +27,7 @@
     "hide_rail": "フィルターを非表示",
     "show": "表示",
     "show_visits": "1 種の訪問",
-    "show_visits_hint": "1 羽の滞在：1 分未満の間隔で続く撮影。",
+    "show_visits_hint": "1 羽の滞在：{seconds, plural, other {# 秒}}以内の間隔で続く撮影。",
     "show_captures": "個別の撮影",
     "show_captures_hint": "撮影を 1 件ずつ。",
     "show_locked": "選択は個別の撮影に対して行います。",

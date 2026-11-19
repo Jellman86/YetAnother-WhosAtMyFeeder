@@ -27,7 +27,7 @@
     "hide_rail": "Masquer les filtres",
     "show": "Afficher",
     "show_visits": "Visites d'une espèce",
-    "show_visits_hint": "Le passage d'un oiseau : ses captures à moins d'une minute d'intervalle.",
+    "show_visits_hint": "Le passage d'un oiseau : ses captures à {seconds, plural, one {# seconde} other {# secondes}} d'intervalle au plus.",
     "show_captures": "Captures individuelles",
     "show_captures_hint": "Chaque capture séparément.",
     "show_locked": "La sélection porte sur les captures individuelles.",

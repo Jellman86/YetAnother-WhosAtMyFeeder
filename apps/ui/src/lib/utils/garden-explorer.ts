@@ -3,6 +3,7 @@ import type { DetectionVisit } from '../api/visits';
 import { heardWindow } from './heard-timeline';
 import { groupGardenReview } from './garden-review-groups';
 import { domesticBirdName } from './domestic-birds';
+import { VISIT_GAP_MS } from './visit-grouping';
 import type { GardenCheckState } from '../settings/model-readiness';
 
 /**
@@ -233,9 +234,6 @@ export function gardenBelongs(capture: GardenCapture, review: GardenReview): boo
     return review === 'reviewable' ? capture.status === 'pending' || capture.status === 'confirmed' : capture.status === review;
 }
 
-/** The bird visit rule's gap: captures less than a minute apart are one stay. */
-const GARDEN_VISIT_GAP_MS = 60_000;
-
 export interface GardenVisit {
     id: string;
     captureCount?: number;
@@ -282,12 +280,12 @@ export function gardenVisitIdentity(capture: GardenCapture): string {
 }
 
 /**
- * Folds Garden captures into visits, as bird captures are: one camera, one animal, captures less
- * than a minute apart. Unconfirmed motion proposals keep their position stacks instead and never
+ * Folds Garden captures into visits, as bird captures are: one camera, one animal, captures no
+ * further apart than the bird visit gap. Unconfirmed motion proposals keep their position stacks instead and never
  * merge by time, because a stationary false proposal at the feeder can run for hours and would
  * otherwise swallow a real animal passing through.
  */
-export function groupGardenVisits(captures: readonly GardenCapture[]): GardenVisit[] {
+export function groupGardenVisits(captures: readonly GardenCapture[], gapMs: number = VISIT_GAP_MS): GardenVisit[] {
     const order = new Map(captures.map((capture, index) => [capture.id, index]));
     const time = (capture: GardenCapture): number => Date.parse(capture.observed_at);
     const units = groupGardenReview(captures);
@@ -303,7 +301,7 @@ export function groupGardenVisits(captures: readonly GardenCapture[]): GardenVis
         const key = `${first.camera}\u0000${gardenVisitIdentity(first)}`;
         const at = time(first);
         const current = open.get(key);
-        if (current && at - current.latest <= GARDEN_VISIT_GAP_MS) {
+        if (current && at - current.latest <= gapMs) {
             current.visit.items.push(first);
             current.latest = Math.max(current.latest, at);
         } else {

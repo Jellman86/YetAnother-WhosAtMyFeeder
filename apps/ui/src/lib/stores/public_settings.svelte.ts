@@ -1,4 +1,6 @@
 import { fetchPublicSettings, type PublicSettings } from '../api/settings';
+import { visitGapMs } from '../utils/visit-grouping';
+import { settingsStore } from './settings.svelte';
 
 /**
  * The display preferences a viewer needs, read by guest and owner alike.
@@ -31,3 +33,11 @@ class PublicSettingsStore {
 }
 
 export const publicSettingsStore = new PublicSettingsStore();
+
+/**
+ * The visit gap every grouping in the SPA uses. The owner's own settings come first, so a saved gap
+ * applies at once; a guest reads it from the projection; both fall back to the default minute.
+ */
+export function savedVisitGapMs(): number {
+    return visitGapMs(settingsStore.settings?.visit_gap_seconds ?? publicSettingsStore.settings?.visit_gap_seconds);
+}
