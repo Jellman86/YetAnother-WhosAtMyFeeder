@@ -38,8 +38,10 @@
             <span id="visit-gap-unit" class="text-sm text-muted">{$_('settings.visit_gap.unit', { default: 'seconds' })}</span>
         </div>
     </SettingsRow>
-    <div class="max-w-prose space-y-2 text-sm leading-snug text-muted" data-visit-gap-notes>
-        <p>{$_('settings.visit_gap.limit', { default: 'A shorter gap splits a busy feeder into more, shorter visits. It cannot count individual birds: when one bird leaves as another of the same species lands, any gap still sees one visit.' })}</p>
-        <p>{$_('settings.visit_gap.history', { default: 'After you save, every page groups visits with the new gap. Days already kept as daily totals, because the history window removed their captures, keep the visit counts they were saved with.' })}</p>
+    <div data-visit-gap-notes>
+        <div class="max-w-prose space-y-2 text-sm leading-snug text-muted">
+            <p>{$_('settings.visit_gap.limit', { default: 'A shorter gap splits a busy feeder into more, shorter visits. It cannot count individual birds: when one bird leaves as another of the same species lands, any gap still sees one visit.' })}</p>
+            <p>{$_('settings.visit_gap.history', { default: 'After you save, every page groups visits with the new gap. Days already kept as daily totals, because the history window removed their captures, keep the visit counts they were saved with.' })}</p>
+        </div>
     </div>
 </SettingsCard>
