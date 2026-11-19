@@ -61,25 +61,6 @@ export function seriesSegments(
     return segments;
 }
 
-/** The filled area under the CPU line, closed along the baseline. */
-export function seriesArea(
-    points: readonly HistoryPoint[],
-    load: LoadSeries,
-    windowSeconds: number,
-    width: number = CHART_WIDTH,
-    height: number = CHART_HEIGHT
-): string | null {
-    const measured = points.filter((point) => load(point) !== null && load(point) !== undefined);
-    if (measured.length < 2) return null;
-    const latest = points[points.length - 1].at;
-    const first = xFor(measured[0].at, latest, windowSeconds, width).toFixed(1);
-    const last = xFor(measured[measured.length - 1].at, latest, windowSeconds, width).toFixed(1);
-    const body = measured
-        .map((point) => `${xFor(point.at, latest, windowSeconds, width).toFixed(1)},${yFor(load(point) as number, height).toFixed(1)}`)
-        .join(' ');
-    return `${first},${height} ${body} ${last},${height}`;
-}
-
 /** Evenly spaced time ticks across the window, as epoch seconds with their x position. */
 export function timeTicks(
     points: readonly HistoryPoint[],
@@ -227,14 +208,26 @@ export function formatPercent(value: number | null | undefined): string | null {
 /** What a series' number actually covers, which is not the same for every device. */
 export type SeriesScope = 'host' | 'device' | 'app';
 
-interface SeriesStyle {
-    /** SVG stroke class. */
+/**
+ * How one series is drawn, wherever it appears: its line and key on the chart, the dot on the
+ * inspected sample, the swatch beside its figure, and its meter in the sidebar. The colour is a
+ * fixed categorical token (`--series-*` in app.css), so it never follows the colour theme and is
+ * never the accent or a status tone. The dash pattern tells two lines apart without colour.
+ */
+export interface SeriesStyle {
+    /** The colour token, `series-1` to `series-4`. */
+    colour: SeriesColour;
+    /** SVG stroke class for the line and the key. */
     stroke: string;
-    /** Text class for the live figure. */
-    text: string;
+    /** Background class for a swatch or a meter's fill. */
+    fill: string;
+    /** Text class whose `currentColor` paints the inspected-sample dot. */
+    marker: string;
     /** Dash pattern, so two lines are told apart without relying on colour. */
     dash: string | null;
 }
+
+type SeriesColour = 'series-1' | 'series-2' | 'series-3' | 'series-4';
 
 export interface ChartSeries extends SeriesStyle {
     id: string;
@@ -244,44 +237,71 @@ export interface ChartSeries extends SeriesStyle {
     latest: number | null;
 }
 
-const CPU_STYLE: SeriesStyle = {
-    stroke: 'stroke-blue-600 dark:stroke-blue-500',
-    text: 'text-blue-700 dark:text-blue-300',
-    dash: null
-};
-
-// Enough for the accelerators one host can present at once; the list repeats rather
-// than running out, and the dash pattern carries the difference either way.
-const ACCELERATOR_STYLES: SeriesStyle[] = [
-    { stroke: 'stroke-accent-ink', text: 'text-accent-ink', dash: '7 4' },
-    { stroke: 'stroke-violet-600 dark:stroke-violet-400', text: 'text-violet-700 dark:text-violet-300', dash: '2 3' },
-    { stroke: 'stroke-ink', text: 'text-ink', dash: '11 4 2 4' }
+/**
+ * One style per line, in a fixed order: the CPU first, then up to three accelerators. The order
+ * is what keeps neighbouring colours apart for colour-blind readers (docs/standards/design-tokens.md),
+ * so a fifth line is never given a recycled colour; see {@link undrawnAccelerators}.
+ */
+export const SERIES_STYLES: readonly SeriesStyle[] = [
+    { colour: 'series-1', stroke: 'stroke-series-1', fill: 'bg-series-1', marker: 'text-series-1', dash: null },
+    { colour: 'series-2', stroke: 'stroke-series-2', fill: 'bg-series-2', marker: 'text-series-2', dash: '7 4' },
+    { colour: 'series-3', stroke: 'stroke-series-3', fill: 'bg-series-3', marker: 'text-series-3', dash: '2 3' },
+    { colour: 'series-4', stroke: 'stroke-series-4', fill: 'bg-series-4', marker: 'text-series-4', dash: '11 4 2 4' }
 ];
 
-type HistoryLike = Pick<SystemTelemetryHistory, 'points'> & { accelerators?: Accelerator[] };
+/** The CPU's style, which the sidebar's CPU meter shares with the Health chart. */
+export const CPU_STYLE = SERIES_STYLES[0];
+
+/** The style of the accelerator the server names as primary: the one the sidebar shows. */
+export const PRIMARY_ACCELERATOR_STYLE = SERIES_STYLES[1];
+
+const MAX_ACCELERATOR_LINES = SERIES_STYLES.length - 1;
+
+type HistoryLike = Pick<SystemTelemetryHistory, 'points'> & {
+    accelerators?: Accelerator[];
+    /** The accelerator the sidebar draws, so it can wear the same colour on both. */
+    accelerator?: SystemTelemetryHistory['accelerator'];
+};
+
+function isPrimary(accelerator: Accelerator, primary: HistoryLike['accelerator']): boolean {
+    return Boolean(primary) && accelerator.kind === primary?.kind && accelerator.label === primary?.label;
+}
+
+/** Readable accelerators, the sidebar's own first so it takes the second colour on both surfaces. */
+function readableAccelerators(history: HistoryLike): Accelerator[] {
+    const readable = (history.accelerators ?? []).filter((accelerator) => !accelerator.unreadable);
+    const primary = readable.findIndex((accelerator) => isPrimary(accelerator, history.accelerator));
+    return primary > 0 ? [readable[primary], ...readable.slice(0, primary), ...readable.slice(primary + 1)] : readable;
+}
 
 /**
- * The lines to draw: the host's CPU, then every accelerator whose counter can be read.
- * A device that is present but unreadable is not given a line it cannot fill; it is
- * named in words instead (see {@link unreadableAccelerators}).
+ * The lines to draw: the host's CPU, then every accelerator whose counter can be read, up to the
+ * three the palette has colours for. A device that is present but unreadable is not given a line
+ * it cannot fill; it is named in words instead (see {@link unreadableAccelerators}).
  */
 export function chartSeries(history: HistoryLike, cpuLabel: string): ChartSeries[] {
     const latest = history.points[history.points.length - 1] ?? null;
     const series: ChartSeries[] = [
         { id: 'cpu', label: cpuLabel, scope: 'host', load: cpuLoad, latest: latest?.cpu_percent ?? null, ...CPU_STYLE }
     ];
-    const readable = (history.accelerators ?? []).filter((accelerator) => !accelerator.unreadable);
-    readable.forEach((accelerator, index) => {
-        series.push({
-            id: accelerator.id,
-            label: accelerator.label,
-            scope: accelerator.scope,
-            load: acceleratorLoad(accelerator.id),
-            latest: latest?.accelerators?.[accelerator.id] ?? null,
-            ...ACCELERATOR_STYLES[index % ACCELERATOR_STYLES.length]
+    readableAccelerators(history)
+        .slice(0, MAX_ACCELERATOR_LINES)
+        .forEach((accelerator, index) => {
+            series.push({
+                id: accelerator.id,
+                label: accelerator.label,
+                scope: accelerator.scope,
+                load: acceleratorLoad(accelerator.id),
+                latest: latest?.accelerators?.[accelerator.id] ?? null,
+                ...SERIES_STYLES[index + 1]
+            });
         });
-    });
     return series;
+}
+
+/** Readable accelerators past the three the chart draws, so the panel can name them in words. */
+export function undrawnAccelerators(history: HistoryLike): Accelerator[] {
+    return readableAccelerators(history).slice(MAX_ACCELERATOR_LINES);
 }
 
 /**

@@ -178,6 +178,14 @@
   --color-on-media-fail: rgb(var(--on-media-fail));
   /* Rain over a time series: the precipitation bands on the Leaderboard's timeline and their key. */
   --color-rain-band: rgb(var(--rain-band));
+  /* The lines of a load chart, in a fixed order: the Health chart's CPU and accelerators and the
+     sidebar's meters. Categorical, not semantic: they never follow the colour theme, and they keep
+     clear of the accent, the focus ring and every status tone, so no line reads as a link or a
+     state. Validated for colour-blind separation in each mode (design-tokens.contrast.test.ts). */
+  --color-series-1: rgb(var(--series-1));
+  --color-series-2: rgb(var(--series-2));
+  --color-series-3: rgb(var(--series-3));
+  --color-series-4: rgb(var(--series-4));
 
   /* Semantic success, deliberately NOT theme-driven. `accent` is a brand colour and the
      bluetit theme paints it amber, which is reserved for "needs a person"
@@ -356,6 +364,12 @@
   --on-media-fail: 253 164 175;
   --rain-band: 56 189 248;
   --on-media: 255 255 255;
+  /* Violet, sky, plum, pink: the CPU and the first accelerator, the pair on show most, are the
+     furthest apart. */
+  --series-1: 119 47 221;
+  --series-2: 0 140 206;
+  --series-3: 145 0 128;
+  --series-4: 248 81 174;
 }
 
 html.dark,
@@ -400,6 +414,11 @@ html[data-theme='dark'] {
   --ai-code: var(--brand-200);
   --ai-muted: 148 163 184;
   --ai-marker: var(--brand-300);
+  /* The same four hues, stepped for the dark ground: violet, sky, orchid, deep pink. */
+  --series-1: 144 72 253;
+  --series-2: 8 154 195;
+  --series-3: 227 110 253;
+  --series-4: 217 9 129;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
@@ -1030,6 +1049,11 @@ html.high-contrast.high-contrast.high-contrast {
   --status-neutral-soft: 0 0 0;
   --status-neutral-line: 255 255 255;
   --media-raised: 0 0 0;
+  /* Chart lines on black, clear of the yellow accent and the cyan focus ring. */
+  --series-1: 164 119 255;
+  --series-2: 33 210 250;
+  --series-3: 201 33 206;
+  --series-4: 255 113 214;
 
   /* The inks. Each is 7:1 or better on black; meaning still never rests on the hue alone. */
   --hc-ink: #ffffff;

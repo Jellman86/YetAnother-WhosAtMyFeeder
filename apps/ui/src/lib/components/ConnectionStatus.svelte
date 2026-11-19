@@ -40,11 +40,12 @@
     const say = (text: StatusText): string => $_(text.key, { default: text.fallback });
 
     // Each tone has its own shape as well as its own colour: a filled circle is working, a
-    // diamond needs a person, and a ring is off by choice or not yet known.
+    // diamond needs a person, and a ring is off by choice or not yet known. Working is the quiet
+    // case, so its dot is the smallest; a problem is the one that should catch the eye.
     const DOT: Record<StatusTone, string> = {
-        ok: 'rounded-full bg-status-ok-line',
-        attention: 'rotate-45 bg-status-attention-line',
-        neutral: 'rounded-full border-2 border-status-neutral-line'
+        ok: 'h-1.5 w-1.5 rounded-full bg-status-ok-line',
+        attention: 'h-2 w-2 rotate-45 bg-status-attention-line',
+        neutral: 'h-2 w-2 rounded-full border-2 border-status-neutral-line'
     };
 
     const ICON: Record<StatusRow['id'], string> = {
@@ -75,13 +76,13 @@
                     <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                         <path d={ICON[row.id]} />
                     </svg>
-                    <span class="absolute right-0.5 top-0.5 h-2 w-2 {DOT[row.tone]}" aria-hidden="true" data-status-dot></span>
+                    <span class="absolute right-0.5 top-0.5 {DOT[row.tone]}" aria-hidden="true" data-status-dot></span>
                     <span class="sr-only">{say(row.label)}: {say(row.state)}</span>
                 </li>
             {/each}
         </ul>
     {:else}
-        <ul class="space-y-1.5" data-status-list>
+        <ul class="space-y-1" data-status-list>
             {#each rows as row (row.id)}
                 <li
                     class="grid grid-cols-[auto_minmax(0,1fr)] gap-x-2"
@@ -92,14 +93,16 @@
                     data-status-feed={row.id === 'feed' ? feed : undefined}
                 >
                     <span class="flex h-4 w-3 items-center justify-center" aria-hidden="true">
-                        <span class="h-2 w-2 {DOT[row.tone]}" data-status-dot></span>
+                        <span class="{DOT[row.tone]}" data-status-dot></span>
                     </span>
                     <!-- A state too long for the row drops under its label instead of being cut, and keeps
                          to the right edge there, so every state still reads down one column. -->
                     <span class="flex min-w-0 flex-wrap items-baseline justify-between gap-x-2 text-xs leading-4">
                         <span class="text-muted" data-status-label>{say(row.label)}</span>
+                        <!-- One weight for the rows: a state that is fine is plain ink, and only one that
+                             needs a person is set apart, in its tone and a heavier weight. -->
                         <span
-                            class="ml-auto text-right font-semibold {row.tone === 'attention' ? 'text-status-attention' : 'text-strong'}"
+                            class="ml-auto text-right {row.tone === 'attention' ? 'font-semibold text-status-attention' : 'text-ink'}"
                             data-status-state
                         >{say(row.state)}</span>
                     </span>

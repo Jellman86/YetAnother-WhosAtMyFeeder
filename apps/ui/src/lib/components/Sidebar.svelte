@@ -11,7 +11,7 @@
     import { _ } from 'svelte-i18n';
     import BrandMark from './BrandMark.svelte';
     import LanguageSelector from './LanguageSelector.svelte';
-    import SystemTelemetryGraph from './SystemTelemetryGraph.svelte';
+    import SystemLoadMeters from './SystemLoadMeters.svelte';
     import { trapFocus } from '../utils/focus-trap';
     import { incidentWorkspaceStore } from '../stores/incident_workspace.svelte';
     import { systemStatusStore } from '../stores/system_status.svelte';
@@ -238,8 +238,8 @@
             {/each}
         </nav>
 
-        <!-- System status is a plain list on a neutral surface: measured states in words, one muted
-             line of resource readings, and the way to Health. Only the owner can reach Health,
+        <!-- System status is a plain list on a neutral surface: measured states in words, the load as
+             labelled meters in the Health chart's series colours, and the way to Health as the card's foot. Only the owner can reach Health,
              so a guest gets no link. The link asks for attention only for issues Health lists as open,
              read from the same store, so the two always agree. -->
         <div data-sidebar-status class="mt-auto flex flex-col border-t border-line-soft p-3 compact-height:p-2 [@media(max-height:42rem)]:hidden">
@@ -291,7 +291,7 @@
                             {$_('status.title')}
                         </h2>
                         {@render status?.(false)}
-                        <SystemTelemetryGraph />
+                        <SystemLoadMeters />
                     </div>
                     {#if authStore.showSettings}
                         <!-- One line, one control: with issues open the count is the link's wording and
@@ -299,7 +299,7 @@
                              link is just "Health". -->
                         <a
                             href="/system-health"
-                            class="focus-ring -mx-1 mt-2 flex min-h-7 shrink-0 items-center justify-between gap-x-2 rounded-md border-t border-line-soft px-1 pt-2 text-xs font-semibold leading-4 text-ink transition-colors hover:text-accent-ink"
+                            class="focus-ring -mx-1 mt-3 flex min-h-7 shrink-0 items-center justify-between gap-x-2 rounded-md border-t border-line-soft px-1 pt-2 text-xs leading-4 text-ink transition-colors hover:text-accent-ink"
                             data-sidebar-status-link
                             data-health-attention={health.needsAttention}
                             onclick={openHealth}
@@ -307,16 +307,16 @@
                             onfocus={() => onPrefetch?.('/system-health')}
                         >
                             {#if health.needsAttention}
-                                <span class="flex min-w-0 items-center gap-2 text-status-attention">
+                                <span class="flex min-w-0 items-center gap-2 font-semibold text-status-attention">
                                     <span class="h-2 w-2 shrink-0 rotate-45 bg-status-attention-line" aria-hidden="true"></span>
                                     <span class="min-w-0">
                                         <span class="sr-only">{healthLinkPrefix}</span><span data-health-issues>{issuesLabel}</span>
                                     </span>
                                 </span>
                             {:else}
-                                <span class="ml-auto">{$_('status.open_health', { default: 'Health' })}</span>
+                                <span>{$_('status.open_health', { default: 'Health' })}</span>
                             {/if}
-                            <svg class="h-3 w-3 shrink-0" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" data-health-chevron><path stroke-linecap="round" stroke-linejoin="round" d="m8 5 5 5-5 5" /></svg>
+                            <svg class="h-3 w-3 shrink-0 text-muted" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" data-health-chevron><path stroke-linecap="round" stroke-linejoin="round" d="m8 5 5 5-5 5" /></svg>
                         </a>
                     {/if}
                 </section>

@@ -7,11 +7,12 @@ import {
     formatPercent,
     markerFor,
     pointAt,
-    seriesArea,
     seriesSegments,
     sampleTable,
     shareRows,
     timeTicks,
+    SERIES_STYLES,
+    undrawnAccelerators,
     unreadableAccelerators,
     windowSummary,
     type Accelerator,
@@ -51,13 +52,6 @@ describe('system history chart geometry', () => {
         expect(segments).toHaveLength(2);
         expect(segments[0]).toBe('0.0,90.0');
         expect(segments[1]).toBe('100.0,70.0 150.0,60.0');
-    });
-
-    it('closes the area along the baseline and needs two measured samples', () => {
-        expect(seriesArea([point(0, 10)], cpuLoad, 10, 100, 100)).toBeNull();
-        expect(seriesArea([point(0, 10), point(10, 20)], cpuLoad, 10, 100, 100)).toBe(
-            '0.0,100 0.0,90.0 100.0,80.0 100.0,100'
-        );
     });
 
     it('spaces time ticks across the window and finds the nearest sample to a position', () => {
@@ -139,6 +133,54 @@ describe('the lines the panel draws', () => {
         expect(series[2].scope).toBe('app');
         // Two lines never depend on colour alone to be told apart.
         expect(new Set(series.map((line) => line.dash)).size).toBe(series.length);
+    });
+
+    it('gives every line its own fixed colour, and never the accent or a status tone', () => {
+        const series = chartSeries(
+            {
+                points: [point(10, 40, 12)],
+                accelerators: [
+                    accelerator(),
+                    accelerator({ id: 'gpu-0', kind: 'gpu', label: 'Intel GPU', scope: 'app' }),
+                    accelerator({ id: 'gpu-1', kind: 'gpu', label: 'Intel GPU 2', scope: 'app' })
+                ]
+            },
+            'CPU'
+        );
+
+        expect(series.map((line) => line.colour)).toEqual(['series-1', 'series-2', 'series-3', 'series-4']);
+        for (const part of ['colour', 'stroke', 'fill', 'marker', 'dash'] as const) {
+            expect(new Set(series.map((line) => line[part])).size, part).toBe(series.length);
+        }
+        const classes = series.flatMap((line) => [line.stroke, line.fill, line.marker]);
+        for (const name of classes) {
+            // A series token only: the theme's accent would clash with one line in one theme, and a
+            // status colour would claim a state (amber needs a person, green is healthy, rose failed).
+            expect(name).toMatch(/^(?:stroke|bg|text)-series-[1-4]$/);
+            expect(name).not.toMatch(/accent|brand|status|success|attention|danger|amber|green|emerald|red|rose|blue|teal/);
+        }
+    });
+
+    it('keeps the colours whatever the order of the devices, the sidebar\'s accelerator first', () => {
+        const npu = accelerator();
+        const gpu = accelerator({ id: 'gpu-0', kind: 'gpu', label: 'Intel GPU', scope: 'app' });
+        const series = chartSeries({ points: [], accelerators: [gpu, npu], accelerator: { kind: 'npu', label: 'NPU' } }, 'CPU');
+
+        // The sidebar shows the NPU, so the NPU wears the second colour here too.
+        expect(series.map((line) => [line.id, line.colour])).toEqual([
+            ['cpu', 'series-1'],
+            ['accel0', 'series-2'],
+            ['gpu-0', 'series-3']
+        ]);
+    });
+
+    it('draws at most three accelerators rather than recycling a colour, and names the rest', () => {
+        const devices = ['a', 'b', 'c', 'd'].map((id) => accelerator({ id, label: `GPU ${id}`, kind: 'gpu', scope: 'app' }));
+        const history = { points: [], accelerators: devices };
+
+        expect(chartSeries(history, 'CPU')).toHaveLength(SERIES_STYLES.length);
+        expect(undrawnAccelerators(history).map((device) => device.id)).toEqual(['d']);
+        expect(undrawnAccelerators({ points: [], accelerators: devices.slice(0, 3) })).toEqual([]);
     });
 
     it('gives no line to a device whose counter cannot be read, and names it instead', () => {
