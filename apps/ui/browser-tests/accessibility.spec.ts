@@ -269,10 +269,18 @@ async function doubleTheText(page: Page): Promise<void> {
         const marked = (window as unknown as { textOwners?: Element[] });
         if (!marked.textOwners) {
             const owners = new Set<Element>();
+            // Words a screen reader hears but nobody sees (sr-only: a box of a pixel, clipped) are not
+            // text on show. WCAG 1.4.4 is about what is drawn, and Chromium could report such a label's
+            // old size after the root doubled, which failed this check now and then on CI.
+            const drawn = (owner: Element): boolean => {
+                if (owner.closest('.sr-only')) return false;
+                const box = owner.getBoundingClientRect();
+                return box.width > 1 && box.height > 1;
+            };
             const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
             for (let node = walker.nextNode(); node; node = walker.nextNode()) {
                 const owner = node.parentElement;
-                if (owner && node.textContent?.trim() && !owner.closest('script, style, noscript, option, canvas, .leaflet-container') && owner.checkVisibility()) owners.add(owner);
+                if (owner && node.textContent?.trim() && !owner.closest('script, style, noscript, option, canvas, .leaflet-container') && owner.checkVisibility() && drawn(owner)) owners.add(owner);
             }
             marked.textOwners = [...owners];
         }
