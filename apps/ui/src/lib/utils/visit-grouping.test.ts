@@ -3,6 +3,7 @@ import type { Detection } from '../api';
 import {
     VISIT_GAP_MS,
     groupDetectionsIntoVisits as groupVisits,
+    visitGapMs,
     needsReview,
     ownerConfirmationScope,
     fromServerVisit,
@@ -167,6 +168,25 @@ describe('groupDetectionsIntoVisits', () => {
 
         expect(visits).toHaveLength(1);
         expect(VISIT_GAP_MS).toBe(60 * 1000);
+    });
+
+    it("splits a busy feeder's quick returns into more visits when the owner shortens the gap (#1044)", () => {
+        const returns = [
+            detection({ frigate_event: 'c', detection_time: '2026-08-11T11:00:41Z' }),
+            detection({ frigate_event: 'b', detection_time: '2026-08-11T11:00:08Z' }),
+            detection({ frigate_event: 'a', detection_time: '2026-08-11T11:00:00Z' })
+        ];
+
+        expect(groupDetectionsIntoVisits(returns).map((visit) => visit.frames.length)).toEqual([3]);
+        expect(groupDetectionsIntoVisits(returns, visitGapMs(10)).map((visit) => visit.frames.length)).toEqual([1, 2]);
+    });
+
+    it("reads the owner's gap in seconds and keeps the default for a gap it cannot use", () => {
+        expect(visitGapMs(15)).toBe(15_000);
+        expect(visitGapMs(300)).toBe(300_000);
+        for (const unusable of [null, undefined, 0, 4, 301, Number.NaN, 12.5]) {
+            expect(visitGapMs(unusable)).toBe(VISIT_GAP_MS);
+        }
     });
 
     it('keeps the desk on one window so its numbers cannot contradict each other', () => {

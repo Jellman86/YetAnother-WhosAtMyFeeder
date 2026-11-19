@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.services.bird_model_region_resolver import normalize_bird_model_region
 from app.services.garden_domestic_birds import DomesticBirdKey, normalize_domestic_birds
+from app.services.visit_grouping import DEFAULT_VISIT_GAP_SECONDS, MAX_VISIT_GAP_SECONDS, MIN_VISIT_GAP_SECONDS
 
 log = structlog.get_logger()
 
@@ -1065,6 +1066,21 @@ class NotificationSettings(BaseModel):
     )
     notification_cooldown_minutes: int = Field(
         default=0, description="Global cooldown between notifications in minutes (0 = disabled)"
+    )
+
+
+class VisitSettings(BaseModel):
+    """How captures are grouped into visits, for birds and Garden animals alike.
+
+    Its own section because the visit rule is not owned by naming, display or upkeep: every
+    count of visits, live and in statistics, follows it.
+    """
+
+    gap_seconds: int = Field(
+        default=DEFAULT_VISIT_GAP_SECONDS,
+        ge=MIN_VISIT_GAP_SECONDS,
+        le=MAX_VISIT_GAP_SECONDS,
+        description=("Captures of one species on one camera no more than this many seconds apart count as one visit"),
     )
 
 

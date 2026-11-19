@@ -52,6 +52,7 @@
         type SourceMode
     } from '../leaderboard/source-metrics';
     import { settingsStore } from '../stores/settings.svelte';
+    import { savedVisitGapMs } from '../stores/public_settings.svelte';
     import { authStore } from '../stores/auth.svelte';
     import { detectionsStore } from '../stores/detections.svelte';
     import { themeStore } from '../stores/theme.svelte';
@@ -395,6 +396,7 @@
     let leaderboardWall = $derived(
         wallTiles(wallDetections, showcaseRows, {
             reviewThreshold: settingsStore.settings?.classification_threshold ?? null,
+            gapMs: savedVisitGapMs(),
             filmEvents: new Set(portraits.filter((portrait) => portrait.film_url).map((portrait) => portrait.frigate_event))
         })
     );

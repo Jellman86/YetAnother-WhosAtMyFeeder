@@ -7,6 +7,7 @@
     import type ModelSettingsView from '../ModelSettings.svelte';
     import type HardwareSettingsView from '../HardwareSettings.svelte';
     import type NamingSettingsView from '../NamingSettings.svelte';
+    import type VisitGapSettingsView from '../VisitGapSettings.svelte';
     import type GardenBetaSettingsView from '../GardenBetaSettings.svelte';
     import DeviceCheckDialog from '../DeviceCheckDialog.svelte';
     import SectionMore from './SectionMore.svelte';
@@ -17,7 +18,8 @@
         loadGardenBetaSettings,
         loadHardwareSettings,
         loadModelSettings,
-        loadNamingSettings
+        loadNamingSettings,
+        loadVisitGapSettings
     } from './part-loaders';
 
     // Identifying birds: how sure a name must be and the models that name birds come first; blocked
@@ -26,6 +28,7 @@
     // keep its component's own names.
     type Props = ComponentProps<typeof DetectionSettingsView>
         & ComponentProps<typeof NamingSettingsView>
+        & ComponentProps<typeof VisitGapSettingsView>
         & Omit<ComponentProps<typeof ModelSettingsView>, 'autoVideoClassification' | 'onopenlocationsettings' | 'deviceCheck' | 'modelsListed'>
         & Omit<ComponentProps<typeof HardwareSettingsView>, 'deviceCheck' | 'classifierStatus' | 'imageExecutionMode'>
         & ComponentProps<typeof GardenBetaSettingsView>
@@ -78,6 +81,7 @@
         onOpenAlerts,
         automaticNaming = $bindable(),
         namingThreshold = $bindable(),
+        visitGapSeconds = $bindable(),
         domesticBirds = $bindable(),
         onNavigate,
         onOpenCameras
@@ -115,6 +119,13 @@
             bind:automaticNaming
             bind:namingThreshold
         />
+        {/snippet}
+        </LazyRoute>
+        <!-- How captures become visits sits beside how a visit is named: both decide what the
+             feeder's history records. -->
+        <LazyRoute loader={loadVisitGapSettings} label={$_('settings.visit_gap.title', { default: 'Counting visits' })}>
+        {#snippet content(VisitGapSettings)}
+        <VisitGapSettings bind:visitGapSeconds />
         {/snippet}
         </LazyRoute>
     </div>

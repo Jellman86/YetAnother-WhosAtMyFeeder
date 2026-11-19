@@ -1840,5 +1840,14 @@
   "naming": {
     "title": "Seuil d’identification",
     "garden_title": "Animaux du jardin"
+  },
+  "visit_gap": {
+    "title": "Compter les visites",
+    "desc": "Les captures d'une espèce sur une caméra séparées au plus de l'écart entre visites comptent comme une seule visite. Les animaux du jardin sont regroupés de la même façon.",
+    "label": "Écart entre visites",
+    "range": "De 5 à 300 secondes. La valeur par défaut est 60.",
+    "unit": "secondes",
+    "limit": "Un écart plus court divise une mangeoire animée en visites plus nombreuses et plus courtes. Il ne peut pas compter les oiseaux un par un : quand un oiseau part au moment où un autre de la même espèce se pose, tout écart voit encore une seule visite.",
+    "history": "Après l'enregistrement, chaque page regroupe les visites avec le nouvel écart. Les jours dont la durée de l'historique a déjà retiré les captures gardent le nombre de visites avec lequel ils ont été enregistrés."
   }
 }

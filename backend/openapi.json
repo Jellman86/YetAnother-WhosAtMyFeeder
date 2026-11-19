@@ -15964,6 +15964,11 @@
             "description": "Whether recording-backed clips are enabled",
             "title": "Recording Clip Enabled",
             "type": "boolean"
+          },
+          "visit_gap_seconds": {
+            "description": "Seconds apart that captures of one species on one camera stay one visit",
+            "title": "Visit Gap Seconds",
+            "type": "integer"
           }
         },
         "required": [
@@ -15971,7 +15976,8 @@
           "ebird_default_days_back",
           "clips_enabled",
           "recording_clip_enabled",
-          "bird_counting_enabled"
+          "bird_counting_enabled",
+          "visit_gap_seconds"
         ],
         "title": "PublicSettings",
         "type": "object"
@@ -19471,6 +19477,17 @@
             "default": 3,
             "title": "Video Classification Max Retries"
           },
+          "visit_gap_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Visit Gap Seconds"
+          },
           "write_frigate_sublabel": {
             "default": true,
             "title": "Write Frigate Sublabel",
@@ -21832,6 +21849,20 @@
             "default": 3,
             "description": "Max retries for clip availability",
             "title": "Video Classification Max Retries"
+          },
+          "visit_gap_seconds": {
+            "anyOf": [
+              {
+                "maximum": 300.0,
+                "minimum": 5.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Captures of one species on one camera no more than this many seconds apart count as one visit",
+            "title": "Visit Gap Seconds"
           },
           "write_frigate_sublabel": {
             "default": true,

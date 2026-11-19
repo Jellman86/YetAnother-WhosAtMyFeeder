@@ -13,6 +13,7 @@ import structlog
 from app.utils.diagnostic_redaction import redact_address, safe_connection_error, safe_error_message
 from app.services.connection_failure import classify_connection_failure, connection_failure_payload
 from app.services.settings_update import apply_update, prepare_update, run_settings_writer
+from app.services.visit_grouping import MAX_VISIT_GAP_SECONDS, MIN_VISIT_GAP_SECONDS
 from app.services.cache_stats_measurements import CacheStatsMeasurements
 from app.services.analysis_status import (
     BATCH_ANALYSIS_MAX_QUEUE_PER_RUN,
@@ -1289,6 +1290,12 @@ class SettingsUpdate(BaseModel):
     appearance_explorer_view: Optional[ExplorerView] = None
     appearance_font_theme: Optional[str] = None
     appearance_color_theme: Optional[str] = None
+    visit_gap_seconds: Optional[int] = Field(
+        None,
+        ge=MIN_VISIT_GAP_SECONDS,
+        le=MAX_VISIT_GAP_SECONDS,
+        description="Captures of one species on one camera no more than this many seconds apart count as one visit",
+    )
 
     @field_validator("location_weather_unit_system")
     @classmethod
@@ -1807,6 +1814,7 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "appearance_explorer_view": settings.appearance.explorer_view,
         "appearance_font_theme": settings.appearance.font_theme,
         "appearance_color_theme": settings.appearance.color_theme,
+        "visit_gap_seconds": settings.visits.gap_seconds,
         # Authentication
         "auth_enabled": settings.auth.enabled,
         "auth_username": settings.auth.username,

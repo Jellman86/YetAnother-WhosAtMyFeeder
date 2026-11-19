@@ -132,7 +132,7 @@
     "empty_dismissed": "没有已驳回的花园拍摄",
     "visit_captures": "{count, plural, other {本次到访 # 条拍摄}}",
     "visit_heading": "{count, plural, other {本次到访 # 条拍摄}}",
-    "visit_help": "同一摄像头、同一动物、间隔不到一分钟的拍摄，按鸟类到访的方式归组。仍可能不止一只动物。",
+    "visit_help": "同一摄像头、同一动物、间隔不超过{seconds, plural, other {# 秒}}的拍摄，按鸟类到访的方式归组。仍可能不止一只动物。",
     "suggested_as": "建议为",
     "eyebrow_capture": "花园拍摄",
     "fact_source": "提出者",

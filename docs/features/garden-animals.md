@@ -154,7 +154,8 @@ are not shared. Choosing a camera narrows the Garden captures as well as the bir
   visitor sees the control only while you share video.
 - Garden pages count complete entries, with the capture total shown separately.
   Grouping happens on the server before pagination. An animal's stay is one entry, as a bird's visit is: captures on the same camera, of the same
-  animal (the same name, or both unnamed in the same review state), less than a minute apart, open
+  animal (the same name, or both unnamed in the same review state), no further apart than the bird
+  visit gap (**Settings → Identifying birds → Counting visits**, 60 seconds by default), open
   together as **N captures in this visit**. Unconfirmed motion proposals instead stack by position
   and never merge by time, so a real animal is not hidden inside a stack of repeated feeder
   proposals. Every capture is still stored and reviewed on its own; grouping only changes how they

@@ -1840,5 +1840,14 @@
   "naming": {
     "title": "Limiar de identificação",
     "garden_title": "Animais do jardim"
+  },
+  "visit_gap": {
+    "title": "Contagem de visitas",
+    "desc": "As capturas de uma espécie numa câmara separadas no máximo pelo intervalo entre visitas contam como uma visita. Os animais do jardim são agrupados da mesma forma.",
+    "label": "Intervalo entre visitas",
+    "range": "De 5 a 300 segundos. O valor predefinido é 60.",
+    "unit": "segundos",
+    "limit": "Um intervalo mais curto divide um comedouro movimentado em mais visitas, e mais curtas. Não consegue contar aves individuais: quando uma ave sai enquanto outra da mesma espécie pousa, qualquer intervalo continua a ver uma visita.",
+    "history": "Depois de guardar, todas as páginas agrupam as visitas com o novo intervalo. Os dias cujas capturas o período do histórico já removeu mantêm a contagem de visitas com que foram guardados."
   }
 }

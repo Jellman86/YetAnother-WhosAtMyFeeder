@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 import structlog
+from pydantic import ValidationError
 
 from .utils.private_files import write_private_text
 
@@ -34,6 +35,7 @@ from .config_models import (
     PublicAccessSettings,
     SystemSettings,
     TelemetrySettings,
+    VisitSettings,
     _expand_trusted_hosts,
 )
 
@@ -184,6 +186,15 @@ def _optional_int(raw: str | None) -> int | None:
     if raw is None or not raw.strip():
         return None
     return int(raw)
+
+
+def _visit_settings(data: dict[str, Any]) -> VisitSettings:
+    # A mistyped gap must not stop the feeder recording: group by the default and say why.
+    try:
+        return VisitSettings(**data)
+    except ValidationError as error:
+        log.warning("visit_gap_invalid_using_default", error=str(error), default=VisitSettings().gap_seconds)
+        return VisitSettings()
 
 
 def _classification_overridden_by_env(key: str) -> bool:
@@ -612,6 +623,10 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
         "color_theme": os.environ.get("APPEARANCE__COLOR_THEME", "bluetit"),
     }
 
+    visits_data: dict[str, Any] = {}
+    if "VISITS__GAP_SECONDS" in os.environ:
+        visits_data["gap_seconds"] = os.environ["VISITS__GAP_SECONDS"]
+
     species_info_source = os.environ.get("SPECIES_INFO__SOURCE", "auto")
     date_format = os.environ.get("DISPLAY__DATE_FORMAT", "locale")
     time_format = os.environ.get("DISPLAY__TIME_FORMAT", "locale")
@@ -844,6 +859,11 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
                     if env_key not in os.environ:
                         appearance_data[k] = v
 
+            if isinstance(file_data.get("visits"), dict):
+                for k, v in file_data["visits"].items():
+                    if f"VISITS__{k.upper()}" not in os.environ:
+                        visits_data[k] = v
+
             if "species_info_source" in file_data and "SPECIES_INFO__SOURCE" not in os.environ:
                 species_info_source = file_data["species_info_source"]
                 # Back-compat: if enrichment isn't explicitly configured, map species_info_source to summary source.
@@ -966,6 +986,7 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
         accessibility=AccessibilitySettings(**accessibility_data),
         appearance=AppearanceSettings(**appearance_data),
         system=SystemSettings(**system_data),
+        visits=_visit_settings(visits_data),
         auth=AuthSettings(**auth_data),
         public_access=PublicAccessSettings(**public_access_data),
         species_info_source=species_info_source,

@@ -132,7 +132,7 @@
     "empty_dismissed": "Não há capturas do jardim descartadas",
     "visit_captures": "{count, plural, one {# captura nesta visita} other {# capturas nesta visita}}",
     "visit_heading": "{count, plural, one {# captura nesta visita} other {# capturas nesta visita}}",
-    "visit_help": "Mesma câmara e mesmo animal, capturas com menos de um minuto de intervalo, tal como as visitas de aves são agrupadas. Ainda assim pode ser mais de um animal.",
+    "visit_help": "Mesma câmara e mesmo animal, capturas com no máximo {seconds, plural, one {# segundo} other {# segundos}} de intervalo, tal como as visitas de aves são agrupadas. Ainda assim pode ser mais de um animal.",
     "suggested_as": "Sugerido como",
     "eyebrow_capture": "Captura do jardim",
     "fact_source": "Proposto por",

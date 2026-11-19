@@ -10,6 +10,7 @@
     import Disclosure from './ui/Disclosure.svelte';
     import Segmented from './ui/Segmented.svelte';
     import type { ExplorerDatePreset as DatePreset } from '../utils/explorer-query';
+    import { savedVisitGapMs } from '../stores/public_settings.svelte';
 
     /** A species option, named as the owner names birds: a primary name and, when shown, the other. */
     type ExplorerSpeciesOption = EventFilterSpecies & { display_secondary?: string | null };
@@ -166,7 +167,7 @@
         { value: 'garden', label: $_('garden.explorer.subjects_short_garden', { default: 'Garden animals' }), hint: $_('garden.explorer.subjects_garden_hint', { default: 'Animals from Garden cameras only.' }) }
     ]);
     const showOptions = $derived([
-        { grouped: true, short: $_('events.filters.show_visits_short', { default: 'Visits' }), hint: $_('events.filters.show_visits_hint', { default: "One bird's stay: its captures less than a minute apart." }) },
+        { grouped: true, short: $_('events.filters.show_visits_short', { default: 'Visits' }), hint: $_('events.filters.show_visits_hint', { values: { seconds: savedVisitGapMs() / 1000 }, default: "One bird's stay: its captures no more than {seconds, plural, one {# second} other {# seconds}} apart." }) },
         { grouped: false, short: $_('events.filters.show_captures_short', { default: 'Captures' }), hint: $_('events.filters.show_captures_hint', { default: 'Every capture on its own.' }) }
     ]);
     const reviewOptions = $derived<{ value: GardenReview; label: string }[]>([

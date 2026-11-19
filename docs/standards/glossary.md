@@ -23,7 +23,7 @@ enforced, or enforced and not listed here.
 
 | Term | What it means to the owner | Not |
 |---|---|---|
-| **visit** | One bird coming to the feeder: everything the camera kept from its arrival until it had been gone for a minute. Visits are what the app counts, lists and ranks. | detection, detections, sighting, sightings |
+| **visit** | One bird coming to the feeder: everything the camera kept from its arrival until it had been gone for the visit gap (a minute unless the owner changes it under Settings → Identifying birds). Visits are what the app counts, lists and ranks. | detection, detections, sighting, sightings |
 | **capture** | One stored photograph from a visit, with its own time and score. A visit has one or more captures. | |
 | **record** | The page of one capture: its photograph, its identification, its evidence and its actions. "Open the record." | |
 | **call** | One bird heard by the microphone (BirdNET-Go). Calls are heard, visits are seen. | |

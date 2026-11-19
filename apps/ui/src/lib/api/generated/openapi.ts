@@ -2242,6 +2242,7 @@ export interface components {
     clips_enabled: boolean;
     ebird_default_days_back: number;
     recording_clip_enabled: boolean;
+    visit_gap_seconds: number;
 };
     PurgeMissingMediaResponse: {
     checked: number;
@@ -2649,6 +2650,7 @@ export interface components {
     video_classification_maintenance_circuit_open?: boolean;
     video_classification_maintenance_circuit_until?: string | null;
     video_classification_max_retries?: number | null;
+    visit_gap_seconds?: number | null;
     write_frigate_sublabel?: boolean;
 };
     SettingsUpdate: {
@@ -2859,6 +2861,7 @@ export interface components {
     video_classification_delay?: number | null;
     video_classification_frames?: number | null;
     video_classification_max_retries?: number | null;
+    visit_gap_seconds?: number | null;
     write_frigate_sublabel?: boolean;
 };
     SettingsUpdateResponse: {

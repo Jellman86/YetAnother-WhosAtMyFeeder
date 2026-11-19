@@ -53,6 +53,7 @@
     import { toastStore } from '../stores/toast.svelte';
     import { authStore } from '../stores/auth.svelte';
     import { SCORE_FILL, scoreBand } from '../utils/score-tone';
+    import { savedVisitGapMs } from '../stores/public_settings.svelte';
 
     type Variant = NonNullable<GardenIdentifyRequest['variant']>;
     type Provider = NonNullable<GardenIdentifyRequest['provider']>;
@@ -560,7 +561,7 @@
                             <p class="text-xs text-on-media/70">
                                 {groupKind === 'position'
                                     ? $_('garden.group_help', { default: 'Position does not identify an animal. This group can contain different visitors.' })
-                                    : $_('garden.explorer.visit_help', { default: 'Same camera and same animal, captures less than a minute apart, as bird visits are grouped. It can still be more than one animal.' })}
+                                    : $_('garden.explorer.visit_help', { values: { seconds: savedVisitGapMs() / 1000 }, default: 'Same camera and same animal, captures no more than {seconds, plural, one {# second} other {# seconds}} apart, as bird visits are grouped. It can still be more than one animal.' })}
                             </p>
                             <div class="flex gap-2 overflow-x-auto pb-2" role="group" aria-label={$_('garden.explorer.visit_photos', { default: 'Photos in this group' })} aria-busy={groupLoading}>
                                 {#each group as item, choiceIndex (item.id)}

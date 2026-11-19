@@ -227,6 +227,12 @@ describe('groupGardenVisits', () => {
         expect(ids(visits)).toEqual([['late'], ['lawn'], ['badger'], ['b', 'a']]);
     });
 
+    it("follows the owner's visit gap, as bird visits do (#1044)", () => {
+        const captures = [fox('c', 41), fox('b', 8), fox('a', 0)];
+        expect(ids(groupGardenVisits(captures))).toEqual([['c', 'b', 'a']]);
+        expect(ids(groupGardenVisits(captures, 10_000))).toEqual([['c'], ['b', 'a']]);
+    });
+
     it('never merges unconfirmed motion proposals by time, so an animal is not buried in a feeder stack', () => {
         const box = { camera: 'patio', clip_start: 1, clip_end: 9, frame_index: 1, frame_offset: 1, clip_sha256: 'a'.repeat(64), image_sha256: 'b'.repeat(64), detector_sha256: 'c'.repeat(64), detector_score: 0.8 };
         const feeder = (id: string, seconds: number) => capture({ id, observed_at: at(seconds), source_kind: 'motion', motion_source: { ...box, box_xywh: [0.1, 0.1, 0.1, 0.1] } } as Partial<GardenCapture>);

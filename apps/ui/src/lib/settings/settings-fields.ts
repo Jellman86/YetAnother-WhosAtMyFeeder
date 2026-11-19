@@ -41,6 +41,8 @@ const EXACT_FIELD_PARTS: Readonly<Record<string, SettingsPart>> = {
     trust_frigate_sublabel: 'detection',
     write_frigate_sublabel: 'detection',
     personalized_rerank_enabled: 'detection',
+    // How captures become visits sits beside the naming threshold.
+    visit_gap_seconds: 'detection',
     auto_video_classification: 'detection',
     image_execution_mode: 'models',
     inference_provider: 'models',
@@ -170,6 +172,7 @@ const FIELD_PLACES: Readonly<Record<string, SettingsFieldPlace>> = {
     video_classification_delay: { labelKey: 'settings.detection.video_delay', inputId: 'video-delay', disclosures: [IDENTIFICATION_MORE, 'detection-frigate-video'] },
     video_classification_max_retries: { labelKey: 'settings.detection.video_retries', inputId: 'video-retries', disclosures: [IDENTIFICATION_MORE, 'detection-frigate-video'] },
     video_classification_frames: { labelKey: 'settings.detection.video_frames', inputId: 'video-frames', disclosures: [IDENTIFICATION_MORE, 'detection-frigate-video'] },
+    visit_gap_seconds: { labelKey: 'settings.visit_gap.label', inputId: 'visit-gap-seconds' },
     media_cache_max_size_mb: { labelKey: 'settings.data.storage_limit', inputId: 'cache-max-size-gb' },
     maintenance_max_concurrent: { labelKey: 'settings.data.maintenance_max_concurrent', inputId: 'maintenance-max-concurrent', disclosures: [STORAGE_MORE] },
     garden_labels: { labelKey: 'garden.labels', inputId: 'garden-labels', disclosures: [IDENTIFICATION_MORE, 'garden-section-cameras'] },

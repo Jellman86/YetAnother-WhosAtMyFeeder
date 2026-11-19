@@ -137,6 +137,10 @@ describe('which refused field is shown first', () => {
 });
 
 describe('where a refused field is shown', () => {
+    it('names a refused visit gap and leads to its field, rather than calling it another setting (#1044)', () => {
+        expect(settingsFieldPlace('visit_gap_seconds')).toEqual({ labelKey: 'settings.visit_gap.label', inputId: 'visit-gap-seconds' });
+    });
+
     it('names, for every field, an input and closed sections that exist in the same part\'s markup', () => {
         const problems: string[] = [];
         for (const [field, place] of settingsFieldPlaces()) {

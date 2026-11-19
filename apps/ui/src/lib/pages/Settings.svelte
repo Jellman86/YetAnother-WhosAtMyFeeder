@@ -220,6 +220,7 @@
         colorTheme: themeStore.colorTheme
     });
     let personalizedRerankEnabled = $state(false);
+    let visitGapSeconds = $state(60);
     let rangeFilterEnabled = $state(false);
     let rangeFilterRegionLevel = $state<'county' | 'state' | 'country'>('county');
     let autoVideoClassification = $state(false);
@@ -774,6 +775,7 @@
             { field: 'trust_frigate_sublabel', draft: trustFrigateSublabel, saved: s.trust_frigate_sublabel ?? true },
             { field: 'write_frigate_sublabel', draft: writeFrigateSublabel, saved: s.write_frigate_sublabel ?? true },
             { field: 'personalized_rerank_enabled', draft: personalizedRerankEnabled, saved: s.personalized_rerank_enabled ?? false },
+            { field: 'visit_gap_seconds', draft: visitGapSeconds, saved: s.visit_gap_seconds ?? 60 },
             { field: 'range_filter_enabled', draft: rangeFilterEnabled, saved: s.range_filter_enabled ?? false },
             { field: 'range_filter_region_level', draft: rangeFilterRegionLevel, saved: s.range_filter_region_level ?? 'county' },
             { field: 'auto_video_classification', draft: autoVideoClassification, saved: s.auto_video_classification ?? false },
@@ -2609,6 +2611,7 @@
         themeStore.setFontTheme(fontTheme);
         themeStore.setColorTheme(colorTheme);
         personalizedRerankEnabled = settings.personalized_rerank_enabled ?? false;
+        visitGapSeconds = settings.visit_gap_seconds ?? 60;
         rangeFilterEnabled = settings.range_filter_enabled ?? false;
         rangeFilterRegionLevel = settings.range_filter_region_level ?? 'county';
         autoVideoClassification = settings.auto_video_classification ?? false;
@@ -2953,6 +2956,7 @@
             trust_frigate_sublabel: trustFrigateSublabel,
             write_frigate_sublabel: writeFrigateSublabel,
             personalized_rerank_enabled: personalizedRerankEnabled,
+            visit_gap_seconds: visitGapSeconds,
             range_filter_enabled: rangeFilterEnabled,
             range_filter_region_level: rangeFilterRegionLevel,
             auto_video_classification: autoVideoClassification,
@@ -3348,6 +3352,7 @@
                 bind:trustFrigateSublabel
                 bind:writeFrigateSublabel
                 bind:personalizedRerankEnabled
+                bind:visitGapSeconds
                 bind:autoVideoClassification
                 bind:videoClassificationDelay
                 bind:videoClassificationMaxRetries

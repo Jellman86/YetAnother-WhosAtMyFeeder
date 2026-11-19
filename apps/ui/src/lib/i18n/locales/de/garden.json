@@ -132,7 +132,7 @@
     "empty_dismissed": "Keine verworfenen Gartenaufnahmen",
     "visit_captures": "{count, plural, one {# Aufnahme in diesem Besuch} other {# Aufnahmen in diesem Besuch}}",
     "visit_heading": "{count, plural, one {# Aufnahme in diesem Besuch} other {# Aufnahmen in diesem Besuch}}",
-    "visit_help": "Gleiche Kamera und gleiches Tier, Aufnahmen weniger als eine Minute auseinander, so wie Vogelbesuche gruppiert werden. Es können trotzdem mehrere Tiere sein.",
+    "visit_help": "Gleiche Kamera und gleiches Tier, Aufnahmen höchstens {seconds, plural, one {# Sekunde} other {# Sekunden}} auseinander, so wie Vogelbesuche gruppiert werden. Es können trotzdem mehrere Tiere sein.",
     "suggested_as": "Vorgeschlagen als",
     "eyebrow_capture": "Gartenaufnahme",
     "fact_source": "Vorgeschlagen von",

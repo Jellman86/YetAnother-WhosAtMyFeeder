@@ -27,7 +27,7 @@
     "hide_rail": "Ocultar filtros",
     "show": "Mostrar",
     "show_visits": "Visitas de uma espécie",
-    "show_visits_hint": "A estadia de uma ave: as suas capturas com menos de um minuto entre si.",
+    "show_visits_hint": "A estadia de uma ave: as suas capturas com no máximo {seconds, plural, one {# segundo} other {# segundos}} entre si.",
     "show_captures": "Capturas individuais",
     "show_captures_hint": "Cada captura separadamente.",
     "show_locked": "A seleção funciona com capturas individuais.",

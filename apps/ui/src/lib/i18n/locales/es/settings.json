@@ -1840,5 +1840,14 @@
   "naming": {
     "title": "Umbral de identificación",
     "garden_title": "Animales del jardín"
+  },
+  "visit_gap": {
+    "title": "Cómo se cuentan las visitas",
+    "desc": "Las capturas de una especie en una cámara separadas como máximo por el intervalo entre visitas cuentan como una visita. Los animales del jardín se agrupan igual.",
+    "label": "Intervalo entre visitas",
+    "range": "De 5 a 300 segundos. El valor predeterminado es 60.",
+    "unit": "segundos",
+    "limit": "Un intervalo más corto divide un comedero concurrido en más visitas, y más cortas. No puede contar aves individuales: cuando un ave se va mientras otra de la misma especie se posa, cualquier intervalo sigue viendo una visita.",
+    "history": "Al guardar, todas las páginas agrupan las visitas con el nuevo intervalo. Los días cuyas capturas ya eliminó el período del historial conservan el recuento de visitas con el que se guardaron."
   }
 }

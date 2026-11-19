@@ -5429,7 +5429,7 @@ class DetectionRepository:
         """Detection and visit counts per species for a time range.
 
         A visit follows the leaderboard's rule: a detection opens one unless the same species was
-        on the same camera within sixty seconds of the last verified event end, or capture time.
+        on the same camera within the owner's visit gap of the last verified event end, or capture time.
         """
         from app.repositories.visit_repository import VisitRepository
 

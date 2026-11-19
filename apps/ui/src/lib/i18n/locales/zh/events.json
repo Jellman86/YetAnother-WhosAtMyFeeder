@@ -27,7 +27,7 @@
     "hide_rail": "隐藏筛选",
     "show": "显示",
     "show_visits": "同一物种的到访",
-    "show_visits_hint": "一只鸟的停留：间隔不到一分钟的拍摄。",
+    "show_visits_hint": "一只鸟的停留：间隔不超过{seconds, plural, other {# 秒}}的拍摄。",
     "show_captures": "单次拍摄",
     "show_captures_hint": "每次拍摄单独显示。",
     "show_locked": "选择针对单次拍摄。",

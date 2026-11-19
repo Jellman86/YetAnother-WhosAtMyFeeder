@@ -132,7 +132,7 @@
     "empty_dismissed": "No dismissed Garden captures",
     "visit_captures": "{count, plural, one {# capture in this visit} other {# captures in this visit}}",
     "visit_heading": "{count, plural, one {# capture in this visit} other {# captures in this visit}}",
-    "visit_help": "Same camera and same animal, captures less than a minute apart, as bird visits are grouped. It can still be more than one animal.",
+    "visit_help": "Same camera and same animal, captures no more than {seconds, plural, one {# second} other {# seconds}} apart, as bird visits are grouped. It can still be more than one animal.",
     "suggested_as": "Suggested as",
     "eyebrow_capture": "Garden capture",
     "fact_source": "Proposed by",

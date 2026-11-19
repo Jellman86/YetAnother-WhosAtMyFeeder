@@ -532,7 +532,7 @@ A leaderboard is only as good as its identifications, so the rankings say what s
 species besides the classifier: confirmed by the owner, heard by BirdNET in the same window, or the
 camera alone (`leaderboard/evidence.ts`). A trend is claimed only when the history covers the whole
 previous window (`previous_window_complete` from the route); otherwise the page says when records
-start. Rankings count visits (`window_visit_count`, the shared server rule of a 60-second inactivity gap after the latest verified event end,
+start. Rankings count visits (`window_visit_count`, the shared server rule of an inactivity gap of `visit_gap_seconds`, 60 by default, after the latest verified event end,
 with capture time as the fallback). Only the all-time view, which has no visit counts, shows the raw total of stored
 photographs, and it calls them captures ([`glossary.md`](glossary.md), Counting): a raw total is never relabelled as visits.
 The Leaderboard's strings still say "detections" until its copy pass; the copy-lint baseline counts them.
@@ -615,7 +615,7 @@ is sending now (On and Always) first; everything else it can contact waits behin
 **Show everything YA-WAMF can contact**, with a count of the rest.
 
 The portrait (`FeederPortrait`, `/api/about/portrait`) is one calm block of facts the feeder has
-measured: when it started, its visits (the shared 60-second visit rule) and species to date, its
+measured: when it started, its visits (the shared visit rule) and species to date, its
 busiest day in the viewer's own calendar days, and its newest arrival, which must have been seen at
 least three times or confirmed so a single misidentification is never announced. Beside them is
 the latest visit with a stored crop, which plays its film once one is made and opens its record. A

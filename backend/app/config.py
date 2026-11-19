@@ -28,6 +28,7 @@ from .config_models import (
     PublicAccessSettings,
     SystemSettings,
     TelemetrySettings,
+    VisitSettings,
     _expand_trusted_hosts,
 )
 
@@ -58,6 +59,7 @@ class Settings(BaseSettings):
     accessibility: AccessibilitySettings = AccessibilitySettings()
     appearance: AppearanceSettings = AppearanceSettings()
     system: SystemSettings = SystemSettings()
+    visits: VisitSettings = VisitSettings()
     auth: AuthSettings = AuthSettings()
     public_access: PublicAccessSettings = PublicAccessSettings()
     species_info_source: str = Field(default="auto", description="Species info source: auto, inat, or wikipedia")

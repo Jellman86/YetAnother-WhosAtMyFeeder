@@ -9,6 +9,7 @@ export const loadDetectionSettings = lazyComponent(() => import('../DetectionSet
 export const loadModelSettings = lazyComponent(() => import('../ModelSettings.svelte'));
 export const loadHardwareSettings = lazyComponent(() => import('../HardwareSettings.svelte'));
 export const loadNamingSettings = lazyComponent(() => import('../NamingSettings.svelte'));
+export const loadVisitGapSettings = lazyComponent(() => import('../VisitGapSettings.svelte'));
 export const loadGardenBetaSettings = lazyComponent(() => import('../GardenBetaSettings.svelte'));
 export const loadNotificationSettings = lazyComponent(() => import('../NotificationSettings.svelte'));
 export const loadNotificationChannelsSettings = lazyComponent(() => import('../NotificationChannelsSettings.svelte'));
@@ -30,7 +31,7 @@ export const loadAccessibilitySettings = lazyComponent(() => import('../Accessib
 /** Everything a part needs loaded before it has its full height. */
 export const SETTINGS_PART_LOADERS: Readonly<Record<SettingsPart, () => Promise<unknown>>> = {
     connection: () => Promise.all([loadConnectionSettings(), loadBirdnetSettings()]),
-    detection: () => Promise.all([loadNamingSettings(), loadDetectionSettings()]),
+    detection: () => Promise.all([loadNamingSettings(), loadVisitGapSettings(), loadDetectionSettings()]),
     models: () => Promise.all([loadModelSettings(), loadHardwareSettings()]),
     beta: loadGardenBetaSettings,
     notifications: () => Promise.all([loadNotificationSettings(), loadNotificationChannelsSettings()]),

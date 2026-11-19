@@ -1840,5 +1840,14 @@
   "naming": {
     "title": "Soglia di identificazione",
     "garden_title": "Animali del giardino"
+  },
+  "visit_gap": {
+    "title": "Conteggio delle visite",
+    "desc": "Le acquisizioni di una specie su una telecamera distanti al massimo l'intervallo tra visite contano come una visita. Gli animali del giardino sono raggruppati allo stesso modo.",
+    "label": "Intervallo tra visite",
+    "range": "Da 5 a 300 secondi. Il valore predefinito è 60.",
+    "unit": "secondi",
+    "limit": "Un intervallo più breve divide una mangiatoia affollata in visite più numerose e più brevi. Non può contare i singoli uccelli: quando un uccello se ne va mentre un altro della stessa specie si posa, qualsiasi intervallo vede ancora una sola visita.",
+    "history": "Dopo aver salvato, ogni pagina raggruppa le visite con il nuovo intervallo. I giorni le cui acquisizioni sono già state rimosse dalla durata della cronologia mantengono il numero di visite con cui sono stati salvati."
   }
 }
