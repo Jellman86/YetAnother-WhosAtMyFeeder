@@ -5,15 +5,10 @@
     import { telemetrySampleDelayMs } from '../app/public-refresh-budget';
     import { authStore } from '../stores/auth.svelte';
     import { systemStatusStore, telemetrySampleFrom } from '../stores/system_status.svelte';
-    import Separator from './Separator.svelte';
-    import {
-        appendTelemetrySample,
-        telemetryPolyline,
-        type TelemetryPoint
-    } from './systemTelemetryGraph';
+    import { appendTelemetrySample, loadMeters, type TelemetryPoint } from './systemLoadMeters';
 
     let history = $state<TelemetryPoint[]>([]);
-    /** The last sample failed (a visitor may be rate-limited): the graph keeps it, marked as not current. */
+    /** The last sample failed (a visitor may be rate-limited): the meters keep it, marked as not current. */
     let stale = $state(false);
     let failures = 0;
     let sampling = false;
@@ -22,15 +17,9 @@
     let nextSample: number | null = null;
     let container: HTMLDivElement;
 
-    let current = $derived(history.at(-1));
-    let cpuPoints = $derived(telemetryPolyline(history, 'cpu'));
-
-    function displayPercent(value: number | null | undefined): string | null {
-        return typeof value === 'number' ? `${Math.round(value)}%` : null;
-    }
-
-    let currentCpuPercent = $derived(displayPercent(current?.cpu));
-    let currentAcceleratorPercent = $derived(displayPercent(current?.accelerator));
+    const meters = $derived(
+        loadMeters(history, $_('system_telemetry.cpu', { default: 'CPU' }), $_('ui.state.not_measured', { default: 'Not measured' }))
+    );
 
     function watched(): boolean {
         return inViewport && !document.hidden;
@@ -91,7 +80,7 @@
         }
     }
 
-    // Nothing is sampled while no one can see the graph, and a gap is not drawn as a continuous line.
+    // Nothing is sampled while no one can see the meters, and a reading from before a pause is not shown as current.
     function pause(): void {
         cancelNextSample();
         history = [];
@@ -127,49 +116,46 @@
 </script>
 
 <!--
-    One muted line in the card's own flow: the readings as plain text, with a small trace of
-    recent CPU load beside them. It is not a link and never sits behind the status rows. The row
-    keeps its height before the first reading, so nothing below it moves when one arrives.
+    The load as meters, one row each for the CPU and the accelerator: its name, a bar that fills, and
+    the figure. Each bar wears its series' colour on the Health chart, and the figure says the value,
+    so nothing rests on the colour. A tall bar is the warning; the card adds no colour of its own, since
+    a busy host is not a fault. Rows sit in the card's own flow, never behind the status rows. The block
+    keeps one row's height before the first reading; a host with an accelerator grows by its second row
+    when that reading arrives, which for an owner is the status already in hand, so at once. After that a
+    missed sample keeps its row, said not measured, so the card does not jump with every gap.
 -->
-<div
-    bind:this={container}
-    data-system-telemetry
-    class="mt-2 flex min-h-4 items-center justify-between gap-2 overflow-y-clip text-xs leading-4 text-muted"
->
-    {#if current}
-        <!-- A flex row, so each reading is a box on the 16px line, and the row clips what overhangs it
-             vertically: the faces' font boxes are taller than the line, and Chromium counted that overhang
-             (about 1.5px) as something to scroll to, so the status card scrolled at every window size. -->
-        <p class="flex min-w-0 flex-wrap items-baseline gap-x-1 tabular-nums" data-telemetry-readout data-telemetry-stale={stale}>
-            {#if stale}
-                <span>{$_('system_telemetry.last_reading', { default: 'Last reading' })}:</span>
-            {/if}
-            {#if currentCpuPercent}
-                <span class="whitespace-nowrap">CPU {currentCpuPercent}</span>
-            {/if}
-            {#if currentCpuPercent && currentAcceleratorPercent}
-                <Separator />
-            {/if}
-            {#if currentAcceleratorPercent}
-                <span class="whitespace-nowrap">{current.acceleratorLabel ?? ''} {currentAcceleratorPercent}</span>
-            {/if}
-        </p>
-        {#if cpuPoints}
-            <svg
-                viewBox="0 0 100 100"
-                preserveAspectRatio="none"
-                class="h-4 w-12 shrink-0 {stale ? 'opacity-50' : ''}"
-                aria-hidden="true"
-                data-telemetry-trace
-            >
-                <polyline
-                    points={cpuPoints}
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="1.5"
-                    vector-effect="non-scaling-stroke"
-                />
-            </svg>
+<div bind:this={container} data-system-telemetry class="mt-3 min-h-4 overflow-y-clip text-xs leading-4">
+    {#if meters.length > 0}
+        {#if stale}
+            <!-- A failed sample keeps the last figures, said to be old before they are read, and muted with them. -->
+            <p class="mb-1 text-muted" data-telemetry-last-reading>{$_('system_telemetry.last_reading', { default: 'Last reading' })}</p>
         {/if}
+        <!-- One grid, so every bar starts and ends on the same lines whatever the names are. The figures are
+             clipped vertically with the block: the faces' font boxes are taller than the line, and Chromium
+             counted that overhang (about 1.5px) as something to scroll to. -->
+        <dl
+            class="load-meters grid items-center gap-x-2 gap-y-1.5 tabular-nums"
+            data-telemetry-readout
+            data-telemetry-stale={stale}
+        >
+            {#each meters as meter (meter.id)}
+                <div class="contents" data-telemetry-meter={meter.id}>
+                    <dt class="text-muted">{meter.label}</dt>
+                    <dd class="col-span-2 grid grid-cols-subgrid items-center">
+                        <span class="block h-1.5 overflow-hidden rounded-full bg-track {stale ? 'opacity-50' : ''}" aria-hidden="true">
+                            <span class="block h-full rounded-full {meter.fill}" style="width: {meter.percent}%"></span>
+                        </span>
+                        <span class="text-right {stale || !meter.measured ? 'text-muted' : 'text-ink'}" data-telemetry-figure>{meter.shown}</span>
+                    </dd>
+                </div>
+            {/each}
+        </dl>
     {/if}
 </div>
+
+<style>
+    /* Name, bar, figure: the names take what the longest needs, and the bar takes the rest. */
+    .load-meters {
+        grid-template-columns: auto minmax(0, 1fr) auto;
+    }
+</style>

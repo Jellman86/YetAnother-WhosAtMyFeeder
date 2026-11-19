@@ -25,9 +25,9 @@ describe('the sidebar status list', () => {
 
     it('never says a state by colour alone', () => {
         // Working, needs a person, and off each have their own dot shape as well as a colour.
-        expect(statusSource).toMatch(/ok: 'rounded-full bg-status-ok-line'/);
-        expect(statusSource).toMatch(/attention: 'rotate-45 bg-status-attention-line'/);
-        expect(statusSource).toMatch(/neutral: 'rounded-full border-2 border-status-neutral-line'/);
+        expect(statusSource).toMatch(/ok: 'h-1\.5 w-1\.5 rounded-full bg-status-ok-line'/);
+        expect(statusSource).toMatch(/attention: 'h-2 w-2 rotate-45 bg-status-attention-line'/);
+        expect(statusSource).toMatch(/neutral: 'h-2 w-2 rounded-full border-2 border-status-neutral-line'/);
         // The full sentence is the tooltip; the icon rail names each icon with the same words.
         expect(statusSource).toContain('title={say(row.detail)}');
         expect(statusSource).toContain('<span class="sr-only">{say(row.label)}: {say(row.state)}</span>');

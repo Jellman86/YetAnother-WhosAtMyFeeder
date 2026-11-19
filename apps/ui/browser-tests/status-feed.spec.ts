@@ -36,6 +36,26 @@ test('a connected page with the broker down is never shown as live', async ({ pa
     expect(errors).toEqual([]);
 });
 
+test('a state too long for its row starts under its label, never right-aligned under nothing', async ({ page }) => {
+    await open(page, 'stream=1&mqtt=disconnected&frigate=unreachable');
+    for (const width of [200, 260, 320]) {
+        await list(page).evaluate((node, value) => { (node as HTMLElement).style.width = `${value}px`; }, width);
+        const [label, value, body] = await Promise.all([
+            row(page, 'feed').locator('[data-status-label]').boundingBox(),
+            state(page, 'feed').boundingBox(),
+            state(page, 'feed').locator('..').boundingBox()
+        ]);
+        if (!label || !value || !body) throw new Error('the feed row is not drawn');
+        if (value.y > label.y + 1) {
+            // Wrapped: it reads on from the label's own start.
+            expect(Math.abs(value.x - label.x), `wrapped at ${width}px`).toBeLessThanOrEqual(1);
+        } else {
+            // Beside its label: it keeps the right edge, in the column of the other states.
+            expect(Math.abs(value.x + value.width - (body.x + body.width)), `beside at ${width}px`).toBeLessThanOrEqual(1);
+        }
+    }
+});
+
 test('a Frigate that does not answer is named even with the broker up', async ({ page }) => {
     await open(page, 'stream=1&mqtt=connected&frigate=unreachable');
     await expect(state(page, 'feed')).toHaveText('Frigate not answering');

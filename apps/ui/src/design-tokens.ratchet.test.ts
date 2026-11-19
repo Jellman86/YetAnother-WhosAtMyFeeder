@@ -86,13 +86,8 @@ const ALLOWLIST: { file: string; classes: RegExp; reason: string }[] = [
     },
     {
         file: 'lib/components/settings/SystemHealthPanel.svelte',
-        classes: /^(?:bg|text|fill|stroke)-(?:amber|blue|teal|violet|rose)-\d{2,3}$/,
-        reason: 'categorical CPU-share and load series, chosen for colour-vision separation and always named in words; a series is not a state'
-    },
-    {
-        file: 'lib/utils/system-history.ts',
-        classes: /^(?:text|stroke)-(?:blue|teal|violet|amber|rose)-\d{2,3}$/,
-        reason: 'the same categorical load series, drawn on the Health chart and named in its key'
+        classes: /^bg-(?:amber|blue|teal|violet|rose)-\d{2,3}$/,
+        reason: 'the categorical CPU-share segments, chosen for colour-vision separation and always named in words; a segment is not a state. The load lines use the series tokens'
     }
 ];
 

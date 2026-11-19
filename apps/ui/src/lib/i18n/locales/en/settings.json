@@ -1413,6 +1413,7 @@
     "measurement_gap": "No utilisation reading for this sample. The worker rows below show their loaded accelerator; this gap does not establish a CPU fallback.",
     "unreadable_nvidia": "{label} is present, but its driver publishes no utilisation counter a container can read.",
     "unreadable_accelerator": "{label} is present, but its counter cannot be read from inside the container.",
+    "undrawn_accelerator": "{label} is measured, but the chart draws three accelerators at most, so its line is left out.",
     "table_region": "Work by process",
     "chart_title": "Load over the last 30 minutes",
     "col_time": "Time"

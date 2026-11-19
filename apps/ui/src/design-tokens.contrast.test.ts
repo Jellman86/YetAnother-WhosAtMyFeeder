@@ -144,3 +144,65 @@ describe('the semantic tokens', () => {
         }
     });
 });
+
+/** A colour's place in OKLab, scaled by 100: the space the chart palette is validated in. */
+function oklab([r, g, b]: Rgb): [number, number, number] {
+    const linear = [r, g, b].map((channel) => {
+        const value = channel / 255;
+        return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+    });
+    const l = Math.cbrt(0.4122214708 * linear[0] + 0.5363325363 * linear[1] + 0.0514459929 * linear[2]);
+    const m = Math.cbrt(0.2119034982 * linear[0] + 0.6806995451 * linear[1] + 0.1073969566 * linear[2]);
+    const s = Math.cbrt(0.0883024619 * linear[0] + 0.2817188376 * linear[1] + 0.6299787005 * linear[2]);
+    return [
+        100 * (0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s),
+        100 * (1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s),
+        100 * (0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s)
+    ];
+}
+
+function difference(a: Rgb, b: Rgb): number {
+    const [first, second] = [oklab(a), oklab(b)];
+    return Math.hypot(first[0] - second[0], first[1] - second[1], first[2] - second[2]);
+}
+
+const SERIES = ['--series-1', '--series-2', '--series-3', '--series-4'];
+/** Colours a line must not be mistaken for: the brand, the keyboard focus, and every status tone. */
+const RESERVED = ['--accent', '--accent-ink', '--accent-line', '--focus', ...TONES.flatMap((tone) => [`--status-${tone}`, `--status-${tone}-line`])];
+
+describe('the chart series colours', () => {
+    for (const [modeName, mode] of Object.entries(MODES)) {
+        it(`are four colours apart from each other, the accent and every status tone in ${modeName}`, () => {
+            const failures: string[] = [];
+            SERIES.forEach((name, index) => {
+                // 15 is the normal-vision floor the palette was validated to; a status tone keeps 10.
+                for (const other of SERIES.slice(index + 1)) {
+                    const apart = difference(token(mode, name), token(mode, other));
+                    if (apart < 15) failures.push(`${name} and ${other}: ${apart.toFixed(1)} apart`);
+                }
+                for (const reserved of RESERVED) {
+                    const apart = difference(token(mode, name), token(mode, reserved));
+                    if (apart < 10) failures.push(`${name} near ${reserved}: ${apart.toFixed(1)} apart`);
+                }
+                // Every line is drawn on the chart's panel.
+                const ratio = contrastRatio(token(mode, name), token(mode, '--surface'));
+                if (ratio < 3) failures.push(`${name} on --surface: ${ratio.toFixed(2)} < 3`);
+            });
+            // The sidebar's meters fill with the CPU's and the first accelerator's colours, on the
+            // status card's raised ground and against the meter's track.
+            for (const name of SERIES.slice(0, 2)) {
+                for (const ground of ['--surface-raised', '--track']) {
+                    const ratio = contrastRatio(token(mode, name), token(mode, ground));
+                    if (ratio < 3) failures.push(`${name} on ${ground}: ${ratio.toFixed(2)} < 3`);
+                }
+            }
+            expect(failures).toEqual([]);
+        });
+    }
+
+    it('are fixed, so a colour theme never repaints a line', () => {
+        for (const block of [BLUETIT, BLUETIT_LIGHT, BLUETIT_DARK]) {
+            expect([...block.keys()].filter((name) => name.startsWith('--series-'))).toEqual([]);
+        }
+    });
+});

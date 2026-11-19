@@ -181,9 +181,13 @@ and a small dot whose shape as well as colour gives the tone (filled circle work
 person, ring off or unknown). The words for every state come from one tested mapping
 (`utils/system-status.ts`). Off by choice is neutral, never amber, and one cause is flagged once:
 with the broker down, Frigate events is amber and Audio says "Not listening" in neutral ink. The
-card is a neutral surface with nothing drawn behind it; resource readings are one muted line of
-text with tabular numbers. Its Health link counts open issues from the same store the Health
-page lists them from, and says nothing about issues when none is open. The page has one name,
+card is a neutral surface with nothing drawn behind it. The rows share one weight: a state that is
+fine is plain ink beside the smallest dot, and only a state that needs a person is set apart, in
+amber and a heavier weight. Under them the load is a labelled meter for the CPU and one for the
+accelerator, each with its figure in tabular numbers and its bar in the same series colour as its
+line on the Health chart; a full bar is the warning, with no colour of its own, since a busy host
+is not a fault. The card's foot is its Health link, a full row that counts open issues from the
+same store the Health page lists them from, and says nothing about issues when none is open. The page has one name,
 Health, wherever it is linked from. The icon rail shows the same
 rows as icons named by the same words. The Health page follows the same rule: its verdict is never healthy while the broker
 or Frigate is down, and its MQTT and Frigate rows lead with the connection state, not queue load.

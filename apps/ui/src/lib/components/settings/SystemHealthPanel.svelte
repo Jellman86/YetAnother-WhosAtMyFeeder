@@ -17,14 +17,15 @@
         formatPercent,
         markerFor,
         pointAt,
-        seriesArea,
         seriesSegments,
         sampleTable,
         shareRows,
         timeTicks,
+        undrawnAccelerators,
         unreadableAccelerators,
         windowSummary,
         type Accelerator,
+        type ChartSeries,
         type SeriesScope,
         type ShareRole,
         type ShareRow
@@ -93,13 +94,14 @@
     const cpuLabel = $derived($_('settings.system_health.legend_cpu', { default: 'CPU' }));
     const series = $derived(history ? chartSeries(history, cpuLabel) : []);
     const unreadable = $derived(history ? unreadableAccelerators(history) : []);
+    const undrawn = $derived(history ? undrawnAccelerators(history) : []);
     const cpuSegments = $derived(seriesSegments(points, cpuLoad, windowSeconds));
-    const cpuArea = $derived(seriesArea(points, cpuLoad, windowSeconds));
     const ticks = $derived(timeTicks(points, windowSeconds));
 
     /** The chart in words: every sample at the time it was taken (utils/system-history.ts). */
     const chartTable = $derived({
         columns: [$_('settings.system_health.col_time', { default: 'Time' }), ...series.map((line) => line.label)],
+        swatches: [null, ...series.map((line) => line.fill)],
         rows: sampleTable(points, series, timeOf, $_('settings.system_health.not_measured', { default: 'Not measured' }))
     });
     const cpuSummary = $derived(windowSummary(points, cpuLoad));
@@ -194,6 +196,13 @@
             : null;
 </script>
 
+<!-- A series' sample, the same line and dash as on the chart, wherever the series is named. -->
+{#snippet seriesKey(line: ChartSeries)}
+    <svg viewBox="0 0 24 2" class="h-0.5 w-6 shrink-0 self-center overflow-visible" aria-hidden="true" data-system-health-key={line.colour}>
+        <line x1="0" y1="1" x2="24" y2="1" class={line.stroke} stroke-width="2.5" stroke-dasharray={line.dash} />
+    </svg>
+{/snippet}
+
 <div data-system-health>
     <SettingsCard
         title={$_('settings.system_health.title', { default: 'System' })}
@@ -252,17 +261,7 @@
                         >
                             {#each series as line (line.id)}
                                 <li class="inline-flex items-baseline gap-2">
-                                    <svg viewBox="0 0 16 2" class="h-0.5 w-4 self-center overflow-visible" aria-hidden="true">
-                                        <line
-                                            x1="0"
-                                            y1="1"
-                                            x2="16"
-                                            y2="1"
-                                            class={line.stroke}
-                                            stroke-width="2"
-                                            stroke-dasharray={line.dash}
-                                        />
-                                    </svg>
+                                    {@render seriesKey(line)}
                                     <span>{line.label}</span>
                                     <span class="text-3xs text-muted">{scopeNote(line.scope)}</span>
                                 </li>
@@ -295,9 +294,6 @@
                                 <line x1="0" y1="0.5" x2={CHART_WIDTH} y2="0.5" class="stroke-line" stroke-dasharray="3 5" vector-effect="non-scaling-stroke" />
                                 <line x1="0" y1={CHART_HEIGHT / 2} x2={CHART_WIDTH} y2={CHART_HEIGHT / 2} class="stroke-line" stroke-dasharray="3 5" vector-effect="non-scaling-stroke" />
                                 <line x1="0" y1={CHART_HEIGHT} x2={CHART_WIDTH} y2={CHART_HEIGHT} class="stroke-line-strong" vector-effect="non-scaling-stroke" />
-                                {#if cpuArea}
-                                    <polygon points={cpuArea} class="fill-blue-600/10 dark:fill-blue-500/15" vector-effect="non-scaling-stroke" />
-                                {/if}
                                 {#each series as line (line.id)}
                                     {#each seriesSegments(points, line.load, windowSeconds) as segment (segment)}
                                         <polyline
@@ -322,7 +318,7 @@
                                     {@const marker = markerFor(points, inspectedIndex, line.load, windowSeconds)}
                                     {#if marker}
                                         <span
-                                            class="pointer-events-none absolute h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-current bg-surface {line.text}"
+                                            class="pointer-events-none absolute h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-current bg-surface {line.marker}"
                                             style="left: {(marker.x / CHART_WIDTH) * 100}%; top: {(marker.y / CHART_HEIGHT) * 100}%"
                                             data-system-health-marker
                                         ></span>
@@ -340,7 +336,7 @@
                                     <p class="font-semibold tabular-nums text-ink">{timeOf(inspected.at)}</p>
                                     <dl class="mt-0.5 space-y-0.5 tabular-nums text-muted">
                                         {#each series as line (line.id)}
-                                            <div class="flex justify-between gap-4"><dt class="whitespace-nowrap">{line.label}</dt><dd class="font-semibold">{formatPercent(line.load(inspected)) ?? '—'}</dd></div>
+                                            <div class="flex justify-between gap-4"><dt class="flex items-center gap-1.5 whitespace-nowrap">{@render seriesKey(line)}{line.label}</dt><dd class="font-semibold">{formatPercent(line.load(inspected)) ?? '—'}</dd></div>
                                         {/each}
                                         <div class="flex justify-between gap-4"><dt class="whitespace-nowrap">{$_('settings.system_health.app_share', { default: 'This app' })}</dt><dd class="font-semibold">{formatPercent(inspected.app_cpu_percent) ?? '—'}</dd></div>
                                         <div class="flex justify-between gap-4"><dt class="whitespace-nowrap">{$_('settings.system_health.role_other_host', { default: 'Other on this host' })}</dt><dd class="font-semibold">{formatPercent(inspected.other_cpu_percent) ?? '—'}</dd></div>
@@ -383,6 +379,14 @@
                                 {unreadableNote(accelerator)}
                             </p>
                         {/each}
+                        {#each undrawn as accelerator (accelerator.id)}
+                            <p class="mt-2 text-xs text-muted" data-system-health-undrawn={accelerator.id}>
+                                {$_('settings.system_health.undrawn_accelerator', {
+                                    values: { label: accelerator.label },
+                                    default: '{label} is measured, but the chart draws three accelerators at most, so its line is left out.'
+                                })}
+                            </p>
+                        {/each}
                         {#if acceleratorSeries.length === 0 && unreadable.length === 0}
                             <p class="mt-2 text-xs text-muted" data-system-health-no-accelerator>
                                 {$_('settings.system_health.no_accelerator', { default: 'No accelerator counter is readable on this host, so only the CPU is drawn.' })}
@@ -403,23 +407,30 @@
                     <!-- As many readings to a row as fit at 6rem each: three on a phone, one beside the chart, and
                      one at a time when the text is enlarged. -->
                 <dl class="grid grid-cols-[repeat(auto-fit,minmax(6rem,1fr))] gap-4 md:gap-5" data-system-health-now>
-                        <div>
-                            <dt class="text-sm font-semibold text-ink">{$_('settings.system_health.cpu_now', { default: 'CPU now' })}</dt>
-                            <dd class="font-display text-3xl font-bold tabular-nums text-blue-700 dark:text-blue-300">{formatPercent(latest?.cpu_percent) ?? '—'}</dd>
-                        </div>
-                        {#each acceleratorSeries as line (line.id)}
-                            <div>
-                                <dt class="text-sm font-semibold text-ink">{$_('settings.system_health.accelerator_now', { values: { label: line.label }, default: '{label} now' })}</dt>
+                        {#each series as line (line.id)}
+                            <div class="min-w-0" data-system-health-reading={line.id}>
+                                <dt class="flex items-center gap-2 text-sm font-semibold text-ink">
+                                    {@render seriesKey(line)}
+                                    {line.id === 'cpu'
+                                        ? $_('settings.system_health.cpu_now', { default: 'CPU now' })
+                                        : $_('settings.system_health.accelerator_now', { values: { label: line.label }, default: '{label} now' })}
+                                </dt>
                                 <!-- The notes belong to the value, so they sit inside its <dd>: a list item holds
                                      only its term and description. -->
-                                <dd>
-                                    <span class="block font-display font-bold tabular-nums {line.text} {line.latest === null ? 'text-sm' : 'text-3xl'}">{formatPercent(line.latest) ?? $_('settings.system_health.not_measured', { default: 'Not measured' })}</span>
+                                <dd class="mt-1">
                                     {#if line.latest === null}
-                                        <p class="mt-1 text-xs text-muted" data-system-health-measurement-gap>
-                                            {$_('settings.system_health.measurement_gap', { default: 'No utilisation reading for this sample. The worker rows below show their loaded accelerator; this gap does not establish a CPU fallback.' })}
-                                        </p>
+                                        <span class="block text-sm font-medium text-muted">{$_('settings.system_health.not_measured', { default: 'Not measured' })}</span>
+                                        {#if line.id !== 'cpu'}
+                                            <p class="mt-1 text-xs text-muted" data-system-health-measurement-gap>
+                                                {$_('settings.system_health.measurement_gap', { default: 'No utilisation reading for this sample. The worker rows below show their loaded accelerator; this gap does not establish a CPU fallback.' })}
+                                            </p>
+                                        {/if}
+                                    {:else}
+                                        <span class="figure block text-3xl text-strong">{formatPercent(line.latest)}</span>
                                     {/if}
-                                    <p class="text-3xs text-muted">{scopeNote(line.scope)}</p>
+                                    {#if line.id !== 'cpu'}
+                                        <p class="text-3xs text-muted">{scopeNote(line.scope)}</p>
+                                    {/if}
                                 </dd>
                             </div>
                         {/each}

@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Instrument+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&family=Playfair+Display:wght@600;700&family=Source+Serif+4:wght@400;600;700&family=Sora:wght@500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Instrument+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&family=Playfair+Display:wght@600;700&family=Source+Serif+4:ital,wght@0,400;0,600;0,700;1,400;1,600;1,700&family=Sora:wght@500;600;700&display=swap');
 
 /* Classes are read from the app source only, never from tests, fixtures or documentation.
    Unit tests quote class names in their assertions, retired ones included, so they are left out. */
@@ -178,6 +178,15 @@
   --color-on-media-fail: rgb(var(--on-media-fail));
   /* Rain over a time series: the precipitation bands on the Leaderboard's timeline and their key. */
   --color-rain-band: rgb(var(--rain-band));
+  /* The lines of a load chart, in a fixed order: the Health chart's CPU and accelerators and the
+     sidebar's meters. Categorical, not semantic: they never follow the colour theme, and they keep
+     clear of the accent, the focus ring and every status tone, so no line reads as a link or a
+     state. The contrast test (design-tokens.contrast.test.ts) checks normal-vision separation and
+     contrast in each mode; for colour-blind readers each line's own dash carries the difference. */
+  --color-series-1: rgb(var(--series-1));
+  --color-series-2: rgb(var(--series-2));
+  --color-series-3: rgb(var(--series-3));
+  --color-series-4: rgb(var(--series-4));
 
   /* Semantic success, deliberately NOT theme-driven. `accent` is a brand colour and the
      bluetit theme paints it amber, which is reserved for "needs a person"
@@ -367,6 +376,12 @@
   --on-media-fail: 253 164 175;
   --rain-band: 56 189 248;
   --on-media: 255 255 255;
+  /* Violet, sky, plum, pink: the CPU and the first accelerator, the pair on show most, are the
+     furthest apart. */
+  --series-1: 119 47 221;
+  --series-2: 0 140 206;
+  --series-3: 145 0 128;
+  --series-4: 248 81 174;
 }
 
 html.dark,
@@ -416,6 +431,11 @@ html[data-theme='dark'] {
   --ai-code: var(--brand-200);
   --ai-muted: 148 163 184;
   --ai-marker: var(--brand-300);
+  /* The same four hues, stepped for the dark ground: violet, sky, orchid, deep pink. */
+  --series-1: 144 72 253;
+  --series-2: 8 154 195;
+  --series-3: 227 110 253;
+  --series-4: 217 9 129;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
@@ -1098,6 +1118,11 @@ html.high-contrast.high-contrast.high-contrast {
   --elevation-panel: none;
   --dialog-edge: 255 255 0;
   --media-edge: 255 255 0;
+  /* Chart lines on black, clear of the yellow accent and the cyan focus ring. */
+  --series-1: 164 119 255;
+  --series-2: 33 210 250;
+  --series-3: 201 33 206;
+  --series-4: 255 113 214;
 
   /* The inks. Each is 7:1 or better on black; meaning still never rests on the hue alone. */
   --hc-ink: #ffffff;

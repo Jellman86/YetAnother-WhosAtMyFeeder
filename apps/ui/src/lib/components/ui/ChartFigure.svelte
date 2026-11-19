@@ -18,6 +18,8 @@
     type DataTable = {
         columns: string[];
         rows: (string | number)[][];
+        /** Per column, the swatch class the chart draws that series with; null for a column that is not one. */
+        swatches?: (string | null)[];
     };
     /**
      * The chart in words. A table of the data it draws is always there (an equivalent record for
@@ -83,7 +85,11 @@
                     <thead class="sticky top-0 bg-surface">
                         <tr class="border-b border-line-soft">
                             {#each table.columns as column, columnIndex (columnIndex)}
-                                <th scope="col" class="py-1.5 pr-4 font-semibold text-muted">{column}</th>
+                                <th scope="col" class="py-1.5 pr-4 font-semibold text-muted">
+                                    {#if table.swatches?.[columnIndex]}
+                                        <span class="mr-1.5 inline-block h-2.5 w-2.5 rounded-xs align-baseline {table.swatches[columnIndex]}" aria-hidden="true"></span>
+                                    {/if}{column}
+                                </th>
                             {/each}
                         </tr>
                     </thead>
