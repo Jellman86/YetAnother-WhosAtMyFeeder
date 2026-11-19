@@ -122,8 +122,8 @@ test('how results are shown is chosen in the filters, explained in words, and ke
     await expect(visits).toHaveText('Visits');
     await expect(captures).toHaveText('Captures');
     // The chosen option is explained once, beneath the switch, rather than every option twice.
-    await expect(hint).toHaveText("One bird's stay: its captures less than a minute apart.");
-    await expect(visits).toHaveAccessibleDescription("One bird's stay: its captures less than a minute apart.");
+    await expect(hint).toHaveText("One bird's stay: its captures no more than 60 seconds apart.");
+    await expect(visits).toHaveAccessibleDescription("One bird's stay: its captures no more than 60 seconds apart.");
     // The toolbar no longer carries a second switch for the same choice.
     await expect(page.getByRole('group', { name: 'Group captures' })).toHaveCount(0);
 
