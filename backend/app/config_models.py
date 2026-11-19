@@ -1080,9 +1080,7 @@ class VisitSettings(BaseModel):
         default=DEFAULT_VISIT_GAP_SECONDS,
         ge=MIN_VISIT_GAP_SECONDS,
         le=MAX_VISIT_GAP_SECONDS,
-        description=(
-            "Captures of one species on one camera no more than this many seconds apart count as one visit"
-        ),
+        description=("Captures of one species on one camera no more than this many seconds apart count as one visit"),
     )
 
 
