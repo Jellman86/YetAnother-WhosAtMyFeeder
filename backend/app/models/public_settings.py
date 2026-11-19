@@ -36,7 +36,9 @@ class PublicSettings(BaseModel):
     bird_counting_enabled: bool = Field(description="Whether new captures are analysed to count birds")
     # The visit gap. The SPA groups captures into visits on the Dashboard, Explorer and Species
     # pages, so a guest grouping by a default would count different visits from the owner.
-    visit_gap_seconds: int = Field(description="Seconds apart that captures of one species on one camera stay one visit")
+    visit_gap_seconds: int = Field(
+        description="Seconds apart that captures of one species on one camera stay one visit"
+    )
 
 
 PUBLIC_SETTING_FIELDS: tuple[str, ...] = tuple(PublicSettings.model_fields)
