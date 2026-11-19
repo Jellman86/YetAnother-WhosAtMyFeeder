@@ -12,7 +12,7 @@
 
 <SettingsCard
     title={$_('settings.visit_gap.title', { default: 'Counting visits' })}
-    description={$_('settings.visit_gap.desc', { default: 'Captures of the same species on the same camera closer together than this count as one visit. Garden animals are grouped the same way.' })}
+    description={$_('settings.visit_gap.desc', { default: 'Captures of one species on one camera no more than the visit gap apart count as one visit. Garden animals are grouped the same way.' })}
 >
     <SettingsRow
         labelId="setting-visit-gap"
@@ -20,7 +20,7 @@
         description={$_('settings.visit_gap.range', { default: 'From 5 to 300 seconds. The default is 60.' })}
         descriptionId="setting-visit-gap-range"
     >
-        <div class="flex items-center justify-end gap-2" data-visit-gap>
+        <div class="flex items-center justify-start gap-2 md:justify-end" data-visit-gap>
             <div class="w-28">
                 <SettingsInput
                     id="visit-gap-seconds"
@@ -41,7 +41,7 @@
     <div data-visit-gap-notes>
         <div class="max-w-prose space-y-2 text-sm leading-snug text-muted">
             <p>{$_('settings.visit_gap.limit', { default: 'A shorter gap splits a busy feeder into more, shorter visits. It cannot count individual birds: when one bird leaves as another of the same species lands, any gap still sees one visit.' })}</p>
-            <p>{$_('settings.visit_gap.history', { default: 'After you save, every page groups visits with the new gap. Days already kept as daily totals, because the history window removed their captures, keep the visit counts they were saved with.' })}</p>
+            <p>{$_('settings.visit_gap.history', { default: 'After you save, every page groups visits with the new gap. Days whose captures the history window has already removed keep the visit counts they were saved with.' })}</p>
         </div>
     </div>
 </SettingsCard>

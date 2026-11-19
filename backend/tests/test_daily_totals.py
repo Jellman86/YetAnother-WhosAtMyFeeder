@@ -107,6 +107,25 @@ async def test_a_later_cleanup_never_reduces_a_sealed_day(repo):
 
 
 @pytest.mark.asyncio
+async def test_a_sealed_day_keeps_its_visit_count_when_the_owner_changes_the_visit_gap(repo, monkeypatch):
+    """Settings promises that days already kept as daily totals keep the counts they were saved with (#1044)."""
+    from app.config import settings
+
+    monkeypatch.setattr(settings.visits, "gap_seconds", 60)
+    await blackbird_day(repo)
+    await repo.seal_before(CUTOFF, zone=UTC, now=NOW)
+    # Thirty seconds apart, a later day's two Blackbird captures are two visits once the gap is ten.
+    await capture(repo, "bb-later-1", "2036-02-11 08:00:00")
+    await capture(repo, "bb-later-2", "2036-02-11 08:00:30")
+
+    monkeypatch.setattr(settings.visits, "gap_seconds", 10)
+    await repo.seal_before(CUTOFF + timedelta(days=1), zone=UTC, now=NOW)
+
+    assert by_species(await repo.totals(date(2036, 2, 10), date(2036, 2, 10)))["Turdus merula"] == (3, 2)
+    assert by_species(await repo.totals(date(2036, 2, 11), date(2036, 2, 11))) == {"Turdus merula": (2, 2)}
+
+
+@pytest.mark.asyncio
 async def test_a_day_is_complete_only_when_it_began_after_tracking_started(repo):
     # Frigate-missing deletes before the upgrade may already have thinned any older day, so only a
     # day that began after the upgrade can be called whole, however many cleanups have run since.

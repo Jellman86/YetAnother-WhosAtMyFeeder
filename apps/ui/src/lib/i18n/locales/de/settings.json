@@ -1843,11 +1843,11 @@
   },
   "visit_gap": {
     "title": "Besuche zählen",
-    "desc": "Aufnahmen derselben Art an derselben Kamera, die näher beieinander liegen, zählen als ein Besuch. Gartentiere werden genauso gruppiert.",
+    "desc": "Aufnahmen einer Art an einer Kamera, die höchstens den Besuchsabstand auseinanderliegen, zählen als ein Besuch. Gartentiere werden genauso gruppiert.",
     "label": "Besuchsabstand",
     "range": "5 bis 300 Sekunden. Standard ist 60.",
     "unit": "Sekunden",
     "limit": "Ein kürzerer Abstand teilt ein volles Futterhaus in mehr und kürzere Besuche. Einzelne Vögel kann er nicht zählen: Wenn ein Vogel abfliegt, während einer derselben Art landet, bleibt es bei jedem Abstand ein Besuch.",
-    "history": "Nach dem Speichern gruppiert jede Seite die Besuche mit dem neuen Abstand. Tage, die schon als Tagessummen gespeichert sind, weil der Verlaufszeitraum ihre Aufnahmen entfernt hat, behalten die Besuchszahlen, mit denen sie gespeichert wurden."
+    "history": "Nach dem Speichern gruppiert jede Seite die Besuche mit dem neuen Abstand. Tage, deren Aufnahmen der Verlaufszeitraum bereits entfernt hat, behalten die Besuchszahlen, mit denen sie gespeichert wurden."
   }
 }

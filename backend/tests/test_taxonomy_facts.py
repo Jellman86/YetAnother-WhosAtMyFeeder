@@ -217,6 +217,19 @@ async def test_a_species_states_its_visits_and_first_and_last_seen_without_hidde
 
 
 @pytest.mark.asyncio
+async def test_a_new_visit_gap_regroups_the_tree_at_once_not_when_the_cache_ages_out(catalogue, reader, monkeypatch):
+    """Settings promises that every page groups visits with the new gap after a save (#1044)."""
+    dunnock = _id(catalogue, "Prunella modularis")
+    start = RECENT - timedelta(days=2)
+    for offset, event in ((0, "a"), (20, "b"), (40, "c")):
+        await add_detection(f"1793600000.{event}-aaaaaa", dunnock, start + timedelta(seconds=offset))
+    monkeypatch.setattr(settings.visits, "gap_seconds", 60)
+    assert (await facts(dunnock))[dunnock]["visits"] == 1
+    monkeypatch.setattr(settings.visits, "gap_seconds", 10)
+    assert (await facts(dunnock))[dunnock]["visits"] == 3
+
+
+@pytest.mark.asyncio
 async def test_a_group_rolls_up_the_species_seen_beneath_it_and_an_unseen_one_says_so(catalogue, reader):
     dunnock, great_tit = _id(catalogue, "Prunella modularis"), _id(catalogue, "Parus major")
     await add_detection("1793600000.a-aaaaaa", dunnock, RECENT - timedelta(days=4))

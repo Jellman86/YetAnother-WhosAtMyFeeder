@@ -1843,11 +1843,11 @@
   },
   "visit_gap": {
     "title": "Counting visits",
-    "desc": "Captures of the same species on the same camera closer together than this count as one visit. Garden animals are grouped the same way.",
+    "desc": "Captures of one species on one camera no more than the visit gap apart count as one visit. Garden animals are grouped the same way.",
     "label": "Visit gap",
     "range": "From 5 to 300 seconds. The default is 60.",
     "unit": "seconds",
     "limit": "A shorter gap splits a busy feeder into more, shorter visits. It cannot count individual birds: when one bird leaves as another of the same species lands, any gap still sees one visit.",
-    "history": "After you save, every page groups visits with the new gap. Days already kept as daily totals, because the history window removed their captures, keep the visit counts they were saved with."
+    "history": "After you save, every page groups visits with the new gap. Days whose captures the history window has already removed keep the visit counts they were saved with."
   }
 }
