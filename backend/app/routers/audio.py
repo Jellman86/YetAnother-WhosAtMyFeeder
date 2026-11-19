@@ -18,6 +18,7 @@ from app.services.audio.heard_groups import (
 from app.repositories.visit_repository import VisitRepository
 from app.services.broadcaster import broadcaster
 from app.services.leaderboard_window import previous_window_is_complete
+from app.services.weekday_hour_grid import weekday_hour_grid
 from app.config import settings
 from app.auth import AuthContext, require_owner
 from app.auth import get_auth_context_with_legacy
@@ -26,6 +27,7 @@ from app.database import get_db
 from app.repositories.audio_history_repository import AudioHistoryRepository
 from app.repositories.detection_repository import DetectionRepository, match_audio_history_visual_events
 from app.utils.language import get_user_language
+from app.utils.timezone import get_user_timezone
 from app.utils.audio_localization import localize_audio_detections
 from app.utils.canonical_species import should_hide_species_label
 from app.utils.api_datetime import serialize_api_datetime
@@ -390,6 +392,62 @@ async def get_audio_summary(
         result["source_count"] = 0
 
     return result
+
+
+class AudioActivityHeatmapCell(BaseModel):
+    day_of_week: int  # 0=Sunday..6=Saturday
+    hour: int  # 0..23
+    count: int
+
+
+class AudioActivityHeatmapResponse(BaseModel):
+    """Calls heard per local weekday and hour: the same cell shape as the camera grid's."""
+
+    window_start: str
+    window_end: str
+    total_count: int
+    max_cell_count: int
+    cells: list[AudioActivityHeatmapCell]
+
+
+@router.get("/activity-heatmap", response_model=AudioActivityHeatmapResponse)
+@guest_rate_limit()
+async def get_audio_activity_heatmap(
+    request: Request,
+    days: int = Query(default=30, ge=1, le=3650),
+    start_date: datetime | None = Query(default=None),
+    end_date: datetime | None = Query(default=None),
+    species: str | None = Query(default=None, max_length=120),
+    source: str | None = Query(default=None, max_length=120),
+    min_confidence: float | None = Query(default=None, ge=0.0, le=1.0),
+    auth: AuthContext = Depends(require_public_audio),
+) -> AudioActivityHeatmapResponse:
+    """Calls heard by weekday and hour in the viewer's time zone, over the summary's window and filters."""
+    window = _history_window(days, start_date, end_date, auth)
+    hide_sensor = not auth.is_owner and settings.public_access.enabled and not settings.public_access.show_camera_names
+    if hide_sensor:
+        source = None
+    async with privacy_checked_db(get_db) as db:
+        utc_hourly_counts = await AudioHistoryRepository(db).get_audio_activity_utc_hourly_counts(
+            start_date=window.start_date,
+            end_date=window.end_date,
+            species=species,
+            source=source,
+            min_confidence=min_confidence,
+            maximum_end=window.public_end,
+        )
+    grid = weekday_hour_grid(utc_hourly_counts, get_user_timezone(request))
+    window_end = min(window.end_date, window.public_end) if window.public_end else window.end_date
+    return AudioActivityHeatmapResponse(
+        window_start=serialize_api_datetime(window.start_date),
+        window_end=serialize_api_datetime(window_end),
+        total_count=grid.total_count,
+        max_cell_count=grid.max_cell_count,
+        cells=[
+            AudioActivityHeatmapCell(day_of_week=cell.day_of_week, hour=cell.hour, count=cell.count)
+            for cell in grid.cells
+        ],
+    )
 
 
 class HeardGroupResponse(BaseModel):
