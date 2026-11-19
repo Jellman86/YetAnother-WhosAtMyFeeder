@@ -162,7 +162,8 @@ test('a spectrogram that fails to load falls back to the placeholder', async ({ 
     await expect(page.locator('[data-audio-history-table] svg[aria-hidden="true"]').first()).toBeVisible();
 });
 
-test('the hour of day is a weekday-by-hour grid of calls heard, read with the same filters as the summary', async ({ page }) => {
+test('the hour of day is a weekday-by-hour grid of calls heard, read with the same filters as the summary', async ({ page, isMobile }) => {
+    test.skip(isMobile, 'drives the window bar and inline filters, which are the desktop controls; the phone sheet has its own spec');
     const requests: URLSearchParams[] = [];
     await page.route('**/api/audio/activity-heatmap?*', route => {
         requests.push(new URL(route.request().url()).searchParams);
