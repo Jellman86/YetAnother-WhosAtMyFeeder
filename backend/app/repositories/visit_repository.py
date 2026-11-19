@@ -9,7 +9,8 @@ from app.repositories.detection_repository import (
 )
 from app.repositories.catalogue_identity import species_ids_condition
 from app.repositories.audio_history_repository import public_audio_evidence_sql
-from app.services.visit_grouping import VISIT_GAP_SECONDS, valid_event_bounds
+from app.config import settings
+from app.services.visit_grouping import valid_event_bounds
 from app.utils.canonical_species import hidden_species_exact_labels
 
 
@@ -37,7 +38,13 @@ class VisitRepository(DetectionRepository):
         end: datetime | None = None,
         camera: str | None = None,
         hidden_only: bool = False,
+        gap_seconds: int | None = None,
     ) -> tuple[str, list]:
+        """The shared visit rule as a CTE, grouping with ``gap_seconds`` or the owner's current gap.
+
+        The gap is read here, at query time, so a saved setting applies without a restart.
+        """
+        gap = settings.visits.gap_seconds if gap_seconds is None else gap_seconds
         conditions = ["d.is_hidden = 1" if hidden_only else "COALESCE(d.is_hidden, 0) = 0"]
         params: list = []
         for bound, operator in ((start, ">="), (end, "<=")):
@@ -102,7 +109,7 @@ class VisitRepository(DetectionRepository):
         ),
         visit_numbered AS (
             SELECT *, SUM(CASE WHEN previous_finish IS NULL
-                              OR (at - previous_finish) * 86400 > {VISIT_GAP_SECONDS} + 0.001
+                              OR (at - previous_finish) * 86400 > ? + 0.001
                               THEN 1 ELSE 0 END) OVER (
                 PARTITION BY visit_identity, camera_name ORDER BY at, id
                 ROWS UNBOUNDED PRECEDING
@@ -127,7 +134,7 @@ class VisitRepository(DetectionRepository):
             FROM visit_numbered
         )
         """
-        return sql, [*params, *labels, *([camera] if camera else [])]
+        return sql, [*params, *labels, *([camera] if camera else []), int(gap)]
 
     async def species_visit_spans(
         self, *, start: datetime | None = None, end: datetime | None = None
@@ -222,8 +229,11 @@ class VisitRepository(DetectionRepository):
         public_audio: bool = False,
         multiple_species_only: bool = False,
         species_ids: Collection[int] | None = None,
+        gap_seconds: int | None = None,
     ) -> tuple[list[dict], int]:
-        cte, params = await self.grouping_cte(start=start, end=end, camera=camera, hidden_only=hidden_only)
+        cte, params = await self.grouping_cte(
+            start=start, end=end, camera=camera, hidden_only=hidden_only, gap_seconds=gap_seconds
+        )
         condition, values = await self._matching_condition(
             species_ids=species_ids,
             species=species,

@@ -4,6 +4,7 @@ from collections.abc import Collection
 from datetime import datetime
 from typing import Any
 
+from app.config import settings
 from app.models.garden_motion import MotionSource
 from app.services.garden_visit_grouping import same_position
 from app.repositories.garden_repository import GardenRepository, GardenTimelineStatus, GardenCapture
@@ -73,7 +74,7 @@ class GardenVisitRepository(GardenRepository):
             SELECT *, LAG(at) OVER (PARTITION BY camera,identity ORDER BY at,id) AS previous_at FROM identities
         ), numbered AS (
             SELECT *, SUM(CASE WHEN position=0 AND
-                (previous_at IS NULL OR (at-previous_at)*86400 > 60.001) THEN 1 ELSE 0 END)
+                (previous_at IS NULL OR (at-previous_at)*86400 > ? + 0.001) THEN 1 ELSE 0 END)
                 OVER (PARTITION BY camera,identity ORDER BY at,id ROWS UNBOUNDED PRECEDING) AS number
             FROM previous
         ), members AS (
@@ -85,7 +86,7 @@ class GardenVisitRepository(GardenRepository):
                    COUNT(*) AS capture_count, MAX(position) AS position
             FROM members GROUP BY visit_id
         )""",
-            [*values, *position_values],
+            [*values, *position_values, int(settings.visits.gap_seconds)],
         )
 
     async def species_visit_spans(

@@ -2,7 +2,11 @@ import math
 from datetime import datetime, timezone
 
 
-VISIT_GAP_SECONDS = 60
+# The owner chooses the gap under Settings (`settings.visits.gap_seconds`); these bound it.
+# Below five seconds a bird that hops off the perch and back would become two visits.
+DEFAULT_VISIT_GAP_SECONDS = 60
+MIN_VISIT_GAP_SECONDS = 5
+MAX_VISIT_GAP_SECONDS = 300
 MAX_EVENT_DURATION_SECONDS = 86400
 
 

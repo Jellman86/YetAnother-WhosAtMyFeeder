@@ -20,7 +20,6 @@ from app.utils.calendar_day import CalendarDay
 from app.utils.timezone import calendar_timezone
 from app.ratelimit import guest_rate_limit
 from app.services.explorer_search import bird_taxon_members
-from app.services.visit_grouping import VISIT_GAP_SECONDS
 
 
 router = APIRouter(tags=["visits"])
@@ -76,9 +75,12 @@ async def get_visits(
     species_name, taxa_id = parse_species_filter(species)
     species_name, aliases = resolve_species_display_filter_aliases(species_name, taxa_id)
     species_ids = await bird_taxon_members(taxon) if taxon else None
+    # Read once, so the gap the response reports is the gap these visits were grouped with.
+    gap_seconds = settings.visits.gap_seconds
     async with get_db() as db:
         repo = VisitRepository(db)
         headers, total = await repo.list_visits(
+            gap_seconds=gap_seconds,
             species_ids=species_ids,
             start=start,
             end=end,
@@ -139,7 +141,7 @@ async def get_visits(
                 peak_capture=by_id.get(header.get("peak_event")),
             )
         )
-    return DetectionVisitsResponse(visits=visits, total=total, gap_seconds=VISIT_GAP_SECONDS)
+    return DetectionVisitsResponse(visits=visits, total=total, gap_seconds=gap_seconds)
 
 
 @router.get("/visits/{visit_id}/captures", response_model=VisitCapturesResponse)

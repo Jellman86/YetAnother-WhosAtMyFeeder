@@ -746,6 +746,9 @@ def prepare_update(current: Settings, update: "SettingsUpdate", username: str) -
     if "appearance_color_theme" in fields_set and update.appearance_color_theme is not None:
         candidate.appearance.color_theme = update.appearance_color_theme
 
+    if "visit_gap_seconds" in fields_set and update.visit_gap_seconds is not None:
+        candidate.visits.gap_seconds = update.visit_gap_seconds
+
     if update.species_info_source:
         candidate.species_info_source = update.species_info_source
 
