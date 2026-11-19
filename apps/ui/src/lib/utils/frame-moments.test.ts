@@ -7,6 +7,8 @@ import {
     groupCandidatesIntoMoments,
     momentThumbnailUrl,
     preferredCandidate,
+    outlineLabelClass,
+    outlineLabelPlace,
     wholeSceneOutline
 } from './frame-moments';
 
@@ -267,4 +269,47 @@ it('keeps counted-bird context evidence out of photograph choices', () => {
     const moments = groupCandidatesIntoMoments([context, photo]);
     expect(moments).toHaveLength(1);
     expect(preferredCandidate(moments[0])?.candidate_id).toBe('photo');
+});
+
+describe('outlineLabelPlace', () => {
+    const frame = { width: 560, height: 360 };
+
+    it('hangs the label above the box, clear of the crop it names', () => {
+        expect(outlineLabelPlace({ left: 200, top: 180, width: 60, height: 60 }, frame)).toEqual({ block: 'above', inline: 'start' });
+    });
+
+    it('moves the label below a box too near the top of the frame to fit one above', () => {
+        expect(outlineLabelPlace({ left: 200, top: 6, width: 60, height: 60 }, frame).block).toBe('below');
+    });
+
+    it('keeps the label on the picture for a crop the full height of the frame', () => {
+        // Neither above nor below is on the picture: it goes inside the box's top corner.
+        const place = outlineLabelPlace({ left: 200, top: 0, width: 120, height: 360 }, frame);
+        expect(place.block).toBe('inside');
+        expect(outlineLabelClass(place)).toBe('top-0 left-0');
+    });
+
+    it('does not hang the label under the controls on the picture\'s foot', () => {
+        const low = { left: 200, top: 6, width: 60, height: 290 };
+        // Room below on a bare picture, none once the controls take the foot.
+        expect(outlineLabelPlace(low, frame).block).toBe('below');
+        expect(outlineLabelPlace(low, frame, 64).block).toBe('inside');
+    });
+
+    it('ends the label at the box\'s right edge when it would run out of the frame', () => {
+        expect(outlineLabelPlace({ left: 520, top: 180, width: 30, height: 60 }, frame).inline).toBe('end');
+        expect(outlineLabelClass({ block: 'inside', inline: 'end' })).toBe('top-0 right-0');
+    });
+
+    it('leaves the label above the box while the frame is unmeasured', () => {
+        expect(outlineLabelPlace({ left: 520, top: 2, width: 30, height: 60 }, { width: 0, height: 0 })).toEqual({ block: 'above', inline: 'start' });
+    });
+
+    it('places the label outside the box whenever there is room on the picture', () => {
+        for (const block of ['above', 'below'] as const) {
+            for (const inline of ['start', 'end'] as const) {
+                expect(outlineLabelClass({ block, inline })).toMatch(/\b(bottom-full|top-full)\b/);
+            }
+        }
+    });
 });
