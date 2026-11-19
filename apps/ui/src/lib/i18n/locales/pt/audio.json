@@ -76,7 +76,9 @@
   "summary_title": "Este período",
   "calls_heard": "{count, plural, one {# canto ouvido} other {# cantos ouvidos}}",
   "heatmap": {
-    "grid_label": "Cantos ouvidos por dia da semana e hora. Use as setas para ler uma faixa.",
-    "per_hour": "cantos ouvidos por faixa de uma hora"
-  }
+    "grid_label": "Cantos ouvidos por hora e dia da semana. Use as setas para ler uma faixa.",
+    "per_hour": "cantos ouvidos por faixa de uma hora",
+    "read_failed": "Não foi possível ler os cantos ouvidos por hora e dia da semana, por isso esta grelha e a hora mais ativa não são mostradas. O resto da página foi lido."
+  },
+  "side_label": "Espécies mais ouvidas e fontes"
 }

@@ -76,7 +76,9 @@
   "summary_title": "本时段",
   "calls_heard": "{count, plural, other {听到 # 次鸣叫}}",
   "heatmap": {
-    "grid_label": "按星期和小时听到的鸣叫。使用方向键读取时段。",
-    "per_hour": "每小时格内听到的鸣叫"
-  }
+    "grid_label": "按小时和星期听到的鸣叫。使用方向键读取时段。",
+    "per_hour": "每小时格内听到的鸣叫",
+    "read_failed": "无法读取按小时和星期听到的鸣叫，因此不显示此网格和最活跃时段。页面上的其他内容均已读取。"
+  },
+  "side_label": "最常听到的物种和音源"
 }

@@ -81,6 +81,8 @@
     let history = $state<AudioHistoryResponse | null>(null);
     let summary = $state<AudioSummaryResponse | null>(null);
     let heatmap = $state.raw<AudioActivityHeatmapResponse | null>(null);
+    // The grid's own failure, kept for Technical details: the list and summary beside it were read.
+    let heatmapError = $state<string | null>(null);
     let loading = $state(true);
     // The read's own words, kept for Technical details; the page states the failure in its own sentence.
     let error = $state<string | null>(null);
@@ -186,7 +188,14 @@
         apply: (nextHistory, nextSummary, nextHeatmap) => {
             history = nextHistory;
             summary = nextSummary;
-            heatmap = nextHeatmap;
+            if ('heatmap' in nextHeatmap) {
+                heatmap = nextHeatmap.heatmap;
+                heatmapError = null;
+            } else {
+                heatmap = null;
+                heatmapError = getErrorMessage(nextHeatmap.error) || 'Unable to load calls by hour and weekday.';
+                logger.warn('Audio activity grid fetch failed', { message: heatmapError });
+            }
             readAt = Date.now();
             hiddenChartState = { theme: '', indices: [] };
         },
@@ -194,6 +203,7 @@
             history = null;
             summary = null;
             heatmap = null;
+            heatmapError = null;
             readAt = null;
             if (authStore.isGuest) selectedSpecies = null;
         },
@@ -453,10 +463,10 @@
     </section>
 {:else}
 
-{#snippet statValue(value: string)}
-    {#if measured}
+{#snippet statValue(value: string, unavailable: boolean = false)}
+    {#if measured && !unavailable}
         <dd class="mt-1 font-display text-2xl font-bold tabular-nums text-strong">{value}</dd>
-    {:else if reading === 'failed'}
+    {:else if reading === 'failed' || (measured && unavailable)}
         <!-- Not measured, so said in words at body size, never as a zero (layout-patterns 5). -->
         <dd class="mt-2 text-sm font-semibold text-ink" data-audio-stat-unavailable>{$_('audio.stat.not_available', { default: 'Not available' })}</dd>
     {:else}
@@ -555,11 +565,44 @@
         </FilterSheet>
     {/if}
 
-    <!-- At 1280 px and wider the log has the main column and what summarises it (the window's
-         figures, the most heard species, the sources) stands beside it, as the Leaderboard's standing
-         figures stand beside its wall; on a phone the log comes first. -->
-    <div class="grid grid-cols-1 gap-10 xl:grid-cols-12 xl:gap-x-10" data-audio-history-layout>
-    <div class="min-w-0 space-y-6 xl:col-span-8 2xl:col-span-9">
+    <!-- The window's figures come first, as the Leaderboard's standing figures do: on a phone above
+         the log, so the reader sees how the window stands before 25 rows of calls. At 1280 px and
+         wider the log has the main column across both rows and the figures, then the most heard
+         species and the sources, stand beside it in the right-hand column. Rendered once, placed by
+         the grid. -->
+    <div class="grid grid-cols-1 gap-10 xl:grid-cols-12 xl:grid-rows-[auto_1fr] xl:gap-x-10 xl:gap-y-8" data-audio-history-layout>
+    <!-- The Leaderboard's standing band: the same ruled list, figures and spacing, in the same
+         order (species, the count, the busiest hour), with this page's own unit, calls heard. -->
+    <section class="min-w-0 xl:col-span-4 xl:col-start-9 xl:row-start-1 2xl:col-span-3 2xl:col-start-10" aria-labelledby="audio-summary-title" aria-busy={reading === 'loading'} data-audio-history-summary>
+        <h2 id="audio-summary-title" class="sr-only">{$_('audio.summary_title', { default: 'This window' })}</h2>
+        <div class="@container">
+        <dl class="grid grid-cols-1 gap-x-6 gap-y-5 border-y border-line py-5 @xs:grid-cols-2 @2xl:grid-cols-4" data-audio-standing>
+            <div class="min-w-0">
+                <dt class="text-xs font-semibold text-muted">{$_('audio.stat.species', { default: 'Species' })}</dt>
+                {@render statValue((summary?.species_count ?? 0).toLocaleString())}
+                <dd class="text-xs text-muted">{$_('audio.stat.species_sub', { default: 'Heard in this window' })}</dd>
+            </div>
+            <div class="min-w-0">
+                <dt class="text-xs font-semibold text-muted">{$_('audio.stat.heard', { default: 'Calls heard' })}</dt>
+                {@render statValue((summary?.total ?? 0).toLocaleString())}
+                <dd class="text-xs text-muted">{$_('audio.stat.heard_sub', { default: 'Calls BirdNET-Go heard in this window' })}</dd>
+            </div>
+            <div class="min-w-0">
+                <dt class="text-xs font-semibold text-muted">{$_('audio.stat.busiest_hour', { default: 'Busiest hour' })}</dt>
+                {@render statValue(busiestHour ? formatHour(busiestHour.hour) : '—', heatmapError !== null)}
+                {#if measured && heatmapError === null}
+                    <dd class="text-xs text-muted">{busiestHour ? callsHeard(busiestHour.count) : $_('audio.stat.no_calls', { default: 'No calls in this window' })}</dd>
+                {/if}
+            </div>
+            <div class="min-w-0">
+                <dt class="text-xs font-semibold text-muted">{$_('audio.stat.sources', { default: 'Sources' })}</dt>
+                {@render statValue((summary?.source_count ?? 0).toLocaleString())}
+                <dd class="text-xs text-muted">{$_('audio.stat.sources_sub', { default: 'Microphones or streams' })}</dd>
+            </div>
+        </dl>
+        </div>
+    </section>
+    <div class="min-w-0 space-y-6 xl:col-span-8 xl:col-start-1 xl:row-span-2 xl:row-start-1 2xl:col-span-9">
 
     <section class="space-y-5" data-audio-history-log aria-labelledby="audio-history-title">
         <div class="flex flex-wrap items-start justify-between gap-4">
@@ -700,38 +743,7 @@
     </section>
     </div>
 
-    <aside class="min-w-0 space-y-8 xl:col-span-4 2xl:col-span-3" aria-labelledby="audio-summary-title" data-audio-history-side>
-        <!-- The Leaderboard's standing band: the same ruled list, figures and spacing, in the same
-             order (species, the count, the busiest hour), with this page's own unit, calls heard. -->
-        <section data-audio-history-summary aria-busy={reading === 'loading'}>
-            <h2 id="audio-summary-title" class="sr-only">{$_('audio.summary_title', { default: 'This window' })}</h2>
-            <div class="@container">
-            <dl class="grid grid-cols-1 gap-x-6 gap-y-5 border-y border-line py-5 @xs:grid-cols-2 @2xl:grid-cols-4" data-audio-standing>
-                <div class="min-w-0">
-                    <dt class="text-xs font-semibold text-muted">{$_('audio.stat.species', { default: 'Species' })}</dt>
-                    {@render statValue((summary?.species_count ?? 0).toLocaleString())}
-                    <dd class="text-xs text-muted">{$_('audio.stat.species_sub', { default: 'Heard in this window' })}</dd>
-                </div>
-                <div class="min-w-0">
-                    <dt class="text-xs font-semibold text-muted">{$_('audio.stat.heard', { default: 'Calls heard' })}</dt>
-                    {@render statValue((summary?.total ?? 0).toLocaleString())}
-                    <dd class="text-xs text-muted">{$_('audio.stat.heard_sub', { default: 'Calls BirdNET-Go heard in this window' })}</dd>
-                </div>
-                <div class="min-w-0">
-                    <dt class="text-xs font-semibold text-muted">{$_('audio.stat.busiest_hour', { default: 'Busiest hour' })}</dt>
-                    {@render statValue(busiestHour ? formatHour(busiestHour.hour) : '—')}
-                    {#if measured}
-                        <dd class="text-xs text-muted">{busiestHour ? callsHeard(busiestHour.count) : $_('audio.stat.no_calls', { default: 'No calls in this window' })}</dd>
-                    {/if}
-                </div>
-                <div class="min-w-0">
-                    <dt class="text-xs font-semibold text-muted">{$_('audio.stat.sources', { default: 'Sources' })}</dt>
-                    {@render statValue((summary?.source_count ?? 0).toLocaleString())}
-                    <dd class="text-xs text-muted">{$_('audio.stat.sources_sub', { default: 'Microphones or streams' })}</dd>
-                </div>
-            </dl>
-            </div>
-        </section>
+    <aside class="min-w-0 space-y-8 xl:col-span-4 xl:col-start-9 xl:row-start-2 2xl:col-span-3 2xl:col-start-10" aria-label={$_('audio.side_label', { default: 'Most heard species and sources' })} data-audio-history-side>
             <section use:whenNearViewport={() => (topSpeciesNear = true)}>
                 <h2 class="text-base font-bold text-strong">{$_('audio.top_species', { default: 'Top heard species' })}</h2>
                 {#if !measured}
@@ -834,12 +846,21 @@
         <div class="grid min-w-0 grid-cols-1 gap-8 xl:grid-cols-5">
             <ChartFigure
                 title={$_('audio.chart.heatmap_title', { default: 'Calls heard by hour and weekday' })}
-                description={measured ? callsHeard(heatmap?.total_count ?? 0) : undefined}
+                description={measured && heatmap ? callsHeard(heatmap.total_count) : undefined}
                 table={measured && hasHeatmap ? heatmapTable : { columns: [], rows: [] }}
                 class="min-w-0 xl:col-span-3"
             >
                 {#if !measured}
                     {@render chartPending()}
+                {:else if heatmapError}
+                    <!-- Only the grid failed: said in its own frame, with the list and the other figures left standing. -->
+                    <div class="flex min-h-60 flex-col items-center justify-center gap-2 px-4 text-center text-sm" role="status" data-audio-heatmap-failed>
+                        <p class="max-w-prose text-ink">{$_('audio.heatmap.read_failed', { default: 'Calls heard by hour and weekday could not be read, so this grid and the busiest hour are not shown. Everything else on the page was read.' })}</p>
+                        <div class="flex flex-wrap items-center justify-center gap-x-4">
+                            <button type="button" class="btn btn-secondary min-h-11 px-4 focus-visible:ring-2 focus-visible:ring-focus" onclick={() => void loadAudioHistory()}>{$_('common.retry')}</button>
+                            {@render technicalDetails(heatmapError)}
+                        </div>
+                    </div>
                 {:else if hasHeatmap && heatmap}
                     <div class="mt-4" data-audio-heatmap>
                         <ActivityHeatmap cells={heatmap.cells} maxCellCount={heatmap.max_cell_count} dark={isDark} dayLabel={weekdayLabel} unit="calls" />

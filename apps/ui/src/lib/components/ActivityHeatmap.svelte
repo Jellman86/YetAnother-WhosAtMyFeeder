@@ -173,7 +173,7 @@
         style="grid-template-columns: 2.25rem repeat(24, minmax(0, 3rem)) 2.5rem; grid-template-rows: 2.5rem 1.25rem repeat(7, auto);"
         role="grid"
         tabindex="0"
-        aria-label={`${unit === 'calls' ? $_('audio.heatmap.grid_label', { default: 'Calls heard by weekday and hour. Use the arrow keys to read a slot.' }) : $_('leaderboard.heatmap_grid_label', { default: 'Activity by weekday and hour. Use the arrow keys to read a slot.' })}${subject ? ` ${subject}.` : ''}`}
+        aria-label={`${unit === 'calls' ? $_('audio.heatmap.grid_label', { default: 'Calls heard by hour and weekday. Use the arrow keys to read a slot.' }) : $_('leaderboard.heatmap_grid_label', { default: 'Activity by weekday and hour. Use the arrow keys to read a slot.' })}${subject ? ` ${subject}.` : ''}`}
         aria-activedescendant={active ? cellId(active.row, active.hour) : undefined}
         onpointermove={onPointerMove}
         onpointerleave={onPointerLeave}

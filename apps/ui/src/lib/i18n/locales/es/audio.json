@@ -76,7 +76,9 @@
   "summary_title": "Este periodo",
   "calls_heard": "{count, plural, one {# canto oído} other {# cantos oídos}}",
   "heatmap": {
-    "grid_label": "Cantos oídos por día de la semana y hora. Usa las flechas para leer una franja.",
-    "per_hour": "cantos oídos por franja de una hora"
-  }
+    "grid_label": "Cantos oídos por hora y día de la semana. Usa las flechas para leer una franja.",
+    "per_hour": "cantos oídos por franja de una hora",
+    "read_failed": "No se pudieron leer los cantos oídos por hora y día de la semana, así que no se muestran esta cuadrícula ni la hora de más actividad. El resto de la página sí se leyó."
+  },
+  "side_label": "Especies más oídas y fuentes"
 }

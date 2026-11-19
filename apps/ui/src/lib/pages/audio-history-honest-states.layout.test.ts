@@ -3,6 +3,8 @@ import source from './AudioHistory.svelte?raw';
 import chartSeries from './audio-chart-series.ts?raw';
 import enAudio from '../i18n/locales/en/audio.json';
 
+const audioLocales = import.meta.glob<{ chart: { heatmap_title: string }; heatmap: { grid_label: string } }>('../i18n/locales/*/audio.json', { eager: true, import: 'default' });
+
 describe('Audio history keeps loading, measured-empty, failed and stale apart', () => {
     it('shows a figure only for a reading, never a zero for a pending or failed read', () => {
         expect(source).toContain('audioReading({ loading, error, stale, total: summary?.total ?? null })');
@@ -49,6 +51,27 @@ describe('Audio history keeps loading, measured-empty, failed and stale apart', 
         expect(source).toContain('unit="calls"');
         // The busiest hour is the grid's, in the viewer's zone, not the summary's UTC hours.
         expect(source).toContain('busiestHourOfDay(heatmap?.cells ?? [])');
+    });
+
+    it('keeps the list and summary when only the grid fails, and withholds only what the grid gives', () => {
+        expect(source).toContain('data-audio-heatmap-failed');
+        expect(source).toContain("{@render statValue(busiestHour ? formatHour(busiestHour.hour) : '—', heatmapError !== null)}");
+        expect(source).toContain('{@render technicalDetails(heatmapError)}');
+        expect(enAudio.heatmap.read_failed).toContain('Everything else on the page was read');
+    });
+
+    it('names the grid with its title\'s own words, in every language', () => {
+        for (const [path, locale] of Object.entries(audioLocales)) {
+            expect(locale.heatmap.grid_label.startsWith(locale.chart.heatmap_title), path).toBe(true);
+        }
+        expect(Object.keys(audioLocales)).toHaveLength(9);
+    });
+
+    it('draws the window\'s figures once, ahead of the log, and names the side column for itself', () => {
+        expect(source.match(/data-audio-history-summary/g)?.length).toBe(1);
+        expect(source.indexOf('data-audio-history-summary')).toBeLessThan(source.indexOf('data-audio-history-log'));
+        expect(source).toMatch(/<aside[^>]*aria-label=\{\$_\('audio\.side_label'/);
+        expect(source).not.toMatch(/<aside[^>]*aria-labelledby="audio-summary-title"/);
     });
 
     it('leaves nothing of the hour bar chart the grid replaced', () => {

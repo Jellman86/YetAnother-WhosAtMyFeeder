@@ -76,7 +76,9 @@
   "summary_title": "Dieser Zeitraum",
   "calls_heard": "{count, plural, one {# gehörter Ruf} other {# gehörte Rufe}}",
   "heatmap": {
-    "grid_label": "Gehörte Rufe nach Wochentag und Stunde. Mit den Pfeiltasten ein Feld vorlesen.",
-    "per_hour": "gehörte Rufe pro Stundenfeld"
-  }
+    "grid_label": "Gehörte Rufe nach Stunde und Wochentag. Mit den Pfeiltasten ein Feld vorlesen.",
+    "per_hour": "gehörte Rufe pro Stundenfeld",
+    "read_failed": "Gehörte Rufe nach Stunde und Wochentag konnten nicht gelesen werden, daher fehlen dieses Raster und die aktivste Stunde. Alles andere auf der Seite wurde gelesen."
+  },
+  "side_label": "Am häufigsten gehörte Arten und Quellen"
 }

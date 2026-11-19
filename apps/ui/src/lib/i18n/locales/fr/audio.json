@@ -76,7 +76,9 @@
   "summary_title": "Cette période",
   "calls_heard": "{count, plural, one {# chant entendu} other {# chants entendus}}",
   "heatmap": {
-    "grid_label": "Chants entendus par jour et par heure. Utilisez les flèches pour lire un créneau.",
-    "per_hour": "chants entendus par créneau d’une heure"
-  }
+    "grid_label": "Chants entendus par heure et jour de la semaine. Utilisez les flèches pour lire un créneau.",
+    "per_hour": "chants entendus par créneau d’une heure",
+    "read_failed": "Les chants entendus par heure et jour de la semaine n’ont pas pu être lus : cette grille et l’heure la plus active ne sont pas affichées. Tout le reste de la page a été lu."
+  },
+  "side_label": "Espèces les plus entendues et sources"
 }

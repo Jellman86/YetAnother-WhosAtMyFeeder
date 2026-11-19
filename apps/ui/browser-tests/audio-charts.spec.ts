@@ -203,3 +203,27 @@ test('a window with no calls says so in the grid, not as an empty grid', async (
     await expect(page.locator('[data-audio-heatmap-empty]')).toHaveText('No calls heard in this window.');
     await expect(page.locator('[data-audio-heatmap]')).toHaveCount(0);
 });
+
+test('a grid that cannot be read says so in its own frame, and the list and other figures stay', async ({ page }) => {
+    await page.route('**/api/audio/activity-heatmap?*', route => route.fulfill({ status: 503, json: { detail: 'History temporarily unavailable.' } }));
+    await page.route('**/api/audio/history?*', route => route.fulfill({ json: {
+        items: [{ id: 1, birdnet_id: 501, species: 'Dunnock', confidence: 0.91, timestamp: '2026-09-26T08:15:00Z', source_name: 'BirdCam' }],
+        total: 1, limit: 25, offset: 0,
+    } }));
+    await page.reload();
+    await expect(page.locator('[data-audio-heatmap-failed]')).toContainText('could not be read');
+    await expect(page.locator('[data-audio-heatmap]')).toHaveCount(0);
+    // The page as a whole was read: no page-level failure, the list and the summary's figures are on show.
+    await expect(page.locator('[data-audio-read-failed]')).toHaveCount(0);
+    await expect(page.locator('[data-audio-history-table]')).toContainText('Dunnock');
+    await expect(page.locator('[data-audio-standing]')).toContainText('73');
+    // Only the figure that comes from the grid is withheld, in words.
+    await expect(page.locator('[data-audio-standing] [data-audio-stat-unavailable]')).toHaveCount(1);
+    await expect(page.locator('[data-audio-history-analytics] canvas')).toHaveCount(2);
+
+    // Retrying reads it again.
+    await page.unroute('**/api/audio/activity-heatmap?*');
+    await page.locator('[data-audio-heatmap-failed]').getByRole('button', { name: 'Retry' }).click();
+    await expect(page.locator('[data-audio-heatmap] [role="grid"]')).toBeVisible();
+    await expect(page.locator('[data-audio-standing] [data-audio-stat-unavailable]')).toHaveCount(0);
+});

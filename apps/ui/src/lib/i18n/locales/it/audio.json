@@ -76,7 +76,9 @@
   "summary_title": "Questo periodo",
   "calls_heard": "{count, plural, one {# canto udito} other {# canti uditi}}",
   "heatmap": {
-    "grid_label": "Canti uditi per giorno e ora. Usa le frecce per leggere una fascia.",
-    "per_hour": "canti uditi per fascia oraria"
-  }
+    "grid_label": "Canti uditi per ora e giorno della settimana. Usa le frecce per leggere una fascia.",
+    "per_hour": "canti uditi per fascia oraria",
+    "read_failed": "Non è stato possibile leggere i canti uditi per ora e giorno della settimana, quindi questa griglia e l’ora più attiva non sono mostrate. Tutto il resto della pagina è stato letto."
+  },
+  "side_label": "Specie più udite e sorgenti"
 }
