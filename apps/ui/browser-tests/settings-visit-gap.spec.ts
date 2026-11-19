@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { openSettings, saveBar, saveButton } from './settings-page-mock';
+import { openSaveDetails, openSettings, saveBar, saveButton, saveDetails } from './settings-page-mock';
 
 // #1044: the visit gap is the owner's setting, beside the naming threshold. It saves with the rest
 // of the form, a refused value is marked on the field in plain words, and the card says what the
@@ -46,13 +46,17 @@ test('a gap the server refuses is marked on the field with what to enter', async
     await saveButton(page).click();
     await expect(gapField(page)).toHaveAttribute('aria-invalid', 'true');
     await expect(page.locator('[data-field-error="visit_gap_seconds"]')).toHaveText('Enter 300 or less.');
+    // The save details name the refused field, rather than calling it another setting.
+    await openSaveDetails(page);
+    await expect(saveDetails(page)).toContainText('Visit gap');
+    await expect(saveDetails(page)).not.toContainText('Another setting');
 });
 
 test('the card says what the gap does, what it cannot count, and what happens to history', async ({ page }) => {
     await openIdentification(page);
     const card = page.locator('[data-visit-gap-notes]');
     await expect(page.getByRole('heading', { name: 'Counting visits' })).toBeVisible();
-    await expect(page.getByText('Captures of the same species on the same camera closer together than this count as one visit.', { exact: false })).toBeVisible();
+    await expect(page.getByText('Captures of one species on one camera no more than the visit gap apart count as one visit.', { exact: false })).toBeVisible();
     await expect(card).toContainText('cannot count individual birds');
     await expect(card).toContainText('keep the visit counts they were saved with');
     // The range and unit are read with the field, not left to the placeholder.

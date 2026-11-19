@@ -18,6 +18,8 @@ describe('the visit gap setting (#1044)', () => {
         expect(visitGapSource).toMatch(/min=\{5\}/);
         expect(visitGapSource).toMatch(/max=\{300\}/);
         expect(visitGapSource).toContain('describedBy=');
+        // Stacked on a phone, the field starts the row like the toggles above it.
+        expect(visitGapSource).toContain('justify-start gap-2 md:justify-end');
     });
 
     it('sits with the naming threshold, where the owner sets how captures are recorded', () => {
@@ -36,7 +38,7 @@ describe('the visit gap setting (#1044)', () => {
     });
 
     it('says what the gap does, what it cannot do, and what happens to history', () => {
-        expect(copy?.desc).toMatch(/same species on the same camera/);
+        expect(copy?.desc).toMatch(/one species on one camera no more than the visit gap apart/);
         expect(copy?.limit).toMatch(/cannot count individual birds/);
         expect(copy?.history).toMatch(/keep the visit counts/);
         for (const text of Object.values(copy ?? {})) expect(text).not.toContain('—');
