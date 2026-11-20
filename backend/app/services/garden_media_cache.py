@@ -1,5 +1,9 @@
 """Keep a confirmed Garden animal's full photograph and Frigate clip after Frigate lets them go.
 
+A domestic bird's photograph may be YA-WAMF's own copy of the whole frame its bird model
+classified: kept when the bird is routed to Garden, or taken from the bird record it was moved
+from when Frigate no longer has a snapshot. The clip is only ever Frigate's.
+
 The database row in garden_kept_media is the authority. A file is only ever served
 when its row says it is kept, its capture is confirmed and its bytes still match the
 recorded checksum; any other file in the garden folder is swept. Paths come from
@@ -35,11 +39,14 @@ from app.services.garden_capture_policy import garden_collection_cameras, safe_e
 from app.services.garden_media_policy import (
     MIN_CLIP_BYTES,
     RETRY_AFTER,
+    classified_frame_kept,
+    classified_frame_reference,
     decision_image_sha256,
     frigate_clip_error_state,
     frigate_photo_error_state,
     keep_plan,
     kept_media_retention_days,
+    own_copy_due,
     photo_outcome,
     valid_capture_id,
     within_retention,
@@ -106,6 +113,12 @@ def _sweep_sync(directory: Path, keep: set[tuple[str, str]], now: float) -> int:
 def _unlink(paths: list[Path]) -> None:
     for path in paths:
         path.unlink(missing_ok=True)
+
+
+def _from_bird_record(capture: GardenCapture) -> bool:
+    """A domestic bird moved from bird history, whose hidden record still holds YA-WAMF's photos."""
+    route = capture.domestic_route
+    return bool(route and route.origin == "moved_from_birds" and route.detection_id is not None)
 
 
 class GardenMediaCache:
@@ -198,6 +211,7 @@ class GardenMediaCache:
             clips_wanted=self.clips_wanted(),
             state=previous,
             now_iso=now.isoformat(),
+            from_bird_record=_from_bird_record(original),
         )
         if not plan.anything:
             return
@@ -213,7 +227,7 @@ class GardenMediaCache:
                     return
             record = previous or KeptMediaRecord(photo_state="retry")
             if plan.photo:
-                state, source, image = await self._fetch_photo(original)
+                state, source, image = await self._fetch_photo(original, previous)
                 record = replace(record, photo_state=state, photo_source=source, photo_sha256=None, photo_bytes=None)
                 if state == "kept" and image is not None:
                     staged["photo"] = _temporary_path(capture_id, "photo")
@@ -272,7 +286,9 @@ class GardenMediaCache:
             return False, (float(start), float(end))
         return False, None
 
-    async def _fetch_photo(self, original: GardenCapture) -> tuple[PhotoState, PhotoSource, bytes | None]:
+    async def _fetch_photo(
+        self, original: GardenCapture, previous: KeptMediaRecord | None
+    ) -> tuple[PhotoState, PhotoSource, bytes | None]:
         if original.motion_source:
             async with get_db() as db:
                 image = await GardenRepository(db).motion_photo(original.id)
@@ -284,12 +300,25 @@ class GardenMediaCache:
             )
         from app.services.frigate_client import frigate_client
 
-        if not original.has_snapshot or not safe_event_id(original.frigate_event):
+        if not safe_event_id(original.frigate_event):
             return "missing", "frigate_snapshot", None
-        # The same request the record and the automatic check read, so the checksum compares.
-        image, error = await frigate_client.get_snapshot_with_error(original.frigate_event, crop=False)
-        if not image:
-            return frigate_photo_error_state(error), "frigate_snapshot", None
+        # Frigate said it no longer had the snapshot before; it never takes an event back.
+        if own_copy_due(previous, from_bird_record=_from_bird_record(original)):
+            return await self._classified_frame(original)
+        if not original.has_snapshot:
+            state: PhotoState = "missing"
+        else:
+            # The same request the record and the automatic check read, so the checksum compares.
+            image, error = await frigate_client.get_snapshot_with_error(original.frigate_event, crop=False)
+            if image:
+                return self._decision_outcome(original, image), "frigate_snapshot", image
+            state = frigate_photo_error_state(error)
+        if state == "missing" and _from_bird_record(original):
+            return await self._classified_frame(original)
+        return state, "frigate_snapshot", None
+
+    @staticmethod
+    def _decision_outcome(original: GardenCapture, image: bytes) -> PhotoState:
         expected = decision_image_sha256(
             original.automatic_check.image_sha256 if original.automatic_check else None,
             original.identification.image_sha256 if original.identification else None,
@@ -297,7 +326,74 @@ class GardenMediaCache:
         outcome = photo_outcome(image, expected_sha256=expected, sha256=hashlib.sha256(image).hexdigest())
         if outcome == "changed":
             log.warning("garden_media_photo_differs_from_decision", capture_id=original.id)
-        return outcome, "frigate_snapshot", image
+        return outcome
+
+    async def _classified_frame(self, original: GardenCapture) -> tuple[PhotoState, PhotoSource, bytes | None]:
+        """The whole frame the bird record this capture was moved from was classified on, from YA-WAMF's copy."""
+        from app.repositories.detection_repository import DetectionRepository
+
+        event_id = str(original.frigate_event)
+        media = cache_module.media_cache
+        metadata = await media.get_snapshot_metadata(event_id) or {}
+        async with get_db() as db:
+            choices = await DetectionRepository(db).list_snapshot_candidates(event_id)
+        frame = classified_frame_reference(event_id, metadata.get("source"), choices)
+        image = await media.get_snapshot(frame.reference) if frame else None
+        if frame is None or not image:
+            log.info("garden_media_classified_frame_unavailable", capture_id=original.id)
+            return "missing", "classified_frame", None
+        digest = hashlib.sha256(image).hexdigest()
+        if frame.sha256 is not None and digest != frame.sha256:
+            log.warning("garden_media_classified_frame_differs", capture_id=original.id)
+            return "changed", "classified_frame", None
+        return self._decision_outcome(original, image), "classified_frame", image
+
+    async def keep_classified_frame(self, capture_id: str, image: bytes | None, source: str | None) -> bool:
+        """Keep the whole frame a domestic bird was classified on as its Garden photograph.
+
+        Called as the bird is routed to Garden, while YA-WAMF still holds the bytes it read:
+        Frigate may keep nothing for a bird that never moved. A crop is not kept here; the
+        collector then asks Frigate for the whole snapshot as it does for any capture.
+        """
+        if not valid_capture_id(capture_id) or not cache_module.media_cache.available:
+            return False
+        if not image or not classified_frame_kept(source):
+            return False
+        if photo_outcome(image, expected_sha256=None, sha256=None) != "kept":
+            return False
+        generation = garden_motion_privacy.generation
+        async with self._collect_lock:
+            try:
+                async with get_db() as db:
+                    repo = GardenRepository(db)
+                    original = await repo.get(capture_id)
+                    previous = await repo.kept_media_record(capture_id) if original else None
+                if original is None or original.status != "confirmed" or original.motion_source:
+                    return False
+                if previous is not None and previous.photo_state == "kept":
+                    return False
+                await aiofiles.os.makedirs(media_dir(), exist_ok=True)
+                staged: dict[MediaKind, Path] = {"photo": _temporary_path(capture_id, "photo")}
+                try:
+                    async with aiofiles.open(staged["photo"], "wb") as output:
+                        await output.write(image)
+                    observed = datetime.fromisoformat(original.observed_at + "+00:00").timestamp()
+                    record = replace(
+                        previous or KeptMediaRecord(photo_state="kept"),
+                        photo_state="kept",
+                        photo_source="classified_frame",
+                        photo_sha256=hashlib.sha256(image).hexdigest(),
+                        photo_bytes=len(image),
+                        source_start=previous.source_start if previous else observed,
+                        source_end=previous.source_end if previous else observed,
+                    )
+                    await self._commit(original, record, staged, generation)
+                finally:
+                    await asyncio.to_thread(_unlink, list(staged.values()))
+            except (OSError, ValueError, sqlite3.Error) as error:
+                log.info("garden_media_classified_frame_not_kept", capture_id=capture_id, reason=type(error).__name__)
+                return False
+        return True
 
     async def _fetch_clip(self, original: GardenCapture, has_event: bool) -> tuple[ClipState, Path | None]:
         from app.services.frigate_client import frigate_client

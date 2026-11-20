@@ -789,7 +789,9 @@ class EventProcessor:
             event.frigate_score,
             event.sub_label_score,
         )
-        if await self._route_declared_domestic_bird(event, results[0] if results else None, top, started):
+        if await self._route_declared_domestic_bird(
+            event, results[0] if results else None, top, started, snapshot_data, snapshot_source
+        ):
             return
         if not top:
             top_candidate = results[0] if results else {}
@@ -891,7 +893,13 @@ class EventProcessor:
         )
 
     async def _route_declared_domestic_bird(
-        self, event: EventData, top: dict | None, accepted: dict | None, started: float
+        self,
+        event: EventData,
+        top: dict | None,
+        accepted: dict | None,
+        started: float,
+        snapshot: bytes | None,
+        snapshot_source: str | None,
     ) -> bool:
         """Domestic birds the owner keeps become Garden animals here, before bird admission.
 
@@ -910,6 +918,8 @@ class EventProcessor:
             has_snapshot=not event.not_retained_by_frigate(),
             top=top,
             accepted=accepted,
+            snapshot=snapshot,
+            snapshot_source=snapshot_source,
         )
         if routed:
             self._mark_classification_decided_tombstone(event.frigate_event)

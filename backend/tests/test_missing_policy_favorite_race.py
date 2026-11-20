@@ -39,9 +39,11 @@ async def fixture_history(tmp_path, monkeypatch):
         repo = DetectionRepository(deletion)
         owner_repo = DetectionRepository(owner)
         await repo.create(Detection(datetime.now(), 1, 0.9, "Robin", "Robin", "fav-race", "camera"))
-        photograph = cache_module.SNAPSHOTS_DIR / "fav-race.jpg"
+        # A record YA-WAMF holds its own photo for is never deleted by the policy, so the files
+        # whose cleanup these races guard are the record's preview, not its photograph.
+        photograph = cache_module.PREVIEWS_DIR / "fav-race.jpg"
         Image.new("RGB", (24, 24), color="red").save(photograph)
-        metadata = cache_module.SNAPSHOTS_DIR / "fav-race.meta.json"
+        metadata = cache_module.PREVIEWS_DIR / "fav-race.json"
         metadata.write_text(json.dumps({"event_id": "fav-race", "source": "owner"}))
         yield repo, owner_repo, photograph, metadata
 
@@ -70,6 +72,20 @@ async def test_favorite_accepted_immediately_before_delete_preserves_history_and
     assert detection.frigate_status == "missing"
     assert result == {"deleted_count": 0, "marked_missing_count": 1, "kept_count": 0}
     assert photograph.is_file() and metadata.is_file()
+
+
+@pytest.mark.asyncio
+async def test_automatic_delete_keeps_a_record_whose_photo_yawamf_still_holds(fixture_history):
+    repo, owner, _preview, _metadata = fixture_history
+    photograph = cache_module.SNAPSHOTS_DIR / "fav-race.jpg"
+    Image.new("RGB", (24, 24), color="red").save(photograph)
+    result = await policy.apply_missing_policy(
+        repo=repo, frigate_event="fav-race", error="event_not_found", source="fixture", media_kind="snapshot"
+    )
+    assert result == {"deleted_count": 0, "marked_missing_count": 1, "kept_count": 0}
+    detection = await owner.get_by_frigate_event("fav-race")
+    assert detection is not None and detection.frigate_status == "missing"
+    assert photograph.is_file()
 
 
 @pytest.mark.asyncio
