@@ -45,17 +45,17 @@ export function wholeOrNone(room: number, height: number): 'all' | 'none' {
 }
 
 /**
- * The full status card (its readings `readings` px tall, or whole); the one-line summary; the compact
+ * The full status card (its readings `readings` px tall, or whole, null); the one-line summary; the compact
  * summary; or, with no room for even that, the Health place carrying the status while the whole card
  * waits `push` px down, just past the foot of the column.
  */
 export type StatusTier =
-    | { tier: 'full'; readings: number | null; push: number }
+    | { tier: 'full'; readings: number | null }
     | { tier: 'summary' }
     | { tier: 'compact' }
     | { tier: 'health'; push: number };
 
-const WHOLE_CARD: StatusTier = { tier: 'full', readings: null, push: 0 };
+const WHOLE_CARD: StatusTier = { tier: 'full', readings: null };
 
 /**
  * Which form of the status shows in `room`, the height under the places. `frame` is the holder's own
@@ -77,7 +77,7 @@ export function statusTier({ room, frame, full, summary, compact, lines }: {
     if (lines) {
         const fit = wholeLinesFit({ lineEnds: lines.lineEnds, floor: lines.floor, room, chrome: frame + full - lines.readings });
         if (fit.show === 'all') return WHOLE_CARD;
-        if (fit.show === 'some') return { tier: 'full', readings: fit.height, push: 0 };
+        if (fit.show === 'some') return { tier: 'full', readings: fit.height };
     } else if (wholeOrNone(room, frame + full) === 'all') {
         return WHOLE_CARD;
     }
@@ -105,6 +105,69 @@ function roomFor(holder: HTMLElement, column: HTMLElement): number {
     return Math.min(column.clientHeight, heightOf(column)) - others;
 }
 
+/** Anything keyboard focus can be put on. */
+interface Focusable {
+    focus(): void;
+}
+
+/**
+ * Moves keyboard focus to `target()` once that can take it, without ever fighting the reader. A newly
+ * shown element does not always take focus at once (Chromium refuses it from inside a ResizeObserver
+ * callback, and at times for a frame after), so the move starts in a task of its own and is tried again
+ * for up to `attempts` frames, asking `target()` afresh each time, since a resize can pass through other
+ * tiers on its way. Before every try it checks focus is still `ours()` (on nothing, in the status, or
+ * where this put it): once the reader has moved focus on, it is theirs and is left alone. With no
+ * target, or when every try is refused, focus goes to `fallback()` instead of staying on nothing, and
+ * `onFallback` hears where. The schedulers are passed in so the timing can be tested.
+ */
+export function createFocusMover<T extends Focusable>({ target, fallback, ours, active, onFallback, frame, task, cancelFrame, cancelTask, attempts = 5 }: {
+    target: () => T | null | undefined;
+    fallback: () => T | null | undefined;
+    ours: () => boolean;
+    active: () => unknown;
+    onFallback?: (element: T) => void;
+    frame: (run: () => void) => number;
+    task: (run: () => void) => number;
+    cancelFrame: (id: number) => void;
+    cancelTask: (id: number) => void;
+    attempts?: number;
+}): { move: () => void; cancel: () => void } {
+    let taskId: number | null = null;
+    let frameId: number | null = null;
+    const settle = (): void => {
+        taskId = null;
+        frameId = null;
+    };
+    const tryFocus = (attempt: number): void => {
+        settle();
+        if (!ours()) return;
+        const element = target();
+        if (element) {
+            element.focus();
+            if (active() === element) return;
+            if (attempt < attempts) {
+                frameId = frame(() => tryFocus(attempt + 1));
+                return;
+            }
+        }
+        const instead = fallback();
+        if (!instead || !ours()) return;
+        instead.focus();
+        onFallback?.(instead);
+    };
+    return {
+        move: () => {
+            if (taskId !== null || frameId !== null) return;
+            taskId = task(() => tryFocus(0));
+        },
+        cancel: () => {
+            if (taskId !== null) cancelTask(taskId);
+            if (frameId !== null) cancelFrame(frameId);
+            settle();
+        }
+    };
+}
+
 type StatusForm = 'full' | 'summary' | 'compact';
 
 /** The form each tier shows: the Health place's tier keeps the whole card, past the fold. */
@@ -117,9 +180,10 @@ const FORM_OF: Record<StatusTier['tier'], StatusForm> = { full: 'full', summary:
  * for the next measure, and `onTier` hears each change. `readings` names the full form's scrolling
  * lines (`lines`, never shorter than the `floor` line), which are kept to whole lines at rest. Keyboard
  * focus in a form taken away moves to the same `control` in the new one, or, at the Health place's
- * tier or where the new form has none, to `fallbackFocus`: never staying on something unseen.
- * Measured again whenever the column, anything in it, a form or a line changes size, and whenever a
- * form or a line arrives.
+ * tier or where the new form has none, to `fallbackFocus`: never staying on something unseen, and
+ * never taken back from where the reader has moved it (see createFocusMover). Focus parked there comes
+ * back to the status when it shows again. Measured again whenever the column, anything in it, a form
+ * or a line changes size, and whenever a form or a line arrives.
  */
 export function fitStatus(holder: HTMLElement, options: {
     container: string;
@@ -137,8 +201,37 @@ export function fitStatus(holder: HTMLElement, options: {
     const form = (name: StatusForm): HTMLElement | null => holder.querySelector<HTMLElement>(`[data-status-form="${name}"]`);
     const readingsOf = (full: HTMLElement): HTMLElement | null => (options.readings ? full.querySelector<HTMLElement>(options.readings) : null);
 
-    let focusMoving = false;
+    // Where focus was put outside the status to wait, and the one listener that forgets it once the
+    // reader moves it on.
     let parked: HTMLElement | null = null;
+    let parkedListener: AbortController | null = null;
+    const park = (element: HTMLElement | null): void => {
+        parkedListener?.abort();
+        parkedListener = null;
+        parked = element;
+        if (!element) return;
+        parkedListener = new AbortController();
+        element.addEventListener('blur', () => park(null), { signal: parkedListener.signal });
+    };
+
+    const focusMover = createFocusMover<HTMLElement>({
+        target: () => {
+            const now = holder.dataset.fit as StatusTier['tier'] | undefined;
+            const shown = now && now !== 'health' ? form(FORM_OF[now]) : null;
+            return (options.control ? shown?.querySelector<HTMLElement>(options.control) : null) ?? shown?.querySelector<HTMLElement>('[tabindex="0"]');
+        },
+        fallback: () => options.fallbackFocus?.(),
+        ours: () => {
+            const active = document.activeElement;
+            return active === null || active === document.body || holder.contains(active) || (parked !== null && active === parked);
+        },
+        active: () => document.activeElement,
+        onFallback: park,
+        frame: (run) => requestAnimationFrame(run),
+        task: (run) => window.setTimeout(run, 0),
+        cancelFrame: (id) => cancelAnimationFrame(id),
+        cancelTask: (id) => window.clearTimeout(id)
+    });
 
     // The compact form tightens only its padding, so its words must still read as a line or two: a
     // wider face or a longer language that runs them to a third gives the compact form up.
@@ -149,31 +242,6 @@ export function fitStatus(holder: HTMLElement, options: {
         return !Number.isFinite(line) || heightOf(words) <= 2 * line + 1;
     };
 
-    // Focus goes to the form of the tier in force when it moves, since a resize can pass through other
-    // tiers on its way. A newly shown form does not always take focus at once (Chromium refuses it from
-    // inside a ResizeObserver callback, and at times for a frame after), so it is tried again for a few
-    // frames before giving up; where the status has no control on show, focus waits on fallbackFocus
-    // and comes back to the status when it shows again, unless the reader has moved it on.
-    const moveFocus = (attempt: number): void => {
-        const now = holder.dataset.fit as StatusTier['tier'] | undefined;
-        const target = now && now !== 'health' ? form(FORM_OF[now]) : null;
-        const same = (options.control ? target?.querySelector<HTMLElement>(options.control) : null) ?? target?.querySelector<HTMLElement>('[tabindex="0"]');
-        if (same) {
-            same.focus();
-            if (document.activeElement !== same && attempt < 5) {
-                requestAnimationFrame(() => moveFocus(attempt + 1));
-                return;
-            }
-            focusMoving = false;
-            return;
-        }
-        focusMoving = false;
-        const fallback = options.fallbackFocus?.();
-        if (!fallback) return;
-        fallback.focus();
-        parked = fallback;
-        fallback.addEventListener('blur', () => { if (parked === fallback) parked = null; }, { once: true });
-    };
     const measure = (): void => {
         const full = form('full');
         const summary = form('summary');
@@ -200,40 +268,47 @@ export function fitStatus(holder: HTMLElement, options: {
             lines
         });
         if (readings) readings.style.maxHeight = answer.tier === 'full' && answer.readings !== null ? `${answer.readings}px` : '';
-        holder.style.marginTop = (answer.tier === 'full' || answer.tier === 'health') && answer.push > 0 ? `${answer.push}px` : '';
+        holder.style.marginTop = answer.tier === 'health' && answer.push > 0 ? `${answer.push}px` : '';
         const tier = answer.tier;
-        const previous = holder.dataset.fit;
-        if (previous === tier) return;
+        if (holder.dataset.fit === tier) return;
         const shown = { full, summary, compact }[FORM_OF[tier]];
         // Focus leaves with the form it was in, and at the Health place's tier with the card too, which
-        // waits past the fold where focus would only scroll it back. Focus this action parked outside
-        // the status, still where it was put, comes back as soon as the status shows again: a resize
-        // can pass through the Health place's tier on its way.
+        // waits past the fold where focus would only scroll it back. Focus parked outside the status,
+        // still where it was put, comes back as soon as the status shows again.
         const active = document.activeElement;
         const focusLeaves = (holder.contains(active) && (tier === 'health' || !shown.contains(active)))
             || (parked !== null && active === parked && tier !== 'health');
         holder.dataset.fit = tier;
         options.onTier?.(tier);
-        if (focusLeaves && !focusMoving) {
-            focusMoving = true;
-            setTimeout(() => moveFocus(0), 0);
-        }
+        if (focusLeaves) focusMover.move();
     };
 
+    // Everything measured is observed once; what the icon rail's toggle swapped out is let go.
     const observer = new ResizeObserver(measure);
+    const observed = new Set<Element>();
+    const watch = (element: Element): void => {
+        if (observed.has(element)) return;
+        observed.add(element);
+        observer.observe(element);
+    };
     const observeAll = (): void => {
-        observer.observe(holder);
+        for (const element of observed) {
+            if (element.isConnected) continue;
+            observer.unobserve(element);
+            observed.delete(element);
+        }
+        watch(holder);
         if (column) {
-            observer.observe(column);
-            for (const child of column.children) observer.observe(child);
+            watch(column);
+            for (const child of column.children) watch(child);
         }
         for (const name of ['full', 'summary', 'compact'] as const) {
             const element = form(name);
-            if (element) observer.observe(element);
+            if (element) watch(element);
         }
         const full = form('full');
         const readings = full ? readingsOf(full) : null;
-        if (readings && options.lines) for (const line of readings.querySelectorAll(options.lines)) observer.observe(line);
+        if (readings && options.lines) for (const line of readings.querySelectorAll(options.lines)) watch(line);
     };
     observeAll();
     // Forms and lines arrive after the holder does (a reading, an update notice, the icon rail's forms
@@ -247,6 +322,8 @@ export function fitStatus(holder: HTMLElement, options: {
         destroy: () => {
             observer.disconnect();
             arrivals.disconnect();
+            focusMover.cancel();
+            park(null);
             delete holder.dataset.fit;
             holder.style.marginTop = '';
         }

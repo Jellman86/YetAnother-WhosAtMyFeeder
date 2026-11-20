@@ -81,7 +81,9 @@
 
     // Which form of the status shows, as fitStatus measured it. Where none of them fits at rest, the
     // Health place carries the status: its mark and its name say the open issues, and only then, so the
-    // mark never shows twice.
+    // mark never shows twice at rest. While it does, the card waiting past the fold is inert, out of the
+    // tab order and the accessibility tree, so the issues are announced once; with nothing for the
+    // Health place to carry (no issues, or a guest), the card stays reachable by scrolling.
     let statusTier = $state<StatusTier['tier'] | null>(null);
     const healthCarriesStatus = $derived(statusTier === 'health' && health.needsAttention);
     const placeName = (item: { path: string; label: string }): string =>
@@ -326,6 +328,7 @@
         <div
             data-sidebar-status
             class="mt-auto flex flex-col border-t border-line-soft p-3 compact-height:p-2"
+            inert={healthCarriesStatus}
             use:fitStatus={{ container: '[data-sidebar-scroll]', readings: '[data-sidebar-status-readings]', lines: ':scope > *, li', floor: '[data-status-row]', control: '[data-sidebar-status-link], [data-sidebar-summary-link], [data-sidebar-compact-link]', words: '[data-summary-row], [data-summary-issues]', fallbackFocus: refocusFromStatus, onTier: (tier) => (statusTier = tier) }}
         >
             <div class="relative">

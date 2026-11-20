@@ -143,14 +143,13 @@ export type StatusSummary = { kind: 'issues'; count: number } | { kind: 'row'; r
 /**
  * The one line that stands in for the status card where the card does not fit. For the owner it
  * leads with the issues the Health link counts. Otherwise it is the most important measured row, in
- * its own words: one that needs a person, or else the Frigate events feed, which says plainly when it
- * is reconnecting or not yet measured. Never a blanket "all fine": the line names what it measured,
+ * its own words: one that needs a person, or else `feed`, the Frigate events row, which says plainly
+ * when it is reconnecting or not yet measured, and is always there to fall back on. Never a blanket "all fine": the line names what it measured,
  * and audio or alerts that are off by choice are not worth the only line there is.
  */
-export function statusSummary(rows: readonly StatusRow[], attention: HealthAttention | null): StatusSummary {
+export function statusSummary(feed: StatusRow, rows: readonly StatusRow[], attention: HealthAttention | null): StatusSummary {
     if (attention?.needsAttention) return { kind: 'issues', count: attention.count };
-    const row = rows.find((candidate) => candidate.tone === 'attention') ?? rows.find((candidate) => candidate.id === 'feed');
-    return { kind: 'row', row: row ?? feedRow('reconnecting') };
+    return { kind: 'row', row: rows.find((candidate) => candidate.tone === 'attention') ?? feed };
 }
 
 /** The link asks for attention only for issues the Health page lists as open. */

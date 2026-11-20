@@ -104,26 +104,26 @@ describe('the one-line status summary says the most important measured state', (
         summary.kind === 'issues' ? `issues ${summary.count}` : `${summary.row.label.fallback}: ${summary.row.state.fallback}`;
 
     it('leads with the open issues the Health link counts, for the owner', () => {
-        expect(said(statusSummary(rows('live'), healthAttention(2)))).toBe('issues 2');
+        expect(said(statusSummary(feedRow('live'), rows('live'), healthAttention(2)))).toBe('issues 2');
     });
 
     it('with nothing open and every row working, names the measured live feed, not a blanket "all fine"', () => {
-        expect(said(statusSummary(rows('live'), healthAttention(0)))).toBe('Frigate events: Live');
+        expect(said(statusSummary(feedRow('live'), rows('live'), healthAttention(0)))).toBe('Frigate events: Live');
     });
 
     it('says a feed that is reconnecting, or not yet measured, in words', () => {
-        expect(said(statusSummary(rows('reconnecting'), healthAttention(0)))).toBe('Frigate events: Reconnecting');
-        expect(said(statusSummary(rows('connecting'), healthAttention(0)))).toBe('Frigate events: Waiting for events');
+        expect(said(statusSummary(feedRow('reconnecting'), rows('reconnecting'), healthAttention(0)))).toBe('Frigate events: Reconnecting');
+        expect(said(statusSummary(feedRow('connecting'), rows('connecting'), healthAttention(0)))).toBe('Frigate events: Waiting for events');
     });
 
     it('puts a row that needs a person ahead of the feed', () => {
         const alertsNeedAPerson: StatusRow = { ...alertsRow(true) as StatusRow, tone: 'attention' };
-        expect(statusSummary([feedRow('live'), alertsNeedAPerson], healthAttention(0))).toEqual({ kind: 'row', row: alertsNeedAPerson });
-        expect(said(statusSummary(rows('broker_down'), healthAttention(0)))).toBe('Frigate events: Not connected');
+        expect(statusSummary(feedRow('live'), [feedRow('live'), alertsNeedAPerson], healthAttention(0))).toEqual({ kind: 'row', row: alertsNeedAPerson });
+        expect(said(statusSummary(feedRow('broker_down'), rows('broker_down'), healthAttention(0)))).toBe('Frigate events: Not connected');
     });
 
     it('gives a guest, who has no Health count, the feed as the page measures it', () => {
-        expect(said(statusSummary(rows('app_only', null), null))).toBe('Frigate events: Connected');
+        expect(said(statusSummary(feedRow('app_only'), rows('app_only', null), null))).toBe('Frigate events: Connected');
     });
 });
 

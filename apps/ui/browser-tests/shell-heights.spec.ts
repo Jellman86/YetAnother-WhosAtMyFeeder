@@ -462,3 +462,53 @@ test('focus on the status moves to the Health place when only the Health place c
     await expect(place).toHaveAccessibleName(/^Health: \d+ issues? needs? attention$/);
     await expect(place).toBeFocused();
 });
+
+// Focus parked on the Health place comes back to the status when it shows again, and the card waiting
+// past the fold meanwhile is inert, so its issues are not announced a second time.
+test('focus parked on the Health place returns to the status when it shows again', async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('sidebarCollapsed', 'true'));
+    await openShell(page, { width: 1280, height: 1000 });
+    const link = page.locator('[data-sidebar-status-link]');
+    await expect(link).toBeVisible(READY);
+    await link.focus();
+    await page.setViewportSize({ width: 1280, height: 720 });
+    const place = page.locator('#app-sidebar nav [data-nav-path="/system-health"]');
+    await expect(place).toBeFocused();
+    await expect(page.locator('[data-sidebar-status]')).toHaveAttribute('inert', '');
+    await page.setViewportSize({ width: 1280, height: 1000 });
+    await expect(page.locator('[data-sidebar-status]')).not.toHaveAttribute('inert');
+    await expect(link).toBeFocused();
+});
+
+// Focus the reader moved on themselves is theirs: the status showing again does not take it back.
+test('focus the reader moved away from the Health place stays where they put it', async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('sidebarCollapsed', 'true'));
+    await openShell(page, { width: 1280, height: 1000 });
+    const link = page.locator('[data-sidebar-status-link]');
+    await expect(link).toBeVisible(READY);
+    await link.focus();
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await expect(page.locator('#app-sidebar nav [data-nav-path="/system-health"]')).toBeFocused();
+    await page.keyboard.press('Shift+Tab');
+    const chosen = page.locator('#app-sidebar nav [data-nav-path="/settings"]');
+    await expect(chosen).toBeFocused();
+    await page.setViewportSize({ width: 1280, height: 1000 });
+    await expect(link).toBeVisible();
+    // Long enough for any move the resize set off (a task and a few frames) to have run.
+    await page.waitForTimeout(300);
+    await expect(chosen).toBeFocused();
+});
+
+// A resize that passes through the Health place's tier on its way to the summary ends with focus on the
+// summary's link, not left on the Health place.
+test('focus follows a resize through the Health place tier to the summary', async ({ page }) => {
+    await openShell(page, { width: 1280, height: 960 });
+    const cardLink = page.locator('[data-sidebar-status-link]');
+    await expect(cardLink).toBeVisible(READY);
+    await cardLink.focus();
+    await page.setViewportSize({ width: 1280, height: 680 });
+    await expect(page.locator('#app-sidebar nav [data-nav-path="/system-health"]')).toBeFocused();
+    await page.setViewportSize({ width: 1280, height: 740 });
+    await expect(page.locator('[data-sidebar-status-summary]')).toBeVisible();
+    await expect(page.locator('[data-sidebar-summary-link]')).toBeFocused();
+});

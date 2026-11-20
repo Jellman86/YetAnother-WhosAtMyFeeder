@@ -34,8 +34,9 @@
               })
     );
 
+    const feedState = $derived(feedRow(feed));
     const rows = $derived(
-        [feedRow(feed), audioRow(birdnetEnabled, feed), alertsRow(notificationsActive)].filter(
+        [feedState, audioRow(birdnetEnabled, feed), alertsRow(notificationsActive)].filter(
             (row): row is StatusRow => row !== null
         )
     );
@@ -43,7 +44,7 @@
     const say = (text: StatusText): string => $_(text.key, { default: text.fallback });
 
     // The icon rail's single icon is a guest's (the owner's is the Health link), so it never counts issues.
-    const summaryShown = $derived(summary ? statusSummary(rows, collapsed ? null : summary.attention) : null);
+    const summaryShown = $derived(summary ? statusSummary(feedState, rows, collapsed ? null : summary.attention) : null);
     const issuesText = $derived(
         summaryShown?.kind === 'issues'
             ? $_('status.issues_need_attention', {

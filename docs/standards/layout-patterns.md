@@ -304,16 +304,18 @@ What holds in every band:
   words alone. On the collapsed icon rail, whose group has nothing that can give way, one icon
   stands in: the Health link with its attention mark, or a guest's most important status. Where the
   full-size line (a 44 px target on a touch screen) does not fit, a compact one does: its padding
-  tightens to a 24 px target, as long as its words stay whole on one or two lines. The status never
-  vanishes: only where not even that fits, or the places themselves do not, does the Health place
-  carry it, its mark and its name ("Health: 2 issues need attention") saying the open issues, and
-  only then, so the mark never shows twice; the whole card waits just past the foot of the column,
-  reached by scrolling, with no rule left floating. A guest has no Health place and a much shorter
-  list of places, so nothing extra shows there. Every form is always drawn and only the one that
+  tightens to a 24 px target, as long as its words stay whole on one or two lines. Only where not
+  even that fits, or the places themselves do not, does the whole card wait just past the foot of the
+  column, reached by scrolling, with no rule left floating. Then, with issues open, the Health place
+  carries the status for the owner: its mark and its name ("Health: 2 issues need attention") say the
+  open issues, the mark shows only then (so never twice at rest), and the waiting card is inert, so
+  the issues are announced once. With nothing open, or for a guest (who has no Health place and a
+  much shorter list of places), the card stays reachable by scrolling and nothing extra shows. Every form is always drawn and only the one that
   fits is shown, so a change of form announces nothing new; the line is its form's live region, as
   the list's wrapper is the card's. The controls below never scroll. Keyboard focus in the form taken
   away moves to the same control in the new one (the card's, the summary's or the compact Health
-  link), or to Health among the places, and back to the status when it shows again.
+  link), or to Health among the places, and back to the status when it shows again; focus the
+  reader has moved on is never taken back.
 
 Explorer's filter rail orders filters by how often they change. Choices set once and
 left (**Visitors**, **Show**) are compact switches that explain only the chosen option

@@ -28,7 +28,8 @@ describe('Sidebar hybrid refresh', () => {
         // The unused compact header variant is gone; the status list is the only shape.
         expect(connectionStatusSource).not.toContain('variant');
         // The rows and their words come from one tested mapping, never from the markup.
-        expect(connectionStatusSource).toContain('[feedRow(feed), audioRow(birdnetEnabled, feed), alertsRow(notificationsActive)]');
+        expect(connectionStatusSource).toContain('const feedState = $derived(feedRow(feed));');
+        expect(connectionStatusSource).toContain('[feedState, audioRow(birdnetEnabled, feed), alertsRow(notificationsActive)]');
         // The Frigate events row says what was measured: the broker session, not only the page's stream.
         expect(statusMappingSource).toContain("text('feed_live'");
         expect(statusMappingSource).toContain("text('feed_broker_down'");
@@ -70,7 +71,14 @@ describe('Sidebar hybrid refresh', () => {
         // against the room the column really has (see below).
         expect(sidebarSource).not.toContain('[@media(max-height:42rem)]:hidden');
         // One action chooses the form the room allows, the card or the one line that stands in for it.
-        expect(sidebarSource).toContain("use:fitStatus={{ container: '[data-sidebar-scroll]', readings: '[data-sidebar-status-readings]', lines: ':scope > *, li', floor: '[data-status-row]', control: '[data-sidebar-status-link], [data-sidebar-summary-link], [data-sidebar-compact-link]', words: '[data-summary-row], [data-summary-issues]', fallbackFocus: refocusFromStatus, onTier: (tier) => (statusTier = tier) }}");
+        // The options that decide behaviour, each on its own so a reformatting of the call does not matter.
+        const fit = sidebarSource.slice(sidebarSource.indexOf('use:fitStatus={{'), sidebarSource.indexOf('}}', sidebarSource.indexOf('use:fitStatus={{')));
+        expect(fit).toMatch(/container:\s*'\[data-sidebar-scroll\]'/);
+        expect(fit).toMatch(/floor:\s*'\[data-status-row\]'/);
+        expect(fit).toMatch(/control:\s*'\[data-sidebar-status-link\], \[data-sidebar-summary-link\], \[data-sidebar-compact-link\]'/);
+        expect(fit).toMatch(/fallbackFocus:\s*refocusFromStatus/);
+        // The card waiting past the fold is inert while the Health place says the same issues.
+        expect(sidebarSource).toMatch(/data-sidebar-status\s+class="[^"]*"\s+inert=\{healthCarriesStatus\}/);
         expect(sidebarSource.match(/data-status-form="full"/g)).toHaveLength(2);
         expect(sidebarSource.match(/data-status-form="summary"/g)).toHaveLength(2);
         expect(sidebarSource.match(/data-status-form="compact"/g)).toHaveLength(2);
@@ -134,7 +142,7 @@ describe('Sidebar hybrid refresh', () => {
 
     it('shows the status readings in whole lines at rest, instead of cutting a line of words', () => {
         // Never fewer than the heading and the first reading (fitStatus's floor).
-        expect(sidebarSource).toContain("floor: '[data-status-row]'");
+        expect(sidebarSource).toMatch(/floor:\s*'\[data-status-row\]'/);
         // Nothing is drawn over the readings: a mask on them, a tab stop, clipped their focus ring, and a fade
         // or an edge over a line reads as cut or underlined text.
         expect(sidebarSource).not.toContain('mask-image');
