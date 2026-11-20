@@ -21,16 +21,18 @@
         titleId?: string;
         /** A card inside a section's More options, under its heading: one level down. */
         nested?: boolean;
+        /** A card on a page that has no section heading above it (Health): directly under the page title. */
+        underPageTitle?: boolean;
         children: Snippet;
     }
 
-    let { title, description, actions, collapsible = false, openByDefault = false, id, titleId, nested = false, children }: Props = $props();
+    let { title, description, actions, collapsible = false, openByDefault = false, id, titleId, nested = false, underPageTitle = false, children }: Props = $props();
 
     const uid = $props.id();
     markInsideCard();
     // The page is h1, the open section h2, a group h3, and a group under More options h4. A
     // subheading inside the card is one below the card's own.
-    const tag = $derived(nested ? 'h4' : 'h3');
+    const tag = $derived(underPageTitle ? 'h2' : nested ? 'h4' : 'h3');
     provideSubheadingLevel(() => (nested ? 5 : 4));
     const headingId = $derived(titleId ?? `${id ?? uid}-title`);
 

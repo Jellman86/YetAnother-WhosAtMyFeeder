@@ -205,6 +205,7 @@
 
 <div data-system-health>
     <SettingsCard
+        underPageTitle
         title={$_('settings.system_health.title', { default: 'System' })}
         description={$_('settings.system_health.description', {
             default: 'What this host is doing, and how much of it is this app.'

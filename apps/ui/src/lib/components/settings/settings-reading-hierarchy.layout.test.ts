@@ -34,7 +34,11 @@ describe('Settings heading hierarchy', () => {
 
     it('makes a group an h3, and an h4 under More options, in the display face', () => {
         const card = read('_primitives', 'SettingsCard.svelte');
-        expect(card).toContain("const tag = $derived(nested ? 'h4' : 'h3');");
+        expect(card).toContain("const tag = $derived(underPageTitle ? 'h2' : nested ? 'h4' : 'h3');");
+        // Only the Health page's panel, which has no section heading above it, sits under the page title.
+        const underTitle = components().filter(([, source]) => /<SettingsCard\b[^>]*\bunderPageTitle\b/.test(source)).map(([name]) => name);
+        expect(underTitle).toEqual([]);
+        expect(read('SystemHealthPanel.svelte')).toMatch(/<SettingsCard\s+underPageTitle\b/);
         expect(card).toContain('<svelte:element this={tag} id={headingId} class="font-display font-semibold text-strong {nested ? \'text-lg\' : \'text-xl\'}">');
         expect(card).toContain('provideSubheadingLevel(() => (nested ? 5 : 4));');
         const more = read('sections', 'SectionMore.svelte');
