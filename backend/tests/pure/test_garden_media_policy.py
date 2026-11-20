@@ -12,6 +12,7 @@ from app.services.garden_media_policy import (
     classified_frame_kept,
     classified_frame_reference,
     own_copy_due,
+    settled_missing_source,
     decision_image_sha256,
     eviction_key,
     frigate_clip_error_state,
@@ -180,22 +181,33 @@ def test_the_earliest_retained_original_is_the_classified_frame_even_after_a_cro
         retained("frigate_snapshot", "c" * 64, "2026-11-20 09:18:00"),
         retained("frigate_recording_frame", "e" * 64, "2026-11-20 09:16:00", mode="full_frame"),
     ]
-    frame = classified_frame_reference(EVENT, "hq_candidate_model_crop", rows)
+    frame = classified_frame_reference(EVENT, {"source": "hq_candidate_model_crop"}, rows)
     assert frame is not None
     assert frame.reference == f"{EVENT}__retained_snapshot__{'a' * 12}__image"
     assert frame.sha256 == "a" * 64
 
 
 def test_the_record_photo_stands_in_only_while_it_is_still_the_classified_frame():
-    assert classified_frame_reference(EVENT, "frigate_recording_frame", []).reference == EVENT
-    assert classified_frame_reference(EVENT, "frigate_recording_frame", []).sha256 is None
-    assert classified_frame_reference(EVENT, "hq_candidate_model_crop", []) is None
-    assert classified_frame_reference(EVENT, None, []) is None
+    record_photo = {"source": "frigate_recording_frame", "image_sha256": "d" * 64}
+    frame = classified_frame_reference(EVENT, record_photo, [])
+    assert frame is not None and (frame.reference, frame.sha256) == (EVENT, "d" * 64)
+    assert classified_frame_reference(EVENT, {"source": "hq_candidate_model_crop", "image_sha256": "d" * 64}, []) is None
+    assert classified_frame_reference(EVENT, {}, []) is None
+
+
+def test_the_record_photo_needs_its_recorded_checksum_to_stand_in():
+    # Without the digest the bytes read later could be a crop written in between.
+    assert classified_frame_reference(EVENT, {"source": "frigate_recording_frame"}, []) is None
+
+
+def test_an_owners_chosen_photo_is_never_the_classified_frame():
+    chosen = {"source": "frigate_snapshot", "image_sha256": "d" * 64, "manual_selection": True}
+    assert classified_frame_reference(EVENT, chosen, []) is None
 
 
 def test_a_photo_the_owner_hid_is_never_used():
     rows = [retained("frigate_recording_frame", "a" * 64, "2026-11-20 09:17:43", hidden=True)]
-    assert classified_frame_reference(EVENT, "hq_candidate_model_crop", rows) is None
+    assert classified_frame_reference(EVENT, {"source": "hq_candidate_model_crop"}, rows) is None
 
 
 def test_a_photo_frigate_lost_before_yawamf_looked_for_its_own_copy_is_looked_for_once():
@@ -209,3 +221,10 @@ def test_a_photo_frigate_lost_before_yawamf_looked_for_its_own_copy_is_looked_fo
     assert not plan(state=untried, from_bird_record=True).clip
     assert not plan(state=untried).anything
     assert not plan(state=looked, from_bird_record=True).anything
+
+
+def test_a_moved_capture_whose_photo_cannot_be_looked_for_settles_at_once():
+    for from_bird_record in (True, False):
+        settled = KeptMediaRecord(photo_state="missing", photo_source=settled_missing_source(from_bird_record=from_bird_record))
+        assert not own_copy_due(settled, from_bird_record=from_bird_record)
+    assert settled_missing_source(from_bird_record=False) == "frigate_snapshot"

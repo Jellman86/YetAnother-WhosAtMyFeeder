@@ -15,9 +15,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 import re
-from typing import Any, Literal, Sequence
+from typing import Any, Literal, Mapping, Sequence
 
-from app.models.garden_media import KeptMediaRecord
+from app.models.garden_media import KeptMediaRecord, PhotoSource
 
 CAPTURE_ID = re.compile(r"[a-f0-9]{32}")
 JPEG_MAGIC = b"\xff\xd8\xff"
@@ -69,14 +69,15 @@ def classified_frame_kept(source: str | None) -> bool:
 
 
 def classified_frame_reference(
-    event_id: str, record_photo_source: str | None, photo_choices: Sequence[dict[str, Any]]
+    event_id: str, record_photo: Mapping[str, Any], photo_choices: Sequence[dict[str, Any]]
 ) -> ClassifiedFrame | None:
     """The whole frame a bird record was first classified from, among the photos YA-WAMF holds.
 
     A later high-quality pass may replace the record's photo with a crop; it retains the photo it
     replaced among the record's photo choices, so the earliest retained original is the classified
-    frame. The record's photo stands in only while it is still that frame. A photo the owner hid is
-    never used.
+    frame. The record's photo (its cache metadata here) stands in only while it is still that
+    frame: its provenance says so, it carries the digest of the bytes it describes, and the owner
+    did not choose it. A photo the owner hid is never used.
     """
     originals = [
         choice
@@ -89,9 +90,24 @@ def classified_frame_reference(
     if originals:
         first = min(originals, key=lambda choice: str(choice.get("created_at") or ""))
         return ClassifiedFrame(reference=str(first["image_ref"]), sha256=first.get("content_sha256"))
-    if classified_frame_kept(record_photo_source):
-        return ClassifiedFrame(reference=event_id, sha256=None)
+    digest = record_photo.get("image_sha256")
+    if (
+        classified_frame_kept(record_photo.get("source"))
+        and not record_photo.get("manual_selection")
+        and isinstance(digest, str)
+        and len(digest) == 64
+    ):
+        return ClassifiedFrame(reference=event_id, sha256=digest)
     return None
+
+
+def settled_missing_source(*, from_bird_record: bool) -> PhotoSource:
+    """The source a photo that cannot be found at all is recorded under, so it is never due again.
+
+    A moved bird record's photo is looked for in YA-WAMF's own copy too; recording it under the
+    classified frame says that look has happened (see ``own_copy_due``).
+    """
+    return "classified_frame" if from_bird_record else "frigate_snapshot"
 
 
 def own_copy_due(state: KeptMediaRecord | None, *, from_bird_record: bool) -> bool:

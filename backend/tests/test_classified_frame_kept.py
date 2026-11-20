@@ -338,3 +338,117 @@ async def test_keeping_the_classified_frame_does_not_wait_for_a_collection_in_pr
         )
     assert kept_now
     assert (await kept(capture_id)).photo_source == "classified_frame"
+
+
+@pytest.mark.asyncio
+async def test_a_collection_already_asking_frigate_never_overwrites_a_classified_frame_kept_meanwhile(
+    frigate,  # noqa: F811
+    monkeypatch,
+):
+    import asyncio
+
+    from app.services.frigate_client import frigate_client
+    from app.services.garden_media_cache import kept_path
+
+    capture_id = await _routed_chicken()
+    requested, release = asyncio.Event(), asyncio.Event()
+
+    async def held_snapshot(event_id: str, crop: bool = True, **_: object):
+        requested.set()
+        await release.wait()
+        return None, "snapshot_not_found"
+
+    monkeypatch.setattr(frigate_client, "get_snapshot_with_error", held_snapshot)
+    collection = asyncio.create_task(garden_media_cache.collect(capture_id))
+    await asyncio.wait_for(requested.wait(), 5)
+    assert await garden_media_cache.keep_classified_frame(capture_id, CLASSIFIED, "frigate_recording_frame")
+    release.set()
+    await asyncio.wait_for(collection, 5)
+
+    record = await kept(capture_id)
+    assert (record.photo_state, record.photo_source) == ("kept", "classified_frame")
+    await garden_media_cache.sweep()
+    assert kept_path(capture_id, "photo").is_file()
+    # The next pass plans from what is kept now: only the clip is still due.
+    await garden_media_cache.collect(capture_id)
+    record = await kept(capture_id)
+    assert (record.photo_source, record.clip_state) == ("classified_frame", "kept")
+
+
+async def _moved_record_with_only_its_record_photo() -> str:
+    """A moved bird record whose photo YA-WAMF holds, with no retained original among its choices."""
+    async with get_db() as db:
+        await db.execute(
+            """INSERT INTO detections(detection_time,detection_index,score,display_name,category_name,
+               frigate_event,camera_name,scientific_name,frigate_status)
+               VALUES (datetime('now','-1 hour'),1,0.988,'Gallus gallus','Gallus gallus',?,?,'Gallus gallus',
+                       'not_retained')""",
+            (EVENT, CAMERA),
+        )
+        await db.commit()
+    assert await cache_module.media_cache.cache_snapshot(EVENT, CLASSIFIED, source="frigate_recording_frame")
+    return await garden_domestic_service.move_detection(EVENT)
+
+
+@pytest.mark.asyncio
+async def test_a_record_photo_whose_bytes_differ_from_its_recorded_checksum_is_not_kept_as_the_classified_frame(
+    frigate,  # noqa: F811
+):
+    frigate.gone()
+    capture_id = await _moved_record_with_only_its_record_photo()
+    # A crop lands on the record photo without its provenance, as a racing high-quality pass would.
+    path = await cache_module.media_cache.get_snapshot_path(EVENT)
+    path.write_bytes(CROP)
+    await garden_media_cache.collect(capture_id)
+    record = await kept(capture_id)
+    assert record.photo_state != "kept"
+    assert record.photo_source == "classified_frame"
+
+
+@pytest.mark.asyncio
+async def test_an_owners_chosen_record_photo_is_not_kept_as_the_classified_frame(frigate):  # noqa: F811
+    frigate.gone()
+    capture_id = await _moved_record_with_only_its_record_photo()
+    await cache_module.media_cache.set_manual_snapshot_selection(EVENT, True)
+    await garden_media_cache.collect(capture_id)
+    record = await kept(capture_id)
+    assert (record.photo_state, record.photo_source) == ("missing", "classified_frame")
+
+
+@pytest.mark.asyncio
+async def test_the_record_photo_is_read_only_between_the_media_caches_own_writes(frigate):  # noqa: F811
+    import asyncio
+
+    frigate.gone()
+    capture_id = await _moved_record_with_only_its_record_photo()
+    async with cache_module.media_cache._snapshot_commit_lock(EVENT):
+        collection = asyncio.create_task(garden_media_cache.collect(capture_id))
+        await asyncio.sleep(0.3)
+        assert not collection.done(), "the collector read the record photo while it was being written"
+    await asyncio.wait_for(collection, 5)
+    record = await kept(capture_id)
+    assert (record.photo_state, record.photo_source) == ("kept", "classified_frame")
+    assert record.photo_sha256 == hashlib.sha256(CLASSIFIED).hexdigest()
+
+
+@pytest.mark.asyncio
+async def test_a_moved_capture_with_an_unusable_event_id_settles_and_never_holds_up_the_queue(frigate):  # noqa: F811
+    unusable = EVENT[:10] + " unsafe/id"
+    async with get_db() as db:
+        await db.execute(
+            """INSERT INTO detections(detection_time,detection_index,score,display_name,category_name,
+               frigate_event,camera_name,scientific_name,frigate_status)
+               VALUES (datetime('now','-1 hour'),1,0.988,'Gallus gallus','Gallus gallus',?,?,'Gallus gallus',
+                       'not_retained')""",
+            (unusable, CAMERA),
+        )
+        await db.commit()
+    capture_id = await garden_domestic_service.move_detection(unusable)
+    await garden_media_cache.collect_one()
+    record = await kept(capture_id)
+    assert (record.photo_state, record.photo_source) == ("missing", "classified_frame")
+    async with get_db() as db:
+        due = await GardenRepository(db).next_media_to_keep(
+            [CAMERA], since=None, clips=True, now="9999-01-01T00:00:00"
+        )
+    assert due is None

@@ -48,6 +48,7 @@ from app.services.garden_media_policy import (
     kept_media_retention_days,
     own_copy_due,
     photo_outcome,
+    settled_missing_source,
     valid_capture_id,
     within_retention,
 )
@@ -255,7 +256,7 @@ class GardenMediaCache:
                 source_end=window[1],
                 retry_after=(now + RETRY_AFTER).isoformat() if retry else None,
             )
-            await self._commit(original, record, staged, generation)
+            await self._commit(original, previous, record, staged, generation)
         finally:
             await asyncio.to_thread(_unlink, list(staged.values()))
 
@@ -301,7 +302,8 @@ class GardenMediaCache:
         from app.services.frigate_client import frigate_client
 
         if not safe_event_id(original.frigate_event):
-            return "missing", "frigate_snapshot", None
+            # Nothing can be asked for or looked up by this ID, so the outcome is final.
+            return "missing", settled_missing_source(from_bird_record=_from_bird_record(original)), None
         # Frigate said it no longer had the snapshot before; it never takes an event back.
         if own_copy_due(previous, from_bird_record=_from_bird_record(original)):
             return await self._classified_frame(original)
@@ -334,11 +336,14 @@ class GardenMediaCache:
 
         event_id = str(original.frigate_event)
         media = cache_module.media_cache
-        metadata = await media.get_snapshot_metadata(event_id) or {}
-        async with get_db() as db:
-            choices = await DetectionRepository(db).list_snapshot_candidates(event_id)
-        frame = classified_frame_reference(event_id, metadata.get("source"), choices)
-        image = await media.get_snapshot(frame.reference) if frame else None
+        # The media cache replaces a record photo and its provenance under this lock; reading all
+        # three outside it could pair a crop written in between with the frame's provenance.
+        async with media._snapshot_commit_lock(event_id):
+            metadata = await media.get_snapshot_metadata(event_id) or {}
+            async with get_db() as db:
+                choices = await DetectionRepository(db).list_snapshot_candidates(event_id)
+            frame = classified_frame_reference(event_id, metadata, choices)
+            image = await media.get_snapshot(frame.reference) if frame else None
         if frame is None or not image:
             log.info("garden_media_classified_frame_unavailable", capture_id=original.id)
             return "missing", "classified_frame", None
@@ -428,10 +433,17 @@ class GardenMediaCache:
     async def _commit(
         self,
         original: GardenCapture,
+        previous: KeptMediaRecord | None,
         record: KeptMediaRecord,
         staged: dict[MediaKind, Path],
         generation: int,
     ) -> None:
+        """Save what one collection found, only if nothing else wrote the capture's media meanwhile.
+
+        A collection waits on Frigate for seconds, and keep_classified_frame writes without waiting
+        for it. Saving a record planned from the older state would overwrite a photo kept in
+        between, and the sweep would then delete its file; the next pass plans from the new state.
+        """
         async with garden_motion_privacy.lock:
             if generation != garden_motion_privacy.generation:
                 return
@@ -440,6 +452,9 @@ class GardenMediaCache:
                     repo = GardenRepository(db)
                     current = await repo.get(original.id)
                     if current is None or current.status != "confirmed" or current != original:
+                        return
+                    if await repo.kept_media_record(original.id) != previous:
+                        log.info("garden_media_changed_during_collection", capture_id=original.id)
                         return
                     promoted = []
                     for kind, path in list(staged.items()):
