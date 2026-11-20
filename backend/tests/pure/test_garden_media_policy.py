@@ -191,7 +191,9 @@ def test_the_record_photo_stands_in_only_while_it_is_still_the_classified_frame(
     record_photo = {"source": "frigate_recording_frame", "image_sha256": "d" * 64}
     frame = classified_frame_reference(EVENT, record_photo, [])
     assert frame is not None and (frame.reference, frame.sha256) == (EVENT, "d" * 64)
-    assert classified_frame_reference(EVENT, {"source": "hq_candidate_model_crop", "image_sha256": "d" * 64}, []) is None
+    assert (
+        classified_frame_reference(EVENT, {"source": "hq_candidate_model_crop", "image_sha256": "d" * 64}, []) is None
+    )
     assert classified_frame_reference(EVENT, {}, []) is None
 
 
@@ -225,6 +227,8 @@ def test_a_photo_frigate_lost_before_yawamf_looked_for_its_own_copy_is_looked_fo
 
 def test_a_moved_capture_whose_photo_cannot_be_looked_for_settles_at_once():
     for from_bird_record in (True, False):
-        settled = KeptMediaRecord(photo_state="missing", photo_source=settled_missing_source(from_bird_record=from_bird_record))
+        settled = KeptMediaRecord(
+            photo_state="missing", photo_source=settled_missing_source(from_bird_record=from_bird_record)
+        )
         assert not own_copy_due(settled, from_bird_record=from_bird_record)
     assert settled_missing_source(from_bird_record=False) == "frigate_snapshot"

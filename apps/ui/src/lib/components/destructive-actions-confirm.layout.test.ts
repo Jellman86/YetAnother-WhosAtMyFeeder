@@ -59,8 +59,10 @@ describe('destructive actions ask in the app, never through the browser', () => 
         expect(body).toContain('normalizeFrigateMissingBehavior(settingsStore.settings?.frigate_missing_behavior)');
         expect(body).toContain("savedPolicy === 'delete'");
         expect(body).toContain("tone: 'danger'");
-        expect(body).toContain('This cannot be undone.');
-        expect(body).toContain('How many is not known until the scan has run.');
+        expect(body).toContain('A deletion cannot be undone.');
+        expect(body).toContain('How many of each is not known until the scan has run.');
+        // A visit whose photo YA-WAMF still holds is marked missing, never deleted.
+        expect(body).toContain('unless YA-WAMF still holds their photo');
     });
 
     it('purging with unlimited retention skips the question, since nothing would be deleted', () => {

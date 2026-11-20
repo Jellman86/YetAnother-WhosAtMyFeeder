@@ -448,7 +448,5 @@ async def test_a_moved_capture_with_an_unusable_event_id_settles_and_never_holds
     record = await kept(capture_id)
     assert (record.photo_state, record.photo_source) == ("missing", "classified_frame")
     async with get_db() as db:
-        due = await GardenRepository(db).next_media_to_keep(
-            [CAMERA], since=None, clips=True, now="9999-01-01T00:00:00"
-        )
+        due = await GardenRepository(db).next_media_to_keep([CAMERA], since=None, clips=True, now="9999-01-01T00:00:00")
     assert due is None
