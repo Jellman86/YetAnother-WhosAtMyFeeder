@@ -4,3 +4,8 @@
   always shows at least its heading, its first reading and the Health link whole. Where the room
   under the places cannot hold that, the card is left out, and Health is still in the menu. The room
   is measured, so it no longer depends on the window's height alone.
+- **The load meters under System status no longer blink on and off.** At some window heights, for
+  example a 390 × 844 phone in the Classic font, the readings ended just above the CPU and NPU
+  meters. The meters then counted themselves unseen and emptied, which gave back their room, so the
+  readings grew to show an empty row and the meters filled again, on every frame, leaving a blank
+  band in the card. The meters now count as seen while the readings that scroll them are on screen.

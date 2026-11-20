@@ -296,7 +296,7 @@
                             {$_('status.title')}
                         </h2>
                         {@render status?.(false)}
-                        <SystemLoadMeters />
+                        <SystemLoadMeters watchFrom="[data-sidebar-status-readings]" />
                     </div>
                     {#if authStore.showSettings}
                         <!-- One line, one control: with issues open the count is the link's wording and

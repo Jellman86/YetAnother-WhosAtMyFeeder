@@ -91,7 +91,8 @@ describe('Sidebar hybrid refresh', () => {
 
     it('shows the load as labelled meters in the card, on a neutral surface', () => {
         expect(sidebarSource).toContain("import SystemLoadMeters from './SystemLoadMeters.svelte'");
-        expect(sidebarSource).toContain('<SystemLoadMeters />');
+        // Seen while the readings that scroll them are on screen, not by their own clip (see shell-heights).
+        expect(sidebarSource).toContain('<SystemLoadMeters watchFrom="[data-sidebar-status-readings]" />');
         // The readings are text in the card's own flow: nothing is drawn behind the rows, and
         // nothing is positioned over them, so the rows and the link can grow or wrap freely.
         expect(loadMetersSource).not.toContain('absolute');

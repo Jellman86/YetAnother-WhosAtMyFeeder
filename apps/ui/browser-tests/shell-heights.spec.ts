@@ -237,13 +237,14 @@ async function cardFaults(page: Page): Promise<string[]> {
     });
 }
 
-async function openShell(page: Page, size: { width: number; height: number }, signedIn = true): Promise<void> {
+async function openShell(page: Page, size: { width: number; height: number }, signedIn = true, german = false): Promise<void> {
     await page.setViewportSize(size);
+    if (german) await page.addInitScript(() => localStorage.setItem('preferred-language', 'de'));
     await replayFeeder(page, 'dark', {}, (json, url) =>
         signedIn && url.pathname === '/api/auth/status' ? { ...(json as Record<string, unknown>), auth_required: true, is_authenticated: true, username: 'owner' } : json
     );
     await page.goto('/');
-    if (size.width < 768) await page.getByRole('button', { name: 'Menu', exact: true }).click();
+    if (size.width < 768) await page.locator('button[aria-controls="app-sidebar"]').click();
     await expect(page.locator('#app-sidebar nav')).toBeVisible(READY);
     await expect(page.locator('[data-sidebar-account-band]')).toHaveCount(signedIn ? 1 : 0);
     await settled(page);
@@ -261,11 +262,56 @@ for (const range of [{ width: 390, from: 672, to: 800, signedIn: true }, { width
     });
 }
 
-// A phone tall enough for the status keeps it: the drawer is not emptied where the card fits.
-test('signed in on a 390 × 844 phone the menu shows the whole status card under the places', async ({ page }) => {
+// A phone tall enough for the status keeps it: the drawer is not emptied where the card fits, and where
+// every reading fits, the load meters included, every one is drawn with nothing to scroll.
+test('signed in on a 390 × 844 phone the menu shows the whole status card, its load meters too', async ({ page }) => {
     await openShell(page, { width: 390, height: 844 });
     const card = page.locator('[data-sidebar-status-card]');
     await expect(card).toBeVisible(READY);
     await expect(card.locator('[data-sidebar-status-link]')).toBeInViewport({ ratio: 1 });
+    await expect(card.locator('[data-telemetry-readout]')).toBeInViewport({ ratio: 1 });
+    const readings = page.locator('[data-sidebar-status-readings]');
+    expect(await readings.evaluate((node) => node.scrollHeight - node.clientHeight)).toBeLessThanOrEqual(0);
     expect(await cardFaults(page)).toEqual([]);
 });
+
+// At rest the readings end at their last whole line of words: no blank band under it, where a line was
+// counted that draws nothing. The load meters once emptied themselves whenever the readings ended above
+// them (they sample only while seen, and judged that by their own clip), which gave their room back, so
+// the readings grew to show an empty meter row, the meters filled, and round again on every frame.
+async function blankUnderLastLine(page: Page): Promise<string | null> {
+    return page.locator('[data-sidebar-status-readings]').evaluate(async (node) => {
+        const frames = async (count: number): Promise<number[]> => {
+            const heights: number[] = [];
+            for (let frame = 0; frame < count; frame += 1) {
+                await new Promise((done) => requestAnimationFrame(done));
+                heights.push(Math.round(node.getBoundingClientRect().height));
+            }
+            return heights;
+        };
+        const heights = await frames(12);
+        // A card left out has nothing at rest to judge.
+        if (!node.checkVisibility({ visibilityProperty: true })) return null;
+        if (new Set(heights).size > 1) return `the readings do not hold still at ${innerWidth} × ${innerHeight}: ${heights.join(' ')}`;
+        const box = node.getBoundingClientRect();
+        const bottom = box.top + node.clientHeight;
+        const words = [...node.querySelectorAll<HTMLElement>('*')]
+            .filter((element) => element.children.length === 0 && (element.textContent ?? '').trim() !== '')
+            .map((element) => element.getBoundingClientRect())
+            .filter((line) => line.height > 0 && line.bottom <= bottom + 1);
+        const line = node.querySelector('h2')?.getBoundingClientRect().height ?? 16;
+        const last = Math.max(...words.map((word) => word.bottom));
+        return bottom - last > line + 1 ? `${Math.round(bottom - last)} px blank under the last line at ${innerWidth} × ${innerHeight}` : null;
+    });
+}
+
+for (const german of [false, true]) {
+    test(`signed in on a phone 780 to 900 px tall in ${german ? 'German' : 'English'}, the status readings end at their last line`, async ({ page }) => {
+        await openShell(page, { width: 390, height: 900 }, true, german);
+        await expect(page.locator('[data-sidebar-status-readings] [data-telemetry-readout]')).toBeVisible(READY);
+        for (let height = 780; height <= 900; height += 4) {
+            await page.setViewportSize({ width: 390, height });
+            await expect.poll(() => blankUnderLastLine(page), { timeout: 3_000 }).toBeNull();
+        }
+    });
+}
