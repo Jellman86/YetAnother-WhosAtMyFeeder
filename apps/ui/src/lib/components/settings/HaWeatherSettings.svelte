@@ -127,7 +127,7 @@
     }
 </script>
 
-    <SettingsCard nested title={$_('settings.integrations.ha_weather.title', { default: 'Home Assistant weather' })} description={$_('settings.integrations.ha_weather.toggle_label', { default: 'Record the weather from your own sensors instead of the forecast API. A sensor that cannot answer reads as unknown, never as a forecast.' })} titleId="integration-ha-weather-title">
+    <SettingsCard id="settings-group-integrations-ha-weather" nested title={$_('settings.integrations.ha_weather.title', { default: 'Home Assistant weather' })} description={$_('settings.integrations.ha_weather.toggle_label', { default: 'Record the weather from your own sensors instead of the forecast API. A sensor that cannot answer reads as unknown, never as a forecast.' })} titleId="integration-ha-weather-title">
         <!-- The card's own switch, named by its title, so the title is not repeated as a row below it. -->
         {#snippet actions()}
             <SettingsToggle
@@ -210,6 +210,7 @@
         </SettingsRow>
 
         <AdvancedSection
+            id="integrations-ha-weather-overrides"
             title={$_('settings.integrations.ha_weather.overrides', { default: 'Per-reading sensor overrides' })}
             description={$_('settings.integrations.ha_weather.overrides_desc', { default: 'A sensor named here outranks the weather entity for its one reading. When it cannot answer, that reading is unknown.' })}
         >

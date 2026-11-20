@@ -167,6 +167,7 @@
 
 <div class="space-y-6">
     <SettingsCard
+        id="settings-group-detection-blocked-labels"
         title={$_('settings.detection.blocked_labels')}
         description={$_('settings.detection.blocked_species_picker_desc', { default: 'Search for a species to block it reliably across common-name, scientific-name, and taxonomy-aware matches. Legacy raw labels still apply until you remove them.' })}
     >

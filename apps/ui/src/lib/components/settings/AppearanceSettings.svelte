@@ -49,7 +49,7 @@
 
 
 {#if region === 'main'}
-<SettingsCard title={$_('settings.tabs.appearance')} description={$_('settings.appearance.scope_device', { default: 'Theme, text size and language change at once on this device.' })}>
+<SettingsCard id="settings-group-tabs-appearance" title={$_('settings.tabs.appearance')} description={$_('settings.appearance.scope_device', { default: 'Theme, text size and language change at once on this device.' })}>
     <SettingsRow
         labelId="setting-theme"
         label={$_('theme.title')}
@@ -118,7 +118,7 @@
     </SettingsRow>
 </SettingsCard>
 {:else}
-<SettingsCard nested title={$_('settings.appearance.more_title', { default: 'Dates, names and layout' })} description={$_('settings.appearance.scope_everyone', { default: 'These apply to everyone who uses this install once you save.' })}>
+<SettingsCard id="settings-group-appearance-more" nested title={$_('settings.appearance.more_title', { default: 'Dates, names and layout' })} description={$_('settings.appearance.scope_everyone', { default: 'These apply to everyone who uses this install once you save.' })}>
     <SettingsRow
         labelId="setting-explorer-view"
         label={$_('settings.explorer_view.label')}

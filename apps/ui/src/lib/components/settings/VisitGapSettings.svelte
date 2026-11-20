@@ -11,6 +11,7 @@
 </script>
 
 <SettingsCard
+        id="settings-group-visit-gap"
     title={$_('settings.visit_gap.title', { default: 'Counting visits' })}
     description={$_('settings.visit_gap.desc', { default: 'Captures of one species on one camera no more than the visit gap apart count as one visit. Garden animals are grouped the same way.' })}
 >

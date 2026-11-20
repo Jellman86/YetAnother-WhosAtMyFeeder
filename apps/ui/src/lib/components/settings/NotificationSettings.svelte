@@ -203,7 +203,7 @@
 <!-- When to notify, as one sentence, on the section's first screen; the cooldown, language, link
  and species filter under More options. The sentence's species and channels are links to them. -->
 {#if region === 'main'}
-<SettingsCard title={$_('settings.notifications.global_filters')}>
+<SettingsCard id="settings-group-notifications-global-filters" title={$_('settings.notifications.global_filters')}>
         <!-- Delivery policy as one sentence; every slot is editable in place -->
         <NotificationPolicySentence
             mode={notifyMode}
@@ -222,7 +222,7 @@
         />
 </SettingsCard>
 {:else}
-<SettingsCard nested title={$_('settings.notifications.details_title', { default: 'Cooldown, language, links and species' })}>
+<SettingsCard id="settings-group-notifications-details" nested title={$_('settings.notifications.details_title', { default: 'Cooldown, language, links and species' })}>
 
         <!-- Off is zero minutes: a switch says so instead of asking for "0 to disable". -->
         <div class="settings-row space-y-3 md:grid md:settings-row-columns md:items-start md:gap-x-8 md:space-y-0" data-settings-row data-notification-cooldown>
@@ -309,7 +309,7 @@
 
         <!-- Where the notification link opens -->
         <div>
-            <div class="mb-3"><SettingsSubheading size="label">{$_('settings.notifications.link_opens')}</SettingsSubheading></div>
+            <div class="mb-3"><SettingsSubheading id="notification-link-opens" size="label">{$_('settings.notifications.link_opens')}</SettingsSubheading></div>
             <div class="space-y-1" role="radiogroup" aria-label={$_('settings.notifications.link_opens')}>
                 <label class="flex min-h-11 cursor-pointer items-start gap-3 rounded-lg px-2 py-2 text-left hover:bg-surface-raised has-focus-visible:ring-2 has-focus-visible:ring-focus">
                     <input class="mt-1 h-4 w-4 shrink-0 accent-brand-600" type="radio" name="notification-link-target" value="yawamf" bind:group={linkTarget} />

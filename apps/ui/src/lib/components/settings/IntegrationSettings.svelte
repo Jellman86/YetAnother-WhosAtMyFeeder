@@ -212,7 +212,7 @@
 
 
 <div class="space-y-8">
-    <SettingsCard nested title={$_('settings.integrations.inaturalist.title')} description={$_('settings.integrations.inaturalist.toggle_label')} titleId="integration-inaturalist-title">
+    <SettingsCard id="settings-group-integrations-inaturalist" nested title={$_('settings.integrations.inaturalist.title')} description={$_('settings.integrations.inaturalist.toggle_label')} titleId="integration-inaturalist-title">
         <!-- The card's own switch, named by its title, so the title is not repeated as a row below it. -->
         {#snippet actions()}
             <SettingsToggle
@@ -372,7 +372,7 @@
         {/if}
     </SettingsCard>
 
-    <SettingsCard nested title={$_('settings.integrations.ebird.title')} description={$_('settings.integrations.ebird.toggle_label')} titleId="integration-ebird-title">
+    <SettingsCard id="settings-group-integrations-ebird" nested title={$_('settings.integrations.ebird.title')} description={$_('settings.integrations.ebird.toggle_label')} titleId="integration-ebird-title">
         <!-- The card's own switch, named by its title, so the title is not repeated as a row below it. -->
         {#snippet actions()}
             <SettingsToggle
@@ -547,7 +547,7 @@
         {/if}
     </SettingsCard>
 
-    <SettingsCard nested title={$_('settings.integrations.birdweather.title')} description={$_('settings.integrations.birdweather.toggle_label')} titleId="integration-birdweather-title">
+    <SettingsCard id="settings-group-integrations-birdweather" nested title={$_('settings.integrations.birdweather.title')} description={$_('settings.integrations.birdweather.toggle_label')} titleId="integration-birdweather-title">
         <!-- The card's own switch, named by its title, so the title is not repeated as a row below it. -->
         {#snippet actions()}
             <SettingsToggle

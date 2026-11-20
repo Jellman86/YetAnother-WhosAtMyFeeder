@@ -28,6 +28,7 @@
 </script>
 
 <SettingsCard
+        id="settings-group-naming"
     title={$_('settings.naming.title', { default: 'Naming threshold' })}
     description={$_('settings.detection.acceptance_desc', { default: 'How sure the identification model must be before a visit is saved under a species name.' })}
 >

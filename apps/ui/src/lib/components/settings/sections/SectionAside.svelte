@@ -138,7 +138,7 @@
                         {#if canRun || onOpenTest}
                             <button
                                 type="button"
-                                class="focus-ring min-h-6 rounded-sm text-left font-semibold text-accent-ink underline decoration-1 underline-offset-2"
+                                class="focus-ring min-h-6 rounded-sm text-left text-accent-ink underline decoration-1 underline-offset-2"
                                 onclick={() => runOrOpenTest(key)}
                                 aria-label={`${testActionLabel(canRun)}: ${$_(`settings.status.subsystem.${key}`)}`}
                             >
@@ -154,7 +154,7 @@
         {/if}
     {/if}
     {#if onOpenHealth && keys.length > 0}
-        <button type="button" class="focus-ring min-h-6 rounded-sm text-left font-semibold text-accent-ink underline decoration-1 underline-offset-2" onclick={onOpenHealth}>
+        <button type="button" class="focus-ring min-h-6 rounded-sm text-left text-accent-ink underline decoration-1 underline-offset-2" onclick={onOpenHealth}>
             {$_('settings.status.open_health', { default: 'Details in Health' })}
         </button>
     {/if}

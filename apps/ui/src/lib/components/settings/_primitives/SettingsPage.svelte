@@ -213,7 +213,7 @@
                 {#if sectionTitle}
                     <!-- Which section this is, said once in the page and kept in view: the rail scrolls
                          away on a phone, and a long section is several screens of groups. -->
-                    <header bind:this={sectionHeading} class="settings-section-heading sticky top-(--app-chrome-height,0rem) z-20 border-b border-line-soft py-3" data-settings-section-heading>
+                    <header bind:this={sectionHeading} class="settings-section-heading sticky top-(--app-chrome-height,0rem) z-20 border-b border-line-soft py-3 pl-1" data-settings-section-heading>
                         <h2 id="settings-section-title" class="text-2xl font-bold text-strong">{sectionTitle}</h2>
                     </header>
                 {/if}

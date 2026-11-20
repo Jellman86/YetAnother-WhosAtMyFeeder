@@ -147,7 +147,7 @@
     const buttonPrimaryClass = 'btn btn-primary min-h-11 px-4 py-3';
 </script>
 
-<SettingsCard title={$_('settings.integrations.birdnet.title')} description={$_('settings.integrations.birdnet.toggle_label')} titleId="integration-birdnet-title" nested>
+<SettingsCard id="settings-group-integrations-birdnet" title={$_('settings.integrations.birdnet.title')} description={$_('settings.integrations.birdnet.toggle_label')} titleId="integration-birdnet-title" nested>
     <!-- The card's own switch, named by its title, so the title is not repeated as a row below it. -->
     {#snippet actions()}
         <SettingsToggle

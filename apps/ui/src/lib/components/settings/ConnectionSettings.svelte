@@ -365,7 +365,7 @@
     {/snippet}
 
     {#if showMain}
-    <SettingsCard title={$_('settings.frigate.title')}>
+    <SettingsCard id="settings-group-frigate" title={$_('settings.frigate.title')}>
         <SettingsRow
             labelId="setting-frigate-url"
             label={$_('settings.frigate.url')}
@@ -387,7 +387,7 @@
     {#if showMore}
     <!-- The rest of Frigate, under the section's More options: what it sends, where its pages are,
          which frame is identified and the clips kept. -->
-    <SettingsCard title={$_('settings.frigate.more_title', { default: 'Frigate details' })} nested>
+    <SettingsCard id="settings-group-frigate-more" title={$_('settings.frigate.more_title', { default: 'Frigate details' })} nested>
 
         <SettingsRow
             labelId="setting-frigate-ingest-labels"
@@ -567,6 +567,7 @@
 
     {#if showMain}
     <SettingsCard
+        id="settings-group-connection-mqtt-section"
         title={$_('settings.connection.mqtt_section', { default: 'MQTT broker' })}
     >
         <!-- Address and port are one setting: its name and help left, both fields right, side by side
@@ -665,6 +666,7 @@
     </SettingsCard>
 
     <SettingsCard
+        id="settings-group-cameras"
         title={$_('settings.cameras.title', { default: 'Cameras to watch' })}
         description={betaGardenAnimals
             ? $_('settings.cameras.watch_desc_garden', { default: 'Choose what each Frigate camera is watched for: birds, Garden animals or both.' })

@@ -47,6 +47,7 @@
 </script>
 
 <SettingsCard
+        id="settings-group-enrichment"
     nested
     title={$_('settings.enrichment.title')}
     description={$_('settings.enrichment.desc')}

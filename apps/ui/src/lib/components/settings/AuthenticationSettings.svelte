@@ -159,6 +159,7 @@
 
 <div class="space-y-8">
     <SettingsCard
+        id="settings-group-auth"
         title={$_('settings.auth.title')}
         description={$_('settings.auth.desc')}
         titleId="security-auth-title"
@@ -371,6 +372,7 @@
     </SettingsCard>
 
     <SettingsCard
+        id="settings-group-public-access"
         title={$_('settings.public_access.title')}
         description={$_('settings.public_access.desc')}
         titleId="security-public-title"

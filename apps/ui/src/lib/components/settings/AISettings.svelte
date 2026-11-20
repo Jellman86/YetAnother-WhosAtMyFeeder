@@ -161,6 +161,7 @@
 
 
     <SettingsCard
+        id="settings-group-ai-connection"
         nested
         title={$_('settings.ai.connection_title', { default: 'AI provider' })}
     >

@@ -182,8 +182,9 @@
 {/snippet}
 
 <div class="space-y-6">
-    <SettingsCard nested title={$_('settings.data.taxonomy_title')}>
+    <SettingsCard id="settings-group-data-taxonomy" nested title={$_('settings.data.taxonomy_title')}>
         <SettingsRow
+            labelId="setting-maintenance-taxonomy"
             label={$_('settings.maintenance.taxonomy_row', { default: 'Repair species names' })}
             description={`${$_('settings.data.taxonomy_desc')} ${lastRunLine('taxonomy')}`}
             descriptionId="maintenance-taxonomy-desc"
@@ -210,6 +211,7 @@
     </SettingsCard>
 
     <SettingsCard
+        id="settings-group-data-timezone-repair"
         nested
         title={$_('settings.data.timezone_repair_title', { default: 'Timezone repair' })}
         description={$_('settings.data.timezone_repair_desc', { default: 'Validate older detection timestamps against Frigate and repair only safe whole-hour timezone offsets.' })}
@@ -310,6 +312,7 @@
     </SettingsCard>
 
     <SettingsCard
+        id="settings-group-data-backfill"
         nested
         title={$_('settings.data.backfill_title')}
         description={$_('settings.data.backfill_desc')}
@@ -471,8 +474,9 @@
         </AdvancedSection>
     </SettingsCard>
 
-    <SettingsCard nested title={$_('settings.data.batch_analysis_title')}>
+    <SettingsCard id="settings-group-data-batch-analysis" nested title={$_('settings.data.batch_analysis_title')}>
         <SettingsRow
+            labelId="setting-maintenance-analyse"
             label={$_('settings.maintenance.analyse_row', { default: 'Analyse Unknown bird visits again' })}
             description={`${$_('settings.data.batch_analysis_long_desc')} ${lastRunLine('analyze_unknowns')}`}
             descriptionId="maintenance-analyse-desc"

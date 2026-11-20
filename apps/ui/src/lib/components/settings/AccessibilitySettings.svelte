@@ -104,6 +104,7 @@
 {#if region === 'main'}
 <div bind:this={deviceCard}>
 <SettingsCard
+        id="settings-group-accessibility-device"
     title={$_('settings.accessibility.device_title', { default: 'Accessibility on this device' })}
     description={$_('settings.accessibility.device_scope', { default: 'These change at once, in this browser only, and need no saving. Until you set one here, this device follows the default for everyone under More options.' })}
 >
@@ -146,6 +147,7 @@
 </div>
 {:else}
 <SettingsCard
+        id="settings-group-accessibility-defaults"
     nested
     titleId="accessibility-defaults-title"
     title={$_('settings.accessibility.defaults_title', { default: 'Defaults for everyone' })}

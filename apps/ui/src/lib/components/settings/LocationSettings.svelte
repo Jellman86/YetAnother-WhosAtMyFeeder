@@ -73,6 +73,7 @@
 </script>
 
 <SettingsCard
+        id="settings-group-location-card"
     title={$_('settings.location.card_title', { default: 'Your feeder\u2019s location' })}
     description={$_('settings.location.card_desc', { default: 'The weather recorded with each visit, nearby eBird sightings, the range filter and observations sent to iNaturalist all start from here.' })}
 >
