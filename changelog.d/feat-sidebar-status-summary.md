@@ -4,5 +4,7 @@
   issues ("2 issues need attention"), linking to Health, or else the most important measured state
   in words, such as "Frigate events Reconnecting". A guest sees the same words without a link. With
   the sidebar collapsed to icons, the Health icon (with its mark when issues are open) stands alone,
-  or a guest's most important status icon. Only where not even one line fits does the whole card
-  wait just past the foot of the sidebar, reached by scrolling, never cut.
+  or a guest's most important status icon. Where even that is too tall, a compact line or icon takes
+  its place, so a 390 × 700 phone menu shows the status too. The status never vanishes for the
+  owner: where nothing else fits, the Health place in the menu carries the mark, and says the open
+  issues to a screen reader ("Health: 2 issues need attention").

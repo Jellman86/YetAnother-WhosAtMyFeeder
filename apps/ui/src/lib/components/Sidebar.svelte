@@ -15,7 +15,8 @@
     import { trapFocus } from '../utils/focus-trap';
     import { incidentWorkspaceStore } from '../stores/incident_workspace.svelte';
     import { systemStatusStore } from '../stores/system_status.svelte';
-    import { healthAttention, openHealthItems } from '../utils/system-status';
+    import { healthAttention, healthPlaceName, openHealthItems } from '../utils/system-status';
+    import type { StatusTier } from '../utils/whole-lines';
 
     onMount(() => {
         updateStatusStore.load();
@@ -77,6 +78,14 @@
     const healthLinkName = $derived(
         health.needsAttention ? `${healthLinkPrefix}${issuesLabel}` : $_('status.open_health', { default: 'Health' })
     );
+
+    // Which form of the status shows, as fitStatus measured it. Where none of them fits at rest, the
+    // Health place carries the status: its mark and its name say the open issues, and only then, so the
+    // mark never shows twice.
+    let statusTier = $state<StatusTier['tier'] | null>(null);
+    const healthCarriesStatus = $derived(statusTier === 'health' && health.needsAttention);
+    const placeName = (item: { path: string; label: string }): string =>
+        item.path === '/system-health' ? healthPlaceName(item.label, healthCarriesStatus ? issuesLabel : null) : item.label;
 
     function openHealth(event: MouseEvent): void {
         event.preventDefault();
@@ -161,14 +170,16 @@
 
 <svelte:window onkeydown={handleWindowKeydown} />
 
-<!-- The icon rail's way to Health: in the group under the status icons, or alone as its one icon. -->
-{#snippet railHealthLink(alone: boolean)}
+<!-- The icon rail's way to Health: in the group under the status icons, alone as its one icon, or as a
+     compact 24 px icon. -->
+{#snippet railHealthLink(kind: 'group' | 'summary' | 'compact')}
     <a
         href="/system-health"
-        class="focus-ring relative grid h-11 w-11 place-items-center rounded-lg text-ink transition-colors hover:bg-surface-raised"
+        class="focus-ring relative grid place-items-center rounded-lg text-ink transition-colors hover:bg-surface-raised {kind === 'compact' ? 'h-7 w-7' : 'h-11 w-11'}"
         title={healthLinkName}
-        data-sidebar-status-link={alone ? undefined : ''}
-        data-sidebar-summary-link={alone ? '' : undefined}
+        data-sidebar-status-link={kind === 'group' ? '' : undefined}
+        data-sidebar-summary-link={kind === 'summary' ? '' : undefined}
+        data-sidebar-compact-link={kind === 'compact' ? '' : undefined}
         data-health-attention={health.needsAttention}
         onclick={openHealth}
         onpointerenter={(event) => { if (pointerMayPrefetch(event.pointerType)) onPrefetch?.('/system-health'); }}
@@ -179,9 +190,35 @@
             <path d="M3 12h4l2-6 4 12 2-6h6" />
         </svg>
         {#if health.needsAttention}
-            <span class="absolute right-1.5 top-1.5 h-2 w-2 rotate-45 bg-status-attention-line" aria-hidden="true"></span>
+            <span class="absolute h-2 w-2 rotate-45 bg-status-attention-line {kind === 'compact' ? '-right-0.5 -top-0.5' : 'right-1.5 top-1.5'}" aria-hidden="true"></span>
         {/if}
     </a>
+{/snippet}
+
+<!-- The one line that stands in for the card: the open issues, as the card's own link counts them, or
+     the most important measured state in words. The owner's line is the way to Health ("Health" said
+     first for a screen reader); a guest's is the words alone. The full-size line is a full-size target
+     on a touch screen; the compact one a 24 px target. -->
+{#snippet summaryLine(compact: boolean)}
+    {#if authStore.showSettings}
+        <a
+            href="/system-health"
+            class="focus-ring -mx-1 flex min-h-7 items-center justify-between gap-x-2 rounded-md px-1 text-ink transition-colors hover:text-accent-ink {compact ? '' : 'pointer-coarse:min-h-11'}"
+            data-sidebar-summary-link={compact ? undefined : ''}
+            data-sidebar-compact-link={compact ? '' : undefined}
+            data-health-attention={health.needsAttention}
+            onclick={openHealth}
+            onpointerenter={(event) => { if (pointerMayPrefetch(event.pointerType)) onPrefetch?.('/system-health'); }}
+            onfocus={() => onPrefetch?.('/system-health')}
+        >
+            <span class="min-w-0"><span class="sr-only">{healthLinkPrefix}</span>{@render status?.(false, { attention: health, compact })}</span>
+            <svg class="h-3 w-3 shrink-0 text-muted" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m8 5 5 5-5 5" /></svg>
+        </a>
+    {:else}
+        <div class="flex min-h-7 items-center {compact ? '' : 'pointer-coarse:min-h-11'}">
+            {@render status?.(false, { attention: null, compact })}
+        </div>
+    {/if}
 {/snippet}
 
 {#if mobileSidebarOpen}
@@ -255,14 +292,19 @@
                                 onclick={() => handleNavClick(item)}
                                 onpointerenter={(event) => { if (pointerMayPrefetch(event.pointerType)) onPrefetch?.(item.path); }}
                                 onfocus={() => onPrefetch?.(item.path)}
-                                title={collapsed ? item.label : ''}
-                                aria-label={item.label}
+                                title={collapsed ? placeName(item) : ''}
+                                aria-label={placeName(item)}
                                 aria-current={isRouteActive(item) ? 'page' : undefined}
                                 data-nav-path={item.path}
                             >
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d={item.icon} />
-                                </svg>
+                                <span class="relative shrink-0">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d={item.icon} />
+                                    </svg>
+                                    {#if item.path === '/system-health' && healthCarriesStatus}
+                                        <span class="absolute -right-1 -top-1 h-2 w-2 rotate-45 bg-status-attention-line" aria-hidden="true" data-health-carries-status></span>
+                                    {/if}
+                                </span>
                                 {#if !collapsed}
                                     <!-- A long label wraps onto a second line (German "Beobachtung hinzufügen") rather than losing its end. -->
                                     <span class="min-w-0 hyphens-auto text-base leading-tight wrap-break-word">{item.label}</span>
@@ -284,7 +326,7 @@
         <div
             data-sidebar-status
             class="mt-auto flex flex-col border-t border-line-soft p-3 compact-height:p-2"
-            use:fitStatus={{ container: '[data-sidebar-scroll]', readings: '[data-sidebar-status-readings]', lines: ':scope > *, li', floor: '[data-status-row]', fallbackFocus: refocusFromStatus }}
+            use:fitStatus={{ container: '[data-sidebar-scroll]', readings: '[data-sidebar-status-readings]', lines: ':scope > *, li', floor: '[data-status-row]', control: '[data-sidebar-status-link], [data-sidebar-summary-link], [data-sidebar-compact-link]', words: '[data-summary-row], [data-summary-issues]', fallbackFocus: refocusFromStatus, onTier: (tier) => (statusTier = tier) }}
         >
             <div class="relative">
             {#if collapsed}
@@ -297,16 +339,24 @@
                 >
                     {@render status?.(true, null)}
                     {#if authStore.showSettings}
-                        {@render railHealthLink(false)}
+                        {@render railHealthLink('group')}
                     {/if}
                 </section>
                 <!-- The one icon: the owner's way to Health, with its mark when issues are open; for a guest,
-                     the most important status. -->
+                     the most important status. The compact one is a 24 px target, its margins eating into
+                     the frame. -->
                 <div class="flex justify-center" role="status" data-sidebar-status-summary data-status-form="summary">
                     {#if authStore.showSettings}
-                        {@render railHealthLink(true)}
+                        {@render railHealthLink('summary')}
                     {:else}
                         {@render status?.(true, { attention: null })}
+                    {/if}
+                </div>
+                <div class="-my-1.5 flex justify-center" role="status" data-sidebar-status-compact data-status-form="compact">
+                    {#if authStore.showSettings}
+                        {@render railHealthLink('compact')}
+                    {:else}
+                        {@render status?.(true, { attention: null, compact: true })}
                     {/if}
                 </div>
             {:else}
@@ -364,36 +414,26 @@
                         </a>
                     {/if}
                 </section>
-                <!-- The one line that stands in for the card: the open issues, as the card's own link counts
-                     them, or the most important measured state in words. The owner's line is the way to
-                     Health ("Health" said first for a screen reader); a guest's is the words alone. The
-                     line is the live region in this form, as the list's wrapper is in the card's, and both
-                     are always drawn, so a change of form announces nothing new. A touch screen gets a
-                     full-size target. -->
+                <!-- The one line that stands in for the card (see summaryLine). The line is the live region in
+                     this form, as the list's wrapper is in the card's, and every form is always drawn, so a
+                     change of form announces nothing new. -->
                 <div
                     class="rounded-xl border border-line-soft bg-surface-raised px-2 py-1 text-xs leading-4"
                     role="status"
                     data-sidebar-status-summary
                     data-status-form="summary"
                 >
-                    {#if authStore.showSettings}
-                        <a
-                            href="/system-health"
-                            class="focus-ring -mx-1 flex min-h-7 items-center justify-between gap-x-2 rounded-md px-1 text-ink transition-colors hover:text-accent-ink pointer-coarse:min-h-11"
-                            data-sidebar-summary-link
-                            data-health-attention={health.needsAttention}
-                            onclick={openHealth}
-                            onpointerenter={(event) => { if (pointerMayPrefetch(event.pointerType)) onPrefetch?.('/system-health'); }}
-                            onfocus={() => onPrefetch?.('/system-health')}
-                        >
-                            <span class="min-w-0"><span class="sr-only">{healthLinkPrefix}</span>{@render status?.(false, { attention: health })}</span>
-                            <svg class="h-3 w-3 shrink-0 text-muted" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m8 5 5 5-5 5" /></svg>
-                        </a>
-                    {:else}
-                        <div class="flex min-h-7 items-center pointer-coarse:min-h-11">
-                            {@render status?.(false, { attention: null })}
-                        </div>
-                    {/if}
+                    {@render summaryLine(false)}
+                </div>
+                <!-- The same line where only a 24 px target fits: no padding of its own, and its margins eat
+                     into the frame's, so it fits where the full-size line does not. -->
+                <div
+                    class="-my-1.5 rounded-xl border border-line-soft bg-surface-raised px-2 text-xs leading-4"
+                    role="status"
+                    data-sidebar-status-compact
+                    data-status-form="compact"
+                >
+                    {@render summaryLine(true)}
                 </div>
             {/if}
             </div>
@@ -536,14 +576,17 @@
        above the window, because the load meters sample only while they are on screen. The mark is
        written by fitStatus, not the template, so it is matched as global. */
     [data-status-form='summary'],
-    [data-sidebar-status]:global([data-fit='summary']) [data-status-form='full'] {
+    [data-status-form='compact'],
+    [data-sidebar-status]:global([data-fit='summary']) [data-status-form='full'],
+    [data-sidebar-status]:global([data-fit='compact']) [data-status-form='full'] {
         position: absolute;
         inset-inline: 0;
         bottom: calc(100% + 200vh);
         visibility: hidden;
     }
 
-    [data-sidebar-status]:global([data-fit='summary']) [data-status-form='summary'] {
+    [data-sidebar-status]:global([data-fit='summary']) [data-status-form='summary'],
+    [data-sidebar-status]:global([data-fit='compact']) [data-status-form='compact'] {
         position: static;
         visibility: visible;
     }

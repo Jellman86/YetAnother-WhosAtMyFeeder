@@ -126,6 +126,16 @@ export interface HealthAttention {
 /** What the one-line status summary is asked to say: the owner's open issues, or null for a guest. */
 export interface SummaryRequest {
     attention: HealthAttention | null;
+    /** The compact form, where the room holds only a 24 px target. */
+    compact?: boolean;
+}
+
+/**
+ * The Health place's name where it carries the status because the sidebar has no room to show it:
+ * the open issues, as the status link says them, with "Health" first. Otherwise just its name.
+ */
+export function healthPlaceName(label: string, issues: string | null): string {
+    return issues ? `${label}: ${issues}` : label;
 }
 
 export type StatusSummary = { kind: 'issues'; count: number } | { kind: 'row'; row: StatusRow };

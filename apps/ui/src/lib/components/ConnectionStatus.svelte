@@ -87,7 +87,7 @@
     {:else if collapsed}
         {@const row = summaryShown.row}
         <span
-            class="relative grid h-11 w-11 place-items-center rounded-lg text-ink"
+            class="relative grid place-items-center rounded-lg text-ink {summary?.compact ? 'h-7 w-7' : 'h-11 w-11'}"
             title={`${say(row.label)}: ${say(row.state)}`}
             data-summary-row={row.id}
             data-status-tone={row.tone}

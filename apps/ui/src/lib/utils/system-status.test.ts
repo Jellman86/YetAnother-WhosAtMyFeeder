@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { alertsRow, audioRow, feedRow, healthAttention, openHealthItems, statusSummary, type StatusRow } from './system-status';
+import { alertsRow, audioRow, feedRow, healthAttention, healthPlaceName, openHealthItems, statusSummary, type StatusRow } from './system-status';
 import { connectionProblems } from './connection-health';
 import type { ServiceConnections } from '../api/diagnostics';
 import type { LiveFeedState } from './live-feed-state';
@@ -124,5 +124,15 @@ describe('the one-line status summary says the most important measured state', (
 
     it('gives a guest, who has no Health count, the feed as the page measures it', () => {
         expect(said(statusSummary(rows('app_only', null), null))).toBe('Frigate events: Connected');
+    });
+});
+
+describe('the Health place carries the status where the sidebar has no room for it', () => {
+    it('is named by the open issues as the status link is, "Health" said first', () => {
+        expect(healthPlaceName('Health', '2 issues need attention')).toBe('Health: 2 issues need attention');
+    });
+
+    it('is just its own name with nothing open, or while the status shows itself', () => {
+        expect(healthPlaceName('Health', null)).toBe('Health');
     });
 });

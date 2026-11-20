@@ -95,9 +95,10 @@ describe('wholeOrNone', () => {
 
 /**
  * The sidebar status in its room: a 17px frame around the full card (139px, readings 84px of it, whose
- * first reading ends at 35px) or around the one-line summary (27px).
+ * first reading ends at 35px), around the one-line summary (27px), or around the compact summary (16px
+ * once its negative margins eat into the frame).
  */
-const STATUS = { frame: 17, full: 139, summary: 27, lines: { lineEnds: [14, 35, 53, 70, 84], floor: 35, readings: 84 } };
+const STATUS = { frame: 17, full: 139, summary: 27, compact: 16, lines: { lineEnds: [14, 35, 53, 70, 84], floor: 35, readings: 84 } };
 
 describe('statusTier', () => {
     it('shows the full card whole where it fits', () => {
@@ -114,19 +115,25 @@ describe('statusTier', () => {
         expect(statusTier({ ...STATUS, room: 44 })).toEqual({ tier: 'summary' });
     });
 
-    it('where not even the summary fits, puts the whole card just past the foot of the column, never a sliver', () => {
-        expect(statusTier({ ...STATUS, room: 43.5 })).toEqual({ tier: 'full', readings: null, push: 44 });
-        expect(statusTier({ ...STATUS, room: 0 })).toEqual({ tier: 'full', readings: null, push: 0 });
+    it('tightens to the compact summary before giving up on a line', () => {
+        expect(statusTier({ ...STATUS, room: 43.5 })).toEqual({ tier: 'compact' });
+        expect(statusTier({ ...STATUS, room: 33 })).toEqual({ tier: 'compact' });
     });
 
-    it('lets the whole card follow the places when they do not fit themselves', () => {
-        expect(statusTier({ ...STATUS, room: -20 })).toEqual({ tier: 'full', readings: null, push: 0 });
+    it('where not even the compact line fits, hands the status to the Health place, with the card just past the fold', () => {
+        expect(statusTier({ ...STATUS, room: 32.5 })).toEqual({ tier: 'health', push: 33 });
+        expect(statusTier({ ...STATUS, room: 0 })).toEqual({ tier: 'health', push: 0 });
     });
 
-    it('treats a group with nothing that can give way (the icon rail) as all or the summary', () => {
-        const rail = { frame: 17, full: 147, summary: 39 };
+    it('hands the status to the Health place too when the places themselves do not fit', () => {
+        expect(statusTier({ ...STATUS, room: -20 })).toEqual({ tier: 'health', push: 0 });
+    });
+
+    it('treats a group with nothing that can give way (the icon rail) as all, one icon, a small icon or the Health place', () => {
+        const rail = { frame: 17, full: 147, summary: 39, compact: 15 };
         expect(statusTier({ ...rail, room: 164 })).toEqual({ tier: 'full', readings: null, push: 0 });
         expect(statusTier({ ...rail, room: 163 })).toEqual({ tier: 'summary' });
-        expect(statusTier({ ...rail, room: 50 })).toEqual({ tier: 'full', readings: null, push: 50 });
+        expect(statusTier({ ...rail, room: 50 })).toEqual({ tier: 'compact' });
+        expect(statusTier({ ...rail, room: 23 })).toEqual({ tier: 'health', push: 23 });
     });
 });

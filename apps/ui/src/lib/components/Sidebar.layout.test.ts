@@ -70,9 +70,10 @@ describe('Sidebar hybrid refresh', () => {
         // against the room the column really has (see below).
         expect(sidebarSource).not.toContain('[@media(max-height:42rem)]:hidden');
         // One action chooses the form the room allows, the card or the one line that stands in for it.
-        expect(sidebarSource).toContain("use:fitStatus={{ container: '[data-sidebar-scroll]', readings: '[data-sidebar-status-readings]', lines: ':scope > *, li', floor: '[data-status-row]', fallbackFocus: refocusFromStatus }}");
+        expect(sidebarSource).toContain("use:fitStatus={{ container: '[data-sidebar-scroll]', readings: '[data-sidebar-status-readings]', lines: ':scope > *, li', floor: '[data-status-row]', control: '[data-sidebar-status-link], [data-sidebar-summary-link], [data-sidebar-compact-link]', words: '[data-summary-row], [data-summary-issues]', fallbackFocus: refocusFromStatus, onTier: (tier) => (statusTier = tier) }}");
         expect(sidebarSource.match(/data-status-form="full"/g)).toHaveLength(2);
         expect(sidebarSource.match(/data-status-form="summary"/g)).toHaveLength(2);
+        expect(sidebarSource.match(/data-status-form="compact"/g)).toHaveLength(2);
         expect(sidebarSource).toContain('[@media(max-height:42rem)]:py-3');
         // On a short window the brand sits beside its mark, the status readings give way inside the card
         // with the Health link pinned at its foot, the card gives way entirely where not even that fits,
@@ -87,7 +88,7 @@ describe('Sidebar hybrid refresh', () => {
         expect(sidebarSource).not.toMatch(/\[data-sidebar-status(?:-card)?\][^{]*\{[^}]*min-height: 0/);
         expect(sidebarSource).toMatch(/\[data-sidebar-status-readings\] \{\s*overflow-y: auto;/);
         // The form not shown stays laid out, unseen and far above the window (the meters stop there).
-        expect(sidebarSource).toMatch(/\[data-sidebar-status\]:global\(\[data-fit='summary'\]\) \[data-status-form='full'\] \{[^}]*position: absolute;[^}]*bottom: calc\(100% \+ 200vh\);[^}]*visibility: hidden;/);
+        expect(sidebarSource).toMatch(/\[data-sidebar-status\]:global\(\[data-fit='summary'\]\) \[data-status-form='full'\],\s*\[data-sidebar-status\]:global\(\[data-fit='compact'\]\) \[data-status-form='full'\] \{[^}]*position: absolute;[^}]*bottom: calc\(100% \+ 200vh\);[^}]*visibility: hidden;/);
         expect(sidebarSource).toContain('flex min-h-7 shrink-0 items-center justify-between');
         expect(sidebarSource.indexOf('data-sidebar-scroll')).toBeLessThan(sidebarSource.indexOf('<LanguageSelector'));
         // An owner with sign-in off has no account to show, so no empty band.

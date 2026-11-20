@@ -302,12 +302,18 @@ What holds in every band:
   person, or else the Frigate events feed, which says plainly when it is reconnecting or not yet
   measured), never a blanket "all fine". The owner's line is the way to Health; a guest's is the
   words alone. On the collapsed icon rail, whose group has nothing that can give way, one icon
-  stands in: the Health link with its attention mark, or a guest's most important status. Both forms
-  are always drawn and only the one that fits is shown, so a change of form announces nothing new;
-  the line is its form's live region, as the list's wrapper is the card's. Only where not even the
-  line fits does the whole card wait just past the foot of the column, reached by scrolling, never a
-  sliver; the controls below never scroll. Keyboard focus in the form taken away moves to the same
-  control in the other (the summary's link and the card's), or else to Health among the places.
+  stands in: the Health link with its attention mark, or a guest's most important status. Where the
+  full-size line (a 44 px target on a touch screen) does not fit, a compact one does: its padding
+  tightens to a 24 px target, as long as its words stay whole on one or two lines. The status never
+  vanishes: only where not even that fits, or the places themselves do not, does the Health place
+  carry it, its mark and its name ("Health: 2 issues need attention") saying the open issues, and
+  only then, so the mark never shows twice; the whole card waits just past the foot of the column,
+  reached by scrolling, with no rule left floating. A guest has no Health place and a much shorter
+  list of places, so nothing extra shows there. Every form is always drawn and only the one that
+  fits is shown, so a change of form announces nothing new; the line is its form's live region, as
+  the list's wrapper is the card's. The controls below never scroll. Keyboard focus in the form taken
+  away moves to the same control in the new one (the card's, the summary's or the compact Health
+  link), or to Health among the places, and back to the status when it shows again.
 
 Explorer's filter rail orders filters by how often they change. Choices set once and
 left (**Visitors**, **Show**) are compact switches that explain only the chosen option
