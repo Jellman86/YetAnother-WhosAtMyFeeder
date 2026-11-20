@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { wholeLinesFit, wholeLinesHeight, wholeOrNone } from './whole-lines';
+import { statusTier, wholeLinesFit, wholeLinesHeight, wholeOrNone } from './whole-lines';
 
 /** Where each line of the status readings ends, from the top of the readings, in px. */
 const LINES = [16, 40, 64, 88, 106];
@@ -90,5 +90,43 @@ describe('wholeOrNone', () => {
 
     it('shows none where what comes first already fills the column', () => {
         expect(wholeOrNone(-18, 164)).toBe('none');
+    });
+});
+
+/**
+ * The sidebar status in its room: a 17px frame around the full card (139px, readings 84px of it, whose
+ * first reading ends at 35px) or around the one-line summary (27px).
+ */
+const STATUS = { frame: 17, full: 139, summary: 27, lines: { lineEnds: [14, 35, 53, 70, 84], floor: 35, readings: 84 } };
+
+describe('statusTier', () => {
+    it('shows the full card whole where it fits', () => {
+        expect(statusTier({ ...STATUS, room: 160 })).toEqual({ tier: 'full', readings: null, push: 0 });
+    });
+
+    it('shows the full card in whole lines down to its first reading', () => {
+        // Frame and card without readings take 72px; 40px left holds the heading and first reading.
+        expect(statusTier({ ...STATUS, room: 112 })).toEqual({ tier: 'full', readings: 35, push: 0 });
+    });
+
+    it('gives the summary where the floor of the card does not fit but the summary does', () => {
+        expect(statusTier({ ...STATUS, room: 100 })).toEqual({ tier: 'summary' });
+        expect(statusTier({ ...STATUS, room: 44 })).toEqual({ tier: 'summary' });
+    });
+
+    it('where not even the summary fits, puts the whole card just past the foot of the column, never a sliver', () => {
+        expect(statusTier({ ...STATUS, room: 43.5 })).toEqual({ tier: 'full', readings: null, push: 44 });
+        expect(statusTier({ ...STATUS, room: 0 })).toEqual({ tier: 'full', readings: null, push: 0 });
+    });
+
+    it('lets the whole card follow the places when they do not fit themselves', () => {
+        expect(statusTier({ ...STATUS, room: -20 })).toEqual({ tier: 'full', readings: null, push: 0 });
+    });
+
+    it('treats a group with nothing that can give way (the icon rail) as all or the summary', () => {
+        const rail = { frame: 17, full: 147, summary: 39 };
+        expect(statusTier({ ...rail, room: 164 })).toEqual({ tier: 'full', readings: null, push: 0 });
+        expect(statusTier({ ...rail, room: 163 })).toEqual({ tier: 'summary' });
+        expect(statusTier({ ...rail, room: 50 })).toEqual({ tier: 'full', readings: null, push: 50 });
     });
 });

@@ -123,6 +123,26 @@ export interface HealthAttention {
     count: number;
 }
 
+/** What the one-line status summary is asked to say: the owner's open issues, or null for a guest. */
+export interface SummaryRequest {
+    attention: HealthAttention | null;
+}
+
+export type StatusSummary = { kind: 'issues'; count: number } | { kind: 'row'; row: StatusRow };
+
+/**
+ * The one line that stands in for the status card where the card does not fit. For the owner it
+ * leads with the issues the Health link counts. Otherwise it is the most important measured row, in
+ * its own words: one that needs a person, or else the Frigate events feed, which says plainly when it
+ * is reconnecting or not yet measured. Never a blanket "all fine": the line names what it measured,
+ * and audio or alerts that are off by choice are not worth the only line there is.
+ */
+export function statusSummary(rows: readonly StatusRow[], attention: HealthAttention | null): StatusSummary {
+    if (attention?.needsAttention) return { kind: 'issues', count: attention.count };
+    const row = rows.find((candidate) => candidate.tone === 'attention') ?? rows.find((candidate) => candidate.id === 'feed');
+    return { kind: 'row', row: row ?? feedRow('reconnecting') };
+}
+
 /** The link asks for attention only for issues the Health page lists as open. */
 export function healthAttention(openIssues: number | null): HealthAttention {
     const count = typeof openIssues === 'number' && Number.isFinite(openIssues) ? Math.max(0, Math.floor(openIssues)) : 0;

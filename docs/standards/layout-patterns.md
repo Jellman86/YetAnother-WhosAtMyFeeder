@@ -295,15 +295,19 @@ What holds in every band:
   (up to 900 px, the `compact-height` variant: 1920 × 900, 1440 × 800, 1280 × 720, 1024 × 768) every place in the sidebar and
   System status's way to Health stay in view without scrolling: the wordmark sits beside its mark, and
   the status readings give way inside their card, in whole lines, under the pinned Health link. The
-  card is never drawn smaller than its heading, its first reading and that link: where the room under
-  the places (measured, so signed in the account band counts) cannot hold even that, the card is left
-  out, never cut or scrolled half out of view. The owner still has Health among the places; a guest
-  has no Health, and keeps only the header's cameras and the Dashboard's feed, and a left-out card's
-  live region says nothing. Only when the places themselves do not fit, as at a much larger text
-  size, does the card follow them down the scrolling column; the controls below never scroll. The
-  collapsed icon rail's status has nothing that can give way, so its icons and Health link are whole
-  and in view under the places or left out, measured the same way, and they stay out even where the
-  places scroll. Keyboard focus on a status that is left out moves to Health among the places.
+  card is never drawn smaller than its heading, its first reading and that link. Where the room under
+  the places (measured, so signed in the account band counts) cannot hold even that, a one-line
+  summary stands in for the card (`statusSummary`, `statusTier`): the open issues as the card's own
+  link counts them, or else the most important measured row in its own words (one that needs a
+  person, or else the Frigate events feed, which says plainly when it is reconnecting or not yet
+  measured), never a blanket "all fine". The owner's line is the way to Health; a guest's is the
+  words alone. On the collapsed icon rail, whose group has nothing that can give way, one icon
+  stands in: the Health link with its attention mark, or a guest's most important status. Both forms
+  are always drawn and only the one that fits is shown, so a change of form announces nothing new;
+  the line is its form's live region, as the list's wrapper is the card's. Only where not even the
+  line fits does the whole card wait just past the foot of the column, reached by scrolling, never a
+  sliver; the controls below never scroll. Keyboard focus in the form taken away moves to the same
+  control in the other (the summary's link and the card's), or else to Health among the places.
 
 Explorer's filter rail orders filters by how often they change. Choices set once and
 left (**Visitors**, **Show**) are compact switches that explain only the chosen option

@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { showWholeOrNone, snapToWholeLines } from '../utils/whole-lines';
+    import { fitStatus } from '../utils/whole-lines';
     import { pointerMayPrefetch } from '../app/route-prefetch';
     import { avatarStore } from '../stores/avatar.svelte';
     import { onMount } from 'svelte';
@@ -30,8 +30,8 @@
         isMobile?: boolean;
         mobileSidebarOpen?: boolean;
         onMobileClose?: () => void;
-        /** The status rows; the argument says whether the sidebar is the icon rail. */
-        status?: import('svelte').Snippet<[boolean]>;
+        /** The status rows: in the icon rail or not, and in full, or as the one line that stands in for them. */
+        status?: import('svelte').Snippet<[boolean, import('../utils/system-status').SummaryRequest | null]>;
     } = $props();
 
     let asideEl = $state<HTMLElement | null>(null);
@@ -132,8 +132,9 @@
         ];
     });
 
-    // A status left out while it holds keyboard focus hands it to Health among the places (the owner's),
-    // or else to the page you are on, never leaving it on something unseen.
+    // Where the status's other form has no control to take keyboard focus (a guest's summary), focus
+    // goes to Health among the places (the owner's), or else to the page you are on, never staying on
+    // something unseen.
     function refocusFromStatus(): HTMLElement | null {
         return asideEl?.querySelector<HTMLElement>('nav [data-nav-path="/system-health"]')
             ?? asideEl?.querySelector<HTMLElement>('nav [aria-current="page"]')
@@ -159,6 +160,29 @@
 </script>
 
 <svelte:window onkeydown={handleWindowKeydown} />
+
+<!-- The icon rail's way to Health: in the group under the status icons, or alone as its one icon. -->
+{#snippet railHealthLink(alone: boolean)}
+    <a
+        href="/system-health"
+        class="focus-ring relative grid h-11 w-11 place-items-center rounded-lg text-ink transition-colors hover:bg-surface-raised"
+        title={healthLinkName}
+        data-sidebar-status-link={alone ? undefined : ''}
+        data-sidebar-summary-link={alone ? '' : undefined}
+        data-health-attention={health.needsAttention}
+        onclick={openHealth}
+        onpointerenter={(event) => { if (pointerMayPrefetch(event.pointerType)) onPrefetch?.('/system-health'); }}
+        onfocus={() => onPrefetch?.('/system-health')}
+    >
+        <span class="sr-only">{healthLinkName}</span>
+        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M3 12h4l2-6 4 12 2-6h6" />
+        </svg>
+        {#if health.needsAttention}
+            <span class="absolute right-1.5 top-1.5 h-2 w-2 rotate-45 bg-status-attention-line" aria-hidden="true"></span>
+        {/if}
+    </a>
+{/snippet}
 
 {#if mobileSidebarOpen}
     <div
@@ -208,10 +232,9 @@
     <!-- Every place in the app and the way to Health stay in view: on a short window the brand sits
          beside its mark and System status gives up its readings first (they scroll inside the card,
          the Health link stays at its foot). Where the room under the places, measured, cannot hold the
-         card's heading, first reading and link whole, the status is left out rather than cut: the owner
-         still has Health among the places, and a guest the header's cameras and the Dashboard's feed.
-         Only when the places themselves do not fit, as at a much larger text size, does the labelled
-         card follow them down the scrolling column (the icon rail's group stays out). The controls
+         card's heading, first reading and link whole, one line stands in for the card (on the icon
+         rail, one icon), so the sidebar never shows an unexplained gap. Only where not even that fits
+         does the whole card wait just past the foot of the scrolling column, never cut. The controls
          below never scroll, so the language menu that opens past the collapsed rail is never clipped. -->
     <div class="flex min-h-0 flex-1 flex-col overflow-y-auto" data-sidebar-scroll>
         <nav class="shrink-0 px-3 py-4" aria-label={$_('nav.navigation', { default: 'Primary navigation' })}>
@@ -252,50 +275,50 @@
         </nav>
 
         <!-- System status is a plain list on a neutral surface: measured states in words, the load as
-             labelled meters in the Health chart's series colours, and the way to Health as the card's foot. Only the owner can reach Health,
-             so a guest gets no link. The link asks for attention only for issues Health lists as open,
-             read from the same store, so the two always agree. -->
-        <div data-sidebar-status class="mt-auto flex flex-col border-t border-line-soft p-3 compact-height:p-2">
+             labelled meters in the Health chart's series colours, and the way to Health as the card's
+             foot. Only the owner can reach Health, so a guest gets no link. The link asks for attention
+             only for issues Health lists as open, read from the same store, so the two always agree.
+             Both forms are always drawn, the card and the line that stands in for it, and fitStatus
+             shows the one the room allows: the other stays laid out but unseen, so it is measured as the
+             room changes, and a change of form changes no words a screen reader would announce. -->
+        <div
+            data-sidebar-status
+            class="mt-auto flex flex-col border-t border-line-soft p-3 compact-height:p-2"
+            use:fitStatus={{ container: '[data-sidebar-scroll]', readings: '[data-sidebar-status-readings]', lines: ':scope > *, li', floor: '[data-status-row]', fallbackFocus: refocusFromStatus }}
+        >
+            <div class="relative">
             {#if collapsed}
-                <!-- The icon rail's status has nothing that can give way, so it is whole and in view under the
-                     places or left out, measured against the room the column really has. -->
+                <!-- The icon rail's status has nothing that can give way: the whole group, or one icon. -->
                 <section
                     class="flex flex-col items-center gap-1"
                     aria-label={$_('status.title')}
                     data-sidebar-status-card
-                    use:showWholeOrNone={{ container: '[data-sidebar-scroll]', refocus: refocusFromStatus }}
+                    data-status-form="full"
                 >
-                    {@render status?.(true)}
+                    {@render status?.(true, null)}
                     {#if authStore.showSettings}
-                        <a
-                            href="/system-health"
-                            class="focus-ring relative grid h-11 w-11 place-items-center rounded-lg text-ink transition-colors hover:bg-surface-raised"
-                            title={healthLinkName}
-                            data-sidebar-status-link
-                            data-health-attention={health.needsAttention}
-                            onclick={openHealth}
-                            onpointerenter={(event) => { if (pointerMayPrefetch(event.pointerType)) onPrefetch?.('/system-health'); }}
-                            onfocus={() => onPrefetch?.('/system-health')}
-                        >
-                            <span class="sr-only">{healthLinkName}</span>
-                            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                <path d="M3 12h4l2-6 4 12 2-6h6" />
-                            </svg>
-                            {#if health.needsAttention}
-                                <span class="absolute right-1.5 top-1.5 h-2 w-2 rotate-45 bg-status-attention-line" aria-hidden="true"></span>
-                            {/if}
-                        </a>
+                        {@render railHealthLink(false)}
                     {/if}
                 </section>
+                <!-- The one icon: the owner's way to Health, with its mark when issues are open; for a guest,
+                     the most important status. -->
+                <div class="flex justify-center" role="status" data-sidebar-status-summary data-status-form="summary">
+                    {#if authStore.showSettings}
+                        {@render railHealthLink(true)}
+                    {:else}
+                        {@render status?.(true, { attention: null })}
+                    {/if}
+                </div>
             {:else}
                 <section
                     class="flex flex-col rounded-xl border border-line-soft bg-surface-raised p-3 compact-height:p-2"
                     aria-labelledby="sidebar-status-title"
                     data-sidebar-status-card
+                    data-status-form="full"
                 >
                     <!-- On a short window at the usual text size the readings scroll inside the card and the way to
-                         Health stays at its foot (see the style below), so the issues link is never the part cut
-                         off. A tab stop of its own, so the keyboard can scroll it where the browser does not. -->
+                         Health stays at its foot, so the issues link is never the part cut off. A tab stop of its
+                         own, so the keyboard can scroll it where the browser does not. -->
                     <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
                     <!-- At rest the readings show whole lines only: their height ends after the last line that
                          fits, never before the first reading, and the rest is scrolled to, so no line is ever
@@ -307,12 +330,11 @@
                         tabindex="0"
                         aria-labelledby="sidebar-status-title"
                         data-sidebar-status-readings
-                        use:snapToWholeLines={{ lines: ':scope > *, li', floor: '[data-status-row]', container: '[data-sidebar-scroll]', refocus: refocusFromStatus }}
                     >
                         <h2 id="sidebar-status-title" class="mb-2 text-xs font-semibold leading-4 text-ink">
                             {$_('status.title')}
                         </h2>
-                        {@render status?.(false)}
+                        {@render status?.(false, null)}
                         <SystemLoadMeters watchFrom="[data-sidebar-status-readings]" />
                     </div>
                     {#if authStore.showSettings}
@@ -342,7 +364,39 @@
                         </a>
                     {/if}
                 </section>
+                <!-- The one line that stands in for the card: the open issues, as the card's own link counts
+                     them, or the most important measured state in words. The owner's line is the way to
+                     Health ("Health" said first for a screen reader); a guest's is the words alone. The
+                     line is the live region in this form, as the list's wrapper is in the card's, and both
+                     are always drawn, so a change of form announces nothing new. A touch screen gets a
+                     full-size target. -->
+                <div
+                    class="rounded-xl border border-line-soft bg-surface-raised px-2 py-1 text-xs leading-4"
+                    role="status"
+                    data-sidebar-status-summary
+                    data-status-form="summary"
+                >
+                    {#if authStore.showSettings}
+                        <a
+                            href="/system-health"
+                            class="focus-ring -mx-1 flex min-h-7 items-center justify-between gap-x-2 rounded-md px-1 text-ink transition-colors hover:text-accent-ink pointer-coarse:min-h-11"
+                            data-sidebar-summary-link
+                            data-health-attention={health.needsAttention}
+                            onclick={openHealth}
+                            onpointerenter={(event) => { if (pointerMayPrefetch(event.pointerType)) onPrefetch?.('/system-health'); }}
+                            onfocus={() => onPrefetch?.('/system-health')}
+                        >
+                            <span class="min-w-0"><span class="sr-only">{healthLinkPrefix}</span>{@render status?.(false, { attention: health })}</span>
+                            <svg class="h-3 w-3 shrink-0 text-muted" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m8 5 5 5-5 5" /></svg>
+                        </a>
+                    {:else}
+                        <div class="flex min-h-7 items-center pointer-coarse:min-h-11">
+                            {@render status?.(false, { attention: null })}
+                        </div>
+                    {/if}
+                </div>
             {/if}
+            </div>
         </div>
 
     </div>
@@ -469,24 +523,28 @@
 
 <style>
     /* The places and the status share one column, which scrolls only as a last resort. The card always
-       lays out whole: snapToWholeLines gives the readings a height in whole lines, down to their heading
-       and first reading, and they scroll inside the card under the Health link at its foot. No box here
+       lays out whole: fitStatus gives the readings a height in whole lines, down to their heading and
+       first reading, and they scroll inside the card under the Health link at its foot. No box here
        may shrink below its content, so the card is never squashed to an empty bar. */
     [data-sidebar-status-readings] {
         overflow-y: auto;
     }
 
-    /* Not even the heading, first reading and Health link fit under the places (on the icon rail, the
-       whole group of icons): no card rather than a sliver of one. It stays laid out, out of the flow
-       and unseen, so it is measured again as the room changes, and is hidden from the keyboard and
-       screen readers like anything not shown (its live region says nothing while it is out). It waits
-       above the window, not over the sidebar, because the load meters sample only while they are on
-       screen. The mark is written by snapToWholeLines or showWholeOrNone, not the template, so it is
-       matched as global. */
-    [data-sidebar-status]:global([data-fit='none']) {
+    /* The form not shown (the summary, until fitStatus chooses it; or the card, once it has) stays laid
+       out at the width it would have, so both are measured as the room changes, but out of the flow
+       and unseen: hidden from the keyboard and screen readers like anything not shown, and parked far
+       above the window, because the load meters sample only while they are on screen. The mark is
+       written by fitStatus, not the template, so it is matched as global. */
+    [data-status-form='summary'],
+    [data-sidebar-status]:global([data-fit='summary']) [data-status-form='full'] {
         position: absolute;
         inset-inline: 0;
-        bottom: 100%;
+        bottom: calc(100% + 200vh);
         visibility: hidden;
+    }
+
+    [data-sidebar-status]:global([data-fit='summary']) [data-status-form='summary'] {
+        position: static;
+        visibility: visible;
     }
 </style>

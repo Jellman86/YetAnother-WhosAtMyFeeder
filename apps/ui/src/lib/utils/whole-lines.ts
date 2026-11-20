@@ -44,11 +44,36 @@ export function wholeOrNone(room: number, height: number): 'all' | 'none' {
     return height <= room ? 'all' : 'none';
 }
 
-/** The node's ancestor that stands in the column's own flow (or the node itself). */
-function holderIn(node: HTMLElement, column: HTMLElement | null): HTMLElement {
-    let holder = node;
-    while (column && holder.parentElement && holder.parentElement !== column) holder = holder.parentElement;
-    return holder;
+/** The full status card, the one-line summary that stands in for it, or the card pushed `push` px down. */
+export type StatusTier = { tier: 'full'; readings: number | null; push: number } | { tier: 'summary' };
+
+const WHOLE_CARD: StatusTier = { tier: 'full', readings: null, push: 0 };
+
+/**
+ * Which form of the status shows in `room`, the height under the places. `frame` is the holder's own
+ * height besides the form; `full` and `summary` are the two forms' heights; `lines` are the full
+ * form's readings, where they can give way (the icon rail's group has none). The full card where its
+ * floor fits, in whole lines; else the one-line summary where that fits; else the whole card pushed
+ * just past the foot of the column, so nothing of it shows at rest. Where the places themselves do
+ * not fit, the whole card simply follows them.
+ */
+export function statusTier({ room, frame, full, summary, lines }: {
+    room: number;
+    frame: number;
+    full: number;
+    summary: number;
+    lines?: { lineEnds: readonly number[]; floor: number; readings: number };
+}): StatusTier {
+    if (room < 0) return WHOLE_CARD;
+    if (lines) {
+        const fit = wholeLinesFit({ lineEnds: lines.lineEnds, floor: lines.floor, room, chrome: frame + full - lines.readings });
+        if (fit.show === 'all') return WHOLE_CARD;
+        if (fit.show === 'some') return { tier: 'full', readings: fit.height, push: 0 };
+    } else if (wholeOrNone(room, frame + full) === 'all') {
+        return WHOLE_CARD;
+    }
+    if (wholeOrNone(room, frame + summary) === 'all') return { tier: 'summary' };
+    return { tier: 'full', readings: null, push: Math.ceil(room) };
 }
 
 const heightOf = (element: Element): number => element.getBoundingClientRect().height;
@@ -62,7 +87,7 @@ function outerHeightOf(element: Element): number {
 /**
  * The height the holder may take without the column scrolling: the column's height less its other
  * children and their margins. Worked out, not read from what the browser left the holder, so the
- * holder always lays out whole and the answer does not depend on whether it is shown. The column's
+ * holder always lays out whole and the answer does not depend on which form it shows. The column's
  * height is the lesser of its rounded and its exact height, so rounding never adds room.
  */
 function roomFor(holder: HTMLElement, column: HTMLElement): number {
@@ -70,85 +95,96 @@ function roomFor(holder: HTMLElement, column: HTMLElement): number {
     return Math.min(column.clientHeight, heightOf(column)) - others;
 }
 
-/** Where keyboard focus goes when the holder is taken out of view while it holds focus. */
-type Refocus = () => HTMLElement | null | undefined;
-
 /**
- * Measures again whenever the node, the column or anything in it changes size. The holder is marked
- * `data-fit` with the answer (all, some or none), so its page can take it out of view at none; the mark
- * is removed with the action, since the holder may outlive the node. Focus inside a holder taken out of
- * view moves to `refocus`, so it is never left on something unseen.
+ * Shows the sidebar status in the tier its room allows. `holder` stands in `container`, a scrolling
+ * column, and holds two forms, `[data-status-form="full"]` and `[data-status-form="summary"]`; it is
+ * marked `data-fit` with the form chosen, so its page can take the other out of view while it stays
+ * laid out for the next measure. `readings` names the full form's scrolling lines (`lines`, never
+ * shorter than the `floor` line), which are kept to whole lines at rest. Keyboard focus in the form
+ * taken away moves to the same control in the other (its link), or else to `fallbackFocus`, never
+ * staying on something unseen. Measured again whenever the column, anything in it, a form or a line
+ * changes size, and whenever a form or a line arrives.
  */
-function fitInColumn(node: HTMLElement, container: string, refocus: Refocus | undefined, measure: (holder: HTMLElement, column: HTMLElement) => string): { holder: HTMLElement; observer: ResizeObserver; measure: () => void; release: () => void } {
-    const column = node.closest<HTMLElement>(container);
-    const holder = holderIn(node, column);
-    const run = (): void => {
-        if (!column) return;
-        const fit = measure(holder, column);
-        holder.dataset.fit = fit;
-        if (fit === 'none' && holder.contains(document.activeElement)) refocus?.()?.focus();
-    };
-    const observer = new ResizeObserver(run);
-    observer.observe(node);
-    if (column) {
-        observer.observe(column);
-        for (const child of column.children) observer.observe(child);
-    }
-    return {
-        holder,
-        observer,
-        measure: run,
-        release: () => {
-            observer.disconnect();
-            delete holder.dataset.fit;
+export function fitStatus(holder: HTMLElement, options: {
+    container: string;
+    readings?: string;
+    lines?: string;
+    floor?: string;
+    fallbackFocus?: () => HTMLElement | null | undefined;
+}): { destroy: () => void } {
+    const column = holder.closest<HTMLElement>(options.container);
+    const form = (name: 'full' | 'summary'): HTMLElement | null => holder.querySelector<HTMLElement>(`[data-status-form="${name}"]`);
+    const readingsOf = (full: HTMLElement): HTMLElement | null => (options.readings ? full.querySelector<HTMLElement>(options.readings) : null);
+
+    const measure = (): void => {
+        const full = form('full');
+        const summary = form('summary');
+        const forms = full?.parentElement;
+        if (!column || !full || !summary || !forms) return;
+        const readings = readingsOf(full);
+        let lines: { lineEnds: number[]; floor: number; readings: number } | undefined;
+        if (readings && options.lines) {
+            const top = readings.getBoundingClientRect().top - readings.scrollTop;
+            const floorLine = options.floor ? readings.querySelector<HTMLElement>(options.floor) : null;
+            lines = {
+                lineEnds: [...readings.querySelectorAll<HTMLElement>(options.lines)].map((line) => line.getBoundingClientRect().bottom - top),
+                floor: floorLine ? floorLine.getBoundingClientRect().bottom - top : 0,
+                readings: heightOf(readings)
+            };
+        }
+        const answer = statusTier({
+            room: roomFor(holder, column),
+            frame: heightOf(holder) - heightOf(forms),
+            full: heightOf(full),
+            summary: heightOf(summary),
+            lines
+        });
+        if (readings) readings.style.maxHeight = answer.tier === 'full' && answer.readings !== null ? `${answer.readings}px` : '';
+        holder.style.marginTop = answer.tier === 'full' && answer.push > 0 ? `${answer.push}px` : '';
+        const leaving = answer.tier === 'summary' ? full : summary;
+        const arriving = answer.tier === 'summary' ? summary : full;
+        const focusLeaves = holder.dataset.fit !== answer.tier && leaving.contains(document.activeElement);
+        holder.dataset.fit = answer.tier;
+        if (focusLeaves) {
+            // On the next frame, once the new form is styled as shown: Chromium does not move focus from
+            // inside a ResizeObserver callback onto an element its style still hides.
+            const tier = answer.tier;
+            requestAnimationFrame(() => {
+                if (holder.dataset.fit !== tier) return;
+                (arriving.querySelector<HTMLElement>('a[href]') ?? arriving.querySelector<HTMLElement>('[tabindex="0"]') ?? options.fallbackFocus?.())?.focus();
+            });
         }
     };
-}
 
-/**
- * Keeps `node`, a scrolling list of lines, to whole lines at rest, in the room left for it in
- * `container`, a scrolling column: when its lines do not all fit, its height ends after the last line
- * that does, and never before the end of the first `floor` line. `lines` names the elements that are
- * lines. Where not even the floor fits, the holder is marked none (see fitInColumn). Measured again
- * whenever a line changes size or arrives, too.
- */
-export function snapToWholeLines(node: HTMLElement, { lines, floor, container, refocus }: { lines: string; floor: string; container: string; refocus?: Refocus }): { destroy: () => void } {
-    const fit = fitInColumn(node, container, refocus, (holder, column) => {
-        const top = node.getBoundingClientRect().top - node.scrollTop;
-        const lineEnds = [...node.querySelectorAll<HTMLElement>(lines)].map((line) => line.getBoundingClientRect().bottom - top);
-        const floorLine = node.querySelector<HTMLElement>(floor);
-        const answer = wholeLinesFit({
-            lineEnds,
-            floor: floorLine ? floorLine.getBoundingClientRect().bottom - top : 0,
-            room: roomFor(holder, column),
-            chrome: heightOf(holder) - heightOf(node)
-        });
-        node.style.maxHeight = answer.show === 'some' ? `${answer.height}px` : '';
-        return answer.show;
-    });
-    const observeLines = (): void => {
-        for (const line of node.querySelectorAll(lines)) fit.observer.observe(line);
+    const observer = new ResizeObserver(measure);
+    const observeAll = (): void => {
+        observer.observe(holder);
+        if (column) {
+            observer.observe(column);
+            for (const child of column.children) observer.observe(child);
+        }
+        for (const name of ['full', 'summary'] as const) {
+            const element = form(name);
+            if (element) observer.observe(element);
+        }
+        const full = form('full');
+        const readings = full ? readingsOf(full) : null;
+        if (readings && options.lines) for (const line of readings.querySelectorAll(options.lines)) observer.observe(line);
     };
-    observeLines();
-    // Lines arrive after the node does (a reading, an update notice), and each is measured from then on.
+    observeAll();
+    // Forms and lines arrive after the holder does (a reading, an update notice, the icon rail's forms
+    // when the sidebar collapses), and each is measured from then on.
     const arrivals = new MutationObserver(() => {
-        observeLines();
-        fit.measure();
+        observeAll();
+        measure();
     });
-    arrivals.observe(node, { childList: true, subtree: true });
+    arrivals.observe(holder, { childList: true, subtree: true });
     return {
         destroy: () => {
-            fit.release();
+            observer.disconnect();
             arrivals.disconnect();
+            delete holder.dataset.fit;
+            holder.style.marginTop = '';
         }
     };
-}
-
-/**
- * Shows `node`'s holder in `container`, a scrolling column, only where it fits there whole without the
- * column scrolling: a group with nothing that can give way is whole and in view, or marked none.
- */
-export function showWholeOrNone(node: HTMLElement, { container, refocus }: { container: string; refocus?: Refocus }): { destroy: () => void } {
-    const fit = fitInColumn(node, container, refocus, (holder, column) => wholeOrNone(roomFor(holder, column), heightOf(holder)));
-    return { destroy: fit.release };
 }
