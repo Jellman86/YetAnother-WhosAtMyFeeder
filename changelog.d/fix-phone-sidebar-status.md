@@ -9,3 +9,7 @@
   meters. The meters then counted themselves unseen and emptied, which gave back their room, so the
   readings grew to show an empty row and the meters filled again, on every frame, leaving a blank
   band in the card. The meters now count as seen while the readings that scroll them are on screen.
+- **The collapsed sidebar's status icons are never cut off.** With the sidebar collapsed to icons,
+  windows between about 680 and 740 px tall cut the status icons at the foot of the sidebar, or
+  squashed them. The icons and the Health link now show whole under the places, or not at all where
+  they do not fit (Health is still in the sidebar). Signed in, that takes a window about 860 px tall.

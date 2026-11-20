@@ -315,3 +315,51 @@ for (const german of [false, true]) {
         }
     });
 }
+
+// The collapsed icon rail holds the same status as icons, with the way to Health under them. It has no
+// readings to give way, so the group is all or nothing: whole and in view where the room under the
+// places holds it, and otherwise left out (Health is still one of the places), never cut at the foot.
+async function railFaults(page: Page): Promise<string[]> {
+    return page.locator('[data-sidebar-scroll]').evaluate((column) => {
+        const group = column.querySelector<HTMLElement>('[data-sidebar-status-card]');
+        const at = `at ${innerWidth} × ${innerHeight}`;
+        if (!group) return [];
+        if (!group.checkVisibility({ visibilityProperty: true })) {
+            // Left out only where it does not fit: the room under the places is less than the whole group.
+            const holder = group.closest<HTMLElement>('[data-sidebar-status]');
+            const places = column.querySelector('nav')?.getBoundingClientRect().height ?? 0;
+            const room = column.clientHeight - places;
+            return holder && holder.getBoundingClientRect().height <= room ? [`the group is left out where it fits ${at}`] : [];
+        }
+        const view = column.getBoundingClientRect();
+        const box = group.getBoundingClientRect();
+        const parts = [...group.querySelectorAll<HTMLElement>('[data-status-row], [data-sidebar-status-link]')];
+        const faults: string[] = [];
+        if (parts.length === 0) faults.push(`the group shows no icons ${at}`);
+        if (group.scrollHeight > group.clientHeight + 1) faults.push(`the group is squashed below its icons (${group.clientHeight} of ${group.scrollHeight} px) ${at}`);
+        if (box.top < view.top - 1 || box.bottom > view.bottom + 1) faults.push(`the group is not wholly in view ${at}`);
+        for (const part of parts) {
+            const r = part.getBoundingClientRect();
+            const name = part.dataset.statusRow ?? 'Health link';
+            if (r.top < box.top - 1 || r.bottom > box.bottom + 1) faults.push(`the ${name} icon spills out of the group ${at}`);
+            if (r.top < view.top - 1 || r.bottom > view.bottom + 1) faults.push(`the ${name} icon is cut by the column ${at}`);
+        }
+        return faults;
+    });
+}
+
+for (const signedIn of [true, false]) {
+    test(`with the sidebar collapsed, signed ${signedIn ? 'in' : 'out'}, at 1280 × 640 to 800 the rail's status is whole and in view or left out`, async ({ page }) => {
+        await page.addInitScript(() => localStorage.setItem('sidebarCollapsed', 'true'));
+        await openShell(page, { width: 1280, height: 800 }, signedIn);
+        await expect(page.locator('[data-sidebar-status-card] [data-status-row]').first()).toBeAttached(READY);
+        for (let height = 640; height <= 800; height += 8) {
+            await page.setViewportSize({ width: 1280, height });
+            await expect.poll(() => railFaults(page), { timeout: 3_000 }).toEqual([]);
+        }
+        // A window tall enough keeps it.
+        await page.setViewportSize({ width: 1280, height: 960 });
+        await expect(page.locator('[data-sidebar-status-card]')).toBeVisible();
+        await expect.poll(() => railFaults(page), { timeout: 3_000 }).toEqual([]);
+    });
+}

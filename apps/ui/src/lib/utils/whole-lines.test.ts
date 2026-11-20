@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { wholeLinesFit, wholeLinesHeight } from './whole-lines';
+import { wholeLinesFit, wholeLinesHeight, wholeOrNone } from './whole-lines';
 
 /** Where each line of the status readings ends, from the top of the readings, in px. */
 const LINES = [16, 40, 64, 88, 106];
@@ -61,5 +61,18 @@ describe('wholeLinesFit', () => {
     it('treats a holder with no lines yet by its frame alone', () => {
         expect(wholeLinesFit({ lineEnds: [], floor: 0, chrome: 66, room: 80 })).toEqual({ show: 'all' });
         expect(wholeLinesFit({ lineEnds: [], floor: 0, chrome: 66, room: 30 })).toEqual({ show: 'none' });
+    });
+});
+
+describe('wholeOrNone', () => {
+    it('shows a group with nothing that can give way only where all of it fits', () => {
+        expect(wholeOrNone(164, 164)).toBe('all');
+        expect(wholeOrNone(200, 164)).toBe('all');
+        expect(wholeOrNone(163.4, 164)).toBe('all');
+        expect(wholeOrNone(120, 164)).toBe('none');
+    });
+
+    it('shows none where what comes first already fills the column', () => {
+        expect(wholeOrNone(-18, 164)).toBe('none');
     });
 });

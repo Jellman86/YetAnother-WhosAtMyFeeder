@@ -31,58 +31,104 @@ export function wholeLinesFit({ lineEnds, floor, room, chrome }: { lineEnds: rea
 }
 
 /**
- * Keeps `node`, a scrolling list of lines, to whole lines at rest, in the room left for it in
- * `container`, a scrolling column: when its lines do not all fit, its height ends after the last line
- * that does, and never before the end of the first `floor` line. `lines` names the elements that are
- * lines. The node's holder, its ancestor that stands in the column's own flow, is marked
- * `data-whole-lines` with the fit (all, some or none), so its page can take it out of view at none.
- * The room is worked out from the column's height and its other children, not from what the browser
- * left the holder, so the holder always lays out whole. Measured again whenever any of those, the
- * node or its lines change size, and whenever a line arrives.
+ * A group with nothing that can give way: all of it where its whole height fits the room, and none of
+ * it otherwise, never cut. A sub-pixel shortfall still fits, as for a line.
  */
-export function snapToWholeLines(node: HTMLElement, { lines, floor, container }: { lines: string; floor: string; container: string }): { destroy: () => void } {
-    const column = node.closest<HTMLElement>(container);
-    let holder: HTMLElement = node;
-    while (column && holder.parentElement && holder.parentElement !== column) holder = holder.parentElement;
-    const height = (element: Element): number => element.getBoundingClientRect().height;
+export function wholeOrNone(room: number, height: number): 'all' | 'none' {
+    return height <= room + 1 ? 'all' : 'none';
+}
 
-    const measure = (): void => {
-        if (!column) return;
-        const top = node.getBoundingClientRect().top - node.scrollTop;
-        const lineEnds = [...node.querySelectorAll<HTMLElement>(lines)].map((line) => line.getBoundingClientRect().bottom - top);
-        const floorLine = node.querySelector<HTMLElement>(floor);
-        const others = [...column.children].filter((child) => child !== holder).reduce((sum, child) => sum + height(child), 0);
-        const fit = wholeLinesFit({
-            lineEnds,
-            floor: floorLine ? floorLine.getBoundingClientRect().bottom - top : 0,
-            room: column.clientHeight - others,
-            chrome: height(holder) - height(node)
-        });
-        node.style.maxHeight = fit.show === 'some' ? `${fit.height}px` : '';
-        holder.dataset.wholeLines = fit.show;
+/** The node's ancestor that stands in the column's own flow (or the node itself). */
+function holderIn(node: HTMLElement, column: HTMLElement | null): HTMLElement {
+    let holder = node;
+    while (column && holder.parentElement && holder.parentElement !== column) holder = holder.parentElement;
+    return holder;
+}
+
+const heightOf = (element: Element): number => element.getBoundingClientRect().height;
+
+/**
+ * The height the holder may take without the column scrolling: the column's height less its other
+ * children. Worked out, not read from what the browser left the holder, so the holder always lays out
+ * whole and the answer does not depend on whether it is shown.
+ */
+function roomFor(holder: HTMLElement, column: HTMLElement): number {
+    const others = [...column.children].filter((child) => child !== holder).reduce((sum, child) => sum + heightOf(child), 0);
+    return column.clientHeight - others;
+}
+
+/**
+ * Measures again whenever the node, the column or anything in it changes size. The holder is marked
+ * `data-fit` with the answer (all, some or none), so its page can take it out of view at none; the mark
+ * is removed with the action, since the holder may outlive the node.
+ */
+function fitInColumn(node: HTMLElement, container: string, measure: (holder: HTMLElement, column: HTMLElement) => string): { holder: HTMLElement; observer: ResizeObserver; measure: () => void; release: () => void } {
+    const column = node.closest<HTMLElement>(container);
+    const holder = holderIn(node, column);
+    const run = (): void => {
+        if (column) holder.dataset.fit = measure(holder, column);
     };
-    const observer = new ResizeObserver(measure);
+    const observer = new ResizeObserver(run);
     observer.observe(node);
     if (column) {
         observer.observe(column);
         for (const child of column.children) observer.observe(child);
     }
+    return {
+        holder,
+        observer,
+        measure: run,
+        release: () => {
+            observer.disconnect();
+            delete holder.dataset.fit;
+        }
+    };
+}
+
+/**
+ * Keeps `node`, a scrolling list of lines, to whole lines at rest, in the room left for it in
+ * `container`, a scrolling column: when its lines do not all fit, its height ends after the last line
+ * that does, and never before the end of the first `floor` line. `lines` names the elements that are
+ * lines. Where not even the floor fits, the holder is marked none (see fitInColumn). Measured again
+ * whenever a line changes size or arrives, too.
+ */
+export function snapToWholeLines(node: HTMLElement, { lines, floor, container }: { lines: string; floor: string; container: string }): { destroy: () => void } {
+    const fit = fitInColumn(node, container, (holder, column) => {
+        const top = node.getBoundingClientRect().top - node.scrollTop;
+        const lineEnds = [...node.querySelectorAll<HTMLElement>(lines)].map((line) => line.getBoundingClientRect().bottom - top);
+        const floorLine = node.querySelector<HTMLElement>(floor);
+        const answer = wholeLinesFit({
+            lineEnds,
+            floor: floorLine ? floorLine.getBoundingClientRect().bottom - top : 0,
+            room: roomFor(holder, column),
+            chrome: heightOf(holder) - heightOf(node)
+        });
+        node.style.maxHeight = answer.show === 'some' ? `${answer.height}px` : '';
+        return answer.show;
+    });
     const observeLines = (): void => {
-        for (const line of node.querySelectorAll(lines)) observer.observe(line);
+        for (const line of node.querySelectorAll(lines)) fit.observer.observe(line);
     };
     observeLines();
     // Lines arrive after the node does (a reading, an update notice), and each is measured from then on.
     const arrivals = new MutationObserver(() => {
         observeLines();
-        measure();
+        fit.measure();
     });
     arrivals.observe(node, { childList: true, subtree: true });
     return {
         destroy: () => {
-            observer.disconnect();
+            fit.release();
             arrivals.disconnect();
-            // The holder outlives the node (the icon rail reuses it), and must not stay out of view.
-            delete holder.dataset.wholeLines;
         }
     };
+}
+
+/**
+ * Shows `node`'s holder in `container`, a scrolling column, only where it fits there whole without the
+ * column scrolling: a group with nothing that can give way is whole and in view, or marked none.
+ */
+export function showWholeOrNone(node: HTMLElement, { container }: { container: string }): { destroy: () => void } {
+    const fit = fitInColumn(node, container, (holder, column) => wholeOrNone(roomFor(holder, column), heightOf(holder)));
+    return { destroy: fit.release };
 }

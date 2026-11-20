@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { snapToWholeLines } from '../utils/whole-lines';
+    import { showWholeOrNone, snapToWholeLines } from '../utils/whole-lines';
     import { pointerMayPrefetch } from '../app/route-prefetch';
     import { avatarStore } from '../stores/avatar.svelte';
     import { onMount } from 'svelte';
@@ -244,10 +244,16 @@
              labelled meters in the Health chart's series colours, and the way to Health as the card's foot. Only the owner can reach Health,
              so a guest gets no link. The link asks for attention only for issues Health lists as open,
              read from the same store, so the two always agree. -->
-        <!-- The icon rail has no readings to measure, so a short window (by its height) still hides it. -->
-        <div data-sidebar-status class="mt-auto flex flex-col border-t border-line-soft p-3 compact-height:p-2 {collapsed ? '[@media(max-height:42rem)]:hidden' : ''}">
+        <div data-sidebar-status class="mt-auto flex flex-col border-t border-line-soft p-3 compact-height:p-2">
             {#if collapsed}
-                <section class="flex flex-col items-center gap-1" aria-label={$_('status.title')} data-sidebar-status-card>
+                <!-- The icon rail's status has nothing that can give way, so it is whole and in view under the
+                     places or left out, measured against the room the column really has. -->
+                <section
+                    class="flex flex-col items-center gap-1"
+                    aria-label={$_('status.title')}
+                    data-sidebar-status-card
+                    use:showWholeOrNone={{ container: '[data-sidebar-scroll]' }}
+                >
                     {@render status?.(true)}
                     {#if authStore.showSettings}
                         <a
@@ -459,12 +465,13 @@
         overflow-y: auto;
     }
 
-    /* Not even the heading, first reading and Health link fit under the places: no card rather than a
-       sliver of one. It stays laid out, out of the flow and unseen, so it is measured again as the room
+    /* Not even the heading, first reading and Health link fit under the places (on the icon rail, the
+       whole group of icons): no card rather than a sliver of one. It stays laid out, out of the flow and unseen, so it is measured again as the room
        changes, and hidden from the keyboard and screen readers like anything not shown. It waits above
        the window, not over the sidebar, because the load meters sample only while they are on screen.
-       The mark is written by snapToWholeLines, not the template, so it is matched as global. */
-    [data-sidebar-status]:global([data-whole-lines='none']) {
+       The mark is written by snapToWholeLines or showWholeOrNone, not the template, so it is matched
+       as global. */
+    [data-sidebar-status]:global([data-fit='none']) {
         position: absolute;
         inset-inline: 0;
         bottom: 100%;

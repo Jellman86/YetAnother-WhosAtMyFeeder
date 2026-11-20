@@ -299,7 +299,8 @@ What holds in every band:
   the places (measured, so signed in the account band counts) cannot hold even that, the status gives
   way entirely, and Health is still one of the places. Only when the places themselves do not fit, as
   at a much larger text size, do the places and the status scroll together; the controls below never
-  scroll.
+  scroll. The collapsed icon rail's status has nothing that can give way, so its icons and Health link
+  are whole and in view under the places or left out, measured the same way, never cut at the foot.
 
 Explorer's filter rail orders filters by how often they change. Choices set once and
 left (**Visitors**, **Show**) are compact switches that explain only the chosen option
