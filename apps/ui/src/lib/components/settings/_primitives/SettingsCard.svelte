@@ -33,7 +33,7 @@
     // The page is h1, the open section h2, a group h3, and a group under More options h4. A
     // subheading inside the card is one below the card's own.
     const tag = $derived(underPageTitle ? 'h2' : nested ? 'h4' : 'h3');
-    provideSubheadingLevel(() => (nested ? 5 : 4));
+    provideSubheadingLevel(() => (underPageTitle ? 3 : nested ? 5 : 4));
     const headingId = $derived(titleId ?? `${id ?? uid}-title`);
 
     // With an id, the Settings page holds the open state, so it survives leaving the tab and the

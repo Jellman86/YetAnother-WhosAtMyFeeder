@@ -7,102 +7,80 @@ import { authoredLocale } from '../i18n/authored-locales';
 import { SETTINGS_SECTION_ORDER } from './settings-route';
 import { settingsMoreId } from './settings-more';
 import { SETTINGS_SEARCH_INDEX, settingsSearchEntry } from './settings-search-index';
+import { readSettingsMarkup, settingsComponentFiles, SETTINGS_COMPONENTS_DIR } from './settings-markup.test-support';
 
 /**
- * The search index against the markup it describes. A setting added to a Settings component
- * without an entry fails here, as does an entry whose label, help, anchor or disclosure no longer
- * matches the row; the browser suite then proves each entry lands where it says.
+ * The search index against the markup it describes, in every component under Settings, subfolders
+ * included. What fails here:
+ * - a `SettingsRow`, `SettingsSlider` or `SettingsCard` with no static id or no entry, or an entry
+ *   whose label, help, anchor or disclosure no longer matches it;
+ * - a row built in a loop that is not declared below with the entries it makes;
+ * - a control (a kit control or a bare input, select or textarea) outside any row or card header,
+ *   unless its file is declared below with the entries that find it.
+ * What it cannot see: a setting drawn with none of those, such as a custom element with a click
+ * handler. The browser suite then proves each entry lands where it says.
  */
-const COMPONENTS_DIR = join(__dirname, '..', 'components', 'settings');
+const COMPONENTS_DIR = SETTINGS_COMPONENTS_DIR;
 const LANGUAGES = ['en', 'de', 'es', 'fr', 'it', 'ja', 'pt', 'ru', 'zh'];
 
-/** Components whose groups are not settings an owner looks for, each with its reason. */
-const UNSEARCHED_COMPONENTS: Record<string, string> = {
-    'SystemHealthPanel.svelte': 'shown on the Health page, not in Settings',
-    'NativeProfileRevalidation.svelte': 'a notice that appears only after a crash, with no setting in it'
-};
-
-/** Rows built in a loop, whose anchors and labels are not literals; each is indexed by hand. */
-const LOOPED_ROWS: Record<string, string[]> = {
-    'AccessibilitySettings.svelte': ['setting-high-contrast', 'setting-dyslexia-font', 'setting-reduced-motion', 'setting-live-announcements'],
-    'HaWeatherSettings.svelte': [
-        'setting-ha-weather-temperature', 'setting-ha-weather-wind-speed', 'setting-ha-weather-wind-direction', 'setting-ha-weather-cloud-cover',
-        'setting-ha-weather-precipitation', 'setting-ha-weather-rain', 'setting-ha-weather-snowfall'
-    ]
-};
-
-/** Ids a component takes from a shared constant instead of a literal. */
-const CONSTANT_IDS: Record<string, string> = {
-    RUNTIME_REPORT_SECTION_ID: 'detection-inference-advanced',
-    CHANNELS_SECTION_ID: 'notification-channels'
-};
-
-const TAG = /<(\/?)(SettingsRow|SettingsSlider|SettingsCard|AdvancedSection)\b((?:[^>"'{}]|"[^"]*"|'[^']*'|\{(?:[^{}]|\{(?:[^{}]|\{[^{}]*\})*\})*\})*)>/g;
-
-interface Found {
-    file: string;
-    tag: string;
-    anchor: string | null;
-    labelKey: string | null;
-    helpKey: string | null;
-    dynamic: boolean;
-    within: string[];
-}
-
-function attribute(attributes: string, name: string): { literal?: string; expression?: string } | null {
-    const literal = new RegExp(`(?:^|\\s)${name}="([^"]*)"`).exec(attributes);
-    if (literal) return { literal: literal[1] };
-    const expression = new RegExp(`(?:^|\\s)${name}=\\{((?:[^{}]|\\{(?:[^{}]|\\{[^{}]*\\})*\\})*)\\}`).exec(attributes);
-    return expression ? { expression: expression[1] } : null;
-}
-
-function translationKey(value: { literal?: string; expression?: string } | null): string | null {
-    const match = value?.expression ? /^\s*\$_\(\s*'([^']+)'/.exec(value.expression) : null;
-    return match ? match[1] : null;
-}
-
-function idOf(value: { literal?: string; expression?: string } | null): { id: string | null; dynamic: boolean } {
-    if (!value) return { id: null, dynamic: false };
-    if (value.literal !== undefined) return value.literal.includes('{') ? { id: null, dynamic: true } : { id: value.literal, dynamic: false };
-    const constant = CONSTANT_IDS[value.expression.trim()];
-    return constant ? { id: constant, dynamic: false } : { id: null, dynamic: true };
-}
-
-function readComponents(): Found[] {
-    const found: Found[] = [];
-    for (const file of readdirSync(COMPONENTS_DIR).filter((name) => name.endsWith('.svelte')).sort()) {
-        if (file in UNSEARCHED_COMPONENTS) continue;
-        const source = readFileSync(join(COMPONENTS_DIR, file), 'utf8');
-        const open: Array<string | null> = [];
-        for (const match of source.matchAll(TAG)) {
-            const [, closing, tag, attributes] = match;
-            const holds = tag === 'SettingsCard' || tag === 'AdvancedSection';
-            if (closing) {
-                if (holds) open.pop();
-                continue;
-            }
-            const within = open.filter((id): id is string => id !== null);
-            if (holds) {
-                const { id, dynamic } = idOf(attribute(attributes, 'id'));
-                const closable = tag === 'AdvancedSection' || /(?:^|\s)collapsible(?:\s|$)/.test(attributes);
-                if (tag === 'SettingsCard') {
-                    found.push({ file, tag, anchor: id, labelKey: translationKey(attribute(attributes, 'title')), helpKey: null, dynamic, within });
-                }
-                if (!attributes.trimEnd().endsWith('/')) open.push(closable ? id : null);
-                continue;
-            }
-            const { id, dynamic } = idOf(attribute(attributes, tag === 'SettingsRow' ? 'labelId' : 'id'));
-            const labelKey = translationKey(attribute(attributes, 'label'));
-            found.push({ file, tag, anchor: id, labelKey, helpKey: translationKey(attribute(attributes, 'description')), dynamic: dynamic || labelKey === null, within });
-        }
+/**
+ * Rows built in a loop, whose anchors and labels are not literals: how many such rows the file has,
+ * the prefix their ids take, how the loop's items are written, and the entry each item gets.
+ */
+const LOOPED_ROWS: Record<string, { rows: number; prefix: string; items: RegExp; anchors: string[] }> = {
+    'AccessibilitySettings.svelte': {
+        rows: 1,
+        prefix: 'setting-',
+        items: /^\s+id: '([^']+)',$/gm,
+        anchors: ['setting-high-contrast', 'setting-dyslexia-font', 'setting-reduced-motion', 'setting-live-announcements']
+    },
+    'HaWeatherSettings.svelte': {
+        rows: 1,
+        prefix: 'setting-ha-weather-',
+        items: /\{ id: '([^']+)', label: /g,
+        anchors: [
+            'setting-ha-weather-temperature', 'setting-ha-weather-wind-speed', 'setting-ha-weather-wind-direction', 'setting-ha-weather-cloud-cover',
+            'setting-ha-weather-precipitation', 'setting-ha-weather-rain', 'setting-ha-weather-snowfall'
+        ]
     }
-    return found;
-}
+};
+
+/**
+ * Controls that sit outside a `SettingsRow` and a card's header: how many of each the file has, why,
+ * and the entries that find them. A control added to one of these files changes the count and fails,
+ * so it is given an entry (or joins one) on purpose.
+ */
+const CONTROLS_OUTSIDE_ROWS: Record<string, { controls: Record<string, number>; why: string; foundBy: string[] }> = {
+    'BetaFeatureCard.svelte': { controls: { SettingsToggle: 1 }, why: "the feature's own switch, beside its heading", foundBy: ['beta-garden-animals-name'] },
+    'CameraWatchRow.svelte': { controls: { select: 2, SettingsToggle: 1 }, why: 'one row per Frigate camera, named by the camera', foundBy: ['settings-group-cameras'] },
+    'ConnectionSettings.svelte': {
+        controls: { SettingsInput: 2, input: 1 },
+        why: "the broker's address and port share one hand-built row; the nest dedupe window belongs to the camera list",
+        foundBy: ['setting-mqtt-broker', 'settings-group-cameras']
+    },
+    'DetectionSettings.svelte': { controls: { SettingsInput: 1 }, why: 'the species search that fills the blocked list', foundBy: ['settings-group-detection-blocked-labels'] },
+    'GardenBetaSettings.svelte': { controls: { select: 1 }, why: "a choice inside one of Garden's own parts", foundBy: ['beta-garden-animals-name'] },
+    'GardenNotificationSettings.svelte': { controls: { input: 1 }, why: "the channel tick boxes under Garden's alert switch", foundBy: ['garden-notifications'] },
+    'HardwareSettings.svelte': { controls: { SettingsToggle: 1 }, why: 'an option of the device check, which is an action and saves nothing', foundBy: ['models-hardware'] },
+    'MaintenanceSettings.svelte': { controls: { input: 2 }, why: 'the two dates of a custom import window', foundBy: ['setting-backfill-window'] },
+    'NotificationChannelsSettings.svelte': {
+        controls: { SettingsToggle: 7, SecretInput: 8, input: 9, select: 1 },
+        why: "each channel's own fields, shown under its switch once the channel is on",
+        foundBy: ['discord-channel-label', 'pushover-channel-label', 'telegram-channel-label', 'email-channel-label']
+    },
+    'NotificationPolicySentence.svelte': { controls: { input: 2, SettingsToggle: 1 }, why: 'the choices inside the alert sentence', foundBy: ['settings-group-notifications-global-filters'] },
+    'NotificationSettings.svelte': {
+        controls: { SettingsToggle: 1, input: 8, select: 1 },
+        why: 'the cooldown, language, address, link and species filter, each a hand-built block with an entry of its own',
+        foundBy: ['notification-cooldown-label', 'notification-language', 'notification-instance-url', 'notification-link-opens', 'notification-species-filter-section']
+    }
+};
 
 const allSources = (): string =>
-    [COMPONENTS_DIR, join(COMPONENTS_DIR, 'sections'), __dirname]
-        .flatMap((dir) => readdirSync(dir).filter((name) => /\.(svelte|ts)$/.test(name) && !name.includes('.test.') && !name.startsWith('settings-search-index')).map((name) => readFileSync(join(dir, name), 'utf8')))
-        .join('\n');
+    [
+        ...settingsComponentFiles().map((file) => join(COMPONENTS_DIR, file)),
+        ...readdirSync(__dirname).filter((name) => name.endsWith('.ts') && !name.includes('.test') && !name.startsWith('settings-search-index')).map((name) => join(__dirname, name))
+    ].map((path) => readFileSync(path, 'utf8')).join('\n');
 
 function message(dictionary: unknown, key: string): unknown {
     let node = dictionary;
@@ -111,7 +89,7 @@ function message(dictionary: unknown, key: string): unknown {
 }
 
 describe('the settings search index', () => {
-    const found = readComponents();
+    const { rows: found, controls } = readSettingsMarkup();
 
     it('has an entry for every row and slider, under the label and help the row shows', () => {
         const problems: string[] = [];
@@ -131,9 +109,52 @@ describe('the settings search index', () => {
             else if (row.helpKey && entry.helpKey !== row.helpKey) problems.push(`${row.anchor}: the index's help is ${entry.helpKey}, the row shows ${row.helpKey}`);
         }
         expect(problems).toEqual([]);
-        // A row built in a loop is indexed by hand, and only where that is declared.
-        expect(Object.keys(looped).sort()).toEqual(Object.keys(LOOPED_ROWS).sort());
-        for (const anchors of Object.values(LOOPED_ROWS)) for (const anchor of anchors) expect(settingsSearchEntry(anchor), anchor).not.toBeNull();
+        // A row built in a loop is indexed by hand: only where declared, as many rows as declared,
+        // and one entry for each item the loop holds.
+        expect(looped).toEqual(Object.fromEntries(Object.entries(LOOPED_ROWS).map(([file, declared]) => [file, declared.rows])));
+        for (const [file, declared] of Object.entries(LOOPED_ROWS)) {
+            const source = readFileSync(join(COMPONENTS_DIR, file), 'utf8');
+            const items = [...source.matchAll(declared.items)].map((match) => `${declared.prefix}${match[1]}`);
+            expect(items.sort(), `${file}: one entry for each item of its loop`).toEqual([...declared.anchors].sort());
+            for (const anchor of declared.anchors) expect(settingsSearchEntry(anchor), anchor).not.toBeNull();
+        }
+    });
+
+    it('finds every control that sits outside a row through a declared entry', () => {
+        const loose: Record<string, Record<string, number>> = {};
+        for (const control of controls.filter((each) => !each.held)) {
+            loose[control.file] ??= {};
+            loose[control.file][control.tag] = (loose[control.file][control.tag] ?? 0) + 1;
+        }
+        // An exact count: a new control in one of these files, or a first one in another, fails until
+        // it is in a `SettingsRow` or is declared here with the entry that finds it.
+        expect(loose).toEqual(Object.fromEntries(Object.entries(CONTROLS_OUTSIDE_ROWS).map(([file, declared]) => [file, declared.controls])));
+        for (const [file, declared] of Object.entries(CONTROLS_OUTSIDE_ROWS)) {
+            expect(declared.why, file).not.toBe('');
+            for (const anchor of declared.foundBy) expect(settingsSearchEntry(anchor), `${file}: ${anchor}`).not.toBeNull();
+        }
+    });
+
+    it('reads components in subfolders, and reads rows, loops and loose controls the way it claims', () => {
+        expect(settingsComponentFiles()).toContain('sections/AlertsSection.svelte');
+        const sources: Record<string, string> = {
+            'garden/New.svelte': `<SettingsCard id="g" title={$_('a.title')}>
+                <SettingsRow labelId="setting-new" label={$_('a.new')} description={$_('a.new_help')}><SettingsToggle /></SettingsRow>
+                {#each items as item}<SettingsRow labelId="setting-{item.id}" label={item.label}><SettingsInput /></SettingsRow>{/each}
+                <label>Loose <input type="text" /></label>
+                <SettingsInput id="outside" />
+                {#snippet actions()}<SettingsToggle />{/snippet}
+            </SettingsCard>`
+        };
+        const read = readSettingsMarkup(Object.keys(sources), (file) => sources[file]);
+        expect(read.rows.map((row) => [row.tag, row.anchor, row.labelKey, row.dynamic])).toEqual([
+            ['SettingsCard', 'g', 'a.title', false],
+            ['SettingsRow', 'setting-new', 'a.new', false],
+            ['SettingsRow', null, null, true]
+        ]);
+        expect(read.controls.map((control) => [control.tag, control.held])).toEqual([
+            ['SettingsToggle', true], ['SettingsInput', true], ['input', false], ['SettingsInput', false], ['SettingsToggle', true]
+        ]);
     });
 
     it('has a group entry for every card of settings, under the card\'s title', () => {
@@ -167,9 +188,8 @@ describe('the settings search index', () => {
         const moreIds = new Set(SETTINGS_SECTION_ORDER.map(settingsMoreId));
         const inMarkup = (id: string): boolean => {
             if (sources.includes(`"${id}"`) || sources.includes(`'${id}'`)) return true;
-            // A looped row's id is `setting-` and the loop's own id; a beta feature's heading is named from its id.
-            const looped = /^setting-(?:ha-weather-)?(.+)$/.exec(id);
-            if (looped && sources.includes(`id: '${looped[1]}'`)) return true;
+            // A looped row's id is checked against its loop above; a beta feature's heading is named from its id.
+            if (Object.values(LOOPED_ROWS).some((declared) => declared.anchors.includes(id))) return true;
             const beta = /^beta-(.+)-name$/.exec(id);
             return Boolean(beta && sources.includes(`id="${beta[1]}"`));
         };

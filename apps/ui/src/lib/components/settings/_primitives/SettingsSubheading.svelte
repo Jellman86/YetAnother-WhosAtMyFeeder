@@ -7,7 +7,7 @@
         /** `label` for a subheading that names one switch row, at the size of a row label. */
         size?: 'group' | 'label';
         /** Set by a subheading that holds further subheadings, which it then sends one level down. */
-        level?: 4 | 5 | 6;
+        level?: 3 | 4 | 5 | 6;
         children: Snippet;
     }
 

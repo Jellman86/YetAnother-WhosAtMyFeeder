@@ -1,7 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import { messageWords } from '../src/lib/settings/settings-search';
-import { SETTINGS_SEARCH_INDEX, settingsSearchEntry } from '../src/lib/settings/settings-search-index';
+import { SETTINGS_SEARCH_INDEX, settingsSearchInMore } from '../src/lib/settings/settings-search-index';
 import { openSettings, saveBar } from './settings-page-mock';
 
 // The Settings search: a box first in the navigation that finds any setting by its name, its help
@@ -18,24 +18,40 @@ const EVERYTHING_ON = {
     notifications_telegram_enabled: true, notifications_email_enabled: true, telemetry_enabled: true, debug_ui_enabled: true
 };
 
-/** Settings the fixture cannot show even with every switch on: they need a live answer from a service. */
-const NEEDS_A_LIVE_SERVICE = new Set(['setting-recording-clips', 'setting-recording-before', 'setting-recording-after', 'setting-range-filter-level']);
+/** The two services whose answers decide whether a row is drawn, answered as a working install does. */
+const SERVICES_ANSWER = (path: string): { json: unknown } | undefined => {
+    if (path.endsWith('/frigate/recording-clip-capability')) {
+        return { json: { supported: true, recordings_enabled: true, retention_days: 7, eligible_cameras: ['feeder'], ineligible_cameras: {} } };
+    }
+    if (path.endsWith('/range-filter/status')) {
+        return { json: {
+            reason: 'active', enabled: true, filtering: true, ebird_configured: true, species_in_range: 412, region_species_total: 415,
+            region: { code: 'GB-ENG-KEN', codes: ['GB-ENG-KEN'], name: 'Kent, England, GB', level: 'county', note: null },
+            refreshed_at: new Date(Date.now() - 2 * 86_400_000).toISOString(), model: { bird_species: 1486, out_of_range: 803, unmatched: 0 }
+        } };
+    }
+    return undefined;
+};
 
 const search = (page: Page) => page.getByRole('combobox', { name: 'Search settings' });
 const results = (page: Page) => page.getByRole('listbox', { name: 'Search settings' }).getByRole('option');
 const found = (page: Page) => page.locator('[data-settings-found]');
 
-/** Whether focus is on the control of the setting an anchor names: inside its row, group or labelled control. */
-async function focusIsOn(page: Page, anchor: string): Promise<boolean> {
-    return page.evaluate((id) => {
-        const element = document.getElementById(id);
+/**
+ * Whether focus is on the setting an anchor names: on a control inside its row or on the control its
+ * label names. A group lands on its own heading, not on something inside the card.
+ */
+async function focusIsOn(page: Page, anchor: string, group: boolean): Promise<boolean> {
+    return page.evaluate(([id, isGroup]) => {
+        const element = document.getElementById(id as string);
         const active = document.activeElement;
         if (!element || !active || active === document.body) return false;
+        if (isGroup) return /^H[2-6]$/.test(active.tagName) && (active === element || element.contains(active)) && !active.closest('[data-settings-section-body]');
         const home = element.closest('[data-settings-row]') ?? element;
         if (home.contains(active)) return true;
         const labelled = document.querySelector(`[aria-labelledby~="${CSS.escape(id)}"]`);
         return Boolean(labelled && (labelled === active || labelled.contains(active)));
-    }, anchor);
+    }, [anchor, group] as const);
 }
 
 test.describe('on a wide screen', () => {
@@ -85,6 +101,8 @@ test.describe('on a wide screen', () => {
         const count = await results(page).count();
         expect(count).toBeGreaterThan(1);
         await expect(page.locator('[data-settings-search-status]')).toHaveText(`${count} settings found`);
+        // The count is said once: the input is not also described by it.
+        await expect(search(page)).not.toHaveAttribute('aria-describedby');
         await expect(results(page).nth(0)).toHaveAttribute('aria-selected', 'true');
         await page.keyboard.press('ArrowDown');
         await expect(results(page).nth(1)).toHaveAttribute('aria-selected', 'true');
@@ -101,6 +119,17 @@ test.describe('on a wide screen', () => {
         await page.locator('#mqtt-server').fill('');
         await page.locator('#mqtt-server').pressSequentially('a/b');
         await expect(page.locator('#mqtt-server')).toHaveValue('a/b');
+    });
+
+    test('when more settings match than are listed, the count says how many there are', async ({ page }) => {
+        await openSettings(page);
+        await search(page).fill('notification');
+        await expect(results(page)).toHaveCount(8);
+        const status = page.locator('[data-settings-search-status]');
+        await expect(status).toHaveText(/^\d+ settings match; showing 8\. Type more to narrow them\.$/);
+        expect(Number((await status.innerText()).split(' ')[0])).toBeGreaterThan(8);
+        await search(page).fill('notification cooldown');
+        await expect(status).toHaveText('1 setting found');
     });
 
     test('nothing found says so, with what can be searched', async ({ page }) => {
@@ -132,8 +161,83 @@ test.describe('on a wide screen', () => {
         await openSettings(page, { llm_enabled: false });
         await search(page).fill('prompt style');
         await page.keyboard.press('Enter');
-        await expect(page.getByRole('switch', { name: /AI/ }).first()).toBeFocused({ timeout: 15_000 });
-        await expect(page.locator('[data-settings-search-note]')).toContainText('is shown once');
+        const aiSwitch = page.getByRole('switch', { name: /AI/ }).first();
+        await expect(aiSwitch).toBeFocused({ timeout: 15_000 });
+        // Said in a region that was on the page, empty, before there was anything to say.
+        await expect(page.locator('[data-settings-search-note]')).toHaveText(/is shown once/);
+        // And shown beside the switch, which is described by it.
+        const beside = page.locator('[data-settings-found-note]');
+        await expect(beside).toBeVisible();
+        await expect(beside).toHaveText(await page.locator('[data-settings-search-note]').innerText());
+        expect(await aiSwitch.getAttribute('aria-describedby')).toContain('settings-found-note');
+        expect(await beside.evaluate((note) => Boolean(note.closest('[data-settings-row]')))).toBe(true);
+        // Another section, and the note has gone from both places.
+        await page.locator('[data-settings-navigation]').getByRole('link', { name: 'Alerts', exact: true }).click();
+        await expect(page.locator('[data-settings-search-note]')).toHaveText('');
+        await expect(beside).toHaveCount(0);
+    });
+
+    test('the note region is on the page, empty, before any search', async ({ page }) => {
+        await openSettings(page);
+        const note = page.locator('[data-settings-search-note]');
+        await expect(note).toHaveCount(1);
+        await expect(note).toHaveAttribute('role', 'status');
+        await expect(note).toHaveText('');
+    });
+
+    test('a jump still waiting is called off when the reader opens another section: no pull back, no note', async ({ page }) => {
+        // "Prompt style" is behind the AI switch, which is off: the jump waits for the row, then turns to the switch.
+        await openSettings(page, { llm_enabled: false });
+        const rail = page.locator('[data-settings-navigation]');
+        await search(page).fill('prompt style');
+        await page.keyboard.press('Enter');
+        await rail.getByRole('link', { name: 'Alerts', exact: true }).click();
+        await expect(rail.getByRole('link', { name: 'Alerts', exact: true })).toHaveAttribute('aria-current', 'page');
+        // Long enough for the old jump to have gone to the switch and come back for the reader.
+        await page.waitForTimeout(3500);
+        await expect(rail.getByRole('link', { name: 'Alerts', exact: true })).toHaveAttribute('aria-current', 'page');
+        await expect(page.locator('main')).toHaveAttribute('data-fixture-route', '/settings/alerts');
+        await expect(found(page)).toHaveCount(0);
+        await expect(page.locator('[data-settings-found-note]')).toHaveCount(0);
+        await expect(page.locator('[data-settings-search-note]')).toHaveText('');
+        expect(await page.evaluate(() => Boolean(document.activeElement?.closest('[data-settings-part="ai"]')))).toBe(false);
+    });
+
+    test('a jump still waiting is called off when the reader types in another field: focus stays with them', async ({ page }) => {
+        const slow = { on: false };
+        await openSettings(page, {}, {
+            respond: async () => {
+                // The section's reads take their time, so the jump waits for them before it scrolls.
+                if (slow.on) await new Promise((resolve) => setTimeout(resolve, 2500));
+                return undefined;
+            }
+        });
+        slow.on = true;
+        await search(page).fill('worker processes');
+        await page.keyboard.press('Enter');
+        const gap = page.locator('#visit-gap-seconds');
+        await expect(gap).toBeVisible();
+        await gap.click();
+        await gap.press('ControlOrMeta+a');
+        await gap.pressSequentially('45', { delay: 400 });
+        await page.waitForTimeout(4500);
+        await expect(gap).toBeFocused();
+        await expect(gap).toHaveValue('45');
+        await expect(found(page)).toHaveCount(0);
+        await expect(page.locator('[data-settings-search-note]')).toHaveText('');
+    });
+
+    test('a newer choice wins: the earlier one says nothing when it ends', async ({ page }) => {
+        await openSettings(page, { llm_enabled: false });
+        await search(page).fill('prompt style');
+        await page.keyboard.press('Enter');
+        await search(page).fill('gap');
+        await page.keyboard.press('Enter');
+        await expect(page.locator('#visit-gap-seconds')).toBeFocused();
+        await page.waitForTimeout(2500);
+        await expect(page.locator('#visit-gap-seconds')).toBeFocused();
+        await expect(page.locator('[data-settings-search-note]')).toHaveText('');
+        await expect(page.locator('[data-settings-found-note]')).toHaveCount(0);
     });
 
     test('the search follows the language, and still knows English synonyms', async ({ page }) => {
@@ -149,7 +253,7 @@ test.describe('on a wide screen', () => {
 
     test('every indexed setting lands on its own control', async ({ page }) => {
         test.setTimeout(600_000);
-        await openSettings(page, EVERYTHING_ON);
+        await openSettings(page, EVERYTHING_ON, { respond: SERVICES_ANSWER });
         const box = page.locator('[data-settings-search-input]');
         // The page's own English dictionary, so the test types what the reader would see.
         const dictionary = await page.evaluate(async () => (await import(/* @vite-ignore */ `${location.origin}/src/lib/i18n/locales/en.ts`)).default as unknown);
@@ -160,7 +264,6 @@ test.describe('on a wide screen', () => {
         };
         const missed: string[] = [];
         for (const entry of SETTINGS_SEARCH_INDEX) {
-            if (NEEDS_A_LIVE_SERVICE.has(entry.anchor)) continue;
             // Chosen through the box, as a reader would, by its own label.
             const label = labelOf(entry.labelKey);
             await box.fill(label);
@@ -170,15 +273,20 @@ test.describe('on a wide screen', () => {
                 continue;
             }
             await option.click();
-            const landed = await expect.poll(() => focusIsOn(page, entry.anchor), { timeout: 10_000 }).toBe(true).then(() => true, () => false);
+            const landed = await expect.poll(() => focusIsOn(page, entry.anchor, entry.kind === 'group'), { timeout: 10_000 }).toBe(true).then(() => true, () => false);
             if (!landed) {
                 const where = await page.evaluate(() => document.activeElement?.id || document.activeElement?.tagName || '');
                 missed.push(`${entry.anchor}: focus went to ${where}`);
+                continue;
+            }
+            // A group's heading is one level down under More options: an h4 there, an h3 otherwise.
+            if (entry.kind === 'group') {
+                const tag = await page.evaluate(() => document.activeElement?.tagName ?? '');
+                const expected = settingsSearchInMore(entry) ? 'H4' : 'H3';
+                if (tag !== expected) missed.push(`${entry.anchor}: its heading is ${tag}, and it ${expected === 'H4' ? 'is' : 'is not'} under More options`);
             }
         }
         expect(missed).toEqual([]);
-        // An entry said to need a live service must still be a real entry.
-        for (const anchor of NEEDS_A_LIVE_SERVICE) expect(settingsSearchEntry(anchor), anchor).not.toBeNull();
     });
 });
 
@@ -206,6 +314,21 @@ test.describe('on a phone', () => {
             const heading = await page.locator('[data-settings-section-heading]').boundingBox();
             if (!field || !heading) return false;
             return field.y > heading.y + heading.height && field.y + field.height <= 844;
+        }).toBe(true);
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    });
+
+    test('the reason a result opened a switch is on screen beside that switch, not scrolled away with the search', async ({ page }) => {
+        await openSettings(page, { llm_enabled: false });
+        await search(page).fill('prompt style');
+        await results(page).first().click();
+        const aiSwitch = page.getByRole('switch', { name: /AI/ }).first();
+        await expect(aiSwitch).toBeFocused({ timeout: 15_000 });
+        const beside = page.locator('[data-settings-found-note]');
+        await expect(beside).toHaveText(/is shown once/);
+        await expect.poll(async () => {
+            const [note, toggle] = [await beside.boundingBox(), await aiSwitch.boundingBox()];
+            return Boolean(note && toggle && note.y >= 0 && note.y + note.height <= 844 && toggle.y >= 0 && toggle.y + toggle.height <= 844);
         }).toBe(true);
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     });

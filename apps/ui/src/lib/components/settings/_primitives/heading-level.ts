@@ -2,7 +2,7 @@ import { getContext, setContext } from 'svelte';
 
 const SUBHEADING_LEVEL = Symbol('settings-subheading-level');
 
-type SubheadingLevel = 4 | 5 | 6;
+type SubheadingLevel = 3 | 4 | 5 | 6;
 
 /** Called by whatever owns a group's heading, so a subheading inside it lands one level below. */
 export function provideSubheadingLevel(level: () => SubheadingLevel): void {

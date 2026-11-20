@@ -6,12 +6,18 @@ import { settingsMoreId } from './settings-more';
  * the section opens, so the search cannot read the settings from the page: this list is what it
  * searches, in the reader's language, through the same translation keys the rows show.
  *
- * It is held to the markup by tests, so it cannot drift:
- * - `settings-search-index.test.ts` reads every Settings component and fails when a row or a group
- *   has no entry here, when an entry names a different label or help key than the row shows, when
- *   an entry's anchor is not in the markup, or when a key is missing from any language;
+ * It is held to the markup by tests:
+ * - `settings-search-index.test.ts` reads every component under `components/settings`, subfolders
+ *   included, and fails when a row, slider or card has no static id or no entry; when an entry names
+ *   a different label or help key than the markup; when an anchor or disclosure is not in the markup;
+ *   when a row built in a loop, or a control outside any row, is not declared there with the entries
+ *   that find it; or when a key is missing from any language;
+ * - `settings-reading-hierarchy.layout.test.ts` holds each card's heading level to where its entry
+ *   says it is;
  * - `browser-tests/settings-search.spec.ts` opens every entry in the real page and fails unless
- *   focus lands inside the element its anchor names.
+ *   focus lands on that setting's own control.
+ * What they cannot see is a setting drawn with none of the kit's rows or controls, nor a plain
+ * input, select or textarea: nothing in Settings is built that way today.
  */
 export interface SettingsSearchEntry {
     /** The id of the element a result lands on: a row's label, a slider, or a group. */

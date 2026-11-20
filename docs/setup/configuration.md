@@ -16,8 +16,8 @@ name, what it does, or a word such as "password", "GPU" or "backup", in the lang
 is in. Each result says where the setting lives ("Alerts › More options"). Choosing one opens that
 section, opens **More options** and any advanced group around the setting, scrolls to it and puts
 the keyboard on its control, with an outline for a moment. A setting that only appears while a
-switch is on takes you to that switch and says so. Press **/** anywhere on Settings to reach the
-search; the arrow keys move through the results, Enter opens one and Escape closes the list.
+switch is on takes you to that switch, with the reason beside it. Press **/** anywhere on Settings to reach the
+search, whichever way your keyboard types it; the arrow keys move through the results, Enter opens one and Escape closes the list.
 Searching never changes or discards anything: unsaved changes wait as before.
 
 The section you are in is named above its settings and stays at the top of the window as you

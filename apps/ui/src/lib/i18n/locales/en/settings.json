@@ -1856,6 +1856,7 @@
     "placeholder": "Find a setting",
     "clear": "Clear search",
     "count": "{count, plural, one {# setting found} other {# settings found}}",
+    "count_more": "{total} settings match; showing {shown}. Type more to narrow them.",
     "none": "No setting matches “{query}”.",
     "none_hint": "Search by a setting’s name, by what it does, or by a word such as password, GPU or backup.",
     "advanced": "Advanced",

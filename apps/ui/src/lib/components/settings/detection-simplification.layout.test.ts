@@ -60,7 +60,7 @@ describe('Detection and Models settings, status first', () => {
         expect([...order].sort((a, b) => a - b)).toEqual(order);
         expect(detectionSettingsSource.match(/<SettingsCard/g)).toHaveLength(2);
         expect(detectionSettingsSource).toContain('id="detection-frigate-video"');
-        expect(detectionSettingsSource.match(/<SettingsCard\s+collapsible/g)).toHaveLength(1);
+        expect(detectionSettingsSource.match(/<SettingsCard\s+nested\s+collapsible/g)).toHaveLength(1);
         // Models opens on what names birds, then the models with the evaluation row; Hardware is its own card.
         const modelsOrder = ['<IdentificationStatusLine', 'models_card_title', 'setting-model-evaluation'].map((key) => modelSettingsSource.indexOf(key));
         for (const at of modelsOrder) expect(at).toBeGreaterThan(-1);

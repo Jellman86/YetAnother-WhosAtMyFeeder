@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { isTextEntryTarget } from '../utils/text-entry-target';
     import { onDestroy } from 'svelte';
     import { _, locale } from 'svelte-i18n';
     import { searchExplorer, type ExplorerSearchRecord, type ExplorerSearchResponse, type ExplorerSearchTaxon } from '../api/explorer';
@@ -184,16 +185,9 @@
         }
     }
 
-    function isTextField(target: EventTarget | null): boolean {
-        if (!(target instanceof HTMLElement)) return false;
-        if (target.isContentEditable) return true;
-        if (target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) return true;
-        return target instanceof HTMLInputElement && !['button', 'checkbox', 'radio', 'submit', 'reset', 'range', 'color', 'file'].includes(target.type);
-    }
-
     function handleWindowKeydown(event: KeyboardEvent): void {
         if (event.key !== '/' || event.ctrlKey || event.metaKey || event.altKey || event.defaultPrevented) return;
-        if (!shortcutEnabled || isTextField(event.target) || !input || input.getClientRects().length === 0) return;
+        if (!shortcutEnabled || isTextEntryTarget(event.target) || !input || input.getClientRects().length === 0) return;
         event.preventDefault();
         input.focus();
         input.select();

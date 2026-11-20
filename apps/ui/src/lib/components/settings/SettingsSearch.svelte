@@ -1,18 +1,25 @@
 <script lang="ts">
+    import { isTextEntryTarget } from '../../utils/text-entry-target';
     import { _, json } from 'svelte-i18n';
-    import { messageWords, searchSettings, type SearchableSetting } from '../../settings/settings-search';
+    import { messageWords, prepareSettings, searchSettings, type SearchableSetting } from '../../settings/settings-search';
     import type { SettingsSection } from '../../settings/settings-route';
     import {
         SETTINGS_SEARCH_INDEX,
-        settingsSearchEntry,
         settingsSearchInMore,
         settingsSearchIsAdvanced,
         settingsSearchSection,
         type SettingsSearchEntry
     } from '../../settings/settings-search-index';
 
-    /** Where a chosen result ended up: on the setting, on the switch that shows it, or nowhere. */
-    export type SettingsSearchLanding = 'shown' | 'behind' | 'missing';
+    /**
+     * Where a chosen result ended up: on the setting, on the switch that shows it, or nowhere.
+     * `cancelled` means the reader moved on before it arrived: nothing was moved and nothing is said.
+     */
+    export interface SettingsSearchLanding {
+        landing: 'shown' | 'behind' | 'missing' | 'cancelled';
+        /** Why the setting itself was not opened, in the reader's language. */
+        note?: string;
+    }
 
     interface Props {
         /** Opens the setting an anchor names and moves focus to it. */
@@ -25,15 +32,20 @@
 
     const uid = $props.id();
     const listboxId = `${uid}-results`;
-    const statusId = `${uid}-status`;
     const optionId = (index: number): string => `${uid}-result-${index}`;
 
     let input = $state<HTMLInputElement | null>(null);
     let text = $state('');
     let open = $state(false);
     let activeIndex = $state(0);
-    /** Said after a result opened the switch that shows a setting, not the setting itself. */
-    let landingNote = $state('');
+    /**
+     * Said after a result opened the switch that shows a setting, not the setting itself, and kept
+     * only while the reader stays in the section it was said in.
+     */
+    let landingNote = $state<{ text: string; section: SettingsSection; beside: boolean } | null>(null);
+    const noteText = $derived(landingNote && landingNote.section === activeSection ? landingNote.text : '');
+    /** The latest choice; an older one that finishes late says nothing. */
+    let choices = 0;
 
     /** A message as the reader's language has it, as plain words; empty when the key has no text. */
     const words = (key: string | undefined): string => {
@@ -43,18 +55,22 @@
 
     // The whole index in the reader's language. English keywords are searched in every language:
     // "gpu", "mqtt" and "backup" are what people type whatever the interface says.
-    const searchable = $derived<SearchableSetting<SettingsSearchEntry>[]>(
-        SETTINGS_SEARCH_INDEX.map((entry) => ({
-            item: entry,
-            label: words(entry.labelKey),
-            help: words(entry.helpKey),
-            keywords: entry.keywords,
-            group: entry.kind === 'group'
-        })).filter((setting) => setting.label !== '')
+    // Folded once per language, not on every keystroke.
+    const searchable = $derived(
+        prepareSettings(
+            SETTINGS_SEARCH_INDEX.map((entry): SearchableSetting<SettingsSearchEntry> => ({
+                item: entry,
+                label: words(entry.labelKey),
+                help: words(entry.helpKey),
+                keywords: entry.keywords,
+                group: entry.kind === 'group'
+            })).filter((setting) => setting.label !== '')
+        )
     );
 
     const query = $derived(text.trim());
-    const results = $derived(searchSettings(query, searchable, { near: (entry) => settingsSearchSection(entry) === activeSection }).map((match) => match.item));
+    const search = $derived(searchSettings(query, searchable, { near: (entry) => settingsSearchSection(entry) === activeSection }));
+    const results = $derived(search.matches.map((match) => match.item));
     const expanded = $derived(open && query !== '' && results.length > 0);
     const showEmpty = $derived(open && query !== '' && results.length === 0);
 
@@ -74,16 +90,13 @@
     async function choose(entry: SettingsSearchEntry): Promise<void> {
         close();
         text = '';
-        landingNote = '';
-        const landing = await onchoose(entry.anchor);
-        if (landing === 'shown') return;
-        const behind = entry.behind ? settingsSearchEntry(entry.behind) : null;
-        landingNote = landing === 'behind' && behind
-            ? $_('settings.search.behind', {
-                  values: { setting: words(entry.labelKey), switch: words(behind.labelKey) },
-                  default: '“{setting}” is shown once “{switch}” is turned on.'
-              })
-            : $_('settings.search.not_shown', { values: { setting: words(entry.labelKey) }, default: '“{setting}” is not shown on this install.' });
+        landingNote = null;
+        const choice = ++choices;
+        const outcome = await onchoose(entry.anchor);
+        // The reader moved on, or has chosen again since: this result has nothing to say.
+        if (choice !== choices || outcome.landing === 'cancelled' || !outcome.note) return;
+        // On the switch that shows the setting, the page puts the same words beside it.
+        landingNote = { text: outcome.note, section: activeSection, beside: outcome.landing === 'behind' };
     }
 
     function handleKeydown(event: KeyboardEvent): void {
@@ -123,18 +136,11 @@
         }
     }
 
-    function isTextField(target: EventTarget | null): boolean {
-        if (!(target instanceof HTMLElement)) return false;
-        if (target.isContentEditable) return true;
-        if (target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) return true;
-        return target instanceof HTMLInputElement && !['button', 'checkbox', 'radio', 'submit', 'reset', 'range', 'color', 'file'].includes(target.type);
-    }
-
     // "/" from anywhere on Settings that is not a text field, as on the Explorer. Not while a
     // dialog is open: the page behind it is not the one being worked in.
     function handleWindowKeydown(event: KeyboardEvent): void {
         if (event.key !== '/' || event.ctrlKey || event.metaKey || event.altKey || event.defaultPrevented) return;
-        if (isTextField(event.target) || !input || input.getClientRects().length === 0) return;
+        if (isTextEntryTarget(event.target) || !input || input.getClientRects().length === 0) return;
         if (document.querySelector('[role="dialog"][aria-modal="true"], dialog[open]')) return;
         event.preventDefault();
         input.focus();
@@ -165,9 +171,8 @@
             aria-expanded={expanded}
             aria-controls={listboxId}
             aria-activedescendant={expanded ? optionId(activeIndex) : undefined}
-            aria-describedby={statusId}
             aria-keyshortcuts="/"
-            oninput={() => { open = true; activeIndex = 0; landingNote = ''; }}
+            oninput={() => { open = true; activeIndex = 0; landingNote = null; }}
             onkeydown={handleKeydown}
             onfocus={() => { if (query) open = true; }}
             onblur={close}
@@ -188,18 +193,24 @@
         {/if}
     </div>
 
-    <!-- The count, said politely as the reader types; the empty state says it in the panel as well. -->
-    <p id={statusId} class="sr-only" role="status" aria-live="polite" data-settings-search-status>
+    <!-- How many settings match, said politely as the reader types, however few are listed; the
+         empty state says it in the panel as well. The input is not described by it too, or the
+         count would be read twice. -->
+    <p class="sr-only" role="status" aria-live="polite" data-settings-search-status>
         {#if query !== '' && open}
-            {results.length > 0
-                ? $_('settings.search.count', { values: { count: results.length }, default: '{count, plural, one {# setting found} other {# settings found}}' })
-                : $_('settings.search.none', { values: { query }, default: 'No setting matches “{query}”.' })}
+            {#if results.length === 0}
+                {$_('settings.search.none', { values: { query }, default: 'No setting matches “{query}”.' })}
+            {:else if search.total > results.length}
+                {$_('settings.search.count_more', { values: { total: search.total, shown: results.length }, default: '{total} settings match; showing {shown}. Type more to narrow them.' })}
+            {:else}
+                {$_('settings.search.count', { values: { count: search.total }, default: '{count, plural, one {# setting found} other {# settings found}}' })}
+            {/if}
         {/if}
     </p>
 
-    {#if landingNote}
-        <p class="mt-2 text-sm text-ink" role="status" data-settings-search-note>{landingNote}</p>
-    {/if}
+    <!-- Always on the page and filled afterwards, so a screen reader hears it: a region created
+         already filled is often missed. Seen here only when there is no switch to show it beside. -->
+    <p class={noteText && !landingNote?.beside ? 'mt-2 text-sm text-ink' : 'sr-only'} role="status" aria-live="polite" data-settings-search-note>{noteText}</p>
 
     <!-- Wider than the rail it sits in, so a result's name and where it lives each keep a line. -->
     <div

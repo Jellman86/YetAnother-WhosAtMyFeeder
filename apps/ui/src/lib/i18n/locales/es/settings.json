@@ -1856,6 +1856,7 @@
     "placeholder": "Buscar un ajuste",
     "clear": "Borrar la búsqueda",
     "count": "{count, plural, one {# ajuste encontrado} other {# ajustes encontrados}}",
+    "count_more": "{total} ajustes coinciden; se muestran {shown}. Escribe más para acotarlos.",
     "none": "Ningún ajuste coincide con «{query}».",
     "none_hint": "Busca por el nombre de un ajuste, por lo que hace o por una palabra como contraseña, GPU o copia de seguridad.",
     "advanced": "Avanzado",

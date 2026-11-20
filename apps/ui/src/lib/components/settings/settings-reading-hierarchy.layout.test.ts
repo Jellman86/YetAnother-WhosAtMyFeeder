@@ -3,6 +3,8 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { settingsSearchEntry, settingsSearchInMore } from '../../settings/settings-search-index';
+import { readSettingsMarkup } from '../../settings/settings-markup.test-support';
 
 /**
  * How Settings reads: one heading scale and one place for weight. The page is the h1, the open
@@ -36,17 +38,25 @@ describe('Settings heading hierarchy', () => {
         expect(page.indexOf('data-settings-section-heading')).toBeLessThan(page.indexOf('data-settings-aside="top"'));
     });
 
-    it('makes a group an h3, and an h4 under More options, in the display face', () => {
+    it('gives each group the level of where it is: an h3, or an h4 under More options', () => {
+        // From the search index, which holds where every group is and is proven in the browser: a card
+        // says `nested` exactly when its entry opens More options first.
+        const cards = readSettingsMarkup().rows.filter((row) => row.tag === 'SettingsCard' && row.anchor);
+        expect(cards.length).toBeGreaterThan(30);
+        const wrong = cards
+            .map((card) => ({ card, entry: settingsSearchEntry(card.anchor) }))
+            .filter(({ card, entry }) => entry && card.nested !== settingsSearchInMore(entry))
+            .map(({ card, entry }) => `${card.file}: ${card.anchor} is ${settingsSearchInMore(entry) ? 'under More options, so it needs `nested`' : 'not under More options, so it must not be `nested`'}`);
+        expect(wrong).toEqual([]);
+        // The card turns that into the tag, and sends a name inside it one level further down.
         const card = read('_primitives', 'SettingsCard.svelte');
         expect(card).toContain("const tag = $derived(underPageTitle ? 'h2' : nested ? 'h4' : 'h3');");
+        expect(card).toContain('provideSubheadingLevel(() => (underPageTitle ? 3 : nested ? 5 : 4));');
         // Only the Health page's panel, which has no section heading above it, sits under the page title.
         const underTitle = components().filter(([, source]) => /<SettingsCard\b[^>]*\bunderPageTitle\b/.test(source)).map(([name]) => name);
         expect(underTitle).toEqual([]);
         expect(read('SystemHealthPanel.svelte')).toMatch(/<SettingsCard\s+underPageTitle\b/);
-        expect(card).toContain('<svelte:element this={tag} id={headingId} class="font-display font-semibold text-strong {nested ? \'text-lg\' : \'text-xl\'}">');
-        expect(card).toContain('provideSubheadingLevel(() => (nested ? 5 : 4));');
-        const more = read('sections', 'SectionMore.svelte');
-        expect(more).toContain('<h3 class="text-xl font-semibold text-strong">');
+        expect(read('sections', 'SectionMore.svelte')).toContain('<h3 class="text-xl font-semibold text-strong">');
     });
 
     it('starts every heading on the left edge its card starts on', () => {

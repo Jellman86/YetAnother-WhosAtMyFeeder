@@ -268,7 +268,8 @@
 
 
 <SettingsCard
-        id="settings-group-range-filter"
+    nested
+    id="settings-group-range-filter"
     title={$_('settings.range_filter.title', { default: 'Range filter' })}
     description={$_('settings.range_filter.description', { default: 'Sets aside automatic identifications of birds eBird has never recorded in your region, so a European species is not named at a Californian feeder.' })}
 >

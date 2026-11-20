@@ -960,11 +960,17 @@ build something better."*
 - **Settings search**: one combobox, first in the Settings navigation at every width, over a static
   index (`src/lib/settings/settings-search-index.ts`): each row's anchor (its `labelId`), part, label
   and help keys, the disclosures that must open, the switch it sits behind, and English synonyms.
-  Every `SettingsRow`, `SettingsSlider` and `SettingsCard` needs a static id and an entry;
+  Every `SettingsRow`, `SettingsSlider` and `SettingsCard` needs a static id and an entry, a row
+  built in a loop or a control outside a row is declared in the index test with the entries that
+  find it, and a card is `nested` exactly when its entry is under More options;
   `settings-search-index.test.ts` fails otherwise, and `browser-tests/settings-search.spec.ts` opens
   every entry and checks focus lands on its control. A result names the setting and where it lives.
-  Results rank by how the query sits in the text (at its start, then at the start of a word, then
-  inside one), then by where (label, help, keyword), then the open section before the others.
+  Results rank by how the query sits in the text (a label that starts with it, then a word that
+  starts with it, then inside a word, which a query under three letters never matches), then by
+  where (label, help, keyword), then the open section before the others. The spoken count is the
+  number that match, not the number listed. A jump still waiting is called off by the reader's own
+  scroll, key or press, by another section and by a newer search, and then moves and says nothing.
+  A result that opens the switch a setting sits behind puts the reason beside that switch.
   Choosing one moves focus to the control and marks the row with `data-settings-found` for a moment
   (an outline; the tint fades only when motion is allowed). "/" focuses it, as on the Explorer.
 - **Charts**: a line or bar chart takes `chart-h` or `chart-h-tall`, a height between a floor and

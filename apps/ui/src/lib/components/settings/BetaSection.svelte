@@ -23,7 +23,7 @@
     const disclosure = useDisclosure(() => ({ id, openByDefault }));
     // A name inside this part is one level below the part's own heading.
     const level = subheadingLevel();
-    provideSubheadingLevel(() => (level === 4 ? 5 : 6));
+    provideSubheadingLevel(() => (level === 3 ? 4 : level === 4 ? 5 : 6));
     const open = $derived(disclosure.open);
 </script>
 

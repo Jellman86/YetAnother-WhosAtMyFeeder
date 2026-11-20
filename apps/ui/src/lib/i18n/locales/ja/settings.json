@@ -1856,6 +1856,7 @@
     "placeholder": "設定を探す",
     "clear": "検索をクリア",
     "count": "{count, plural, other {#件の設定が見つかりました}}",
+    "count_more": "{total}件の設定が一致します。{shown}件を表示中です。さらに入力して絞り込めます。",
     "none": "「{query}」に一致する設定はありません。",
     "none_hint": "設定の名前、その働き、または「パスワード」「GPU」「バックアップ」などの言葉で検索できます。",
     "advanced": "詳細",

@@ -1856,6 +1856,7 @@
     "placeholder": "Trova un’impostazione",
     "clear": "Cancella la ricerca",
     "count": "{count, plural, one {# impostazione trovata} other {# impostazioni trovate}}",
+    "count_more": "{total} impostazioni corrispondono; ne sono mostrate {shown}. Scrivi ancora per restringerle.",
     "none": "Nessuna impostazione corrisponde a «{query}».",
     "none_hint": "Cerca per nome dell’impostazione, per ciò che fa o con una parola come password, GPU o backup.",
     "advanced": "Avanzate",

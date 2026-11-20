@@ -1856,6 +1856,7 @@
     "placeholder": "Einstellung finden",
     "clear": "Suche leeren",
     "count": "{count, plural, one {# Einstellung gefunden} other {# Einstellungen gefunden}}",
+    "count_more": "{total} Einstellungen passen; {shown} werden angezeigt. Tippe weiter, um sie einzugrenzen.",
     "none": "Keine Einstellung passt zu „{query}“.",
     "none_hint": "Suche nach dem Namen einer Einstellung, nach dem, was sie bewirkt, oder nach einem Wort wie Passwort, GPU oder Backup.",
     "advanced": "Erweitert",
