@@ -47,6 +47,13 @@ describe('accessibility choices reaching a public visitor', () => {
         expect(appCss).toContain('.reduced-motion .animate-ping');
     });
 
+    it('turns transitions off under reduced motion rather than cutting them short', () => {
+        // At 0.01ms every element still ran a transition for each property a change touched, and
+        // Safari then kept the old text size inside each one after a text size change until reload.
+        expect(appCss).not.toMatch(/transition-duration:\s*0\.01ms/);
+        expect(appCss.match(/transition-duration: 0s !important;/g)).toHaveLength(2);
+    });
+
     it('reaches the scripts that gate their own motion', () => {
         // The footer has nothing left to gate: it carries the version, the licence and the links only.
         expect(footerSource).not.toMatch(/setInterval|setTimeout|transition-opacity/);

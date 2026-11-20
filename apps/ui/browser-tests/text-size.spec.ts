@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { replayFeeder, settled } from './accessibility-mock';
 
 // Set UI_SHOTS to a directory to keep review screenshots of the control.
 const environment = (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env ?? {};
@@ -58,4 +59,47 @@ for (const width of [320, 390]) {
         expect((box?.x ?? -1) >= 0 && (box?.x ?? 0) + (box?.width ?? 0) <= width).toBe(true);
         if (environment.UI_SHOTS) await page.screenshot({ path: `${environment.UI_SHOTS}/text-size-largest-${width}.png` });
     });
+}
+
+/**
+ * With Reduce Motion on (the system's or the app's own), Safari kept the old size for every word
+ * inside an element whose transition the size change started, until the page was reloaded: each
+ * transition was cut short rather than turned off, so every element ran one. A larger choice raises
+ * the root and the small-print floor alike, so every word on show must grow, with motion or without.
+ */
+for (const motion of ['reduce', 'no-preference'] as const) {
+    for (const width of [390, 1440]) {
+        test(`a larger text size reaches every word on a ${width}px Settings page without a reload (reduced motion: ${motion})`, async ({ page }) => {
+            await page.setViewportSize({ width, height: 900 });
+            await replayFeeder(page, 'light');
+            await page.emulateMedia({ reducedMotion: motion });
+            await page.goto('/settings/appearance');
+            await expect(sizeSelect(page)).toBeVisible({ timeout: 15_000 });
+            await settled(page);
+            const sizes = (): Promise<{ size: number; owner: string }[]> => page.evaluate(() => {
+                const marked = window as unknown as { textOwners?: Element[] };
+                if (!marked.textOwners) {
+                    const owners = new Set<Element>();
+                    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+                    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+                        const owner = node.parentElement;
+                        const box = owner?.getBoundingClientRect();
+                        if (owner && box && node.textContent?.trim() && box.width > 1 && box.height > 1 && !owner.closest('script, style, option, .sr-only') && owner.checkVisibility()) owners.add(owner);
+                    }
+                    marked.textOwners = [...owners];
+                }
+                return marked.textOwners.map((owner) => ({
+                    size: parseFloat(getComputedStyle(owner).fontSize),
+                    owner: `${owner.tagName.toLowerCase()}.${[...owner.classList].slice(0, 4).join('.')} "${(owner.textContent ?? '').trim().slice(0, 30)}"`
+                }));
+            });
+            const before = await sizes();
+            expect(before.length).toBeGreaterThan(20);
+            await sizeSelect(page).selectOption('extra_large');
+            await settled(page);
+            const after = await sizes();
+            const kept = before.filter((entry, index) => after[index].size <= entry.size).map((entry) => `${entry.size}px stayed: ${entry.owner}`);
+            expect([...new Set(kept)]).toEqual([]);
+        });
+    }
 }
