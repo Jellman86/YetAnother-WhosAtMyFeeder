@@ -12,5 +12,6 @@
   "go_notifications": "通知へ",
   "previous_day": "前の日",
   "next_day": "次の日",
-  "all_days": "すべての日を表示"
+  "all_days": "すべての日を表示",
+  "search": "このページを検索（エクスプローラーと設定）"
 }

@@ -863,6 +863,32 @@ html[data-theme='dark'] {
   }
 }
 
+/* The setting a search result just opened: an outline that stays for a moment, over a tint that
+   fades. With reduced motion the tint does not animate; the outline alone marks it, then goes. */
+[data-settings-found] {
+  border-radius: 0.5rem;
+  outline: 2px solid var(--color-focus);
+  outline-offset: 6px;
+  animation: settings-found 2.4s ease-out both;
+}
+
+@keyframes settings-found {
+  from {
+    background-color: var(--color-accent-soft);
+    box-shadow: 0 0 0 6px var(--color-accent-soft);
+  }
+  to {
+    background-color: transparent;
+    box-shadow: 0 0 0 6px transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-settings-found] {
+    animation: none;
+  }
+}
+
 @utility settings-row-columns {
   grid-template-columns: minmax(0, 1fr) minmax(0, 20rem);
 

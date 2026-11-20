@@ -12,5 +12,6 @@
   "refresh": "Refresh page",
   "previous_day": "Previous day",
   "next_day": "Next day",
-  "all_days": "Show every day"
+  "all_days": "Show every day",
+  "search": "Search this page (Explorer and Settings)"
 }

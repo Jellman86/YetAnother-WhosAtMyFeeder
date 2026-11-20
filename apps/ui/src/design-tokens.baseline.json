@@ -345,8 +345,8 @@
     "arbitrary": 0
   },
   "lib/components/settings/DataSettings.svelte": {
-    "palette": 53,
-    "dark": 26,
+    "palette": 43,
+    "dark": 21,
     "arbitrary": 0
   },
   "lib/components/settings/DetectionSettings.svelte": {

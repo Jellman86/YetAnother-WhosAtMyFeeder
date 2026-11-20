@@ -431,6 +431,12 @@
         gap: 1.5rem;
     }
 
+    /* The search's results open over the settings, above the section's name that stays in view. */
+    .settings-layout-nav {
+        position: relative;
+        z-index: 25;
+    }
+
     @container (min-width: 42rem) {
         .settings-layout {
             grid-template-columns: 12rem minmax(0, 48rem);

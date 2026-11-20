@@ -86,6 +86,9 @@
     import { _, locale } from 'svelte-i18n';
     import { setAppLocale } from '../i18n';
     import SettingsTabs from '../components/settings/SettingsTabs.svelte';
+    import type { SettingsSearchLanding } from '../components/settings/SettingsSearch.svelte';
+    import { settingsSearchEntry, settingsSearchSection, type SettingsSearchEntry } from '../settings/settings-search-index';
+    import { settingsScrollBehaviour } from '../settings/scroll-behaviour';
     import CamerasSection from '../components/settings/sections/CamerasSection.svelte';
     import IdentificationSection from '../components/settings/sections/IdentificationSection.svelte';
     import AlertsSection from '../components/settings/sections/AlertsSection.svelte';
@@ -1630,6 +1633,8 @@
 
     onDestroy(() => {
         destroyed = true;
+        searchLanding?.abort();
+        clearFoundMark();
         const saved = settingsStore.settings;
         // Only a form this page has filled can hold edits. Left while it still waited for the saved
         // copy (a quick Back while a kept draft waits for a fresh read), its fields are empty
@@ -3231,6 +3236,87 @@
         }
     }
 
+    const FOCUSABLE = 'input:not([type="hidden"]):not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])';
+    const firstControlIn = (root: Element): HTMLElement | null =>
+        [...root.querySelectorAll<HTMLElement>(FOCUSABLE)].find((control) => control.checkVisibility()) ?? null;
+
+    /**
+     * What takes focus for a search result: the setting's own control. An anchor is a row's label,
+     * so the control is the one that label names, or the first one in its row; a group lands on its
+     * heading, unless it was opened for its switch.
+     */
+    function controlFor(anchor: HTMLElement, wantsSwitch: boolean): HTMLElement {
+        const group = anchor.matches('[data-settings-section]');
+        if (group && !wantsSwitch) return anchor.querySelector<HTMLElement>('h3, h4') ?? anchor;
+        if (group) return anchor.querySelector<HTMLElement>('header .switch-track') ?? anchor.querySelector<HTMLElement>('h3, h4') ?? anchor;
+        if (anchor.matches(FOCUSABLE)) return anchor;
+        const labelled = document.querySelector<HTMLElement>(`[aria-labelledby~="${CSS.escape(anchor.id)}"]`);
+        if (labelled?.checkVisibility()) return labelled.matches(FOCUSABLE) ? labelled : (firstControlIn(labelled) ?? labelled);
+        const row = anchor.closest<HTMLElement>('[data-settings-row]');
+        return (row ? firstControlIn(row) : firstControlIn(anchor)) ?? anchor;
+    }
+
+    // The setting a search result just opened, marked for a moment so the eye finds it.
+    let foundMark: { element: HTMLElement; timer: ReturnType<typeof setTimeout> } | null = null;
+    function clearFoundMark(): void {
+        if (!foundMark) return;
+        clearTimeout(foundMark.timer);
+        foundMark.element.removeAttribute('data-settings-found');
+        foundMark = null;
+    }
+    function markFound(element: HTMLElement): void {
+        clearFoundMark();
+        element.setAttribute('data-settings-found', '');
+        foundMark = { element, timer: setTimeout(clearFoundMark, 2600) };
+    }
+
+    /** Opens one indexed setting where it lives and moves focus to it; false when it is not on the page. */
+    async function landOnSetting(entry: SettingsSearchEntry, wantsSwitch: boolean, signal: AbortSignal): Promise<boolean> {
+        const section = settingsSearchSection(entry);
+        if (section !== activeSection) openSection(section);
+        // More options first, then whatever is closed inside it, so the row is on the page.
+        disclosures.reveal(entry.disclosures ?? []);
+        const find = (): HTMLElement | null => {
+            const element = document.getElementById(entry.anchor);
+            return element?.checkVisibility() ? element : null;
+        };
+        if (!(await fieldInOpenedPart(SETTINGS_PART_LOADERS[entry.part], find)) || signal.aborted) return false;
+        // The parts above it are still filling in after a change of section; scrolling before they
+        // have their answers would leave the setting sliding away under the reader.
+        const root = document.querySelector(`[data-settings-section="${section}"]`);
+        if (root) await whenSectionReady({ watch: watchElementSizes(root, document.body), requestsIdle: onRequestsIdle, signal });
+        const anchor = find();
+        if (!anchor || signal.aborted) return false;
+        const control = controlFor(anchor, wantsSwitch);
+        if (!control.matches(FOCUSABLE)) control.setAttribute('tabindex', '-1');
+        const marked = anchor.closest<HTMLElement>('[data-settings-row]') ?? (anchor.matches('[data-settings-section]') ? (anchor.querySelector<HTMLElement>('header') ?? anchor) : anchor);
+        marked.scrollIntoView({ block: 'center', behavior: settingsScrollBehaviour() });
+        control.focus({ preventScroll: true });
+        markFound(marked);
+        return true;
+    }
+
+    /**
+     * Opens the setting a search result names. One that is only on the page while a switch is on
+     * falls back to that switch, so the reader lands on the step that shows it.
+     */
+    let searchLanding: AbortController | null = null;
+    async function openSearchResult(anchor: string): Promise<SettingsSearchLanding> {
+        const entry = settingsSearchEntry(anchor);
+        if (!entry) return 'missing';
+        // Its own handle, not the address landing's: opening the section changes the address, which
+        // ends an address landing in progress, and this one has to outlive that.
+        cancelLanding();
+        searchLanding?.abort();
+        const controller = new AbortController();
+        searchLanding = controller;
+        if (await landOnSetting(entry, false, controller.signal)) return 'shown';
+        for (let behind = entry.behind ? settingsSearchEntry(entry.behind) : null; behind && !controller.signal.aborted; behind = behind.behind ? settingsSearchEntry(behind.behind) : null) {
+            if (await landOnSetting(behind, true, controller.signal)) return 'behind';
+        }
+        return 'missing';
+    }
+
     async function prepareInaturalistOAuth(): Promise<void> {
         // OAuth must use the credentials currently visible in the form. Persist
         // only this integration so unrelated unsaved settings remain untouched.
@@ -3272,7 +3358,7 @@
 {/snippet}
 
 {#snippet pageNavigation()}
-    <SettingsTabs {activeSection} onsectionchange={openSection} unsavedSections={unsavedSummary.sections} {refusedSections} contentId="settings-content" />
+    <SettingsTabs {activeSection} onsectionchange={openSection} onsearch={openSearchResult} unsavedSections={unsavedSummary.sections} {refusedSections} contentId="settings-content" />
 {/snippet}
 
 <SettingsPage

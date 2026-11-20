@@ -12,5 +12,6 @@
   "go_notifications": "Aller aux Notifications",
   "previous_day": "Jour précédent",
   "next_day": "Jour suivant",
-  "all_days": "Afficher tous les jours"
+  "all_days": "Afficher tous les jours",
+  "search": "Rechercher dans cette page (Explorateur et Paramètres)"
 }

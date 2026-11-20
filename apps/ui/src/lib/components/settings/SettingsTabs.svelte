@@ -3,6 +3,7 @@
     import { toAppPath } from "../../app/url-base";
     import { setupWizardStore } from "../../stores/setup_wizard.svelte";
     import { SETTINGS_SECTION_ORDER, settingsSectionPath, type SettingsSection } from "../../settings/settings-route";
+    import SettingsSearch, { type SettingsSearchLanding } from "./SettingsSearch.svelte";
 
     interface SettingsSectionItem {
         id: SettingsSection;
@@ -12,6 +13,8 @@
     interface Props {
         activeSection: SettingsSection;
         onsectionchange: (section: SettingsSection) => void;
+        /** Opens the setting a search result names; the search is left out without it. */
+        onsearch?: (anchor: string) => Promise<SettingsSearchLanding>;
         /** Sections holding unsaved changes; each is marked in the list with a worded dot. */
         unsavedSections?: readonly SettingsSection[];
         /** Sections holding a value the last save refused; each needs a fix before saving again. */
@@ -20,7 +23,7 @@
         contentId: string;
     }
 
-    let { activeSection, onsectionchange, unsavedSections = [], refusedSections = [], contentId }: Props = $props();
+    let { activeSection, onsectionchange, onsearch, unsavedSections = [], refusedSections = [], contentId }: Props = $props();
 
     // Six sections, one per task an owner comes here to do, so they need no grouping.
     const sections = $derived<SettingsSectionItem[]>(
@@ -63,6 +66,14 @@
     class="sr-only focus:not-sr-only focus:absolute focus:z-40 focus:rounded-lg focus:bg-surface focus:px-3 focus:py-2 focus:text-sm focus:font-semibold focus:text-accent-ink focus:ring-2 focus:ring-focus"
     data-settings-skip-link
 >{$_('settings.tabs.skip_to_content', { default: 'Skip to the settings' })}</a>
+
+<!-- First in the navigation at every width: above the rail on a wide screen, above the section
+     list on a phone. One box, so "/" always has one place to go. -->
+{#if onsearch}
+    <div class="mb-4">
+        <SettingsSearch onchoose={onsearch} />
+    </div>
+{/if}
 
 <!-- Phones, narrow windows and enlarged text: one select that names the current section, and the wizard beside it. -->
 <div class="flex flex-wrap items-end gap-3 @2xl:hidden" data-settings-compact-navigation>
