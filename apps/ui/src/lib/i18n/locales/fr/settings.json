@@ -143,7 +143,7 @@
     "frigate_missing_behavior_mark": "Marquer comme manquant et conserver les données locales",
     "frigate_missing_behavior_keep": "Conserver les données locales inchangées",
     "frigate_missing_behavior_delete": "Supprimer les enregistrements sans photo dans YA-WAMF",
-    "frigate_missing_behavior_note": "Cette règle s’applique aux scans manuels et aux contrôles planifiés. Utilisez le marquage comme manquant lorsque YA-WAMF doit conserver les détections plus longtemps que Frigate. Un enregistrement dont YA-WAMF conserve encore la photo n’est jamais supprimé ; il est marqué comme manquant.",
+    "frigate_missing_behavior_note": "Cette règle s’applique aux scans manuels et aux contrôles planifiés. Utilisez le marquage comme manquant lorsque YA-WAMF doit conserver les détections plus longtemps que Frigate. Un enregistrement dont YA-WAMF conserve encore la photo n’est jamais supprimé ; il est marqué comme manquant.",
     "purge_missing_media": "Lancer le contrôle d’intégrité des médias maintenant",
     "auto_purge_missing_media": "Lancer le contrôle d’intégrité des médias chaque jour",
     "purge_missing_media_confirm_delete": "Les visites dont l’événement, le clip ou l’instantané Frigate a disparu sont supprimées de YA-WAMF, avec leurs photos et vidéos. Les favoris sont conservés et marqués manquants. Leur nombre n’est connu qu’après le contrôle. Cette action est irréversible.",
