@@ -181,17 +181,23 @@ class GardenMediaCache:
                 await self._defer(capture_id)
 
     async def _defer(self, capture_id: str) -> None:
-        """A failed attempt waits an hour, so one stubborn capture cannot hold up the backfill."""
+        """A failed attempt waits an hour, so one stubborn capture cannot hold up the backfill.
+
+        The row is read and rewritten under the commit lock, as every other read-and-write of it is:
+        keep_classified_frame may keep a photo at any moment, and a deferral written from an older
+        read would put the row back to retry and let the sweep delete that photo.
+        """
         try:
-            async with get_db() as db:
-                repo = GardenRepository(db)
-                original = await repo.get(capture_id)
-                if original is None or original.status != "confirmed":
-                    return
-                previous = await repo.kept_media_record(capture_id) or KeptMediaRecord(photo_state="retry")
-                await repo.save_kept_media(
-                    original, replace(previous, retry_after=(utc_naive_now() + RETRY_AFTER).isoformat())
-                )
+            async with self._commit_lock:
+                async with get_db() as db:
+                    repo = GardenRepository(db)
+                    original = await repo.get(capture_id)
+                    if original is None or original.status != "confirmed":
+                        return
+                    previous = await repo.kept_media_record(capture_id) or KeptMediaRecord(photo_state="retry")
+                    await repo.save_kept_media(
+                        original, replace(previous, retry_after=(utc_naive_now() + RETRY_AFTER).isoformat())
+                    )
         except sqlite3.Error as error:
             log.warning("garden_media_defer_failed", capture_id=capture_id, reason=type(error).__name__)
 

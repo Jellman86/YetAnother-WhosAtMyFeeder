@@ -450,3 +450,45 @@ async def test_a_moved_capture_with_an_unusable_event_id_settles_and_never_holds
     async with get_db() as db:
         due = await GardenRepository(db).next_media_to_keep([CAMERA], since=None, clips=True, now="9999-01-01T00:00:00")
     assert due is None
+
+
+@pytest.mark.asyncio
+async def test_a_failed_collection_deferring_its_retry_never_overwrites_a_classified_frame_kept_meanwhile(
+    frigate,  # noqa: F811
+    monkeypatch,
+):
+    """The deferral after a failed collection writes the row too; a frame kept as it writes must survive."""
+    import asyncio
+
+    from app.services.frigate_client import frigate_client
+    from app.services.garden_media_cache import kept_path
+
+    capture_id = await _routed_chicken()
+
+    async def unreachable(event_id: str):
+        raise httpx.ConnectError("Frigate is restarting")
+
+    monkeypatch.setattr(frigate_client, "get_event", unreachable)
+    original_save = GardenRepository.save_kept_media
+    racing: list[asyncio.Task] = []
+
+    async def keep_frame_just_before_the_deferral_writes(self, original, record):
+        if not racing:
+            # The domestic route keeps its frame between the deferral's read and its write.
+            racing.append(
+                asyncio.create_task(
+                    garden_media_cache.keep_classified_frame(capture_id, CLASSIFIED, "frigate_recording_frame")
+                )
+            )
+            await asyncio.wait(racing, timeout=1)
+        return await original_save(self, original, record)
+
+    monkeypatch.setattr(GardenRepository, "save_kept_media", keep_frame_just_before_the_deferral_writes)
+    await garden_media_cache.collect(capture_id)
+    assert racing and await asyncio.wait_for(racing[0], 5)
+
+    record = await kept(capture_id)
+    assert (record.photo_state, record.photo_source) == ("kept", "classified_frame")
+    assert record.retry_after is not None, "the failed collection still waits before it is tried again"
+    await garden_media_cache.sweep()
+    assert kept_path(capture_id, "photo").is_file()
