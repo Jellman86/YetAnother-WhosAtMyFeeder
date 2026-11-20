@@ -146,7 +146,7 @@
     "frigate_missing_behavior_note": "此策略会在手动扫描和计划检查期间应用。当 YA-WAMF 需要比 Frigate 更长时间保留检测时，请使用标记缺失。YA-WAMF 仍保存照片的记录不会被删除，而是标记为缺失。",
     "purge_missing_media": "立即运行媒体完整性扫描",
     "auto_purge_missing_media": "每天运行媒体完整性扫描",
-    "purge_missing_media_confirm_delete": "Frigate 事件、片段或快照已不存在的到访会连同照片和视频从 YA-WAMF 中删除。收藏会保留并标记为缺失。数量要等扫描完成后才知道。此操作无法撤销。",
+    "purge_missing_media_confirm_delete": "Frigate 事件、片段或快照已不存在的到访，只有在 YA-WAMF 也没有保存其照片时，才会连同视频从 YA-WAMF 中删除。YA-WAMF 仍保存照片的到访和收藏会保留并标记为缺失。数量要等扫描完成后才知道。删除无法撤销。",
     "purge_missing_media_confirm_mark": "Frigate 事件、片段或快照已不存在的到访会被标记为缺失。照片和记录会保留。不会删除任何内容。",
     "purge_missing_media_confirm_keep": "Frigate 事件、片段或快照已不存在的到访保持不变。不会删除任何内容。",
     "purge_missing_media_confirm_unsaved": "未保存的选择只有在保存后才生效。",

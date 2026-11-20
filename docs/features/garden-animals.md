@@ -856,7 +856,8 @@ YA-WAMF already holds the frame its bird model read, so it does not depend on Fr
 - A bird record moved to Garden (by **Move to Garden**, by declaring the bird, or by a later
   rename) keeps Frigate's snapshot while Frigate has one. When Frigate has none, it keeps YA-WAMF's
   copy of the frame the bird record was first classified from, taken from the hidden bird record's
-  photos. A later crop chosen as the record's photo is not used, and neither is a photo you hid.
+  photos, checked against the checksum it was stored with. A later crop chosen as the record's
+  photo is not used, and neither is a photo you chose or hid.
 - A moved capture recorded with a missing photo before this existed is looked at once more by the
   background job. Whatever that finds is final.
 

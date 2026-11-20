@@ -159,7 +159,7 @@
     "frigate_missing_behavior_note": "This choice is applied during manual scans and scheduled checks. Choose “Mark missing and keep local data” when YA-WAMF should keep its captures longer than Frigate keeps the events. A record whose photo YA-WAMF still holds is never deleted; it is marked missing instead.",
     "purge_missing_media": "Run media integrity scan now",
     "auto_purge_missing_media": "Run media integrity scan periodically",
-    "purge_missing_media_confirm_delete": "Visits whose Frigate event, clip or snapshot is gone are deleted from YA-WAMF, with their photos and video. Favourites are kept and marked missing. How many is not known until the scan has run. This cannot be undone.",
+    "purge_missing_media_confirm_delete": "Visits whose Frigate event, clip or snapshot is gone are deleted from YA-WAMF, with their video, unless YA-WAMF still holds their photo. Those, and favourites, are kept and marked missing. How many of each is not known until the scan has run. A deletion cannot be undone.",
     "purge_missing_media_confirm_mark": "Visits whose Frigate event, clip or snapshot is gone are marked missing. Their photos and records are kept. Nothing is deleted.",
     "purge_missing_media_confirm_keep": "Visits whose Frigate event, clip or snapshot is gone are left unchanged. Nothing is deleted.",
     "purge_missing_media_confirm_unsaved": "Your unsaved choice applies only after Save.",

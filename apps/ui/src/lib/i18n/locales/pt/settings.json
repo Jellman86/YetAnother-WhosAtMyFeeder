@@ -146,7 +146,7 @@
     "frigate_missing_behavior_note": "Esta política é aplicada durante verificações manuais e agendadas. Use marcar como ausente quando o YA-WAMF deve reter detecções por mais tempo que o Frigate. Um registro cuja foto o YA-WAMF ainda guarda nunca é excluído; ele é marcado como ausente.",
     "purge_missing_media": "Executar verificação de integridade de mídia agora",
     "auto_purge_missing_media": "Executar verificação de integridade de mídia diariamente",
-    "purge_missing_media_confirm_delete": "As visitas cujo evento, clipe ou instantâneo do Frigate não existe mais são excluídas do YA-WAMF, com suas fotos e vídeos. Os favoritos são mantidos e marcados como ausentes. Quantas são só se sabe depois da verificação. Esta ação não pode ser desfeita.",
+    "purge_missing_media_confirm_delete": "As visitas cujo evento, clipe ou instantâneo do Frigate não existe mais são excluídas do YA-WAMF, com seu vídeo, a menos que o YA-WAMF ainda guarde a foto delas. Essas visitas e os favoritos são mantidos e marcados como ausentes. Quantas são só se sabe depois da verificação. Uma exclusão não pode ser desfeita.",
     "purge_missing_media_confirm_mark": "As visitas cujo evento, clipe ou instantâneo do Frigate não existe mais são marcadas como ausentes. Suas fotos e registros são mantidos. Nada é excluído.",
     "purge_missing_media_confirm_keep": "As visitas cujo evento, clipe ou instantâneo do Frigate não existe mais ficam como estão. Nada é excluído.",
     "purge_missing_media_confirm_unsaved": "Sua escolha não salva só vale depois de Salvar.",

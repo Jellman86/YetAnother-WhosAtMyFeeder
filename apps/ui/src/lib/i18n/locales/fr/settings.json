@@ -146,7 +146,7 @@
     "frigate_missing_behavior_note": "Cette règle s’applique aux scans manuels et aux contrôles planifiés. Utilisez le marquage comme manquant lorsque YA-WAMF doit conserver les détections plus longtemps que Frigate. Un enregistrement dont YA-WAMF conserve encore la photo n’est jamais supprimé ; il est marqué comme manquant.",
     "purge_missing_media": "Lancer le contrôle d’intégrité des médias maintenant",
     "auto_purge_missing_media": "Lancer le contrôle d’intégrité des médias chaque jour",
-    "purge_missing_media_confirm_delete": "Les visites dont l’événement, le clip ou l’instantané Frigate a disparu sont supprimées de YA-WAMF, avec leurs photos et vidéos. Les favoris sont conservés et marqués manquants. Leur nombre n’est connu qu’après le contrôle. Cette action est irréversible.",
+    "purge_missing_media_confirm_delete": "Les visites dont l’événement, le clip ou l’instantané Frigate a disparu sont supprimées de YA-WAMF, avec leur vidéo, sauf si YA-WAMF conserve encore leur photo. Celles-ci et les favoris sont conservés et marqués manquants. Leur nombre n’est connu qu’après le contrôle. Une suppression est irréversible.",
     "purge_missing_media_confirm_mark": "Les visites dont l’événement, le clip ou l’instantané Frigate a disparu sont marquées manquantes. Leurs photos et fiches sont conservées. Rien n’est supprimé.",
     "purge_missing_media_confirm_keep": "Les visites dont l’événement, le clip ou l’instantané Frigate a disparu restent inchangées. Rien n’est supprimé.",
     "purge_missing_media_confirm_unsaved": "Votre choix non enregistré ne s’applique qu’après Enregistrer.",

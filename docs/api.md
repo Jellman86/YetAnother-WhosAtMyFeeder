@@ -1507,7 +1507,8 @@ return 422. It does not reclassify saved detections or wait indefinitely for an 
 - `POST /api/maintenance/purge-missing-snapshots` (owner)
 - `POST /api/maintenance/purge-missing-media` (owner) — applies your configured missing-media
   policy to every detection whose Frigate event or media has gone. With the policy set to `delete`
-  this **permanently removes** those detections; `mark_missing` and `keep` do not.
+  this **permanently removes** those detections, except one whose photo YA-WAMF still holds, or a
+  favourite: those are marked missing instead. `mark_missing` and `keep` remove nothing.
   All three missing-media scan endpoints return an `errors` count for unsuccessful event checks.
   Timeouts, authentication/server errors and unusable responses leave the existing detection
   and its media state unchanged. Only confirmed absence applies the missing-media policy.

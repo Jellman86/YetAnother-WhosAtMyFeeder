@@ -6,8 +6,9 @@
   moved captures already recorded without a photo. The clip stays Frigate's: when Frigate kept
   none, the capture says so. See
   [Kept photographs and clips](docs/features/garden-animals.md#kept-photographs-and-clips).
-- **"When Frigate loses a visit" never deletes a record YA-WAMF still has a photo for.** The
-  **Delete** choice is now labelled **Delete records YA-WAMF has no photo for**: a record whose
-  photo YA-WAMF holds is marked missing instead, so the media integrity scan (and the older
-  missing-snapshot purge setting it replaced) cannot remove the only photo left. See
+- **"When Frigate no longer has the event/media" never deletes a record YA-WAMF still has a photo
+  for.** The delete choice is now labelled **Delete records YA-WAMF has no photo for**, and the
+  **Scan and delete** confirmation says the same: a record whose photo YA-WAMF holds is marked
+  missing instead, so the media integrity scan (and the older missing-snapshot purge setting it
+  replaced) cannot remove the only photo left. See
   [Frigate "Event Not Found" explained](docs/troubleshooting/frigate-event-not-found.md).

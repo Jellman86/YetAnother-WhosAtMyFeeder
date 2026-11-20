@@ -146,7 +146,7 @@
     "frigate_missing_behavior_note": "Diese Auswahl wird bei manuellen Scans und geplanten Prüfungen angewendet. Wählen Sie „Als fehlend markieren und lokale Daten behalten“, wenn YA-WAMF seine Aufnahmen länger behalten soll, als Frigate die Ereignisse aufbewahrt. Ein Eintrag, dessen Foto YA-WAMF noch hat, wird nie gelöscht, sondern als fehlend markiert.",
     "purge_missing_media": "Medienintegritäts-Scan jetzt ausführen",
     "auto_purge_missing_media": "Medienintegritäts-Scan täglich ausführen",
-    "purge_missing_media_confirm_delete": "Besuche, deren Frigate-Ereignis, Clip oder Schnappschuss fehlt, werden mit ihren Fotos und Videos aus YA-WAMF gelöscht. Favoriten bleiben erhalten und werden als fehlend markiert. Wie viele es sind, steht erst nach dem Scan fest. Dies kann nicht rückgängig gemacht werden.",
+    "purge_missing_media_confirm_delete": "Besuche, deren Frigate-Ereignis, Clip oder Schnappschuss fehlt, werden samt Video aus YA-WAMF gelöscht, sofern YA-WAMF kein Foto von ihnen mehr hat. Besuche mit Foto in YA-WAMF und Favoriten bleiben erhalten und werden als fehlend markiert. Wie viele es jeweils sind, steht erst nach dem Scan fest. Eine Löschung kann nicht rückgängig gemacht werden.",
     "purge_missing_media_confirm_mark": "Besuche, deren Frigate-Ereignis, Clip oder Schnappschuss fehlt, werden als fehlend markiert. Ihre Fotos und Einträge bleiben erhalten. Es wird nichts gelöscht.",
     "purge_missing_media_confirm_keep": "Besuche, deren Frigate-Ereignis, Clip oder Schnappschuss fehlt, bleiben unverändert. Es wird nichts gelöscht.",
     "purge_missing_media_confirm_unsaved": "Ihre ungespeicherte Auswahl gilt erst nach dem Speichern.",
