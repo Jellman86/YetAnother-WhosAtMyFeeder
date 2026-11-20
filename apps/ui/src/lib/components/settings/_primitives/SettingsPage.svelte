@@ -115,7 +115,7 @@
         const root = document.documentElement;
         const reserve = () => {
             const top = Number.parseFloat(getComputedStyle(heading).top) || 0;
-            root.style.scrollPaddingTop = `${Math.ceil(top + heading.getBoundingClientRect().height) + 8}px`;
+            root.style.scrollPaddingTop = `${Math.ceil(top + heading.getBoundingClientRect().height) + 16}px`;
         };
         reserve();
         const observer = new ResizeObserver(reserve);

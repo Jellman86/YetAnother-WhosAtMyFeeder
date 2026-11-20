@@ -11,6 +11,18 @@ the settings** link moves keyboard focus past it. On a phone or a narrow window 
 section** list names the section you are in. A section holding unsaved changes is marked "unsaved"
 in both. **Setup wizard** is a button under the list.
 
+**Search settings** is the first thing in that navigation, on every screen size. Type a setting's
+name, what it does, or a word such as "password", "GPU" or "backup", in the language the interface
+is in. Each result says where the setting lives ("Alerts › More options"). Choosing one opens that
+section, opens **More options** and any advanced group around the setting, scrolls to it and puts
+the keyboard on its control, with an outline for a moment. A setting that only appears while a
+switch is on takes you to that switch and says so. Press **/** anywhere on Settings to reach the
+search; the arrow keys move through the results, Enter opens one and Escape closes the list.
+Searching never changes or discards anything: unsaved changes wait as before.
+
+The section you are in is named above its settings and stays at the top of the window as you
+scroll. Under it each group of settings has its own heading and its own raised card.
+
 Each section opens with a **Status** line read from the system's live status: one chip per part
 it depends on, such as Frigate, MQTT and BirdNET-Go for Cameras & connection, with **Details in
 Health** for the cause. A part not measured yet says so rather than showing a state. Then come

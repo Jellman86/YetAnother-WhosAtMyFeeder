@@ -6,11 +6,14 @@
         id?: string;
         /** `label` for a subheading that names one switch row, at the size of a row label. */
         size?: 'group' | 'label';
+        /** Set by a subheading that holds further subheadings, which it then sends one level down. */
+        level?: 4 | 5 | 6;
         children: Snippet;
     }
 
-    let { id, size = 'group', children }: Props = $props();
-    const level = subheadingLevel();
+    let { id, size = 'group', level: given, children }: Props = $props();
+    const inherited = subheadingLevel();
+    const level = $derived(given ?? inherited);
 </script>
 
 <!-- A name for a few rows inside a card, in the reading face: the display face has no weight under

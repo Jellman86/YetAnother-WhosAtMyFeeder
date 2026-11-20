@@ -265,7 +265,7 @@ test('a refused value inside a collapsed section opens that section and focuses 
     await section.click();
     await expect(section).toHaveAttribute('aria-expanded', 'false');
     // More options closed too: the save opens both, outermost first.
-    const more = page.locator('[data-settings-more] > h2 > button');
+    const more = page.locator('[data-settings-more] > h3 > button');
     await more.click();
     await expect(more).toHaveAttribute('aria-expanded', 'false');
 
@@ -287,7 +287,7 @@ test('a refused eBird value opens Sharing\'s More options and eBird\'s advanced 
     await saveButton(page).click();
 
     await expect(tabLink(page, 'Sharing & integrations')).toHaveAttribute('aria-current', 'page');
-    await expect(page.locator('[data-settings-more] > h2 > button')).toHaveAttribute('aria-expanded', 'true');
+    await expect(page.locator('[data-settings-more] > h3 > button')).toHaveAttribute('aria-expanded', 'true');
     const maxResults = page.locator('#ebird-max-results');
     await expect(maxResults).toBeFocused();
     await expect(maxResults).toHaveAttribute('aria-invalid', 'true');

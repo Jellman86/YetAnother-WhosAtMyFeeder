@@ -929,14 +929,29 @@ build something better."*
   select or a radio list instead. So the Explorer's filter rail has two selected styles, not four:
   the segmented track for short choices and `.choice-active` rows for lists.
 - **Settings rows**: every Settings section (one of the six task sections in the rail) is a column of
-  cards no wider than `max-w-3xl`, each former tab a part with an anchor of its own. A card is a
-  plain `h2` (no icon, no coloured band) over one card of rows separated by hairlines,
-  and nothing inside the card is boxed again. From 768px a row puts its label (medium weight) and
-  hint (regular, muted, one size smaller) on the left and its control in a 20rem column on the
+  cards no wider than `max-w-3xl`, each former tab a part with an anchor of its own. The headings
+  are one scale: the page is the `h1`, the open section an `h2` (`text-2xl`, the only bold in
+  Settings) that stays at the top of the window while its settings scroll, a group an `h3`
+  (`text-xl`, display face, semibold; an `h4` at `text-lg` under More options), and a name inside a
+  card a `SettingsSubheading` one level below its card, in the reading face. A group is that
+  heading (no icon, no coloured band) over one card of rows separated by hairlines, lifted with
+  `--elevation-panel`, and nothing inside the card is boxed again. In a row the label is the one
+  semibold thing; the hint is regular, muted and one size smaller, and values, links and statuses
+  are regular. The display face has no weight under semibold, so a line meant to read as regular
+  inside a heading names the reading face (`font-sans`). From 768px a row puts its label and
+  hint on the left and its control in a 20rem column on the
   right, so every field, select and switch ends on the card's right edge, a section's own switch
   included; on a phone the row stacks. A button that acts at once sits in its own row at its own
   width, never stretched across the card. Extra fields hide behind a plain "Show advanced options"
   disclosure at the end of the section. Settings uses the app's own fonts, like every other page.
+- **Settings search**: one combobox, first in the Settings navigation at every width, over a static
+  index (`src/lib/settings/settings-search-index.ts`): each row's anchor (its `labelId`), part, label
+  and help keys, the disclosures that must open, the switch it sits behind, and English synonyms.
+  Every `SettingsRow`, `SettingsSlider` and `SettingsCard` needs a static id and an entry;
+  `settings-search-index.test.ts` fails otherwise, and `browser-tests/settings-search.spec.ts` opens
+  every entry and checks focus lands on its control. A result names the setting and where it lives.
+  Choosing one moves focus to the control and marks the row with `data-settings-found` for a moment
+  (an outline; the tint fades only when motion is allowed). "/" focuses it, as on the Explorer.
 - **Charts**: a line or bar chart takes `chart-h` or `chart-h-tall`, a height between a floor and
   a cap that follows the window width, so a wide screen neither flattens it into a strip nor
   stretches it without bound (keep it under about 4.5:1). Bars take their width from their slot

@@ -133,7 +133,7 @@ test('BirdNET-Go\'s sources are read when its mapping is shown, once, and not fo
     await openMoreOptions(page);
     await expect.poll(() => sourceReads).toBe(1);
     // Closing and opening More options again in this visit reads nothing new.
-    await page.locator('[data-settings-more] > h2 > button').click();
+    await page.locator('[data-settings-more] > h3 > button').click();
     await openMoreOptions(page);
     await page.waitForTimeout(1_000);
     expect(sourceReads).toBe(1);

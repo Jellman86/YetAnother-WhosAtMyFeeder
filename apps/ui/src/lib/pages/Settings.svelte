@@ -1449,7 +1449,7 @@
 
     /** Moves keyboard and screen-reader focus to the part's heading, so the next Tab starts there. */
     function focusLandedPart(target: HTMLElement): void {
-        const heading = target.querySelector<HTMLElement>('h2, h3') ?? target;
+        const heading = target.querySelector<HTMLElement>('h3, h4') ?? target;
         if (!heading.hasAttribute('tabindex')) heading.setAttribute('tabindex', '-1');
         heading.setAttribute('data-settings-landed', '');
         heading.focus({ preventScroll: true });

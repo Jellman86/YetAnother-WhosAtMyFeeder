@@ -1,5 +1,6 @@
 <script lang="ts">
     import SettingsSubheading from './_primitives/SettingsSubheading.svelte';
+    import { provideSubheadingLevel, subheadingLevel } from './_primitives/heading-level';
     /**
      * A collapsible group of one beta feature's settings: a heading that is also the disclosure
      * button, so it reads as a heading and says whether it is open. A closed section stays mounted
@@ -20,11 +21,14 @@
 
     let { id, title, hint, openByDefault = false, children }: Props = $props();
     const disclosure = useDisclosure(() => ({ id, openByDefault }));
+    // A name inside this part is one level below the part's own heading.
+    const level = subheadingLevel();
+    provideSubheadingLevel(() => (level === 4 ? 5 : 6));
     const open = $derived(disclosure.open);
 </script>
 
 <div data-beta-section={id}>
-    <SettingsSubheading size="label">
+    <SettingsSubheading size="label" {level}>
         <button
             type="button"
             id={`${id}-toggle`}

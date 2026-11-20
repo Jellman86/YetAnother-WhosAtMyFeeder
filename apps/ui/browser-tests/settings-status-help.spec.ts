@@ -100,7 +100,7 @@ test.describe('beside the settings', () => {
 
     test('goes to the BirdNET-Go switch when audio is off on this page, so focus always moves on', async ({ page }) => {
         const errors = await openSection(page, '/settings/cameras');
-        await page.locator('[data-settings-more] > h2 > button').click();
+        await page.locator('[data-settings-more] > h3 > button').click();
         const audioSwitch = page.locator('[data-settings-part-more="birdnet"] button[aria-checked]').first();
         await audioSwitch.click();
         await item(page, 'audio').getByRole('button', { name: 'Go to the test: BirdNET-Go' }).click();
