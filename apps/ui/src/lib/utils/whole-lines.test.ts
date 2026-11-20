@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { wholeLinesHeight } from './whole-lines';
+import { wholeLinesFit, wholeLinesHeight } from './whole-lines';
 
 /** Where each line of the status readings ends, from the top of the readings, in px. */
 const LINES = [16, 40, 64, 88, 106];
@@ -24,5 +24,42 @@ describe('wholeLinesHeight', () => {
 
     it('keeps at least the first line, even in a space too small for it', () => {
         expect(wholeLinesHeight(LINES, 10)).toBe(16);
+    });
+
+    it('never ends before the floor line, so a heading keeps the reading under it', () => {
+        // Room for the heading alone (16px) still shows the first reading (40px) whole.
+        expect(wholeLinesHeight(LINES, 20, 40)).toBe(40);
+        expect(wholeLinesHeight(LINES, 10, 40)).toBe(40);
+        // Above the floor the snap is the usual one.
+        expect(wholeLinesHeight(LINES, 70, 40)).toBe(64);
+    });
+});
+
+/** The status card: 66px of frame and Health link around readings whose first reading ends at 40px. */
+const CARD = { lineEnds: LINES, floor: 40, chrome: 66 };
+
+describe('wholeLinesFit', () => {
+    it('shows every line where they all fit', () => {
+        expect(wholeLinesFit({ ...CARD, room: 66 + 106 })).toEqual({ show: 'all' });
+    });
+
+    it('shows whole lines down to the floor where only some fit', () => {
+        expect(wholeLinesFit({ ...CARD, room: 66 + 70 })).toEqual({ show: 'some', height: 64 });
+        expect(wholeLinesFit({ ...CARD, room: 66 + 40 })).toEqual({ show: 'some', height: 40 });
+    });
+
+    it('shows nothing, not a sliver, where even the floor does not fit beside what comes first', () => {
+        expect(wholeLinesFit({ ...CARD, room: 66 + 38 })).toEqual({ show: 'none' });
+        expect(wholeLinesFit({ ...CARD, room: 20 })).toEqual({ show: 'none' });
+        expect(wholeLinesFit({ ...CARD, room: 0 })).toEqual({ show: 'none' });
+    });
+
+    it('shows every line where the container scrolls anyway, since what comes first does not fit', () => {
+        expect(wholeLinesFit({ ...CARD, room: -5 })).toEqual({ show: 'all' });
+    });
+
+    it('treats a holder with no lines yet by its frame alone', () => {
+        expect(wholeLinesFit({ lineEnds: [], floor: 0, chrome: 66, room: 80 })).toEqual({ show: 'all' });
+        expect(wholeLinesFit({ lineEnds: [], floor: 0, chrome: 66, room: 30 })).toEqual({ show: 'none' });
     });
 });

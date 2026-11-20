@@ -294,8 +294,12 @@ What holds in every band:
   tightens dialog chrome so the actions stay in view. On a desktop window that is wide but not tall
   (up to 900 px, the `compact-height` variant: 1920 × 900, 1440 × 800, 1280 × 720, 1024 × 768) every place in the sidebar and
   System status's way to Health stay in view without scrolling: the wordmark sits beside its mark, and
-  the status readings give way inside their card under the pinned Health link. At a much larger text
-  size the places and the status scroll together instead; the controls below never scroll.
+  the status readings give way inside their card, in whole lines, under the pinned Health link. The
+  card is never drawn smaller than its heading, its first reading and that link: where the room under
+  the places (measured, so signed in the account band counts) cannot hold even that, the status gives
+  way entirely, and Health is still one of the places. Only when the places themselves do not fit, as
+  at a much larger text size, do the places and the status scroll together; the controls below never
+  scroll.
 
 Explorer's filter rail orders filters by how often they change. Choices set once and
 left (**Visitors**, **Show**) are compact switches that explain only the chosen option

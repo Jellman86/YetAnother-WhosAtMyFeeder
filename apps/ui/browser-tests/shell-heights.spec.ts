@@ -40,10 +40,10 @@ for (const size of [{ width: 1920, height: 900 }, { width: 1440, height: 800 }, 
             expect(await page.locator('#app-sidebar nav button').count()).toBeGreaterThanOrEqual(8);
             expect(await hiddenPlaces(page)).toEqual([]);
             const status = page.locator('[data-sidebar-status]');
-            await expect(status).toBeVisible();
             const link = status.locator('[data-sidebar-status-link]');
             const readings = page.locator('[data-sidebar-status-readings]');
             if (!options.readingFont) {
+                await expect(status).toBeVisible();
                 // The issues link is whole and in view without scrolling anything, under the status heading
                 // and its first reading: only the rest of the readings give way.
                 await expect(link).toBeInViewport({ ratio: 1 });
@@ -53,12 +53,17 @@ for (const size of [{ width: 1920, height: 900 }, { width: 1440, height: 800 }, 
                 expect((await readings.boundingBox())?.height ?? 0).toBeGreaterThan(30);
                 expect(await page.locator('[data-sidebar-scroll]').evaluate((node) => node.scrollHeight - node.clientHeight)).toBeLessThanOrEqual(1);
             } else {
-                // With the much wider reading font the places and the status scroll together, and the link
-                // is reached by scrolling that column, never hidden inside the card.
-                // Scrolled to the middle of the column, as a reader would bring it into view, not flush with
-                // its edge where a fraction of a pixel can stay under the clip.
-                await link.evaluate((node) => node.scrollIntoView({ block: 'center' }));
-                await expect(link).toBeInViewport({ ratio: 1 });
+                // With the much wider reading font the card's floor (its heading, first reading and a Health
+                // link that wraps onto three lines) is taller than the room under the places at these sizes,
+                // so the card gives way entirely rather than being squashed with no reading in it. Where it
+                // does show, it is whole, and its link is reached by scrolling the column if need be.
+                await expect.poll(() => cardFaults(page), READY).toEqual([]);
+                if (await status.isVisible()) {
+                    // Scrolled to the middle of the column, as a reader would bring it into view, not flush
+                    // with its edge where a fraction of a pixel can stay under the clip.
+                    await link.evaluate((node) => node.scrollIntoView({ block: 'center' }));
+                    await expect(link).toBeInViewport({ ratio: 1 });
+                }
             }
         });
     }
@@ -187,3 +192,80 @@ test('with the sidebar collapsed the page is still centred past 1920 px, and fil
     expect(wide.width / 1920).toBeGreaterThan(0.8);
 });
 
+
+// Signed in, the account band takes room from the column the places and the status share, so a window
+// that suits the status signed out may not suit it signed in. Across those heights the card is either
+// absent or whole: its heading, its first reading and the way to Health each drawn in full inside it,
+// never squashed to an empty bar (a phone at 390 × 700 once showed the card about 20 px tall). Where it
+// shows at rest it shows whole, and at worst the places and the status scroll together.
+async function cardFaults(page: Page): Promise<string[]> {
+    return page.locator('[data-sidebar-scroll]').evaluate((column) => {
+        const card = column.querySelector<HTMLElement>('[data-sidebar-status-card]');
+        // A card left out waits above the window, so its load meters, which sample only on screen, stop.
+        if (card && !card.checkVisibility({ visibilityProperty: true })) {
+            return card.getBoundingClientRect().bottom > 0 ? [`the unseen card is over the window at ${innerWidth} × ${innerHeight}`] : [];
+        }
+        if (!card) return [];
+        const faults: string[] = [];
+        const at = `at ${innerWidth} × ${innerHeight}`;
+        const readings = card.querySelector<HTMLElement>('[data-sidebar-status-readings]');
+        const parts = {
+            heading: card.querySelector<HTMLElement>('#sidebar-status-title'),
+            'first reading': card.querySelector<HTMLElement>('[data-status-row]'),
+            'Health link': card.querySelector<HTMLElement>('[data-sidebar-status-link]')
+        };
+        const view = column.getBoundingClientRect();
+        const box = card.getBoundingClientRect();
+        // At rest, never a sliver: the card is wholly in view, or wholly below the places.
+        if (box.top < view.bottom - 1 && box.bottom > view.bottom + 1) faults.push(`the card is cut at the foot of the column at rest ${at}`);
+        // Scrolled as far as it goes, every part is whole in the column, in the card, and (the heading and
+        // first reading) in the readings' own scrolled clip.
+        column.scrollTop = column.scrollHeight;
+        const shown = column.getBoundingClientRect();
+        const cardBox = card.getBoundingClientRect();
+        const clip = readings?.getBoundingClientRect();
+        for (const [name, part] of Object.entries(parts)) {
+            if (!part) { faults.push(`no ${name} ${at}`); continue; }
+            const r = part.getBoundingClientRect();
+            if (r.height < 1) faults.push(`the ${name} is not drawn ${at}`);
+            if (r.top < cardBox.top - 1 || r.bottom > cardBox.bottom + 1) faults.push(`the ${name} spills out of the card ${at}`);
+            if (r.top < shown.top - 1 || r.bottom > shown.bottom + 1) faults.push(`the ${name} cannot be scrolled into view ${at}`);
+            if (clip && name !== 'Health link' && (r.top < clip.top - 1 || r.bottom > clip.bottom + 1)) faults.push(`the ${name} is clipped by the readings ${at}`);
+        }
+        column.scrollTop = 0;
+        return faults;
+    });
+}
+
+async function openShell(page: Page, size: { width: number; height: number }, signedIn = true): Promise<void> {
+    await page.setViewportSize(size);
+    await replayFeeder(page, 'dark', {}, (json, url) =>
+        signedIn && url.pathname === '/api/auth/status' ? { ...(json as Record<string, unknown>), auth_required: true, is_authenticated: true, username: 'owner' } : json
+    );
+    await page.goto('/');
+    if (size.width < 768) await page.getByRole('button', { name: 'Menu', exact: true }).click();
+    await expect(page.locator('#app-sidebar nav')).toBeVisible(READY);
+    await expect(page.locator('[data-sidebar-account-band]')).toHaveCount(signedIn ? 1 : 0);
+    await settled(page);
+}
+
+for (const range of [{ width: 390, from: 672, to: 800, signedIn: true }, { width: 1280, from: 680, to: 780, signedIn: true }, { width: 390, from: 672, to: 800, signedIn: false }]) {
+    test(`signed ${range.signedIn ? 'in' : 'out'} at ${range.width} px wide and ${range.from} to ${range.to} px tall the status card is whole or absent, never squashed`, async ({ page }) => {
+        await openShell(page, { width: range.width, height: range.to }, range.signedIn);
+        await expect(page.locator('[data-sidebar-status-readings] [data-status-row]').first()).toBeAttached(READY);
+        for (let height = range.from; height <= range.to; height += 8) {
+            await page.setViewportSize({ width: range.width, height });
+            await expect.poll(() => hiddenPlaces(page), { timeout: 3_000 }).toEqual([]);
+            await expect.poll(() => cardFaults(page), { timeout: 3_000 }).toEqual([]);
+        }
+    });
+}
+
+// A phone tall enough for the status keeps it: the drawer is not emptied where the card fits.
+test('signed in on a 390 × 844 phone the menu shows the whole status card under the places', async ({ page }) => {
+    await openShell(page, { width: 390, height: 844 });
+    const card = page.locator('[data-sidebar-status-card]');
+    await expect(card).toBeVisible(READY);
+    await expect(card.locator('[data-sidebar-status-link]')).toBeInViewport({ ratio: 1 });
+    expect(await cardFaults(page)).toEqual([]);
+});
