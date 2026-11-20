@@ -57,13 +57,9 @@ for (const size of [{ width: 1920, height: 900 }, { width: 1440, height: 800 }, 
                 // link that wraps onto three lines) is taller than the room under the places at these sizes,
                 // so the card gives way entirely rather than being squashed with no reading in it. Where it
                 // does show, it is whole, and its link is reached by scrolling the column if need be.
+                // Whole where it shows, and left out only where the room is really below its floor.
+                await expect(readings.locator('[data-status-row]').first()).toBeAttached(READY);
                 await expect.poll(() => cardFaults(page), READY).toEqual([]);
-                if (await status.isVisible()) {
-                    // Scrolled to the middle of the column, as a reader would bring it into view, not flush
-                    // with its edge where a fraction of a pixel can stay under the clip.
-                    await link.evaluate((node) => node.scrollIntoView({ block: 'center' }));
-                    await expect(link).toBeInViewport({ ratio: 1 });
-                }
             }
         });
     }
@@ -201,11 +197,23 @@ test('with the sidebar collapsed the page is still centred past 1920 px, and fil
 async function cardFaults(page: Page): Promise<string[]> {
     return page.locator('[data-sidebar-scroll]').evaluate((column) => {
         const card = column.querySelector<HTMLElement>('[data-sidebar-status-card]');
-        // A card left out waits above the window, so its load meters, which sample only on screen, stop.
-        if (card && !card.checkVisibility({ visibilityProperty: true })) {
-            return card.getBoundingClientRect().bottom > 0 ? [`the unseen card is over the window at ${innerWidth} × ${innerHeight}`] : [];
-        }
         if (!card) return [];
+        if (!card.checkVisibility({ visibilityProperty: true })) {
+            const where = `at ${innerWidth} × ${innerHeight}`;
+            // A card left out waits above the window, so its load meters, which sample only on screen, stop.
+            if (card.getBoundingClientRect().bottom > 0) return [`the unseen card is over the window ${where}`];
+            // And it is left out only where its floor (frame, heading, first reading, link) does not fit
+            // the room under the places.
+            const holder = card.closest<HTMLElement>('[data-sidebar-status]');
+            const readings = card.querySelector<HTMLElement>('[data-sidebar-status-readings]');
+            const row = card.querySelector<HTMLElement>('[data-status-row]');
+            if (!holder || !readings || !row) return [];
+            const top = readings.getBoundingClientRect().top - readings.scrollTop;
+            const floor = holder.getBoundingClientRect().height - readings.getBoundingClientRect().height + row.getBoundingClientRect().bottom - top;
+            const places = column.querySelector('nav')?.getBoundingClientRect().height ?? 0;
+            const room = column.clientHeight - places;
+            return floor <= room - 1 ? [`the card is left out where its floor fits (${Math.round(floor)} in ${Math.round(room)} px) ${where}`] : [];
+        }
         const faults: string[] = [];
         const at = `at ${innerWidth} × ${innerHeight}`;
         const readings = card.querySelector<HTMLElement>('[data-sidebar-status-readings]');
@@ -254,11 +262,19 @@ for (const range of [{ width: 390, from: 672, to: 800, signedIn: true }, { width
     test(`signed ${range.signedIn ? 'in' : 'out'} at ${range.width} px wide and ${range.from} to ${range.to} px tall the status card is whole or absent, never squashed`, async ({ page }) => {
         await openShell(page, { width: range.width, height: range.to }, range.signedIn);
         await expect(page.locator('[data-sidebar-status-readings] [data-status-row]').first()).toBeAttached(READY);
+        const card = page.locator('[data-sidebar-status-card]');
+        let shown = 0;
         for (let height = range.from; height <= range.to; height += 8) {
             await page.setViewportSize({ width: range.width, height });
             await expect.poll(() => hiddenPlaces(page), { timeout: 3_000 }).toEqual([]);
             await expect.poll(() => cardFaults(page), { timeout: 3_000 }).toEqual([]);
+            if (await card.isVisible()) shown += 1;
         }
+        // Not left out across the whole range, and shown where there is plenty of room.
+        expect(shown, 'the card shows at some height in the range').toBeGreaterThan(0);
+        await page.setViewportSize({ width: range.width, height: 900 });
+        await expect(card).toBeVisible();
+        await expect.poll(() => cardFaults(page), { timeout: 3_000 }).toEqual([]);
     });
 }
 
@@ -363,3 +379,15 @@ for (const signedIn of [true, false]) {
         await expect.poll(() => railFaults(page), { timeout: 3_000 }).toEqual([]);
     });
 }
+
+// Keyboard focus never stays on a card that is left out: a window made shorter while the Health link has
+// focus moves it to Health among the places, so the reader is not left on something unseen.
+test('focus on the status card moves to Health among the places when the card is left out', async ({ page }) => {
+    await openShell(page, { width: 1280, height: 960 });
+    const link = page.locator('[data-sidebar-status-link]');
+    await expect(link).toBeVisible(READY);
+    await link.focus();
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await expect(page.locator('[data-sidebar-status-card]')).toBeHidden();
+    await expect(page.locator('#app-sidebar nav [data-nav-path="/system-health"]')).toBeFocused();
+});

@@ -69,7 +69,7 @@ describe('Sidebar hybrid refresh', () => {
         // No status is hidden by the window's height: the card and the icon rail's group are both measured
         // against the room the column really has (see below).
         expect(sidebarSource).not.toContain('[@media(max-height:42rem)]:hidden');
-        expect(sidebarSource).toContain("use:showWholeOrNone={{ container: '[data-sidebar-scroll]' }}");
+        expect(sidebarSource).toContain("use:showWholeOrNone={{ container: '[data-sidebar-scroll]', refocus: refocusFromStatus }}");
         expect(sidebarSource).toContain('[@media(max-height:42rem)]:py-3');
         // On a short window the brand sits beside its mark, the status readings give way inside the card
         // with the Health link pinned at its foot, the card gives way entirely where not even that fits,
@@ -129,7 +129,7 @@ describe('Sidebar hybrid refresh', () => {
 
     it('shows the status readings in whole lines at rest, instead of cutting a line of words', () => {
         // Never fewer than the heading and the first reading.
-        expect(sidebarSource).toContain("use:snapToWholeLines={{ lines: ':scope > *, li', floor: '[data-status-row]', container: '[data-sidebar-scroll]' }}");
+        expect(sidebarSource).toContain("use:snapToWholeLines={{ lines: ':scope > *, li', floor: '[data-status-row]', container: '[data-sidebar-scroll]', refocus: refocusFromStatus }}");
         // Nothing is drawn over the readings: a mask on them, a tab stop, clipped their focus ring, and a fade
         // or an edge over a line reads as cut or underlined text.
         expect(sidebarSource).not.toContain('mask-image');

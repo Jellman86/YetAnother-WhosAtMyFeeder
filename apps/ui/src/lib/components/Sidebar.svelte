@@ -132,6 +132,15 @@
         ];
     });
 
+    // A status left out while it holds keyboard focus hands it to Health among the places (the owner's),
+    // or else to the page you are on, never leaving it on something unseen.
+    function refocusFromStatus(): HTMLElement | null {
+        return asideEl?.querySelector<HTMLElement>('nav [data-nav-path="/system-health"]')
+            ?? asideEl?.querySelector<HTMLElement>('nav [aria-current="page"]')
+            ?? asideEl?.querySelector<HTMLElement>('nav button')
+            ?? null;
+    }
+
     function navigateAndClose(path: string): void {
         onNavigate(path);
         onMobileClose?.();
@@ -199,10 +208,11 @@
     <!-- Every place in the app and the way to Health stay in view: on a short window the brand sits
          beside its mark and System status gives up its readings first (they scroll inside the card,
          the Health link stays at its foot). Where the room under the places, measured, cannot hold the
-         card's heading, first reading and link whole, the status gives way entirely (Health is still
-         one of the places); only when the places themselves do not fit, as at a much larger text size,
-         do the places and the status scroll together. The controls below never scroll, so the
-         language menu that opens past the collapsed rail is never clipped. -->
+         card's heading, first reading and link whole, the status is left out rather than cut: the owner
+         still has Health among the places, and a guest the header's cameras and the Dashboard's feed.
+         Only when the places themselves do not fit, as at a much larger text size, does the labelled
+         card follow them down the scrolling column (the icon rail's group stays out). The controls
+         below never scroll, so the language menu that opens past the collapsed rail is never clipped. -->
     <div class="flex min-h-0 flex-1 flex-col overflow-y-auto" data-sidebar-scroll>
         <nav class="shrink-0 px-3 py-4" aria-label={$_('nav.navigation', { default: 'Primary navigation' })}>
             {#each navSections as section, sectionIndex}
@@ -225,6 +235,7 @@
                                 title={collapsed ? item.label : ''}
                                 aria-label={item.label}
                                 aria-current={isRouteActive(item) ? 'page' : undefined}
+                                data-nav-path={item.path}
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
                                     <path stroke-linecap="round" stroke-linejoin="round" d={item.icon} />
@@ -252,7 +263,7 @@
                     class="flex flex-col items-center gap-1"
                     aria-label={$_('status.title')}
                     data-sidebar-status-card
-                    use:showWholeOrNone={{ container: '[data-sidebar-scroll]' }}
+                    use:showWholeOrNone={{ container: '[data-sidebar-scroll]', refocus: refocusFromStatus }}
                 >
                     {@render status?.(true)}
                     {#if authStore.showSettings}
@@ -296,7 +307,7 @@
                         tabindex="0"
                         aria-labelledby="sidebar-status-title"
                         data-sidebar-status-readings
-                        use:snapToWholeLines={{ lines: ':scope > *, li', floor: '[data-status-row]', container: '[data-sidebar-scroll]' }}
+                        use:snapToWholeLines={{ lines: ':scope > *, li', floor: '[data-status-row]', container: '[data-sidebar-scroll]', refocus: refocusFromStatus }}
                     >
                         <h2 id="sidebar-status-title" class="mb-2 text-xs font-semibold leading-4 text-ink">
                             {$_('status.title')}
@@ -466,11 +477,12 @@
     }
 
     /* Not even the heading, first reading and Health link fit under the places (on the icon rail, the
-       whole group of icons): no card rather than a sliver of one. It stays laid out, out of the flow and unseen, so it is measured again as the room
-       changes, and hidden from the keyboard and screen readers like anything not shown. It waits above
-       the window, not over the sidebar, because the load meters sample only while they are on screen.
-       The mark is written by snapToWholeLines or showWholeOrNone, not the template, so it is matched
-       as global. */
+       whole group of icons): no card rather than a sliver of one. It stays laid out, out of the flow
+       and unseen, so it is measured again as the room changes, and is hidden from the keyboard and
+       screen readers like anything not shown (its live region says nothing while it is out). It waits
+       above the window, not over the sidebar, because the load meters sample only while they are on
+       screen. The mark is written by snapToWholeLines or showWholeOrNone, not the template, so it is
+       matched as global. */
     [data-sidebar-status]:global([data-fit='none']) {
         position: absolute;
         inset-inline: 0;

@@ -296,11 +296,14 @@ What holds in every band:
   System status's way to Health stay in view without scrolling: the wordmark sits beside its mark, and
   the status readings give way inside their card, in whole lines, under the pinned Health link. The
   card is never drawn smaller than its heading, its first reading and that link: where the room under
-  the places (measured, so signed in the account band counts) cannot hold even that, the status gives
-  way entirely, and Health is still one of the places. Only when the places themselves do not fit, as
-  at a much larger text size, do the places and the status scroll together; the controls below never
-  scroll. The collapsed icon rail's status has nothing that can give way, so its icons and Health link
-  are whole and in view under the places or left out, measured the same way, never cut at the foot.
+  the places (measured, so signed in the account band counts) cannot hold even that, the card is left
+  out, never cut or scrolled half out of view. The owner still has Health among the places; a guest
+  has no Health, and keeps only the header's cameras and the Dashboard's feed, and a left-out card's
+  live region says nothing. Only when the places themselves do not fit, as at a much larger text
+  size, does the card follow them down the scrolling column; the controls below never scroll. The
+  collapsed icon rail's status has nothing that can give way, so its icons and Health link are whole
+  and in view under the places or left out, measured the same way, and they stay out even where the
+  places scroll. Keyboard focus on a status that is left out moves to Health among the places.
 
 Explorer's filter rail orders filters by how often they change. Choices set once and
 left (**Visitors**, **Show**) are compact switches that explain only the chosen option
