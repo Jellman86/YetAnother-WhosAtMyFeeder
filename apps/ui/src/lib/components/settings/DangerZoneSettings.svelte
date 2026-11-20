@@ -1,4 +1,5 @@
 <script lang="ts">
+    import SettingsSubheading from './_primitives/SettingsSubheading.svelte';
     import { _ } from 'svelte-i18n';
     import SettingsCard from './_primitives/SettingsCard.svelte';
 
@@ -40,7 +41,7 @@
     <ul class="@container divide-y divide-line-soft" data-danger-actions>
         <li class="flex flex-col gap-3 p-4 @xl:flex-row @xl:items-center @xl:justify-between @xl:gap-6" data-danger-action="feedback">
             <div class="min-w-0 space-y-1">
-                <h3 class="text-sm font-semibold text-strong">{$_('settings.danger.feedback_title', { default: 'Personalization data' })}</h3>
+                <SettingsSubheading>{$_('settings.danger.feedback_title', { default: 'Personalization data' })}</SettingsSubheading>
                 <p id="danger-feedback-consequence" class="text-xs leading-snug text-muted">
                     {$_('settings.danger.clear_feedback_desc', { default: 'Clearing personalization feedback will delete all manual tag corrections the AI uses to adjust confidence scores. This will revert the classifier to its baseline accuracy.' })}
                     {$_('settings.danger.clear_feedback_hint', { default: 'This does not delete detections or media. Re-ranking will begin learning again as you make new manual corrections.' })}
@@ -59,7 +60,7 @@
         </li>
         <li class="flex flex-col gap-3 p-4 @xl:flex-row @xl:items-center @xl:justify-between @xl:gap-6" data-danger-action="favorites">
             <div class="min-w-0 space-y-1">
-                <h3 class="text-sm font-semibold text-strong">{$_('settings.danger.favorites_title', { default: 'Favourites' })}</h3>
+                <SettingsSubheading>{$_('settings.danger.favorites_title', { default: 'Favourites' })}</SettingsSubheading>
                 <p id="danger-favorites-consequence" class="text-xs leading-snug text-muted">{$_('settings.data.clear_favorites_desc')}</p>
             </div>
             <button
@@ -75,7 +76,7 @@
         </li>
         <li class="flex flex-col gap-3 p-4 @xl:flex-row @xl:items-center @xl:justify-between @xl:gap-6" data-danger-action="reset">
             <div class="min-w-0 space-y-1">
-                <h3 class="text-sm font-semibold text-strong">{$_('settings.danger.reset_title', { default: 'Database and media cache' })}</h3>
+                <SettingsSubheading>{$_('settings.danger.reset_title', { default: 'Database and media cache' })}</SettingsSubheading>
                 <p id="danger-reset-consequence" class="text-xs leading-snug text-muted">{$_('settings.danger.reset_desc')}</p>
             </div>
             <button

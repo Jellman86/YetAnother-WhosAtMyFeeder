@@ -145,7 +145,7 @@
                 onclick={() => choosePreset(preset)}
                 class="block w-full rounded-xl px-3 py-2 text-left transition-colors hover:bg-surface-raised {mode === preset ? 'bg-brand-50 dark:bg-brand-950/60' : ''}"
             >
-                <span class="block text-sm font-bold text-slate-900 dark:text-white">{$_(presetSentenceKey(preset))}</span>
+                <span class="block text-sm font-semibold text-slate-900 dark:text-white">{$_(presetSentenceKey(preset))}</span>
                 <span class="mt-0.5 block text-xs text-slate-600 dark:text-slate-400">{$_(`settings.notifications.mode_${preset}_desc`)}</span>
             </button>
             {#if preset === 'final' && mode === 'final'}
@@ -228,7 +228,7 @@
                     <div class="{popoverClass} {alignRight ? 'left-auto right-0' : ''}" role="dialog" aria-label={$_('settings.notifications.min_confidence')}>
                         <div class="mb-2 flex items-center justify-between">
                             <label for="policy-confidence-slider" class="text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.notifications.min_confidence')}</label>
-                            <output for="policy-confidence-slider" class="rounded-lg bg-brand-700 px-2 py-0.5 text-xs font-bold text-white">{confidencePercent}%</output>
+                            <output for="policy-confidence-slider" class="rounded-lg bg-brand-700 px-2 py-0.5 text-xs font-semibold text-white">{confidencePercent}%</output>
                         </div>
                         <input
                             id="policy-confidence-slider"

@@ -159,6 +159,7 @@
 
 <div class="space-y-8">
     <SettingsCard
+        id="settings-group-auth"
         title={$_('settings.auth.title')}
         description={$_('settings.auth.desc')}
         titleId="security-auth-title"
@@ -193,7 +194,7 @@
                     {#if avatarStore.url}
                         <img src={avatarStore.url} alt={$_('settings.auth.avatar', { default: 'Profile picture' })} class="h-14 w-14 rounded-xl object-cover" />
                     {:else}
-                        <span class="grid h-14 w-14 place-items-center rounded-xl bg-brand-100 text-lg font-bold text-brand-700 dark:bg-brand-900/50 dark:text-brand-300" aria-hidden="true">
+                        <span class="grid h-14 w-14 place-items-center rounded-xl bg-brand-100 text-lg font-semibold text-brand-700 dark:bg-brand-900/50 dark:text-brand-300" aria-hidden="true">
                             {(authStore.username?.trim().slice(0, 1) || 'Y').toUpperCase()}
                         </span>
                     {/if}
@@ -330,10 +331,10 @@
                     </div>
                     <div class="flex flex-wrap gap-2">
                         {#each trustedProxyHosts as host}
-                            <span class="group flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold {trustedProxyHostsSuggested ? 'border border-dashed border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900/40 text-slate-600 dark:text-slate-400' : 'bg-white dark:bg-slate-800 border border-brand-200 dark:border-brand-700/50 text-slate-700 dark:text-slate-300'}">
+                            <span class="group flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold {trustedProxyHostsSuggested ? 'border border-dashed border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900/40 text-slate-600 dark:text-slate-400' : 'bg-white dark:bg-slate-800 border border-brand-200 dark:border-brand-700/50 text-slate-700 dark:text-slate-300'}">
                                 {host}
                                 {#if trustedProxyHostsSuggested}
-                                    <span class="px-2 py-0.5 rounded-full text-xs font-bold bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                                    <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
                                         {$_('settings.auth.trusted_proxies_suggested_label', { default: 'Suggested' })}
                                     </span>
                                 {:else}
@@ -349,7 +350,7 @@
                             </span>
                         {/each}
                         {#if trustedProxyHosts.length === 0}
-                            <p class="text-xs font-bold text-slate-600 dark:text-slate-400">{$_('settings.auth.trusted_proxies_empty', { default: 'No trusted proxies configured (all proxies trusted).' })}</p>
+                            <p class="text-xs text-slate-600 dark:text-slate-400">{$_('settings.auth.trusted_proxies_empty', { default: 'No trusted proxies configured (all proxies trusted).' })}</p>
                         {/if}
                     </div>
                     {#if trustedProxyHostsSuggested}
@@ -371,6 +372,7 @@
     </SettingsCard>
 
     <SettingsCard
+        id="settings-group-public-access"
         title={$_('settings.public_access.title')}
         description={$_('settings.public_access.desc')}
         titleId="security-public-title"

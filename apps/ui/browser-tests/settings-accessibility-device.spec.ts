@@ -65,7 +65,7 @@ test('editing a default never hides this device\'s own choice, and previews the 
     await thisDevice(page).getByRole('switch', { name: 'Reduced motion' }).click();
     await expect(html(page)).toHaveClass(/\breduced-motion\b/);
 
-    const toggle = page.locator('[data-settings-more] > h2 > button');
+    const toggle = page.locator('[data-settings-more] > h3 > button');
     await toggle.click();
     const reducedMotionDefault = page.locator('[data-settings-more-body]').getByRole('switch', { name: 'Defaults for everyone Reduced motion' });
     // The default goes on and off again: this device made its own choice, so it keeps it throughout.
@@ -95,7 +95,7 @@ test('"Use the default" hands focus to its row\'s switch, which says it follows 
 
 test('an unsaved default is previewed only while it is pending: Discard and leaving Settings end it, closing More options does not', async ({ page }) => {
     await openDisplay(page, { accessibility_high_contrast: false });
-    const more = page.locator('[data-settings-more] > h2 > button');
+    const more = page.locator('[data-settings-more] > h3 > button');
     await more.click();
     const highContrastDefault = page.locator('[data-settings-more-body]').getByRole('switch', { name: 'Defaults for everyone High contrast' });
     await highContrastDefault.click();

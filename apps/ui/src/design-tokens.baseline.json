@@ -320,13 +320,13 @@
     "arbitrary": 0
   },
   "lib/components/settings/BetaFeatureCard.svelte": {
-    "palette": 10,
-    "dark": 5,
+    "palette": 4,
+    "dark": 2,
     "arbitrary": 0
   },
   "lib/components/settings/BetaSection.svelte": {
-    "palette": 6,
-    "dark": 3,
+    "palette": 2,
+    "dark": 1,
     "arbitrary": 0
   },
   "lib/components/settings/CameraWatchRow.svelte": {
@@ -345,8 +345,8 @@
     "arbitrary": 0
   },
   "lib/components/settings/DataSettings.svelte": {
-    "palette": 53,
-    "dark": 26,
+    "palette": 43,
+    "dark": 21,
     "arbitrary": 0
   },
   "lib/components/settings/DetectionSettings.svelte": {
@@ -360,13 +360,13 @@
     "arbitrary": 0
   },
   "lib/components/settings/GardenBetaSettings.svelte": {
-    "palette": 42,
-    "dark": 21,
+    "palette": 40,
+    "dark": 20,
     "arbitrary": 0
   },
   "lib/components/settings/GardenCollectionStatus.svelte": {
-    "palette": 10,
-    "dark": 5,
+    "palette": 8,
+    "dark": 4,
     "arbitrary": 0
   },
   "lib/components/settings/GardenModelSetup.svelte": {
@@ -405,13 +405,13 @@
     "arbitrary": 0
   },
   "lib/components/settings/NotificationSettings.svelte": {
-    "palette": 99,
-    "dark": 46,
+    "palette": 95,
+    "dark": 44,
     "arbitrary": 0
   },
   "lib/components/settings/RangeFilterSettings.svelte": {
-    "palette": 78,
-    "dark": 39,
+    "palette": 74,
+    "dark": 37,
     "arbitrary": 0
   },
   "lib/components/settings/SystemHealthPanel.svelte": {
@@ -440,8 +440,8 @@
     "arbitrary": 0
   },
   "lib/components/settings/_primitives/SettingsCard.svelte": {
-    "palette": 6,
-    "dark": 3,
+    "palette": 2,
+    "dark": 1,
     "arbitrary": 0
   },
   "lib/components/settings/_primitives/SettingsInput.svelte": {
@@ -454,19 +454,14 @@
     "dark": 5,
     "arbitrary": 0
   },
-  "lib/components/settings/_primitives/SettingsRow.svelte": {
-    "palette": 4,
-    "dark": 2,
-    "arbitrary": 0
-  },
   "lib/components/settings/_primitives/SettingsSelect.svelte": {
     "palette": 4,
     "dark": 2,
     "arbitrary": 0
   },
   "lib/components/settings/_primitives/SettingsSlider.svelte": {
-    "palette": 9,
-    "dark": 4,
+    "palette": 1,
+    "dark": 0,
     "arbitrary": 0
   },
   "lib/components/settings/_primitives/SettingsTextarea.svelte": {

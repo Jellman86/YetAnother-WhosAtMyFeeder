@@ -113,7 +113,7 @@ test.describe('a refused value inside a closed card', () => {
         });
         await rail(page).getByRole('link', { name: 'Identifying birds', exact: true }).click();
         // The card is under a closed More options, inside a closed card of its own.
-        await expect(page.locator('[data-settings-more] > h2 > button')).toHaveAttribute('aria-expanded', 'false');
+        await expect(page.locator('[data-settings-more] > h3 > button')).toHaveAttribute('aria-expanded', 'false');
         await rail(page).getByRole('link', { name: 'Cameras & connection', exact: true }).click();
         await page.locator('#mqtt-server').fill('broker.lan');
         await page.getByRole('button', { name: 'Save changes', exact: true }).click();

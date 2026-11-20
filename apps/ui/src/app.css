@@ -824,6 +824,8 @@ html[data-theme='dark'] {
 
 @utility settings-section-body {
   @apply divide-y divide-line-soft px-4 md:px-6;
+  /* A group stands off the page, with the same lift as a raised panel, so it reads as one thing. */
+  box-shadow: var(--elevation-panel);
 
   & > * {
     @apply py-4;
@@ -858,6 +860,32 @@ html[data-theme='dark'] {
 
   & > *:last-child {
     @apply pb-0;
+  }
+}
+
+/* The setting a search result just opened: an outline that stays for a moment, over a tint that
+   fades. With reduced motion the tint does not animate; the outline alone marks it, then goes. */
+[data-settings-found] {
+  border-radius: 0.5rem;
+  outline: 2px solid var(--color-focus);
+  outline-offset: 6px;
+  animation: settings-found 2.4s ease-out both;
+}
+
+@keyframes settings-found {
+  from {
+    background-color: var(--color-accent-soft);
+    box-shadow: 0 0 0 6px var(--color-accent-soft);
+  }
+  to {
+    background-color: transparent;
+    box-shadow: 0 0 0 6px transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-settings-found] {
+    animation: none;
   }
 }
 

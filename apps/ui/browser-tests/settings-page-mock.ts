@@ -80,7 +80,7 @@ export async function openSaveDetails(page: Page): Promise<void> {
 }
 /** Opens the open section's "More options", where the settings fewer owners need are kept. */
 export async function openMoreOptions(page: Page): Promise<void> {
-    const toggle = page.locator('[data-settings-more] > h2 > button');
+    const toggle = page.locator('[data-settings-more] > h3 > button');
     if ((await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click();
     await expect(page.locator('[data-settings-more-body]')).toBeVisible();
 }

@@ -11,7 +11,8 @@
 </script>
 
 <SettingsCard
-    level={3}
+        id="settings-group-units"
+    nested
     title={$_('settings.units.title', { default: 'Units' })}
     description={$_('settings.units.desc', { default: 'For everyone who opens this install, not only this device.' })}
 >

@@ -679,9 +679,9 @@ test('switching Garden on reveals its sections and the setup it still needs', as
     await page.getByRole('switch', { name: 'Garden animals' }).click();
 
     await expect(page.locator('[data-garden-beta-off-note]')).toHaveCount(0);
-    const headings = page.locator('[data-garden-beta-settings] h3');
+    const headings = page.locator('[data-garden-beta-settings] h5');
     await expect(headings).toHaveText(['Still to set up', 'Cameras', 'Automatic checks', 'Models', 'Domestic birds you keep None', 'Where captures go']);
-    const expanded = page.locator('[data-beta-section] h3 button');
+    const expanded = page.locator('[data-beta-section] h5 button');
     await expect(expanded).toHaveCount(5);
     expect(await expanded.evaluateAll(buttons => buttons.map(button => button.getAttribute('aria-expanded')))).toEqual(['true', 'true', 'false', 'false', 'false']);
 

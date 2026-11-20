@@ -1850,5 +1850,18 @@
     "unit": "secondi",
     "limit": "Un intervallo più breve divide una mangiatoia affollata in visite più numerose e più brevi. Non può contare i singoli uccelli: quando un uccello se ne va mentre un altro della stessa specie si posa, qualsiasi intervallo vede ancora una sola visita.",
     "history": "Dopo aver salvato, ogni pagina raggruppa le visite con il nuovo intervallo. I giorni le cui acquisizioni sono già state rimosse dalla durata della cronologia mantengono il numero di visite con cui sono stati salvati."
+  },
+  "search": {
+    "label": "Cerca nelle impostazioni",
+    "placeholder": "Trova un’impostazione",
+    "clear": "Cancella la ricerca",
+    "count": "{count, plural, one {# impostazione trovata} other {# impostazioni trovate}}",
+    "count_more": "{total} impostazioni corrispondono; ne sono mostrate {shown}. Scrivi ancora per restringerle.",
+    "none": "Nessuna impostazione corrisponde a «{query}».",
+    "none_hint": "Cerca per nome dell’impostazione, per ciò che fa o con una parola come password, GPU o backup.",
+    "advanced": "Avanzate",
+    "group": "gruppo di impostazioni",
+    "behind": "«{setting}» compare quando «{switch}» è attivo.",
+    "not_shown": "«{setting}» non è mostrata in questa installazione."
   }
 }

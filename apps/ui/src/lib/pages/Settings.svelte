@@ -83,9 +83,13 @@
         updateScopedBackfillProgress
     } from '../backfill/progress';
     import { formatTerminalBackfillMessage, isBackfillTerminalTransition } from '../backfill/terminal-message';
-    import { _, locale } from 'svelte-i18n';
+    import { _, json, locale } from 'svelte-i18n';
     import { setAppLocale } from '../i18n';
     import SettingsTabs from '../components/settings/SettingsTabs.svelte';
+    import type { SettingsSearchLanding } from '../components/settings/SettingsSearch.svelte';
+    import { settingsSearchEntry, settingsSearchSection, type SettingsSearchEntry } from '../settings/settings-search-index';
+    import { messageWords } from '../settings/settings-search';
+    import { settingsScrollBehaviour } from '../settings/scroll-behaviour';
     import CamerasSection from '../components/settings/sections/CamerasSection.svelte';
     import IdentificationSection from '../components/settings/sections/IdentificationSection.svelte';
     import AlertsSection from '../components/settings/sections/AlertsSection.svelte';
@@ -1446,7 +1450,7 @@
 
     /** Moves keyboard and screen-reader focus to the part's heading, so the next Tab starts there. */
     function focusLandedPart(target: HTMLElement): void {
-        const heading = target.querySelector<HTMLElement>('h2, h3') ?? target;
+        const heading = target.querySelector<HTMLElement>('h3, h4') ?? target;
         if (!heading.hasAttribute('tabindex')) heading.setAttribute('tabindex', '-1');
         heading.setAttribute('data-settings-landed', '');
         heading.focus({ preventScroll: true });
@@ -1630,6 +1634,9 @@
 
     onDestroy(() => {
         destroyed = true;
+        searchLanding?.abort();
+        clearFoundMark();
+        clearFoundNote();
         const saved = settingsStore.settings;
         // Only a form this page has filled can hold edits. Left while it still waited for the saved
         // copy (a quick Back while a kept draft waits for a fresh read), its fields are empty
@@ -3231,6 +3238,167 @@
         }
     }
 
+    const FOCUSABLE = 'input:not([type="hidden"]):not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])';
+    const firstControlIn = (root: Element): HTMLElement | null =>
+        [...root.querySelectorAll<HTMLElement>(FOCUSABLE)].find((control) => control.checkVisibility()) ?? null;
+
+    /**
+     * What takes focus for a search result: the setting's own control. An anchor is a row's label,
+     * so the control is the one that label names, or the first one in its row; a group lands on its
+     * heading, unless it was opened for its switch.
+     */
+    function controlFor(anchor: HTMLElement, isGroup: boolean, wantsSwitch: boolean): HTMLElement {
+        if (isGroup && !wantsSwitch) return anchor.matches('h2, h3, h4, h5, h6') ? anchor : (anchor.querySelector<HTMLElement>('h3, h4') ?? anchor);
+        if (anchor.matches('[data-settings-section]')) return anchor.querySelector<HTMLElement>('header .switch-track') ?? anchor.querySelector<HTMLElement>('h3, h4') ?? anchor;
+        if (anchor.matches(FOCUSABLE)) return anchor;
+        // What the label names: the control itself where there is one (a group's switch), before a
+        // region that is merely named by the same words.
+        const labelled = [...document.querySelectorAll<HTMLElement>(`[aria-labelledby~="${CSS.escape(anchor.id)}"]`)].filter((element) => element.checkVisibility());
+        const named = labelled.find((element) => element.matches(FOCUSABLE)) ?? labelled[0];
+        if (named) return named.matches(FOCUSABLE) ? named : (firstControlIn(named) ?? named);
+        const row = anchor.closest<HTMLElement>('[data-settings-row]');
+        return (row ? firstControlIn(row) : firstControlIn(anchor)) ?? anchor;
+    }
+
+    // The setting a search result just opened, marked for a moment so the eye finds it.
+    let foundMark: { element: HTMLElement; timer: ReturnType<typeof setTimeout> } | null = null;
+    function clearFoundMark(): void {
+        if (!foundMark) return;
+        clearTimeout(foundMark.timer);
+        foundMark.element.removeAttribute('data-settings-found');
+        foundMark = null;
+    }
+    function markFound(element: HTMLElement): void {
+        clearFoundMark();
+        element.setAttribute('data-settings-found', '');
+        foundMark = { element, timer: setTimeout(clearFoundMark, 2600) };
+    }
+
+    // Words put beside the switch a result landed on instead of its setting, and read with it.
+    let foundNote: { element: HTMLElement; control: HTMLElement; describedBy: string | null; section: SettingsSection } | null = null;
+    function clearFoundNote(): void {
+        if (!foundNote) return;
+        const { element, control, describedBy } = foundNote;
+        if (describedBy === null) control.removeAttribute('aria-describedby');
+        else control.setAttribute('aria-describedby', describedBy);
+        element.remove();
+        foundNote = null;
+    }
+    function showFoundNote(beside: HTMLElement, control: HTMLElement, text: string, section: SettingsSection): void {
+        clearFoundNote();
+        const element = document.createElement('p');
+        element.id = 'settings-found-note';
+        element.className = 'mt-3 text-sm text-ink';
+        element.setAttribute('data-settings-found-note', '');
+        element.textContent = text;
+        beside.append(element);
+        const describedBy = control.getAttribute('aria-describedby');
+        control.setAttribute('aria-describedby', [describedBy, element.id].filter(Boolean).join(' '));
+        foundNote = { element, control, describedBy, section };
+    }
+
+    // The search landing in progress, and the section it is heading for.
+    let searchLanding: AbortController | null = null;
+    let searchLandingSection: SettingsSection | null = null;
+
+    // A section opened by anything but the landing itself ends it, as a newer address ends an address
+    // landing; the note beside a switch belongs to the section it was shown in.
+    $effect(() => {
+        const section = activeSection;
+        untrack(() => {
+            if (searchLanding && searchLandingSection !== section) searchLanding.abort();
+            if (foundNote && foundNote.section !== section) clearFoundNote();
+        });
+    });
+
+    type SettingLanding = { state: 'landed'; marked: HTMLElement; control: HTMLElement } | { state: 'absent' | 'cancelled' };
+
+    /**
+     * Opens one indexed setting where it lives and moves focus to it. `absent` when it is not on the
+     * page; `cancelled` when the reader moved on first, in which case nothing more is opened, scrolled
+     * or focused.
+     */
+    async function landOnSetting(entry: SettingsSearchEntry, wantsSwitch: boolean, signal: AbortSignal): Promise<SettingLanding> {
+        if (signal.aborted) return { state: 'cancelled' };
+        const section = settingsSearchSection(entry);
+        searchLandingSection = section;
+        if (section !== activeSection) openSection(section);
+        // More options first, then whatever is closed inside it, so the row is on the page.
+        disclosures.reveal(entry.disclosures ?? []);
+        const find = (): HTMLElement | null => {
+            const element = document.getElementById(entry.anchor);
+            return element?.checkVisibility() ? element : null;
+        };
+        const present = await fieldInOpenedPart(SETTINGS_PART_LOADERS[entry.part], find);
+        if (signal.aborted) return { state: 'cancelled' };
+        if (!present) return { state: 'absent' };
+        // The parts above it are still filling in after a change of section; scrolling before they
+        // have their answers would leave the setting sliding away under the reader.
+        const root = document.querySelector(`[data-settings-section="${section}"]`);
+        if (root) await whenSectionReady({ watch: watchElementSizes(root, document.body), requestsIdle: onRequestsIdle, signal });
+        if (signal.aborted) return { state: 'cancelled' };
+        const anchor = find();
+        if (!anchor) return { state: 'absent' };
+        const control = controlFor(anchor, entry.kind === 'group', wantsSwitch);
+        if (!control.matches(FOCUSABLE)) control.setAttribute('tabindex', '-1');
+        const marked = anchor.closest<HTMLElement>('[data-settings-row]') ?? (anchor.matches('[data-settings-section]') ? (anchor.querySelector<HTMLElement>('header') ?? anchor) : anchor);
+        marked.scrollIntoView({ block: 'center', behavior: settingsScrollBehaviour() });
+        control.focus({ preventScroll: true });
+        markFound(marked);
+        return { state: 'landed', marked, control };
+    }
+
+    /** A message as the reader's language has it, as plain words. */
+    const settingWords = (key: string): string => {
+        const message = $json(key);
+        return typeof message === 'string' ? messageWords(message) : '';
+    };
+
+    /**
+     * Opens the setting a search result names. One that is only on the page while a switch is on
+     * falls back to that switch, so the reader lands on the step that shows it, with the reason
+     * beside it. The reader's own scroll, key or press, another section, or a newer search calls it
+     * off, wherever it has got to.
+     */
+    async function openSearchResult(anchor: string): Promise<SettingsSearchLanding> {
+        const entry = settingsSearchEntry(anchor);
+        if (!entry) return { landing: 'missing' };
+        // Its own handle, not the address landing's: opening the section changes the address, which
+        // ends an address landing in progress, and this one has to outlive that.
+        cancelLanding();
+        searchLanding?.abort();
+        clearFoundNote();
+        const controller = new AbortController();
+        searchLanding = controller;
+        const stopListening = listenForReaderIntent(() => controller.abort());
+        try {
+            const landed = await landOnSetting(entry, false, controller.signal);
+            if (landed.state === 'cancelled') return { landing: 'cancelled' };
+            if (landed.state === 'landed') return { landing: 'shown' };
+            for (let behind = entry.behind ? settingsSearchEntry(entry.behind) : null; behind; behind = behind.behind ? settingsSearchEntry(behind.behind) : null) {
+                const onSwitch = await landOnSetting(behind, true, controller.signal);
+                if (onSwitch.state === 'cancelled') return { landing: 'cancelled' };
+                if (onSwitch.state !== 'landed') continue;
+                const note = $_('settings.search.behind', {
+                    values: { setting: settingWords(entry.labelKey), switch: settingWords(behind.labelKey) },
+                    default: '“{setting}” is shown once “{switch}” is turned on.'
+                });
+                showFoundNote(onSwitch.marked, onSwitch.control, note, settingsSearchSection(behind));
+                return { landing: 'behind', note };
+            }
+            return {
+                landing: 'missing',
+                note: $_('settings.search.not_shown', { values: { setting: settingWords(entry.labelKey) }, default: '“{setting}” is not shown on this install.' })
+            };
+        } finally {
+            stopListening();
+            if (searchLanding === controller) {
+                searchLanding = null;
+                searchLandingSection = null;
+            }
+        }
+    }
+
     async function prepareInaturalistOAuth(): Promise<void> {
         // OAuth must use the credentials currently visible in the form. Persist
         // only this integration so unrelated unsaved settings remain untouched.
@@ -3272,12 +3440,13 @@
 {/snippet}
 
 {#snippet pageNavigation()}
-    <SettingsTabs {activeSection} onsectionchange={openSection} unsavedSections={unsavedSummary.sections} {refusedSections} contentId="settings-content" />
+    <SettingsTabs {activeSection} onsectionchange={openSection} onsearch={openSearchResult} unsavedSections={unsavedSummary.sections} {refusedSections} contentId="settings-content" />
 {/snippet}
 
 <SettingsPage
     title={$_('settings.title')}
     subtitle={$_('settings.subtitle')}
+    sectionTitle={sectionLabel(activeSection)}
     {loading}
     loadFailure={settingsLoadFailed
         ? $_('settings.load_failed', { default: 'Your settings could not be read, so nothing is shown for editing. Check that the YA-WAMF backend is running, then try again.' })

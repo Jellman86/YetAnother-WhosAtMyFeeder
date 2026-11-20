@@ -62,7 +62,8 @@ describe('Settings sliders', () => {
         // The value sits beside the label for the eye only: the focused slider announces it once,
         // through aria-valuetext. An <output> is a live region and would announce it again.
         // The value is plain text at the right of the control column, not a coloured pill.
-        expect(sliderSource).toMatch(/<p class="text-right text-sm font-semibold tabular-nums[^"]*" aria-hidden="true">\{shown\}<\/p>/);
+        // Regular weight in the ink colour: the label is the one semibold thing in a row.
+        expect(sliderSource).toMatch(/<p class="text-right text-sm tabular-nums text-ink" aria-hidden="true">\{shown\}<\/p>/);
         expect(sliderSource).not.toContain('bg-brand-700');
         expect(sliderSource).not.toContain('<output');
         expect(sliderSource).toContain('aria-valuetext={shown}');

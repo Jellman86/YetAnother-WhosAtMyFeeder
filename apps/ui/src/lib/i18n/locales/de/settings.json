@@ -1850,5 +1850,18 @@
     "unit": "Sekunden",
     "limit": "Ein kürzerer Abstand teilt ein volles Futterhaus in mehr und kürzere Besuche. Einzelne Vögel kann er nicht zählen: Wenn ein Vogel abfliegt, während einer derselben Art landet, bleibt es bei jedem Abstand ein Besuch.",
     "history": "Nach dem Speichern gruppiert jede Seite die Besuche mit dem neuen Abstand. Tage, deren Aufnahmen der Verlaufszeitraum bereits entfernt hat, behalten die Besuchszahlen, mit denen sie gespeichert wurden."
+  },
+  "search": {
+    "label": "Einstellungen durchsuchen",
+    "placeholder": "Einstellung finden",
+    "clear": "Suche leeren",
+    "count": "{count, plural, one {# Einstellung gefunden} other {# Einstellungen gefunden}}",
+    "count_more": "{total} Einstellungen passen; {shown} werden angezeigt. Tippe weiter, um sie einzugrenzen.",
+    "none": "Keine Einstellung passt zu „{query}“.",
+    "none_hint": "Suche nach dem Namen einer Einstellung, nach dem, was sie bewirkt, oder nach einem Wort wie Passwort, GPU oder Backup.",
+    "advanced": "Erweitert",
+    "group": "Gruppe von Einstellungen",
+    "behind": "„{setting}“ erscheint, sobald „{switch}“ eingeschaltet ist.",
+    "not_shown": "„{setting}“ wird bei dieser Installation nicht angezeigt."
   }
 }

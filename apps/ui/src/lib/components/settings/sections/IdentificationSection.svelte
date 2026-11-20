@@ -101,7 +101,7 @@
     {#if autoVideoClassification && videoCircuitOpen}
         <div role="alert" class="rounded-2xl border border-status-attention-line bg-status-attention-soft px-4 py-3 text-status-attention" data-video-circuit data-settings-lead>
             <p class="mb-2 text-sm font-semibold">{$_('settings.video_circuit.title')}</p>
-            <p class="text-sm font-bold leading-relaxed">{$_('settings.video_circuit.message', { values: { failures: videoCircuitFailures } })}</p>
+            <p class="text-sm leading-relaxed">{$_('settings.video_circuit.message', { values: { failures: videoCircuitFailures } })}</p>
             {#if circuitUntil}
                 <p class="mt-2 text-xs">{$_('settings.video_circuit.until', { values: { time: circuitUntil } })}</p>
             {/if}
@@ -201,7 +201,7 @@
         <!-- One card per beta feature. A new feature is another <li> holding its own BetaFeatureCard.
              The line above them says what Beta promises, once for every feature. -->
         <div class="space-y-4" data-settings-part="beta" data-beta-page>
-            <p class="max-w-prose pl-1 text-sm leading-relaxed text-muted" data-beta-intro>
+            <p class="max-w-prose text-sm leading-relaxed text-muted" data-beta-intro>
                 {$_('settings.beta.part_intro', { default: 'Features still being tested. Each is off until you turn it on, and may change or be removed. Turning one off keeps what it has already recorded.' })}
             </p>
             <ul class="space-y-4" aria-label={$_('settings.beta.title', { default: 'Beta features' })} data-beta-feature-list>

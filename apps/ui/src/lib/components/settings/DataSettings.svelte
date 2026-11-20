@@ -211,7 +211,7 @@
 
     <div class="space-y-8">
         {#if region === 'main'}
-        <SettingsCard title={$_('settings.data.retention_title')}>
+        <SettingsCard id="settings-group-data-retention" title={$_('settings.data.retention_title')}>
             {#if maintenanceStats}
                 <p class="text-sm text-slate-700 dark:text-slate-200" data-history-summary>
                     {maintenanceStats.oldest_detection
@@ -275,7 +275,7 @@
 
         {#if region === 'more'}
         <SettingsCard
-            level={3}
+            nested
             id="data-missing-media"
             title={$_('settings.data.missing_media_title', { default: 'When Frigate loses a visit' })}
             description={$_('settings.data.missing_media_desc', { default: 'Frigate deletes old events on its own schedule. This decides what YA-WAMF keeps when one is gone.' })}
@@ -330,7 +330,7 @@
     </div>
 
     {#if region === 'main'}
-    <SettingsCard title={$_('settings.data.cache_title', { default: 'Photos and video' })}>
+    <SettingsCard id="settings-group-data-cache" title={$_('settings.data.cache_title', { default: 'Photos and video' })}>
         <p class="text-sm text-slate-600 dark:text-slate-300" data-media-always-kept>
             {$_('settings.data.cache_always_kept', { default: 'Photos, full-visit clips and previews are kept with their visits until the history window or the storage limit removes them.' })}
         </p>
@@ -353,10 +353,10 @@
         </SettingsRow>
 
         <div class="border-t border-line-soft pt-4 flex items-center justify-between gap-3">
-            <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.data.cache_size')}</span>
+            <span class="text-base font-semibold text-strong">{$_('settings.data.cache_size')}</span>
             <span class="flex flex-wrap items-center justify-end gap-2">
                 {#if cacheStats}
-                    <span class="text-sm font-bold text-slate-900 dark:text-white" data-cache-size>{cacheStats.total_size_mb} MB</span>
+                    <span class="text-sm tabular-nums text-ink" data-cache-size>{cacheStats.total_size_mb} MB</span>
                 {/if}
                 {#if cacheStatsLoading}
                     <span class="text-sm text-slate-600 dark:text-slate-300" role="status" data-cache-size-loading>
@@ -372,7 +372,7 @@
                         {/if}
                     </span>
                 {:else if !cacheStats}
-                    <span class="text-sm font-bold text-slate-900 dark:text-white" data-cache-size>…</span>
+                    <span class="text-sm tabular-nums text-ink" data-cache-size>…</span>
                 {/if}
             </span>
         </div>
@@ -388,10 +388,10 @@
         <!-- The archive is not the cache: clearing the cache leaves it alone (#178). -->
         <div class="border-t border-line-soft pt-4 flex flex-col gap-1" data-archive-usage>
             <div class="flex items-center justify-between gap-3">
-                <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.data.archive_usage', { default: 'Archived favourites' })}</span>
+                <span class="text-base font-semibold text-strong">{$_('settings.data.archive_usage', { default: 'Archived favourites' })}</span>
                 <!-- Zero only after a measurement: until then the figure is not known, so it is not shown. -->
                 {#if cacheStats}
-                    <span class="text-sm font-bold text-slate-900 dark:text-white">
+                    <span class="text-sm tabular-nums text-ink">
                         {$_('settings.data.archive_usage_detail', {
                             values: { count: cacheStats.archive_durable ?? 0, size: `${cacheStats.archive_size_mb ?? 0} MB` },
                             default: '{count} kept, {size}'
@@ -432,7 +432,7 @@
                             onchange={(event) => commitStorageLimit(event.currentTarget.value)}
                             aria-invalid={cacheMaxSizeInvalid}
                             aria-describedby={cacheMaxSizeInvalid ? 'storage-limit-error' : undefined}
-                            class="input-base w-24 py-2 text-right font-semibold"
+                            class="input-base w-24 py-2 text-right"
                         />
                         <span aria-hidden="true">GB</span>
                     </label>
@@ -482,7 +482,7 @@
                             <span class="sr-only">{$_('settings.data.per_species_minimum_count', { default: 'Visits kept per species' })}</span>
                             <input type="number" min="1" max="10000" step="1" value={cachePerSpeciesMinimum}
                                 onchange={(event) => (cachePerSpeciesMinimum = wholeCount(event.currentTarget.value))}
-                                class="input-base w-24 py-2 text-right font-semibold" />
+                                class="input-base w-24 py-2 text-right" />
                         </label>
                     {/if}
                     <SettingsToggle
@@ -505,7 +505,7 @@
                             <span class="sr-only">{$_('settings.data.per_species_maximum_count', { default: 'Visits per species with photos and video' })}</span>
                             <input type="number" min="1" max="10000" step="1" value={cachePerSpeciesMaximum}
                                 onchange={(event) => (cachePerSpeciesMaximum = wholeCount(event.currentTarget.value))}
-                                class="input-base w-24 py-2 text-right font-semibold" />
+                                class="input-base w-24 py-2 text-right" />
                         </label>
                     {/if}
                     <SettingsToggle
@@ -571,7 +571,7 @@
                         {/if}
                     </svg>
                     <div class="min-w-0">
-                        <p class="text-sm font-bold text-slate-700 dark:text-slate-200">
+                        <p class="text-sm text-slate-700 dark:text-slate-200">
                             {cropDetectorReady
                                 ? $_('settings.data.cache_crop_detector_ready', { default: 'Bird finder ready' })
                                 : $_('settings.data.cache_crop_fallback_ready', { default: 'Frigate tracking fallback ready' })}
@@ -603,6 +603,7 @@
 
     {#if region === 'main'}
     <SettingsCard
+        id="settings-group-data-config-backup"
         title={$_('settings.data.config_backup_title', { default: 'Configuration backup' })}
         description={$_('settings.data.config_backup_desc', { default: 'Export or restore the complete YA-WAMF configuration as JSON, including secrets.' })}
     >

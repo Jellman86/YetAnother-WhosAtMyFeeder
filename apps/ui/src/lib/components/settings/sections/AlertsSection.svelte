@@ -211,8 +211,8 @@
         <!-- Garden's alerts send through the channels above, so they are set here, marked Beta. -->
         {#if gardenBeta}
             <section id="garden-section-alerts" class="scroll-mt-24 space-y-3" aria-labelledby="garden-alerts-title" data-garden-alerts>
-                <div class="flex flex-wrap items-center gap-2 pl-1">
-                    <h3 id="garden-alerts-title" class="text-lg font-semibold text-strong">{$_('settings.notifications.garden_title', { default: 'Garden animal alerts' })}</h3>
+                <div class="flex flex-wrap items-center gap-2">
+                    <h4 id="garden-alerts-title" class="font-display text-lg font-semibold text-strong">{$_('settings.notifications.garden_title', { default: 'Garden animal alerts' })}</h4>
                     <StatusChip tone="neutral" label={$_('settings.beta.chip', { default: 'Beta' })} />
                 </div>
                 <div class="card-base settings-section-body">

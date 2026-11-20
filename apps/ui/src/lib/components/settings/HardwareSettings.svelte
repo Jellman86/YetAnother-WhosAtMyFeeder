@@ -1,4 +1,5 @@
 <script lang="ts">
+    import SettingsSubheading from './_primitives/SettingsSubheading.svelte';
     import { _ } from 'svelte-i18n';
     import { RUNTIME_DISCLOSURES } from '../../settings/runtime-problem';
     import { formatDateTime } from '../../utils/datetime';
@@ -108,7 +109,7 @@
 </script>
 
 <SettingsCard
-    level={3}
+    nested
     id="models-hardware"
     title={$_('settings.detection.hardware_title', { default: 'Hardware' })}
     description={$_('settings.detection.hardware_desc', { default: 'Which device runs the models, and how much memory they may use. Auto picks the fastest device that passed the check on this host.' })}
@@ -149,11 +150,11 @@
 
         {#if classifierStatus && ((classifierStatus.host_available_providers?.length ?? classifierStatus.available_providers?.length ?? 0) > 0)}
             <div class="space-y-3">
-                <p class="text-sm font-bold text-strong">{$_('settings.detection.compat_panel_title', { default: 'Check devices on this host' })}</p>
+                <p class="text-sm font-semibold text-strong">{$_('settings.detection.compat_panel_title', { default: 'Check devices on this host' })}</p>
                 <p class="text-xs leading-relaxed text-muted">{$_('settings.detection.compat_panel_desc', { default: 'Runs the installed models on each device this image can use and compares the results with the CPU. Graphics and NPU devices are used only after they pass here.' })}</p>
                 <p class="text-xs text-muted leading-snug">
                     {#if verifiedProviders.length}
-                        {$_('settings.detection.compat_verified', { default: 'Verified on this host:' })} <span class="font-bold">{verifiedProviders.join(', ')}</span>{#if classifierStatus.host_device_eligibility?.generated_at} · {formatDateTime(classifierStatus.host_device_eligibility.generated_at)}{/if}
+                        {$_('settings.detection.compat_verified', { default: 'Verified on this host:' })} <span class="font-semibold">{verifiedProviders.join(', ')}</span>{#if classifierStatus.host_device_eligibility?.generated_at} · {formatDateTime(classifierStatus.host_device_eligibility.generated_at)}{/if}
                     {:else}
                         {$_('settings.detection.compat_unverified', { default: 'Not yet run on this host. Run the check to verify the providers available in this image.' })}
                     {/if}
@@ -176,9 +177,9 @@
                         {deviceCheck.running ? $_('settings.detection.compat_running', { default: 'Running…' }) : $_('settings.detection.compat_run', { default: 'Check devices for every installed model' })}
                     </button>
                 </div>
-                {#if deviceCheck.problem}<p role="alert" class="text-xs font-bold text-status-fail">{deviceCheckProblemText(deviceCheck.problem, $_)}</p>{/if}
+                {#if deviceCheck.problem}<p role="alert" class="text-xs text-status-fail">{deviceCheckProblemText(deviceCheck.problem, $_)}</p>{/if}
                 {#if deviceCheck.runtimeRefreshFailed}
-                    <p role="alert" class="text-xs font-bold text-status-attention">
+                    <p role="alert" class="text-xs text-status-attention">
                         {$_('settings.detection.runtime_refresh_failed', { default: 'The check finished, but YA-WAMF could not read the runtime it is now using. Reload the page to see the current provider.' })}
                     </p>
                 {/if}
@@ -192,7 +193,7 @@
         href={GPU_DOCS_URL}
         target="_blank"
         rel="noopener noreferrer"
-        class="inline-flex min-h-11 items-center gap-1.5 text-xs font-bold text-accent-ink hover:underline"
+        class="inline-flex min-h-11 items-center gap-1.5 text-xs text-accent-ink hover:underline"
     >
         {$_('settings.detection.gpu_setup_docs', { default: 'GPU setup & diagnostics guide' })}
         <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -258,7 +259,7 @@
                 >
                     <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                         <label class="flex flex-col gap-1.5">
-                            <span class="text-xs font-bold text-muted">{$_('settings.detection.worker_counts_live', { default: 'Live' })}</span>
+                            <span class="text-xs text-muted">{$_('settings.detection.worker_counts_live', { default: 'Live' })}</span>
                             <input
                                 id="live-worker-count"
                                 type="number"
@@ -276,7 +277,7 @@
                             />
                         </label>
                         <label class="flex flex-col gap-1.5">
-                            <span class="text-xs font-bold text-muted">{$_('settings.detection.worker_counts_background', { default: 'Background' })}</span>
+                            <span class="text-xs text-muted">{$_('settings.detection.worker_counts_background', { default: 'Background' })}</span>
                             <input
                                 id="background-worker-count"
                                 type="number"
@@ -325,7 +326,7 @@
                 </p>
                 <div class="flex flex-wrap items-center gap-2">
                     {#if showCudaDiagnostics}
-                        <span class="inline-flex items-center gap-1 rounded-sm px-2 py-0.5 text-xs font-bold {(classifierStatus.cuda_available ?? false) ? 'bg-status-ok-soft text-status-ok' : ((classifierStatus.cuda_provider_installed ?? false) ? 'bg-status-attention-soft text-status-attention' : 'bg-surface-sunken text-muted')}">
+                        <span class="inline-flex items-center gap-1 rounded-sm px-2 py-0.5 text-xs font-semibold {(classifierStatus.cuda_available ?? false) ? 'bg-status-ok-soft text-status-ok' : ((classifierStatus.cuda_provider_installed ?? false) ? 'bg-status-attention-soft text-status-attention' : 'bg-surface-sunken text-muted')}">
                             {#if classifierStatus.cuda_available}
                                 {$_('settings.detection.cuda_available')}
                             {:else if (classifierStatus.cuda_provider_installed ?? false) && !(classifierStatus.cuda_hardware_available ?? false)}
@@ -336,19 +337,19 @@
                         </span>
                     {/if}
                     {#if showIntelDiagnostics}
-                        <span class="inline-flex items-center gap-1 rounded-sm px-2 py-0.5 text-xs font-bold {(classifierStatus.openvino_available ?? false) ? 'bg-status-ok-soft text-status-ok' : 'bg-surface-sunken text-muted'}">
+                        <span class="inline-flex items-center gap-1 rounded-sm px-2 py-0.5 text-xs font-semibold {(classifierStatus.openvino_available ?? false) ? 'bg-status-ok-soft text-status-ok' : 'bg-surface-sunken text-muted'}">
                             {$_('settings.detection.openvino_status', { default: 'OpenVINO' })}: {(classifierStatus.openvino_available ?? false) ? $_('common.available', { default: 'Available' }) : $_('common.unavailable', { default: 'Unavailable' })}
                         </span>
-                        <span class="inline-flex items-center gap-1 rounded-sm px-2 py-0.5 text-xs font-bold {(classifierStatus.intel_gpu_available ?? false) ? 'bg-status-ok-soft text-status-ok' : 'bg-surface-sunken text-muted'}">
+                        <span class="inline-flex items-center gap-1 rounded-sm px-2 py-0.5 text-xs font-semibold {(classifierStatus.intel_gpu_available ?? false) ? 'bg-status-ok-soft text-status-ok' : 'bg-surface-sunken text-muted'}">
                             {$_('settings.detection.intel_gpu_status', { default: 'Intel GPU' })}: {(classifierStatus.intel_gpu_available ?? false) ? ($_('settings.detection.auto_detected', { default: 'Auto-detected' }) + (providerVerified('intel_gpu') ? '· verified ✓' : '· unverified')) : $_('common.not_available', { default: 'Not detected' })}
                         </span>
-                        <span class="inline-flex items-center gap-1 rounded-sm px-2 py-0.5 text-xs font-bold {(classifierStatus.intel_npu_available ?? false) ? 'bg-status-ok-soft text-status-ok' : 'bg-surface-sunken text-muted'}">
+                        <span class="inline-flex items-center gap-1 rounded-sm px-2 py-0.5 text-xs font-semibold {(classifierStatus.intel_npu_available ?? false) ? 'bg-status-ok-soft text-status-ok' : 'bg-surface-sunken text-muted'}">
                             {$_('settings.detection.intel_npu_status', { default: 'Intel NPU' })}: {(classifierStatus.intel_npu_available ?? false) ? ($_('settings.detection.auto_detected', { default: 'Auto-detected' }) + (providerVerified('intel_npu') ? '· verified ✓' : '· unverified')) : $_('common.not_available', { default: 'Not detected' })}
                         </span>
                     {/if}
                 </div>
 
-                <div class="flex flex-wrap items-center gap-2 text-xs font-bold text-muted">
+                <div class="flex flex-wrap items-center gap-2 text-xs text-muted">
                     {#if classifierStatus.image_flavor}
                         <span>{$_('settings.detection.image_flavor_label', { default: 'Image' })}: {classifierStatus.image_flavor}</span>
                     {/if}
@@ -380,7 +381,7 @@
                         })}</p>
                     </div>
                 {/if}
-                <p class="text-xs font-bold text-muted">
+                <p class="text-xs text-muted">
                     {$_('settings.detection.personalization_status_label', { default: 'Personalization' })}:
                     {(classifierStatus.personalized_rerank_enabled ?? false) ? $_('common.enabled', { default: 'Enabled' }) : $_('common.disabled', { default: 'Disabled' })}
                     · {$_('settings.detection.personalization_active_pairs', { default: 'Active camera/model pairs' })}: {classifierStatus.personalization_active_camera_models ?? 0}
@@ -388,19 +389,19 @@
                     ({$_('settings.detection.personalization_min_tags', { default: 'min' })} {classifierStatus.personalization_min_feedback_tags ?? 20})
                 </p>
                 {#if classifierStatus.fallback_reason}
-                    <p class="text-xs font-bold text-status-attention">{$_('settings.detection.provider_fallback_reason', { default: 'Fallback:' })} {classifierStatus.fallback_reason}</p>
+                    <p class="text-xs text-status-attention">{$_('settings.detection.provider_fallback_reason', { default: 'Fallback:' })} {classifierStatus.fallback_reason}</p>
                 {/if}
                 {#if classifierStatus.model_config_warnings?.length}
                     {#each classifierStatus.model_config_warnings as modelConfigWarning}
-                        <p class="text-xs font-bold text-status-attention">{$_('settings.detection.model_config_warning', { default: 'Model config warning:' })} {modelConfigWarning}</p>
+                        <p class="text-xs text-status-attention">{$_('settings.detection.model_config_warning', { default: 'Model config warning:' })} {modelConfigWarning}</p>
                     {/each}
                 {/if}
                 {#if classifierStatus.cuda_probe_error}
                     <div class="text-status-attention">
                         <div class="text-sm font-semibold text-status-attention">CUDA diagnostics</div>
                         <div class="mt-2 space-y-1 break-all text-xs font-medium text-status-attention">
-                            <p><span class="font-bold">NVIDIA GPU:</span> {(classifierStatus.cuda_hardware_available ?? false) ? 'detected' : 'not detected'}</p>
-                            <p><span class="font-bold">{$_('settings.detection.probe_error', { default: 'Probe error:' })}</span> {classifierStatus.cuda_probe_error}</p>
+                            <p><span class="font-semibold">NVIDIA GPU:</span> {(classifierStatus.cuda_hardware_available ?? false) ? 'detected' : 'not detected'}</p>
+                            <p><span class="font-semibold">{$_('settings.detection.probe_error', { default: 'Probe error:' })}</span> {classifierStatus.cuda_probe_error}</p>
                         </div>
                     </div>
                 {/if}
@@ -440,15 +441,15 @@
                     <div class="text-status-attention">
                         <div class="text-sm font-semibold text-status-attention">{$_('settings.detection.openvino_diagnostics', { default: 'OpenVINO diagnostics' })}</div>
                         <div class="mt-2 space-y-1 break-all text-xs font-medium text-status-attention">
-                            {#if classifierStatus.openvino_version}<p><span class="font-bold">Version:</span> {classifierStatus.openvino_version}</p>{/if}
-                            {#if classifierStatus.openvino_import_path}<p><span class="font-bold">Import:</span> <code>{classifierStatus.openvino_import_path}</code></p>{/if}
-                            <p><span class="font-bold">/dev/dri:</span> {classifierStatus.dev_dri_present ? 'present' : 'missing'}{#if classifierStatus.dev_dri_entries?.length} (<code>{classifierStatus.dev_dri_entries.join(', ')}</code>){/if}</p>
+                            {#if classifierStatus.openvino_version}<p><span class="font-semibold">Version:</span> {classifierStatus.openvino_version}</p>{/if}
+                            {#if classifierStatus.openvino_import_path}<p><span class="font-semibold">Import:</span> <code>{classifierStatus.openvino_import_path}</code></p>{/if}
+                            <p><span class="font-semibold">/dev/dri:</span> {classifierStatus.dev_dri_present ? 'present' : 'missing'}{#if classifierStatus.dev_dri_entries?.length} (<code>{classifierStatus.dev_dri_entries.join(', ')}</code>){/if}</p>
                             {#if classifierStatus.process_uid != null}
-                                <p><span class="font-bold">UID/GID:</span> {classifierStatus.process_uid}:{classifierStatus.process_gid}{#if classifierStatus.process_groups?.length} groups <code>{classifierStatus.process_groups.join(', ')}</code>{/if}</p>
+                                <p><span class="font-semibold">UID/GID:</span> {classifierStatus.process_uid}:{classifierStatus.process_gid}{#if classifierStatus.process_groups?.length} groups <code>{classifierStatus.process_groups.join(', ')}</code>{/if}</p>
                             {/if}
-                            {#if classifierStatus.openvino_import_error}<p><span class="font-bold">{$_('settings.detection.import_error', { default: 'Import error:' })}</span> {classifierStatus.openvino_import_error}</p>{/if}
-                            {#if classifierStatus.openvino_probe_error}<p><span class="font-bold">{$_('settings.detection.probe_error', { default: 'Probe error:' })}</span> {classifierStatus.openvino_probe_error}</p>{/if}
-                            {#if classifierStatus.openvino_gpu_probe_error}<p><span class="font-bold">{$_('settings.detection.gpu_plugin_error', { default: 'GPU plugin error:' })}</span> {classifierStatus.openvino_gpu_probe_error}</p>{/if}
+                            {#if classifierStatus.openvino_import_error}<p><span class="font-semibold">{$_('settings.detection.import_error', { default: 'Import error:' })}</span> {classifierStatus.openvino_import_error}</p>{/if}
+                            {#if classifierStatus.openvino_probe_error}<p><span class="font-semibold">{$_('settings.detection.probe_error', { default: 'Probe error:' })}</span> {classifierStatus.openvino_probe_error}</p>{/if}
+                            {#if classifierStatus.openvino_gpu_probe_error}<p><span class="font-semibold">{$_('settings.detection.gpu_plugin_error', { default: 'GPU plugin error:' })}</span> {classifierStatus.openvino_gpu_probe_error}</p>{/if}
                         </div>
                     </div>
                 {/if}
@@ -456,9 +457,7 @@
         {/if}
         {#if deviceCheck.matrix}
             <div class="border-t border-line-soft pt-4">
-                <h3 class="text-sm font-bold text-strong">
-                    {$_('settings.detection.compat_card_title', { default: 'Device compatibility' })}
-                </h3>
+                <SettingsSubheading>{$_('settings.detection.compat_card_title', { default: 'Device compatibility' })}</SettingsSubheading>
                 <div class="mt-2 overflow-x-auto">
                     <table class="w-full text-xs">
                         <thead class="border-b border-line-soft text-xs text-muted">

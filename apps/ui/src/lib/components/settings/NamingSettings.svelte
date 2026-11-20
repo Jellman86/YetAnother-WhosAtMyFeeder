@@ -1,4 +1,5 @@
 <script lang="ts">
+    import SettingsSubheading from './_primitives/SettingsSubheading.svelte';
     import { _ } from 'svelte-i18n';
     import SettingsCard from './_primitives/SettingsCard.svelte';
     import SettingsRow from './_primitives/SettingsRow.svelte';
@@ -27,6 +28,7 @@
 </script>
 
 <SettingsCard
+        id="settings-group-naming"
     title={$_('settings.naming.title', { default: 'Naming threshold' })}
     description={$_('settings.detection.acceptance_desc', { default: 'How sure the identification model must be before a visit is saved under a species name.' })}
 >
@@ -76,7 +78,7 @@
     {#if gardenEnabled}
         <section class="space-y-3" aria-labelledby="naming-garden-title" data-naming-garden>
             <div class="flex flex-wrap items-center gap-2">
-                <h3 id="naming-garden-title" class="text-sm font-semibold text-strong">{$_('settings.naming.garden_title', { default: 'Garden animals' })}</h3>
+                <SettingsSubheading id="naming-garden-title">{$_('settings.naming.garden_title', { default: 'Garden animals' })}</SettingsSubheading>
                 <StatusChip tone="neutral" label={$_('settings.beta.chip', { default: 'Beta' })} />
             </div>
             <div class="space-y-3" data-garden-naming>

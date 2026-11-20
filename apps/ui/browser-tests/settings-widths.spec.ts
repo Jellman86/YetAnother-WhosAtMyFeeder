@@ -45,6 +45,8 @@ function measure(page: Page): Promise<Measure> {
     return page.evaluate((maxCh) => {
         const layout = document.querySelector('[data-settings-layout]') as HTMLElement;
         const main = layout.querySelector('.settings-layout-main') as HTMLElement;
+        // The settings themselves: on a phone the status sits in the same column, under the section's name.
+        const settings = layout.querySelector('[data-settings-content]') as HTMLElement;
         const railNav = document.querySelector('[data-settings-navigation]') as HTMLElement | null;
         // The status is in the page twice, before the settings for a phone and after them for a
         // column beside them; only one is shown.
@@ -88,7 +90,7 @@ function measure(page: Page): Promise<Measure> {
             longLines: [...new Set(longLines)].slice(0, 10),
             rail: railBox ? { right: railBox.right, visible: railBox.width > 0 } : null,
             main: { left: mainBox.left, right: mainBox.right },
-            aside: asideBox && aside ? { left: asideBox.left, top: asideBox.top, afterMain: Boolean(main.compareDocumentPosition(aside) & Node.DOCUMENT_POSITION_FOLLOWING) } : null,
+            aside: asideBox && aside ? { left: asideBox.left, top: asideBox.top, afterMain: Boolean(settings.compareDocumentPosition(aside) & Node.DOCUMENT_POSITION_FOLLOWING) } : null,
             used,
             shortRows: shortRows.slice(0, 10),
             rows

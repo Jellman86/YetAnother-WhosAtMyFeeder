@@ -1850,5 +1850,18 @@
     "unit": "secondes",
     "limit": "Un écart plus court divise une mangeoire animée en visites plus nombreuses et plus courtes. Il ne peut pas compter les oiseaux un par un : quand un oiseau part au moment où un autre de la même espèce se pose, tout écart voit encore une seule visite.",
     "history": "Après l'enregistrement, chaque page regroupe les visites avec le nouvel écart. Les jours dont la durée de l'historique a déjà retiré les captures gardent le nombre de visites avec lequel ils ont été enregistrés."
+  },
+  "search": {
+    "label": "Rechercher dans les paramètres",
+    "placeholder": "Trouver un paramètre",
+    "clear": "Effacer la recherche",
+    "count": "{count, plural, one {# paramètre trouvé} other {# paramètres trouvés}}",
+    "count_more": "{total} paramètres correspondent ; {shown} sont affichés. Saisissez-en plus pour affiner.",
+    "none": "Aucun paramètre ne correspond à « {query} ».",
+    "none_hint": "Cherchez par le nom d’un paramètre, par ce qu’il fait, ou par un mot comme mot de passe, GPU ou sauvegarde.",
+    "advanced": "Avancé",
+    "group": "groupe de paramètres",
+    "behind": "« {setting} » apparaît une fois « {switch} » activé.",
+    "not_shown": "« {setting} » n’est pas affiché sur cette installation."
   }
 }

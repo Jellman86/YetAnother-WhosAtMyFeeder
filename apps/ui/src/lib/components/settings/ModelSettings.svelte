@@ -115,6 +115,7 @@
     </div>
 
     <SettingsCard
+        id="settings-group-detection-models-card"
         title={$_('settings.detection.models_card_title', { default: 'Models' })}
         description={$_('settings.detection.models_card_desc', { default: 'Two models work in turn. The bird finder locates each bird in the camera frame; the identification model names its species.' })}
     >

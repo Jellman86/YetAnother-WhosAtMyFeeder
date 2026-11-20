@@ -1,4 +1,5 @@
 <script lang="ts">
+    import SettingsSubheading from './_primitives/SettingsSubheading.svelte';
     import { sessionTests } from '../../settings/session-tests.svelte';
     import { _ } from 'svelte-i18n';
     import type { TestEmailRequest, TestEmailResponse, OAuthAuthorizeResponse } from '../../api';
@@ -181,7 +182,7 @@
     <div data-notification-channel="discord">
         <div class="flex items-start justify-between gap-4">
             <div class="min-w-0">
-                <h3 id="discord-channel-label" class="text-base font-medium text-strong">{$_('settings.discord.title')}</h3>
+                <SettingsSubheading id="discord-channel-label" size="label">{$_('settings.discord.title')}</SettingsSubheading>
                 <p class="mt-1 max-w-prose text-sm leading-snug text-muted">{$_('settings.discord.desc', { default: 'Posts each alert to a Discord channel through its webhook.' })}</p>
             </div>
             <SettingsToggle
@@ -195,7 +196,7 @@
         {#if discordEnabled}
         <div class="settings-stack mt-4 border-t border-line-soft pt-4">
             <div class="settings-row space-y-2 md:grid md:settings-row-columns md:items-start md:gap-x-8 md:space-y-0" data-settings-row>
-                <label for="discord-webhook" class="block text-base font-medium text-strong">{$_('settings.discord.webhook_url')}</label>
+                <label for="discord-webhook" class="block text-base font-semibold text-strong">{$_('settings.discord.webhook_url')}</label>
                 <div class="min-w-0">
                     <SecretInput
                         id="discord-webhook"
@@ -209,7 +210,7 @@
                 </div>
             </div>
             <div class="settings-row space-y-2 md:grid md:settings-row-columns md:items-start md:gap-x-8 md:space-y-0" data-settings-row>
-                <label for="discord-botname" class="block text-base font-medium text-strong">{$_('settings.discord.bot_username')}</label>
+                <label for="discord-botname" class="block text-base font-semibold text-strong">{$_('settings.discord.bot_username')}</label>
                 <div class="min-w-0">
                     <input
                         id="discord-botname"
@@ -241,7 +242,7 @@
     <div data-notification-channel="pushover">
         <div class="flex items-start justify-between gap-4">
             <div class="min-w-0">
-                <h3 id="pushover-channel-label" class="text-base font-medium text-strong">{$_('settings.pushover.title')}</h3>
+                <SettingsSubheading id="pushover-channel-label" size="label">{$_('settings.pushover.title')}</SettingsSubheading>
                 <p class="mt-1 max-w-prose text-sm leading-snug text-muted">{$_('settings.pushover.desc', { default: 'Sends each alert to your phone through the Pushover app.' })}</p>
             </div>
             <SettingsToggle
@@ -255,7 +256,7 @@
         {#if pushoverEnabled}
         <div class="settings-stack mt-4 border-t border-line-soft pt-4">
             <div class="settings-row space-y-2 md:grid md:settings-row-columns md:items-start md:gap-x-8 md:space-y-0" data-settings-row>
-                <label for="pushover-userkey" class="block text-base font-medium text-strong">{$_('settings.pushover.user_key')}</label>
+                <label for="pushover-userkey" class="block text-base font-semibold text-strong">{$_('settings.pushover.user_key')}</label>
                 <div class="min-w-0">
                     <SecretInput
                         id="pushover-userkey"
@@ -269,7 +270,7 @@
                 </div>
             </div>
             <div class="settings-row space-y-2 md:grid md:settings-row-columns md:items-start md:gap-x-8 md:space-y-0" data-settings-row>
-                <label for="pushover-apitoken" class="block text-base font-medium text-strong">{$_('settings.pushover.api_token')}</label>
+                <label for="pushover-apitoken" class="block text-base font-semibold text-strong">{$_('settings.pushover.api_token')}</label>
                 <div class="min-w-0">
                     <SecretInput
                         id="pushover-apitoken"
@@ -301,7 +302,7 @@
                 title={$_('settings.pushover.advanced_title', { default: 'Priority & device targeting' })}
             >
                 <div class="settings-row space-y-2 md:grid md:settings-row-columns md:items-start md:gap-x-8 md:space-y-0" data-settings-row>
-                    <label for="pushover-priority" class="block text-base font-medium text-strong">{$_('settings.pushover.priority')}</label>
+                    <label for="pushover-priority" class="block text-base font-semibold text-strong">{$_('settings.pushover.priority')}</label>
                     <div class="min-w-0">
                         <select
                             id="pushover-priority"
@@ -318,7 +319,7 @@
                     </div>
                 </div>
                 <div class="settings-row space-y-2 md:grid md:settings-row-columns md:items-start md:gap-x-8 md:space-y-0" data-settings-row>
-                    <label for="pushover-device" class="block text-base font-medium text-strong">{$_('settings.pushover.device')}</label>
+                    <label for="pushover-device" class="block text-base font-semibold text-strong">{$_('settings.pushover.device')}</label>
                     <div class="min-w-0">
                         <input
                             id="pushover-device"
@@ -339,7 +340,7 @@
     <div data-notification-channel="telegram">
         <div class="flex items-start justify-between gap-4">
             <div class="min-w-0">
-                <h3 id="telegram-channel-label" class="text-base font-medium text-strong">{$_('settings.telegram.title')}</h3>
+                <SettingsSubheading id="telegram-channel-label" size="label">{$_('settings.telegram.title')}</SettingsSubheading>
                 <p class="mt-1 max-w-prose text-sm leading-snug text-muted">{$_('settings.telegram.desc', { default: 'Sends each alert to a Telegram chat through your bot.' })}</p>
             </div>
             <SettingsToggle
@@ -353,7 +354,7 @@
         {#if telegramEnabled}
         <div class="settings-stack mt-4 border-t border-line-soft pt-4">
             <div class="settings-row space-y-2 md:grid md:settings-row-columns md:items-start md:gap-x-8 md:space-y-0" data-settings-row>
-                <label for="telegram-bottoken" class="block text-base font-medium text-strong">{$_('settings.telegram.bot_token')}</label>
+                <label for="telegram-bottoken" class="block text-base font-semibold text-strong">{$_('settings.telegram.bot_token')}</label>
                 <div class="min-w-0">
                     <SecretInput
                         id="telegram-bottoken"
@@ -366,7 +367,7 @@
                 </div>
             </div>
             <div class="settings-row space-y-2 md:grid md:settings-row-columns md:items-start md:gap-x-8 md:space-y-0" data-settings-row>
-                <label for="telegram-chatid" class="block text-base font-medium text-strong">{$_('settings.telegram.chat_id')}</label>
+                <label for="telegram-chatid" class="block text-base font-semibold text-strong">{$_('settings.telegram.chat_id')}</label>
                 <div class="min-w-0">
                     <SecretInput
                         id="telegram-chatid"
@@ -399,7 +400,7 @@
     <div data-notification-channel="email">
         <div class="flex items-start justify-between gap-4">
             <div class="min-w-0">
-                <h3 id="email-channel-label" class="text-base font-medium text-strong">{$_('settings.email.title')}</h3>
+                <SettingsSubheading id="email-channel-label" size="label">{$_('settings.email.title')}</SettingsSubheading>
                 <p class="mt-1 max-w-prose text-sm leading-snug text-muted">{$_('settings.email.desc', { default: 'Sends each alert by email, from Gmail, Outlook or your own mail server.' })}</p>
             </div>
             <SettingsToggle
@@ -429,7 +430,7 @@
                 <!-- OAuth App Credentials -->
                 <div class="border-t border-line-soft pt-4 space-y-3">
                     <div>
-                        <h4 class="text-sm font-semibold mb-1 text-ink">{$_('settings.email.oauth_app_credentials')}</h4>
+                        <div class="mb-1"><SettingsSubheading>{$_('settings.email.oauth_app_credentials')}</SettingsSubheading></div>
                         <p class="text-xs text-muted">{$_('settings.email.oauth_app_credentials_desc')}</p>
                     </div>
                     <!-- Gmail credentials -->
@@ -559,7 +560,7 @@
                 <!-- SMTP Section -->
                 <div class="space-y-3">
                     <div class="settings-row space-y-2 md:grid md:settings-row-columns md:items-start md:gap-x-8 md:space-y-0" data-settings-row>
-                        <label for="smtp-host" class="block text-base font-medium text-strong">{$_('settings.email.smtp_host')}</label>
+                        <label for="smtp-host" class="block text-base font-semibold text-strong">{$_('settings.email.smtp_host')}</label>
                         <div class="min-w-0">
                             <input
                                 id="smtp-host"
@@ -573,7 +574,7 @@
                     </div>
                     <div class="grid grid-cols-2 gap-3">
                         <div class="settings-row space-y-2 md:grid md:settings-row-columns md:items-start md:gap-x-8 md:space-y-0" data-settings-row>
-                            <label for="smtp-port" class="block text-base font-medium text-strong">{$_('settings.email.smtp_port')}</label>
+                            <label for="smtp-port" class="block text-base font-semibold text-strong">{$_('settings.email.smtp_port')}</label>
                             <div class="min-w-0">
                                 <input
                                     id="smtp-port"
@@ -592,7 +593,7 @@
                         </div>
                     </div>
                     <div class="settings-row space-y-2 md:grid md:settings-row-columns md:items-start md:gap-x-8 md:space-y-0" data-settings-row>
-                        <label for="smtp-username" class="block text-base font-medium text-strong">{$_('settings.email.smtp_username')}</label>
+                        <label for="smtp-username" class="block text-base font-semibold text-strong">{$_('settings.email.smtp_username')}</label>
                         <div class="min-w-0">
                             <input
                                 id="smtp-username"
@@ -604,7 +605,7 @@
                         </div>
                     </div>
                     <div class="settings-row space-y-2 md:grid md:settings-row-columns md:items-start md:gap-x-8 md:space-y-0" data-settings-row>
-                        <label for="smtp-password" class="block text-base font-medium text-strong">{$_('settings.email.smtp_password')}</label>
+                        <label for="smtp-password" class="block text-base font-semibold text-strong">{$_('settings.email.smtp_password')}</label>
                         <div class="min-w-0">
                             <SecretInput
                                 id="smtp-password"
@@ -621,7 +622,7 @@
             <!-- Common Email Settings -->
             <div class="pt-4 border-t border-line-soft space-y-3">
                 <div class="settings-row space-y-2 md:grid md:settings-row-columns md:items-start md:gap-x-8 md:space-y-0" data-settings-row>
-                    <label for="email-from" class="block text-base font-medium text-strong">{$_('settings.email.from_email')}</label>
+                    <label for="email-from" class="block text-base font-semibold text-strong">{$_('settings.email.from_email')}</label>
                     <div class="min-w-0">
                         <input
                             id="email-from"
@@ -634,7 +635,7 @@
                     </div>
                 </div>
                 <div class="settings-row space-y-2 md:grid md:settings-row-columns md:items-start md:gap-x-8 md:space-y-0" data-settings-row>
-                    <label for="email-to" class="block text-base font-medium text-strong">{$_('settings.email.to_email')}</label>
+                    <label for="email-to" class="block text-base font-semibold text-strong">{$_('settings.email.to_email')}</label>
                     <div class="min-w-0">
                         <input
                             id="email-to"
@@ -699,7 +700,7 @@
     >
         {#snippet summary()}
             <span class="text-sm font-semibold text-ink">{$_('settings.notifications.test_channel', { default: 'Channel' })}</span>
-            <span class="font-bold text-ink">{ntChannelLabel}</span>
+            <span class="text-ink">{ntChannelLabel}</span>
         {/snippet}
     </DiagnosticDialog>
 {/if}

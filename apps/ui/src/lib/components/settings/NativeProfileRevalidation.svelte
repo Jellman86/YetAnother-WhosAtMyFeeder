@@ -109,7 +109,7 @@
 </script>
 
 {#if error || view?.profile?.blocked || (attempt?.state && attempt.state !== 'idle')}
-<SettingsCard title={$_('settings.native_revalidation.title')} description={$_('settings.native_revalidation.description')}>
+<SettingsCard id="settings-group-native-revalidation" title={$_('settings.native_revalidation.title')} description={$_('settings.native_revalidation.description')}>
     <div class="space-y-4" data-native-profile-revalidation>
         {#if error}<p role="alert" class="text-sm text-red-700 dark:text-red-300">{error}</p>{/if}
         <p class="text-sm text-muted">{view?.profile?.reason ?? attempt?.message ?? $_('common.loading')}</p>

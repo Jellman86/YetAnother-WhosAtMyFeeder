@@ -365,7 +365,7 @@
     {/snippet}
 
     {#if showMain}
-    <SettingsCard title={$_('settings.frigate.title')}>
+    <SettingsCard id="settings-group-frigate" title={$_('settings.frigate.title')}>
         <SettingsRow
             labelId="setting-frigate-url"
             label={$_('settings.frigate.url')}
@@ -387,7 +387,7 @@
     {#if showMore}
     <!-- The rest of Frigate, under the section's More options: what it sends, where its pages are,
          which frame is identified and the clips kept. -->
-    <SettingsCard title={$_('settings.frigate.more_title', { default: 'Frigate details' })} level={3}>
+    <SettingsCard id="settings-group-frigate-more" title={$_('settings.frigate.more_title', { default: 'Frigate details' })} nested>
 
         <SettingsRow
             labelId="setting-frigate-ingest-labels"
@@ -567,13 +567,14 @@
 
     {#if showMain}
     <SettingsCard
+        id="settings-group-connection-mqtt-section"
         title={$_('settings.connection.mqtt_section', { default: 'MQTT broker' })}
     >
         <!-- Address and port are one setting: its name and help left, both fields right, side by side
              with matching labels, on the section's one control edge. -->
         <div class="settings-row space-y-3 md:grid md:settings-row-columns md:items-start md:gap-x-8 md:space-y-0" data-settings-row data-mqtt-address>
             <div id="setting-mqtt-broker" class="min-w-0">
-                <span class="block text-base font-medium text-slate-900 dark:text-white">{$_('settings.connection.mqtt_where', { default: 'Address and port' })}</span>
+                <span class="block text-base font-semibold text-slate-900 dark:text-white">{$_('settings.connection.mqtt_where', { default: 'Address and port' })}</span>
                 <span id="setting-mqtt-broker-desc" class="mt-1 block max-w-prose text-sm leading-snug text-slate-600 dark:text-slate-400">{$_('settings.connection.mqtt_title')}</span>
             </div>
             <!-- The port wraps under the address when enlarged text leaves no room beside it. -->
@@ -665,6 +666,7 @@
     </SettingsCard>
 
     <SettingsCard
+        id="settings-group-cameras"
         title={$_('settings.cameras.title', { default: 'Cameras to watch' })}
         description={betaGardenAnimals
             ? $_('settings.cameras.watch_desc_garden', { default: 'Choose what each Frigate camera is watched for: birds, Garden animals or both.' })
@@ -759,7 +761,7 @@
                 <!-- A settings row like the rest; the field may narrow so enlarged text never pushes it out. -->
                 <div class="settings-row space-y-3 md:grid md:settings-row-columns md:items-start md:gap-x-8 md:space-y-0" data-settings-row data-nest-dedupe>
                     <div class="min-w-0">
-                        <p class="text-base font-medium text-slate-900 dark:text-white">{$_('settings.cameras.nest_dedupe_label', { default: 'Nest dedupe window' })}</p>
+                        <p class="text-base font-semibold text-slate-900 dark:text-white">{$_('settings.cameras.nest_dedupe_label', { default: 'Nest dedupe window' })}</p>
                         <p class="mt-1 max-w-prose text-sm leading-snug text-slate-600 dark:text-slate-400">{$_('settings.cameras.nest_dedupe_help', { default: 'Counts repeat visits by the same species to a nest camera as one per N minutes.' })}</p>
                     </div>
                     <div class="flex min-w-0 items-center gap-2">

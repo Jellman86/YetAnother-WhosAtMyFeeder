@@ -1850,5 +1850,18 @@
     "unit": "seconds",
     "limit": "A shorter gap splits a busy feeder into more, shorter visits. It cannot count individual birds: when one bird leaves as another of the same species lands, any gap still sees one visit.",
     "history": "After you save, every page groups visits with the new gap. Days whose captures the history window has already removed keep the visit counts they were saved with."
+  },
+  "search": {
+    "label": "Search settings",
+    "placeholder": "Find a setting",
+    "clear": "Clear search",
+    "count": "{count, plural, one {# setting found} other {# settings found}}",
+    "count_more": "{total} settings match; showing {shown}. Type more to narrow them.",
+    "none": "No setting matches “{query}”.",
+    "none_hint": "Search by a setting’s name, by what it does, or by a word such as password, GPU or backup.",
+    "advanced": "Advanced",
+    "group": "group of settings",
+    "behind": "“{setting}” is shown once “{switch}” is turned on.",
+    "not_shown": "“{setting}” is not shown on this install."
   }
 }

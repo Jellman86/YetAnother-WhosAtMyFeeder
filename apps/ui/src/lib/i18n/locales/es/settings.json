@@ -1850,5 +1850,18 @@
     "unit": "segundos",
     "limit": "Un intervalo más corto divide un comedero concurrido en más visitas, y más cortas. No puede contar aves individuales: cuando un ave se va mientras otra de la misma especie se posa, cualquier intervalo sigue viendo una visita.",
     "history": "Al guardar, todas las páginas agrupan las visitas con el nuevo intervalo. Los días cuyas capturas ya eliminó el período del historial conservan el recuento de visitas con el que se guardaron."
+  },
+  "search": {
+    "label": "Buscar en los ajustes",
+    "placeholder": "Buscar un ajuste",
+    "clear": "Borrar la búsqueda",
+    "count": "{count, plural, one {# ajuste encontrado} other {# ajustes encontrados}}",
+    "count_more": "{total} ajustes coinciden; se muestran {shown}. Escribe más para acotarlos.",
+    "none": "Ningún ajuste coincide con «{query}».",
+    "none_hint": "Busca por el nombre de un ajuste, por lo que hace o por una palabra como contraseña, GPU o copia de seguridad.",
+    "advanced": "Avanzado",
+    "group": "grupo de ajustes",
+    "behind": "«{setting}» aparece cuando se activa «{switch}».",
+    "not_shown": "«{setting}» no se muestra en esta instalación."
   }
 }

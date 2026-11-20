@@ -69,6 +69,7 @@
             title: $_('shortcuts.actions', { default: 'Actions' }),
             items: [
                 { key: 'r', description: $_('shortcuts.refresh', { default: 'Refresh page' }) },
+                { key: '/', description: $_('shortcuts.search', { default: 'Search this page (Explorer and Settings)' }) },
                 { key: '?', description: $_('shortcuts.open_panel', { default: 'Open shortcuts panel' }) },
                 { key: 'Escape', description: $_('shortcuts.close_modal', { default: 'Close the dialog' }) }
             ]

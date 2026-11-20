@@ -1,4 +1,5 @@
 <script lang="ts">
+    import SettingsSubheading from './_primitives/SettingsSubheading.svelte';
     /**
      * Garden animals as one card on Settings → Identifying birds. The switch stages the beta in the
      * page draft; its settings appear only while it is on, grouped into sections in the order
@@ -159,7 +160,7 @@
     <div class="space-y-4 wrap-break-word" data-garden-beta-settings>
         {#if summary.steps.length > 0}
             <section class="space-y-2" aria-labelledby="garden-next-steps" data-garden-next-steps>
-                <h3 id="garden-next-steps" class="text-sm font-semibold text-slate-900 dark:text-white">{$_('settings.beta.garden_next_steps', { default: 'Still to set up' })}</h3>
+                <SettingsSubheading id="garden-next-steps">{$_('settings.beta.garden_next_steps', { default: 'Still to set up' })}</SettingsSubheading>
                 <ol class="space-y-2">
                     {#each summary.steps as step (step.kind === 'download_model' ? step.role : step.kind)}
                         <li class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1" data-garden-next-step={step.kind}>
