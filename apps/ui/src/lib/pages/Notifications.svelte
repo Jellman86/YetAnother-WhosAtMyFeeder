@@ -223,16 +223,17 @@
             </span>
         </span>
         {#if isStoppedJob(item)}
-            <span class="mt-0.5 block text-xs text-muted">{stoppedMessage(item, progress)}</span>
+            <!-- A word longer than the column at a large text size breaks rather than leaving the row. -->
+            <span class="mt-0.5 block text-xs text-muted wrap-break-word">{stoppedMessage(item, progress)}</span>
         {:else if item.message}
-            <span class="mt-0.5 block text-xs text-muted">{item.message}</span>
+            <span class="mt-0.5 block text-xs text-muted wrap-break-word">{item.message}</span>
         {/if}
         {#if progress && showsProgress(item)}
             <span class="mt-2 block h-1.5 overflow-hidden rounded-full bg-surface-raised">
                 <!-- Brand, not amber: a job in flight needs nobody. -->
                 <span class="block h-full w-full origin-left rounded-full {isStoppedJob(item) ? 'bg-status-neutral' : 'bg-accent transition-transform duration-200 ease-out motion-reduce:transition-none'}" style={`transform: scaleX(${progress.percent / 100})`}></span>
             </span>
-            <span class="mt-1 flex justify-between text-3xs tabular-nums text-muted">
+            <span class="mt-1 flex flex-wrap justify-between gap-x-2 text-3xs tabular-nums text-muted">
                 <span>{progress.current.toLocaleString()} / {progress.total.toLocaleString()}</span>
                 <span>{isStoppedJob(item) ? $_('notifications.job_stopped_label') : `${progress.percent}%`}</span>
             </span>

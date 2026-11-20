@@ -2155,7 +2155,9 @@
                      it, one object on the media ground. It gives up height before the identification under
                      it leaves the first screen. -->
                 <div class="flex shrink-0 flex-col bg-media lg:overflow-hidden lg:rounded-2xl lg:media-frame" data-detection-media>
-                    <div class="relative min-w-0 aspect-4/3 min-h-72 shrink-0 overflow-hidden bg-media sm:max-lg:aspect-video lg:min-h-0 short:min-h-0 max-sm:max-lg:short:max-h-half-screen {recordHasReference ? 'lg:record-photo-cap' : 'lg:record-photo-cap-narrow'}" style:--record-under-photo="{recordUnderPhotoRem}rem" data-detection-photograph>
+                    <!-- w-full, not only the stretch: with a height cap and an aspect ratio, Safari narrows a
+                         stretched box to the cap's width, which left a black band beside the photograph. -->
+                    <div class="relative w-full min-w-0 aspect-4/3 min-h-72 shrink-0 overflow-hidden bg-media sm:max-lg:aspect-video lg:min-h-0 short:min-h-0 max-sm:max-lg:short:max-h-half-screen {recordHasReference ? 'lg:record-photo-cap' : 'lg:record-photo-cap-narrow'}" style:--record-under-photo="{recordUnderPhotoRem}rem" data-detection-photograph>
                         {#if photographDrawnUrl}
                             <img data-detection-media-ambient src={photographDrawnUrl} alt="" aria-hidden="true" class="absolute inset-0 h-full w-full scale-110 object-cover opacity-60 blur-2xl" />
                         {/if}
