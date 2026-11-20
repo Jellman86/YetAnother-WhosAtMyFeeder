@@ -9,6 +9,10 @@ from app.models.garden_media import KeptMediaRecord
 from app.services.garden_media_cache import kept_path
 from app.services.garden_media_policy import (
     capture_id_from_eviction_key,
+    classified_frame_kept,
+    classified_frame_reference,
+    own_copy_due,
+    settled_missing_source,
     decision_image_sha256,
     eviction_key,
     frigate_clip_error_state,
@@ -128,3 +132,103 @@ def test_budget_keys_round_trip_only_for_garden_captures():
     assert capture_id_from_eviction_key(key) == "c" * 32
     assert capture_id_from_eviction_key("1700000000.1-bird") is None
     assert capture_id_from_eviction_key("garden:../etc") is None
+
+
+# The bird model's first read of a visit, and the copies YA-WAMF made of the record's photos.
+EVENT = "1795166156.230183-07thuv"
+
+
+def retained(source, digest, created_at, *, mode="retained_photo", hidden=False):
+    return {
+        "source_mode": mode,
+        "snapshot_source": source,
+        "image_ref": f"{EVENT}__retained_snapshot__{digest[:12]}__image",
+        "content_sha256": digest,
+        "created_at": created_at,
+        "photo_hidden": hidden,
+    }
+
+
+@pytest.mark.parametrize(
+    "source",
+    ["frigate_snapshot", "frigate_snapshot_uncropped", "frigate_recording_frame", "frigate_recording_snapshot"],
+)
+def test_a_whole_frame_the_bird_model_read_from_frigate_is_kept(source):
+    assert classified_frame_kept(source)
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        None,
+        "",
+        "frigate_snapshot_cropped",
+        "frigate_snapshot_unverified",
+        "hq_candidate_model_crop",
+        "hq_candidate_full_frame",
+        "video_evidence_full_frame",
+        "cached_snapshot_unknown",
+    ],
+)
+def test_a_crop_a_later_video_frame_or_an_unverified_copy_is_not_the_classified_frame(source):
+    assert not classified_frame_kept(source)
+
+
+def test_the_earliest_retained_original_is_the_classified_frame_even_after_a_crop_replaced_the_record_photo():
+    rows = [
+        retained("hq_candidate_model_crop", "b" * 64, "2026-11-20 09:17:42"),
+        retained("frigate_recording_frame", "a" * 64, "2026-11-20 09:17:43"),
+        retained("frigate_snapshot", "c" * 64, "2026-11-20 09:18:00"),
+        retained("frigate_recording_frame", "e" * 64, "2026-11-20 09:16:00", mode="full_frame"),
+    ]
+    frame = classified_frame_reference(EVENT, {"source": "hq_candidate_model_crop"}, rows)
+    assert frame is not None
+    assert frame.reference == f"{EVENT}__retained_snapshot__{'a' * 12}__image"
+    assert frame.sha256 == "a" * 64
+
+
+def test_the_record_photo_stands_in_only_while_it_is_still_the_classified_frame():
+    record_photo = {"source": "frigate_recording_frame", "image_sha256": "d" * 64}
+    frame = classified_frame_reference(EVENT, record_photo, [])
+    assert frame is not None and (frame.reference, frame.sha256) == (EVENT, "d" * 64)
+    assert (
+        classified_frame_reference(EVENT, {"source": "hq_candidate_model_crop", "image_sha256": "d" * 64}, []) is None
+    )
+    assert classified_frame_reference(EVENT, {}, []) is None
+
+
+def test_the_record_photo_needs_its_recorded_checksum_to_stand_in():
+    # Without the digest the bytes read later could be a crop written in between.
+    assert classified_frame_reference(EVENT, {"source": "frigate_recording_frame"}, []) is None
+
+
+def test_an_owners_chosen_photo_is_never_the_classified_frame():
+    chosen = {"source": "frigate_snapshot", "image_sha256": "d" * 64, "manual_selection": True}
+    assert classified_frame_reference(EVENT, chosen, []) is None
+
+
+def test_a_photo_the_owner_hid_is_never_used():
+    rows = [retained("frigate_recording_frame", "a" * 64, "2026-11-20 09:17:43", hidden=True)]
+    assert classified_frame_reference(EVENT, {"source": "hq_candidate_model_crop"}, rows) is None
+
+
+def test_a_photo_frigate_lost_before_yawamf_looked_for_its_own_copy_is_looked_for_once():
+    untried = KeptMediaRecord(photo_state="missing", photo_source="frigate_snapshot", clip_state="missing")
+    looked = KeptMediaRecord(photo_state="missing", photo_source="classified_frame", clip_state="missing")
+    assert own_copy_due(untried, from_bird_record=True)
+    assert not own_copy_due(untried, from_bird_record=False)
+    assert not own_copy_due(looked, from_bird_record=True)
+    assert not own_copy_due(None, from_bird_record=True)
+    assert plan(state=untried, from_bird_record=True).photo
+    assert not plan(state=untried, from_bird_record=True).clip
+    assert not plan(state=untried).anything
+    assert not plan(state=looked, from_bird_record=True).anything
+
+
+def test_a_moved_capture_whose_photo_cannot_be_looked_for_settles_at_once():
+    for from_bird_record in (True, False):
+        settled = KeptMediaRecord(
+            photo_state="missing", photo_source=settled_missing_source(from_bird_record=from_bird_record)
+        )
+        assert not own_copy_due(settled, from_bird_record=from_bird_record)
+    assert settled_missing_source(from_bird_record=False) == "frigate_snapshot"

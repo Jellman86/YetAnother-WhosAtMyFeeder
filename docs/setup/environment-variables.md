@@ -150,8 +150,8 @@ settings and do not follow the `SECTION__FIELD` precedence rules above.
 | `MAINTENANCE__RETENTION_DAYS` | `0` | Days to keep detection history (`0` = keep forever). |
 | `MAINTENANCE__CLEANUP_ENABLED` | `true` | Run the periodic cleanup job. |
 | `MAINTENANCE__MAX_CONCURRENT` | `1` | Per-kind maintenance capacity (`1`–`8`). Different kinds can overlap within the total limit; see [maintenance concurrency](configuration.md#maintenance-concurrency). |
-| `MAINTENANCE__AUTO_DELETE_MISSING_CLIPS` | `false` | Prune records whose Frigate clip is gone. |
-| `MAINTENANCE__FRIGATE_MISSING_BEHAVIOR` | `mark_missing` | How to treat a detection whose Frigate event or media has gone: `mark_missing` (flag it, keep the row), `keep` (do nothing), or `delete` (**permanently remove** the detection). |
+| `MAINTENANCE__AUTO_DELETE_MISSING_CLIPS` | `false` | Prune records whose Frigate clip is gone. Legacy: while `MAINTENANCE__FRIGATE_MISSING_BEHAVIOR` is unset it selects `delete`, so a record whose photo YA-WAMF still holds is marked missing instead. |
+| `MAINTENANCE__FRIGATE_MISSING_BEHAVIOR` | `mark_missing` | How to treat a detection whose Frigate event or media has gone: `mark_missing` (flag it, keep the row), `keep` (do nothing), or `delete` (**permanently remove** the detection, unless YA-WAMF still holds its photo or it is a favourite, in which case it is marked missing). |
 
 `MEDIA_CACHE__ENABLED` and `MEDIA_CACHE__CACHE_SNAPSHOTS` were removed (#622): photographs and visit
 media are always kept, within the retention and size limits. Either variable is still read once, on

@@ -39,6 +39,11 @@ async def apply_missing_policy(
         "source": source,
         **(extra_context or {}),
     }
+    if behavior == "delete" and await media_cache.get_snapshot_path(frigate_event) is not None:
+        # YA-WAMF holds its own copy of the record's photo, so the record is not lost with
+        # Frigate's media; deleting it would destroy the only photo left.
+        behavior = context["behavior"] = "mark_missing"
+        context["own_photo_kept"] = True
     if behavior == "delete":
         # Check the owner's keep decision in the DELETE itself. A stale read followed by
         # file cleanup would destroy a favourite accepted while that cleanup was awaiting.

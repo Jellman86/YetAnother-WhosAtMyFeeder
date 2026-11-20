@@ -156,6 +156,9 @@ async def test_post_commit_cleanup_failure_is_recovered_without_cache_caps(budge
     monkeypatch.setattr(policy.settings.maintenance, "frigate_missing_behavior", "delete")
     monkeypatch.setattr(policy.settings.media_cache, "per_species_maximum", 0)
     monkeypatch.setattr(policy.settings.media_cache, "max_size_mb", 0)
+    # A record YA-WAMF holds its own photo for is never deleted, so this one has only a clip.
+    assert await media.delete_snapshot("budget-old")
+    assert await media.cache_clip("budget-old", b"\x00\x00\x00\x18ftypmp42" + b"v" * 4096)
     monkeypatch.setattr(media, "delete_cached_media", AsyncMock(side_effect=failure))
     async with database() as db:
         with pytest.raises(type(failure)):
@@ -164,13 +167,13 @@ async def test_post_commit_cleanup_failure_is_recovered_without_cache_caps(budge
                 frigate_event="budget-old",
                 error="missing",
                 source="fixture",
-                media_kind="snapshot",
+                media_kind="clip",
             )
         assert await DetectionRepository(db).get_by_frigate_event("budget-old") is None
-    assert await media.get_snapshot("budget-old") is not None
+    assert media.get_clip_path("budget-old") is not None
     result = await storage.MediaStorageService().enforce_limits()
     assert result["bytes_freed"] > 0
-    assert await media.get_snapshot("budget-old") is None
+    assert media.get_clip_path("budget-old") is None
     assert await media.get_snapshot("budget-new") is not None
     assert (await storage.MediaStorageService().enforce_limits())["bytes_freed"] == 0
 

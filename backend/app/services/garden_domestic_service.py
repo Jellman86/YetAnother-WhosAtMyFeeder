@@ -93,11 +93,15 @@ class GardenDomesticService:
         has_snapshot: bool,
         top: dict | None,
         accepted: dict | None,
+        snapshot: bytes | None = None,
+        snapshot_source: str | None = None,
     ) -> bool:
         """Record a declared domestic bird as a Garden animal instead of a bird detection.
 
         True means the event is Garden's, so bird admission must stop, whether the capture
-        is new or already recorded (including a privacy tombstone for the event).
+        is new or already recorded (including a privacy tombstone for the event). A new
+        capture keeps ``snapshot``, the image the bird model read, as its photograph when it is
+        a whole frame: Frigate may keep nothing for a bird that never moved.
         """
         declared = settings.frigate.garden_domestic_birds
         if not declared or not settings.system.beta_garden_animals:
@@ -139,6 +143,9 @@ class GardenDomesticService:
             )
         log.info("garden_domestic_bird_routed", event_id=event_id, camera=camera, domestic_bird=kept)
         if capture_id:
+            from app.services.garden_media_cache import garden_media_cache
+
+            await garden_media_cache.keep_classified_frame(capture_id, snapshot, snapshot_source)
             await broadcaster.broadcast({"type": "garden_history_changed"})
         return True
 

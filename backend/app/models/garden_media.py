@@ -5,7 +5,8 @@ from typing import Literal
 
 PhotoState = Literal["kept", "retry", "missing", "changed", "evicted"]
 ClipState = Literal["kept", "retry", "missing", "evicted"]
-PhotoSource = Literal["frigate_snapshot", "motion_photo"]
+# classified_frame: YA-WAMF's own copy of the whole frame its bird model classified.
+PhotoSource = Literal["frigate_snapshot", "motion_photo", "classified_frame"]
 
 
 @dataclass(frozen=True)
