@@ -107,21 +107,34 @@
     const showSaveBar = $derived((unsaved.count > 0 || Boolean(restoredNotice) || conflicts.length > 0) && !loading && !loadFailure);
 
     // The section's name stays at the top of the window, so anything scrolled to or focused must
-    // stop below it (WCAG 2.4.11): the page reserves its measured height, and the shell's own bar.
+    // stop below it (WCAG 2.4.11): the page reserves its measured height, and whatever is above it.
+    // While jobs run, the shell's jobs strip is stuck there too once the page has scrolled; the name
+    // then sticks just below the strip, so both stay readable.
     let sectionHeading = $state<HTMLElement | null>(null);
     $effect(() => {
         const heading = sectionHeading;
         if (!heading) return;
         const root = document.documentElement;
-        const reserve = () => {
+        const strip = document.querySelector<HTMLElement>('[data-jobs-strip]');
+        const place = () => {
+            const stuck = strip && getComputedStyle(strip).position === 'sticky' ? Math.ceil(strip.getBoundingClientRect().height) : 0;
+            // On the layout, so the rail and the status column, which stick as well, clear the strip too.
+            (heading.closest<HTMLElement>('[data-settings-layout]') ?? heading).style.setProperty('--settings-jobs-strip-height', `${stuck}px`);
             const top = Number.parseFloat(getComputedStyle(heading).top) || 0;
             root.style.scrollPaddingTop = `${Math.ceil(top + heading.getBoundingClientRect().height) + 16}px`;
         };
-        reserve();
-        const observer = new ResizeObserver(reserve);
-        observer.observe(heading);
+        place();
+        const sizes = new ResizeObserver(place);
+        sizes.observe(heading);
+        // The strip grows and shrinks with its jobs, and sticks only once the page has scrolled.
+        const sticking = new MutationObserver(place);
+        if (strip) {
+            sizes.observe(strip);
+            sticking.observe(strip, { attributes: true, attributeFilter: ['class'] });
+        }
         return () => {
-            observer.disconnect();
+            sizes.disconnect();
+            sticking.disconnect();
             root.style.scrollPaddingTop = '';
         };
     });
@@ -213,7 +226,7 @@
                 {#if sectionTitle}
                     <!-- Which section this is, said once in the page and kept in view: the rail scrolls
                          away on a phone, and a long section is several screens of groups. -->
-                    <header bind:this={sectionHeading} class="settings-section-heading sticky top-(--app-chrome-height,0rem) z-20 border-b border-line-soft py-3 pl-1" data-settings-section-heading>
+                    <header bind:this={sectionHeading} class="settings-section-heading sticky z-20 border-b border-line-soft py-3" data-settings-section-heading>
                         <h2 id="settings-section-title" class="text-2xl font-bold text-strong">{sectionTitle}</h2>
                     </header>
                 {/if}
@@ -417,6 +430,8 @@
     /* The section's name covers what scrolls beneath it, on the page's own ground. */
     .settings-section-heading {
         background-color: var(--app-bg);
+        /* Below the phone's top bar, and below the jobs strip while that is stuck there. */
+        top: calc(var(--app-chrome-height, 0rem) + var(--settings-jobs-strip-height, 0px));
     }
 
     /* The status beside the settings is the one after them in the page, so the keyboard reaches it
@@ -447,7 +462,7 @@
         .settings-layout-nav {
             grid-column: 1;
             position: sticky;
-            top: 1.5rem;
+            top: calc(1.5rem + var(--settings-jobs-strip-height, 0px));
         }
 
         .settings-layout-main {
@@ -473,7 +488,7 @@
             grid-column: 3;
             grid-row: 1;
             position: sticky;
-            top: 1.5rem;
+            top: calc(1.5rem + var(--settings-jobs-strip-height, 0px));
         }
     }
 

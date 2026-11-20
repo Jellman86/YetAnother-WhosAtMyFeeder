@@ -46,9 +46,10 @@
 
 <!-- A group is a display-face heading over one raised card of rows: no icon, no band, nothing boxed inside.
      The actions sit beside the heading while it keeps at least 12rem, and wrap under it when not;
+     The heading starts on the card's own left edge, as the section's name and status do;
      the header's right inset matches the card's, so a section switch ends where row switches do. -->
 <section class="space-y-3" {id} aria-labelledby={headingId} data-settings-section>
-    <header class="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 pl-1 pr-4 md:pr-6">
+    <header class="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 pr-4 md:pr-6">
         <div class="min-w-0 flex-1 basis-48">
             <svelte:element this={tag} id={headingId} class="font-display font-semibold text-strong {nested ? 'text-lg' : 'text-xl'}">
                 {#if collapsible}

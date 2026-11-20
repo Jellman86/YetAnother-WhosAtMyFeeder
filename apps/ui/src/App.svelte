@@ -882,7 +882,7 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
           <UpdateBanner />
 
           {#if !isNotificationRoute(currentRoute) && !authStore.isGuest}
-              <div class={globalProgressHasScrolled
+              <div data-jobs-strip class={globalProgressHasScrolled
                   ? 'sticky top-(--app-chrome-height) z-30 shrink-0'
                   : 'relative z-30 shrink-0 mb-2'}>
                   <GlobalProgress onNavigate={navigate} />

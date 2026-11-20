@@ -1,6 +1,7 @@
 <script lang="ts">
     import { _, json } from 'svelte-i18n';
     import { messageWords, searchSettings, type SearchableSetting } from '../../settings/settings-search';
+    import type { SettingsSection } from '../../settings/settings-route';
     import {
         SETTINGS_SEARCH_INDEX,
         settingsSearchEntry,
@@ -16,9 +17,11 @@
     interface Props {
         /** Opens the setting an anchor names and moves focus to it. */
         onchoose: (anchor: string) => Promise<SettingsSearchLanding>;
+        /** The open section: among equal matches, its settings are listed first. */
+        activeSection: SettingsSection;
     }
 
-    let { onchoose }: Props = $props();
+    let { onchoose, activeSection }: Props = $props();
 
     const uid = $props.id();
     const listboxId = `${uid}-results`;
@@ -51,7 +54,7 @@
     );
 
     const query = $derived(text.trim());
-    const results = $derived(searchSettings(query, searchable).map((match) => match.item));
+    const results = $derived(searchSettings(query, searchable, { near: (entry) => settingsSearchSection(entry) === activeSection }).map((match) => match.item));
     const expanded = $derived(open && query !== '' && results.length > 0);
     const showEmpty = $derived(open && query !== '' && results.length === 0);
 

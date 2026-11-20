@@ -943,10 +943,11 @@ build something better."*
 - **Settings rows**: every Settings section (one of the six task sections in the rail) is a column of
   cards no wider than `max-w-3xl`, each former tab a part with an anchor of its own. The headings
   are one scale: the page is the `h1`, the open section an `h2` (`text-2xl`, the only bold in
-  Settings) that stays at the top of the window while its settings scroll, a group an `h3`
+  Settings) that stays at the top of the window while its settings scroll (below the jobs strip while that is
+  stuck there, as do the rail and the status column, so none is covered), a group an `h3`
   (`text-xl`, display face, semibold; an `h4` at `text-lg` under More options), and a name inside a
   card a `SettingsSubheading` one level below its card, in the reading face. A group is that
-  heading (no icon, no coloured band) over one card of rows separated by hairlines, lifted with
+  heading (no icon, no coloured band), starting on the card's own left edge, over one card of rows separated by hairlines, lifted with
   `--elevation-panel`, and nothing inside the card is boxed again. In a row the label is the one
   semibold thing; the hint is regular, muted and one size smaller, and values, links and statuses
   are regular. The display face has no weight under semibold, so a line meant to read as regular
@@ -962,6 +963,8 @@ build something better."*
   Every `SettingsRow`, `SettingsSlider` and `SettingsCard` needs a static id and an entry;
   `settings-search-index.test.ts` fails otherwise, and `browser-tests/settings-search.spec.ts` opens
   every entry and checks focus lands on its control. A result names the setting and where it lives.
+  Results rank by how the query sits in the text (at its start, then at the start of a word, then
+  inside one), then by where (label, help, keyword), then the open section before the others.
   Choosing one moves focus to the control and marks the row with `data-settings-found` for a moment
   (an outline; the tint fades only when motion is allowed). "/" focuses it, as on the Explorer.
 - **Charts**: a line or bar chart takes `chart-h` or `chart-h-tall`, a height between a floor and

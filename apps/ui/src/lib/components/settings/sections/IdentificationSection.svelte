@@ -201,7 +201,7 @@
         <!-- One card per beta feature. A new feature is another <li> holding its own BetaFeatureCard.
              The line above them says what Beta promises, once for every feature. -->
         <div class="space-y-4" data-settings-part="beta" data-beta-page>
-            <p class="max-w-prose pl-1 text-sm leading-relaxed text-muted" data-beta-intro>
+            <p class="max-w-prose text-sm leading-relaxed text-muted" data-beta-intro>
                 {$_('settings.beta.part_intro', { default: 'Features still being tested. Each is off until you turn it on, and may change or be removed. Turning one off keeps what it has already recorded.' })}
             </p>
             <ul class="space-y-4" aria-label={$_('settings.beta.title', { default: 'Beta features' })} data-beta-feature-list>

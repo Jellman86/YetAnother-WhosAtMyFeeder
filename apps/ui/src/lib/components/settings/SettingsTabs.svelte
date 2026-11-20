@@ -71,7 +71,7 @@
      list on a phone. One box, so "/" always has one place to go. -->
 {#if onsearch}
     <div class="mb-4">
-        <SettingsSearch onchoose={onsearch} />
+        <SettingsSearch onchoose={onsearch} {activeSection} />
     </div>
 {/if}
 

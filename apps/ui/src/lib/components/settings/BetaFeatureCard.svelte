@@ -38,7 +38,7 @@
 <!-- Shaped like every Settings section: the heading, its description, status and switch above one
      card of the feature's settings. -->
 <article class="min-w-0 space-y-3" aria-labelledby={nameId} data-beta-feature={id}>
-    <header class="flex items-start justify-between gap-4 pl-1 pr-4 md:pr-6">
+    <header class="flex items-start justify-between gap-4 pr-4 md:pr-6">
         <div class="min-w-0 space-y-1">
             <h4 id={nameId} class="font-display text-lg font-semibold text-strong">{name}</h4>
             <p class="max-w-prose text-sm text-muted">

@@ -26,6 +26,10 @@ describe('Settings heading hierarchy', () => {
     it('names the open section once, as the h2 that stays in view', () => {
         const page = read('_primitives', 'SettingsPage.svelte');
         expect(page).toMatch(/<header bind:this=\{sectionHeading\} class="settings-section-heading sticky [^"]*" data-settings-section-heading>\s*<h2 id="settings-section-title" class="text-2xl font-bold text-strong">\{sectionTitle\}<\/h2>/);
+        // It sticks below the phone's top bar, and below the jobs strip while that is stuck there too.
+        expect(page).toContain('top: calc(var(--app-chrome-height, 0rem) + var(--settings-jobs-strip-height, 0px));');
+        expect(page).toContain("document.querySelector<HTMLElement>('[data-jobs-strip]')");
+        expect(readFileSync(join(SETTINGS_DIR, '..', '..', '..', 'App.svelte'), 'utf8')).toContain('<div data-jobs-strip class={globalProgressHasScrolled');
         // What scrolls to or takes focus stops below it.
         expect(page).toContain('root.style.scrollPaddingTop');
         // It is in the page before the status, so on a phone no heading comes before it.
@@ -43,6 +47,15 @@ describe('Settings heading hierarchy', () => {
         expect(card).toContain('provideSubheadingLevel(() => (nested ? 5 : 4));');
         const more = read('sections', 'SectionMore.svelte');
         expect(more).toContain('<h3 class="text-xl font-semibold text-strong">');
+    });
+
+    it('starts every heading on the left edge its card starts on', () => {
+        // A heading inset from its card read as a second, ragged left edge on a phone.
+        const offenders = components()
+            .filter(([, source]) => /<(?:header|h[2-6]|div|p)\b[^>]*class="[^"]*\bpl-1\b[^"]*"[^>]*(?:data-settings-section-heading|data-beta-intro)|<header class="[^"]*\bpl-1\b/.test(source))
+            .map(([name]) => name);
+        expect(offenders).toEqual([]);
+        expect(read('sections', 'AlertsSection.svelte')).toContain('<div class="flex flex-wrap items-center gap-2">');
     });
 
     it('leaves every other heading to the shared primitives, so no level is chosen by hand', () => {
