@@ -98,9 +98,9 @@
 >
     {#snippet summary()}
         <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.llm.provider')}</span>
-        <span class="font-bold text-slate-800 dark:text-slate-100">{provider}</span>
+        <span class="text-slate-800 dark:text-slate-100">{provider}</span>
         <Separator />
         <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.llm.model')}</span>
-        <span class="min-w-0 truncate font-bold text-slate-800 dark:text-slate-100" title={model}>{model}</span>
+        <span class="min-w-0 truncate text-slate-800 dark:text-slate-100" title={model}>{model}</span>
     {/snippet}
 </DiagnosticDialog>

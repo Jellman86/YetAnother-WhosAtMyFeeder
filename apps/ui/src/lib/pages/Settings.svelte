@@ -3278,6 +3278,7 @@
 <SettingsPage
     title={$_('settings.title')}
     subtitle={$_('settings.subtitle')}
+    sectionTitle={sectionLabel(activeSection)}
     {loading}
     loadFailure={settingsLoadFailed
         ? $_('settings.load_failed', { default: 'Your settings could not be read, so nothing is shown for editing. Check that the YA-WAMF backend is running, then try again.' })

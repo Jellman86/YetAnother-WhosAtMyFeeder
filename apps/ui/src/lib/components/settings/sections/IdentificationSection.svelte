@@ -101,7 +101,7 @@
     {#if autoVideoClassification && videoCircuitOpen}
         <div role="alert" class="rounded-2xl border border-status-attention-line bg-status-attention-soft px-4 py-3 text-status-attention" data-video-circuit data-settings-lead>
             <p class="mb-2 text-sm font-semibold">{$_('settings.video_circuit.title')}</p>
-            <p class="text-sm font-bold leading-relaxed">{$_('settings.video_circuit.message', { values: { failures: videoCircuitFailures } })}</p>
+            <p class="text-sm leading-relaxed">{$_('settings.video_circuit.message', { values: { failures: videoCircuitFailures } })}</p>
             {#if circuitUntil}
                 <p class="mt-2 text-xs">{$_('settings.video_circuit.until', { values: { time: circuitUntil } })}</p>
             {/if}

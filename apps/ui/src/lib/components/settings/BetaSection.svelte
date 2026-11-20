@@ -1,4 +1,5 @@
 <script lang="ts">
+    import SettingsSubheading from './_primitives/SettingsSubheading.svelte';
     /**
      * A collapsible group of one beta feature's settings: a heading that is also the disclosure
      * button, so it reads as a heading and says whether it is open. A closed section stays mounted
@@ -23,7 +24,7 @@
 </script>
 
 <div data-beta-section={id}>
-    <h3>
+    <SettingsSubheading size="label">
         <button
             type="button"
             id={`${id}-toggle`}
@@ -32,15 +33,15 @@
             onclick={() => disclosure.toggle()}
             class="focus-ring flex min-h-11 w-full items-center justify-between gap-3 rounded-lg py-2 text-left"
         >
-            <span class="min-w-0 wrap-break-word text-base font-medium text-slate-900 dark:text-white">{title}</span>
+            <span class="min-w-0 wrap-break-word">{title}</span>
             <span class="flex shrink-0 items-center gap-2">
-                {#if hint}<span class="text-xs text-slate-600 dark:text-slate-400" data-beta-section-hint>{hint}</span>{/if}
+                {#if hint}<span class="text-xs font-normal text-muted" data-beta-section-hint>{hint}</span>{/if}
                 <svg class="h-4 w-4 text-slate-600 motion-safe:transition-transform dark:text-slate-400 {open ? 'rotate-180' : ''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <polyline points="6 9 12 15 18 9" />
                 </svg>
             </span>
         </button>
-    </h3>
+    </SettingsSubheading>
     <div id={`${id}-panel`} class="settings-stack pt-3" hidden={!open}>
         {@render children()}
     </div>

@@ -118,7 +118,7 @@
     </SettingsRow>
 </SettingsCard>
 {:else}
-<SettingsCard level={3} title={$_('settings.appearance.more_title', { default: 'Dates, names and layout' })} description={$_('settings.appearance.scope_everyone', { default: 'These apply to everyone who uses this install once you save.' })}>
+<SettingsCard nested title={$_('settings.appearance.more_title', { default: 'Dates, names and layout' })} description={$_('settings.appearance.scope_everyone', { default: 'These apply to everyone who uses this install once you save.' })}>
     <SettingsRow
         labelId="setting-explorer-view"
         label={$_('settings.explorer_view.label')}

@@ -161,7 +161,7 @@
 
 
     <SettingsCard
-        level={3}
+        nested
         title={$_('settings.ai.connection_title', { default: 'AI provider' })}
     >
         <SettingsRow
@@ -385,12 +385,12 @@
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div class="{metricCardClass} bg-slate-50 dark:bg-slate-900/50 border-slate-100 dark:border-slate-700/50">
                         <p class="text-sm font-semibold text-slate-700 mb-1 dark:text-slate-200">{$_('settings.ai.total_calls', { default: 'API Requests' })}</p>
-                        <p class="text-2xl font-bold text-strong">{usage.calls.toLocaleString()}</p>
+                        <p class="text-2xl font-semibold text-strong">{usage.calls.toLocaleString()}</p>
                     </div>
                     <div class="{metricCardClass} bg-slate-50 dark:bg-slate-900/50 border-slate-100 dark:border-slate-700/50">
                         <p class="text-sm font-semibold text-slate-700 mb-1 dark:text-slate-200">{$_('settings.ai.total_tokens', { default: 'Tokens Consumed' })}</p>
-                        <p class="text-2xl font-bold text-strong">{formatTokens(usage.total_tokens)}</p>
-                        <p class="text-xs font-bold text-muted mt-1">{formatTokens(usage.input_tokens)} in / {formatTokens(usage.output_tokens)} out</p>
+                        <p class="text-2xl font-semibold text-strong">{formatTokens(usage.total_tokens)}</p>
+                        <p class="text-xs text-muted mt-1">{formatTokens(usage.input_tokens)} in / {formatTokens(usage.output_tokens)} out</p>
                     </div>
                     <div class="{metricCardClass} bg-slate-50 dark:bg-slate-900/50 border-slate-100 dark:border-slate-700/50">
                         <p class="text-sm font-semibold text-slate-700 mb-1 dark:text-slate-200">{$_('settings.ai.estimated_cost', { default: 'Estimated Cost' })}</p>
@@ -406,7 +406,7 @@
                                     : $_('settings.ai.pricing_not_configured', { default: 'Set prices under Pricing and prompt templates for an accurate cost.' })}
                             </p>
                         {:else if cost?.kind === 'partial'}
-                            <p class="text-2xl font-bold text-strong" data-ai-cost="partial">
+                            <p class="text-2xl font-semibold text-strong" data-ai-cost="partial">
                                 {formatUsd(cost.cost)}
                                 <span class="text-xs ml-1 font-semibold text-muted">USD</span>
                             </p>
@@ -414,7 +414,7 @@
                                 {$_('settings.ai.cost_coverage_partial', { values: { priced: cost.pricedCalls, total: cost.totalCalls, models: cost.unpricedModels.join(', ') }, default: 'Covers {priced} of {total, plural, one {# request} other {# requests}}. Not priced, so not included: {models}.' })}
                             </p>
                         {:else if cost?.kind === 'estimated'}
-                            <p class="text-2xl font-bold text-strong" data-ai-cost="estimated">
+                            <p class="text-2xl font-semibold text-strong" data-ai-cost="estimated">
                                 {formatUsd(cost.cost)}
                                 <span class="text-xs ml-1 font-semibold text-muted">USD</span>
                             </p>
@@ -444,8 +444,8 @@
                             <tbody class="divide-y divide-slate-100 dark:divide-slate-700/50">
                                 {#each usage.breakdown as item}
                                     <tr class="text-slate-700 dark:text-slate-300 transition-colors hover:bg-slate-50/70 dark:hover:bg-slate-900/40">
-                                        <td class="px-4 py-3 font-bold">
-                                            <span class="opacity-50 font-bold text-xs mr-1">{item.provider}</span>
+                                        <td class="px-4 py-3">
+                                            <span class="opacity-50 text-xs mr-1">{item.provider}</span>
                                             {item.model}
                                         </td>
                                         <td class="px-4 py-3 capitalize">{item.feature}</td>
@@ -460,7 +460,7 @@
                 {/if}
             {:else}
                 <div class="text-center">
-                    <p class="text-sm font-bold text-muted">
+                    <p class="text-sm text-muted">
                         {usageLoadError ?? $_('settings.ai.no_usage_data', { default: 'No AI usage recorded yet.' })}
                     </p>
                 </div>

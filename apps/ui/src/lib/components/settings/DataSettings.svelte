@@ -275,7 +275,7 @@
 
         {#if region === 'more'}
         <SettingsCard
-            level={3}
+            nested
             id="data-missing-media"
             title={$_('settings.data.missing_media_title', { default: 'When Frigate loses a visit' })}
             description={$_('settings.data.missing_media_desc', { default: 'Frigate deletes old events on its own schedule. This decides what YA-WAMF keeps when one is gone.' })}
@@ -356,7 +356,7 @@
             <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.data.cache_size')}</span>
             <span class="flex flex-wrap items-center justify-end gap-2">
                 {#if cacheStats}
-                    <span class="text-sm font-bold text-slate-900 dark:text-white" data-cache-size>{cacheStats.total_size_mb} MB</span>
+                    <span class="text-sm font-semibold text-slate-900 dark:text-white" data-cache-size>{cacheStats.total_size_mb} MB</span>
                 {/if}
                 {#if cacheStatsLoading}
                     <span class="text-sm text-slate-600 dark:text-slate-300" role="status" data-cache-size-loading>
@@ -372,7 +372,7 @@
                         {/if}
                     </span>
                 {:else if !cacheStats}
-                    <span class="text-sm font-bold text-slate-900 dark:text-white" data-cache-size>…</span>
+                    <span class="text-sm font-semibold text-slate-900 dark:text-white" data-cache-size>…</span>
                 {/if}
             </span>
         </div>
@@ -391,7 +391,7 @@
                 <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.data.archive_usage', { default: 'Archived favourites' })}</span>
                 <!-- Zero only after a measurement: until then the figure is not known, so it is not shown. -->
                 {#if cacheStats}
-                    <span class="text-sm font-bold text-slate-900 dark:text-white">
+                    <span class="text-sm font-semibold text-slate-900 dark:text-white">
                         {$_('settings.data.archive_usage_detail', {
                             values: { count: cacheStats.archive_durable ?? 0, size: `${cacheStats.archive_size_mb ?? 0} MB` },
                             default: '{count} kept, {size}'
@@ -571,7 +571,7 @@
                         {/if}
                     </svg>
                     <div class="min-w-0">
-                        <p class="text-sm font-bold text-slate-700 dark:text-slate-200">
+                        <p class="text-sm text-slate-700 dark:text-slate-200">
                             {cropDetectorReady
                                 ? $_('settings.data.cache_crop_detector_ready', { default: 'Bird finder ready' })
                                 : $_('settings.data.cache_crop_fallback_ready', { default: 'Frigate tracking fallback ready' })}

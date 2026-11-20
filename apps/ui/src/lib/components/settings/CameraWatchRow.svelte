@@ -71,7 +71,7 @@
 <li class="space-y-3 py-4 first:pt-0 last:pb-0 wrap-break-word" data-camera-watch={camera}>
     <div class="space-y-2 md:grid md:settings-row-columns md:items-start md:gap-x-8 md:space-y-0">
         <div class="min-w-0">
-            <p class="break-all text-base font-medium text-slate-900 dark:text-white">{camera}</p>
+            <p class="break-all text-base font-semibold text-slate-900 dark:text-white">{camera}</p>
             {#if row.presence === 'missing'}
                 <p class="mt-0.5 flex items-center gap-1.5 text-sm text-attention-800 dark:text-attention-200" data-camera-missing>
                     <span class="attention-dot" aria-hidden="true"></span>

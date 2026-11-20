@@ -41,6 +41,8 @@
          * so the keyboard reaches it in the order it is seen.
          */
         aside?: Snippet<[placement: 'top' | 'side']>;
+        /** The open section's name, restated above its settings and kept in view while they scroll. */
+        sectionTitle?: string;
         /** The id of the settings column, which the navigation's skip link focuses. */
         contentId?: string;
         children: Snippet;
@@ -69,6 +71,7 @@
         onUseMine,
         tabs,
         aside,
+        sectionTitle,
         contentId = 'settings-content',
         children
     }: Props = $props();
@@ -102,6 +105,26 @@
     }
 
     const showSaveBar = $derived((unsaved.count > 0 || Boolean(restoredNotice) || conflicts.length > 0) && !loading && !loadFailure);
+
+    // The section's name stays at the top of the window, so anything scrolled to or focused must
+    // stop below it (WCAG 2.4.11): the page reserves its measured height, and the shell's own bar.
+    let sectionHeading = $state<HTMLElement | null>(null);
+    $effect(() => {
+        const heading = sectionHeading;
+        if (!heading) return;
+        const root = document.documentElement;
+        const reserve = () => {
+            const top = Number.parseFloat(getComputedStyle(heading).top) || 0;
+            root.style.scrollPaddingTop = `${Math.ceil(top + heading.getBoundingClientRect().height) + 8}px`;
+        };
+        reserve();
+        const observer = new ResizeObserver(reserve);
+        observer.observe(heading);
+        return () => {
+            observer.disconnect();
+            root.style.scrollPaddingTop = '';
+        };
+    });
 
     // The bar is stuck to the bottom of the window, so a control focused or scrolled to beneath it
     // would be hidden (WCAG 2.4.11). The page reserves the bar's measured height at the bottom of
@@ -145,7 +168,7 @@
                 type="button"
                 onclick={() => onRefresh?.()}
                 disabled={refreshing}
-                class="btn btn-secondary px-3 py-2 text-xs font-bold shrink-0"
+                class="btn btn-secondary px-3 py-2 text-xs shrink-0"
                 aria-label={$_('common.refresh')}
             >
                 <svg class="w-4 h-4 {refreshing ? 'animate-spin' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -177,7 +200,7 @@
         </div>
     {:else}
         <!-- One grid, measured on the page in rem, so doubled text gets the narrower layout: the
-             sections, then the status, then the settings on a phone; the section list beside them
+             sections, then the section's name, the status and the settings on a phone; the section list beside them
              from 42rem; and from 68rem the status and the section's parts in a third column, while
              the settings keep one readable column of at most 48rem. -->
         <div class="settings-layout relative" data-settings-layout>
@@ -186,12 +209,19 @@
                     {@render tabs()}
                 </div>
             {/if}
-            {#if aside}
-                <div class="settings-layout-aside-top" data-settings-aside="top">
-                    {@render aside('top')}
-                </div>
-            {/if}
             <div class="settings-layout-main min-w-0 space-y-6">
+                {#if sectionTitle}
+                    <!-- Which section this is, said once in the page and kept in view: the rail scrolls
+                         away on a phone, and a long section is several screens of groups. -->
+                    <header bind:this={sectionHeading} class="settings-section-heading sticky top-(--app-chrome-height,0rem) z-20 border-b border-line-soft py-3" data-settings-section-heading>
+                        <h2 id="settings-section-title" class="text-2xl font-bold text-strong">{sectionTitle}</h2>
+                    </header>
+                {/if}
+                {#if aside}
+                    <div class="settings-layout-aside-top" data-settings-aside="top">
+                        {@render aside('top')}
+                    </div>
+                {/if}
                 <div id={contentId} class="space-y-8 focus:outline-hidden" tabindex="-1" data-settings-content>
                     {@render children()}
                 </div>
@@ -384,6 +414,11 @@
         }
     }
 
+    /* The section's name covers what scrolls beneath it, on the page's own ground. */
+    .settings-section-heading {
+        background-color: var(--app-bg);
+    }
+
     /* The status beside the settings is the one after them in the page, so the keyboard reaches it
        after the settings it sits beside; on a phone the one before them is shown. */
     .settings-layout-aside-side {
@@ -405,12 +440,10 @@
 
         .settings-layout-nav {
             grid-column: 1;
-            grid-row: 1 / span 2;
             position: sticky;
             top: 1.5rem;
         }
 
-        .settings-layout-aside-top,
         .settings-layout-main {
             grid-column: 2;
         }
@@ -419,10 +452,6 @@
     @container (min-width: 68rem) {
         .settings-layout {
             grid-template-columns: 12rem minmax(0, 48rem) minmax(15rem, 22rem);
-        }
-
-        .settings-layout-nav {
-            grid-row: 1;
         }
 
         .settings-layout-main {

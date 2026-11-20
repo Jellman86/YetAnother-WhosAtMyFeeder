@@ -29,7 +29,7 @@
         aria-expanded={open}
         aria-controls={contentId}
         onclick={() => disclosure.toggle()}
-        class="focus-ring inline-flex min-h-11 max-w-full cursor-pointer items-center gap-1.5 rounded-md text-left text-sm font-medium text-brand-700 hover:text-brand-800 dark:text-brand-300 dark:hover:text-brand-200"
+        class="focus-ring inline-flex min-h-11 max-w-full cursor-pointer items-center gap-1.5 rounded-md text-left text-sm text-brand-700 hover:text-brand-800 dark:text-brand-300 dark:hover:text-brand-200"
     >
         <span class="min-w-0 wrap-break-word">
             {open

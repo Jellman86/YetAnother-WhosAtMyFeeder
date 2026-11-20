@@ -100,9 +100,9 @@
 <!-- What this section depends on, measured, then where its settings are. First on a phone; a column
      of its own beside the settings when the page has room. -->
 <section class="space-y-3 text-sm" aria-labelledby={titleId} data-settings-section-status={placement}>
-    <h2 id={titleId} class="text-sm font-semibold text-strong">
+    <h3 id={titleId} class="font-sans text-sm font-semibold text-strong">
         {$_('settings.status.title', { default: 'Status' })}
-    </h2>
+    </h3>
     {#if keys.length === 0}
         <p class="text-muted" data-section-status-note>
             {section === 'sharing'
@@ -163,9 +163,9 @@
          already leads there, so they are listed only in the column beside them. -->
     {#if placement === 'side' && parts.length > 1}
         <nav aria-labelledby={partsTitleId} class="space-y-1 border-t border-line-soft pt-3" data-settings-section-parts>
-            <h2 id={partsTitleId} class="text-sm font-semibold text-strong">
+            <h3 id={partsTitleId} class="font-sans text-sm font-semibold text-strong">
                 {$_('settings.status.in_this_section', { default: 'In this section' })}
-            </h2>
+            </h3>
             <ul class="space-y-0.5">
                 {#each parts as part (part)}
                     <li>

@@ -1,4 +1,5 @@
 <script lang="ts">
+    import SettingsSubheading from './_primitives/SettingsSubheading.svelte';
     import Separator from '../Separator.svelte';
     import { onDestroy, onMount } from 'svelte';
     import { _ } from 'svelte-i18n';
@@ -470,7 +471,7 @@
         {#if status?.region}
             <section class="space-y-3" aria-labelledby="range-filter-preview" data-range-filter-preview>
                 <div>
-                    <h3 id="range-filter-preview" class="text-sm font-bold text-slate-900 dark:text-white">{$_('settings.range_filter.preview_title', { default: 'Preview' })}</h3>
+                    <SettingsSubheading id="range-filter-preview">{$_('settings.range_filter.preview_title', { default: 'Preview' })}</SettingsSubheading>
                     <p class="mt-0.5 text-xs leading-relaxed text-slate-600 dark:text-slate-300">{$_('settings.range_filter.preview_desc', { default: 'What the filter would set aside with this list and the current model. Visits already recorded stay in your history.' })}</p>
                 </div>
                 {#if previewLoading && !preview}
@@ -514,7 +515,7 @@
         {/if}
 
         <section class="space-y-2" aria-labelledby="range-filter-skips" data-range-filter-skips>
-            <h3 id="range-filter-skips" class="text-sm font-bold text-slate-900 dark:text-white">{$_('settings.range_filter.skips_title', { default: 'Recently set aside' })}</h3>
+            <SettingsSubheading id="range-filter-skips">{$_('settings.range_filter.skips_title', { default: 'Recently set aside' })}</SettingsSubheading>
             {#if skips.length === 0}
                 <p class="text-xs text-slate-600 dark:text-slate-300">{$_('settings.range_filter.skips_empty', { default: 'Nothing has been set aside as outside the range.' })}</p>
             {:else}

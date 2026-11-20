@@ -195,7 +195,7 @@
                                 <span class="block">
                                     {names.primary}
                                     {#if alreadyBlocked}
-                                        <span class="ml-2 inline-flex items-center rounded-full bg-red-500/10 px-2 py-0.5 text-xs font-bold text-red-700 dark:text-red-300">
+                                        <span class="ml-2 inline-flex items-center rounded-full bg-red-500/10 px-2 py-0.5 text-xs font-semibold text-red-700 dark:text-red-300">
                                             {$_('common.added', { default: 'Added' })}
                                         </span>
                                     {/if}
@@ -238,7 +238,7 @@
                     <p class="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.detection.blocked_species_structured', { default: 'Blocked species' })}</p>
                     <div class="flex flex-wrap gap-2">
                         {#each blockedSpecies as entry}
-                            <span class="group flex min-h-11 items-center gap-2 rounded-xl border border-red-200 bg-red-50 pl-3 text-xs font-bold text-red-700 dark:border-red-900/70 dark:bg-red-950/30 dark:text-red-200">
+                            <span class="group flex min-h-11 items-center gap-2 rounded-xl border border-red-200 bg-red-50 pl-3 text-xs font-semibold text-red-700 dark:border-red-900/70 dark:bg-red-950/30 dark:text-red-200">
                                 {formatBlockedSpeciesLabel(entry)}
                                 <button
                                     type="button"
@@ -261,7 +261,7 @@
                     <p class="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.detection.blocked_species_legacy', { default: 'Legacy raw labels' })}</p>
                     <div class="flex flex-wrap gap-2">
                         {#each blockedLabels as label}
-                            <span class="group flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white pl-3 text-xs font-bold text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                            <span class="group flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white pl-3 text-xs font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
                                 {label}
                                 <span class="rounded-full bg-slate-500/10 px-2 py-0.5 text-xs font-semibold text-slate-700 dark:text-slate-200">{$_('common.legacy', { default: 'Legacy' })}</span>
                                 <button

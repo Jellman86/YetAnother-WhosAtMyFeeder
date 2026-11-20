@@ -142,9 +142,9 @@
             {#if geocodeLoading}
                 <span class="text-muted">{$_('settings.location.resolving', { default: 'Looking up…' })}</span>
             {:else if geocodeError}
-                <span class="font-bold text-status-fail">{$_('settings.location.resolve_error', { default: 'Lookup failed' })}</span>
+                <span class="text-status-fail">{$_('settings.location.resolve_error', { default: 'Lookup failed' })}</span>
             {:else if geocodePlace}
-                <span class="truncate font-bold text-ink">{geocodePlace}</span>
+                <span class="truncate text-ink">{geocodePlace}</span>
             {:else}
                 <span class="text-muted">{$_('settings.location.resolve_empty', { default: 'No place name available for these coordinates' })}</span>
             {/if}
@@ -165,7 +165,7 @@
                     <Map userLocation={mapPoint} center={mapPoint} zoom={11} />
                 {/key}
             {:else}
-                <div class="flex h-full w-full items-center justify-center bg-surface-sunken text-xs font-bold italic text-muted">
+                <div class="flex h-full w-full items-center justify-center bg-surface-sunken text-xs italic text-muted">
                     {$_('settings.location.map_empty', { default: 'No coordinates configured yet.' })}
                 </div>
             {/if}

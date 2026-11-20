@@ -147,7 +147,7 @@
     const buttonPrimaryClass = 'btn btn-primary min-h-11 px-4 py-3';
 </script>
 
-<SettingsCard title={$_('settings.integrations.birdnet.title')} description={$_('settings.integrations.birdnet.toggle_label')} titleId="integration-birdnet-title" level={3}>
+<SettingsCard title={$_('settings.integrations.birdnet.title')} description={$_('settings.integrations.birdnet.toggle_label')} titleId="integration-birdnet-title" nested>
     <!-- The card's own switch, named by its title, so the title is not repeated as a row below it. -->
     {#snippet actions()}
         <SettingsToggle
@@ -275,9 +275,9 @@
                 {#each availableCameras as camera}
                     <div class="py-3 first:pt-0 space-y-2">
                         <div class="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
-                            <span class="inline-flex max-w-full items-center break-all rounded-md bg-surface-sunken px-2 py-0.5 text-xs font-bold text-muted">{camera}</span>
+                            <span class="inline-flex max-w-full items-center break-all rounded-md bg-surface-sunken px-2 py-0.5 text-xs font-semibold text-muted">{camera}</span>
                             {#if mappingTokensFor(camera).length > 0}
-                                <span class="text-xs font-bold text-muted">{$_('settings.integrations.birdnet.sensor_mapped_count', { values: { count: mappingTokensFor(camera).length }, default: '{count, plural, one {# mapped} other {# mapped}}' })}</span>
+                                <span class="text-xs text-muted">{$_('settings.integrations.birdnet.sensor_mapped_count', { values: { count: mappingTokensFor(camera).length }, default: '{count, plural, one {# mapped} other {# mapped}}' })}</span>
                             {/if}
                         </div>
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -373,8 +373,8 @@
                                               })
                                             : sourceValue}
                                     >
-                                        <span class="shrink-0 inline-flex h-5 w-5 items-center justify-center rounded-full bg-surface-sunken text-muted group-hover:bg-accent group-hover:text-accent-fg group-hover:group-disabled:bg-surface-sunken transition-colors text-xs font-bold leading-none" aria-hidden="true">+</span>
-                                        <span class="min-w-0 flex-1 text-xs font-mono font-bold text-strong break-all leading-tight">{sourceValue}</span>
+                                        <span class="shrink-0 inline-flex h-5 w-5 items-center justify-center rounded-full bg-surface-sunken text-muted group-hover:bg-accent group-hover:text-accent-fg group-hover:group-disabled:bg-surface-sunken transition-colors text-xs font-semibold leading-none" aria-hidden="true">+</span>
+                                        <span class="min-w-0 flex-1 text-xs font-mono font-semibold text-strong break-all leading-tight">{sourceValue}</span>
                                         <span class="shrink-0 text-sm font-semibold text-ink whitespace-nowrap tabular-nums">{formatRelativeTime(source.last_seen)}</span>
                                     </button>
                                 </li>

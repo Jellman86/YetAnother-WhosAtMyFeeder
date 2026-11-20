@@ -182,7 +182,7 @@
 {/snippet}
 
 <div class="space-y-6">
-    <SettingsCard level={3} title={$_('settings.data.taxonomy_title')}>
+    <SettingsCard nested title={$_('settings.data.taxonomy_title')}>
         <SettingsRow
             label={$_('settings.maintenance.taxonomy_row', { default: 'Repair species names' })}
             description={`${$_('settings.data.taxonomy_desc')} ${lastRunLine('taxonomy')}`}
@@ -202,7 +202,7 @@
         {#if taxonomyStatus?.is_running}
             <div class="flex items-center justify-between gap-3 text-brand-700 dark:text-brand-300" role="status">
                 <span class="text-sm font-semibold">{taxonomyStatus.message || taxonomyStatus.current_item || $_('settings.data.taxonomy_repairing')}</span>
-                <span class="text-xs font-bold tabular-nums">{taxonomyStatus.processed} / {taxonomyStatus.total}</span>
+                <span class="text-xs tabular-nums">{taxonomyStatus.processed} / {taxonomyStatus.total}</span>
             </div>
         {:else if taxonomyStatus?.error}
             <p class="text-sm font-semibold text-red-700 dark:text-red-300" role="alert">{taxonomyStatus.error}</p>
@@ -210,7 +210,7 @@
     </SettingsCard>
 
     <SettingsCard
-        level={3}
+        nested
         title={$_('settings.data.timezone_repair_title', { default: 'Timezone repair' })}
         description={$_('settings.data.timezone_repair_desc', { default: 'Validate older detection timestamps against Frigate and repair only safe whole-hour timezone offsets.' })}
     >
@@ -218,23 +218,23 @@
         {#if timezoneRepairPreview}
             <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
                 <div>
-                    <p class="text-lg font-bold text-slate-900 dark:text-white">{fmtCount(timezoneRepairPreview.summary.scanned_count)}</p>
+                    <p class="text-lg font-semibold text-slate-900 dark:text-white">{fmtCount(timezoneRepairPreview.summary.scanned_count)}</p>
                     <p class="text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.data.timezone_repair_scanned', { default: 'Scanned' })}</p>
                 </div>
                 <div class="text-attention-800 dark:text-attention-200">
-                    <p class="text-lg font-bold text-attention-600 dark:text-attention-400">{fmtCount(timezoneRepairPreview.summary.repair_candidate_count)}</p>
+                    <p class="text-lg font-semibold text-attention-600 dark:text-attention-400">{fmtCount(timezoneRepairPreview.summary.repair_candidate_count)}</p>
                     <p class="text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.data.timezone_repair_candidates', { default: 'Repair candidates' })}</p>
                 </div>
                 <div>
-                    <p class="text-lg font-bold text-slate-900 dark:text-white">{fmtCount(timezoneRepairPreview.summary.missing_frigate_event_count)}</p>
+                    <p class="text-lg font-semibold text-slate-900 dark:text-white">{fmtCount(timezoneRepairPreview.summary.missing_frigate_event_count)}</p>
                     <p class="text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.data.timezone_repair_missing', { default: 'Missing in Frigate' })}</p>
                 </div>
                 <div>
-                    <p class="text-lg font-bold text-red-700 dark:text-red-400">{fmtCount(timezoneRepairPreview.summary.lookup_error_count)}</p>
+                    <p class="text-lg font-semibold text-red-700 dark:text-red-400">{fmtCount(timezoneRepairPreview.summary.lookup_error_count)}</p>
                     <p class="text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.data.timezone_repair_lookup_errors', { default: 'Lookup errors' })}</p>
                 </div>
                 <div>
-                    <p class="text-lg font-bold text-slate-900 dark:text-white">{fmtCount(timezoneRepairPreview.summary.unsupported_delta_count)}</p>
+                    <p class="text-lg font-semibold text-slate-900 dark:text-white">{fmtCount(timezoneRepairPreview.summary.unsupported_delta_count)}</p>
                     <p class="text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.data.timezone_repair_unsupported', { default: 'Unsupported delta' })}</p>
                 </div>
             </div>
@@ -248,8 +248,8 @@
                         {#each timezoneRepairPreview.candidates.slice(0, 5) as candidate}
                             <div class="px-5 py-4 space-y-1">
                                 <div class="flex items-center justify-between gap-3">
-                                    <p class="text-sm font-bold text-slate-900 dark:text-white truncate">{candidate.display_name || candidate.frigate_event}</p>
-                                    <span class="text-xs font-bold {candidate.status === 'repair_candidate' ? 'text-attention-700 dark:text-attention-300' : 'text-slate-600 dark:text-slate-400'}">{candidateStatusLabel(candidate.status)}</span>
+                                    <p class="text-sm font-semibold text-slate-900 dark:text-white truncate">{candidate.display_name || candidate.frigate_event}</p>
+                                    <span class="text-xs {candidate.status === 'repair_candidate' ? 'text-attention-700 dark:text-attention-300' : 'text-slate-600 dark:text-slate-400'}">{candidateStatusLabel(candidate.status)}</span>
                                 </div>
                                 <p class="text-xs text-slate-600 dark:text-slate-400 truncate">{candidate.frigate_event}</p>
                                 <div class="text-xs text-slate-600 dark:text-slate-300">
@@ -310,7 +310,7 @@
     </SettingsCard>
 
     <SettingsCard
-        level={3}
+        nested
         title={$_('settings.data.backfill_title')}
         description={$_('settings.data.backfill_desc')}
     >
@@ -370,7 +370,7 @@
                     <button type="button" class="btn btn-ghost min-h-11 px-3 py-2" onclick={clearCustomRange}>{$_('common.clear', { default: 'Clear' })}</button>
                 </div>
                 {#if backfillCustomError}
-                    <p class="text-xs font-bold text-red-700 dark:text-red-300">{backfillCustomError}</p>
+                    <p class="text-xs text-red-700 dark:text-red-300">{backfillCustomError}</p>
                 {/if}
             </div>
         {/if}
@@ -383,11 +383,11 @@
                 </p>
             {/if}
             <dl class="grid grid-cols-2 divide-x divide-y divide-slate-200 border-y border-slate-200 text-center dark:divide-slate-700 dark:border-slate-700 sm:grid-cols-5 sm:divide-y-0">
-                <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('settings.data.backfill_total')}</dt><dd class="order-1 text-base font-bold tabular-nums text-slate-900 dark:text-white">{safeCount(backfillResult.processed)}</dd></div>
-                <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('settings.data.backfill_new')}</dt><dd class="order-1 text-base font-bold tabular-nums text-slate-900 dark:text-white">{safeCount(backfillResult.new_detections)}</dd></div>
-                <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('settings.data.backfill_updated')}</dt><dd class="order-1 text-base font-bold tabular-nums text-slate-900 dark:text-white">{safeCount(backfillResult.updated)}</dd></div>
-                <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('settings.data.backfill_skip')}</dt><dd class="order-1 text-base font-bold tabular-nums text-slate-600 dark:text-slate-300">{safeCount(backfillResult.skipped)}</dd></div>
-                <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('settings.data.backfill_err')}</dt><dd class="order-1 text-base font-bold tabular-nums {safeCount(backfillResult.errors) > 0 ? 'text-rose-700 dark:text-rose-400' : 'text-slate-600 dark:text-slate-300'}">{safeCount(backfillResult.errors)}</dd></div>
+                <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('settings.data.backfill_total')}</dt><dd class="order-1 text-base tabular-nums text-slate-900 dark:text-white">{safeCount(backfillResult.processed)}</dd></div>
+                <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('settings.data.backfill_new')}</dt><dd class="order-1 text-base tabular-nums text-slate-900 dark:text-white">{safeCount(backfillResult.new_detections)}</dd></div>
+                <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('settings.data.backfill_updated')}</dt><dd class="order-1 text-base tabular-nums text-slate-900 dark:text-white">{safeCount(backfillResult.updated)}</dd></div>
+                <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('settings.data.backfill_skip')}</dt><dd class="order-1 text-base tabular-nums text-slate-600 dark:text-slate-300">{safeCount(backfillResult.skipped)}</dd></div>
+                <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('settings.data.backfill_err')}</dt><dd class="order-1 text-base tabular-nums {safeCount(backfillResult.errors) > 0 ? 'text-rose-700 dark:text-rose-400' : 'text-slate-600 dark:text-slate-300'}">{safeCount(backfillResult.errors)}</dd></div>
             </dl>
             {#if backfillResult.skipped_reasons && Object.keys(backfillResult.skipped_reasons).length > 0}
                 <div>
@@ -398,7 +398,7 @@
                                 <span class="text-slate-600 dark:text-slate-400">
                                     {$_(`settings.data.backfill_reasons.${reason}`, { default: reason.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) })}
                                 </span>
-                                <span class="font-bold text-slate-700 dark:text-slate-300">{count}</span>
+                                <span class="text-slate-700 dark:text-slate-300">{count}</span>
                             </div>
                         {/each}
                     </div>
@@ -411,7 +411,7 @@
                         {#each Object.entries(backfillResult.error_reasons) as [reason, count]}
                             <div class="flex items-center justify-between gap-3 text-xs">
                                 <span class="wrap-break-word text-slate-600 dark:text-slate-300">{$_(`settings.data.backfill_reasons.${reason}`, { default: reason.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) })}</span>
-                                <span class="font-bold tabular-nums text-rose-700 dark:text-rose-300">{count}</span>
+                                <span class="tabular-nums text-rose-700 dark:text-rose-300">{count}</span>
                             </div>
                         {/each}
                     </div>
@@ -440,10 +440,10 @@
             {#if weatherBackfillResult}
                 {#if weatherBackfillResult.message}<p class="text-sm text-slate-600 dark:text-slate-300" aria-live="polite">{weatherBackfillResult.message}</p>{/if}
                 <dl class="grid grid-cols-2 divide-x divide-y divide-slate-200 border-y border-slate-200 text-center dark:divide-slate-700 dark:border-slate-700 sm:grid-cols-4 sm:divide-y-0">
-                    <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('settings.data.backfill_total')}</dt><dd class="order-1 text-base font-bold tabular-nums text-slate-900 dark:text-white">{safeCount(weatherBackfillResult.processed)}</dd></div>
-                    <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('settings.data.backfill_updated', { default: 'Updated' })}</dt><dd class="order-1 text-base font-bold tabular-nums text-slate-900 dark:text-white">{safeCount(weatherBackfillResult.updated)}</dd></div>
-                    <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('settings.data.backfill_skip')}</dt><dd class="order-1 text-base font-bold tabular-nums text-slate-600 dark:text-slate-300">{safeCount(weatherBackfillResult.skipped)}</dd></div>
-                    <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('settings.data.backfill_err')}</dt><dd class="order-1 text-base font-bold tabular-nums {safeCount(weatherBackfillResult.errors) > 0 ? 'text-rose-700 dark:text-rose-400' : 'text-slate-600 dark:text-slate-300'}">{safeCount(weatherBackfillResult.errors)}</dd></div>
+                    <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('settings.data.backfill_total')}</dt><dd class="order-1 text-base tabular-nums text-slate-900 dark:text-white">{safeCount(weatherBackfillResult.processed)}</dd></div>
+                    <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('settings.data.backfill_updated', { default: 'Updated' })}</dt><dd class="order-1 text-base tabular-nums text-slate-900 dark:text-white">{safeCount(weatherBackfillResult.updated)}</dd></div>
+                    <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('settings.data.backfill_skip')}</dt><dd class="order-1 text-base tabular-nums text-slate-600 dark:text-slate-300">{safeCount(weatherBackfillResult.skipped)}</dd></div>
+                    <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('settings.data.backfill_err')}</dt><dd class="order-1 text-base tabular-nums {safeCount(weatherBackfillResult.errors) > 0 ? 'text-rose-700 dark:text-rose-400' : 'text-slate-600 dark:text-slate-300'}">{safeCount(weatherBackfillResult.errors)}</dd></div>
                 </dl>
                 {#if weatherBackfillResult.error_reasons && Object.keys(weatherBackfillResult.error_reasons).length > 0}
                     <div>
@@ -451,7 +451,7 @@
                         {#each Object.entries(weatherBackfillResult.error_reasons) as [reason, count]}
                             <div class="flex items-center justify-between gap-3 text-xs">
                                 <span class="wrap-break-word text-slate-600 dark:text-slate-300">{$_(`settings.data.backfill_reasons.${reason}`, { default: reason.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) })}</span>
-                                <span class="font-bold tabular-nums text-rose-700 dark:text-rose-300">{count}</span>
+                                <span class="tabular-nums text-rose-700 dark:text-rose-300">{count}</span>
                             </div>
                         {/each}
                     </div>
@@ -471,7 +471,7 @@
         </AdvancedSection>
     </SettingsCard>
 
-    <SettingsCard level={3} title={$_('settings.data.batch_analysis_title')}>
+    <SettingsCard nested title={$_('settings.data.batch_analysis_title')}>
         <SettingsRow
             label={$_('settings.maintenance.analyse_row', { default: 'Analyse Unknown bird visits again' })}
             description={`${$_('settings.data.batch_analysis_long_desc')} ${lastRunLine('analyze_unknowns')}`}
@@ -510,7 +510,7 @@
                     <span class="text-slate-700 dark:text-slate-200">{$_('settings.data.batch_analysis_processing')}</span>
                     <span class="text-slate-600 dark:text-slate-400">{processed} / {analysisTotal}</span>
                 </div>
-                <div class="flex justify-between text-xs font-bold text-slate-600 dark:text-slate-400">
+                <div class="flex justify-between text-xs text-slate-600 dark:text-slate-400">
                     <span>{$_('settings.data.batch_analysis_pending')}: {analysisStatus.pending}</span>
                     <span>{$_('settings.data.batch_analysis_active')}: {analysisStatus.active}</span>
                 </div>
@@ -524,11 +524,11 @@
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
                         {$_('settings.data.batch_analysis_circuit_open')}
                         {#if analysisStatus.open_until}
-                            <span class="ml-auto text-xs font-bold text-attention-600 dark:text-attention-300">{formatSafeTime(analysisStatus.open_until)}</span>
+                            <span class="ml-auto text-xs text-attention-600 dark:text-attention-300">{formatSafeTime(analysisStatus.open_until)}</span>
                         {/if}
                     </div>
                     {#if analysisStatus.failure_count !== undefined}
-                        <div class="text-xs font-bold text-attention-700 dark:text-attention-300">
+                        <div class="text-xs text-attention-700 dark:text-attention-300">
                             {$_('settings.data.batch_analysis_recent_failures', { default: 'Recent failures' })}: {analysisStatus.failure_count}
                         </div>
                     {/if}
@@ -538,7 +538,7 @@
     </SettingsCard>
 
     <SettingsCard
-        level={3}
+        nested
         id="maintenance-concurrency"
         title={$_('settings.data.maintenance_jobs_title', { default: 'Jobs at once' })}
         description={$_('settings.data.maintenance_jobs_desc', { default: 'The jobs above run one at a time, so they never compete with bird identification.' })}

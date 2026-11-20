@@ -1,4 +1,5 @@
 <script lang="ts">
+    import SettingsSubheading from './_primitives/SettingsSubheading.svelte';
     import { _ } from 'svelte-i18n';
     import { notificationLinkPreview, type NotificationLinkTarget } from '../../settings/notification-link';
     import { searchSpecies, type SearchResult } from '../../api';
@@ -221,12 +222,12 @@
         />
 </SettingsCard>
 {:else}
-<SettingsCard level={3} title={$_('settings.notifications.details_title', { default: 'Cooldown, language, links and species' })}>
+<SettingsCard nested title={$_('settings.notifications.details_title', { default: 'Cooldown, language, links and species' })}>
 
         <!-- Off is zero minutes: a switch says so instead of asking for "0 to disable". -->
         <div class="settings-row space-y-3 md:grid md:settings-row-columns md:items-start md:gap-x-8 md:space-y-0" data-settings-row data-notification-cooldown>
             <div class="min-w-0">
-                <span id="notification-cooldown-label" class="block text-base font-medium text-slate-900 dark:text-white">{$_('settings.notifications.cooldown')}</span>
+                <span id="notification-cooldown-label" class="block text-base font-semibold text-slate-900 dark:text-white">{$_('settings.notifications.cooldown')}</span>
                 <span class="mt-1 block max-w-prose text-sm leading-snug text-slate-600 dark:text-slate-400">{$_('settings.notifications.cooldown_desc')}</span>
             </div>
             <div class="min-w-0 space-y-3">
@@ -265,7 +266,7 @@
         <!-- Notification Language -->
         <div class="settings-row space-y-2 md:grid md:settings-row-columns md:items-start md:gap-x-8 md:space-y-0" data-settings-row>
             <div class="min-w-0">
-                <label for="notification-language" class="block text-base font-medium text-slate-900 dark:text-white">{$_('settings.notifications.notification_language')}</label>
+                <label for="notification-language" class="block text-base font-semibold text-slate-900 dark:text-white">{$_('settings.notifications.notification_language')}</label>
                 <p id="notification-language-desc" class="mt-1 max-w-prose text-sm text-slate-600 dark:text-slate-400">{$_('settings.notifications.notification_language_desc')}</p>
             </div>
             <select
@@ -289,7 +290,7 @@
         <!-- Instance address: where notifications link back to -->
         <div class="settings-row space-y-2 md:grid md:settings-row-columns md:items-start md:gap-x-8 md:space-y-0" data-settings-row>
             <div class="min-w-0">
-                <label for="notification-instance-url" class="block text-base font-medium text-slate-900 dark:text-white">{$_('settings.notifications.instance_url')}</label>
+                <label for="notification-instance-url" class="block text-base font-semibold text-slate-900 dark:text-white">{$_('settings.notifications.instance_url')}</label>
                 <p id="notification-instance-url-hint" class="mt-1 max-w-prose text-sm text-slate-600 dark:text-slate-400">{$_('settings.notifications.instance_url_desc')}</p>
             </div>
             <div class="min-w-0">
@@ -308,7 +309,7 @@
 
         <!-- Where the notification link opens -->
         <div>
-            <h3 class="mb-3 text-base font-medium text-slate-900 dark:text-white">{$_('settings.notifications.link_opens')}</h3>
+            <div class="mb-3"><SettingsSubheading size="label">{$_('settings.notifications.link_opens')}</SettingsSubheading></div>
             <div class="space-y-1" role="radiogroup" aria-label={$_('settings.notifications.link_opens')}>
                 <label class="flex min-h-11 cursor-pointer items-start gap-3 rounded-lg px-2 py-2 text-left hover:bg-surface-raised has-focus-visible:ring-2 has-focus-visible:ring-focus">
                     <input class="mt-1 h-4 w-4 shrink-0 accent-brand-600" type="radio" name="notification-link-target" value="yawamf" bind:group={linkTarget} />
@@ -335,7 +336,7 @@
             {/if}
             <div class="mt-4 grid gap-1 text-xs">
                 <div class="flex flex-wrap gap-x-3 gap-y-1">
-                    <span class="font-bold text-slate-600 dark:text-slate-400">{$_('settings.notifications.link_preview_telegram')}</span>
+                    <span class="text-slate-600 dark:text-slate-400">{$_('settings.notifications.link_preview_telegram')}</span>
                     {#if linkPreview}
                         <span class="font-mono break-all text-slate-900 dark:text-white">{linkPreview}</span>
                     {:else}
@@ -348,7 +349,7 @@
 
         <!-- Species Filter -->
         <div id={speciesFilterSectionId} class="scroll-mt-24">
-            <h3 class="mb-3 text-base font-medium text-slate-900 dark:text-white">{$_('settings.notifications.species_filter')}</h3>
+            <div class="mb-3"><SettingsSubheading size="label">{$_('settings.notifications.species_filter')}</SettingsSubheading></div>
             <div class="space-y-1" role="radiogroup" aria-label={$_('settings.notifications.species_filter')}>
                 <label class="flex min-h-11 cursor-pointer items-start gap-3 rounded-lg px-2 py-2 text-left hover:bg-surface-raised has-focus-visible:ring-2 has-focus-visible:ring-focus">
                     <input class="mt-1 h-4 w-4 shrink-0 accent-brand-600" type="radio" name="notification-species-filter-mode" checked={filterSpeciesMode === 'none'} onchange={() => setSpeciesFilterMode('none')} />
@@ -386,7 +387,7 @@
                     {#if speciesSearchLoading}
                         <p class="mt-2 text-xs text-slate-600 dark:text-slate-400">{$_('common.loading')}</p>
                     {:else if speciesSearchError}
-                        <p class="mt-2 text-xs font-bold text-red-700 dark:text-red-300">{speciesSearchError}</p>
+                        <p class="mt-2 text-xs text-red-700 dark:text-red-300">{speciesSearchError}</p>
                     {:else if speciesSearchQuery.trim().length >= 2 && speciesSearchResults.length === 0}
                         <p class="mt-2 text-xs text-slate-600 dark:text-slate-400">{$_('settings.notifications.species_filter_no_results')}</p>
                     {/if}
@@ -400,7 +401,7 @@
                                     onclick={() => addSpeciesFilterResult(result)}
                                     class="block w-full px-4 py-3 text-left hover:bg-brand-50 dark:hover:bg-slate-800"
                                 >
-                                    <span class="block text-sm font-bold text-slate-900 dark:text-white">{names.primary}</span>
+                                    <span class="block text-sm font-semibold text-slate-900 dark:text-white">{names.primary}</span>
                                     {#if names.secondary}
                                         <span class="block text-xs font-semibold italic text-slate-600 dark:text-slate-400">{names.secondary}</span>
                                     {/if}
@@ -411,7 +412,7 @@
 
                     <div class="mt-4 flex flex-wrap gap-2">
                         {#each filterSpeciesEntries as entry}
-                            <span class="group flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-800 border border-brand-200 dark:border-brand-700/50 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300">
+                            <span class="group flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-800 border border-brand-200 dark:border-brand-700/50 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-300">
                                 {formatBlockedSpeciesLabel(entry)}
                                 <button
                                     onclick={() => removeSpeciesFilterEntry(entry)}
@@ -432,7 +433,7 @@
                             <p class="mb-2 text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.notifications.species_filter_legacy')}</p>
                             <div class="flex flex-wrap gap-2">
                                 {#each legacySpeciesWhitelist as species}
-                                    <span class="group flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300">
+                                    <span class="group flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-300">
                                         {species}
                                         <button
                                             onclick={() => removeLegacySpeciesWhitelist(species)}

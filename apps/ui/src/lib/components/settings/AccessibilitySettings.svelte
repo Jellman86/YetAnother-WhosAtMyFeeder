@@ -146,7 +146,7 @@
 </div>
 {:else}
 <SettingsCard
-    level={3}
+    nested
     titleId="accessibility-defaults-title"
     title={$_('settings.accessibility.defaults_title', { default: 'Defaults for everyone' })}
     description={$_('settings.accessibility.defaults_scope', { default: 'Guests and devices with no choice of their own follow these, once you save. A device with its own choice keeps it. Until you save, this device previews the ones it follows.' })}

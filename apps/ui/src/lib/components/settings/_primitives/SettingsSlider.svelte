@@ -32,15 +32,15 @@
      plain text, then the slider and its end labels. -->
 <div class="settings-row space-y-3 md:grid md:settings-row-columns md:items-start md:gap-x-8 md:space-y-0" data-settings-row data-settings-slider>
     <div class="min-w-0">
-        <label for={id} class="block text-base font-medium text-slate-900 dark:text-white">{label}</label>
+        <label for={id} class="block text-base font-semibold text-strong" data-settings-row-label>{label}</label>
         {#if description}
-            <p id={descriptionId} class="mt-1 max-w-prose text-sm leading-snug text-slate-600 dark:text-slate-400">{description}</p>
+            <p id={descriptionId} class="mt-1 max-w-prose text-sm leading-snug text-muted">{description}</p>
         {/if}
     </div>
     <div class="min-w-0">
         <!-- For the eye only: the focused slider announces its value once, through aria-valuetext.
              An output element is a live region and would announce every change a second time. -->
-        <p class="text-right text-sm font-semibold tabular-nums text-slate-900 dark:text-white" aria-hidden="true">{shown}</p>
+        <p class="text-right text-sm tabular-nums text-ink" aria-hidden="true">{shown}</p>
         <input
             {id}
             type="range"
@@ -54,7 +54,7 @@
             class="focus-ring mt-1 h-6 w-full cursor-pointer accent-brand-600"
         />
         {#if lowLabel || highLabel}
-            <div class="flex flex-wrap justify-between gap-x-4 gap-y-1 text-xs text-slate-600 dark:text-slate-400">
+            <div class="flex flex-wrap justify-between gap-x-4 gap-y-1 text-xs text-muted">
                 <span>{lowLabel}</span>
                 <span class="ml-auto text-right">{highLabel}</span>
             </div>
