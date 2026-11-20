@@ -4,9 +4,10 @@ Only a confirmed capture's media is kept. Its photograph is the full frame the
 decision was made on; the clip is Frigate's event clip, kept only while clips
 caching is on. A domestic bird's photograph may instead be YA-WAMF's own copy of
 the whole frame its bird model classified, because Frigate discards a stationary
-bird's event, snapshot and all, within minutes. Motion captures keep their photograph only: their recording was
-never shown to the owner and was person-checked at three sampled frames, so
-keeping it would publish footage nobody reviewed.
+bird's event, snapshot and all, within minutes. Motion captures keep their
+photograph only: their recording was never shown to the owner and was
+person-checked at three sampled frames, so keeping it would publish footage
+nobody reviewed.
 """
 
 from __future__ import annotations
