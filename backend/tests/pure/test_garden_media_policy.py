@@ -149,7 +149,8 @@ def retained(source, digest, created_at, *, mode="retained_photo", hidden=False)
 
 
 @pytest.mark.parametrize(
-    "source", ["frigate_snapshot", "frigate_snapshot_uncropped", "frigate_recording_frame", "frigate_recording_snapshot"]
+    "source",
+    ["frigate_snapshot", "frigate_snapshot_uncropped", "frigate_recording_frame", "frigate_recording_snapshot"],
 )
 def test_a_whole_frame_the_bird_model_read_from_frigate_is_kept(source):
     assert classified_frame_kept(source)

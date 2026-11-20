@@ -836,13 +836,32 @@ too.
 YA-WAMF copies:
 
 - its full photograph, the one the record shows: Frigate's uncropped snapshot for a
-  Frigate event, or the stored motion photo for a motion capture;
+  Frigate event, or the stored motion photo for a motion capture. A
+  [domestic bird you keep](#domestic-birds) may keep YA-WAMF's own copy of the whole frame
+  its bird model classified instead (see below);
 - for a Frigate event, its clip, while **Settings → Storage & upkeep → Photos and video → Keep
   copies of Frigate's event clips** is on.
 
 Motion captures keep no clip. The scanner checked only three sampled frames of the
 recording for people, and nobody reviewed the footage, so keeping it would publish
 video that was never checked. Their review photograph is kept instead.
+
+**A domestic bird's photo when Frigate keeps nothing.** Frigate discards an event whose object
+never moved, snapshot and all, often within minutes, and a chicken sitting still is exactly that.
+YA-WAMF already holds the frame its bird model read, so it does not depend on Frigate:
+
+- A domestic bird routed to Garden as it arrives keeps that frame as its photo straight away, when
+  the frame is a whole picture (a recording frame, or Frigate's uncropped snapshot). A crop is not
+  kept as the photo; the capture then waits for Frigate's whole snapshot, as any capture does.
+- A bird record moved to Garden (by **Move to Garden**, by declaring the bird, or by a later
+  rename) keeps Frigate's snapshot while Frigate has one. When Frigate has none, it keeps YA-WAMF's
+  copy of the frame the bird record was first classified from, taken from the hidden bird record's
+  photos. A later crop chosen as the record's photo is not used, and neither is a photo you hid.
+- A moved capture recorded with a missing photo before this existed is looked at once more by the
+  background job. Whatever that finds is final.
+
+The clip is only ever Frigate's: when Frigate kept no clip, the capture says so, and the record
+does not imply that Frigate still has the event.
 
 **Evidence.** Each copy records its SHA-256 checksum, and a copy is served only while
 its bytes still match. A motion photo must match the checksum the motion scanner
@@ -859,7 +878,8 @@ public history window, media window and photograph and video switches as before.
 **When it happens.** Confirmation starts the copy straight away. A background job also
 works through confirmed captures that have nothing kept yet, newest first, one every
 ten seconds while birds are idle, and only for cameras that still watch for Garden
-animals. It copies only what Frigate or the motion store still has. A source Frigate
+animals. It copies only what Frigate, the motion store or, for a domestic bird, YA-WAMF's own copy of its
+classified frame still has. A source Frigate
 reports as gone is recorded as missing and never asked for again; nothing is replaced
 or reconstructed. A failed request is retried an hour later. Captures confirmed
 before this change keep their photo only if its source still existed when the job

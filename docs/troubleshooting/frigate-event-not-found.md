@@ -82,14 +82,18 @@ You can control this in **Settings → Storage & upkeep → Media integrity**:
 
 - **Mark missing and keep local data** keeps the detection and cached media, and shows the compact missing-Frigate note in the detection details.
 - **Keep local data unchanged** leaves detections as-is even when Frigate no longer has the event/media.
-- **Delete local data** removes local detections when Frigate no longer has the event/media.
+- **Delete records YA-WAMF has no photo for** removes a local detection when Frigate no longer has
+  the event/media and YA-WAMF holds no photo of its own for it. A detection whose photo YA-WAMF
+  still holds is marked missing instead, and stays marked, so it never loses its only photo.
+  YA-WAMF keeps the photo it classified for every detection, within the media retention setting,
+  so in practice this option marks most detections missing.
 
-> ⚠️ **"Delete local data" is destructive and irreversible.** Frigate routinely
-> rotates events out of its own (often short) retention, so this option can quietly
-> discard bird detections that YA-WAMF classified perfectly well and still has cached
-> media for. Because it keys off Frigate's retention — not yours — it can delete far
-> more than you expect. Prefer **Mark missing and keep local data** (or **Keep local
-> data unchanged**) unless you specifically want YA-WAMF's history tied to Frigate's.
+> ⚠️ **"Delete records YA-WAMF has no photo for" is destructive and irreversible.** It removes a
+> detection, and any clip YA-WAMF still holds for it, whenever Frigate is found not to have the
+> event and YA-WAMF's own photo is already gone, for example after a cache cleanup or a storage
+> limit removed it. Because it keys off Frigate's retention, not yours, it can delete more than you
+> expect. Prefer **Mark missing and keep local data** (or **Keep local data unchanged**) unless
+> you specifically want YA-WAMF's history tied to Frigate's.
 
 ---
 

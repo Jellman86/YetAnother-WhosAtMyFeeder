@@ -353,7 +353,9 @@ class GardenMediaCache:
 
         Called as the bird is routed to Garden, while YA-WAMF still holds the bytes it read:
         Frigate may keep nothing for a bird that never moved. A crop is not kept here; the
-        collector then asks Frigate for the whole snapshot as it does for any capture.
+        collector then asks Frigate for the whole snapshot as it does for any capture. This runs
+        on the event path, so it never waits for a collection in progress; the record is read and
+        written under the short commit lock, and a photo already kept is left as it is.
         """
         if not valid_capture_id(capture_id) or not cache_module.media_cache.available:
             return False
@@ -362,37 +364,47 @@ class GardenMediaCache:
         if photo_outcome(image, expected_sha256=None, sha256=None) != "kept":
             return False
         generation = garden_motion_privacy.generation
-        async with self._collect_lock:
-            try:
-                async with get_db() as db:
-                    repo = GardenRepository(db)
-                    original = await repo.get(capture_id)
-                    previous = await repo.kept_media_record(capture_id) if original else None
-                if original is None or original.status != "confirmed" or original.motion_source:
+        staged = _temporary_path(capture_id, "photo")
+        try:
+            await aiofiles.os.makedirs(media_dir(), exist_ok=True)
+            async with aiofiles.open(staged, "wb") as output:
+                await output.write(image)
+            async with garden_motion_privacy.lock:
+                if generation != garden_motion_privacy.generation:
                     return False
-                if previous is not None and previous.photo_state == "kept":
-                    return False
-                await aiofiles.os.makedirs(media_dir(), exist_ok=True)
-                staged: dict[MediaKind, Path] = {"photo": _temporary_path(capture_id, "photo")}
-                try:
-                    async with aiofiles.open(staged["photo"], "wb") as output:
-                        await output.write(image)
-                    observed = datetime.fromisoformat(original.observed_at + "+00:00").timestamp()
-                    record = replace(
-                        previous or KeptMediaRecord(photo_state="kept"),
-                        photo_state="kept",
-                        photo_source="classified_frame",
-                        photo_sha256=hashlib.sha256(image).hexdigest(),
-                        photo_bytes=len(image),
-                        source_start=previous.source_start if previous else observed,
-                        source_end=previous.source_end if previous else observed,
-                    )
-                    await self._commit(original, record, staged, generation)
-                finally:
-                    await asyncio.to_thread(_unlink, list(staged.values()))
-            except (OSError, ValueError, sqlite3.Error) as error:
-                log.info("garden_media_classified_frame_not_kept", capture_id=capture_id, reason=type(error).__name__)
-                return False
+                async with self._commit_lock:
+                    async with get_db() as db:
+                        repo = GardenRepository(db)
+                        capture = await repo.get(capture_id)
+                        previous = await repo.kept_media_record(capture_id) if capture else None
+                        if capture is None or capture.status != "confirmed" or capture.motion_source:
+                            return False
+                        if previous is not None and previous.photo_state == "kept":
+                            return False
+                        observed = datetime.fromisoformat(capture.observed_at + "+00:00").timestamp()
+                        record = replace(
+                            previous or KeptMediaRecord(photo_state="kept", source_start=observed, source_end=observed),
+                            photo_state="kept",
+                            photo_source="classified_frame",
+                            photo_sha256=hashlib.sha256(image).hexdigest(),
+                            photo_bytes=len(image),
+                        )
+                        final = kept_path(capture_id, "photo")
+                        await aiofiles.os.replace(staged, final)
+                        try:
+                            saved = await repo.save_kept_media(capture, record)
+                        except BaseException:
+                            await asyncio.to_thread(_unlink, [final])
+                            raise
+                        if not saved:
+                            await asyncio.to_thread(_unlink, [final])
+                            return False
+        except (OSError, ValueError, sqlite3.Error) as error:
+            log.info("garden_media_classified_frame_not_kept", capture_id=capture_id, reason=type(error).__name__)
+            return False
+        finally:
+            await asyncio.to_thread(_unlink, [staged])
+        log.info("garden_media_kept", capture_id=capture_id, photo="kept", photo_source="classified_frame")
         return True
 
     async def _fetch_clip(self, original: GardenCapture, has_event: bool) -> tuple[ClipState, Path | None]:

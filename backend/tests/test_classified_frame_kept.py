@@ -47,6 +47,7 @@ CROP = jpeg("red", (16, 16))
 async def bird_history(frigate, monkeypatch):  # noqa: F811
     monkeypatch.setattr(settings.system, "beta_garden_animals", True)
     monkeypatch.setattr(settings.frigate, "garden_domestic_birds", ["chicken"])
+
     async def clean() -> None:
         await cache_module.media_cache.delete_cached_media(EVENT)
         async with get_db() as db:
@@ -294,8 +295,46 @@ async def test_a_record_frigate_did_not_retain_serves_yawamfs_copy_of_its_photo(
     await chicken_record()
     async with client() as http:
         with patch("app.routers.proxy.get_http_client") as http_client:
-            http_client.return_value.get = AsyncMock(return_value=httpx.Response(404, request=httpx.Request("GET", "x")))
+            http_client.return_value.get = AsyncMock(
+                return_value=httpx.Response(404, request=httpx.Request("GET", "x"))
+            )
             response = await http.get(f"/api/frigate/{EVENT}/snapshot.jpg")
     assert response.status_code == 200
     assert response.content == CROP
     assert response.headers["content-type"] == "image/jpeg"
+
+
+async def _routed_chicken() -> str:
+    async with get_db() as db:
+        return await GardenRepository(db).save_domestic_capture(
+            EVENT,
+            CAMERA,
+            "2026-11-20T09:15:56.230183",
+            True,
+            GardenDomesticRoute(
+                domestic_bird="chicken", origin="bird_detection", source_label="Gallus gallus", routed_at="now"
+            ),
+        )
+
+
+@pytest.mark.asyncio
+async def test_keeping_the_classified_frame_never_replaces_a_photo_or_clip_already_kept(frigate):  # noqa: F811
+    capture_id = await _routed_chicken()
+    await garden_media_cache.collect(capture_id)
+    before = await kept(capture_id)
+    assert (before.photo_state, before.photo_source, before.clip_state) == ("kept", "frigate_snapshot", "kept")
+    assert not await garden_media_cache.keep_classified_frame(capture_id, CLASSIFIED, "frigate_recording_frame")
+    assert await kept(capture_id) == before
+
+
+@pytest.mark.asyncio
+async def test_keeping_the_classified_frame_does_not_wait_for_a_collection_in_progress(frigate):  # noqa: F811
+    import asyncio
+
+    capture_id = await _routed_chicken()
+    async with garden_media_cache._collect_lock:
+        kept_now = await asyncio.wait_for(
+            garden_media_cache.keep_classified_frame(capture_id, CLASSIFIED, "frigate_recording_frame"), 5
+        )
+    assert kept_now
+    assert (await kept(capture_id)).photo_source == "classified_frame"

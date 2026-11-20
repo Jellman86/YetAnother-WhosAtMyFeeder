@@ -543,7 +543,8 @@ capture's event as it does a bird detection's, and serves its kept clip first wh
 pending or dismissed Garden capture's clip is streamed from Frigate and never written to the clip
 cache. Capture responses include `photo_kept` and `clip_kept`: whether YA-WAMF holds its own
 checksummed copy of the full photograph or Frigate clip (false for a guest when that media is not
-shared). See [Kept photographs and clips](features/garden-animals.md#kept-photographs-and-clips). Presence and
+shared). A domestic bird's kept photograph may be YA-WAMF's own copy of the whole frame its bird
+model classified, kept when Frigate holds no snapshot for the event; a kept clip is always Frigate's. See [Kept photographs and clips](features/garden-animals.md#kept-photographs-and-clips). Presence and
 species identification have separate reviews; `frigate_label` remains an upstream suggestion.
 
 - `GET /api/garden` — `status=pending|confirmed|dismissed`, `limit=1..128` (default 20),
@@ -864,7 +865,9 @@ other identifications for `needs_review`, and are excluded from personalization 
 
 ### Media Proxy and Share Links
 
-- `GET /api/frigate/{event_id}/snapshot.jpg`
+- `GET /api/frigate/{event_id}/snapshot.jpg` — YA-WAMF's stored photo of the detection first, so a
+  detection Frigate did not retain (`frigate_status: not_retained`) or no longer has still shows
+  the photo YA-WAMF classified; Frigate is asked only when YA-WAMF holds none.
 - `GET /api/frigate/{event_id}/snapshot/status` (owner; reports the effective best-available policy)
 - `GET /api/frigate/{event_id}/snapshot/candidates` (owner)
   - `image_url` and `thumbnail_url` are nullable independently when the corresponding cached

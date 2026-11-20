@@ -283,7 +283,7 @@
             <SettingsRow
                 labelId="setting-frigate-missing-behavior"
                 label={$_('settings.data.frigate_missing_behavior', { default: 'When Frigate no longer has the event/media' })}
-                description={$_('settings.data.frigate_missing_behavior_note', { default: 'This policy is applied during manual scans and scheduled checks. Use mark-missing when YA-WAMF should keep detections longer than Frigate.' })}
+                description={$_('settings.data.frigate_missing_behavior_note', { default: 'This choice is applied during manual scans and scheduled checks. Choose “Mark missing and keep local data” when YA-WAMF should keep its captures longer than Frigate keeps the events. A record whose photo YA-WAMF still holds is never deleted; it is marked missing instead.' })}
                 layout="stacked"
             >
                 <SettingsSelect
@@ -293,7 +293,7 @@
                     options={[
                         { value: 'mark_missing', label: $_('settings.data.frigate_missing_behavior_mark', { default: 'Mark missing and keep local data' }) },
                         { value: 'keep', label: $_('settings.data.frigate_missing_behavior_keep', { default: 'Keep local data unchanged' }) },
-                        { value: 'delete', label: $_('settings.data.frigate_missing_behavior_delete', { default: 'Delete local data' }) }
+                        { value: 'delete', label: $_('settings.data.frigate_missing_behavior_delete', { default: 'Delete records YA-WAMF has no photo for' }) }
                     ]}
                     onchange={(v) => (frigateMissingBehavior = v as 'mark_missing' | 'keep' | 'delete')}
                 />
