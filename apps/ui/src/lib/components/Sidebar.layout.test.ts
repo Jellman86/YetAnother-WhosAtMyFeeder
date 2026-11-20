@@ -66,18 +66,24 @@ describe('Sidebar hybrid refresh', () => {
     });
 
     it('keeps navigation and bottom controls reachable on short viewports', () => {
-        expect(sidebarSource).toContain('[@media(max-height:42rem)]:hidden');
+        // No status is hidden by the window's height: the card and the icon rail's group are both measured
+        // against the room the column really has (see below).
+        expect(sidebarSource).not.toContain('[@media(max-height:42rem)]:hidden');
+        expect(sidebarSource).toContain("use:showWholeOrNone={{ container: '[data-sidebar-scroll]', refocus: refocusFromStatus }}");
         expect(sidebarSource).toContain('[@media(max-height:42rem)]:py-3');
         // On a short window the brand sits beside its mark, the status readings give way inside the card
-        // with the Health link pinned at its foot, and only past that do the places and the status scroll
-        // together. The controls below never scroll, so the language menu is never clipped.
+        // with the Health link pinned at its foot, the card gives way entirely where not even that fits,
+        // and only when the places themselves do not fit do the places and the status scroll together.
+        // The controls below never scroll, so the language menu is never clipped.
         expect(sidebarSource).toContain('<div class="flex min-h-0 flex-1 flex-col overflow-y-auto" data-sidebar-scroll>');
         expect(sidebarSource).toContain('<nav class="shrink-0 px-3 py-4"');
         expect(sidebarSource).toContain('data-sidebar-status class="mt-auto flex flex-col');
         expect(sidebarSource).toMatch(/class="focus-ring"\s+role="group"\s+tabindex="0"\s+aria-labelledby="sidebar-status-title"\s+data-sidebar-status-readings/);
-        // Only at the usual text size (the column at least 30 rem tall) do the readings give way.
-        expect(sidebarSource).toContain('container: sidebar-scroll / size;');
-        expect(sidebarSource).toMatch(/@container sidebar-scroll \(height >= 30rem\) \{[\s\S]*?\[data-sidebar-status-readings\] \{\s*min-height: 3rem;\s*overflow-y: auto;/);
+        // No box of the card may shrink below its content: the readings' height is set in whole lines,
+        // and a card with no room for its floor is taken out of view rather than squashed.
+        expect(sidebarSource).not.toMatch(/\[data-sidebar-status(?:-card)?\][^{]*\{[^}]*min-height: 0/);
+        expect(sidebarSource).toMatch(/\[data-sidebar-status-readings\] \{\s*overflow-y: auto;/);
+        expect(sidebarSource).toMatch(/\[data-sidebar-status\]:global\(\[data-fit='none'\]\) \{[^}]*position: absolute;[^}]*bottom: 100%;[^}]*visibility: hidden;/);
         expect(sidebarSource).toContain('flex min-h-7 shrink-0 items-center justify-between');
         expect(sidebarSource.indexOf('data-sidebar-scroll')).toBeLessThan(sidebarSource.indexOf('<LanguageSelector'));
         // An owner with sign-in off has no account to show, so no empty band.
@@ -86,7 +92,8 @@ describe('Sidebar hybrid refresh', () => {
 
     it('shows the load as labelled meters in the card, on a neutral surface', () => {
         expect(sidebarSource).toContain("import SystemLoadMeters from './SystemLoadMeters.svelte'");
-        expect(sidebarSource).toContain('<SystemLoadMeters />');
+        // Seen while the readings that scroll them are on screen, not by their own clip (see shell-heights).
+        expect(sidebarSource).toContain('<SystemLoadMeters watchFrom="[data-sidebar-status-readings]" />');
         // The readings are text in the card's own flow: nothing is drawn behind the rows, and
         // nothing is positioned over them, so the rows and the link can grow or wrap freely.
         expect(loadMetersSource).not.toContain('absolute');
@@ -121,7 +128,8 @@ describe('Sidebar hybrid refresh', () => {
     });
 
     it('shows the status readings in whole lines at rest, instead of cutting a line of words', () => {
-        expect(sidebarSource).toContain("use:snapToWholeLines={{ lines: ':scope > *, li', container: '[data-sidebar-scroll]' }}");
+        // Never fewer than the heading and the first reading.
+        expect(sidebarSource).toContain("use:snapToWholeLines={{ lines: ':scope > *, li', floor: '[data-status-row]', container: '[data-sidebar-scroll]', refocus: refocusFromStatus }}");
         // Nothing is drawn over the readings: a mask on them, a tab stop, clipped their focus ring, and a fade
         // or an edge over a line reads as cut or underlined text.
         expect(sidebarSource).not.toContain('mask-image');

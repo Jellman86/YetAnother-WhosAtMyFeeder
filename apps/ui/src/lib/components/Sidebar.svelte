@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { snapToWholeLines } from '../utils/whole-lines';
+    import { showWholeOrNone, snapToWholeLines } from '../utils/whole-lines';
     import { pointerMayPrefetch } from '../app/route-prefetch';
     import { avatarStore } from '../stores/avatar.svelte';
     import { onMount } from 'svelte';
@@ -132,6 +132,15 @@
         ];
     });
 
+    // A status left out while it holds keyboard focus hands it to Health among the places (the owner's),
+    // or else to the page you are on, never leaving it on something unseen.
+    function refocusFromStatus(): HTMLElement | null {
+        return asideEl?.querySelector<HTMLElement>('nav [data-nav-path="/system-health"]')
+            ?? asideEl?.querySelector<HTMLElement>('nav [aria-current="page"]')
+            ?? asideEl?.querySelector<HTMLElement>('nav button')
+            ?? null;
+    }
+
     function navigateAndClose(path: string): void {
         onNavigate(path);
         onMobileClose?.();
@@ -198,9 +207,12 @@
 
     <!-- Every place in the app and the way to Health stay in view: on a short window the brand sits
          beside its mark and System status gives up its readings first (they scroll inside the card,
-         the Health link stays at its foot). Only when even that is not enough, as at a much larger text
-         size, do the places and the status scroll together; the controls below never scroll, so the
-         language menu that opens past the collapsed rail is never clipped. -->
+         the Health link stays at its foot). Where the room under the places, measured, cannot hold the
+         card's heading, first reading and link whole, the status is left out rather than cut: the owner
+         still has Health among the places, and a guest the header's cameras and the Dashboard's feed.
+         Only when the places themselves do not fit, as at a much larger text size, does the labelled
+         card follow them down the scrolling column (the icon rail's group stays out). The controls
+         below never scroll, so the language menu that opens past the collapsed rail is never clipped. -->
     <div class="flex min-h-0 flex-1 flex-col overflow-y-auto" data-sidebar-scroll>
         <nav class="shrink-0 px-3 py-4" aria-label={$_('nav.navigation', { default: 'Primary navigation' })}>
             {#each navSections as section, sectionIndex}
@@ -223,6 +235,7 @@
                                 title={collapsed ? item.label : ''}
                                 aria-label={item.label}
                                 aria-current={isRouteActive(item) ? 'page' : undefined}
+                                data-nav-path={item.path}
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
                                     <path stroke-linecap="round" stroke-linejoin="round" d={item.icon} />
@@ -242,9 +255,16 @@
              labelled meters in the Health chart's series colours, and the way to Health as the card's foot. Only the owner can reach Health,
              so a guest gets no link. The link asks for attention only for issues Health lists as open,
              read from the same store, so the two always agree. -->
-        <div data-sidebar-status class="mt-auto flex flex-col border-t border-line-soft p-3 compact-height:p-2 [@media(max-height:42rem)]:hidden">
+        <div data-sidebar-status class="mt-auto flex flex-col border-t border-line-soft p-3 compact-height:p-2">
             {#if collapsed}
-                <section class="flex flex-col items-center gap-1" aria-label={$_('status.title')} data-sidebar-status-card>
+                <!-- The icon rail's status has nothing that can give way, so it is whole and in view under the
+                     places or left out, measured against the room the column really has. -->
+                <section
+                    class="flex flex-col items-center gap-1"
+                    aria-label={$_('status.title')}
+                    data-sidebar-status-card
+                    use:showWholeOrNone={{ container: '[data-sidebar-scroll]', refocus: refocusFromStatus }}
+                >
                     {@render status?.(true)}
                     {#if authStore.showSettings}
                         <a
@@ -278,20 +298,22 @@
                          off. A tab stop of its own, so the keyboard can scroll it where the browser does not. -->
                     <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
                     <!-- At rest the readings show whole lines only: their height ends after the last line that
-                         fits, and the rest is scrolled to, so no line is ever shown cut through its letters. -->
+                         fits, never before the first reading, and the rest is scrolled to, so no line is ever
+                         shown cut through its letters. The room is measured from the column (signed in, the
+                         account band takes some of it), not guessed from the window's height. -->
                     <div
                         class="focus-ring"
                         role="group"
                         tabindex="0"
                         aria-labelledby="sidebar-status-title"
                         data-sidebar-status-readings
-                        use:snapToWholeLines={{ lines: ':scope > *, li', container: '[data-sidebar-scroll]' }}
+                        use:snapToWholeLines={{ lines: ':scope > *, li', floor: '[data-status-row]', container: '[data-sidebar-scroll]', refocus: refocusFromStatus }}
                     >
                         <h2 id="sidebar-status-title" class="mb-2 text-xs font-semibold leading-4 text-ink">
                             {$_('status.title')}
                         </h2>
                         {@render status?.(false)}
-                        <SystemLoadMeters />
+                        <SystemLoadMeters watchFrom="[data-sidebar-status-readings]" />
                     </div>
                     {#if authStore.showSettings}
                         <!-- One line, one control: with issues open the count is the link's wording and
@@ -446,25 +468,25 @@
 </aside>
 
 <style>
-    /* The places and the status share one column, which scrolls only as a last resort. Measured in rem,
-       which here follows the reader's text size: while the column is at least 30 rem tall (a short
-       window at the usual text size) the status readings give way first, down to their heading and
-       first reading, and scroll inside the card under a pinned Health link. With much larger text the
-       card keeps every word and the column scrolls instead. */
-    [data-sidebar-scroll] {
-        container: sidebar-scroll / size;
+    /* The places and the status share one column, which scrolls only as a last resort. The card always
+       lays out whole: snapToWholeLines gives the readings a height in whole lines, down to their heading
+       and first reading, and they scroll inside the card under the Health link at its foot. No box here
+       may shrink below its content, so the card is never squashed to an empty bar. */
+    [data-sidebar-status-readings] {
+        overflow-y: auto;
     }
 
-    @container sidebar-scroll (height >= 30rem) {
-        [data-sidebar-status],
-        [data-sidebar-status-card] {
-            min-height: 0;
-        }
-
-        [data-sidebar-status-readings] {
-            min-height: 3rem;
-            overflow-y: auto;
-        }
+    /* Not even the heading, first reading and Health link fit under the places (on the icon rail, the
+       whole group of icons): no card rather than a sliver of one. It stays laid out, out of the flow
+       and unseen, so it is measured again as the room changes, and is hidden from the keyboard and
+       screen readers like anything not shown (its live region says nothing while it is out). It waits
+       above the window, not over the sidebar, because the load meters sample only while they are on
+       screen. The mark is written by snapToWholeLines or showWholeOrNone, not the template, so it is
+       matched as global. */
+    [data-sidebar-status]:global([data-fit='none']) {
+        position: absolute;
+        inset-inline: 0;
+        bottom: 100%;
+        visibility: hidden;
     }
-
 </style>

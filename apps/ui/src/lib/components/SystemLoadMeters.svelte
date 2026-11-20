@@ -7,6 +7,16 @@
     import { systemStatusStore, telemetrySampleFrom } from '../stores/system_status.svelte';
     import { appendTelemetrySample, loadMeters, type TelemetryPoint } from './systemLoadMeters';
 
+    let { watchFrom }: {
+        /**
+         * The box that scrolls the meters, named by a selector: while it is on screen they count as seen,
+         * even scrolled out of its view, since a reader can scroll them back. Judged by their own clip
+         * instead, they would empty when that box ends above them, giving back the room that brings them
+         * into view, and fill and empty again on every frame.
+         */
+        watchFrom?: string;
+    } = $props();
+
     let history = $state<TelemetryPoint[]>([]);
     /** The last sample failed (a visitor may be rate-limited): the meters keep it, marked as not current. */
     let stale = $state(false);
@@ -96,7 +106,7 @@
             if (watched()) void takeSample();
             else pause();
         });
-        observer.observe(container);
+        observer.observe((watchFrom ? container.parentElement?.closest<HTMLElement>(watchFrom) : null) ?? container);
 
         const handleVisibility = () => {
             if (watched()) void takeSample();
