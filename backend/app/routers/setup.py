@@ -5,8 +5,6 @@ the existing per-integration *test* endpoints; this router only exposes the chea
 readiness the wizard renders as its section map.
 """
 
-import asyncio
-
 import structlog
 from fastapi import APIRouter, Depends
 
@@ -25,7 +23,7 @@ log = structlog.get_logger()
 async def _model_readiness() -> ModelReadiness | None:
     """The identification model's readiness from the classifier's report, or None when it has none to give."""
     try:
-        status = await asyncio.to_thread(get_classifier().get_status)
+        status = await get_classifier().collect_status()
     except Exception as error:
         log.warning("setup_state_model_reading_failed", error=type(error).__name__)
         return None

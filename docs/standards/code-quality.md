@@ -23,6 +23,15 @@ loop — no bare `open()`, `requests`, `time.sleep`, or synchronous DB drivers; 
 `httpx`, and async SQLAlchemy. Push CPU-heavy work to an executor. Small non-I/O helpers may
 still be `async` to avoid the threadpool overhead FastAPI incurs for sync dependencies.
 
+**State the event loop owns is read on the loop.** The services keep their counters, windows,
+queues and maps on the event loop and change them without locks. A function sent to
+`asyncio.to_thread` may read files, SQLite and `/proc`, but must not read or write that state:
+a loop write can land part-way through the thread's iteration (`deque mutated during
+iteration`), and a thread's write can break the loop's own. Read the loop's state on the loop
+and hand the thread a finished copy, as `collect_health_payload` and the classifier's
+`collect_health`/`collect_status` do. The health report's reads are tested this way in
+`backend/tests/test_health_loop_ownership.py`.
+
 **Layering & dependency direction.** `routers → services → repositories → SQLite`, one
 direction only (mirrors [`CLAUDE.md`](../../CLAUDE.md) §8):
 - **Routers** compose HTTP: parse/validate input, call a service, shape the response. No

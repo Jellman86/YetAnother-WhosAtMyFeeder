@@ -14,7 +14,7 @@ import sys  # Trigger CI rebuild
 import traceback
 from time import monotonic
 from contextlib import asynccontextmanager
-from typing import Awaitable, Callable
+from typing import Awaitable, Callable, TypedDict
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST, Counter
 from pydantic import BaseModel
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
@@ -1241,14 +1241,51 @@ def _naming_health() -> dict[str, object]:
     return {"species_reference": reference, "localized_names": localized, "species_catalog": catalog}
 
 
-def build_health_payload() -> dict[str, object]:
+class HealthFileReadings(TypedDict):
+    """The parts of the health report that read files, SQLite or /proc, done in worker threads.
+
+    The classifier's part reads the state the loop owns from a copy taken on the loop.
+    """
+
+    ml: dict[str, object]
+    naming: dict[str, object]
+    host: dict[str, object]
+    process_memory: dict[str, object]
+
+
+def _read_health_files() -> tuple[dict[str, object], dict[str, object], dict[str, object]]:
     from app.services.host_facts import collect_host_facts
     from app.services.process_memory import collect_process_memory
+
+    return _naming_health(), collect_host_facts(), collect_process_memory()
+
+
+async def collect_health_payload() -> dict[str, object]:
+    """The health report, as `/health` and the diagnostics workspace serve it.
+
+    Its file, SQLite and /proc reads run in worker threads so the event loop keeps
+    serving; the rest is composed on the loop by `build_health_payload`.
+    """
+    ml = await get_classifier().collect_health()
+    naming, host, process_memory = await asyncio.to_thread(_read_health_files)
+    return build_health_payload(HealthFileReadings(ml=ml, naming=naming, host=host, process_memory=process_memory))
+
+
+def build_health_payload(files: HealthFileReadings) -> dict[str, object]:
+    """Compose the health report from `files` and the services' live state.
+
+    Runs on the event loop, never in a worker thread. Every service below keeps
+    its counters, windows and maps on the loop and updates them without locks; a
+    read from another thread can meet a write part-way through, which answered
+    /health with "deque mutated during iteration" on a busy feeder. On the loop no
+    write can land mid-read, and nothing here does blocking I/O.
+    """
+    from app.services.process_memory import audio_buffer_entries
 
     startup_warnings = getattr(app.state, "startup_warnings", [])
     startup_instance_id = getattr(app.state, "startup_instance_id", "unknown")
     startup_started_at = getattr(app.state, "startup_started_at", None)
-    classifier_health = get_classifier().check_health()
+    classifier_health = files["ml"]
     mqtt_health = mqtt_service.get_status()
     video_health = auto_video_classifier.get_status()
     high_quality_snapshot_health = high_quality_snapshot_service.get_status()
@@ -1283,7 +1320,7 @@ def build_health_payload() -> dict[str, object]:
         "service": "ya-wamf-backend",
         "version": APP_VERSION,
         "ml": classifier_health,
-        "naming": _naming_health(),
+        "naming": files["naming"],
         "db_pool": db_pool_health,
         "media_integrity_scan": get_media_integrity_scan_status(),
         # Photographs and visit media are always kept, so a folder that cannot be written is a
@@ -1302,11 +1339,11 @@ def build_health_payload() -> dict[str, object]:
         # The machine this is running on. A performance report cannot be sized
         # without it, and two bundles were exchanged on #300 before anyone could
         # say whether the host was a small box or a large one.
-        "host": collect_host_facts(),
+        "host": files["host"],
         # Where this process's memory sits. Resident memory grew eightfold in a
         # day with no change of model (#314), and a curve without attribution
         # can only be guessed at.
-        "process_memory": collect_process_memory(),
+        "process_memory": {**files["process_memory"], "audio_buffer_entries": audio_buffer_entries()},
         "startup_instance_id": startup_instance_id,
         "startup_started_at": startup_started_at,
     }
@@ -1337,7 +1374,7 @@ def build_health_payload() -> dict[str, object]:
 @app.get("/health")
 async def health_check(response: Response) -> dict[str, object]:
     response.headers["Cache-Control"] = "no-store, max-age=0"
-    return await asyncio.to_thread(build_health_payload)
+    return await collect_health_payload()
 
 
 @app.get("/ready", response_model=ReadinessResponse)

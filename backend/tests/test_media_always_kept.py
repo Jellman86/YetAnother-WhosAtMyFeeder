@@ -27,15 +27,16 @@ async def owner_client():
         app.dependency_overrides.pop(require_owner, None)
 
 
-def test_health_reports_media_storage_and_degrades_when_it_cannot_be_written(monkeypatch):
+@pytest.mark.asyncio
+async def test_health_reports_media_storage_and_degrades_when_it_cannot_be_written(monkeypatch):
     from app import main as main_module
 
-    healthy = main_module.build_health_payload()
+    healthy = await main_module.collect_health_payload()
     assert healthy["media_storage"] == {"available": True, "error": None}
 
     monkeypatch.setattr(media_cache_module.media_cache, "_available", False)
     monkeypatch.setattr(media_cache_module.media_cache, "_init_error", "Permission denied: '/config/media_cache'")
-    broken = main_module.build_health_payload()
+    broken = await main_module.collect_health_payload()
 
     assert broken["media_storage"] == {"available": False, "error": "Permission denied: '/config/media_cache'"}
     assert broken["status"] == "degraded"

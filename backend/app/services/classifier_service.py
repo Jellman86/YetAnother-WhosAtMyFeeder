@@ -7,6 +7,7 @@ import contextlib
 import functools
 import inspect
 import base64
+import copy
 import ctypes
 import hashlib
 import importlib
@@ -19,9 +20,11 @@ import time
 import tempfile
 import shutil
 from concurrent.futures import ThreadPoolExecutor
+from contextvars import ContextVar
+from dataclasses import dataclass
 from pathlib import Path
 from PIL import Image
-from typing import Optional, Any, Awaitable, Callable, Iterable, Literal, NoReturn, NamedTuple
+from typing import Optional, Any, Awaitable, Callable, Iterable, Iterator, Literal, NoReturn, NamedTuple
 
 from app.services.inference_health import InferenceHealth, Outcome, RuntimeKey
 from app.services.openvino_cache import resolve_openvino_cache_dir
@@ -96,6 +99,29 @@ from app.services.video_classification_policy import (
 from app.utils.classifier_labels import normalize_classifier_label
 
 log = structlog.get_logger()
+
+
+@dataclass(frozen=True)
+class _LoopOwnedReadings:
+    """The classifier state the event loop owns, read once on the loop for one status report.
+
+    The admission coordinator, the worker supervisor and native CPU recovery update
+    these from the loop without locks. A status report built in a worker thread for
+    its file and SQLite reads uses this copy, so it never walks one of them while the
+    loop is changing it.
+    """
+
+    admission_metrics: dict[str, Any]
+    supervisor_metrics: dict[str, Any] | None
+    native_cpu_recovery: dict[str, dict[str, Any]]
+
+
+# Set by `collect_health`/`collect_status` around their worker-thread hop;
+# `asyncio.to_thread` carries it into the thread with the rest of the context.
+_pinned_loop_readings: ContextVar[_LoopOwnedReadings | None] = ContextVar("classifier_loop_readings", default=None)
+
+# Several status reports can run at once in worker threads; the finder's CPU incident is raised once.
+_finder_cpu_warning_lock = threading.Lock()
 
 
 class VideoFrameCandidate(NamedTuple):
@@ -2683,7 +2709,60 @@ class ClassifierService:
                 counts["recent_live_late_ignored"] += 1
         return counts
 
+    def _models_snapshot(self) -> tuple[tuple[str, Any], ...]:
+        """The loaded models, copied in one step.
+
+        Reloads replace entries from worker threads. Holding `_models_lock` here
+        would wait out a whole model load, so a status read copies the map
+        instead: the copy runs no Python code, so no other thread can run part-way
+        through it. The per-model file reads then walk the copy, not the live map.
+        """
+        return tuple(self._models.items())
+
+    async def collect_health(self) -> dict:
+        """`check_health` for async callers, with its file and SQLite reads off the event loop.
+
+        The state the loop owns is read here, on the loop, before the hop; only
+        that finished copy reaches the worker thread.
+        """
+        with self._loop_readings_pinned():
+            return await asyncio.to_thread(self.check_health)
+
+    async def collect_status(self) -> dict:
+        """`get_status` for async callers, with its file and SQLite reads off the event loop."""
+        with self._loop_readings_pinned():
+            return await asyncio.to_thread(self.get_status)
+
+    @contextlib.contextmanager
+    def _loop_readings_pinned(self) -> Iterator[None]:
+        readings = _LoopOwnedReadings(
+            admission_metrics=self._classification_admission.get_metrics(),
+            supervisor_metrics=self._get_supervisor_metrics(),
+            native_cpu_recovery=self._native_cpu_recovery_snapshot(),
+        )
+        token = _pinned_loop_readings.set(readings)
+        try:
+            yield
+        finally:
+            _pinned_loop_readings.reset(token)
+
+    def _admission_metrics(self) -> dict:
+        pinned = _pinned_loop_readings.get()
+        if pinned is not None:
+            return copy.deepcopy(pinned.admission_metrics)
+        return self._classification_admission.get_metrics()
+
+    def _native_cpu_recovery_snapshot(self) -> dict[str, dict[str, Any]]:
+        pinned = _pinned_loop_readings.get()
+        if pinned is not None:
+            return copy.deepcopy(pinned.native_cpu_recovery)
+        recovery = getattr(self, "_native_cpu_recovery", None)
+        return recovery.snapshot() if recovery else {}
+
     def _get_supervisor_metrics(self) -> dict | None:
+        pinned = _pinned_loop_readings.get()
+        if pinned is not None:
+            return copy.deepcopy(pinned.supervisor_metrics)
         supervisor = self._classifier_supervisor or self._video_supervisor
         if supervisor is None:
             return None
@@ -2691,8 +2770,7 @@ class ClassifierService:
             metrics = supervisor.get_metrics()
             if not isinstance(metrics, dict):
                 return None
-            recovery = getattr(self, "_native_cpu_recovery", None)
-            for priority, state in (recovery.snapshot() if recovery else {}).items():
+            for priority, state in self._native_cpu_recovery_snapshot().items():
                 metrics[priority] = dict(metrics.get(priority) or {})
                 metrics[priority]["native_cpu_recovery"] = state
                 runtime = state.get("runtime") or {}
@@ -2737,8 +2815,11 @@ class ClassifierService:
         if self._image_execution_mode == "subprocess":
             self._latest_worker_runtime_recovery(supervisor_metrics)
         latest = self.latest_runtime_recovery()
-        recovery = getattr(self, "_native_cpu_recovery", None)
-        if latest and latest.get("reason") == "native_crash_same_model_cpu" and not (recovery and recovery.snapshot()):
+        if (
+            latest
+            and latest.get("reason") == "native_crash_same_model_cpu"
+            and not self._native_cpu_recovery_snapshot()
+        ):
             # Keep historical negative evidence, but don't apply an old CPU
             # recovery to a newly selected model/provider after reload.
             return None
@@ -3014,7 +3095,7 @@ class ClassifierService:
     def check_health(self) -> dict:
         """Detailed health check for the classification service."""
         bird = self._models.get("bird")
-        admission_metrics = self._classification_admission.get_metrics()
+        admission_metrics = self._admission_metrics()
         live_image_health = self._describe_live_image_health(admission_metrics)
         background_image_health = self._describe_background_image_health(admission_metrics)
         supervisor_metrics = self._get_supervisor_metrics()
@@ -3027,21 +3108,22 @@ class ClassifierService:
             if finder_health["active"]
             else None
         )
-        if identity != getattr(self, "_finder_cpu_warning", None):
+        with _finder_cpu_warning_lock:
+            raise_incident = identity != getattr(self, "_finder_cpu_warning", None) and identity is not None
             self._finder_cpu_warning = identity
-            if identity is not None:
-                from app.services.error_diagnostics import error_diagnostics_history
+        if raise_incident:
+            from app.services.error_diagnostics import error_diagnostics_history
 
-                message = f"RF-DETR Nano is using CPU. {finder_health['reason']} {finder_health['action']}"
-                log.warning("bird_finder_cpu_fallback", **finder_health)
-                error_diagnostics_history.record(
-                    source="backend",
-                    component="bird_finder",
-                    reason_code="rfdetr_cpu_fallback",
-                    message=message,
-                    severity="warning",
-                    context=finder_health,
-                )
+            message = f"RF-DETR Nano is using CPU. {finder_health['reason']} {finder_health['action']}"
+            log.warning("bird_finder_cpu_fallback", **finder_health)
+            error_diagnostics_history.record(
+                source="backend",
+                component="bird_finder",
+                reason_code="rfdetr_cpu_fallback",
+                message=message,
+                severity="warning",
+                context=finder_health,
+            )
 
         # Determine which TFLite runtime is actually in use
         tflite_type = runtimes.tflite_runtime_name() if runtimes.tflite is not None else "none"
@@ -3106,7 +3188,7 @@ class ClassifierService:
                     # wrongly, so the verdict is reported rather than only logged.
                     "labels": _label_integrity_for(model),
                 }
-                for name, model in self._models.items()
+                for name, model in self._models_snapshot()
             },
             "live_image": live_image_health,
             "background_image": background_image_health,
@@ -3200,7 +3282,7 @@ class ClassifierService:
 
     def get_status(self) -> dict:
         bird = self._models.get("bird")
-        admission_metrics = self._classification_admission.get_metrics()
+        admission_metrics = self._admission_metrics()
         live_image_health = self._describe_live_image_health(admission_metrics)
         # Reads the last known capabilities rather than detecting them. Detection
         # spawns subprocesses, and this runs on the event loop (#313).
@@ -3331,7 +3413,7 @@ class ClassifierService:
             "inference_backend": effective_backend,
             "fallback_reason": (
                 "Native worker crash: same-model isolated CPU recovery; see Health for workload status."
-                if getattr(self, "_native_cpu_recovery", None) and self._native_cpu_recovery.snapshot()
+                if self._native_cpu_recovery_snapshot()
                 else self._inference_fallback_reason
             ),
             "model_config_warnings": list(self._model_config_warnings or []),
@@ -3375,7 +3457,7 @@ class ClassifierService:
         if supervisor_metrics is not None:
             status["worker_pools"] = supervisor_metrics
 
-        for name, model in self._models.items():
+        for name, model in self._models_snapshot():
             model_status = model.get_status()
             if name == "bird" and _safe_isinstance(model, ONNXModelInstance) and model.session:
                 model_status["active_providers"] = model.session.get_providers()
