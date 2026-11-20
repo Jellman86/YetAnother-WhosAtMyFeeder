@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { wholeLinesFit, wholeLinesHeight, wholeOrNone } from './whole-lines';
+import { createFocusMover, statusTier, wholeLinesFit, wholeLinesHeight, wholeOrNone } from './whole-lines';
 
 /** Where each line of the status readings ends, from the top of the readings, in px. */
 const LINES = [16, 40, 64, 88, 106];
@@ -90,5 +90,125 @@ describe('wholeOrNone', () => {
 
     it('shows none where what comes first already fills the column', () => {
         expect(wholeOrNone(-18, 164)).toBe('none');
+    });
+});
+
+/**
+ * The sidebar status in its room: a 17px frame around the full card (139px, readings 84px of it, whose
+ * first reading ends at 35px), around the one-line summary (27px), or around the compact summary (16px
+ * once its negative margins eat into the frame).
+ */
+const STATUS = { frame: 17, full: 139, summary: 27, compact: 16, lines: { lineEnds: [14, 35, 53, 70, 84], floor: 35, readings: 84 } };
+
+describe('statusTier', () => {
+    it('shows the full card whole where it fits', () => {
+        expect(statusTier({ ...STATUS, room: 160 })).toEqual({ tier: 'full', readings: null });
+    });
+
+    it('shows the full card in whole lines down to its first reading', () => {
+        // Frame and card without readings take 72px; 40px left holds the heading and first reading.
+        expect(statusTier({ ...STATUS, room: 112 })).toEqual({ tier: 'full', readings: 35 });
+    });
+
+    it('gives the summary where the floor of the card does not fit but the summary does', () => {
+        expect(statusTier({ ...STATUS, room: 100 })).toEqual({ tier: 'summary' });
+        expect(statusTier({ ...STATUS, room: 44 })).toEqual({ tier: 'summary' });
+    });
+
+    it('tightens to the compact summary before giving up on a line', () => {
+        expect(statusTier({ ...STATUS, room: 43.5 })).toEqual({ tier: 'compact' });
+        expect(statusTier({ ...STATUS, room: 33 })).toEqual({ tier: 'compact' });
+    });
+
+    it('where not even the compact line fits, hands the status to the Health place, with the card just past the fold', () => {
+        expect(statusTier({ ...STATUS, room: 32.5 })).toEqual({ tier: 'health', push: 33 });
+        expect(statusTier({ ...STATUS, room: 0 })).toEqual({ tier: 'health', push: 0 });
+    });
+
+    it('hands the status to the Health place too when the places themselves do not fit', () => {
+        expect(statusTier({ ...STATUS, room: -20 })).toEqual({ tier: 'health', push: 0 });
+    });
+
+    it('treats a group with nothing that can give way (the icon rail) as all, one icon, a small icon or the Health place', () => {
+        const rail = { frame: 17, full: 147, summary: 39, compact: 15 };
+        expect(statusTier({ ...rail, room: 164 })).toEqual({ tier: 'full', readings: null });
+        expect(statusTier({ ...rail, room: 163 })).toEqual({ tier: 'summary' });
+        expect(statusTier({ ...rail, room: 50 })).toEqual({ tier: 'compact' });
+        expect(statusTier({ ...rail, room: 23 })).toEqual({ tier: 'health', push: 23 });
+    });
+});
+
+/** A stand-in for elements and the page's focus, with frames and tasks run by hand. */
+function focusWorld() {
+    let active: string | null = 'hidden card link';
+    const frames: (() => void)[] = [];
+    const tasks: (() => void)[] = [];
+    const element = (name: string, takes: () => boolean = () => true) => ({
+        name,
+        focus: () => { if (takes()) active = name; }
+    });
+    return {
+        get active() { return active; },
+        set active(name: string | null) { active = name; },
+        element,
+        schedule: {
+            frame: (run: () => void) => frames.push(run),
+            task: (run: () => void) => tasks.push(run),
+            cancelFrame: (id: number) => { frames[id - 1] = () => undefined; },
+            cancelTask: (id: number) => { tasks[id - 1] = () => undefined; }
+        },
+        run: () => { while (tasks.length || frames.length) (tasks.shift() ?? frames.shift())?.(); }
+    };
+}
+
+describe('createFocusMover', () => {
+    it('moves focus to the new form once it takes it, trying again for a few frames', () => {
+        const world = focusWorld();
+        let refusals = 2;
+        const summaryLink = world.element('summary link', () => refusals-- <= 0);
+        const mover = createFocusMover({ target: () => summaryLink, fallback: () => null, ours: () => true, active: () => world.active, ...world.schedule });
+        mover.move();
+        world.run();
+        expect(world.active).toBe('summary link');
+    });
+
+    it('leaves focus alone once the reader has moved it inside the retry window', () => {
+        const world = focusWorld();
+        let refusals = 3;
+        const summaryLink = world.element('summary link', () => refusals-- <= 0);
+        const nav = world.element('Health place');
+        const mover = createFocusMover({
+            target: () => summaryLink,
+            fallback: () => nav,
+            ours: () => world.active === null || world.active === 'hidden card link',
+            active: () => world.active,
+            ...world.schedule
+        });
+        mover.move();
+        // The first try is refused; before the next frame the reader presses Tab.
+        world.schedule.frame(() => { world.active = 'Settings place'; });
+        world.run();
+        expect(world.active).toBe('Settings place');
+    });
+
+    it('falls back when the new form never takes focus, rather than leaving it on nothing', () => {
+        const world = focusWorld();
+        const summaryLink = world.element('summary link', () => false);
+        const nav = world.element('Health place');
+        const parked: string[] = [];
+        const mover = createFocusMover({ target: () => summaryLink, fallback: () => nav, ours: () => true, active: () => world.active, onFallback: (element) => parked.push(element.name), ...world.schedule });
+        mover.move();
+        world.run();
+        expect(world.active).toBe('Health place');
+        expect(parked).toEqual(['Health place']);
+    });
+
+    it('does nothing once cancelled, as when the sidebar goes away', () => {
+        const world = focusWorld();
+        const mover = createFocusMover({ target: () => world.element('summary link'), fallback: () => null, ours: () => true, active: () => world.active, ...world.schedule });
+        mover.move();
+        mover.cancel();
+        world.run();
+        expect(world.active).toBe('hidden card link');
     });
 });

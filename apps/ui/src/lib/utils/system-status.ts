@@ -123,6 +123,35 @@ export interface HealthAttention {
     count: number;
 }
 
+/** What the one-line status summary is asked to say: the owner's open issues, or null for a guest. */
+export interface SummaryRequest {
+    attention: HealthAttention | null;
+    /** The compact form, where the room holds only a 24 px target. */
+    compact?: boolean;
+}
+
+/**
+ * The Health place's name where it carries the status because the sidebar has no room to show it:
+ * the open issues, as the status link says them, with "Health" first. Otherwise just its name.
+ */
+export function healthPlaceName(label: string, issues: string | null): string {
+    return issues ? `${label}: ${issues}` : label;
+}
+
+export type StatusSummary = { kind: 'issues'; count: number } | { kind: 'row'; row: StatusRow };
+
+/**
+ * The one line that stands in for the status card where the card does not fit. For the owner it
+ * leads with the issues the Health link counts. Otherwise it is the most important measured row, in
+ * its own words: one that needs a person, or else `feed`, the Frigate events row, which says plainly
+ * when it is reconnecting or not yet measured, and is always there to fall back on. Never a blanket "all fine": the line names what it measured,
+ * and audio or alerts that are off by choice are not worth the only line there is.
+ */
+export function statusSummary(feed: StatusRow, rows: readonly StatusRow[], attention: HealthAttention | null): StatusSummary {
+    if (attention?.needsAttention) return { kind: 'issues', count: attention.count };
+    return { kind: 'row', row: rows.find((candidate) => candidate.tone === 'attention') ?? feed };
+}
+
 /** The link asks for attention only for issues the Health page lists as open. */
 export function healthAttention(openIssues: number | null): HealthAttention {
     const count = typeof openIssues === 'number' && Number.isFinite(openIssues) ? Math.max(0, Math.floor(openIssues)) : 0;

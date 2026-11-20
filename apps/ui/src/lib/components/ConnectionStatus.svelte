@@ -1,7 +1,7 @@
 <script lang="ts">
     import { _ } from 'svelte-i18n';
     import type { LiveFeedState } from '../utils/live-feed-state';
-    import { alertsRow, audioRow, feedRow, type StatusRow, type StatusText, type StatusTone } from '../utils/system-status';
+    import { alertsRow, audioRow, feedRow, statusSummary, type StatusRow, type StatusText, type StatusTone, type SummaryRequest } from '../utils/system-status';
     import { formatTime } from '../utils/datetime';
 
     let {
@@ -9,7 +9,8 @@
         notificationsActive = null,
         feed = 'reconnecting',
         collapsed = false,
-        staleSince = null
+        staleSince = null,
+        summary = null
     }: {
         birdnetEnabled?: boolean;
         /** Null when unread, as for a guest: the row is left out rather than guessed. */
@@ -20,6 +21,8 @@
         collapsed?: boolean;
         /** When the owner's pushed status last arrived, set only once it is out of date. */
         staleSince?: number | null;
+        /** One line instead of the list, where the sidebar has no room for the card (see statusSummary). */
+        summary?: SummaryRequest | null;
     } = $props();
 
     const staleText = $derived(
@@ -31,13 +34,25 @@
               })
     );
 
+    const feedState = $derived(feedRow(feed));
     const rows = $derived(
-        [feedRow(feed), audioRow(birdnetEnabled, feed), alertsRow(notificationsActive)].filter(
+        [feedState, audioRow(birdnetEnabled, feed), alertsRow(notificationsActive)].filter(
             (row): row is StatusRow => row !== null
         )
     );
 
     const say = (text: StatusText): string => $_(text.key, { default: text.fallback });
+
+    // The icon rail's single icon is a guest's (the owner's is the Health link), so it never counts issues.
+    const summaryShown = $derived(summary ? statusSummary(feedState, rows, collapsed ? null : summary.attention) : null);
+    const issuesText = $derived(
+        summaryShown?.kind === 'issues'
+            ? $_('status.issues_need_attention', {
+                  values: { count: summaryShown.count },
+                  default: '{count, plural, one {# issue needs attention} other {# issues need attention}}'
+              })
+            : ''
+    );
 
     // Each tone has its own shape as well as its own colour: a filled circle is working, a
     // diamond needs a person, and a ring is off by choice or not yet known. Working is the quiet
@@ -61,6 +76,44 @@
     a state changes, so a poll that finds nothing new says nothing, and each row is read whole
     ("Frigate events Not connected") rather than as a bare changed word.
 -->
+{#if summaryShown}
+    <!-- The one line has no live region of its own: the sidebar puts it round the line, so the line can
+         sit inside the owner's Health link and still be that link's words. -->
+    {#if summaryShown.kind === 'issues'}
+        <!-- The same words and mark as the card's Health link, so the two always read alike. -->
+        <span class="flex min-w-0 items-center gap-2 font-semibold text-status-attention">
+            <span class="h-2 w-2 shrink-0 rotate-45 bg-status-attention-line" aria-hidden="true"></span>
+            <span class="min-w-0" data-summary-issues>{issuesText}</span>
+        </span>
+    {:else if collapsed}
+        {@const row = summaryShown.row}
+        <span
+            class="relative grid place-items-center rounded-lg text-ink {summary?.compact ? 'h-7 w-7' : 'h-11 w-11'}"
+            title={`${say(row.label)}: ${say(row.state)}`}
+            data-summary-row={row.id}
+            data-status-tone={row.tone}
+        >
+            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d={ICON[row.id]} />
+            </svg>
+            <span class="absolute right-0.5 top-0.5 {DOT[row.tone]}" aria-hidden="true"></span>
+            <span class="sr-only">{say(row.label)}: {say(row.state)}</span>
+        </span>
+    {:else}
+        {@const row = summaryShown.row}
+        <!-- One row of the list's own kind: its dot, its label and its state in words. An out-of-date
+             reading is muted and says how old it is, as the list does under its rows. -->
+        <span class="flex gap-x-2" title={staleText ?? say(row.detail)} data-summary-row={row.id} data-status-tone={row.tone}>
+            <span class="flex h-4 w-3 shrink-0 items-center justify-center" aria-hidden="true">
+                <span class={DOT[row.tone]}></span>
+            </span>
+            <span class="flex min-w-0 flex-wrap items-baseline gap-x-2">
+                <span class="text-muted">{say(row.label)}</span>{' '}<span class={staleText ? 'text-muted' : row.tone === 'attention' ? 'font-semibold text-status-attention' : 'text-ink'}>{say(row.state)}</span>
+                {#if staleText}<span class="sr-only">{staleText}</span>{/if}
+            </span>
+        </span>
+    {/if}
+{:else}
 <div role="status">
     {#if collapsed}
         <ul class="flex flex-col items-center gap-1" data-status-list data-status-collapsed>
@@ -116,3 +169,4 @@
         {/if}
     {/if}
 </div>
+{/if}
