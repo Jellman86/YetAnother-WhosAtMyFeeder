@@ -57,9 +57,9 @@ for (const size of [{ width: 1920, height: 900 }, { width: 1440, height: 800 }, 
                 // link that wraps onto three lines) is taller than the room under the places at these sizes,
                 // so the card gives way entirely rather than being squashed with no reading in it. Where it
                 // does show, it is whole, and its link is reached by scrolling the column if need be.
-                // Whole where it shows, and left out only where the room is really below its floor.
+                // The tier the room calls for: whole where the floor fits, else the one-line summary.
                 await expect(readings.locator('[data-status-row]').first()).toBeAttached(READY);
-                await expect.poll(() => cardFaults(page), READY).toEqual([]);
+                await expect.poll(() => faultsOf(page, 'open'), READY).toEqual([]);
             }
         });
     }
@@ -189,92 +189,162 @@ test('with the sidebar collapsed the page is still centred past 1920 px, and fil
 });
 
 
-// Signed in, the account band takes room from the column the places and the status share, so a window
-// that suits the status signed out may not suit it signed in. Across those heights the card is either
-// absent or whole: its heading, its first reading and the way to Health each drawn in full inside it,
-// never squashed to an empty bar (a phone at 390 × 700 once showed the card about 20 px tall). Where it
-// shows at rest it shows whole, and at worst the places and the status scroll together.
-async function cardFaults(page: Page): Promise<string[]> {
-    return page.locator('[data-sidebar-scroll]').evaluate((column) => {
-        const card = column.querySelector<HTMLElement>('[data-sidebar-status-card]');
-        if (!card) return [];
-        if (!card.checkVisibility({ visibilityProperty: true })) {
-            const where = `at ${innerWidth} × ${innerHeight}`;
-            // A card left out waits above the window, so its load meters, which sample only on screen, stop.
-            if (card.getBoundingClientRect().bottom > 0) return [`the unseen card is over the window ${where}`];
-            // And it is left out only where its floor (frame, heading, first reading, link) does not fit
-            // the room under the places.
-            const holder = card.closest<HTMLElement>('[data-sidebar-status]');
-            const readings = card.querySelector<HTMLElement>('[data-sidebar-status-readings]');
-            const row = card.querySelector<HTMLElement>('[data-status-row]');
-            if (!holder || !readings || !row) return [];
-            const top = readings.getBoundingClientRect().top - readings.scrollTop;
-            const floor = holder.getBoundingClientRect().height - readings.getBoundingClientRect().height + row.getBoundingClientRect().bottom - top;
-            const places = column.querySelector('nav')?.getBoundingClientRect().height ?? 0;
-            const room = column.clientHeight - places;
-            return floor <= room - 1 ? [`the card is left out where its floor fits (${Math.round(floor)} in ${Math.round(room)} px) ${where}`] : [];
-        }
-        const faults: string[] = [];
+// The status in the room under the places, in four tiers. Where its floor fits (heading, first reading
+// and the way to Health; on the icon rail, the whole group) the full card shows, whole and in view. Where
+// only a single line fits, the one-line summary shows instead, and where only a 24 px target fits, the
+// compact summary: whole, in view, its words on one or two lines, so the sidebar is never an unexplained
+// gap. Only where not even that fits does the Health place carry the status (its mark and name, for the
+// owner with issues open), with the whole card just past the foot of the column: never a sliver at rest,
+// never squashed (a phone at 390 × 700 once showed the card as an empty bar about 20 px tall). The tier
+// is worked out here from the measured room, so a check cannot pass by always showing a summary.
+type Who = 'owner' | 'open' | 'guest';
+
+async function statusFaults(page: Page, who: Who = 'owner'): Promise<{ faults: string[]; form: string }> {
+    return page.locator('[data-sidebar-scroll]').evaluate((column, who) => {
         const at = `at ${innerWidth} × ${innerHeight}`;
-        const readings = card.querySelector<HTMLElement>('[data-sidebar-status-readings]');
-        const parts = {
-            heading: card.querySelector<HTMLElement>('#sidebar-status-title'),
-            'first reading': card.querySelector<HTMLElement>('[data-status-row]'),
-            'Health link': card.querySelector<HTMLElement>('[data-sidebar-status-link]')
+        const holder = column.querySelector<HTMLElement>('[data-sidebar-status]');
+        const full = holder?.querySelector<HTMLElement>('[data-sidebar-status-card]');
+        const summary = holder?.querySelector<HTMLElement>('[data-sidebar-status-summary]');
+        const compact = holder?.querySelector<HTMLElement>('[data-sidebar-status-compact]');
+        if (!holder || !full || !summary || !compact || !full.parentElement) return { faults: [`the status is missing a form ${at}`], form: 'none' };
+        const seen = (element: HTMLElement): boolean => element.checkVisibility({ visibilityProperty: true });
+        const form = seen(full) ? 'full' : seen(summary) ? 'summary' : seen(compact) ? 'compact' : 'none';
+        if (form === 'none') return { faults: [`no form of the status shows ${at}`], form };
+        const height = (element: Element): number => element.getBoundingClientRect().height;
+        const outer = (element: Element): number => {
+            const style = getComputedStyle(element);
+            return height(element) + parseFloat(style.marginTop) + parseFloat(style.marginBottom);
         };
+        const nav = column.querySelector('nav');
+        const room = column.clientHeight - (nav ? height(nav) : 0);
+        const frame = height(holder) - height(full.parentElement);
+        const readings = full.querySelector<HTMLElement>('[data-sidebar-status-readings]');
+        const firstRow = full.querySelector<HTMLElement>('[data-status-row]');
+        const floor = readings && firstRow
+            ? frame + height(full) - height(readings) + firstRow.getBoundingClientRect().bottom - (readings.getBoundingClientRect().top - readings.scrollTop)
+            : frame + height(full);
+        const line = frame + outer(summary);
+        // The compact form counts only while its words keep to one or two lines.
+        const compactWords = compact.querySelector<HTMLElement>('[data-summary-row], [data-summary-issues]');
+        const compactTwoLines = !compactWords || height(compactWords) <= 2 * (parseFloat(getComputedStyle(compactWords).lineHeight) || 16) + 1;
+        const compactLine = compactTwoLines ? frame + outer(compact) : Number.POSITIVE_INFINITY;
+        // Which tiers this room allows; within a pixel of a threshold, either side of it.
+        const allowed = new Set<string>();
+        for (const slack of [-1, 0, 1]) {
+            const r = room + slack;
+            allowed.add(r < 0 ? 'health' : floor <= r ? 'full' : line <= r ? 'summary' : compactLine <= r ? 'compact' : 'health');
+        }
         const view = column.getBoundingClientRect();
-        const box = card.getBoundingClientRect();
-        // At rest, never a sliver: the card is wholly in view, or wholly below the places.
-        if (box.top < view.bottom - 1 && box.bottom > view.bottom + 1) faults.push(`the card is cut at the foot of the column at rest ${at}`);
-        // Scrolled as far as it goes, every part is whole in the column, in the card, and (the heading and
-        // first reading) in the readings' own scrolled clip.
+        const faults: string[] = [];
+        const tier = form !== 'full' ? form : full.getBoundingClientRect().top >= view.bottom - 1 ? 'health' : 'full';
+        if (!allowed.has(tier)) faults.push(`${tier} shows where the room (${Math.round(room)} px; card floor ${Math.round(floor)}, summary ${Math.round(line)}, compact ${Math.round(compactLine)}) calls for ${[...allowed].join(' or ')} ${at}`);
+        // The Health place carries the status (its mark, and its name with the issues) only where the
+        // status does not show at rest, and only with issues open: never twice.
+        const attention = holder.querySelector('[data-health-attention="true"]') !== null;
+        const place = nav?.querySelector<HTMLElement>('[data-nav-path="/system-health"]');
+        const marked = Boolean(place?.querySelector('[data-health-carries-status]'));
+        const carries = tier === 'health' && attention && who !== 'guest';
+        if (carries && !marked) faults.push(`the status does not show and the Health place does not carry it ${at}`);
+        if (carries && !/: /.test(place?.getAttribute('aria-label') ?? '')) faults.push(`the Health place is not named by the open issues ${at}`);
+        if (!carries && marked) faults.push(`the Health place carries the status while it shows ${at}`);
+        if (tier === 'health') return { faults, form: tier };
+        const shown = form === 'full' ? full : form === 'summary' ? summary : compact;
+        const box = shown.getBoundingClientRect();
+        // At rest, never a sliver: wholly in view, or wholly past the foot of the column.
+        if (box.top < view.bottom - 1 && box.bottom > view.bottom + 1) faults.push(`the ${form} is cut at the foot of the column at rest ${at}`);
+        if (shown.scrollHeight > shown.clientHeight + 1) faults.push(`the ${form} is squashed below its content ${at}`);
+        if (form !== 'full') {
+            if (box.height < 24) faults.push(`the ${form} summary is ${Math.round(box.height)} px tall, under a 24 px target ${at}`);
+            if (box.top < view.top - 1 || box.bottom > view.bottom + 1) faults.push(`the ${form} summary is not wholly in view ${at}`);
+            const link = shown.querySelector('a[href]');
+            if (who === 'guest' ? link : !link) faults.push(`the ${form} summary ${who === 'guest' ? 'links a guest to Health' : 'has no way to Health'} ${at}`);
+            if ((shown.textContent ?? '').trim() === '' && !shown.querySelector('[title]')) faults.push(`the ${form} summary says nothing ${at}`);
+            // The compact form's words whole, on one or two lines (the full-size line wraps as its words need).
+            const words = shown.querySelector<HTMLElement>('[data-summary-row], [data-summary-issues]');
+            const lineHeight = parseFloat(getComputedStyle(words ?? shown).lineHeight) || 16;
+            if (form === 'compact' && readings && words && height(words) > 2 * lineHeight + 1) faults.push(`the ${form} summary runs past two lines ${at}`);
+            return { faults, form: tier };
+        }
+        // The full card: scrolled as far as it goes, every part is whole in the column, in the card, and
+        // (the heading and first reading) in the readings' own scrolled clip.
+        const parts: [string, HTMLElement | null][] = readings
+            ? [['heading', full.querySelector('h2')], ['first reading', firstRow], ...(who === 'guest' ? [] : [['Health link', full.querySelector<HTMLElement>('[data-sidebar-status-link]')] as [string, HTMLElement | null]])]
+            : [...full.querySelectorAll<HTMLElement>('[data-status-row], [data-sidebar-status-link]')].map((part): [string, HTMLElement] => [part.dataset.statusRow ?? 'Health link', part]);
         column.scrollTop = column.scrollHeight;
-        const shown = column.getBoundingClientRect();
-        const cardBox = card.getBoundingClientRect();
+        const scrolled = column.getBoundingClientRect();
+        const cardBox = full.getBoundingClientRect();
         const clip = readings?.getBoundingClientRect();
-        for (const [name, part] of Object.entries(parts)) {
+        for (const [name, part] of parts) {
             if (!part) { faults.push(`no ${name} ${at}`); continue; }
             const r = part.getBoundingClientRect();
             if (r.height < 1) faults.push(`the ${name} is not drawn ${at}`);
             if (r.top < cardBox.top - 1 || r.bottom > cardBox.bottom + 1) faults.push(`the ${name} spills out of the card ${at}`);
-            if (r.top < shown.top - 1 || r.bottom > shown.bottom + 1) faults.push(`the ${name} cannot be scrolled into view ${at}`);
+            if (r.top < scrolled.top - 1 || r.bottom > scrolled.bottom + 1) faults.push(`the ${name} cannot be scrolled into view ${at}`);
             if (clip && name !== 'Health link' && (r.top < clip.top - 1 || r.bottom > clip.bottom + 1)) faults.push(`the ${name} is clipped by the readings ${at}`);
         }
         column.scrollTop = 0;
-        return faults;
-    });
+        return { faults, form: tier };
+    }, who);
 }
 
-async function openShell(page: Page, size: { width: number; height: number }, signedIn = true, german = false): Promise<void> {
+const faultsOf = async (page: Page, who: Who = 'owner'): Promise<string[]> => (await statusFaults(page, who)).faults;
+
+const GUEST = { auth_required: true, is_authenticated: false, public_access_enabled: true };
+const OWNER = { auth_required: true, is_authenticated: true, username: 'owner' };
+
+async function openShell(page: Page, size: { width: number; height: number }, who: Who | boolean = 'owner', german = false): Promise<void> {
+    const as: Who = who === true ? 'owner' : who === false ? 'open' : who;
     await page.setViewportSize(size);
     if (german) await page.addInitScript(() => localStorage.setItem('preferred-language', 'de'));
     await replayFeeder(page, 'dark', {}, (json, url) =>
-        signedIn && url.pathname === '/api/auth/status' ? { ...(json as Record<string, unknown>), auth_required: true, is_authenticated: true, username: 'owner' } : json
+        as !== 'open' && url.pathname === '/api/auth/status' ? { ...(json as Record<string, unknown>), ...(as === 'owner' ? OWNER : GUEST) } : json
     );
     await page.goto('/');
     if (size.width < 768) await page.locator('button[aria-controls="app-sidebar"]').click();
     await expect(page.locator('#app-sidebar nav')).toBeVisible(READY);
-    await expect(page.locator('[data-sidebar-account-band]')).toHaveCount(signedIn ? 1 : 0);
+    await expect(page.locator('[data-sidebar-account-band]')).toHaveCount(as === 'open' ? 0 : 1);
     await settled(page);
 }
 
-for (const range of [{ width: 390, from: 672, to: 800, signedIn: true }, { width: 1280, from: 680, to: 780, signedIn: true }, { width: 390, from: 672, to: 800, signedIn: false }]) {
-    test(`signed ${range.signedIn ? 'in' : 'out'} at ${range.width} px wide and ${range.from} to ${range.to} px tall the status card is whole or absent, never squashed`, async ({ page }) => {
-        await openShell(page, { width: range.width, height: range.to }, range.signedIn);
+/** Walks a range of heights, checking the status at each, and returns the tiers it saw. */
+async function walk(page: Page, width: number, from: number, to: number, who: Who): Promise<Set<string>> {
+    const tiers = new Set<string>();
+    for (let height = from; height <= to; height += 8) {
+        await page.setViewportSize({ width, height });
+        await expect.poll(() => faultsOf(page, who), { timeout: 3_000 }).toEqual([]);
+        tiers.add((await statusFaults(page, who)).form);
+    }
+    return tiers;
+}
+
+/** Whether the status shows at rest in some form: the card, a summary, or the Health place's mark. */
+async function statusOnShow(page: Page): Promise<boolean> {
+    const { form } = await statusFaults(page, 'owner');
+    return form !== 'health' || (await page.locator('#app-sidebar nav [data-health-carries-status]').count()) === 1;
+}
+
+const RANGES: { name: string; width: number; from: number; to: number; who: Who; tall: number; expect: string[] }[] = [
+    { name: 'the phone menu, signed in', width: 390, from: 672, to: 800, who: 'owner', tall: 900, expect: ['full', 'summary', 'compact'] },
+    { name: 'a desktop, signed in', width: 1280, from: 680, to: 780, who: 'owner', tall: 900, expect: ['full', 'summary', 'compact'] },
+    { name: 'the phone menu, signed out', width: 390, from: 672, to: 800, who: 'open', tall: 900, expect: ['full'] },
+    // A guest has fewer places (no Add observation, Settings or Health), so the room runs out lower down.
+    { name: 'the phone menu, as a guest', width: 390, from: 520, to: 680, who: 'guest', tall: 900, expect: ['full', 'summary'] },
+    // The owner's laptop: a wide window just over 900 px tall, where the brand stacks over its mark (it
+    // sits beside it only up to 900 px tall) and the text is larger with the width, so the card's floor
+    // no longer fits under the places.
+    { name: 'a wide desktop around the brand stacking, signed in', width: 1920, from: 880, to: 1000, who: 'owner', tall: 1080, expect: ['full', 'summary'] }
+];
+
+for (const range of RANGES) {
+    test(`${range.name}, at ${range.width} px wide and ${range.from} to ${range.to} px tall the status is the card, the one-line summary, or past the fold, never squashed`, async ({ page }) => {
+        await openShell(page, { width: range.width, height: range.to }, range.who);
         await expect(page.locator('[data-sidebar-status-readings] [data-status-row]').first()).toBeAttached(READY);
-        const card = page.locator('[data-sidebar-status-card]');
-        let shown = 0;
-        for (let height = range.from; height <= range.to; height += 8) {
-            await page.setViewportSize({ width: range.width, height });
-            await expect.poll(() => hiddenPlaces(page), { timeout: 3_000 }).toEqual([]);
-            await expect.poll(() => cardFaults(page), { timeout: 3_000 }).toEqual([]);
-            if (await card.isVisible()) shown += 1;
-        }
-        // Not left out across the whole range, and shown where there is plenty of room.
-        expect(shown, 'the card shows at some height in the range').toBeGreaterThan(0);
-        await page.setViewportSize({ width: range.width, height: 900 });
-        await expect(card).toBeVisible();
-        await expect.poll(() => cardFaults(page), { timeout: 3_000 }).toEqual([]);
+        const tiers = await walk(page, range.width, range.from, range.to, range.who);
+        for (const tier of range.expect) expect(tiers, `the range shows the ${tier} tier somewhere`).toContain(tier);
+        // Shown in full where there is plenty of room.
+        await page.setViewportSize({ width: range.width, height: range.tall });
+        await expect(page.locator('[data-sidebar-status-card]')).toBeVisible();
+        await expect.poll(async () => (await statusFaults(page, range.who)).form).toBe('full');
     });
 }
 
@@ -288,7 +358,7 @@ test('signed in on a 390 × 844 phone the menu shows the whole status card, its 
     await expect(card.locator('[data-telemetry-readout]')).toBeInViewport({ ratio: 1 });
     const readings = page.locator('[data-sidebar-status-readings]');
     expect(await readings.evaluate((node) => node.scrollHeight - node.clientHeight)).toBeLessThanOrEqual(0);
-    expect(await cardFaults(page)).toEqual([]);
+    expect(await faultsOf(page)).toEqual([]);
 });
 
 // At rest the readings end at their last whole line of words: no blank band under it, where a line was
@@ -332,62 +402,113 @@ for (const german of [false, true]) {
     });
 }
 
-// The collapsed icon rail holds the same status as icons, with the way to Health under them. It has no
-// readings to give way, so the group is all or nothing: whole and in view where the room under the
-// places holds it, and otherwise left out (Health is still one of the places), never cut at the foot.
-async function railFaults(page: Page): Promise<string[]> {
-    return page.locator('[data-sidebar-scroll]').evaluate((column) => {
-        const group = column.querySelector<HTMLElement>('[data-sidebar-status-card]');
-        const at = `at ${innerWidth} × ${innerHeight}`;
-        if (!group) return [];
-        if (!group.checkVisibility({ visibilityProperty: true })) {
-            // Left out only where it does not fit: the room under the places is less than the whole group.
-            const holder = group.closest<HTMLElement>('[data-sidebar-status]');
-            const places = column.querySelector('nav')?.getBoundingClientRect().height ?? 0;
-            const room = column.clientHeight - places;
-            return holder && holder.getBoundingClientRect().height <= room ? [`the group is left out where it fits ${at}`] : [];
-        }
-        const view = column.getBoundingClientRect();
-        const box = group.getBoundingClientRect();
-        const parts = [...group.querySelectorAll<HTMLElement>('[data-status-row], [data-sidebar-status-link]')];
-        const faults: string[] = [];
-        if (parts.length === 0) faults.push(`the group shows no icons ${at}`);
-        if (group.scrollHeight > group.clientHeight + 1) faults.push(`the group is squashed below its icons (${group.clientHeight} of ${group.scrollHeight} px) ${at}`);
-        if (box.top < view.top - 1 || box.bottom > view.bottom + 1) faults.push(`the group is not wholly in view ${at}`);
-        for (const part of parts) {
-            const r = part.getBoundingClientRect();
-            const name = part.dataset.statusRow ?? 'Health link';
-            if (r.top < box.top - 1 || r.bottom > box.bottom + 1) faults.push(`the ${name} icon spills out of the group ${at}`);
-            if (r.top < view.top - 1 || r.bottom > view.bottom + 1) faults.push(`the ${name} icon is cut by the column ${at}`);
-        }
-        return faults;
-    });
-}
-
-for (const signedIn of [true, false]) {
-    test(`with the sidebar collapsed, signed ${signedIn ? 'in' : 'out'}, at 1280 × 640 to 800 the rail's status is whole and in view or left out`, async ({ page }) => {
+// The collapsed icon rail holds the same status as icons, with the way to Health under them. Nothing in
+// the group gives way, so where the whole group does not fit, one icon stands in for it: the Health link
+// with its attention mark for the owner, or the most important status for a guest.
+for (const [who, from] of [['owner', 640], ['open', 640], ['guest', 480]] as const) {
+    test(`with the sidebar collapsed (${who}), at 1280 × ${from} to 860 the rail's status is the whole group, one icon, a small icon or the Health place`, async ({ page }) => {
         await page.addInitScript(() => localStorage.setItem('sidebarCollapsed', 'true'));
-        await openShell(page, { width: 1280, height: 800 }, signedIn);
+        await openShell(page, { width: 1280, height: 860 }, who);
         await expect(page.locator('[data-sidebar-status-card] [data-status-row]').first()).toBeAttached(READY);
-        for (let height = 640; height <= 800; height += 8) {
-            await page.setViewportSize({ width: 1280, height });
-            await expect.poll(() => railFaults(page), { timeout: 3_000 }).toEqual([]);
-        }
-        // A window tall enough keeps it.
-        await page.setViewportSize({ width: 1280, height: 960 });
+        const tiers = await walk(page, 1280, from, 860, who);
+        expect(tiers, 'the single icon shows somewhere in the range').toContain('summary');
+        await page.setViewportSize({ width: 1280, height: 1000 });
         await expect(page.locator('[data-sidebar-status-card]')).toBeVisible();
-        await expect.poll(() => railFaults(page), { timeout: 3_000 }).toEqual([]);
+        await expect.poll(() => faultsOf(page, who), { timeout: 3_000 }).toEqual([]);
     });
 }
 
-// Keyboard focus never stays on a card that is left out: a window made shorter while the Health link has
-// focus moves it to Health among the places, so the reader is not left on something unseen.
-test('focus on the status card moves to Health among the places when the card is left out', async ({ page }) => {
+// Keyboard focus follows the tier: on the card's Health link when the window shortens, it moves to the
+// summary's link, and back to the card's when the window grows. It is never left on something unseen.
+test('focus on the status moves to the same control in the new tier', async ({ page }) => {
     await openShell(page, { width: 1280, height: 960 });
+    const cardLink = page.locator('[data-sidebar-status-link]');
+    await expect(cardLink).toBeVisible(READY);
+    await cardLink.focus();
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await expect(page.locator('[data-sidebar-status-summary]')).toBeVisible();
+    await expect(page.locator('[data-sidebar-summary-link]')).toBeFocused();
+    await page.setViewportSize({ width: 1280, height: 960 });
+    await expect(page.locator('[data-sidebar-status-card]')).toBeVisible();
+    await expect(cardLink).toBeFocused();
+});
+
+// The owner's rule: the status never vanishes. On a signed-in phone and on the collapsed rail, with
+// issues open, every height shows it at rest in some form: the card, a summary, or the Health place's
+// mark and name where nothing else fits.
+for (const range of [{ width: 390, from: 664, to: 760, collapsed: false }, { width: 1280, from: 640, to: 860, collapsed: true }]) {
+    test(`signed in, with issues open, at ${range.width} × ${range.from} to ${range.to}${range.collapsed ? ' with the sidebar collapsed' : ''} the status shows at rest in some form`, async ({ page }) => {
+        if (range.collapsed) await page.addInitScript(() => localStorage.setItem('sidebarCollapsed', 'true'));
+        await openShell(page, { width: range.width, height: range.to });
+        await expect(page.locator('[data-health-attention="true"]').first()).toBeAttached(READY);
+        for (let height = range.from; height <= range.to; height += 8) {
+            await page.setViewportSize({ width: range.width, height });
+            await expect.poll(() => faultsOf(page), { timeout: 3_000 }).toEqual([]);
+            expect(await statusOnShow(page), `the status shows at ${range.width} × ${height}`).toBe(true);
+        }
+    });
+}
+
+// Where the Health place carries the status, focus that was on the status moves to it.
+test('focus on the status moves to the Health place when only the Health place can carry it', async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('sidebarCollapsed', 'true'));
+    await openShell(page, { width: 1280, height: 1000 });
     const link = page.locator('[data-sidebar-status-link]');
     await expect(link).toBeVisible(READY);
     await link.focus();
     await page.setViewportSize({ width: 1280, height: 720 });
-    await expect(page.locator('[data-sidebar-status-card]')).toBeHidden();
+    const place = page.locator('#app-sidebar nav [data-nav-path="/system-health"]');
+    await expect(place.locator('[data-health-carries-status]')).toHaveCount(1);
+    await expect(place).toHaveAccessibleName(/^Health: \d+ issues? needs? attention$/);
+    await expect(place).toBeFocused();
+});
+
+// Focus parked on the Health place comes back to the status when it shows again, and the card waiting
+// past the fold meanwhile is inert, so its issues are not announced a second time.
+test('focus parked on the Health place returns to the status when it shows again', async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('sidebarCollapsed', 'true'));
+    await openShell(page, { width: 1280, height: 1000 });
+    const link = page.locator('[data-sidebar-status-link]');
+    await expect(link).toBeVisible(READY);
+    await link.focus();
+    await page.setViewportSize({ width: 1280, height: 720 });
+    const place = page.locator('#app-sidebar nav [data-nav-path="/system-health"]');
+    await expect(place).toBeFocused();
+    await expect(page.locator('[data-sidebar-status]')).toHaveAttribute('inert', '');
+    await page.setViewportSize({ width: 1280, height: 1000 });
+    await expect(page.locator('[data-sidebar-status]')).not.toHaveAttribute('inert');
+    await expect(link).toBeFocused();
+});
+
+// Focus the reader moved on themselves is theirs: the status showing again does not take it back.
+test('focus the reader moved away from the Health place stays where they put it', async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('sidebarCollapsed', 'true'));
+    await openShell(page, { width: 1280, height: 1000 });
+    const link = page.locator('[data-sidebar-status-link]');
+    await expect(link).toBeVisible(READY);
+    await link.focus();
+    await page.setViewportSize({ width: 1280, height: 720 });
     await expect(page.locator('#app-sidebar nav [data-nav-path="/system-health"]')).toBeFocused();
+    await page.keyboard.press('Shift+Tab');
+    const chosen = page.locator('#app-sidebar nav [data-nav-path="/settings"]');
+    await expect(chosen).toBeFocused();
+    await page.setViewportSize({ width: 1280, height: 1000 });
+    await expect(link).toBeVisible();
+    // Long enough for any move the resize set off (a task and a few frames) to have run.
+    await page.waitForTimeout(300);
+    await expect(chosen).toBeFocused();
+});
+
+// A resize that passes through the Health place's tier on its way to the summary ends with focus on the
+// summary's link, not left on the Health place.
+test('focus follows a resize through the Health place tier to the summary', async ({ page }) => {
+    await openShell(page, { width: 1280, height: 960 });
+    const cardLink = page.locator('[data-sidebar-status-link]');
+    await expect(cardLink).toBeVisible(READY);
+    await cardLink.focus();
+    await page.setViewportSize({ width: 1280, height: 680 });
+    await expect(page.locator('#app-sidebar nav [data-nav-path="/system-health"]')).toBeFocused();
+    await page.setViewportSize({ width: 1280, height: 740 });
+    await expect(page.locator('[data-sidebar-status-summary]')).toBeVisible();
+    await expect(page.locator('[data-sidebar-summary-link]')).toBeFocused();
 });

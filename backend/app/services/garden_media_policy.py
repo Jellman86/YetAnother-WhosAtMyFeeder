@@ -2,9 +2,12 @@
 
 Only a confirmed capture's media is kept. Its photograph is the full frame the
 decision was made on; the clip is Frigate's event clip, kept only while clips
-caching is on. Motion captures keep their photograph only: their recording was
-never shown to the owner and was person-checked at three sampled frames, so
-keeping it would publish footage nobody reviewed.
+caching is on. A domestic bird's photograph may instead be YA-WAMF's own copy of
+the whole frame its bird model classified, because Frigate discards a stationary
+bird's event, snapshot and all, within minutes. Motion captures keep their
+photograph only: their recording was never shown to the owner and was
+person-checked at three sampled frames, so keeping it would publish footage
+nobody reviewed.
 """
 
 from __future__ import annotations
@@ -12,15 +15,29 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 import re
-from typing import Literal
+from typing import Any, Literal, Mapping, Sequence
 
-from app.models.garden_media import KeptMediaRecord
+from app.models.garden_media import KeptMediaRecord, PhotoSource
 
 CAPTURE_ID = re.compile(r"[a-f0-9]{32}")
 JPEG_MAGIC = b"\xff\xd8\xff"
 PHOTO_BYTES_LIMIT = 16 * 1024 * 1024
 MIN_CLIP_BYTES = 512
 RETRY_AFTER = timedelta(hours=1)
+
+# A whole frame the bird model read straight from Frigate. A crop, a frame chosen later from video
+# and a copy whose cropping was never recorded are not the evidence the record's decision read.
+CLASSIFIED_FRAME_SOURCES = frozenset(
+    {"frigate_snapshot", "frigate_snapshot_uncropped", "frigate_recording_frame", "frigate_recording_snapshot"}
+)
+
+
+@dataclass(frozen=True)
+class ClassifiedFrame:
+    """Which of YA-WAMF's own photos is the classified frame, and the checksum it was stored with."""
+
+    reference: str
+    sha256: str | None
 
 
 @dataclass(frozen=True)
@@ -46,6 +63,67 @@ def within_retention(observed_at: datetime, now: datetime, retention_days: int) 
     return retention_days <= 0 or observed_at >= now - timedelta(days=retention_days)
 
 
+def classified_frame_kept(source: str | None) -> bool:
+    """Whether a photo the bird model classified is a whole frame Garden may keep as its photograph."""
+    return source in CLASSIFIED_FRAME_SOURCES
+
+
+def classified_frame_reference(
+    event_id: str, record_photo: Mapping[str, Any], photo_choices: Sequence[dict[str, Any]]
+) -> ClassifiedFrame | None:
+    """The whole frame a bird record was first classified from, among the photos YA-WAMF holds.
+
+    A later high-quality pass may replace the record's photo with a crop; it retains the photo it
+    replaced among the record's photo choices, so the earliest retained original is the classified
+    frame. The record's photo (its cache metadata here) stands in only while it is still that
+    frame: its provenance says so, it carries the digest of the bytes it describes, and the owner
+    did not choose it. A photo the owner hid is never used.
+    """
+    originals = [
+        choice
+        for choice in photo_choices
+        if choice.get("source_mode") == "retained_photo"
+        and classified_frame_kept(choice.get("snapshot_source"))
+        and choice.get("image_ref")
+        and not choice.get("photo_hidden")
+    ]
+    if originals:
+        first = min(originals, key=lambda choice: str(choice.get("created_at") or ""))
+        return ClassifiedFrame(reference=str(first["image_ref"]), sha256=first.get("content_sha256"))
+    digest = record_photo.get("image_sha256")
+    if (
+        classified_frame_kept(record_photo.get("source"))
+        and not record_photo.get("manual_selection")
+        and isinstance(digest, str)
+        and len(digest) == 64
+    ):
+        return ClassifiedFrame(reference=event_id, sha256=digest)
+    return None
+
+
+def settled_missing_source(*, from_bird_record: bool) -> PhotoSource:
+    """The source a photo that cannot be found at all is recorded under, so it is never due again.
+
+    A moved bird record's photo is looked for in YA-WAMF's own copy too; recording it under the
+    classified frame says that look has happened (see ``own_copy_due``).
+    """
+    return "classified_frame" if from_bird_record else "frigate_snapshot"
+
+
+def own_copy_due(state: KeptMediaRecord | None, *, from_bird_record: bool) -> bool:
+    """A moved bird record's photo was recorded missing before YA-WAMF looked for its own copy.
+
+    Older versions asked only Frigate. Looking once records the result under the classified frame,
+    found or not, so the same capture is never looked at again.
+    """
+    return (
+        from_bird_record
+        and state is not None
+        and state.photo_state == "missing"
+        and state.photo_source == "frigate_snapshot"
+    )
+
+
 def keep_plan(
     *,
     status: str,
@@ -55,12 +133,17 @@ def keep_plan(
     clips_wanted: bool,
     state: KeptMediaRecord | None,
     now_iso: str,
+    from_bird_record: bool = False,
 ) -> KeepPlan:
     """Which parts to fetch now. Settled outcomes (missing, changed, evicted) are never retried."""
     if status != "confirmed" or not camera_enabled or not within_window:
         return KeepPlan(photo=False, clip=False)
     retry_due = state is None or state.retry_after is None or state.retry_after <= now_iso
-    photo = state is None or (state.photo_state == "retry" and retry_due)
+    photo = (
+        state is None
+        or (state.photo_state == "retry" and retry_due)
+        or own_copy_due(state, from_bird_record=from_bird_record)
+    )
     clip_possible = clips_wanted and not motion
     clip = clip_possible and (state is None or state.clip_state is None or (state.clip_state == "retry" and retry_due))
     return KeepPlan(photo=photo, clip=clip)

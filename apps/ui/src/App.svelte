@@ -14,6 +14,7 @@
   import KeyboardShortcuts from './lib/components/KeyboardShortcuts.svelte';
   import ConnectionStatus from './lib/components/ConnectionStatus.svelte';
   import { liveFeedState } from './lib/utils/live-feed-state';
+  import type { SummaryRequest } from './lib/utils/system-status';
   import { serviceConnectionsStore } from './lib/stores/service_connections.svelte';
   import BackendStatusScreen from './lib/components/BackendStatusScreen.svelte';
   import LazyRoute from './lib/components/LazyRoute.svelte';
@@ -848,15 +849,18 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
       {/if}
 
       <Sidebar {currentRoute} onNavigate={navigate} onPrefetch={(path) => void prefetchRoute(path)} {isMobile} {mobileSidebarOpen} onMobileClose={() => mobileSidebarOpen = false}>
-          {#snippet status(collapsed: boolean)}
+          {#snippet status(collapsed: boolean, summary: SummaryRequest | null)}
               <ConnectionStatus
                   birdnetEnabled={Boolean(settingsStore.birdnetEnabled)}
                   {notificationsActive}
                   feed={liveFeedState(detectionsStore.connected, serviceConnectionsStore.connections)}
                   {collapsed}
                   staleSince={systemStatusStore.stale ? systemStatusStore.receivedAt : null}
+                  {summary}
               />
-              <UpdateIndicator {collapsed} />
+              {#if !summary}
+                  <UpdateIndicator {collapsed} />
+              {/if}
           {/snippet}
       </Sidebar>
 

@@ -1977,7 +1977,7 @@
             ? {
                 title: $_('settings.data.purge_missing_media', { default: 'Run media integrity scan now' }),
                 message: $_('settings.data.purge_missing_media_confirm_delete', {
-                    default: 'Visits whose Frigate event, clip or snapshot is gone are deleted from YA-WAMF, with their photos and video. Favourites are kept and marked missing. How many is not known until the scan has run. This cannot be undone.'
+                    default: 'Visits whose Frigate event, clip or snapshot is gone are deleted from YA-WAMF, with their video, unless YA-WAMF still holds their photo. Those, and favourites, are kept and marked missing. How many of each is not known until the scan has run. A deletion cannot be undone.'
                 }) + unsavedPolicy,
                 confirmLabel: $_('settings.data.purge_missing_media_delete_button', { default: 'Scan and delete' }),
                 tone: 'danger'

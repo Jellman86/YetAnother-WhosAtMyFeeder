@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { alertsRow, audioRow, feedRow, healthAttention, openHealthItems, type StatusRow } from './system-status';
+import { alertsRow, audioRow, feedRow, healthAttention, healthPlaceName, openHealthItems, statusSummary, type StatusRow } from './system-status';
 import { connectionProblems } from './connection-health';
 import type { ServiceConnections } from '../api/diagnostics';
 import type { LiveFeedState } from './live-feed-state';
@@ -94,5 +94,45 @@ describe('the count is what the Health page lists as open', () => {
         const status = (cause: string, key = 'classifier') => ({ subsystems: [{ key, cause }] });
         expect(openHealthItems(null, status('model_missing'), 1)).toBe(2);
         expect(openHealthItems(null, status('not_downloaded', 'finder'), 0)).toBe(0);
+    });
+});
+
+describe('the one-line status summary says the most important measured state', () => {
+    const rows = (feed: LiveFeedState, alerts: boolean | null = true): StatusRow[] =>
+        [feedRow(feed), audioRow(true, feed), alertsRow(alerts)].filter((row): row is StatusRow => row !== null);
+    const said = (summary: ReturnType<typeof statusSummary>): string =>
+        summary.kind === 'issues' ? `issues ${summary.count}` : `${summary.row.label.fallback}: ${summary.row.state.fallback}`;
+
+    it('leads with the open issues the Health link counts, for the owner', () => {
+        expect(said(statusSummary(feedRow('live'), rows('live'), healthAttention(2)))).toBe('issues 2');
+    });
+
+    it('with nothing open and every row working, names the measured live feed, not a blanket "all fine"', () => {
+        expect(said(statusSummary(feedRow('live'), rows('live'), healthAttention(0)))).toBe('Frigate events: Live');
+    });
+
+    it('says a feed that is reconnecting, or not yet measured, in words', () => {
+        expect(said(statusSummary(feedRow('reconnecting'), rows('reconnecting'), healthAttention(0)))).toBe('Frigate events: Reconnecting');
+        expect(said(statusSummary(feedRow('connecting'), rows('connecting'), healthAttention(0)))).toBe('Frigate events: Waiting for events');
+    });
+
+    it('puts a row that needs a person ahead of the feed', () => {
+        const alertsNeedAPerson: StatusRow = { ...alertsRow(true) as StatusRow, tone: 'attention' };
+        expect(statusSummary(feedRow('live'), [feedRow('live'), alertsNeedAPerson], healthAttention(0))).toEqual({ kind: 'row', row: alertsNeedAPerson });
+        expect(said(statusSummary(feedRow('broker_down'), rows('broker_down'), healthAttention(0)))).toBe('Frigate events: Not connected');
+    });
+
+    it('gives a guest, who has no Health count, the feed as the page measures it', () => {
+        expect(said(statusSummary(feedRow('app_only'), rows('app_only', null), null))).toBe('Frigate events: Connected');
+    });
+});
+
+describe('the Health place carries the status where the sidebar has no room for it', () => {
+    it('is named by the open issues as the status link is, "Health" said first', () => {
+        expect(healthPlaceName('Health', '2 issues need attention')).toBe('Health: 2 issues need attention');
+    });
+
+    it('is just its own name with nothing open, or while the status shows itself', () => {
+        expect(healthPlaceName('Health', null)).toBe('Health');
     });
 });

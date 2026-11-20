@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { authoredLocale } from './authored-locales';
+import settingsPageSource from '../pages/Settings.svelte?raw';
 
 const de = authoredLocale('de');
 const en = authoredLocale('en');
@@ -94,4 +95,30 @@ describe('locale coverage for settings data cache quality strings', () => {
             expect(pick(locale, 'settings.data.purge_missing_scan_success')).toContain('{errors}');
         });
     }
+});
+
+// The delete scan keeps every visit whose photo YA-WAMF still holds; its confirmation must say so.
+const DELETE_CONFIRM_PHOTO_EXCEPTION: Record<string, string> = {
+    en: 'unless YA-WAMF still holds their photo',
+    de: 'sofern YA-WAMF kein Foto',
+    es: 'salvo que YA-WAMF aún conserve su foto',
+    fr: 'sauf si YA-WAMF conserve encore leur photo',
+    it: 'a meno che YA-WAMF non ne conservi ancora la foto',
+    ja: 'YA-WAMF が写真を保持していない場合に限り',
+    pt: 'a menos que o YA-WAMF ainda guarde a foto',
+    ru: 'если у YA-WAMF не осталось их фото',
+    zh: '只有在 YA-WAMF 也没有保存其照片时'
+};
+
+describe('the delete scan confirmation says which visits are kept', () => {
+    for (const [localeName, locale] of LOCALES) {
+        it(`${localeName} names the photo exception`, () => {
+            expect(pick(locale, 'settings.data.purge_missing_media_confirm_delete')).toContain(
+                DELETE_CONFIRM_PHOTO_EXCEPTION[localeName]
+            );
+        });
+    }
+    it('the Settings fallback matches the English text', () => {
+        expect(settingsPageSource).toContain(String(pick(en as LocaleRoot, 'settings.data.purge_missing_media_confirm_delete')));
+    });
 });

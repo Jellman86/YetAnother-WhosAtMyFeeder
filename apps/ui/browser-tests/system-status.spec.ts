@@ -219,3 +219,62 @@ test('the replayed status never calls unmeasured connections healthy', async ({ 
     expect(status.overall.state).toBe('unknown');
     expect(status.subsystems.map((verdict) => verdict.state)).toEqual(['unknown', 'unknown']);
 });
+
+// Where the room under the places holds one line but not the card's floor, a one-line summary stands
+// in for the card: the open issues as the card's own link counts them, or else the most important
+// measured state in words, never a blanket "all fine".
+const summary = (page: Page) => page.locator('[data-sidebar-status-summary]');
+const summaryLink = (page: Page) => page.locator('[data-sidebar-summary-link]');
+
+async function openShort(page: Page, theme: Theme, overrides: Record<string, unknown>): Promise<void> {
+    await openShell(page, theme, overrides);
+    await page.setViewportSize({ width: 1280, height: 660 });
+    await expect(summary(page)).toBeVisible();
+    await expect(card(page)).toBeHidden();
+}
+
+test('where only a line fits, the summary counts the open issues on its link, as the card does', async ({ page }) => {
+    await openShort(page, 'light', TWO_ISSUES);
+    await expect(summaryLink(page)).toHaveAccessibleName('Health: 2 issues need attention');
+    await expect(summary(page).locator('[data-summary-issues]')).toHaveText('2 issues need attention');
+    const box = await summaryLink(page).boundingBox();
+    expect(box?.height).toBeGreaterThanOrEqual(24);
+    await summaryLink(page).click();
+    await expect(page).toHaveURL(/\/system-health$/);
+});
+
+test('with nothing open the summary names the feed in words, and links to Health', async ({ page }) => {
+    await openShort(page, 'light', workspace([]));
+    await expect(summaryLink(page)).toHaveAccessibleName(/^Health: Frigate events /);
+    await expect(summary(page).locator('[data-summary-issues]')).toHaveCount(0);
+    await expect(summary(page).locator('[data-summary-row="feed"]')).toBeVisible();
+});
+
+test('a guest gets the summary in words, and no way into Health', async ({ page }) => {
+    await openShell(page, 'light', {
+        '/api/auth/status': { auth_required: true, public_access_enabled: true, is_authenticated: false, needs_initial_setup: false }
+    });
+    // A guest has fewer places, so the line takes over lower down: shortened until it does.
+    for (let height = 700; height >= 480 && !(await summary(page).isVisible()); height -= 8) {
+        await page.setViewportSize({ width: 1280, height });
+        await page.waitForTimeout(100);
+    }
+    await expect(summary(page)).toBeVisible();
+    await expect(summaryLink(page)).toHaveCount(0);
+    await expect(summary(page)).toContainText('Frigate events');
+});
+
+test('the summary is the one live region on show, so a change of tier is not said twice', async ({ page }) => {
+    await openShort(page, 'light', workspace([]));
+    const regions = page.getByRole('status');
+    await expect(regions.filter({ has: page.locator('[data-summary-row]') })).toHaveCount(1);
+    await expect(regions.filter({ has: page.locator('[data-status-list]') })).toHaveCount(0);
+});
+
+for (const theme of ['light', 'dark'] as const) {
+    test(`the summary passes axe in the ${theme} theme with issues open`, async ({ page }) => {
+        await openShort(page, theme, TWO_ISSUES);
+        const results = await new AxeBuilder({ page }).include('[data-sidebar-status]').analyze();
+        expect(results.violations.map(violation => `${violation.id}: ${violation.nodes.map(node => node.target.join(' ')).join(', ')}`)).toEqual([]);
+    });
+}
