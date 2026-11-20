@@ -79,6 +79,59 @@ for (const [width, height] of [[1440, 900], [390, 844]] as const) {
             }).toBe(true);
         });
 
+        for (const jobs of ['with a job running', 'with no job running'] as const) {
+            test(`${jobs}, a field brought into view or focused from under the stuck section name stops below it`, async ({ page }) => {
+                await replayFeeder(page, 'light', jobs === 'with a job running' ? { '/api/jobs': RUNNING_JOBS } : {});
+                await page.goto('/settings/identification');
+                await expect(page.locator('[data-settings-content]')).toBeVisible({ timeout: 15_000 });
+                await settled(page);
+                await expect(page.locator('[data-jobs-strip]').getByRole('region', { name: 'Jobs' })).toHaveCount(jobs === 'with a job running' ? 1 : 0);
+                const field = page.locator('#visit-gap-seconds');
+                await expect(field).toBeVisible();
+                /** How far the field's top is below the stuck name's bottom; negative is hidden under it. */
+                const clearance = () => page.evaluate(() => {
+                    const name = document.querySelector('[data-settings-section-heading]')?.getBoundingClientRect();
+                    const target = document.querySelector('#visit-gap-seconds')?.getBoundingClientRect();
+                    return name && target ? Math.round(target.top - name.bottom) : -999;
+                });
+                const stuck = () => page.evaluate(() => {
+                    const strip = document.querySelector('[data-jobs-strip]');
+                    return strip ? getComputedStyle(strip).position : 'none';
+                });
+
+                // Brought to the top of the window, as a link to it or a search result does.
+                await page.mouse.move(width / 2, height / 2);
+                await page.mouse.wheel(0, 300);
+                await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+                if (jobs === 'with a job running') await expect.poll(stuck).toBe('sticky');
+                await field.evaluate((element) => element.scrollIntoView({ block: 'start' }));
+                await expect.poll(clearance).toBeGreaterThanOrEqual(0);
+
+                // Focused from the keyboard while it sits under the name: scrolled so its top is hidden
+                // there, then reached with Shift+Tab from the control after it.
+                await page.evaluate(() => {
+                    const name = document.querySelector('[data-settings-section-heading]')?.getBoundingClientRect();
+                    const target = document.querySelector('#visit-gap-seconds')?.getBoundingClientRect();
+                    if (name && target) window.scrollBy({ top: target.top - name.top - 4 });
+                });
+                await expect.poll(clearance).toBeLessThan(0);
+                await page.evaluate(() => {
+                    const controls = [...document.querySelectorAll<HTMLElement>('[data-settings-content] :is(input, select, textarea, button, a[href], [tabindex="0"])')].filter((control) => control.checkVisibility() && !control.hasAttribute('disabled'));
+                    const next = controls[controls.findIndex((control) => control.id === 'visit-gap-seconds') + 1];
+                    next?.focus({ preventScroll: true });
+                });
+                await page.keyboard.press('Shift+Tab');
+                await expect(field).toBeFocused();
+                await expect.poll(clearance).toBeGreaterThanOrEqual(0);
+                // The room kept above a target is the name's own bottom edge, strip included.
+                const reserved = await page.evaluate(() => {
+                    const name = document.querySelector('[data-settings-section-heading]')?.getBoundingClientRect();
+                    return { padding: Number.parseFloat(document.documentElement.style.scrollPaddingTop), nameBottom: Math.round(name?.bottom ?? 0) };
+                });
+                expect(reserved.padding).toBeGreaterThanOrEqual(reserved.nameBottom);
+            });
+        }
+
         test('the section name, each group heading and the cards under them share one left edge', async ({ page }) => {
             await replayFeeder(page, 'light');
             await page.goto('/settings/cameras');

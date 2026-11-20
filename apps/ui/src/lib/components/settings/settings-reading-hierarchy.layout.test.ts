@@ -33,7 +33,9 @@ describe('Settings heading hierarchy', () => {
         expect(page).toContain("document.querySelector<HTMLElement>('[data-jobs-strip]')");
         expect(readFileSync(join(SETTINGS_DIR, '..', '..', '..', 'App.svelte'), 'utf8')).toContain('<div data-jobs-strip class={globalProgressHasScrolled');
         // What scrolls to or takes focus stops below it.
-        expect(page).toContain('root.style.scrollPaddingTop');
+        expect(page).toContain('root.style.scrollPaddingTop = `${Math.ceil(chromeHeight() + stuck + heading.getBoundingClientRect().height) + 16}px`;');
+        // The room is added up from the bar, the strip and the name, never read back from the name's `top`.
+        expect(page).not.toContain('getComputedStyle(heading).top');
         // It is in the page before the status, so on a phone no heading comes before it.
         expect(page.indexOf('data-settings-section-heading')).toBeLessThan(page.indexOf('data-settings-aside="top"'));
     });

@@ -116,12 +116,19 @@
         if (!heading) return;
         const root = document.documentElement;
         const strip = document.querySelector<HTMLElement>('[data-jobs-strip]');
+        // The phone's top bar, which the shell gives as a length in rem.
+        const chromeHeight = (): number => {
+            const given = getComputedStyle(heading).getPropertyValue('--app-chrome-height').trim();
+            const amount = Number.parseFloat(given) || 0;
+            return given.endsWith('rem') ? amount * (Number.parseFloat(getComputedStyle(root).fontSize) || 16) : amount;
+        };
         const place = () => {
             const stuck = strip && getComputedStyle(strip).position === 'sticky' ? Math.ceil(strip.getBoundingClientRect().height) : 0;
             // On the layout, so the rail and the status column, which stick as well, clear the strip too.
             (heading.closest<HTMLElement>('[data-settings-layout]') ?? heading).style.setProperty('--settings-jobs-strip-height', `${stuck}px`);
-            const top = Number.parseFloat(getComputedStyle(heading).top) || 0;
-            root.style.scrollPaddingTop = `${Math.ceil(top + heading.getBoundingClientRect().height) + 16}px`;
+            // Added up from its parts, never read back from the name's own `top`: that still holds
+            // the value from before the strip's height was set just above, and nothing would correct it.
+            root.style.scrollPaddingTop = `${Math.ceil(chromeHeight() + stuck + heading.getBoundingClientRect().height) + 16}px`;
         };
         place();
         const sizes = new ResizeObserver(place);

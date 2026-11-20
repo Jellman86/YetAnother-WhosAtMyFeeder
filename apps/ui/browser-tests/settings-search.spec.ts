@@ -227,6 +227,21 @@ test.describe('on a wide screen', () => {
         await expect(page.locator('[data-settings-search-note]')).toHaveText('');
     });
 
+    test('starting to type a new search calls off the jump still waiting, before anything else is chosen', async ({ page }) => {
+        // Nothing here but the reader's key press can end the first jump: no new result is chosen and
+        // no other section is opened, so focus must still be in the search box when the jump would land.
+        await openSettings(page, { llm_enabled: false });
+        await search(page).fill('prompt style');
+        await page.keyboard.press('Enter');
+        await search(page).pressSequentially('ga', { delay: 150 });
+        await page.waitForTimeout(3500);
+        await expect(search(page)).toBeFocused();
+        await expect(search(page)).toHaveValue('ga');
+        await expect(found(page)).toHaveCount(0);
+        await expect(page.locator('[data-settings-found-note]')).toHaveCount(0);
+        await expect(page.locator('[data-settings-search-note]')).toHaveText('');
+    });
+
     test('a newer choice wins: the earlier one says nothing when it ends', async ({ page }) => {
         await openSettings(page, { llm_enabled: false });
         await search(page).fill('prompt style');
