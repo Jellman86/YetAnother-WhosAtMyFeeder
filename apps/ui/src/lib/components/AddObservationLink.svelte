@@ -1,6 +1,6 @@
 <script lang="ts">
     import { _ } from 'svelte-i18n';
-    import { ADD_OBSERVATION_PATH, isPlainClick } from '../app/add-observation';
+    import { ADD_OBSERVATION_ICON, ADD_OBSERVATION_PATH, isPlainClick } from '../app/add-observation';
     import { pointerMayPrefetch } from '../app/route-prefetch';
     import { toAppPath } from '../app/url-base';
 
@@ -8,6 +8,7 @@
      * The way to Add observation: a real link, so it can open in a new tab, handled in place on a
      * plain click so unsaved work elsewhere is asked about first. `icon` is the header's square
      * control beside Refresh and the camera; `labelled` is a kit button with its name written out.
+     * The phone menu's place is the sidebar's own row, drawn from the same address and icon.
      */
     type Props = {
         variant: 'icon' | 'labelled';
@@ -40,10 +41,8 @@
     onpointerenter={(event) => { if (onPrefetch && pointerMayPrefetch(event.pointerType)) onPrefetch(ADD_OBSERVATION_PATH); }}
     onfocus={() => onPrefetch?.(ADD_OBSERVATION_PATH)}
 >
-    <!-- An upload into a tray: the page classifies a photo or video you bring, and the glyph is the one
-         its sidebar place carried, distinct from the camera beside it. -->
     <svg xmlns="http://www.w3.org/2000/svg" class={variant === 'icon' ? 'h-5 w-5' : 'h-4 w-4'} fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M12 16V4m0 0L8 8m4-4 4 4M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4" />
+        <path stroke-linecap="round" stroke-linejoin="round" d={ADD_OBSERVATION_ICON} />
     </svg>
     {#if variant === 'labelled'}
         <span>{label}</span>

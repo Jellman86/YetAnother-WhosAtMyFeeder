@@ -907,7 +907,7 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
                       showOwnerActions={!authStore.isGuest}
                       refreshExpected={routeOffersRefresh(routeId)}
                       notificationsCurrent={routeId === 'notifications'}
-                      addObservation={addObservationEntry(currentRoute, authStore.showSettings)}
+                      addObservation={addObservationEntry(currentRoute, authStore.showSettings, isMobile)}
                       onPrefetch={(path) => void prefetchRoute(path)}
                   />
               {/if}

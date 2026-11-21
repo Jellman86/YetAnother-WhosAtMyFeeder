@@ -20,7 +20,7 @@
         notificationsCurrent?: boolean;
         /** The page registers a refresh once it loads: hold the control's place until then. */
         refreshExpected?: boolean;
-        /** Whether the owner is offered Add observation, and whether this is that page. */
+        /** Whether the header offers the owner Add observation, and whether this is that page. */
         addObservation?: AddObservationEntry;
     };
 
@@ -33,7 +33,7 @@
         showOwnerActions = true,
         notificationsCurrent = false,
         refreshExpected = false,
-        addObservation = { shown: false, current: false }
+        addObservation = { inHeader: false, inMenu: false, current: false }
     }: Props = $props();
 
     function goSettings() {
@@ -64,7 +64,7 @@
             </button>
         {/if}
         <!-- After Refresh, which comes and goes with the page, so this keeps one place on every page. -->
-        {#if addObservation.shown}
+        {#if addObservation.inHeader}
             <AddObservationLink variant="icon" current={addObservation.current} {onNavigate} {onPrefetch} />
         {/if}
         <CameraStatus />

@@ -2,20 +2,25 @@ import { describe, expect, it } from 'vitest';
 import { ADD_OBSERVATION_PATH, addObservationEntry, isPlainClick } from './add-observation';
 
 describe('addObservationEntry', () => {
-    it('offers Add observation to the owner only', () => {
-        expect(addObservationEntry('/events', true).shown).toBe(true);
-        expect(addObservationEntry('/events', false).shown).toBe(false);
+    it('offers Add observation to the owner only, in the header on a wider screen', () => {
+        expect(addObservationEntry('/events', true, false)).toEqual({ inHeader: true, inMenu: false, current: false });
+        expect(addObservationEntry('/events', false, false)).toEqual({ inHeader: false, inMenu: false, current: false });
+    });
+
+    it('moves it into the phone menu where the header has no room for it', () => {
+        expect(addObservationEntry('/events', true, true)).toEqual({ inHeader: false, inMenu: true, current: false });
+        expect(addObservationEntry('/events', false, true)).toEqual({ inHeader: false, inMenu: false, current: false });
     });
 
     it('marks the entry current on the Add observation page, and only there', () => {
-        expect(addObservationEntry(ADD_OBSERVATION_PATH, true).current).toBe(true);
-        expect(addObservationEntry('/observations/new/', true).current).toBe(true);
-        expect(addObservationEntry('/events', true).current).toBe(false);
-        expect(addObservationEntry('/', true).current).toBe(false);
+        expect(addObservationEntry(ADD_OBSERVATION_PATH, true, false).current).toBe(true);
+        expect(addObservationEntry('/observations/new/', true, true).current).toBe(true);
+        expect(addObservationEntry('/events', true, false).current).toBe(false);
+        expect(addObservationEntry('/', true, false).current).toBe(false);
     });
 
     it('never marks a hidden entry current', () => {
-        expect(addObservationEntry(ADD_OBSERVATION_PATH, false)).toEqual({ shown: false, current: false });
+        expect(addObservationEntry(ADD_OBSERVATION_PATH, false, false).current).toBe(false);
     });
 });
 
