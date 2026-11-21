@@ -21,6 +21,7 @@ import sys
 import threading
 import time
 from collections import deque
+from concurrent.futures import ThreadPoolExecutor
 from collections.abc import Callable, Iterator
 from types import SimpleNamespace
 from typing import Any
@@ -160,6 +161,17 @@ class _Task:
 
     def get_name(self) -> str:
         return "stand-in"
+
+
+class _NestedReading:
+    """A value inside a nested dict of the loop's state, met when that dict is deep-copied."""
+
+    def __init__(self, point: _Interleaving) -> None:
+        self.point = point
+
+    def __deepcopy__(self, memo: dict[int, Any]) -> float:
+        self.point.reached()
+        return 1.0
 
 
 class _ReleasedConnection:
@@ -469,3 +481,67 @@ def test_a_model_reload_landing_while_the_classifier_reports_never_fails_the_rep
     status = classifier.get_status()
 
     assert "bird" in status["models"]
+
+
+@pytest.mark.asyncio
+async def test_a_worker_pool_runtime_changed_in_place_while_the_status_is_read_never_fails_it(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """The supervisor copies its metrics one level deep, so a pool's `runtime` dict is still its own.
+
+    The copy handed to the worker thread must be taken in full on the loop; deep-copying it in
+    the thread would walk that dict while the loop changes it in place.
+    """
+    classifier = get_classifier()
+    runtime: dict[str, Any] = {"inference_backend": "onnx"}
+    point = _Interleaving(lambda: runtime.__setitem__("model_id", "changed-in-place"))
+    runtime["started_at"] = _NestedReading(point)
+    supervisor = SimpleNamespace(get_metrics=lambda: {"live": {"workers": 1, "runtime": runtime}})
+    monkeypatch.setattr(classifier, "_classifier_supervisor", supervisor)
+
+    status = await classifier.collect_status()
+
+    assert status["worker_pools"]["live"]["runtime"]["started_at"] == 1.0
+    point.assert_read_only_on_the_loop()
+
+
+def test_two_status_reads_meeting_the_finder_on_cpu_at_once_raise_one_incident(monkeypatch: pytest.MonkeyPatch):
+    """Status reports run in several threads at once; the finder's CPU incident is raised once."""
+    from app.services import error_diagnostics
+
+    classifier = get_classifier()
+    history = error_diagnostics.ErrorDiagnosticsHistory()
+    monkeypatch.setattr(error_diagnostics, "error_diagnostics_history", history)
+    both_comparing = threading.Barrier(2)
+
+    class _EarlierFinder(str):
+        """The finder identity recorded last. Comparing against it waits for the other reader to
+        compare too, so without the lock both readers see a change before either records it."""
+
+        def __eq__(self, other: object) -> bool:
+            try:
+                both_comparing.wait(timeout=1.0)
+            except threading.BrokenBarrierError:
+                pass
+            return str.__eq__(self, other)
+
+        __hash__ = str.__hash__
+
+    problem = {
+        "active": True,
+        "model_id": "bird_crop_detector_accurate_rfdetr_nano",
+        "provider": "cpu",
+        "reason_code": "accelerator_unverified",
+        "reason": "No current passing NPU or GPU evidence.",
+        "action": "Check devices for RF-DETR Nano in Settings.",
+    }
+    monkeypatch.setattr(classifier, "_crop_detector_status", lambda _metrics: {"cpu_fallback": problem})
+    earlier = (_EarlierFinder("an_earlier_finder"), "cpu", "rfdetr_cpu_fallback")
+    # The attribute appears on the first health read, so it may not exist yet.
+    monkeypatch.setattr(classifier, "_finder_cpu_warning", earlier, raising=False)
+
+    with ThreadPoolExecutor(max_workers=2) as readers:
+        list(readers.map(lambda _: classifier.check_health(), range(2)))
+
+    incidents = [event for event in history.snapshot()["events"] if event["reason_code"] == "rfdetr_cpu_fallback"]
+    assert sum(int(event.get("count") or 1) for event in incidents) == 1

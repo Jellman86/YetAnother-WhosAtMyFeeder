@@ -23,14 +23,19 @@ loop — no bare `open()`, `requests`, `time.sleep`, or synchronous DB drivers; 
 `httpx`, and async SQLAlchemy. Push CPU-heavy work to an executor. Small non-I/O helpers may
 still be `async` to avoid the threadpool overhead FastAPI incurs for sync dependencies.
 
-**State the event loop owns is read on the loop.** The services keep their counters, windows,
-queues and maps on the event loop and change them without locks. A function sent to
-`asyncio.to_thread` may read files, SQLite and `/proc`, but must not read or write that state:
-a loop write can land part-way through the thread's iteration (`deque mutated during
-iteration`), and a thread's write can break the loop's own. Read the loop's state on the loop
-and hand the thread a finished copy, as `collect_health_payload` and the classifier's
-`collect_health`/`collect_status` do. The health report's reads are tested this way in
-`backend/tests/test_health_loop_ownership.py`.
+**Never iterate the event loop's state from a thread, and never write it from one.** The
+services keep their counters, windows, queues and maps on the event loop and change them
+without locks. A function sent to `asyncio.to_thread` may read files, SQLite and `/proc`. What
+it must not do is run Python code over a loop-owned container (a `for`, a comprehension, a
+generator fed to `max`/`sum`, `min(..., key=...)`, a `deepcopy`) or write loop-owned state: a
+loop write can land part-way through that iteration (`deque mutated during iteration`), and a
+thread's write can break the loop's own. A single attribute read and a one-step C copy
+(`dict(d)`, `list(dq)`, `d.copy()`) are fine, because no other thread can run part-way through
+them. State that both sides write needs a lock held only for the write and the copy, as
+`InferenceHealth` and the finder incident have. When a thread needs more than that, read the
+state on the loop, copy it there in full, and hand the thread the copy, as
+`collect_health_payload` and the classifier's `collect_health`/`collect_status` do. The health
+report's reads are tested this way in `backend/tests/test_health_loop_ownership.py`.
 
 **Layering & dependency direction.** `routers → services → repositories → SQLite`, one
 direction only (mirrors [`CLAUDE.md`](../../CLAUDE.md) §8):

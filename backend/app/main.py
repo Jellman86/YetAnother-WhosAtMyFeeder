@@ -33,6 +33,7 @@ from app.services.media_integrity_scan import (
     run_media_integrity_scan,
 )
 from app.version import compose_app_version, normalize_app_branch
+from app.models.classifier_reports import ClassifierHealthReport
 from app.services.mqtt_service import mqtt_service
 from app.services.service_connections import frigate_reachability
 from app.services.classifier_service import (
@@ -1247,7 +1248,7 @@ class HealthFileReadings(TypedDict):
     The classifier's part reads the state the loop owns from a copy taken on the loop.
     """
 
-    ml: dict[str, object]
+    ml: ClassifierHealthReport
     naming: dict[str, object]
     host: dict[str, object]
     process_memory: dict[str, object]

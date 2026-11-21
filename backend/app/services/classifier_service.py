@@ -72,6 +72,7 @@ from app.services.inference.provider_policy import (
     runtime_fallback_targets_for,
 )
 from app.models.ai_models import ClassificationInputContext, CropGeneratorConfig
+from app.models.classifier_reports import ClassifierHealthReport, ClassifierStatusReport
 from app.services.bird_crop_service import bird_crop_service
 from app.services.crop_source_resolver import crop_source_resolver
 from app.services.classification_admission import (
@@ -118,6 +119,9 @@ class _LoopOwnedReadings:
 
 # Set by `collect_health`/`collect_status` around their worker-thread hop;
 # `asyncio.to_thread` carries it into the thread with the rest of the context.
+# It is module-wide rather than per instance because the classifier is a singleton
+# and no status read schedules loop work from inside the pinned thread. A second
+# instance read inside that thread would be served the first one's readings.
 _pinned_loop_readings: ContextVar[_LoopOwnedReadings | None] = ContextVar("classifier_loop_readings", default=None)
 
 # Several status reports can run at once in worker threads; the finder's CPU incident is raised once.
@@ -2710,35 +2714,39 @@ class ClassifierService:
         return counts
 
     def _models_snapshot(self) -> tuple[tuple[str, Any], ...]:
-        """The loaded models, copied in one step.
+        """The loaded models, copied in one step before they are walked.
 
         Reloads replace entries from worker threads. Holding `_models_lock` here
-        would wait out a whole model load, so a status read copies the map
-        instead: the copy runs no Python code, so no other thread can run part-way
-        through it. The per-model file reads then walk the copy, not the live map.
+        would wait out a whole model load, so a status read copies the map instead.
+        `dict.copy()` allocates nothing the garbage collector tracks while it copies,
+        so no collection, and with it no thread switch, can fall part-way through;
+        the per-model file reads then walk the copy, not the live map.
         """
-        return tuple(self._models.items())
+        return tuple(self._models.copy().items())
 
-    async def collect_health(self) -> dict:
+    async def collect_health(self) -> ClassifierHealthReport:
         """`check_health` for async callers, with its file and SQLite reads off the event loop.
 
-        The state the loop owns is read here, on the loop, before the hop; only
-        that finished copy reaches the worker thread.
+        The state the loop owns is read and deep-copied here, on the loop, before
+        the hop; only that finished copy reaches the worker thread.
         """
         with self._loop_readings_pinned():
             return await asyncio.to_thread(self.check_health)
 
-    async def collect_status(self) -> dict:
+    async def collect_status(self) -> ClassifierStatusReport:
         """`get_status` for async callers, with its file and SQLite reads off the event loop."""
         with self._loop_readings_pinned():
             return await asyncio.to_thread(self.get_status)
 
     @contextlib.contextmanager
     def _loop_readings_pinned(self) -> Iterator[None]:
+        # The getters copy one level deep, so nested dicts such as a pool's `runtime` or an
+        # admission outcome are still the loop's own objects. Copy them here, on the loop,
+        # so the worker thread never walks a dict the loop can still change in place.
         readings = _LoopOwnedReadings(
-            admission_metrics=self._classification_admission.get_metrics(),
-            supervisor_metrics=self._get_supervisor_metrics(),
-            native_cpu_recovery=self._native_cpu_recovery_snapshot(),
+            admission_metrics=copy.deepcopy(self._classification_admission.get_metrics()),
+            supervisor_metrics=copy.deepcopy(self._get_supervisor_metrics()),
+            native_cpu_recovery=copy.deepcopy(self._native_cpu_recovery_snapshot()),
         )
         token = _pinned_loop_readings.set(readings)
         try:
@@ -3092,7 +3100,7 @@ class ClassifierService:
         )
         return crop_detector_status
 
-    def check_health(self) -> dict:
+    def check_health(self) -> ClassifierHealthReport:
         """Detailed health check for the classification service."""
         bird = self._models.get("bird")
         admission_metrics = self._admission_metrics()
@@ -3280,7 +3288,7 @@ class ClassifierService:
         self._status_labels_count_cache = (labels_path, mtime, count)
         return count
 
-    def get_status(self) -> dict:
+    def get_status(self) -> ClassifierStatusReport:
         bird = self._models.get("bird")
         admission_metrics = self._admission_metrics()
         live_image_health = self._describe_live_image_health(admission_metrics)
