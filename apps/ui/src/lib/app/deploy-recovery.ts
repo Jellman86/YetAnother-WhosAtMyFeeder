@@ -21,6 +21,8 @@ interface DeployRecoveryOptions {
     storage?: StorageLike | null;
     reload: () => void;
     warn: (message: string) => void;
+    /** True while the reader is going to another page (page-leaving.ts): a failed import then means nothing. */
+    isLeaving?: () => boolean;
     report?: (event: DeployRecoveryEvent) => void;
     warningMessage?: string;
 }
@@ -202,6 +204,9 @@ export function createDeployRecovery(options: DeployRecoveryOptions) {
     return {
         handleRuntimeFailure(error: unknown): DeployRecoveryAction {
             if (!isLikelyStaleBundleError(error)) return 'ignore';
+            // Safari ends a leaving page's imports with a stale bundle's words; reloading then cancels the
+            // reader's navigation, so nothing is done and no attempt is spent.
+            if (options.isLeaving?.()) return 'ignore';
             return triggerRecovery(attemptPrefix ? `${attemptPrefix}:runtime` : '', 'runtime_failure');
         },
 

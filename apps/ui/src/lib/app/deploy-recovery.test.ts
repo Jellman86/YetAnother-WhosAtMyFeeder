@@ -72,6 +72,31 @@ describe('createDeployRecovery', () => {
         expect(warn).toHaveBeenCalledTimes(1);
     });
 
+    it('leaves a failed import alone while the page is being left, and spends no attempt on it', () => {
+        // Safari ends the old page's loading imports when the reader goes elsewhere, with the same words a
+        // missing chunk gives. Reloading then took the reader back to the page they were leaving.
+        const storage = createStorage();
+        const reload = vi.fn();
+        const warn = vi.fn();
+        let leaving = true;
+        const recovery = createDeployRecovery({
+            appVersion: '2.9.1-dev+old',
+            storage,
+            reload,
+            warn,
+            isLeaving: () => leaving
+        });
+
+        expect(recovery.handleRuntimeFailure({ message: 'Importing a module script failed.' })).toBe('ignore');
+        expect(reload).not.toHaveBeenCalled();
+        expect(warn).not.toHaveBeenCalled();
+
+        // Still here: a real stale bundle reloads, its one attempt unspent by the failure above.
+        leaving = false;
+        expect(recovery.handleRuntimeFailure({ message: 'Importing a module script failed.' })).toBe('reload');
+        expect(reload).toHaveBeenCalledTimes(1);
+    });
+
     it('ignores generic runtime failures', () => {
         const recovery = createDeployRecovery({
             appVersion: '2.9.1-dev+old',
