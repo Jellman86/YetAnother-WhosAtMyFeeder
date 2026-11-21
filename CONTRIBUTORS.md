@@ -32,10 +32,16 @@ Reports, recordings, support bundles and retests help reproduce problems and che
   work and the open [FP16 proposal (#723)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/723),
   the [GPU telemetry report and retests (#778)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/778),
   and testing the [quarantine work (#722)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/722).
+  Thanks also for the [xe GPU counter-wrap diagnosis (#944)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/944),
+  with a diagnostics bundle and several days of retesting, and for the requests to
+  [keep history past retention (#949)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/949)
+  and to [ask the API for today (#950)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/950),
+  both confirmed on the development image.
 - [@giulianob](https://github.com/giulianob)
   Thanks for the [range filter request (#696)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/696),
   the [early identification request (#743)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/743)
-  and the [multiple-model proposal (#804)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/804), which stays open.
+  and the [multiple-model proposal (#804)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/804), which stays open
+  while it is reviewed.
 - [@Blorti](https://github.com/Blorti)
   Thanks for the [request to show confirmed species on the Dashboard (#791)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/791),
   the follow-up for the [Explorer (#918)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/918) and the
@@ -46,3 +52,11 @@ Reports, recordings, support bundles and retests help reproduce problems and che
 - [@zobe123](https://github.com/zobe123)
   Thanks for the [report that the Species page failed when two birds shared a German name (#938)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/938),
   with the exact taxa, the browser error and a working workaround.
+  Thanks also for the [light level request (#945)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/945),
+  which set out how it should behave, and the
+  [feeder refill idea (#946)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/946), which stays open
+  while it is reviewed.
+- [@darkslen1](https://github.com/darkslen1)
+  Thanks for the [visit gap request (#1044)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/1044),
+  explained with a busy feeder's numbers and a working stopgap, and for the
+  [species picker duplicates fix (#1043)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/pull/1043).
