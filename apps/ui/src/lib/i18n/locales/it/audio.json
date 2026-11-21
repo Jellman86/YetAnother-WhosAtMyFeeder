@@ -78,7 +78,11 @@
   "heatmap": {
     "grid_label": "Canti uditi per ora e giorno della settimana. Usa le frecce per leggere una fascia.",
     "per_hour": "canti uditi per fascia oraria",
-    "read_failed": "Non è stato possibile leggere i canti uditi per ora e giorno della settimana, quindi questa griglia e l’ora più attiva non sono mostrate. Tutto il resto della pagina è stato letto."
+    "read_failed": "Non è stato possibile leggere i canti uditi per ora e giorno della settimana, quindi questa griglia e l’ora più attiva non sono mostrate. Tutto il resto della pagina è stato letto.",
+    "species_picker": "Mostra i canti uditi di",
+    "species_empty": "Nessun canto di {species} udito in questo periodo.",
+    "species_failed": "Non è stato possibile leggere i canti di {species} per ora e giorno della settimana. Il resto della pagina è stato letto.",
+    "subject_calls": "{count, plural, one {# canto di {subject} udito} other {# canti di {subject} uditi}}"
   },
   "side_label": "Specie più udite e sorgenti"
 }

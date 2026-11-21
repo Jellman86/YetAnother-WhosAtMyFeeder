@@ -33,7 +33,7 @@ describe('Audio history keeps loading, measured-empty, failed and stale apart', 
     it('gives every chart its numbers as text, including the other species', () => {
         // Each chart is a ChartFigure, whose table holds its numbers.
         expect(source.match(/<ChartFigure\b/g)?.length).toBe(3);
-        expect(source.match(/table=\{measured && has(?:Daily|Heatmap|Species) \?/g)?.length).toBe(3);
+        expect(source.match(/table=\{measured && has(?:Daily|ShownHeatmap|Species) \?/g)?.length).toBe(3);
         expect(source).toContain('data-audio-mix-count');
         expect(source).toContain('speciesMix.map((item) => [item.species, item.count.toLocaleString()])');
     });
@@ -41,7 +41,8 @@ describe('Audio history keeps loading, measured-empty, failed and stale apart', 
     it('draws each chart and lists its numbers from one series, so a chart and its table always agree', () => {
         expect(source).toContain('dailySeries(summary?.daily_counts ?? []');
         expect(source).toContain('dailyPoints.map((point) => [point.label, point.count.toLocaleString()])');
-        expect(source).toContain('weekdayHourTable(heatmap?.cells ?? []');
+        // The grid on screen, all species or the one chosen, is the one its table lists.
+        expect(source).toContain('weekdayHourTable(shownHeatmap?.cells ?? []');
         expect(source).not.toContain('T12:00:00Z');
     });
 

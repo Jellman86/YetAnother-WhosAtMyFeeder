@@ -78,8 +78,9 @@
     import type { TemperatureUnit } from '../utils/temperature';
     import { evidenceFor, isCorroborated, trendMeasured, type SpeciesEvidence } from '../leaderboard/evidence';
     import { heardFor, heardLookup, needsSpeciesCheck, parseSpeciesPageLink } from '../leaderboard/species-checks';
-    import { busiestHourOfDay, weekdayHourTable } from '../leaderboard/heatmap';
+    import { HEATMAP_SPECIES_CHOICES, busiestHourOfDay, keptHeatmapChoice, weekdayHourTable } from '../leaderboard/heatmap';
     import ActivityHeatmap from '../components/ActivityHeatmap.svelte';
+    import HeatmapSpeciesChips from '../components/HeatmapSpeciesChips.svelte';
     import { otherSeriesColor, speciesSeriesColor, SPECIES_SERIES_SLOTS } from '../leaderboard/species-palette';
 
     type LeaderboardRow = {
@@ -483,15 +484,14 @@
     // The weekday grid can show one species' pattern: "when does the Robin come?" is the question
     // the all-species grid cannot answer. A choice that falls out of the window's list lapses.
     let heatmapSpeciesOptions = $derived.by(() => {
-        const rows = leaderboardRows.filter((row) => !row.audio_only && row.count > 0 && row.species !== 'Unknown Bird').slice(0, 5);
+        const rows = leaderboardRows.filter((row) => !row.audio_only && row.count > 0 && row.species !== 'Unknown Bird').slice(0, HEATMAP_SPECIES_CHOICES);
         const labels = distinctSeriesLabels(rows.map((row) => ({ name: row.displayName, qualifier: row.scientific_name })));
         // Asked for by scientific name where there is one: the row's name is translated and can be shared.
         return rows.map((row, index) => ({ ...row, displayName: labels[index], heatmapKey: row.scientific_name || row.species }));
     });
+    let heatmapSpeciesChips = $derived(heatmapSpeciesOptions.map((row) => ({ key: row.heatmapKey, label: row.displayName })));
     let heatmapChoice = $state<string | null>(null);
-    let heatmapSpecies = $derived(
-        heatmapChoice && heatmapSpeciesOptions.some((row) => row.heatmapKey === heatmapChoice) ? heatmapChoice : null
-    );
+    let heatmapSpecies = $derived(keptHeatmapChoice(heatmapChoice, heatmapSpeciesChips));
     let speciesHeatmap = $state.raw<DetectionsActivityHeatmapResponse | null>(null);
     let speciesHeatmapLoading = $state(false);
     let speciesHeatmapFailed = $state(false);
@@ -2195,18 +2195,13 @@
                     table={heatmapTable}
                     class="xl:col-span-3"
                 >
-                    {#if heatmapSpeciesOptions.length > 1}
-                        <div class="-mx-1 mt-3 flex gap-1 overflow-x-auto px-1 pb-1 sm:flex-wrap sm:overflow-visible" role="group" aria-label={$_('leaderboard.heatmap_species_picker', { default: 'Show the activity of' })} data-leaderboard-heatmap-species>
-                            <button type="button" class="btn btn-ghost min-h-11 shrink-0 whitespace-nowrap px-2.5 text-xs {heatmapSpecies === null ? 'bg-surface-raised font-semibold text-strong' : ''}" aria-pressed={heatmapSpecies === null} onclick={() => (heatmapChoice = null)}>
-                                {$_('leaderboard.heatmap_all_species', { default: 'All species' })}
-                            </button>
-                            {#each heatmapSpeciesOptions as option, index (`${option.heatmapKey}|${index}`)}
-                                <button type="button" class="btn btn-ghost min-h-11 shrink-0 whitespace-nowrap px-2.5 text-xs {heatmapSpecies === option.heatmapKey ? 'bg-surface-raised font-semibold text-strong' : ''}" aria-pressed={heatmapSpecies === option.heatmapKey} onclick={() => (heatmapChoice = option.heatmapKey)}>
-                                    {option.displayName}
-                                </button>
-                            {/each}
-                        </div>
-                    {/if}
+                    <HeatmapSpeciesChips
+                        options={heatmapSpeciesChips}
+                        selected={heatmapSpecies}
+                        label={$_('leaderboard.heatmap_species_picker', { default: 'Show the activity of' })}
+                        onselect={(key) => (heatmapChoice = key)}
+                        data-leaderboard-heatmap-species
+                    />
 
                     <div class="mt-4 min-h-64" aria-busy={speciesHeatmapLoading}>
                         {#if shownHeatmap && (shownHeatmap.total_count ?? 0) > 0}

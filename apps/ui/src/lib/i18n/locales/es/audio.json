@@ -78,7 +78,11 @@
   "heatmap": {
     "grid_label": "Cantos oídos por hora y día de la semana. Usa las flechas para leer una franja.",
     "per_hour": "cantos oídos por franja de una hora",
-    "read_failed": "No se pudieron leer los cantos oídos por hora y día de la semana, así que no se muestran esta cuadrícula ni la hora de más actividad. El resto de la página sí se leyó."
+    "read_failed": "No se pudieron leer los cantos oídos por hora y día de la semana, así que no se muestran esta cuadrícula ni la hora de más actividad. El resto de la página sí se leyó.",
+    "species_picker": "Mostrar cantos oídos de",
+    "species_empty": "No se oyeron cantos de {species} en este periodo.",
+    "species_failed": "No se pudieron leer los cantos de {species} por hora y día de la semana. El resto de la página sí se leyó.",
+    "subject_calls": "{count, plural, one {# canto oído de {subject}} other {# cantos oídos de {subject}}}"
   },
   "side_label": "Especies más oídas y fuentes"
 }

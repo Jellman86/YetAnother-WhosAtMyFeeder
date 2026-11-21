@@ -78,7 +78,11 @@
   "heatmap": {
     "grid_label": "Gehörte Rufe nach Stunde und Wochentag. Mit den Pfeiltasten ein Feld vorlesen.",
     "per_hour": "gehörte Rufe pro Stundenfeld",
-    "read_failed": "Gehörte Rufe nach Stunde und Wochentag konnten nicht gelesen werden, daher fehlen dieses Raster und die aktivste Stunde. Alles andere auf der Seite wurde gelesen."
+    "read_failed": "Gehörte Rufe nach Stunde und Wochentag konnten nicht gelesen werden, daher fehlen dieses Raster und die aktivste Stunde. Alles andere auf der Seite wurde gelesen.",
+    "species_picker": "Gehörte Rufe anzeigen von",
+    "species_empty": "Keine Rufe von {species} in diesem Zeitraum gehört.",
+    "species_failed": "Die Rufe von {species} nach Stunde und Wochentag konnten nicht gelesen werden. Alles andere auf der Seite wurde gelesen.",
+    "subject_calls": "{count, plural, one {# gehörter Ruf: {subject}} other {# gehörte Rufe: {subject}}}"
   },
   "side_label": "Am häufigsten gehörte Arten und Quellen"
 }
