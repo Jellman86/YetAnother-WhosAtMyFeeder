@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 
 const summary = {
     total: 73,
@@ -227,4 +227,175 @@ test('a grid that cannot be read says so in its own frame, and the list and othe
     await page.locator('[data-audio-heatmap-failed]').getByRole('button', { name: 'Retry' }).click();
     await expect(page.locator('[data-audio-heatmap] [role="grid"]')).toBeVisible();
     await expect(page.locator('[data-audio-standing] [data-audio-stat-unavailable]')).toHaveCount(0);
+});
+
+// The window's most heard species, named as the grid asks for them: by scientific name.
+const namedSummary = {
+    ...summary,
+    top_species: [
+        { species: 'Dunnock', scientific_name: 'Prunella modularis', count: 38, avg_confidence: 0.9, max_confidence: 0.99 },
+        { species: 'Robin', scientific_name: 'Erithacus rubecula', count: 25, avg_confidence: 0.85, max_confidence: 0.98 },
+        { species: 'Wren', scientific_name: 'Troglodytes troglodytes', count: 10, avg_confidence: 0.8, max_confidence: 0.95 },
+    ],
+};
+const robinCells = heatmapCells.map(cell => ({ ...cell, count: cell.day_of_week === 2 && cell.hour === 7 ? 6 : 0 }));
+const robinHeatmap = { ...heatmap, total_count: 6, max_cell_count: 6, cells: robinCells };
+
+/** Serves the named summary and records every grid request; a species grid is answered by `forSpecies`. */
+async function withSpeciesChips(page: Page, forSpecies: (scientificName: string) => Promise<object | null> | object | null = () => robinHeatmap) {
+    const requests: URLSearchParams[] = [];
+    await page.route('**/api/audio/summary?*', route => route.fulfill({ json: namedSummary }));
+    await page.route('**/api/audio/activity-heatmap?*', async route => {
+        const params = new URL(route.request().url()).searchParams;
+        requests.push(params);
+        const scientificName = params.get('scientific_name');
+        if (!scientificName) return route.fulfill({ json: heatmap });
+        const answer = await forSpecies(scientificName);
+        // A request the page has since aborted can no longer be answered; that is the point.
+        const reply = answer ? route.fulfill({ json: answer }) : route.fulfill({ status: 503, json: { detail: 'Grid temporarily unavailable.' } });
+        return reply.catch(() => undefined);
+    });
+    await page.reload();
+    await expect(page.locator('[data-audio-heatmap] [role="grid"]')).toBeVisible();
+    return { requests, picker: page.getByRole('group', { name: 'Show calls heard from' }) };
+}
+
+test('a species chip shows that species’ calls by hour and weekday, read under the page’s filters', async ({ page, isMobile }) => {
+    test.skip(isMobile, 'drives the window bar and inline filters, which are the desktop controls');
+    const { requests, picker } = await withSpeciesChips(page);
+    const all = picker.getByRole('button', { name: 'All species', exact: true });
+    const robin = picker.getByRole('button', { name: 'Robin', exact: true });
+    // Ordered by calls heard, as many as the Leaderboard offers, all species first and chosen.
+    await expect(picker.getByRole('button')).toHaveText(['All species', 'Dunnock', 'Robin', 'Wren']);
+    await expect(all).toHaveAttribute('aria-pressed', 'true');
+
+    await page.locator('[data-audio-window-bar] [data-segment="7"]').click();
+    await expect.poll(() => requests.at(-1)?.get('days')).toBe('7');
+    await page.getByRole('textbox', { name: 'Source' }).fill('BirdCam');
+    await page.getByRole('textbox', { name: 'Source' }).press('Enter');
+    await expect.poll(() => requests.at(-1)?.get('source')).toBe('BirdCam');
+    await expect(robin).toBeVisible();
+
+    await robin.click();
+    await expect.poll(() => requests.at(-1)?.get('scientific_name')).toBe('Erithacus rubecula');
+    const asked = requests.at(-1);
+    expect(asked?.get('days')).toBe('7');
+    expect(asked?.get('source')).toBe('BirdCam');
+    expect(asked?.has('species')).toBe(false);
+    await expect(robin).toHaveAttribute('aria-pressed', 'true');
+    await expect(all).toHaveAttribute('aria-pressed', 'false');
+
+    // The grid, its slots and its total are the Robin's, and say so.
+    const grid = page.getByRole('grid', { name: /Robin\.$/ });
+    await expect(grid).toBeVisible();
+    await expect(grid.getByRole('gridcell', { name: /^Tue 07:00 to 08:00: 6 Robin calls heard\. Busiest slot$/ })).toHaveCount(1);
+    const figure = page.locator('[data-audio-history-analytics] figure').filter({ has: page.locator('[data-audio-heatmap]') });
+    await expect(figure).toContainText('6 calls heard');
+    // The page's own figures stay those of all species.
+    await expect(page.locator('[data-audio-standing]')).toContainText('27 calls heard');
+
+    await all.click();
+    await expect(all).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByRole('grid', { name: /Robin/ })).toHaveCount(0);
+    await expect(figure).toContainText('73 calls heard');
+});
+
+test('species chips work from the keyboard', async ({ page, isMobile }) => {
+    test.skip(isMobile, 'keyboard focus order is a desktop concern');
+    const { picker } = await withSpeciesChips(page);
+    const all = picker.getByRole('button', { name: 'All species', exact: true });
+    await all.focus();
+    await page.keyboard.press('Tab');
+    await page.keyboard.press('Tab');
+    await expect(picker.getByRole('button', { name: 'Robin', exact: true })).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(picker.getByRole('button', { name: 'Robin', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByRole('grid', { name: /Robin\.$/ })).toBeVisible();
+    await page.keyboard.press('Shift+Tab');
+    await page.keyboard.press('Space');
+    await expect(picker.getByRole('button', { name: 'Dunnock', exact: true })).toHaveAttribute('aria-pressed', 'true');
+});
+
+test('a species with no calls in the grid says so, and a grid that cannot be read offers a retry', async ({ page }) => {
+    let fail = true;
+    const { picker } = await withSpeciesChips(page, scientificName => {
+        if (scientificName === 'Troglodytes troglodytes') return { ...heatmap, total_count: 0, max_cell_count: 0, cells: heatmapCells.map(cell => ({ ...cell, count: 0 })) };
+        return fail ? null : robinHeatmap;
+    });
+
+    await picker.getByRole('button', { name: 'Wren', exact: true }).click();
+    await expect(page.locator('[data-audio-species-heatmap-empty]')).toHaveText('No Wren calls heard in this window.');
+    await expect(page.locator('[data-audio-heatmap]')).toHaveCount(0);
+
+    await picker.getByRole('button', { name: 'Robin', exact: true }).click();
+    const failed = page.locator('[data-audio-species-heatmap-failed]');
+    await expect(failed).toContainText('Robin calls by hour and weekday could not be read. Everything else on the page was read.');
+    await expect(page.locator('[data-audio-heatmap]')).toHaveCount(0);
+    // Only the species grid failed: the page's figures stay.
+    await expect(page.locator('[data-audio-standing] [data-audio-stat-unavailable]')).toHaveCount(0);
+
+    fail = false;
+    await failed.getByRole('button', { name: 'Retry' }).click();
+    await expect(page.getByRole('grid', { name: /Robin\.$/ })).toBeVisible();
+    await expect(failed).toHaveCount(0);
+});
+
+test('a quick second choice is never overwritten by the first one’s late answer', async ({ page }) => {
+    let releaseRobin: () => void = () => {};
+    const robinHeld = new Promise<void>(resolve => { releaseRobin = resolve; });
+    const dunnockHeatmap = { ...robinHeatmap, cells: robinCells.map(cell => ({ ...cell, count: cell.count ? 4 : 0 })), total_count: 4, max_cell_count: 4 };
+    const { picker } = await withSpeciesChips(page, async scientificName => {
+        if (scientificName === 'Erithacus rubecula') {
+            await robinHeld;
+            return robinHeatmap;
+        }
+        return dunnockHeatmap;
+    });
+
+    await picker.getByRole('button', { name: 'Robin', exact: true }).click();
+    await picker.getByRole('button', { name: 'Dunnock', exact: true }).click();
+    await expect(page.getByRole('grid', { name: /Dunnock\.$/ })).toBeVisible();
+    releaseRobin();
+    await page.waitForTimeout(300);
+    await expect(page.getByRole('grid', { name: /Dunnock\.$/ })).toBeVisible();
+    await expect(page.getByRole('grid', { name: /Robin/ })).toHaveCount(0);
+    await expect(picker.getByRole('button', { name: 'Dunnock', exact: true })).toHaveAttribute('aria-pressed', 'true');
+});
+
+test('a page species filter hides the chips, and a window without the chosen species goes back to all species', async ({ page, isMobile }) => {
+    test.skip(isMobile, 'drives the window bar and inline filters, which are the desktop controls');
+    const { picker } = await withSpeciesChips(page);
+    await picker.getByRole('button', { name: 'Wren', exact: true }).click();
+    await expect(picker.getByRole('button', { name: 'Wren', exact: true })).toHaveAttribute('aria-pressed', 'true');
+
+    // The week heard no Wren, so the choice lapses rather than asking for a species not on offer.
+    await page.route('**/api/audio/summary?*', route => route.fulfill({ json: { ...namedSummary, top_species: namedSummary.top_species.slice(0, 2) } }));
+    await page.locator('[data-audio-window-bar] [data-segment="7"]').click();
+    await expect(picker.getByRole('button')).toHaveText(['All species', 'Dunnock', 'Robin']);
+    await expect(picker.getByRole('button', { name: 'All species', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByRole('grid', { name: /Wren/ })).toHaveCount(0);
+
+    // The page's species search already narrows the grid; a second species control is not offered.
+    await page.getByRole('textbox', { name: 'Species' }).fill('Dunnock');
+    await page.getByRole('textbox', { name: 'Species' }).press('Enter');
+    await expect(picker).toHaveCount(0);
+    await expect(page.locator('[data-audio-heatmap] [role="grid"]')).toBeVisible();
+});
+
+test('species chips fit a phone at 390 pixels with full-size targets', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const { picker } = await withSpeciesChips(page);
+    // The app's main column has a 16 px gutter on a phone; the bare fixture has none.
+    await page.addStyleTag({ content: '#app { padding-inline: 1rem; }' });
+    await expect(picker).toBeVisible();
+    const figure = page.locator('[data-audio-history-analytics] figure').filter({ has: picker });
+    const [row, frame] = await Promise.all([picker.boundingBox(), figure.boundingBox()]);
+    // The row may reach into the figure's edge for focus rings, never past the gutter.
+    expect((row?.x ?? 0) + (row?.width ?? 0)).toBeLessThanOrEqual((frame?.x ?? 0) + (frame?.width ?? 0) + 4);
+    for (const box of await picker.getByRole('button').evaluateAll(nodes => nodes.map(node => node.getBoundingClientRect().height))) {
+        expect(box).toBeGreaterThanOrEqual(44);
+    }
+    await picker.getByRole('button', { name: 'Wren', exact: true }).click();
+    await expect(page.getByRole('grid', { name: /Wren\.$/ })).toBeVisible();
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
