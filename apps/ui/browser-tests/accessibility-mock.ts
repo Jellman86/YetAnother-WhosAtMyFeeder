@@ -186,6 +186,18 @@ function replayedStatus(overrides: Record<string, unknown>): unknown {
     };
 }
 
+/**
+ * With the web fonts stood in for, Chromium on Linux draws the Classic serif in Liberation Serif, its
+ * Times New Roman. WebKit on Linux takes the system's stand-in for Georgia instead, DejaVu Serif, about
+ * a fifth wider, which Safari never does: it has Georgia. So in WebKit the Classic families are named as
+ * Chromium's face, and both engines measure layout in the same letters. No weight is given, so WebKit
+ * asks the system for each weight and draws Liberation Serif's real bold, as Chromium does. Where the
+ * face is missing, local() finds nothing and WebKit falls back as before.
+ */
+const WEBKIT_FONT_STAND_INS = ['Source Serif 4', 'Playfair Display']
+    .map((family) => `@font-face { font-family: "${family}"; src: local("Liberation Serif"); }`)
+    .join('\n');
+
 /** Answer the app's requests from the recording, and open it in `theme` with motion settled. */
 /**
  * Marks the replay's answer for a read the recording does not hold, so a test can tell a gap in
@@ -207,9 +219,10 @@ export async function replayFeeder(
         localStorage.setItem('yawamf_notification_center', JSON.stringify(notifications));
     }, [theme, NOTIFICATIONS(Date.now())] as const);
     // Nothing leaves the machine: the web font, encyclopedia pictures and map tiles are stood in for.
+    const fontStandIns = page.context().browser()?.browserType().name() === 'webkit' ? WEBKIT_FONT_STAND_INS : '';
     await page.route(/^https?:\/\/(?!127\.0\.0\.1)/, (route) => {
         const type = route.request().resourceType();
-        if (type === 'stylesheet') return route.fulfill({ contentType: 'text/css', body: '' });
+        if (type === 'stylesheet') return route.fulfill({ contentType: 'text/css', body: fontStandIns });
         if (type === 'image') return route.fulfill({ contentType: 'image/svg+xml', body: PHOTOGRAPH });
         return route.abort();
     });

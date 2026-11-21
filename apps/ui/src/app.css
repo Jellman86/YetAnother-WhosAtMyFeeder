@@ -1314,14 +1314,16 @@ html.high-contrast.high-contrast.high-contrast {
   }
 }
 
-/* Respect user motion preferences - WCAG 2.1 Level AA */
+/* Respect user motion preferences - WCAG 2.1 Level AA. Transitions are turned off (0s), not cut
+   short: at 0.01ms every element still ran one for each property that changed, and Safari then kept
+   the old text size inside each of them after a text size change until the page was reloaded. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+    transition-duration: 0s !important;
     scroll-behavior: auto !important;
   }
 
@@ -1343,7 +1345,7 @@ html.high-contrast.high-contrast.high-contrast {
 .reduced-motion *::after {
   animation-duration: 0.01ms !important;
   animation-iteration-count: 1 !important;
-  transition-duration: 0.01ms !important;
+  transition-duration: 0s !important;
   scroll-behavior: auto !important;
 }
 

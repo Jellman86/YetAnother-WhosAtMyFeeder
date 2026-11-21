@@ -103,6 +103,7 @@ const REQUIRED_ACTIVE_KEYS = [
     'events.filters.refresh_options',
     'events.filters.refreshing_options',
     'error.deploy_refresh_required',
+    'error.update_check_unreachable',
     'jobs.circuit_open_message',
     'jobs.circuit_open_until',
     'leaderboard.analytics_section',

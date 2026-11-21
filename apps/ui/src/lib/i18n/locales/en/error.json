@@ -6,5 +6,6 @@
   "copy_details": "Copy error details",
   "copied": "Copied",
   "reload_page": "Reload page",
-  "deploy_refresh_required": "YA-WAMF was updated while this tab was open. Refresh the page to load the latest build."
+  "deploy_refresh_required": "YA-WAMF was updated while this tab was open. Refresh the page to load the latest build.",
+  "update_check_unreachable": "This page could not be opened, and YA-WAMF could not be reached to check for an update. Check your connection, then refresh the page."
 }

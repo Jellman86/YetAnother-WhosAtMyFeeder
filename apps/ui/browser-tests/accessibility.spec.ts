@@ -637,7 +637,10 @@ for (const width of [390, 1440]) {
 }
 
 for (const enlarge of ['the browser text size', 'the root size'] as const) {
-    test(`at 200% by ${enlarge} in a 1440x900 window every sidebar link is reached by Tab with its focus ring on show`, async ({ page }) => {
+    test(`at 200% by ${enlarge} in a 1440x900 window every sidebar link is reached by Tab with its focus ring on show`, async ({ page, browserName }) => {
+        // The browser's own text size is set through the Chrome DevTools Protocol, which only Chromium
+        // speaks; every engine runs the root-size case below it.
+        test.skip(enlarge === 'the browser text size' && browserName !== 'chromium', 'The browser text size is set over CDP, which only Chromium has');
         await page.setViewportSize({ width: 1440, height: 900 });
         await replayFeeder(page, 'light');
         if (enlarge === 'the browser text size') {

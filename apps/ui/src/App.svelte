@@ -21,7 +21,7 @@
   import LazyModal from './lib/components/LazyModal.svelte';
   import Login from './lib/components/Login.svelte';
   import { setupWizardStore } from './lib/stores/setup_wizard.svelte';
-  import { fetchEventClassificationStatus, invalidateClassifierStatus, setAuthErrorCallback } from './lib/api';
+  import { checkHealth, fetchEventClassificationStatus, invalidateClassifierStatus, setAuthErrorCallback } from './lib/api';
   import { isSystemStatus } from './lib/api/status';
   import { mapGuarded } from './lib/api/core';
   import { systemStatusStore } from './lib/stores/system_status.svelte';
@@ -336,11 +336,18 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
       appVersion,
       storage: typeof window !== 'undefined' ? window.sessionStorage : null,
       reload: () => window.location.reload(),
+      // A failed import reloads only once the server names a different build (deploy-recovery.ts).
+      readDeployment: () => checkHealth(),
       warn: (message: string) => {
           toastStore.warning(message, 10_000);
       },
       report: (event) => logger.warn('deploy_recovery', { ...event }),
-      warningMessage: t('error.deploy_refresh_required')
+      warningMessage: get(_)('error.deploy_refresh_required', {
+          default: 'YA-WAMF was updated while this tab was open. Refresh the page to load the latest build.'
+      }),
+      unreachableMessage: get(_)('error.update_check_unreachable', {
+          default: 'This page could not be opened, and YA-WAMF could not be reached to check for an update. Check your connection, then refresh the page.'
+      })
   });
 
   function handleRouteLoadError(error: unknown): void {

@@ -6,5 +6,6 @@
   "copy_details": "复制错误详情",
   "copied": "已复制",
   "reload_page": "重新加载页面",
-  "deploy_refresh_required": "此标签页打开期间，YA-WAMF 已更新。请刷新页面以加载最新版本。"
+  "deploy_refresh_required": "此标签页打开期间，YA-WAMF 已更新。请刷新页面以加载最新版本。",
+  "update_check_unreachable": "无法打开此页面，也无法连接 YA-WAMF 检查更新。请检查网络连接，然后刷新页面。"
 }

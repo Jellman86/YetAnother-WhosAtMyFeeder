@@ -6,5 +6,6 @@
   "copy_details": "Copiar detalhes do erro",
   "copied": "Copiado",
   "reload_page": "Recarregar página",
-  "deploy_refresh_required": "O YA-WAMF foi atualizado enquanto este separador estava aberto. Atualize a página para carregar a versão mais recente."
+  "deploy_refresh_required": "O YA-WAMF foi atualizado enquanto este separador estava aberto. Atualize a página para carregar a versão mais recente.",
+  "update_check_unreachable": "Não foi possível abrir esta página nem contactar o YA-WAMF para verificar se há uma atualização. Verifique a ligação e, depois, atualize a página."
 }
