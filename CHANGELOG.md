@@ -44,7 +44,7 @@ earlier one, the later one describes what ships.
   charts count sealed days from those totals, so seasonal trends reach back past your retention
   period. If the totals cannot be saved, nothing is deleted and Health says "Retention paused". A
   capture deleted because Frigate no longer has it keeps its count, and its day stays live. The
-  chart says from which day its counts come from daily totals, since the photos and clips for
+  chart marks the days whose counts come from daily totals, since the photos and clips for
   those days are gone, and the hour-and-weekday grid says older days have no time of day. A
   sealed day keeps its totals even if you later hide or delete one of its few kept captures, and
   **Delete all history** deletes the totals too. Totals start when you upgrade: days that began
@@ -84,7 +84,7 @@ describe Settings as it ships: six sections (Cameras & connection, Identifying b
 Sharing & integrations, Storage & upkeep and Display) with a search. Older entries name the tabs
 those sections replaced, such as Detection, Models, Data and Maintenance.
 
-- **Settings has a search.** A **Search settings** box leads the Settings navigation on every screen
+- **Settings has a search.** A **Find a setting** box leads the Settings navigation on every screen
   size. Type a setting's name, what it does, or a word such as "password", "GPU" or "backup", in the
   language the interface is in; each result says where the setting lives. Choosing one opens its
   section, opens More options and any advanced group around it, and puts the keyboard on its
