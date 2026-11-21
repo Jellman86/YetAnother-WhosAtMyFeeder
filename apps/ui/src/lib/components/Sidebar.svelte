@@ -124,7 +124,6 @@
     const allNavItems = $derived.by((): NavItem[] => ([
         { path: '/', label: $_('nav.dashboard'), icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6', section: 'observe' },
         { path: '/events', label: $_('nav.explorer'), icon: 'M4 6h16M4 10h16M4 14h16M4 18h16', section: 'observe' },
-        { path: '/observations/new', label: $_('nav.add_observation', { default: 'Add observation' }), icon: 'M12 16V4m0 0L8 8m4-4 4 4M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4', section: 'observe', requiresAuth: true },
         { path: '/species', label: $_('nav.leaderboard'), icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z', section: 'observe' },
         // The listening history exists only where BirdNET-Go is connected and the reader may see it.
         { path: '/audio', label: $_('nav.audio_history', { default: 'Audio history' }), icon: 'M4 12v2m4-5v8m4-13v16m4-13v10m4-7v4', section: 'observe', available: audioHistoryAvailable },

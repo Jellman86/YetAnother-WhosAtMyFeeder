@@ -50,10 +50,10 @@ describe('manual observation flow layout', () => {
         expect(locationPicker).toContain('aria-live="polite"');
     });
 
-    it('is a lazy owner route exposed in the observation navigation', () => {
+    it('is a lazy owner route opened from the header, not a sidebar place', () => {
         expect(app).toContain("import('./lib/pages/ManualObservation.svelte')");
         expect(app).toContain("currentRoute.startsWith('/observations/new')");
-        expect(sidebar).toContain("path: '/observations/new'");
-        expect(sidebar).toContain('requiresAuth: true');
+        expect(app).toContain('addObservationEntry(currentRoute, authStore.showSettings)');
+        expect(sidebar).not.toContain("path: '/observations/new'");
     });
 });

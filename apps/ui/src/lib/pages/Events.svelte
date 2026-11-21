@@ -60,6 +60,7 @@
     import { _ } from 'svelte-i18n';
     import Pagination from '../components/Pagination.svelte';
     import Segmented from '../components/ui/Segmented.svelte';
+    import AddObservationLink from '../components/AddObservationLink.svelte';
     import DetectionCard from '../components/DetectionCard.svelte';
     import DetectionRow from '../components/DetectionRow.svelte';
     import LazyModal from '../components/LazyModal.svelte';
@@ -80,6 +81,13 @@
     import { createEventMetadataRefresh } from './event-metadata-refresh';
     import { EVENTS_PAGE_REQUEST_KEYS } from './events-request-keys';
     import { createLatestRequest } from '../utils/latest-request';
+
+    type Props = {
+        /** Opens an in-app address in place, so the shell stays and unsaved work elsewhere is asked about. */
+        onNavigate?: (path: string) => void;
+    };
+
+    let { onNavigate }: Props = $props();
 
     let events = $state<Detection[]>([]);
     let loading = $state(true);
@@ -2094,6 +2102,13 @@
     {/if}
 {/snippet}
 
+<!-- The owner's way to add a photo or video of their own: it joins the history this page shows. -->
+{#snippet addObservation()}
+    {#if authStore.showSettings}
+        <AddObservationLink variant="labelled" {onNavigate} />
+    {/if}
+{/snippet}
+
 {#snippet sheetControls()}
     <div class="flex flex-wrap items-center gap-2" data-explorer-sheet-controls>
         {@render heardToggle()}
@@ -2105,6 +2120,9 @@
     <div class="flex flex-wrap items-center justify-between gap-3">
         {#if wideExplorer.current}
             <div class="min-w-0 max-w-2xl flex-1 basis-80" data-explorer-header-search>{@render explorerSearch()}</div>
+        {:else if authStore.showSettings}
+            <!-- Narrower, the header row holds no other control: the action leads it, above the count. -->
+            <div class="ml-auto" data-explorer-add-observation>{@render addObservation()}</div>
         {/if}
         <!-- The count arrives after the page is drawn and its length depends on what was found, so
              it has a line of its own: beside the controls, a long count wrapped them under the
@@ -2172,6 +2190,7 @@
                 </button>
                 {@render viewSwitch()}
                 {@render multiSelectToggle()}
+                {@render addObservation()}
             </div>
         {/if}
     </div>

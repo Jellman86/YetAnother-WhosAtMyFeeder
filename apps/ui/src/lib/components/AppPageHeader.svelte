@@ -1,32 +1,39 @@
 <script lang="ts">
     import { _ } from 'svelte-i18n';
     import type { Snippet } from 'svelte';
+    import AddObservationLink from './AddObservationLink.svelte';
     import CameraStatus from './CameraStatus.svelte';
     import NotificationCenter from './NotificationCenter.svelte';
     import { pageRefreshAction } from '../stores/page_refresh_action.svelte';
     import PageHeader from './ui/PageHeader.svelte';
+    import type { AddObservationEntry } from '../app/add-observation';
 
     type Props = {
         /** Omitted where the page brings its own h1, as the Dashboard's day bar does. */
         title?: string;
         subtitle?: string;
         onNavigate?: (path: string) => void;
+        onPrefetch?: (path: string) => void;
         actions?: Snippet;
         /** The owner's page controls. A guest can use none of them. */
         showOwnerActions?: boolean;
         notificationsCurrent?: boolean;
         /** The page registers a refresh once it loads: hold the control's place until then. */
         refreshExpected?: boolean;
+        /** Whether the owner is offered Add observation, and whether this is that page. */
+        addObservation?: AddObservationEntry;
     };
 
     let {
         title,
         subtitle,
         onNavigate,
+        onPrefetch,
         actions,
         showOwnerActions = true,
         notificationsCurrent = false,
-        refreshExpected = false
+        refreshExpected = false,
+        addObservation = { shown: false, current: false }
     }: Props = $props();
 
     function goSettings() {
@@ -55,6 +62,10 @@
                     <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                 </svg>
             </button>
+        {/if}
+        <!-- After Refresh, which comes and goes with the page, so this keeps one place on every page. -->
+        {#if addObservation.shown}
+            <AddObservationLink variant="icon" current={addObservation.current} {onNavigate} {onPrefetch} />
         {/if}
         <CameraStatus />
         <NotificationCenter

@@ -45,6 +45,7 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
   import { notificationPolicy } from './lib/notifications/policy';
   import { announcer } from './lib/components/Announcer.svelte';
   import { installAnalysisAnnouncements } from './lib/app/install-analysis-announcements';
+  import { addObservationEntry } from './lib/app/add-observation';
   import Announcer from './lib/components/Announcer.svelte';
   import GlobalProgress from './lib/components/GlobalProgress.svelte';
   import { initKeyboardShortcuts } from './lib/utils/keyboard-shortcuts';
@@ -906,6 +907,8 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
                       showOwnerActions={!authStore.isGuest}
                       refreshExpected={routeOffersRefresh(routeId)}
                       notificationsCurrent={routeId === 'notifications'}
+                      addObservation={addObservationEntry(currentRoute, authStore.showSettings)}
+                      onPrefetch={(path) => void prefetchRoute(path)}
                   />
               {/if}
               {#key `${authStore.isAuthenticated ? 'owner' : 'guest'}:${authStore.token ?? 'anonymous'}`}
@@ -921,7 +924,7 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
               {:else if routeId === 'explorer'}
                   <LazyRoute
                       loader={loadEventsPage}
-                      props={{}}
+                      props={{ onNavigate: navigate }}
                       label={pageTitle}
                       onLoadError={handleRouteLoadError}
                   />
