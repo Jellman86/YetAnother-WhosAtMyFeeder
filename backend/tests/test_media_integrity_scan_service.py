@@ -284,12 +284,13 @@ async def test_health_reports_the_scan_without_running_it():
     assert status["last_run"] is None
 
 
-def test_health_carries_the_scan_so_a_stale_history_is_visible(monkeypatch):
+@pytest.mark.asyncio
+async def test_health_carries_the_scan_so_a_stale_history_is_visible(monkeypatch):
     """#254 is a database quietly disagreeing with reality. The fix is only
     trustworthy if an owner can see the scan running and how far behind it is."""
     from app import main as main_module
 
-    payload = main_module.build_health_payload()
+    payload = await main_module.collect_health_payload()
     scan = payload.get("media_integrity_scan")
     assert scan is not None, "Health must report the scan alongside the other background work"
     assert scan["enabled"] is True

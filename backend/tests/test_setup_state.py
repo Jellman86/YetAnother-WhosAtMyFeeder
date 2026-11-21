@@ -214,7 +214,7 @@ async def test_the_endpoint_does_not_report_a_reloading_classifier_as_running(cl
     from app.routers import setup as setup_router
 
     class Reloading:
-        def get_status(self) -> dict:
+        async def collect_status(self) -> dict:
             # The old model has been dropped and its replacement is not loaded yet.
             return {"active_model_installed": True, "runtime_source": "in_process"}
 
@@ -239,7 +239,7 @@ async def test_the_endpoint_reports_a_classifier_that_failed_to_load_as_needing_
     from app.routers import setup as setup_router
 
     class BrokenInstall:
-        def get_status(self) -> dict:
+        async def collect_status(self) -> dict:
             return {
                 "active_model_installed": True,
                 "runtime_source": "in_process",

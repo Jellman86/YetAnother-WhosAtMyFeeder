@@ -52,12 +52,19 @@ def collect_process_memory() -> dict[str, Any]:
     # native runtime growth: a climbing RSS with a flat block count is not
     # Python's doing.
     facts["python_allocated_blocks"] = sys.getallocatedblocks()
+    return facts
 
+
+def audio_buffer_entries() -> int | None:
+    """How many detections the audio correlation buffer holds.
+
+    The event loop owns that buffer, so this is read on the loop, apart from the
+    /proc reads above, which may run in a worker thread.
+    """
     try:
         from app.services.audio.audio_service import audio_service
 
-        facts["audio_buffer_entries"] = audio_service.buffer_size()
+        return audio_service.buffer_size()
     except Exception as error:  # noqa: BLE001 - a health read must not fail here
         log.debug("Audio buffer size unavailable", error=str(error))
-        facts["audio_buffer_entries"] = None
-    return facts
+        return None

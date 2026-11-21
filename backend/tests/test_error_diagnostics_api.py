@@ -197,11 +197,11 @@ async def test_workspace_payload_includes_focused_video_classifier_diagnostics(c
 
     import app.main as main_module
 
-    original_build_health_payload = main_module.build_health_payload
+    original_collect_health_payload = main_module.collect_health_payload
     original_get_status = classifier_router.classifier_service.get_status
     try:
 
-        def fake_build_health_payload() -> dict[str, object]:
+        async def fake_collect_health_payload() -> dict[str, object]:
             return {
                 "status": "degraded",
                 "service": "ya-wamf-backend",
@@ -219,7 +219,7 @@ async def test_workspace_payload_includes_focused_video_classifier_diagnostics(c
                 },
             }
 
-        main_module.build_health_payload = fake_build_health_payload
+        main_module.collect_health_payload = fake_collect_health_payload
         classifier_router.classifier_service.get_status = lambda: {"active_provider": "intel_gpu"}
 
         response = await client.get("/api/diagnostics/workspace")
@@ -238,7 +238,7 @@ async def test_workspace_payload_includes_focused_video_classifier_diagnostics(c
         ]
         assert payload["backend_diagnostics"]["events"][0]["reason_code"] == "video_circuit_opened"
     finally:
-        main_module.build_health_payload = original_build_health_payload
+        main_module.collect_health_payload = original_collect_health_payload
         classifier_router.classifier_service.get_status = original_get_status
 
 

@@ -1,4 +1,3 @@
-import asyncio
 from datetime import datetime, timezone
 from typing import Annotated, Any, Literal
 
@@ -318,14 +317,14 @@ def _build_backfill_focus(backend_snapshot: dict[str, Any]) -> dict[str, Any]:
 
 
 async def _collect_workspace_payload(limit: int) -> dict[str, Any]:
-    from app.main import build_health_payload
+    from app.main import collect_health_payload
     from app.routers.classifier import classifier_service
     from app.routers.settings import canonical_identity_repair_service
     from app.services.maintenance_coordinator import maintenance_coordinator
 
     # Measured first, so the health verdict below already counts a Frigate that stopped answering.
     connections = await collect_service_connections(refresh_frigate=True)
-    health = await asyncio.to_thread(build_health_payload)
+    health = await collect_health_payload()
     backend_diagnostics = error_diagnostics_history.snapshot(limit=limit)
     taxonomy_repair = canonical_identity_repair_service.get_status()
     maintenance_status = await maintenance_coordinator.get_status()
@@ -339,7 +338,7 @@ async def _collect_workspace_payload(limit: int) -> dict[str, Any]:
         },
         "health": health,
         "connections": connections.model_dump(),
-        "classifier": await asyncio.to_thread(classifier_service.get_status),
+        "classifier": await classifier_service.collect_status(),
         "taxonomy_repair": taxonomy_repair,
         "maintenance_coordinator": maintenance_status,
         "startup_warnings": health.get("startup_warnings") or [],

@@ -1,10 +1,21 @@
 import httpx
 import pytest
 import pytest_asyncio
+from collections.abc import Callable
 from types import SimpleNamespace
 
 import app.main as main_module
 from app.main import app
+
+
+class _ClassifierReporting:
+    """Stands in for the classifier: its health comes from `check_health`, however it is collected."""
+
+    def __init__(self, check_health: Callable[[], dict]) -> None:
+        self.check_health = check_health
+
+    async def collect_health(self) -> dict:
+        return self.check_health()
 
 
 @pytest_asyncio.fixture
@@ -151,7 +162,7 @@ async def test_health_not_degraded_when_mqtt_stall_recovery_warning_is_inactive(
     monkeypatch.setattr(
         main_module,
         "get_classifier",
-        lambda: SimpleNamespace(check_health=lambda: {"status": "ok", "runtimes": {}, "models": {}}),
+        lambda: _ClassifierReporting(check_health=lambda: {"status": "ok", "runtimes": {}, "models": {}}),
         raising=False,
     )
     monkeypatch.setattr(
@@ -249,7 +260,7 @@ async def test_health_not_degraded_by_mqtt_critical_pressure_without_backlog_wai
     monkeypatch.setattr(
         main_module,
         "get_classifier",
-        lambda: SimpleNamespace(check_health=lambda: {"status": "ok", "runtimes": {}, "models": {}}),
+        lambda: _ClassifierReporting(check_health=lambda: {"status": "ok", "runtimes": {}, "models": {}}),
         raising=False,
     )
     monkeypatch.setattr(
@@ -348,7 +359,7 @@ async def test_health_degraded_when_mqtt_handler_backlog_wait_is_active(
     monkeypatch.setattr(
         main_module,
         "get_classifier",
-        lambda: SimpleNamespace(check_health=lambda: {"status": "ok", "runtimes": {}, "models": {}}),
+        lambda: _ClassifierReporting(check_health=lambda: {"status": "ok", "runtimes": {}, "models": {}}),
         raising=False,
     )
     monkeypatch.setattr(
@@ -448,7 +459,7 @@ async def test_health_degraded_when_mqtt_recent_handler_slot_wait_exhaustion_is_
     monkeypatch.setattr(
         main_module,
         "get_classifier",
-        lambda: SimpleNamespace(check_health=lambda: {"status": "ok", "runtimes": {}, "models": {}}),
+        lambda: _ClassifierReporting(check_health=lambda: {"status": "ok", "runtimes": {}, "models": {}}),
         raising=False,
     )
     monkeypatch.setattr(
@@ -647,7 +658,7 @@ async def test_health_not_degraded_by_historical_event_pipeline_failures(
     monkeypatch.setattr(
         main_module,
         "get_classifier",
-        lambda: SimpleNamespace(check_health=lambda: {"status": "ok", "runtimes": {}, "models": {}}),
+        lambda: _ClassifierReporting(check_health=lambda: {"status": "ok", "runtimes": {}, "models": {}}),
         raising=False,
     )
     monkeypatch.setattr(
@@ -742,7 +753,7 @@ async def test_health_includes_live_image_classifier_pressure(
     monkeypatch.setattr(
         main_module,
         "get_classifier",
-        lambda: SimpleNamespace(
+        lambda: _ClassifierReporting(
             check_health=lambda: {
                 "status": "ok",
                 "runtimes": {},
@@ -848,7 +859,7 @@ async def test_health_not_degraded_by_transient_live_image_saturation(
     monkeypatch.setattr(
         main_module,
         "get_classifier",
-        lambda: SimpleNamespace(
+        lambda: _ClassifierReporting(
             check_health=lambda: {
                 "status": "ok",
                 "runtimes": {},
@@ -960,7 +971,7 @@ async def test_health_degraded_when_live_image_recovery_is_active(
     monkeypatch.setattr(
         main_module,
         "get_classifier",
-        lambda: SimpleNamespace(
+        lambda: _ClassifierReporting(
             check_health=lambda: {
                 "status": "ok",
                 "runtimes": {},
@@ -998,7 +1009,7 @@ async def test_health_degraded_when_live_worker_circuit_is_open(
     monkeypatch.setattr(
         main_module,
         "get_classifier",
-        lambda: SimpleNamespace(
+        lambda: _ClassifierReporting(
             check_health=lambda: {
                 "status": "ok",
                 "execution_mode": "subprocess",

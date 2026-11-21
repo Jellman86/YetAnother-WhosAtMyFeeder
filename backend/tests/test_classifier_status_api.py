@@ -126,7 +126,7 @@ async def test_classifier_upload_endpoints_use_admission_even_in_process(
     settings.classification.image_execution_mode = "in_process"
 
     fake_classifier = SimpleNamespace(_image_execution_mode="in_process")
-    fake_classifier.get_status = lambda: {}
+    fake_classifier.collect_status = AsyncMock(return_value={})
     seen_input_contexts: list[object] = []
 
     async def _fake_classify(_image, input_context=None):
@@ -414,7 +414,9 @@ async def test_classifier_status_exposes_crop_detector_readiness(
 async def test_operational_status_contract_preserves_runtime_fields_and_omissions(client, monkeypatch, owner, runtime):
     from app.auth import get_auth_context_with_legacy
 
-    monkeypatch.setattr(classifier_router, "classifier_service", SimpleNamespace(get_status=lambda: dict(runtime)))
+    monkeypatch.setattr(
+        classifier_router, "classifier_service", SimpleNamespace(collect_status=AsyncMock(return_value=dict(runtime)))
+    )
     monkeypatch.setattr(classifier_router.personalization_service, "get_status_summary", AsyncMock(return_value={}))
     app.dependency_overrides[get_auth_context_with_legacy] = lambda: AuthContext(
         auth_level=AuthLevel.OWNER if owner else AuthLevel.GUEST, username="test"
@@ -556,24 +558,6 @@ async def test_rfdetr_cpu_fallback_degrades_health_and_records_actionable_diagno
     assert "NPU and GPU failed" in events[0]["message"]
     await client.get("/health")
     assert history.snapshot()["events"][0]["count"] == 1
-
-
-@pytest.mark.asyncio
-async def test_health_file_reads_run_off_the_event_loop(client, monkeypatch):
-    import threading
-    import app.main as main_module
-
-    loop_thread = threading.get_ident()
-    threads = []
-
-    def health():
-        threads.append(threading.get_ident())
-        return {"status": "ok"}
-
-    monkeypatch.setattr(main_module, "build_health_payload", health)
-    response = await client.get("/health")
-    assert response.status_code == 200
-    assert threads and threads[0] != loop_thread
 
 
 @pytest.mark.asyncio

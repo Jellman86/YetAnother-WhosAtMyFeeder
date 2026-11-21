@@ -116,10 +116,9 @@ class SystemStatusReadings:
 
         connections = await collect_service_connections(refresh_frigate=True)
         classifier = get_classifier()
-        # Both build their answer from in-memory state, but they are not free; keep them off the loop.
+        # Both read model files and SQLite in a worker thread; the state the loop owns is read on the loop first.
         classifier_health, classifier_status = await asyncio.gather(
-            asyncio.to_thread(classifier.check_health),
-            asyncio.to_thread(classifier.get_status),
+            classifier.collect_health(), classifier.collect_status()
         )
         jobs = await build_jobs_snapshot(
             include_routine=True,
