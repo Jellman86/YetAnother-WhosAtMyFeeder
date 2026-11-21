@@ -21,7 +21,7 @@
   import LazyModal from './lib/components/LazyModal.svelte';
   import Login from './lib/components/Login.svelte';
   import { setupWizardStore } from './lib/stores/setup_wizard.svelte';
-  import { fetchEventClassificationStatus, invalidateClassifierStatus, setAuthErrorCallback } from './lib/api';
+  import { checkHealth, fetchEventClassificationStatus, invalidateClassifierStatus, setAuthErrorCallback } from './lib/api';
   import { isSystemStatus } from './lib/api/status';
   import { mapGuarded } from './lib/api/core';
   import { systemStatusStore } from './lib/stores/system_status.svelte';
@@ -56,7 +56,6 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
   import { guestHistoryRefreshDelayMs } from './lib/app/public-refresh-budget';
   import { createPublicHistoryRefresh } from './lib/app/public-history-refresh';
   import { createDeployRecovery } from './lib/app/deploy-recovery';
-  import { createPageLeaving } from './lib/app/page-leaving';
   import { lazyComponent } from './lib/app/lazy-component';
   import { settingsSectionFromRoute } from './lib/settings/settings-route';
   import {
@@ -333,19 +332,12 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
   }
 
   const appVersion = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : 'unknown';
-  const pageLeaving = typeof window !== 'undefined' ? createPageLeaving(window) : null;
-  // A moment before reloading: Safari on iPhone says a page is going only at pagehide, after it has
-  // already ended the page's imports, so a navigation under way gets the chance to finish first.
-  const DEPLOY_RELOAD_DELAY_MS = 1500;
   const deployRecovery = createDeployRecovery({
       appVersion,
       storage: typeof window !== 'undefined' ? window.sessionStorage : null,
-      reload: () => {
-          window.setTimeout(() => {
-              if (!pageLeaving?.isLeaving()) window.location.reload();
-          }, DEPLOY_RELOAD_DELAY_MS);
-      },
-      isLeaving: () => pageLeaving?.isLeaving() ?? false,
+      reload: () => window.location.reload(),
+      // A failed import reloads only once the server names a different build (deploy-recovery.ts).
+      readDeployment: () => checkHealth(),
       warn: (message: string) => {
           toastStore.warning(message, 10_000);
       },
@@ -354,8 +346,6 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
   });
 
   function handleRouteLoadError(error: unknown): void {
-      // A page being left has its loading views ended by the browser; that is not a failure to report.
-      if (pageLeaving?.isLeaving()) return;
       logger.error('route_load_failed', error);
       deployRecovery.handleRuntimeFailure(error);
   }
@@ -611,7 +601,6 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
               window.removeEventListener('hashchange', handleHashChange);
               window.removeEventListener('error', handleWindowError);
               window.removeEventListener('unhandledrejection', handleUnhandledRejection);
-              pageLeaving?.dispose();
               document.removeEventListener('visibilitychange', handleVisibilityChange);
               cleanupShortcuts();
               if (mediaQuery) {

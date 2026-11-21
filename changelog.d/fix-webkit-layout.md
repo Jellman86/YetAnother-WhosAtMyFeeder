@@ -10,8 +10,12 @@
 - **Notification rows keep their words inside the row at a large text size.** A long word in a
   message, and a stopped job's "41 / 120" and "stopped" labels, now break or wrap rather than
   running past the row's edge.
-- **Leaving YA-WAMF in Safari goes where you asked.** Going to another address while a page was
-  still loading made Safari end that page's loading code with the same words a stale app gives, so
-  YA-WAMF reloaded itself and cancelled the navigation, and logged a load failure that never happened.
-  A failure that arrives while the page is being left is now ignored, and a real stale-app reload
-  waits a moment so a navigation already under way can finish first.
+- **Leaving YA-WAMF in Safari goes where you asked, on a Mac and on an iPhone.** Going to another
+  address while a page was still loading made Safari stop that page's loading code with the same
+  message an out-of-date app gives, so YA-WAMF reloaded itself and cancelled the navigation. Before
+  reloading for a page that failed to load, YA-WAMF now asks the server which version it runs, and
+  reloads only when the server runs a different one. This does not depend on timing or on Safari saying
+  the page is being left, which Safari on iPhone does not. On the same version nothing reloads, and the
+  page keeps its **Try opening again** button. If the server cannot be reached, YA-WAMF does not reload
+  and shows its "Refresh the page" message. A tab's one automatic reload is used only when a reload
+  actually happens. The failed load is still written to the log.
