@@ -116,3 +116,14 @@ export function weekdayHourTable(
         rows: TABLE_DAY_ORDER.map((day) => [labels.weekday(day), ...hours.map((hour) => (counts.get(`${day}-${hour}`) ?? 0).toLocaleString())])
     };
 }
+
+/** How many species a weekday grid offers to show on their own, beside all species. */
+export const HEATMAP_SPECIES_CHOICES = 5;
+
+/**
+ * The species a weekday grid shows after its choices change: the same one while it is still offered,
+ * otherwise all species (null), so a new window or filter never leaves a choice that is not on offer.
+ */
+export function keptHeatmapChoice(choice: string | null, options: readonly { key: string }[]): string | null {
+    return choice !== null && options.some((option) => option.key === choice) ? choice : null;
+}
