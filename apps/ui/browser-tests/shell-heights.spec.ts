@@ -37,7 +37,9 @@ for (const size of [{ width: 1920, height: 900 }, { width: 1440, height: 800 }, 
         const name = [options.german ? 'German' : 'English', options.readingFont ? 'the reading font' : ''].filter(Boolean).join(' with ');
         test(`at ${size.width} × ${size.height} in ${name} every place in the navigation is in view`, async ({ page }) => {
             await open(page, size, options);
-            expect(await page.locator('#app-sidebar nav button').count()).toBeGreaterThanOrEqual(8);
+            // Dashboard, Explorer, Leaderboard, Audio history, Settings, Health and About: Add observation
+            // is in the header on a desktop.
+            expect(await page.locator('#app-sidebar nav button').count()).toBeGreaterThanOrEqual(7);
             expect(await hiddenPlaces(page)).toEqual([]);
             const status = page.locator('[data-sidebar-status]');
             const link = status.locator('[data-sidebar-status-link]');
@@ -325,14 +327,20 @@ async function statusOnShow(page: Page): Promise<boolean> {
 
 const RANGES: { name: string; width: number; from: number; to: number; who: Who; tall: number; expect: string[] }[] = [
     { name: 'the phone menu, signed in', width: 390, from: 672, to: 800, who: 'owner', tall: 900, expect: ['full', 'summary', 'compact'] },
-    { name: 'a desktop, signed in', width: 1280, from: 680, to: 780, who: 'owner', tall: 900, expect: ['full', 'summary', 'compact'] },
+    // On a desktop Add observation is in the header, not a place, so the room under the places is one
+    // place (48 px) taller than on the phone, and the tiers change that much lower down.
+    { name: 'a desktop, signed in', width: 1280, from: 632, to: 732, who: 'owner', tall: 900, expect: ['full', 'summary', 'compact'] },
     { name: 'the phone menu, signed out', width: 390, from: 672, to: 800, who: 'open', tall: 900, expect: ['full'] },
     // A guest has fewer places (no Add observation, Settings or Health), so the room runs out lower down.
     { name: 'the phone menu, as a guest', width: 390, from: 520, to: 680, who: 'guest', tall: 900, expect: ['full', 'summary'] },
     // The owner's laptop: a wide window just over 900 px tall, where the brand stacks over its mark (it
-    // sits beside it only up to 900 px tall) and the text is larger with the width, so the card's floor
-    // no longer fits under the places.
-    { name: 'a wide desktop around the brand stacking, signed in', width: 1920, from: 880, to: 1000, who: 'owner', tall: 1080, expect: ['full', 'summary'] }
+    // sits beside it only up to 900 px tall) and the text is larger with the width. With Add observation
+    // in the header rather than among the places, the card's floor fits on both sides of that boundary,
+    // so the card stays whole there; the walk still holds every height to the tier its room calls for.
+    { name: 'a wide desktop around the brand stacking, signed in', width: 1920, from: 880, to: 1000, who: 'owner', tall: 1080, expect: ['full'] },
+    // Lower down on the same wide desktop, the card does give way: measured at about 764 px tall, so a
+    // walk from 720 to 840 crosses from the one-line summary to the card with the larger text.
+    { name: 'a wide desktop, signed in', width: 1920, from: 720, to: 840, who: 'owner', tall: 1080, expect: ['full', 'summary'] }
 ];
 
 for (const range of RANGES) {
@@ -425,7 +433,7 @@ test('focus on the status moves to the same control in the new tier', async ({ p
     const cardLink = page.locator('[data-sidebar-status-link]');
     await expect(cardLink).toBeVisible(READY);
     await cardLink.focus();
-    await page.setViewportSize({ width: 1280, height: 720 });
+    await page.setViewportSize({ width: 1280, height: 672 });
     await expect(page.locator('[data-sidebar-status-summary]')).toBeVisible();
     await expect(page.locator('[data-sidebar-summary-link]')).toBeFocused();
     await page.setViewportSize({ width: 1280, height: 960 });
@@ -456,7 +464,7 @@ test('focus on the status moves to the Health place when only the Health place c
     const link = page.locator('[data-sidebar-status-link]');
     await expect(link).toBeVisible(READY);
     await link.focus();
-    await page.setViewportSize({ width: 1280, height: 720 });
+    await page.setViewportSize({ width: 1280, height: 672 });
     const place = page.locator('#app-sidebar nav [data-nav-path="/system-health"]');
     await expect(place.locator('[data-health-carries-status]')).toHaveCount(1);
     await expect(place).toHaveAccessibleName(/^Health: \d+ issues? needs? attention$/);
@@ -471,7 +479,7 @@ test('focus parked on the Health place returns to the status when it shows again
     const link = page.locator('[data-sidebar-status-link]');
     await expect(link).toBeVisible(READY);
     await link.focus();
-    await page.setViewportSize({ width: 1280, height: 720 });
+    await page.setViewportSize({ width: 1280, height: 672 });
     const place = page.locator('#app-sidebar nav [data-nav-path="/system-health"]');
     await expect(place).toBeFocused();
     await expect(page.locator('[data-sidebar-status]')).toHaveAttribute('inert', '');
@@ -487,7 +495,7 @@ test('focus the reader moved away from the Health place stays where they put it'
     const link = page.locator('[data-sidebar-status-link]');
     await expect(link).toBeVisible(READY);
     await link.focus();
-    await page.setViewportSize({ width: 1280, height: 720 });
+    await page.setViewportSize({ width: 1280, height: 672 });
     await expect(page.locator('#app-sidebar nav [data-nav-path="/system-health"]')).toBeFocused();
     await page.keyboard.press('Shift+Tab');
     const chosen = page.locator('#app-sidebar nav [data-nav-path="/settings"]');
@@ -506,9 +514,9 @@ test('focus follows a resize through the Health place tier to the summary', asyn
     const cardLink = page.locator('[data-sidebar-status-link]');
     await expect(cardLink).toBeVisible(READY);
     await cardLink.focus();
-    await page.setViewportSize({ width: 1280, height: 680 });
+    await page.setViewportSize({ width: 1280, height: 632 });
     await expect(page.locator('#app-sidebar nav [data-nav-path="/system-health"]')).toBeFocused();
-    await page.setViewportSize({ width: 1280, height: 740 });
+    await page.setViewportSize({ width: 1280, height: 692 });
     await expect(page.locator('[data-sidebar-status-summary]')).toBeVisible();
     await expect(page.locator('[data-sidebar-summary-link]')).toBeFocused();
 });

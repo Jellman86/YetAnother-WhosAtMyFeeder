@@ -60,6 +60,7 @@
     import { _ } from 'svelte-i18n';
     import Pagination from '../components/Pagination.svelte';
     import Segmented from '../components/ui/Segmented.svelte';
+    import AddObservationLink from '../components/AddObservationLink.svelte';
     import DetectionCard from '../components/DetectionCard.svelte';
     import DetectionRow from '../components/DetectionRow.svelte';
     import LazyModal from '../components/LazyModal.svelte';
@@ -80,6 +81,15 @@
     import { createEventMetadataRefresh } from './event-metadata-refresh';
     import { EVENTS_PAGE_REQUEST_KEYS } from './events-request-keys';
     import { createLatestRequest } from '../utils/latest-request';
+
+    type Props = {
+        /** Opens an in-app address in place, so the shell stays and unsaved work elsewhere is asked about. */
+        onNavigate?: (path: string) => void;
+        /** Starts loading a page's code when its link is pointed at or focused. */
+        onPrefetch?: (path: string) => void;
+    };
+
+    let { onNavigate, onPrefetch }: Props = $props();
 
     let events = $state<Detection[]>([]);
     let loading = $state(true);
@@ -2094,6 +2104,15 @@
     {/if}
 {/snippet}
 
+<!-- The owner's way to add a photo or video of their own: it joins the history this page shows. Only
+     the desktop header row holds it; narrower, that row has no other control, so it would be a row
+     to itself, and the shell's header icon (or the phone menu) is one tap away. -->
+{#snippet addObservation()}
+    {#if authStore.showSettings}
+        <AddObservationLink variant="labelled" {onNavigate} {onPrefetch} />
+    {/if}
+{/snippet}
+
 {#snippet sheetControls()}
     <div class="flex flex-wrap items-center gap-2" data-explorer-sheet-controls>
         {@render heardToggle()}
@@ -2172,6 +2191,7 @@
                 </button>
                 {@render viewSwitch()}
                 {@render multiSelectToggle()}
+                {@render addObservation()}
             </div>
         {/if}
     </div>

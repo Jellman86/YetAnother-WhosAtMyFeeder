@@ -780,6 +780,18 @@ html[data-theme='dark'] {
   }
 }
 
+/* The shell header's square icon controls (Refresh, Add observation, the bell, Settings). The one for
+   the page you are on is pressed, as a pressed toggle is: the accent ground, ink and hairline, so it
+   reads by shape as well as tint (the light ground alone is close to the page's), and carries
+   aria-current. */
+@utility header-control {
+  @apply grid min-h-11 min-w-11 place-items-center rounded-xl text-muted transition-colors duration-200 hover:bg-surface-raised hover:text-strong focus-ring;
+}
+
+@utility header-control-current {
+  @apply grid min-h-11 min-w-11 place-items-center rounded-xl border border-accent-line bg-accent-soft text-accent-ink transition-colors duration-200 focus-ring;
+}
+
 @utility sidebar-nav {
   @apply flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm font-medium transition-colors duration-200 focus-ring;
 }

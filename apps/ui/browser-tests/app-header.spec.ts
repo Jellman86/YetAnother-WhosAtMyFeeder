@@ -264,3 +264,40 @@ test('a camera frame that fails to load says so and gives the next step, clear o
     await expect(helpText).toBeInViewport({ ratio: 0.99 });
     await retry.click({ trial: true });
 });
+
+// A browser zoomed so the window is 767.5 CSS px wide sits between "767 px and narrower" and Tailwind's
+// md (768 px and wider). The shell once used the first for its phone form and the second to dock the
+// sidebar, so there it had neither a menu button nor a docked sidebar, and no way to the places. A
+// frame zoomed 2× stands in for the browser's zoom: its document is 767.5 CSS px wide.
+test('at a zoomed width of 767.5 px the places are still reachable', async ({ page, baseURL }) => {
+    await page.route(url => url.pathname.startsWith('/api/'), async route => {
+        const path = new URL(route.request().url()).pathname;
+        const responses: Record<string, unknown> = {
+            '/api/auth/status': { auth_required: false, is_authenticated: true, needs_initial_setup: false },
+            '/api/settings': { cameras: ['patio'] },
+            '/api/frigate/cameras/status': { cameras: [] },
+            '/api/update-status': { update_available: false },
+        };
+        if (path in responses) return route.fulfill({ json: responses[path] });
+        return route.fulfill({ status: 503, json: { detail: 'Unavailable in header fixture' } });
+    });
+    await page.route('**/health', route => route.fulfill({ json: { status: 'healthy' } }));
+    await page.setViewportSize({ width: 1600, height: 900 });
+    await page.setContent(`<iframe id="zoomed" title="App" src="${baseURL}/about" style="width:767.5px;height:440px;border:0;zoom:2"></iframe>`);
+    const app = page.frameLocator('#zoomed');
+    await expect(app.getByRole('heading', { level: 1, name: 'About', exact: true })).toBeVisible({ timeout: 15_000 });
+    const frame = page.frames().find((candidate) => candidate.url().endsWith('/about'));
+    expect(frame).toBeTruthy();
+    if (!frame) return;
+    // The frame really is between the two: not 767 px or narrower, and not 768 px or wider.
+    expect(await frame.evaluate(() => [matchMedia('(max-width: 767px)').matches, matchMedia('(min-width: 768px)').matches])).toEqual([false, false]);
+    const placeInView = () => frame.evaluate(() => {
+        const place = document.querySelector<HTMLElement>('#app-sidebar nav [data-nav-path="/events"]');
+        if (!place) return false;
+        const box = place.getBoundingClientRect();
+        return box.width > 0 && box.left >= 0 && box.right <= innerWidth && !place.closest('[inert]');
+    });
+    const menu = app.getByRole('button', { name: 'Menu', exact: true });
+    if (await menu.count()) await menu.click();
+    await expect.poll(placeInView).toBe(true);
+});

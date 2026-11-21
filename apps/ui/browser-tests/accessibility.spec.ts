@@ -540,9 +540,15 @@ test('the page declares the language on screen, and a long German label is shown
     await page.goto('/about');
     await expect(page.locator('html')).toHaveAttribute('lang', 'de');
     const labels = page.locator('#app-sidebar nav button span');
+    const cutLabels = () => labels.evaluateAll((nodes) => nodes.filter((node) => node.scrollWidth > node.clientWidth + 1).map((node) => node.textContent));
+    await expect(labels.first()).toBeVisible();
+    expect(await cutLabels()).toEqual([]);
+    // The longest label, Add observation, is a place only in the phone menu (the header holds it on a desktop).
+    await expect(page.locator('main header').getByRole('link', { name: 'Beobachtung hinzufügen', exact: true })).toBeVisible();
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.locator('button[aria-controls="app-sidebar"]').click();
     await expect(labels.filter({ hasText: 'Beobachtung hinzufügen' })).toBeVisible();
-    const cut = await labels.evaluateAll((nodes) => nodes.filter((node) => node.scrollWidth > node.clientWidth + 1).map((node) => node.textContent));
-    expect(cut).toEqual([]);
+    expect(await cutLabels()).toEqual([]);
 });
 
 for (const theme of THEMES) {
