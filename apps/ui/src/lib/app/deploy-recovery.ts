@@ -30,6 +30,11 @@ interface DeployRecoveryOptions {
     deploymentCheckMs?: number;
     report?: (event: DeployRecoveryEvent) => void;
     warningMessage?: string;
+    /**
+     * Said instead when a page failed to load and the server could not be asked for its build: nothing
+     * measured says the app was updated, so this names what is known and what to do.
+     */
+    unreachableMessage?: string;
 }
 
 interface HealthLike {
@@ -117,6 +122,9 @@ export function createDeployRecovery(options: DeployRecoveryOptions) {
     const warningMessage =
         normalizeString(options.warningMessage) ||
         'The app was updated while this tab was open. Refresh the page.';
+    const unreachableMessage =
+        normalizeString(options.unreachableMessage) ||
+        'This page could not be opened, and YA-WAMF could not be reached to check for an update. Check your connection, then refresh the page.';
     const hasUsableAppVersion = Boolean(appVersion && appVersion.toLowerCase() !== 'unknown');
     const attemptPrefix = hasUsableAppVersion ? `stale:${appVersion}` : '';
     const warnedSignatures = new Set<string>();
@@ -184,13 +192,14 @@ export function createDeployRecovery(options: DeployRecoveryOptions) {
     function warnOnce(
         signature: string,
         reason: DeployRecoveryReason,
-        backendVersion?: string
+        backendVersion?: string,
+        message: string = warningMessage
     ): DeployRecoveryAction {
         if (warnedSignatures.has(signature)) return 'warn';
         warnedSignatures.add(signature);
         incrementRecoveryCount();
         options.report?.({ action: 'warn', reason, frontendVersion: appVersion, backendVersion });
-        options.warn(warningMessage);
+        options.warn(message);
         return 'warn';
     }
 
@@ -237,7 +246,7 @@ export function createDeployRecovery(options: DeployRecoveryOptions) {
     async function confirmDeployment(): Promise<void> {
         const backendVersion = await readServerVersion();
         if (backendVersion === null) {
-            warnOnce(`${attemptPrefix}:runtime-unconfirmed`, 'runtime_failure');
+            warnOnce(`${attemptPrefix}:runtime-unconfirmed`, 'runtime_failure', undefined, unreachableMessage);
             return;
         }
         if (isSameDeployment(appVersion, backendVersion)) return;

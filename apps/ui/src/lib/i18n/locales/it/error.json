@@ -6,5 +6,6 @@
   "copy_details": "Copia dettagli errore",
   "copied": "Copiato",
   "reload_page": "Ricarica pagina",
-  "deploy_refresh_required": "YA-WAMF è stato aggiornato mentre questa scheda era aperta. Aggiorna la pagina per caricare la versione più recente."
+  "deploy_refresh_required": "YA-WAMF è stato aggiornato mentre questa scheda era aperta. Aggiorna la pagina per caricare la versione più recente.",
+  "update_check_unreachable": "Impossibile aprire questa pagina e raggiungere YA-WAMF per verificare se c’è un aggiornamento. Controlla la connessione, poi aggiorna la pagina."
 }

@@ -6,5 +6,6 @@
   "copy_details": "Fehlerdetails kopieren",
   "copied": "Kopiert",
   "reload_page": "Seite neu laden",
-  "deploy_refresh_required": "YA-WAMF wurde aktualisiert, während dieser Tab geöffnet war. Aktualisieren Sie die Seite, um die neueste Version zu laden."
+  "deploy_refresh_required": "YA-WAMF wurde aktualisiert, während dieser Tab geöffnet war. Aktualisieren Sie die Seite, um die neueste Version zu laden.",
+  "update_check_unreachable": "Diese Seite konnte nicht geöffnet werden, und YA-WAMF war nicht erreichbar, um nach einem Update zu suchen. Prüfen Sie Ihre Verbindung und aktualisieren Sie dann die Seite."
 }

@@ -343,13 +343,18 @@ describe('a failed import', () => {
     });
 
     const IMPORT_FAILED = { message: 'Importing a module script failed.' };
+    const UPDATED = 'updated while this tab was open';
+    const UNREACHABLE = 'could not be reached to check for an update';
 
     function setUp(answer: () => Promise<{ version?: string } | null>, storage = createStorage()) {
         const reload = vi.fn();
         const warn = vi.fn();
         const report = vi.fn();
         const readDeployment = vi.fn(answer);
-        const recovery = createDeployRecovery({ appVersion: '2.9.1-dev+old', storage, reload, warn, report, readDeployment, deploymentCheckMs: 5000 });
+        const recovery = createDeployRecovery({
+            appVersion: '2.9.1-dev+old', storage, reload, warn, report, readDeployment, deploymentCheckMs: 5000,
+            warningMessage: UPDATED, unreachableMessage: UNREACHABLE
+        });
         return { recovery, reload, warn, report, readDeployment, storage };
     }
 
@@ -394,10 +399,12 @@ describe('a failed import', () => {
         again.recovery.handleRuntimeFailure(IMPORT_FAILED);
         await vi.advanceTimersByTimeAsync(0);
         expect(again.reload).not.toHaveBeenCalled();
+        // The server named a different build, so saying the app was updated is a measured fact.
         expect(again.warn).toHaveBeenCalledTimes(1);
+        expect(again.warn).toHaveBeenCalledWith(UPDATED);
     });
 
-    it('when the server cannot be asked, does not reload and shows the Refresh message', async () => {
+    it('when the server cannot be asked, does not reload and says it could not check for an update', async () => {
         vi.useFakeTimers();
         const { recovery, reload, warn, storage } = setUp(async () => {
             throw new TypeError('Load failed');
@@ -405,11 +412,13 @@ describe('a failed import', () => {
         recovery.handleRuntimeFailure(IMPORT_FAILED);
         await vi.advanceTimersByTimeAsync(0);
         expect(reload).not.toHaveBeenCalled();
+        // Nothing says the app was updated: the page could not be opened and the server not asked.
         expect(warn).toHaveBeenCalledTimes(1);
+        expect(warn).toHaveBeenCalledWith(UNREACHABLE);
         expect(storage.getItem('yawamf_deploy_recovery_attempt_v1')).toBeNull();
     });
 
-    it('when the server does not answer in time, does not reload and shows the Refresh message', async () => {
+    it('when the server does not answer in time, does not reload and says it could not check for an update', async () => {
         vi.useFakeTimers();
         const { recovery, reload, warn } = setUp(() => new Promise(() => undefined));
         recovery.handleRuntimeFailure(IMPORT_FAILED);
@@ -418,6 +427,16 @@ describe('a failed import', () => {
         await vi.advanceTimersByTimeAsync(1);
         expect(reload).not.toHaveBeenCalled();
         expect(warn).toHaveBeenCalledTimes(1);
+        expect(warn).toHaveBeenCalledWith(UNREACHABLE);
+    });
+
+    it('when the server answers without naming its build, says it could not check, not that the app was updated', async () => {
+        vi.useFakeTimers();
+        const { recovery, reload, warn } = setUp(async () => ({}));
+        recovery.handleRuntimeFailure(IMPORT_FAILED);
+        await vi.advanceTimersByTimeAsync(0);
+        expect(reload).not.toHaveBeenCalled();
+        expect(warn).toHaveBeenCalledWith(UNREACHABLE);
     });
 
     it('two failures together ask once and reload once, with no Refresh message flashed first', async () => {

@@ -16,6 +16,7 @@
   reloading for a page that failed to load, YA-WAMF now asks the server which version it runs, and
   reloads only when the server runs a different one. This does not depend on timing or on Safari saying
   the page is being left, which Safari on iPhone does not. On the same version nothing reloads, and the
-  page keeps its **Try opening again** button. If the server cannot be reached, YA-WAMF does not reload
-  and shows its "Refresh the page" message. A tab's one automatic reload is used only when a reload
+  page keeps its **Try opening again** button. If the server cannot be reached, YA-WAMF does not reload,
+  and no longer claims it was updated: it says the page could not be opened and the server could not
+  be reached to check for an update, and asks you to check your connection and refresh. A tab's one automatic reload is used only when a reload
   actually happens. The failed load is still written to the log.

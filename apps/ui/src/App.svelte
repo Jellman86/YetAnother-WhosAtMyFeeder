@@ -342,7 +342,12 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
           toastStore.warning(message, 10_000);
       },
       report: (event) => logger.warn('deploy_recovery', { ...event }),
-      warningMessage: t('error.deploy_refresh_required')
+      warningMessage: get(_)('error.deploy_refresh_required', {
+          default: 'YA-WAMF was updated while this tab was open. Refresh the page to load the latest build.'
+      }),
+      unreachableMessage: get(_)('error.update_check_unreachable', {
+          default: 'This page could not be opened, and YA-WAMF could not be reached to check for an update. Check your connection, then refresh the page.'
+      })
   });
 
   function handleRouteLoadError(error: unknown): void {
