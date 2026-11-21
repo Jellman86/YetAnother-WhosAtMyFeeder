@@ -6,6 +6,1626 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [2.24.0] - 2026-11-21
+
+Entries are grouped by area, newest first within each group. Where a later entry revises an
+earlier one, the later one describes what ships.
+
+### Visits, history and the API
+
+- **You can choose how far apart captures can be and still count as one visit.** On a busy
+  feeder, birds of one species that come back every few seconds were all merged into one long
+  visit by the fixed 60-second gap. **Settings → Identifying birds → Counting visits** now sets
+  the gap, from 5 to 300 seconds (60 by default), or `VISITS__GAP_SECONDS` in the environment.
+  The Dashboard, Explorer, Leaderboard, statistics and Garden animal visits all group with it,
+  for guests as well as the owner, from the next page you open, with no restart. A shorter gap
+  splits a busy feeder into more, shorter visits, but it cannot count individual birds. Days
+  already kept as daily totals keep the visit counts they were saved with. `/api/visits` reports
+  the gap it used in `gap_seconds`, and `/api/settings/public` carries `visit_gap_seconds`
+  ([docs/api.md](docs/api.md)). Thanks to @darkslen1 for the request.
+
+- **A bird saved under a translated name is recognised everywhere you pick a species.** When a visit
+  carries a common name in another language, such as "Большая синица" or "Kohlmeise", every species
+  picker (bulk reclassify and the species check included) now knows it is the same bird as "Parus
+  major" from the start. It no longer offers both as separate choices, and no longer asks
+  iNaturalist each time you open a picker. A name is only trusted when it points at one species:
+  first in your own language, then across languages. A name two species share is left alone
+  rather than guessed.
+
+- **The species picker lists each bird once.** When a visit was saved under a local name that the
+  taxonomy cache could not resolve, such as "Большая синица", and the model's own label named the
+  same species ("Parus major"), the picker offered both as separate rows once their scientific
+  names were filled in. It now merges them after the names are filled in, keeping the row with the
+  fullest taxonomy and any name the other row had already found. Thanks to @darkslen1 for the fix.
+
+- The Leaderboard's chart and each species' weekday and month charts now keep their history after
+  cleanup deletes old captures (#949). Before cleanup, scheduled or **Purge Old Records**, removes
+  any capture from a day, it writes that day's captures and visits per species and seals the day;
+  charts count sealed days from those totals, so seasonal trends reach back past your retention
+  period. If the totals cannot be saved, nothing is deleted and Health says "Retention paused". A
+  capture deleted because Frigate no longer has it keeps its count, and its day stays live. The
+  chart says from which day its counts come from daily totals, since the photos and clips for
+  those days are gone, and the hour-and-weekday grid says older days have no time of day. A
+  sealed day keeps its totals even if you later hide or delete one of its few kept captures, and
+  **Delete all history** deletes the totals too. Totals start when you upgrade: days that began
+  before then are marked as possibly low. Downgrading below this release deletes the daily totals
+  for good. See [Daily totals](docs/features/favourites.md#daily-totals-keep-the-counts).
+
+- The API can now return everything from today in one go (#950). `GET /api/events`,
+  `GET /api/events/count` and `GET /api/visits` accept `start_date=today` and `end_date=today`,
+  and `GET /api/stats/daily-summary?window=today` counts from local midnight instead of the
+  last 24 hours (still the default). "Today", and any date you pass, is a calendar day in your
+  zone: the browser's, which the web interface sends as `X-Timezone`, or for scripts and Home
+  Assistant the container's `TZ` (UTC when it is unset). A bird at 23:30 local time is no longer
+  counted on the next day; dates used to be read as UTC days. One `/api/visits` request now
+  returns up to 500 visits (was 100) and asks Frigate about each visit's photo only;
+  `/api/events` adds an `X-Next-Offset` header while more events remain, and captures saved in
+  the same instant keep one order between pages. Guests can never see more than before.
+  Timezone data now ships with every image, and a `TZ` that names no real zone is logged once.
+  See [Calendar days](docs/api.md#calendar-days-and-today).
+
+- You can now record the measured light level with each detection (#945). Name a lux sensor
+  under **Settings → Integrations → Home Assistant weather → Illuminance entity** and each new
+  detection keeps its reading, shown in the record's **Conditions** row ("Light 1,240 lx"), in
+  the API as `illuminance_lux`, and in the eBird export's species comment. The value is only
+  ever a measurement: `unknown`, `unavailable`, a value that is not a number or is outside 0 to
+  200,000 lx, and an entity that is not an illuminance sensor all store nothing, and it is
+  never estimated from the forecast. Once stored it is not rewritten, so changing the sensor
+  later leaves history alone. **Fetch a live reading** now shows the light level on its own
+  line, or the reason there is none. See
+  [Home Assistant](docs/integrations/home-assistant.md#weather-and-light-from-your-own-sensors).
+- With only an illuminance entity named for Home Assistant, and no weather entity or sensor
+  override, weather now keeps coming from the forecast provider instead of being left empty.
+
+### Settings
+
+Settings was reworked in stages during this release, and the newest entries come first. They
+describe Settings as it ships: six sections (Cameras & connection, Identifying birds, Alerts,
+Sharing & integrations, Storage & upkeep and Display) with a search. Older entries name the tabs
+those sections replaced, such as Detection, Models, Data and Maintenance.
+
+- **Settings has a search.** A **Search settings** box leads the Settings navigation on every screen
+  size. Type a setting's name, what it does, or a word such as "password", "GPU" or "backup", in the
+  language the interface is in; each result says where the setting lives. Choosing one opens its
+  section, opens More options and any advanced group around it, and puts the keyboard on its
+  control with an outline for a moment. A setting that only shows while a switch is on takes you to
+  that switch, with the reason beside it. Press **/** on Settings to reach it. On keyboards that
+  type **/** with Shift (German, Spanish, Italian, Portuguese, French), **/** now focuses the search
+  on Settings and on the Explorer; it used to open the shortcuts panel, which stays on **?**. See
+  [How Settings is laid out](docs/setup/configuration.md#how-settings-is-laid-out).
+- **Settings is easier to read.** The section you are in is named above its settings and stays in
+  view as you scroll. Each group has a larger heading over a raised card. In every row the
+  setting's name is the one bold thing; help text, values and links are regular weight, where
+  before headings, values, links and a line of help were all bold and the name was not.
+
+- In Safari, a Settings part that an address landed on no longer slides down when the jobs strip
+  appears at the top of the page a moment later. The landing now holds the part itself in place for a
+  few seconds, not only the section around it.
+
+- An older Settings address such as `/settings/beta` or `/settings/models` now lands on its part and
+  stays there. The page used to scroll to the part while the settings above it were still filling
+  in, so the part slid away under you; it now scrolls once the section has its answers and has drawn
+  them, even on a slow connection, and follows anything that arrives later. Scrolling, pressing a key
+  or going elsewhere first leaves you where you are, and a newer address always wins.
+- Keyboard focus moves to the part's heading when a Settings address lands on it, so the next Tab
+  starts there and a screen reader says where you are.
+
+- **The documentation's Settings screenshots show Settings as it is now**, organised by task: Cameras
+  & connection, Identifying birds, Alerts, Sharing & integrations and Storage & upkeep, with
+  BirdNET-Go under Cameras & connection's More options. The capture script opens each section by its
+  route, and `--settings-only` retakes just these figures.
+
+- **The range filter's preview counts captures, as it says now.** Its number beside each species is
+  every stored photo of that species in the last 90 days, and several photos can be one visit. It
+  read "6 visits", which overstated the birds; it now reads "6 captures", in every language.
+
+- **Cameras & connection reads BirdNET-Go's sources only when it shows them.** Opening the section no
+  longer asks BirdNET-Go for its sources. They are read the first time its camera mapping is shown
+  under More options with audio on, once per visit, and again after a save while it is shown.
+
+- The last Settings words that did not match the rest of the app: the part of Identifying birds
+  that was listed as "Detection" is **Naming and filters**, Live announcements "announces each
+  new visit to a screen reader", and Spanish, Italian and Portuguese no longer capitalise the
+  second word of "Hide detection".
+
+- **The status beside each Settings section explains itself.** Each chip says what the part is for
+  and its cause in words, saying only what was measured ("Frigate answers, and no camera is
+  reported offline"), instead of a code in a tooltip. A reading that is out of date shows no
+  causes.
+- **Test results are honest about not being kept.** Frigate, MQTT, BirdNET-Go and Alerts show
+  their test's result, with its time, only when it ran during this visit. Otherwise the column
+  says "Test results aren't kept. Run the test to check now." and offers the test. A test run with
+  values not saved yet says so, and the result goes at the next edit, Discard or Save.
+
+- **Accessibility is chosen per device, with a default for everyone.** Display opens with
+  **Accessibility on this device**: high contrast, **Reading font: OpenDyslexic**, reduced motion
+  and live announcements change this browser at once, need no saving, and outlast a reload. Each
+  switch says whether it follows the default for everyone or was set here, with **Use the default**
+  to go back. The saved switches are now **Defaults for everyone**, under More options: guests and
+  devices with no choice of their own follow them, and a device with its own choice keeps it.
+
+- Storage & upkeep speaks the same words as the rest of the app. What it counts, keeps and
+  deletes are **captures** (German: Aufnahmen), so the delete-everything card is **Every capture
+  and its media**, the filler for gaps is **Missed visits**, and a skipped one is "Below naming
+  threshold". The crop cache names the **bird finder**, the retention note quotes the button it
+  means, and sizes keep their unit on the same line.
+- Fixed: when a time zone scan found nothing to repair, every language but English showed the
+  English sentence. Each language has its own again.
+
+- **Storage & upkeep** opens with what is kept and for how long (history, photos and video) and
+  the configuration backup. What happens when Frigate loses a visit, and the jobs that repair or
+  fill in the history, each with its last run, are under **More options**. **Delete data** stays
+  last, outside More options, each action with its consequence beside its button. The media
+  integrity scan, under More options, can delete under the **Delete local data** policy, and its
+  confirmation now says so: it words the saved policy, says no count is known before the scan, and
+  under Delete that it cannot be undone. Batch analysis notices open its card there.
+- **Display** opens with theme, text size and language, which change at once on this device, and
+  the accessibility switches. The choices saved for everyone (date and time format, how birds are
+  named, the Explorer layout, fonts and colours, and Units) are under **More options**.
+- The status in Identifying birds, Health and the sidebar no longer calls the identification model
+  working when the chosen model's files are not on this install, or the bird finder ready when it
+  is not downloaded (also when another installed finder stands in for it). Both now read the same
+  rule as the Models status line.
+  - **A missing identification model** is an error to fix. It marks the install as needing
+    attention: Health lists it with what to do, a notification says it in words, and the
+    sidebar's count includes it.
+  - **A bird finder that is not downloaded** is optional: its chip and the finder panel say so, but
+    it does not mark the install as needing attention or raise a notification.
+
+- Under the hood, 209 Settings strings that no screen displays were removed from every language.
+  Nothing you see changes.
+
+- Settings speaks of visits, records, calls, guests and the owner instead of "detections",
+  "visitors" and "admin": sharing ("Lets guests see your visits without signing in"), the range
+  filter ("Check new visits against your region", "6 visits"), integrations, alerts and the camera
+  options, in English and German.
+- The range filter's link to add a rarity yourself reads "Add observation", as the page it opens
+  does, and its other link reads "Open Health".
+- Sizes and distances in Settings no longer split from their unit at a line end, in every language.
+
+- Unsaved Settings changes kept by Back are no longer lost to a quick Back and Forward. If Settings
+  was left again while it still waited for the saved settings, it kept its empty, unfilled form as
+  the draft and replaced the real one, so the edits came back blank. It now keeps a draft only from
+  a form it has filled, and the waiting draft stays as it was.
+
+- **Alerts** opens with the delivery sentence and the **Channels** card. The cooldown, the
+  notification language, the link and the species filter are under **More options**; the sentence
+  states the species filter in words, and its words open More options at the one control that sets
+  it.
+- **Garden animal alerts** moved from the Garden card to **Alerts → More options**, marked Beta,
+  beside the channels they send through. The Garden card links there. Every setting is unchanged.
+
+- **Identifying birds** opens with one **Naming threshold** card: the birds' naming threshold and
+  floor, learning from your corrections, and while Garden animals is on, Garden's own automatic
+  naming and its threshold in a row marked Beta, so both are set in one place. The models that name
+  birds follow. Blocked species, the range filter, video checks, **Hardware** with its runtime report,
+  and Beta features are under **More options**. A paused video check is still shown at the top.
+- The device check on the model list and the one under Hardware are now one check: whichever
+  started it, the other shows it running and cannot start a second.
+
+- **Sharing & integrations** opens with your feeder's location, as a card of its own, then sign-in
+  and guest access. eBird, iNaturalist, BirdWeather, Home Assistant weather, where species pages get
+  their information, AI descriptions and telemetry are under **More options**. An old link such as
+  `/settings/ai` opens More options at AI. Every setting is unchanged.
+- **Display units** moved to **Display → Units**, beside how the rest of YA-WAMF reads. The card
+  says they apply to everyone who opens this install, not only this device.
+
+- Settings uses the width of your screen. From a tablet in landscape the section list sits beside
+  the settings, and on a wide monitor each section's status and parts get a column of their own
+  beside the controls. Sentences keep a readable line length at every width, and a phone never
+  scrolls sideways.
+- Each Settings section opens with a **Status** line from the live system status: a chip for each
+  part it depends on, with **Details in Health** for the cause. A part not measured yet says so.
+- The unsaved-changes bar is one short strip, even on a phone at 200% text or with a wider font.
+  It counts the changes beside **Discard** and **Save**; **Details** opens the changed sections, the
+  save rule, conflicts and refused fields above it. Restored drafts, conflict choices and refusals
+  work as before.
+- **Cameras & connection** shows the Frigate address, the MQTT broker and the cameras to watch
+  first, with the rest under **More options**. BirdNET-Go moved there from Integrations, because
+  like Frigate it is a source of visits, and the section's status includes audio. Every BirdNET-Go
+  setting is unchanged; a refused one opens **More options** for you.
+
+- Settings is now organised by the task you came to do: six sections instead of twelve tabs.
+  **Cameras & connection** holds Frigate, MQTT and the cameras to watch. **Identifying birds**
+  holds detection, the models and their hardware, and Beta features. **Alerts** holds
+  notifications. **Sharing & integrations** holds the other services, AI, sign-in, guest access
+  and telemetry. **Storage & upkeep** holds what is kept, the configuration backup, the repair
+  jobs and deleting history. **Display** holds appearance and accessibility. Every setting is
+  still there, in the same card as before; the [configuration guide](docs/setup/configuration.md#where-did-it-go)
+  has a map from each former tab to its section.
+- Old Settings links and bookmarks keep working. An address such as `/settings/models` opens the
+  section that now holds it, scrolled to that part, at its new address
+  (`/settings/identification#models`). Moving from one part to another, with a link, Back or
+  Forward, scrolls to that part each time, and a reload keeps it.
+- Help text across the app that pointed at a Settings tab, such as "Settings → Models", now names
+  the section that holds it, in every language.
+- The unsaved-changes bar now names the section for a changed theme font, colour theme or
+  Explorer layout. Before, those three changes were counted but no tab was named.
+
+- **Settings › Models now says, in one sentence, what names your birds right now.** For example
+  "Naming birds with Birds of your region, quick on Intel GPU.", or "Nothing is naming birds yet:
+  … is not on this install." when the chosen model's files are missing. The first-run wizard's
+  model step and About show the same sentence, so the three never disagree. The four-column strip
+  of runtime facts is gone; a link appears only when the runtime report has something to check.
+- **The identification model is chosen around one decision.** Models shows the model in use and,
+  while the install still runs the small starter model or nothing, one recommended next model.
+  The Hardware device choice is labelled **Identification model runs on**, and the two device
+  checks say what they cover (**Check devices for every installed model**, **Check devices for the
+  bird finder**). The rest of the catalogue waits behind a single **Choose another model** disclosure (the second
+  "Show all models" toggle is gone), and a row opens its details in place. Models are named by
+  what they are for ("Birds and wildlife, balanced"), with the code name beside it, and their
+  coverage, download size and memory are one line in plain words.
+- **No model is called built in unless it really ships with your install.** The "Built-in
+  fallback" group is now "Small and quick", and `GET /api/models/installed` marks a model with
+  `bundled: true` only when it comes from the image, so a model that still needs downloading is
+  never labelled built in.
+- **A model that failed to load is never reported as naming birds.** The status sentence says it
+  is installed but failed to load, with the cause in plain words and the runtime's own message
+  under Technical details (not on About).
+- **Maintenance says when each job last ran and what it found**, from a durable record that
+  survives a restart (new owner-only `GET /api/maintenance/last-runs`). A timezone scan whose
+  Frigate lookups failed says it could not check them and asks for another scan, instead of
+  reporting that nothing needs a repair, and a running backfill says when it started. Each job says when to run
+  it and what it changes, **Apply timezone repair** says why it is disabled ("Scan first", or
+  "Nothing to repair" when the last scan found nothing), Missed detections reads "Skipped" and
+  "Failed" in full, and times follow the app's own date and 12/24-hour settings.
+- **Settings › Data has one storage budget.** **Limit the space photos and video use** is a
+  switch with a size in GB, with one sentence of what the rules add up to; the two per-species
+  limits moved under advanced options, each with its own switch, so "0 means off" no longer has
+  to be typed. An emptied or out-of-range size is refused with a reason and the saved limit kept,
+  never replaced by a small one. The summary names every rule that removes media, the per-species
+  cap included. Archived favourites wait for a measurement instead of showing 0.
+- **Beta features: the two Garden sliders say what each decides** ("Suggest a motion photo when
+  this sure it shows an animal", "Name an animal when this sure which one it is"), and Collection
+  status is a few plain sentences that name what is stopping the first check.
+- **The unsaved-changes bar is one line and two buttons**, with the save rule behind **How saving
+  works**, so it no longer covers most of a phone at 200 % text. When a change was also saved
+  elsewhere, the bar shows both values ("Saved elsewhere: … · Yours: …") beside the choice.
+
+- **Pointers to Settings name the tab that holds the setting.** A missing Garden country now sends
+  you to Settings → Integrations → Location, the empty Explorer sends a backfill to Settings →
+  Maintenance, and nothing mentions a Debug or Health tab any more. This holds in all nine languages,
+  and a test checks every "Settings → …" in the copy against the real tab names. The guides follow:
+  model, hardware and runtime diagnostics are under Settings → Models, and Health is its own page.
+- **System status shows open issues on one line.** "2 issues need attention" is now the link to the
+  Health page, instead of sitting above a separate "System health" link. With nothing open the line
+  still reads "System health".
+
+- **Settings is calmer and easier to scan.** Every tab is one column of plain sections, each a
+  heading over one card of rows: the label and its hint on the left, the control on the right,
+  with fields, selects and switches all ending on one edge, and nothing boxed inside a card. Icons
+  and coloured bars are gone, each tab says in one line what it holds, buttons that act at once
+  are sized to their words, and extra fields wait behind "Show advanced options". Short choices
+  sit on a neutral track with the chosen one raised; longer ones are a select (text size, a
+  camera's "Watch for" and role) or a radio list. The current section is marked the way the
+  sidebar marks a page, every on/off setting is a switch, every threshold is a slider (Garden's
+  two included), and a card's own switch sits in its header instead of repeating its title as the
+  first row (Integrations, Sign-in, Public access, each notification channel).
+- **Focus never hides under the save bar.** While unsaved changes show the bar, the page keeps a
+  focused control above it, at every text size.
+- **What acts now and what waits is said once, in the unsaved-changes bar**, and Appearance and Accessibility
+  say which choices apply at once on this device and which apply to everyone after saving.
+- **Leaving with unsaved changes offers Save and leave**, and a tab holding a refused value is
+  marked "needs a fix" in the rail and the phone's section list.
+- **Plainer words.** "Learn from my corrections", "Device", "Isolation", "Older labels", a
+  sentence under each confidence threshold, "Sign-in is off, so anyone who can open this address
+  can change every setting", public access explaining why it waits for sign-in, the AI test saying
+  it needs a key, a calm AI usage confirmation, British spelling in Settings, and "Unknown Bird"
+  translated in every language. Connection's broker address and port line up, its test reads
+  "Test Frigate and MQTT" and sits after both, and Sync cameras sits with the cameras.
+- **The BirdNET-Go test runs every check** even when the URL check fails, since the MQTT and
+  pipeline checks do not depend on it.
+- **Model testing says where its photos come from.** Models and Model evaluation now say the
+  models are compared on reference photos of known species from iNaturalist and Wikimedia
+  Commons, not on photos you confirmed.
+- **Settings shows what it will save.** Public access that is on can always be turned off, even
+  while sign-in is off. The notification cooldown shows the whole minutes it saves. An AI
+  provider set outside Settings shows as itself. Garden's suggestion threshold moves one point
+  at a time and keeps a calibrated value exactly until you move it.
+
+- **Every setting has one home, and Settings has a tab per job.** Detection keeps the rules for
+  accepting an identification; a new **Models** tab holds the identification model, the bird
+  finder, the hardware and the runtime report, with the full model list behind **Choose another
+  model**. Data keeps what is kept and for how long, with the configuration backup; a new
+  **Maintenance** tab holds the repair and fill-in jobs and, in a closed card at its end, the
+  actions that delete history. Telemetry moved to Security, beside who can reach the install. The
+  Debug tab is gone: its switch and the Model evaluation link are in Models, and old links to
+  `/settings/debug` open Models.
+- **Health is a page of its own** under Manage in the sidebar, at `/system-health`. Older links to
+  Settings → Health and `/settings/errors` open it. Its verdict and its list of open problems now
+  come from the same reading, so it can no longer say "Degraded" beside "0 open"; an open
+  incident is listed with the verdict and never shown beside "Healthy", and the panel below holds
+  only incidents that have cleared. The process table can be reached and scrolled by keyboard, the
+  chart legend names CPU once, and **Clear error history** says what it clears.
+- **Settings › Models names the model in use as its card does** and says when its file is not on
+  this install, instead of showing a file name with "1 species". The bundled model in use shows
+  **In use**, never **Download & set up**. The classifier status reports `effective_model_name`
+  and `active_model_installed` ([API](docs/api.md)).
+- **Garden alerts are set with the rest of Garden**, in Beta features → Garden animals → Alerts;
+  Notifications links there and stays the one place channels are set up. In the notification
+  sentence, the species and the channels are links to their one control instead of second
+  controls, and audio-only is a switch.
+- **Calm, counted confirmations.** Deleting all history asks "Delete all 882 detections, every
+  cached photo and clip, and every archived favourite?" instead of "DANGER … ALL". Red is kept for
+  actions that delete; repairs, backfills and the integrity scan are ordinary buttons, the scan
+  turning red only while its policy deletes local data. The Data tab states its history in one
+  sentence instead of four stat tiles.
+- **Plainer words in Settings.** The Notifications hint for Frigate links points to Connection,
+  where the Frigate public URL is set, with a button that opens the field; "Detections page" is
+  now the Explorer; "nowhere yet" is "no channel yet"; the Debug switch reads "Discard results the
+  model could not compute".
+
+- Settings reads clearly in the dark theme. Hints, captions, chart axes and status words that
+  stayed dark grey on the dark cards now have their own lighter tone, and faint reds, ambers and
+  greys in the light theme are darker, so every line of Settings text meets the 4.5:1 contrast floor.
+- Screen readers and voice control hear what is on screen. Option tiles such as the bird naming
+  style, theme and location mode are named by the words on them, and the notification sentence's
+  choices read their value first and then the setting they open. Each set of options is named by
+  its label.
+- Settings headings now step down one level at a time on every tab, so a heading list reads as an
+  outline, and the System health readings are a valid list.
+- Jumping to a Settings section no longer glides when your system or the Accessibility tab asks
+  for reduced motion.
+- Settings switches and focus rings come from the shared kit: an off switch is as easy to see as an
+  on one, and keyboard focus draws the same clear ring as everywhere else.
+- Settings holds up with your text doubled. On a wide screen it switches to the stacked layout
+  instead of squeezing the settings beside the section list. Card buttons, notification channel
+  switches, danger actions and the System readings wrap under their titles when there is no room
+  beside them, option captions wrap instead of cutting off, and the worker table scrolls within
+  its own box.
+
+- Settings starts at the top of the page on a wide screen. The four-column section menu is now a
+  compact rail beside the settings, with a **Skip to the settings** link, and a section holding
+  unsaved changes is marked "unsaved". On a phone a **Settings section** list names where you are,
+  and **Setup wizard** is an ordinary button.
+- Every setting has one home. Telemetry moved from Connection to Data, beside the other choices
+  about what is kept and sent. The species information sources that had a tab of their own are a
+  summary at the end of Integrations, and each one that needs eBird says so with a **Set up eBird**
+  button; the old `/settings/enrichment` and `/settings#enrichment` addresses still open it. The Appearance language says it is this screen's
+  language, and notifications keep their own.
+- Detection leads with what decides an identification (the confidence sliders), then blocked
+  labels and the range filter, then the models; Hardware and Frigate options start closed, keep
+  their state while you move between tabs, and open themselves when a refused value is inside. Hardware
+  and its runtime report open for a runtime problem and stay open after it clears, so a report
+  being read never jumps shut; closed on a problem, they stay closed while that same problem
+  remains, and open again for a different one. The status line's health link opens both. Model
+  cards badge only the active, installed or broken models and state memory in words, without the
+  bar that looked like download progress. The minimum confidence floor is no longer amber, and
+  every Settings slider shows its value beside its label with the slider close beneath; screen
+  readers hear the value once, from the slider itself.
+- Settings reads calmly: rows are separated by hairlines instead of boxed inside cards, labels are
+  in sentence case rather than spaced capitals, switch hints say what turning them on does instead
+  of "Toggle …", off switches and small print meet contrast in both themes, and card titles sit
+  directly under the page heading. Section names in the list are sentence case too, and buttons
+  such as **Test connection** follow the same rule, as do Health's labels.
+
+- Settings now tells you exactly what is unsaved. The bar at the bottom counts the changes and
+  names the tabs that hold them, each a link, and shows only while a saved value would really
+  change: Integrations no longer claims unsaved changes the moment it opens, and the bar never
+  covers the last setting on a phone or a wide screen. **Discard changes** puts every saved value
+  back, stored secrets included, without a request. A stored secret's field shows it is stored
+  again if you type in it and clear it, since saving an empty field keeps it. The button is now **Save changes**
+  everywhere, and the AI tab's separate **Apply style** is gone: choosing a prompt style fills the
+  templates and the one Save keeps them.
+- Choosing another page with unsaved Settings changes now asks first, naming what would be lost,
+  and reloading or closing the tab asks too. Back and Forward are never held up: your unsaved
+  changes wait for you, and coming back to Settings puts them back with "You left with unsaved
+  changes. They're still here." Passwords and keys are never kept outside the form, so the line
+  names any you need to type again. Save or Discard clears them. Moving between Settings tabs still
+  keeps your edits without asking.
+- Kept Settings changes never outlive your session: signing out, an expired session or signing in
+  again drops them at once, even when you sign out from Settings itself. They are tied to the
+  session without copying its sign-in token, so no credential is ever kept with them. Coming back reads the saved values
+  afresh, so a setting someone changed elsewhere meanwhile shows its new value. If you had changed
+  the same setting, neither value wins silently: the field says the saved value changed elsewhere,
+  the bar names it with **Use the saved value** and **Use my change**, and Save waits until you
+  choose.
+- A refused save now says so where it matters. Nothing is stored, each refused field is marked
+  with the reason in plain words (for example "Enter 65535 or less."), the first one is opened and
+  focused even on another tab, and the bar lists the fields with a link to each. A server failure says nothing was saved and what to try, instead of
+  "Internal Server Error". Each result is reported once, as a notification, rather than twice.
+- `POST /api/settings` now reports an instance address without a scheme (previously `400`) and
+  turning on sign-in without a password as `422` validation errors that name their field, like
+  every other refusal. See [the API reference](docs/api.md).
+
+### The record, Dashboard, Explorer, Leaderboard and Audio history
+
+- **Audio history shows calls heard by weekday and hour.** The "Time of day" bar chart is replaced
+  by the Leaderboard's activity grid, counting calls heard rather than captures, in your own time
+  zone. It follows the page's window and filters, so its total always matches the "Calls heard"
+  figure, and its data is a table under "Show the data as a table". The busiest hour figure now
+  comes from the same grid, so it is your local hour; before, it was the hour in UTC.
+- **Audio history reads like the Leaderboard.** The window sits at the top as the same segmented
+  bar (a select on a phone) and applies as soon as you choose it; species, source and confidence
+  still wait for Apply, and Clear leaves the window as it is. The figures strip, the Analytics
+  heading with its dates, and the chart order, frames and captions now match the Leaderboard's,
+  and every figure says "calls heard". On a phone the figures now come before the call list, as
+  the Leaderboard's do. If only the grid cannot be read, it says so with Retry and the list stays.
+- **New endpoint:** `GET /api/audio/activity-heatmap` counts calls heard by weekday and hour over
+  the same window and filters as `GET /api/audio/summary`, with the same guest rules
+  ([API reference](docs/api.md)).
+
+- **The record no longer has half a dialog of empty space on a wide screen.** The identification, the
+  score, Confirm and the facts now sit under the photograph, and the family tree, the description
+  and nearby sightings are a reading column beside them. Each column scrolls by itself, so neither
+  is left blank. A record of an unnamed bird, which has no reference to show, is one narrow column
+  instead of a wide, mostly empty box. The name, the score and both buttons stay on the first
+  screen, on a laptop too. Nothing the record does, says or fetches has changed.
+- **The photograph is framed, not letterboxed.** From 1024px its frame is taller than the old wide
+  band and gives up height only to keep the decision in view. A tall crop is shown whole on a soft
+  fill of its own colours instead of between black bars, and the frame is the same size before and
+  after the picture loads. A visit with no kept frames says so in one compact row.
+- **The whole-scene view is tidier.** The "Chosen" tag now hangs outside the crop it names instead
+  of covering the bird, in the record and in the review queue. The chosen photo option carries a
+  check mark where the word "Chosen" used to break in two. The star, play and "Back to the crop"
+  sit together on the photograph, "Use the whole scene as the photograph" is the one button under
+  it, and "Find more birds" is a row under the identification's actions, lined up with them.
+- **Dialogs have depth.** The record stands on a darker backdrop with a real edge and shadow, and
+  its sections are raised panels on a recessed ground, in both themes and in high contrast. The
+  depth styles are part of the shared kit (`dialog-scrim`, `dialog-surface`, `dialog-well`,
+  `panel-raised`, `media-frame`), ready for the other dialogs.
+
+- **The full-screen video player has an edge.** Its frame used to be the backdrop's colour. The
+  header, the picture and the controls are now one framed object on a darker backdrop, in both
+  themes.
+
+- **Scientific names in the Classic font are a true italic.** Source Serif 4 was loaded upright
+  only, so the browser slanted the upright letters itself for every italic name, such as
+  *Prunella modularis* in the Explorer. Its italic is now loaded at the three weights the app
+  sets in italic. The browser downloads an italic file only on a page that shows one.
+
+- On the Dashboard field log, a visit that shows two photos now starts its bird's name at the same
+  edge as every other visit, instead of further to the right.
+- In the Explorer, every card in a row puts its time and score at the same height, whether or not
+  it has a captures footer.
+- Audio history's filter labels now line up, and the Min confidence slider sits level with the other
+  fields.
+- The Dashboard no longer jumps while its figures arrive on a phone. The Unresolved figure kept a
+  line for its note while it loaded and dropped it when no note came, which moved everything below
+  the day bar up.
+
+- The record no longer shows a grey smudge under its Favourite and Play buttons on a laptop or
+  desktop screen. A wrapped Conditions line no longer starts with "·", and the species reference
+  photo has a ground while it loads instead of an empty ring.
+- On the Notifications page, every row's time and progress bar now end at the same edge, including
+  rows that do not open anything.
+
+- **The record uses the width of a desktop.** From 1280 px it widens, and the species' lineage,
+  reference text, AI analysis and the record's identifiers stand in a column of their own beside
+  the identification, which no longer has to scroll past them. Keyboard order reads the
+  identification column first, then the side column.
+- **On a phone the record's photograph has no black band under it.** The star and play buttons
+  sit on the photograph's lower edge, so the identification starts a band higher, and the finder and
+  the visit's frames now come after the identification and its actions. A tap beside the buttons
+  still reaches the photograph.
+- On a wide screen the record's photograph keeps its shape at the top of its column instead of
+  sitting in black bands above and below it.
+- **Held sideways, the record puts the photograph and the identification side by side** (844 × 390,
+  for example), so the identification and its actions are on the first screen. From 1024 px the
+  record is side by side at any height.
+
+- **On a tablet or small laptop the Dashboard's rail stands in two columns.** From 768 to 1279 px,
+  what is happening and the reference (activity, notable nearby, top visitors) now sit side by side
+  under the field log, instead of one card per row at the full width of the page.
+- Under the hood, browser tests now hold the Explorer to its widths: the filter rail is docked from
+  1024 px and opens as a sheet below that, and the results grid adds columns as the window widens.
+
+- The record, the Dashboard's "Needs your call" card and Explorer speak of visits, captures and
+  records instead of "detections", and of the bird finder instead of the "crop model" or "crop
+  detector", in English and German. A record's reference number is its "Record ID".
+- An Unknown bird waiting for you now gives its reason as "No species reached the naming
+  threshold" rather than repeating "Unknown species".
+- Failing to delete records, to move a record to Garden, or to get an AI analysis now says what to
+  try instead of ending in a raw server message, in every language.
+- The checks suggested when video analysis fails are in plain words ("Check how long Frigate keeps
+  recordings for this camera").
+
+- **The Leaderboard names one window.** The photo wall's heading said "Last 30 days" beside rankings
+  that said "Month" with its dates, for the same span. The wall now names the span and its dates as
+  the rankings do, and the species composition, which already sits under the Analytics window,
+  states its total rather than the window again.
+
+- **On a phone the Dashboard puts Needs your call above the field log,** so the visits waiting for
+  you are the first thing under the day's figures instead of below the whole log. On a desktop the
+  card still heads the rail beside the log, and from 1920 px it spans both of the rail's columns.
+
+- The Leaderboard uses the screen better. On a phone the window and source are one compact row,
+  with **Include Unknown bird** under **More**, so the leader is on the first screen. From
+  1280 px the summary figures stand beside the photo wall, while the rankings table and the
+  charts take the full width.
+- Every ranking row shows this feeder's own photograph of the species where there is one, then
+  the species' reference picture, and otherwise nothing, instead of a placeholder feather.
+- The Leaderboard's charts carry one heading each, with the window said once for the section and
+  the total in each caption, and every chart, the heatmap included, offers **Show the data as a
+  table**. The timeline's table follows the series you show and any weather overlay.
+- The photo wall's preview now sits inside the page, so screen readers find it with the rest of
+  the Leaderboard.
+- Audio history puts the list of calls first on a phone, with its filters in a **Filters** sheet,
+  and the confidence slider reads as a percentage to a screen reader. From 1280 px the window's
+  figures, the most heard species and the sources stand in a side column, and the charts take the
+  full width with their numbers as tables.
+- The species details, Garden capture and species check dialogs, and the Explorer's filter sheet,
+  now share one header with the same round close button as the detection record. The species
+  details dialog shows its charts' numbers as tables and keeps the reference picture smaller,
+  below the feeder's own captures, which it now calls **Recent captures**.
+- Under the hood, these pages and dialogs draw from the semantic colour tokens in every mode and
+  high contrast.
+- The Leaderboard, Audio history and species details now use the app's words throughout: calls for
+  what BirdNET-Go heard, visits for grouped counts and captures for raw totals of stored
+  photographs (the timeline, the heatmap and the all-time view), and **Needs your call** for work
+  waiting on you. Their links into Settings go straight to the new section addresses.
+
+- The detection record, its video player and its family tree now share one dialog header: the
+  name on the left, the same round close button on the right. The family tree's "Close" text
+  button is gone, its Tree, Fan and Outline switch is the same choose-one control used elsewhere,
+  and the video player no longer shows a "Playing" chip beside the player's own controls.
+- On a phone, a record whose photograph cannot be scanned for more birds (no whole frame kept, no
+  crop detector, or another frame already being scanned or reviewed) no longer puts that notice
+  between the photograph and the identification. **Find more birds** waits in **More actions**
+  with its reason, and the reason is said once after the identification, where a screen reader
+  hears it too, so the identification comes straight after the photograph. A frame that changed
+  during a scan still says so under the photograph.
+- An AI note that failed, or was still being written, no longer stays on a record after you choose
+  a different species: the record offers a fresh analysis of the bird it now names.
+- Figures keep their units on the same line ("6 km/h", "471 lx"), and the Conditions row on a
+  phone reads as a column under its label instead of a ragged right edge.
+- The photo strip's count and hint wrap onto a second line at large text sizes instead of being
+  cut off, and "Choosing one changes the photograph" only appears when there is a photograph to
+  choose.
+- The record's lower sections read as plain rows rather than boxes inside the panel: the "how
+  this was identified" note, nearby eBird sightings, every call heard around the visit (now
+  behind the same disclosure as the rest of the app) and the iNaturalist draft. Small grey words
+  on photographs and the video player are a step brighter.
+- Under the hood, the record, the player, the photo strip, the counted-bird outlines and the
+  scan controls draw from the semantic colour tokens in every mode and high contrast, the record
+  dialog is split into focused parts, and the record's score bars are now part of the rendered
+  contrast check in every colour theme and high contrast.
+
+- Explorer cards keep the photograph clear: the time, the score, the play button and the marks
+  (confirmed, heard, uploaded, missing from Frigate) now sit on a line under the name, and only
+  the favourite star stays on the picture. Garden cards do the same.
+- Every short "choose one" in the Explorer (Visitors, Show, When, and Cards or List) is one
+  control: a track with the chosen option raised and checked, the same control Settings uses.
+  Lists such as species and cameras keep their own chosen-row style, so the filter rail has two
+  selected styles instead of four. Cameras and Only fold with the app's one disclosure row.
+- A field log visit with several captures has one control that opens them, named "Show N
+  captures", instead of two (the time and the count) doing the same thing.
+- "Needs your call" is a calm panel like the rest of the desk, with amber kept for the flag, the
+  count and each reason, and its "Work through the queue" button keeps its own width. "Open audio
+  history" is an ordinary button rather than a pill.
+- When Notable nearby is switched off, could not load or found nothing, it says so in one quiet
+  line with its next step, instead of a second box inside the panel.
+- The Dashboard and Explorer now draw from the semantic colour tokens, so dark mode and high
+  contrast follow from them; scores use the same amber, brand and green tones in every mode.
+- Score bars and level meters have their own track colour, so the filled part always stands out
+  from the empty part, in high contrast too, where a 77% score had looked like a full bar.
+- While a card is being re-analysed, its time, score and play button are out of reach until the
+  analysis ends, so the keyboard no longer stops on controls hidden under the progress overlay.
+  Clicking a Garden card's time or score now opens it, as clicking anywhere else on the card does.
+- The Leaderboard's "seen" and "heard" bars are solid colours that stand out from their track in
+  every theme and in high contrast; they had been faint enough to read as almost empty.
+- A card being re-analysed keeps its size, marks included, and so does a card you select, so
+  nothing in the grid moves when an analysis ends or a choice is made. A screen reader hears once
+  that analysis started and once that it finished, for the whole page: "Analysing 30 visits", then
+  "Analysis finished for 30 visits", or the bird's name when there is one, never once per card.
+- The Dashboard's visits-per-hour bars and the bird scan's progress in the record are solid
+  colours that stand out clearly in every theme and in high contrast.
+
+- **The Explorer no longer jumps as it loads.** The count ("763 visits", plus Garden and
+  heard-call figures) arrives after the page is drawn, and on a desktop it shared a row with the
+  search and the controls: once it was measured the controls no longer fitted beside the search,
+  wrapped beneath it, and pushed the filters and every card down. The count now has a line of
+  its own under the search, the loading placeholders are replaced whole rather than pushed, and
+  cards take their place without fading in. Measured cumulative layout shift on a 1440 px cold
+  load falls from 0.21 to about 0.01, and a browser test holds it under 0.02 at 1440 px and
+  390 px.
+- **Fewer controls stand between the Explorer's title and the first photo.** **Audio history** is
+  now in the sidebar under **Observe** (while BirdNET-Go is connected) instead of being a second
+  audio button beside **Heard calls**. On a phone **Cards**/**List** sit beside **Filters**, and
+  **Heard calls** and **Multi-select** open with the filters under **View**; the selection bar
+  has **Done** to leave selecting. **Days on this page** appears only when a page spans more than
+  one day, and each day is its name and a plain count. The count leaves out a figure that would
+  be zero, so "0 Garden visits on this page" is gone. The **Visitors** switch is three equal
+  segments, one to a line. Cards no longer repeat the weather, which the record states.
+- **The phone's Filters panel is a proper sheet.** It opens over the page with keyboard focus
+  inside and kept inside, closes with **Close**, Escape or a tap outside, and puts focus back on
+  the **Filters** button. Filters still apply as you choose them.
+- **Badges are named by the words they show.** A time, a confidence or "matching call" on an
+  Explorer card or row, in the field log and in a visit's captures, was announced by its
+  explanation instead of its visible text, so speech input could not activate it by what is on
+  screen. The words are now the name and the explanation is the description. Card text is at full
+  contrast from the moment a card appears, and the background-work banner is a named region.
+
+### Sidebar status and Health
+
+- **Health no longer fails on a busy feeder.** `/health` and the diagnostics workspace
+  could answer HTTP 500 with "deque mutated during iteration" while detections were
+  arriving, which the Health page, external monitors and the container healthcheck all
+  saw as errors. The report had started reading the services' live state from a worker
+  thread while the event loop was changing it. That state is now read on the event
+  loop, and only the report's file, SQLite and `/proc` reads stay in a worker thread.
+  The same applies to the classifier status behind Settings, the setup wizard and the
+  live status stream. Two quieter effects of the same race are gone too: a health read
+  could drop a running photo worker from tracking, and could leave the worker pools
+  out of the classifier status.
+
+- **System status shows a one-line summary where the full card does not fit.** On a laptop with a
+  window just over 900 px tall, or a phone menu around 720 to 770 px tall, the card no longer
+  disappears and leaves an unexplained gap under the places. One line stands in for it: the open
+  issues ("2 issues need attention"), linking to Health, or else the most important measured state
+  in words, such as "Frigate events Reconnecting". A guest sees the same words without a link. With
+  the sidebar collapsed to icons, the Health icon (with its mark when issues are open) stands alone,
+  or a guest's most important status icon. Where even that is too tall, a compact line or icon takes
+  its place, so a 390 × 700 phone menu shows the status too. Where nothing else fits and issues
+  are open, the Health place in the menu carries the mark and says the open issues to a screen
+  reader ("Health: 2 issues need attention"); otherwise the whole card waits just past the foot of
+  the sidebar, reached by scrolling.
+
+- **The System status card in the menu is never squashed to an empty bar.** Signed in, on a phone
+  or a desktop window between about 670 and 770 px tall, the account band left the card too little
+  room, and it drew as a thin rounded bar with no heading, readings or Health link. The card now
+  always shows at least its heading, its first reading and the Health link whole, and where the room
+  under the places cannot hold that, a one-line summary stands in for it (see below). The room is
+  measured, so it no longer depends on the window's height alone.
+- **The load meters under System status no longer blink on and off.** At some window heights, for
+  example a 390 × 844 phone in the Classic font, the readings ended just above the CPU and NPU
+  meters. The meters then counted themselves unseen and emptied, which gave back their room, so the
+  readings grew to show an empty row and the meters filled again, on every frame, leaving a blank
+  band in the card. The meters now count as seen while the readings that scroll them are on screen.
+- **The collapsed sidebar's status icons are never cut off.** With the sidebar collapsed to icons,
+  windows between about 680 and 740 px tall cut the status icons at the foot of the sidebar, or
+  squashed them. The icons and the Health link now show whole under the places, or as one icon where
+  the whole group does not fit (see below).
+
+- **Every line on the Health chart has its own colour.** With the Blue Tit colour theme the CPU and
+  the NPU were the same blue, told apart only by the dashes. The CPU and up to three accelerators now
+  each keep one fixed colour in every theme, in light, dark and high contrast, and never borrow the
+  theme's accent or a status colour. The line, its key, the dot on the inspected sample, the live
+  figure and the data table all wear it, and the dashes stay. The tint under the CPU line is gone, so
+  it no longer suggests the accelerators are part of the CPU or dims their lines.
+- **The sidebar's System status card is calmer and easier to read at a glance.** States that are
+  fine are plain text beside a small dot; only a problem is set apart, in amber. The load is a
+  labelled meter for the CPU and for the accelerator, in the same colours as the Health chart, in
+  place of a line of text and an unlabelled trace. Health is the card's foot, at the start of its row.
+
+- **Scrollbars on a Mac behave like a Mac again.** YA-WAMF used to style its own scrollbars, which made
+  Safari and Chrome on macOS show a permanent bar in every scrolling panel, and made the page move
+  sideways when a dialog opened and took the bar away. The app now uses the system's scrollbars,
+  which hide when idle and follow light and dark mode.
+- The sidebar's System status no longer scrolls by a pixel or two at every window size. Its CPU and
+  NPU line overhung its own line, so the card always had a little more to scroll to. On a short
+  window, where the readings do have to scroll, they now end after the last whole line instead of
+  showing the next line cut through its letters; the rest is still there to scroll to.
+- A System status state that wraps, such as "Not connected", stays at the right edge with the others.
+
+- **Dismiss a warning on Health.** Each backend warning, earlier incident and open incident that comes
+  from a recorded warning now has **Dismiss**. It hides that item for everyone on this install, and
+  Health's counts and the sidebar's open-issue number leave it out. **Show N dismissed** lists what
+  is hidden, each with **Restore**; nothing is deleted, and a diagnostics bundle still includes
+  dismissed items, marked as dismissed.
+  - A dismissed item comes back if it happens again: a dismissal covers one backend entry up to the
+    number of occurrences you saw, and any occurrence after those shows it again, whatever the
+    clock says. If it happened again while the page was open, or had already left the history,
+    the page says so instead of claiming it was dismissed.
+  - The verdict still comes from the live checks. An incident a live check shows open now, or has
+    no reading for yet, cannot be dismissed and says it clears by itself when the check passes.
+  - Dismissals are kept in memory with the error history they hide, so a restart resets both.
+  - **Clear error history** still removes everything, dismissals included
+    ([docs/troubleshooting/diagnostics.md](docs/troubleshooting/diagnostics.md),
+    [docs/api.md](docs/api.md)).
+
+- **Health stops listing expected events as problems.** A snapshot Frigate no longer has, because
+  it discarded the object after announcing it, is logged once per event at info and counted in
+  `event_pipeline.snapshot_not_found_events` instead of three to five warnings. An event every
+  fallback fails for is still recorded as lost.
+  - One Garden motion recording that falls back to CPU decoding and recovers on the next is
+    information. A second fallback in a row is the `hardware_decode_fallback_repeated` warning,
+    and 3 fallbacks in the last 10 GPU decodes, even with recoveries between them, is the
+    `hardware_decode_fallback_frequent` warning. The third in a row still switches GPU decode off,
+    as before.
+  - A Frigate restart blip is shown in incident history as resolved once Frigate reports it is
+    online again. An outage stays open while Frigate is offline or its availability is unknown.
+  - A slow database hold taken through the guest privacy check now names the route that held it,
+    rather than the check, so the warning points at the code to fix
+    ([docs/troubleshooting/slow-interface.md](docs/troubleshooting/slow-interface.md)).
+
+- **Every place in the sidebar, and the way to Health, stay in view on a wide but short window.**
+  At 1920 × 900 or 1440 × 800 About and Health no longer hide behind System status. The brand's name
+  sits beside its mark, and System status keeps its heading, its first reading and its "issues need
+  attention" link in view while the rest of its readings scroll inside the card. At a much larger text
+  size the places and the status scroll together instead.
+- The sidebar no longer shows an empty band above the language and theme buttons when sign-in is
+  off, and its brand mark is a full 44 px target when the sidebar is collapsed.
+- **A very wide screen keeps the page together.** Past a 1920 px desktop the page and its footer
+  stop growing and are centred with gutters, instead of stretching every card across a 2560 px
+  display.
+
+- **Health uses a wide screen.** From 1280 px what happened takes the main column, and Earlier
+  incidents, Backend warnings and errors and the diagnostics export stand in a side column beside
+  it. The System card, with its chart and table, keeps the full width.
+- The diagnostics export note keeps a reading measure, so it no longer runs to about 87 characters a
+  line under the timeline on a laptop.
+
+- Health, Notifications and background jobs now speak of visits, Frigate events, calls and the
+  model instead of "detections" and "classifier", in English and German. Health's summary and
+  section names are in plainer words ("Naming new visits", "Everything YA-WAMF checks is working").
+- An error on Health that YA-WAMF does not recognise now ends in a next step: capture a diagnostics
+  bundle and report it. It no longer leaves you with only a technical string.
+- The progress of a missed-visits import or a weather fill is written out in your language
+  ("10 of 20 checked · 5 visits added · 2 updated · 3 skipped · 0 failed") instead of
+  "10/20 • 5 new • 2 upd • 3 skip • 0 err", and a finished job is summed up the same way rather
+  than with the server's English sentence.
+- A visit that cannot be hidden or deleted now says so and what to try, instead of ending in a raw
+  server message.
+- The start-up screen now says that start-up carries on without a bird model when none is
+  installed, and where to download one.
+- Under the hood, 92 strings that nothing displayed were removed from every language.
+
+- Health now gives the right reason when a Frigate event was not recorded. A score under the
+  **minimum confidence floor** read "below your naming threshold", and one under the naming
+  threshold read "below the species threshold"; each now names the setting that really
+  dropped it, in every language. The hint under filtered events now points at the floor,
+  the setting that keeps more of them as Unknown bird, instead of the naming threshold.
+
+- The keyboard shortcut list now says "Go to Explorer", the name the page has everywhere else,
+  instead of "Go to Events".
+- When a camera's latest frame cannot be loaded, the camera viewer now says so in a sentence and
+  says what to do next: Retry asks Frigate again, and Health shows whether Frigate is answering.
+- The sidebar status, the Dashboard's feed line and the start-up screen speak of visits, calls and
+  the bird model instead of "detections" and "classifier", and the start-up steps are in plainer
+  words ("Checking which hardware can run the model").
+
+- **Every owner screen now reads one status, pushed as it changes.** The sidebar, the jobs
+  banner, Health, the Dashboard and Settings › Models used to ask the server for their own
+  readings of the same things (jobs, the analysis queue, the broker and Frigate connections,
+  camera health, the model and its provider, host load) on their own timers, so two of them could
+  show different counts or verdicts for the same moment. The server now derives one status and
+  pushes it over the live stream whenever something changes, with fresh figures every 15
+  seconds; every screen shows that one reading. Each part carries a cause in plain words: the
+  broker is disconnected, Frigate is not answering, a camera is offline, the bird finder is on
+  the CPU, the media folder cannot be written, nothing has been heard yet, or no notification
+  channel is on.
+- **An open page no longer polls.** With the live stream connected, a page left open makes no
+  status requests at all; Health reads its half-hour chart once a minute instead of four times.
+  If the stream drops, the status is read once a minute until it is back. The new
+  `GET /api/status` returns the same snapshot (owner only); see [the API notes](docs/api.md).
+- **A stalled answer no longer leaves a screen waiting.** Health, Settings › Models and the
+  sidebar's readings give up on a reply that stops halfway, including a proxy's error page that
+  never finishes, and try again on the usual backoff; closing the screen cancels its read. Every
+  such read now has a deadline: a bird analysis gives up after three minutes rather than never.
+
+- **The sidebar's System status is a plain list that says each state in words.** Three rows,
+  **Frigate events** (Live, Waiting for events, Not connected, Frigate not answering), **Audio**
+  (Listening, Not listening, Off) and **Alerts** (On, Off), each with a small dot whose shape as
+  well as colour tells working from needs-you from off. Amber appears only when something needs
+  you. CPU and accelerator load is one muted line of text instead of a graph behind the card, and
+  the collapsed sidebar now shows the same statuses as named icons. Audio reads **Listening** only
+  while the MQTT broker session is up, because that is how audio detections arrive.
+- **The System health link counts open issues.** It reads **2 issues need attention** only while
+  the System health page lists that many open items, and plain **System health** otherwise.
+- **A restart no longer fills the log with a warning per event.** While Frigate is still starting
+  it answers every request with an error; opening the Explorer in that window logged one
+  `Failed to fetch event` warning for each event on the page. YA-WAMF now recognises that Frigate
+  as a whole is not answering, stops asking about individual events, checks again with a growing
+  delay, and logs one line with the number of reads put off. Queued video analysis waits for
+  Frigate instead of failing. A Frigate error about a single event is still a warning. See
+  [Troubleshooting](docs/troubleshooting/diagnostics.md#while-frigate-is-starting).
+- **Repeated faults are one diagnostics entry.** Backend warnings and errors on the System health page
+  shows a fault that keeps happening once, with how many times it was recorded and when it was
+  first and last seen. `GET /api/diagnostics/errors`, `/workspace` and `/bundle` events carry
+  `count`, `first_seen` and `last_seen`, and the snapshot adds `total_occurrences`
+  (see [the API reference](docs/api.md#debug-owner)).
+
+- **Status lights only claim what was measured.** The sidebar's live tile and the Dashboard's
+  feed line now show **Live** only while the MQTT broker session is actually up. A broker that
+  cannot be reached reads **No events**, a Frigate that does not answer reads **No Frigate**, and a
+  visitor (who is never told the broker's state) sees **Connected**, meaning only that the page
+  reached YA-WAMF. Changes are pushed to open owner pages as they happen.
+- **Settings → Health no longer says "healthy" while the broker or Frigate is down.** The verdict
+  names the connection that failed and what to check, the MQTT card leads with the connection
+  (address, last attempt and the broker client's own error) instead of queue load, and a new
+  Frigate card says whether Frigate answered the latest request. `GET /health` reports `degraded`
+  in those cases too, and the new owner endpoint `GET /api/diagnostics/connections` carries the
+  measured state (see [the API reference](docs/api.md#debug-owner)). Addresses and broker errors
+  are shown, exported and logged without any user:password, token or other secret they contain.
+- **The Garden review link opens the captures waiting for review.** Opening
+  `/events?visitors=garden&review=pending` (or an old `/garden` link) read bird visits before the
+  owner settings had loaded, then labelled them an empty Garden queue ("No Garden captures need
+  review" above "Showing 1-24 of 725"). The Explorer now reads nothing until those settings have
+  loaded, and if they cannot be loaded it says so and offers **Try again** instead of guessing.
+- **The setup review is honest about access and connections.** Running without a password shows
+  **No password** instead of a green **Configured**, and saved Frigate and MQTT addresses that
+  cannot be reached show **Not reachable** rather than **Configured**.
+- **About no longer shows "Running for: unknown" beside an uptime figure.** The start time is read
+  even while a startup warning makes the readiness check answer 503, and an availability window
+  that was only partly recorded says how many hours the percentage covers.
+- **The Frigate and MQTT connection test runs both checks.** A Frigate failure no longer marks the
+  independent MQTT check "not run", and the summary names which checks failed instead of repeating
+  the first error.
+
+### Garden
+
+- **A chicken that sat still keeps its photo in Garden.** Frigate discards an event whose object
+  never moves, snapshot and all, often within minutes. A domestic bird moved from Birds to Garden
+  after that used to show "Photo expired", although YA-WAMF still held the frame its bird model
+  classified. Garden now keeps YA-WAMF's own copy of that whole frame when Frigate has no snapshot,
+  keeps it straight away for a domestic bird routed to Garden as it arrives, and looks once more at
+  moved captures already recorded without a photo. The clip stays Frigate's: when Frigate kept
+  none, the capture says so. See
+  [Kept photographs and clips](docs/features/garden-animals.md#kept-photographs-and-clips).
+- **"When Frigate no longer has the event/media" never deletes a record YA-WAMF still has a photo
+  for.** The delete choice is now labelled **Delete records YA-WAMF has no photo for**, and the
+  **Scan and delete** confirmation says the same: a record whose photo YA-WAMF holds is marked
+  missing instead, so the media integrity scan (and the older missing-snapshot purge setting it
+  replaced) cannot remove the only photo left. See
+  [Frigate "Event Not Found" explained](docs/troubleshooting/frigate-event-not-found.md).
+
+- Garden photos waiting for you are now under "Needs your call", the same name the Dashboard uses
+  for visits waiting on you, instead of "Needs review". The filter, the card labels, the toasts
+  and the Garden settings all use it, in English and German.
+- Add observation, the species dialog and the video player speak of records, captures and the
+  model instead of "detections" and "classifier" ("View record", "Capture clip").
+- File size limits and other figures on these screens no longer split from their unit at a line
+  end, in every language.
+
+### Models, the bird finder and hardware
+
+- **Model evaluation uses a wide screen.** Where the window is about 1440 px or wider, the start card
+  stands in two columns: what an evaluation does and its options on the left at a reading measure,
+  and **Start evaluation** with its progress beside them, instead of one narrow strip with the rest
+  of the card empty. The results and provider check tables keep the full width.
+- Model evaluation is drawn from the design tokens, so its status dots, progress bar and problem
+  notices follow the light, dark and high-contrast themes.
+
+- A model's state is said in the same words everywhere: **Needs a download**, **Downloading**,
+  **Being checked on this hardware**, **Loading**, **Ready**, **Running** or **Could not load**.
+  Settings → Models, the setup wizard's review, About and Garden records all take it from one
+  rule, so they can no longer contradict each other. A model that is still loading is not called
+  running, and when the classifier's report gives no evidence either way the state reads
+  **Not reported** rather than a guess.
+- While the chosen identification model needs a download or a recovery, that is the only primary
+  button on Settings → Models. The recommended model's button is secondary and says what it does
+  ("Download and switch to this model").
+- A Garden capture that is waiting says why when the automatic check model cannot run ("the
+  automatic check model is not downloaded, so nothing can identify this yet") and links straight
+  to its setup, instead of "Waiting for automatic identification" with no cause.
+- Settings → Models no longer says "In use now" of a model that failed to load or is still
+  loading: it says "Chosen" with the model's real state, and gives a failed model one primary way
+  back, "Check and load again", including the bundled model.
+- A model download or hardware check shows on every page while it runs, and in every browser tab,
+  and stops showing when it finishes, wherever you are. It could be remembered as "Downloading"
+  after it had ended. A model being checked is no longer described as downloading.
+- About's pipeline states the model in the same words as everywhere else, and reports failing
+  inferences on their own line instead of replacing the model's state with "Check".
+- The setup wizard's review says "Not reported" when the classifier answers without saying
+  whether the model is working, instead of "Chosen" or a stale "Running".
+- A waiting Garden capture names what is really blocking its automatic check. Missing species data
+  or a stopped Garden worker is no longer described as a model that could not load, and no longer
+  points at model setup. When the check model is what is missing, the link to set it up is always
+  there.
+- You are never stuck on a waiting Garden capture. Dismissing it is always possible. Confirming it
+  by hand waits only while the check model is downloading or its status is being read; if the
+  automatic check cannot run on this install (the model is not here, or you are offline), manual
+  override opens with a note that you decide by hand. If the status cannot be read, the dialog says
+  so and offers "Try again".
+- For integrators: the API reference now documents how the setup state's classifier section maps
+  the model's measured readiness to its status and detail code, and the OpenAPI contract declares
+  the 409 that "Delete all history" answers when the confirmed count has changed. A new
+  `GET /api/models/activity` reports model downloads and hardware checks in progress.
+
+- The bird finder device check now runs on full camera frames. On hosts that keep
+  bird crops as their snapshots (for example with the HQ bird crop option on), the
+  check used to pick those crops, found no birds in them, and left RF-DETR on the CPU.
+  It now skips crops, retained snapshots, thumbnails, event snapshots that HQ
+  processing replaced with a bird crop (snapshot sidecars now record the hash of the
+  image they describe), and images under 480 px on the short side or that do not
+  fully decode. It prefers saved full frames (final-frame captures
+  included) and takes at most two per visit. The snapshot folder is read only when a
+  check is due, and listed again only after it changes or after 30 minutes. A host
+  without three full frames yet waits as "no full frames", says so under Runs on, and
+  retries when they appear. Check devices uses the same frames, and a check that
+  failed on the old crop panel runs again straight after the update.
+
+- Keep a working CPU fallback eligible when a bird finder accelerator check fails,
+  and automatically recheck a saved accelerator after runtime changes even if an
+  earlier check erased its eligibility. Checks now use RF-DETR's full frame and
+  tiles and match every admitted bird independently of score order. The status API
+  retains historical failures with their date and runtime freshness, and finder
+  checks log box differences for diagnosis.
+- RF-DETR now prefers NPU, then a verified GPU, before CPU. Automatic checks try
+  GPU if NPU fails and stop early when NPU passes. Unchosen RF-DETR CPU use on
+  hosts offering an Intel accelerator produces a structured warning and an actionable
+  Health incident counted in System status. Only disposable provider probes cap CPU
+  threads and run at reduced priority. Interrupted or unfinished checks retry with
+  capped backoff; inconclusive checks preserve previous passing evidence.
+- Finder checks tolerate score-floor jitter and full-frame/tile NMS survivor swaps,
+  including chained groups where one device keeps two overlapping boxes and the
+  other keeps one. A check with no birds in the CPU baseline reruns on a changed
+  photo set at most every four hours. The Settings finder card names the backend's
+  planned device for the running finder.
+  Settings uses stable failure codes and completed execution evidence, including
+  verified GPU recovery when the saved NPU cannot run the model.
+- Automatic finder checks no longer spend power proving nothing. An Intel image on
+  a host without an NPU or GPU never runs a CPU-only sweep, and a sweep that opened
+  no accelerator is final instead of retrying as "could not finish". RF-DETR stops
+  after an unusable CPU baseline instead of compiling the NPU and GPU, never probes
+  OpenVINO CPU, and an empty baseline backs off from four hours to once a day. An
+  owner-run Check devices is recorded so the automatic check does not repeat it.
+- Finder checks no longer pass two surviving boxes that only share a suppressed
+  neighbour, and report the survivors' own overlap.
+- An Intel CPU (OpenVINO) choice no longer raises the CPU Health incident. A check
+  that passed after the last frame clears it without waiting for the next bird,
+  one ongoing CPU condition is one incident, and a damaged check record says to run
+  Check devices instead of promising a retry.
+
+- Collecting motion review photos uses much less CPU, and a restart no longer starts a long
+  full-core catch-up. The Intel image now decodes the sampled frames of each motion recording
+  on the Intel GPU (VA-API) with a small built-in decoder. On a 2688x1512 camera that cut
+  decoding from about 1.4 to 0.5 CPU-seconds per recording, with the same detections on 20
+  test recordings. Other images, and Intel hosts without `/dev/dri`, keep decoding on the CPU and
+  say so in the log and in `GET /health` under `garden_motion_decode`. The image grows by about
+  26 MB. After a restart, footage older than ten minutes (previously thirty) is skipped in one
+  step, and one log line says how many windows were skipped. Faster catch-up is limited to 30
+  scans in any ten minutes, and the worker runs at a lower scheduling priority than bird
+  classification.
+- Fixes motion collection retrying the same night-time recording every 30 seconds on a
+  high-resolution camera. Infrared footage with keyframe pre-roll exceeded the 16 MiB download
+  limit and failed as an error instead of being skipped. The limit is now 48 MiB, and a
+  recording that is still too large is skipped and counted under **Collection status** as
+  `size_limit`.
+
+- **The bird finder card says where the finder runs, once, and why.** Settings → Models now has one
+  "Runs on" row built from the last device check: the device that passed, or "CPU · Intel NPU
+  failed the device check on 12 Nov" with the measured cause when the backend reports one. The
+  repeated bold device sentence on every finder option is gone, and nothing guesses "not available
+  in this image, on this host, or for the active model" any more, for the finder or for the
+  identification model.
+- **A saved device that has not passed stays saved.** The Device list names it "not passed on this
+  host" and keeps it selectable, with one line saying the finder runs on CPU until it passes and
+  what to do: check devices, or choose Automatic. Other devices that have not passed are named the
+  same way but cannot be chosen until they pass, because the save would be refused.
+- **Check devices is one short button with its explanation under it.** Re-download moved behind
+  Repair, and the background on the fallback finder and when a change takes effect is under "How
+  the finder works".
+
+- **Model evaluation reads in your language and says what each choice does.** The page was English
+  only, with options named after files ("Include per-image details (results.jsonl)", "Sweep image
+  providers") and "Internal Server Error" as its only error. It is now translated in all nine
+  languages and built from the same panels, switches and buttons as Settings. It explains what an
+  evaluation does in one sentence, with the detail behind **How this works**, names columns by what
+  they measure (**First guess right**, **Slow photos**), shows models by the names Settings uses,
+  and writes each provider result and warning in words with the next step. See
+  [Model evaluation](docs/features/model-evaluation.md).
+- **Checking every model states its download first.** The option downloads every model you have not
+  installed; the page now says how many and how large (for example 2 models, about 1.3 GB) and asks
+  you to confirm before it starts. A model with no known size is counted apart from the total
+  instead of adding nothing to it, and the page says the download may take a while and that the
+  models stay on disk until you delete their files in Settings → Models.
+- **A stopped evaluation says why, and what to do.** Model evaluation, the setup wizard and the
+  provider check in Settings showed whatever the server had raised. A run now records a reason code
+  (`error_code`: no installed model, no test photos, a failed request, and so on), each shown as a
+  cause and a next step; the exception itself stays in the server log and is no longer written to
+  the run's summary or answered by the API. The run and list answers have a declared shape
+  (`ModelEvalRunResponse`, `ModelEvalListResponse`), see [the API reference](docs/api.md).
+- **A failed read is no longer shown as "No runs yet".** Loading, empty and failed are separate
+  states, a problem names its cause and the next step with **Try again**, and the page keeps its
+  place while it reads. Only the files an evaluation wrote are offered for download
+  (`available_artifacts` on `GET /api/diagnostics/model-eval/runs/{run_id}`), including each
+  photo's result when you asked for it.
+- **Model evaluation** answers the header's Refresh,
+  and no longer re-reads a finished evaluation every two seconds while another one runs.
+
+- Fixes the Intel GPU reading on the xe driver sinking towards zero after a while, even
+  when the GPU was busy (#944). xe's busy counter for each client wraps at 2^32 cycles,
+  and every client that wrapped had stopped counting. YA-WAMF now follows a busy counter
+  through the wrap and counts the work done across it. When that work can't be bounded by
+  the clock interval beside it, YA-WAMF leaves that one interval unmeasured instead of
+  guessing. Support bundles mark these samples `counter_wrapped`, so they're no longer
+  shown as `counter_regressed`.
+
+### Privacy and honest claims
+
+- About no longer promises "Nothing leaves your network except the calls listed below" over a list
+  that left out Google Fonts and Wikipedia and marked the OpenStreetMap tiles disabled whenever
+  eBird was off. The list is now built from the conditions under which each request is really
+  made, and every row says what it sends:
+  - three groups: what this server sends, what each viewer's browser sends, and what happens only
+    when you connect an account, press a test button or run diagnostics;
+  - usage statistics and health reports are separate rows, because health reports send with usage
+    statistics off; Garden alerts have their own row, because they can use their own channels with
+    every bird channel off;
+  - a switch that cannot send is not shown as on: AI needs a saved key, BirdWeather a station
+    token, iNaturalist submissions a connected account;
+  - coordinates are disclosed wherever they are sent (weather, eBird, BirdWeather, iNaturalist's
+    local data), and AI and notification rows list the classes of data they carry;
+  - model downloads name Google Storage as well as GitHub, and the startup repair of a model's
+    missing configuration file is listed;
+  - states read On, Off, Always or When used, and a guest is told a setting is the owner's to see
+    rather than that it is off.
+  - a notification channel reads On only when it can deliver: switched on and holding its
+    credentials (a Telegram token and chat, both Pushover keys, a recipient and a mail server or
+    an account that is still connected). Garden's own channels are counted the same way;
+  - the test buttons are described as they behave: the email test uses saved settings, needs email
+    on and sends no picture; the placeholder picture address belongs to the Discord, Telegram and
+    Pushover tests; the AI test runs only while AI is on;
+  - a Garden alert's link to the record is disclosed, with what it contains;
+  - two requests nobody presses a button for have their own rows: the deletion request sent when
+    the last telemetry opt-in is switched off, and the download of Garden's check model by a due
+    automatic check.
+- Settings → AI no longer shows `$0.00` for a model that has no price. A model without a rate reads
+  "Not priced", usage with no prices at all reads "Cost not estimated: add prices", and a total
+  states how many requests it covers and which models it leaves out. `/api/stats/ai/usage` reports
+  the same coverage ([API](docs/api.md)), and its per-day rows no longer carry a cost that was
+  never calculated.
+
+- A species or Garden animal is only ever described by an article about it. A Garden record of an
+  Eastern Gray Squirrel showed Wikipedia's summary of a mite, because the mite's article names the
+  squirrel as a host and any mention of the scientific name counted as a match. The description
+  is now the article that iNaturalist's record of that exact taxon links to, in your language
+  where Wikipedia has one, and in English where it does not, with a note saying so ("Description
+  from English Wikipedia") and the text marked as English for screen readers. If Wikipedia has since moved the
+  linked article, the new one is used only when it is still the same taxon. Only when the record links no article is one looked for by name, and
+  it is then shown only if the taxon is the subject of its title or opening sentence: a host, a
+  prey species, a member of a genus named in passing, or a subspecies' article offered for its
+  parent species is refused, and the record shows no description rather than a wrong one.
+  Birds looked up by name are checked the same way whenever the taxonomy knows their scientific
+  name. Descriptions cached by an earlier release are looked up once more the first time they
+  are read, so a wrong one already stored is replaced rather than served.
+- A record and its family tree use one name for the species. A record headed "European Starling"
+  no longer ends its family tree, titles the tree dialog, or labels the selected node in the tree
+  with the catalogue's "Common Starling"; other ranks and other species keep the catalogue's names.
+
+- **Delete all history** in Settings → Maintenance now counts the detections before it can be
+  confirmed. The question said "Delete all 0 detections" on an install holding hundreds, because
+  the count was only ever read on the Data tab. It now says it is counting, then states the number
+  the reset will really delete, hidden detections included, and if the count cannot be read it
+  says "all detections" with no number. The number confirmed is sent with the request, and the
+  server compares and deletes under one database write lock: if detections arrived while the
+  question was open, nothing is deleted and the question is asked again with the new number. The confirm button reads **Delete all history permanently**.
+  **Purge old records** reads its count at the moment of asking too.
+- A detection record says "Frigate no longer has this event or media" only when Frigate answered
+  that the event is not found, or the media integrity scan recorded it missing. When Frigate was
+  unreachable, slow, erroring, refusing YA-WAMF's credentials or simply not asked, the record now
+  says which, with what to try, and no longer offers "technical details" when no error was recorded. `/api/events` reports
+  what Frigate answered in a new `frigate_event_check` field
+  (see [the Frigate event guide](docs/troubleshooting/frigate-event-not-found.md)).
+- The first-run wizard's Cameras step no longer shows "Loading your saved settings…" with Continue
+  disabled while it is really waiting for Frigate. It says it is asking Frigate for its cameras,
+  waits at most 8 seconds, and lets setup continue with the cameras already saved; after that it
+  says Frigate did not answer and offers typed names. Back, Skip step and Continue now stay inside
+  the wizard's card while the step scrolls above them, instead of being cut off at 1440×900.
+- The wizard's review no longer says "Configured" for a model that cannot name a bird. It reads
+  the classifier's own runtime report, as the model step does: **Needs a download** when the files
+  are missing, **Could not load** when they are there but the model failed to load, **Loading** while it is being
+  loaded, **Ready** or **Running** only on positive evidence that it is, and **Chosen** when
+  nobody could check. About's pipeline says "Not
+  installed" for a missing model instead of "Not loaded yet", and the status sentence names it as
+  the chosen model.
+- The "not responding" and "could not finish starting" screens no longer say "Your feeder data is
+  safe", which nothing had checked while the service was down. About's browser step says
+  "Connected" instead of "Live", a word kept for camera events.
+- A saved diagnostics bundle on the Health page reads "1 group · 1 event · 1 snapshot" instead of
+  "1 groups • 1 events • 1 snapshots", in every language.
+- The review queue gives each visit its own reason. A bird the model could not name is no longer
+  described as "below the naming threshold"; the dialog says there is no species to confirm, as
+  the Dashboard card does for the same visit.
+- Species details opened from a Leaderboard row lead with the visits that row showed, in its
+  window ("Visits, last 30 days"), followed by the all-time detections.
+
+- **"Frigate could not be reached" messages no longer repeat your Frigate address in full.**
+  When a photo, clip, timeline preview or live stream cannot be fetched because Frigate is down,
+  visitors now see a plain "Could not reach Frigate. Try again in a moment." with no address at
+  all. As the owner you still see which Frigate was tried, shortened to `scheme://host:port`, so a
+  username, password, token or private path in a reverse-proxy URL is never shown. The Frigate
+  and BirdNET-Go connection tests, the owner connectivity check, the notification test and
+  eBird searches follow the same rule.
+- **Logs keep integration credentials out of error lines.** Frigate, Home Assistant, BirdNET-Go
+  audio and spectrogram, email snapshot, media-probe
+  and unexpected-error log lines reduce any address in an HTTP error to `scheme://host:port`
+  and hide `token=`-style values, including in the logged traceback. Verbose HTTP client logs do
+  the same for every request, and mark a shortened address with `/***REDACTED***`.
+
+### Safari, accessibility and wording
+
+- **A new text size reaches every word in Safari straight away.** With Reduce Motion on (on the
+  iPhone or in YA-WAMF's own Accessibility settings), choosing a larger or smaller size under
+  **Appearance → Text size** left most of the page at the old size in Safari until it was reloaded:
+  the sidebar, the status lines, the footer and the words inside cards and buttons. Reduce Motion now
+  turns transitions off rather than making them very short, which is what kept Safari from passing
+  the new size on.
+- **The record's photograph fills its frame in Safari.** On a wide screen a short record showed its
+  photograph narrowed, with a black band beside it, and the label naming a crop at the top of the
+  frame sat on the crop's outline instead of under it.
+- **Notification rows keep their words inside the row at a large text size.** A long word in a
+  message, and a stopped job's "41 / 120" and "stopped" labels, now break or wrap rather than
+  running past the row's edge.
+- **Leaving YA-WAMF in Safari goes where you asked, on a Mac and on an iPhone.** Going to another
+  address while a page was still loading made Safari stop that page's loading code with the same
+  message an out-of-date app gives, so YA-WAMF reloaded itself and cancelled the navigation. Before
+  reloading for a page that failed to load, YA-WAMF now asks the server which version it runs, and
+  reloads only when the server runs a different one. This does not depend on timing or on Safari saying
+  the page is being left, which Safari on iPhone does not. On the same version nothing reloads, and the
+  page keeps its **Try opening again** button. If the server cannot be reached, YA-WAMF does not reload,
+  and no longer claims it was updated: it says the page could not be opened and the server could not
+  be reached to check for an update, and asks you to check your connection and refresh. A tab's one automatic reload is used only when a reload
+  actually happens. The failed load is still written to the log.
+
+- A notification test no longer says a channel "did not answer" when something else answered in
+  its place: a proxy's or a sign-in page's reply now reads "Something answered in place of
+  Telegram. Check for a proxy or sign-in page between YA-WAMF and the internet, then test again."
+  A channel that is not set up names the fields it is missing, and a test that passes says so in
+  your language.
+- A test email that YA-WAMF could not build no longer sends you to check the mail settings, and a
+  slow Gmail or Outlook no longer mentions an SMTP host.
+- Live announcements are described by what they do (each new bird is read out as it arrives), and
+  the announcement itself is spoken in your language. "Hide record" uses each language's word for
+  a record.
+
+- Fixed: a notification channel's test said "Passed" when nothing was delivered. A Discord webhook
+  on an address that does not answer, a refused Pushover key or a Telegram chat that does not
+  exist all read "Test notification sent". The test now passes only when the channel accepted the
+  message. Otherwise the step fails and says why and what to do next, for example "Discord did
+  not answer. Check the webhook address, then test again.", in your language and without ever
+  showing the webhook address or a token.
+- A test email that the mail server did not accept now says what to check (the SMTP host, port,
+  user name and password, or to reconnect Gmail or Outlook) instead of "Failed to send test
+  email".
+
+- Fixed: twelve French sentences showed a box, or nothing, where a colon, a semicolon or a
+  question mark belonged, for example in the connection test's failures ("Broker MQTT : le nom
+  d'hôte…"), the server-failure message and first-run setup. The punctuation is back.
+
+- About's version chip keeps a slot of its own beside the title and cuts a long version short, with
+  the whole version in its tooltip, so a long version (a development build named after its branch,
+  or the running version replacing the build's) no longer rewraps the title or moves the portrait
+  beneath it.
+
+- Model evaluation's explanations now keep a reading measure, so their lines no longer run to
+  around 100 characters on a wide screen.
+- Under the hood, a browser test now opens every page at 390, 768, 1024, 1440 and 1920 px and
+  fails on a sideways scroll, a line of text past about 80 characters, or a content-heavy page that
+  uses less than 70% of a 1920 px window.
+
+- The setup wizard is in plainer words. The model step asks you to "check it runs on this machine"
+  instead of "validate on my hardware", and lists "devices" rather than "providers available in
+  this image". The cameras step no longer quotes Frigate's `min_score / threshold /
+  min_initialized` settings: it says that Frigate decides which snapshots it sends. Importing
+  history speaks of visits, and sign-in speaks of the owner rather than an admin.
+- About says what is kept "in one file in your data folder" rather than "SQLite under /data", calls
+  the naming step "Model", and its list of outside services speaks of visits. Durations and sizes
+  on About, in the wizard and in Model evaluation no longer split from their unit at a line end,
+  in every language.
+
+- **About leads with what is leaving your network now.** "What leaves your network" lists what is
+  sending now (On and Always) first. A visitor also sees there, marked Owner only, every request
+  that follows a setting only the owner can read, under a heading that says so, because a request
+  that may be made is never folded away. What is switched off or made only when someone starts it
+  waits behind **Show everything YA-WAMF can contact**, with a count of how many more there are.
+- **About uses a wide screen.** From 1280 px what it stores and sends and the credits stand in a
+  side column beside the portrait, the pipeline and this instance, at about a line's measure; on
+  narrower screens they follow in the same order. The pipeline lays its steps out by the room it is
+  given, four a row in the main column and all seven on the widest screens. In This instance the
+  bird identification sentence has the whole row, above the running time and the issue report.
+- About is drawn from the design tokens, so it follows the light, dark and high-contrast themes
+  without colours of its own.
+
+- The first-run setup wizard draws from the app's colour tokens in light, dark and high contrast,
+  and its connection check marks a passed or failed test with the same shaped status icons as the
+  rest of the app.
+- On a phone or small tablet held sideways (any screen up to 640 px tall, such as 844 × 390 or
+  1024 × 600) the wizard tightens its header and footer and drops the step's decorative icon, so the
+  step itself has more room while Back, Skip and Continue stay in view. The "Skip setup?" prompt
+  keeps its two buttons in place and scrolls only its words, so it never pushes the step's actions
+  off the card. If skipping fails, the reason shows just above those buttons, where it is seen, and
+  the words can be scrolled from the keyboard in every browser.
+
+- The Notifications page is drawn from the design tokens, so its timeline, filters and progress
+  bars follow the light, dark and high-contrast themes. Amber still marks only what needs you,
+  green what is done, and a job that stopped reporting has a grey bar that no longer moves.
+- An empty Notifications page, or a filter that matches nothing, now uses the same empty state as
+  the rest of the app.
+
+- Model evaluation now names each model the way Settings › Models does: what it is for ("Birds
+  and wildlife, high accuracy") with its technical name beneath ("ConvNeXt Large"), instead of the
+  catalogue's own name and its bracketed claim ("Elite Accuracy"). About's pipeline names the
+  running model the same way.
+- Under the hood, a glossary ([docs/standards/glossary.md](docs/standards/glossary.md)) now fixes
+  one word for each thing the app talks about (a visit, a capture, a record, the naming threshold,
+  Unknown bird, Health, Explorer and more), one form of address per language and the rules for
+  units. A copy lint in the test suite counts every string that breaks it, in all nine languages,
+  and that count may only fall. No wording changes yet beyond the model names; the copy pass
+  follows namespace by namespace.
+
+- The Health page, the connection and model test dialogs, the jobs banner, the header and the
+  sidebar now draw every state the same way: a worded chip with its own icon shape (a tick for
+  healthy, a diamond for "needs you", a cross for failed, a disc for running, a ring for off or
+  unknown), so a state never rests on its colour. Empty and unreadable sections say what is
+  missing and why in one plain sentence, and the Health load chart has its key under it and a
+  "Show the data as a table" view listing every sample it drew, at the time it was read. Dark
+  mode and high contrast follow from the same colours, so these screens no longer need colours
+  of their own for each mode, and status callouts in dark mode are a quiet tint with an amber,
+  green or rose edge rather than a heavy fill.
+- Times, scores and other figures use lining, evenly spaced digits everywhere, so the display
+  typeface no longer sets "08:00" as "o8:oo" or "100%" as "1oo%".
+- The language menu marks the chosen language with a check and as the checked choice for screen
+  readers, and keeps its highlight in high contrast, where every language used to look the same.
+  It now works fully from the keyboard: it opens on the current language, the arrow keys, Home
+  and End move through the list, Enter or Space chooses, and Escape closes it and returns to the
+  button.
+- A test that warned now shows amber in the dialog's progress bar and green for a passed step,
+  where a passed step used to be the brand colour.
+- Under the hood, colour now comes from semantic tokens (surface, text, muted, status tones and
+  so on) resolved once for light, dark and high contrast, with shared `Panel`, `StatusChip`,
+  `StateBlock`, `PageHeader`, `Stat` and `ChartFigure` components. A unit test proves every
+  token pairing meets WCAG 2.2 AA in every mode and colour theme, and a CI ratchet stops any
+  file, stylesheets included, adding raw palette colours, `dark:` overrides or arbitrary values.
+  The baseline it counts against can only be lowered, locally and against the target branch; see
+  [design tokens](docs/standards/design-tokens.md).
+- Heard-call scores under 60%, in the Explorer and the call player, are amber again in the
+  classic theme; they had taken the theme's secondary colour, which classic painted green.
+
+- High contrast works over the light theme. Turned on there, headings, labels, section names and
+  the unsaved-changes count stayed near-black on the black page. The mode is now one black scheme
+  whatever theme you chose: every text colour is repainted (white, yellow for links and choices,
+  green, amber and red for states), a primary or chosen control is yellow under black words, a
+  switch that is on is yellow and one that is off is grey, and a disabled control keeps readable
+  words inside a dashed edge, on black even where it is yellow when usable. Words inside a filled
+  badge or button follow its fill, and the record's AI panel follows the mode. It holds combined
+  with the reading font, and your own theme returns when the mode goes off.
+- The font option is named for what it is: **Reading font: OpenDyslexic**. It no longer promises
+  better readability, which is for the reader to judge.
+- One bird has one name and one score colour on the Dashboard. The **Needs your call** card and
+  the review queue name a visit as the field log does, in your naming style and language, and the
+  card and the capture pop-out colour a score by the same bands as every other page (amber under
+  60%, the brand colour under 85%, green from 85%).
+- A visit without a species reads **Unknown bird** everywhere, translated, and is renamed at once
+  when you change language. The score a visit must reach is the **naming threshold** everywhere,
+  Settings › Detection included.
+- German addresses you one way, with Sie, on every page, and the weather a visit was recorded in
+  ("Rain", a wind direction) is translated in all nine languages.
+- Hours on charts follow your clock. The Species detail **Time of day** axis read "12 AM" in an
+  app set to the 24-hour clock, and its first and last labels were cut off on a phone. Chart and
+  day-strip dates, and the "last seen" age of a BirdNET-Go source, follow your date format and
+  language too.
+- About describes itself: its subtitle says what the page holds, the "Did you know?" card of
+  general bird facts is gone, and the latest visit is read out by the words on it.
+- The Leaderboard's headings step down one level at a time in **Heard** as in **Seen**.
+- Every map credits OpenStreetMap, and the range map's hint names the zoom it has ("Use + and −")
+  instead of a scroll zoom it does not.
+
+- **Health is readable in both themes and says what it measured.** Subsystem detail is one ruled
+  list in full-contrast ink, with each state in a worded label instead of tinted cards and dimmed
+  text. Labels say what they count ("Messages being handled", "Failures in a row") rather than
+  "In flight" or "Open until: Closed", and video analysis says whether it is paused and until when.
+  A pipeline with the broker down reads as not measured, not healthy. The broker's last failure is
+  worded from its cause ("the host name … was not found. Check the address.") with the client's
+  own text under **Technical details**, and the commonest backend warnings, such as a detection
+  dropped because naming its snapshot took too long, are said in plain words with what to try. Any
+  other warning reads "A processing step failed" and never shows the backend's raw error, which can
+  hold paths and addresses, outside **Technical details**.
+  While the first reading loads the page says so and holds its space; if it cannot be read it
+  claims no state; if a refresh fails it keeps the earlier reading and says how old it is, until a
+  read (from the page or in the background) succeeds; a slow, older answer never replaces a newer one. On a
+  phone each process in **Resource use right now** is a short list, so no column is cut off, and
+  **Clear error history** now sits with **Earlier incidents**.
+- **One name for Health.** The sidebar, the System status link, the Notifications link and the
+  server-error hint all call the page Health. The health notification states its cause ("The MQTT
+  broker is not connected, so no new detections can arrive.") instead of "Health status: degraded".
+- **The jobs banner counts honestly.** It counts every job once by its real state ("4 jobs: 1
+  running, 3 queued", never "5 jobs running" over "1 running"), says what the leading job is doing
+  or waiting for ("Video analysis: waiting for Frigate to answer"), drops the "capacity" wording,
+  and draws a progress bar only when there is a measured total. `GET /api/jobs` reports the new
+  `waiting_for_frigate` phase, and `GET /api/diagnostics/connections` the broker failure's
+  `last_error_cause` (see [the API reference](docs/api.md#debug-owner)).
+- **Audio history never shows a zero it did not measure.** While it loads the figures and charts
+  show placeholders, not "0 heard" and "No activity yet"; if the history cannot be read the page
+  says so with what to try (the server's words under Technical details) and shows no figures; a
+  failed refresh keeps the earlier reading and says when it was read. Every chart has **Show the
+  numbers** with its values as a table (each day as the calendar day counted, in any time zone, and
+  all 24 hours), and the species mix key shows each slice's count,
+  "Other species" included. The top species' reference photos load only when that list comes
+  into view.
+- **A favourite's failed copy says why.** Instead of "Archive failed · Try again", the record says
+  what was not kept, the cause (Frigate could not be reached, the disk is full, …) with what to
+  check, and whether YA-WAMF will try again by itself. Until the copy's status has been read it
+  says only that it is checking, and if that check fails it says so and offers **Check again**. A matching call is stated once, in the
+  facts with its score.
+- **Notices no longer cover a dialog's close button.** While a dialog is open, toasts appear at
+  the bottom left.
+
+- The detection record now reads, and is walked by keyboard, in one order: the
+  identification, the decisions about it, the facts, a short species summary with a
+  link to its source, then the identifiers. Confirm and Pick a different species sit
+  directly under the name; Score again, Change the common name, Hide and Delete
+  permanently wait in the **More actions** list, and Species details is a link beside
+  the name. The archive status of a favourite is a line in the record instead of a
+  pill over the photograph, the video analysis card no longer shows the model id or
+  device, and a disabled Find more birds says why. The identifiers are a plain panel in the current
+  theme instead of an imitation terminal window, and the close button has a strip of
+  its own so nothing scrolls underneath it. A dialog whose last control is a
+  collapsed section can now be reached by keyboard.
+- About no longer shows "Running for Unknown" beside an availability figure. The
+  running time is read from the backend and, when it cannot be, the card says it was
+  not measured; availability is labelled with its 24-hour window. The card names the
+  runtime and its device ("TFLite on CPU"), the page shows one version string, and
+  the latest visit falls back to the newest stored photograph when no cropped one is
+  in reach. With no picture at all the facts sit under the title instead of beside an
+  empty frame. The pipeline cards share one style with the state as a dot and a word,
+  and model names no longer break mid-word.
+- Species detail labels its count "Detections, all time" (or "shared history" for a
+  visitor) and says how that differs from the Leaderboard's visit counts. The Audio
+  history species ring adds an "Other species" slice so its total is the page's
+  "Heard" figure.
+- The footer of every page carries the version, the licence and the links only. The
+  bird facts moved to a **Did you know?** card on About, where a fact changes only
+  when you ask for another. How the project was built is said once, in About's
+  opening paragraph and its thanks.
+- A failed MQTT or BirdNET-Go connection test now states the cause (host name not
+  found, nothing answering, no answer in time, user name or password refused) and what
+  to check, instead of "Check logs" or an exception name, and says it in the page's
+  language: the backend answers with a cause code and the host and port only, and the
+  page words it. A server failure that gives no reason, such as a bare "Internal Server
+  Error", is now explained with what to try and where to look instead of being shown raw. The test dialog has one close
+  button, states each stage's outcome in a word, shows a summary only when it adds
+  something, and offers **Test again** after a run.
+- First-run setup is nine steps instead of ten: the history import and the usage-stats
+  question share one **Optional extras** step. A disabled **Continue** says why, the
+  model step always opens with a model selected, the connection step offers **Set up
+  later** and says exactly what waits on Frigate and the broker, and setup opens on its
+  heading rather than on **Skip setup**.
+- Notifications say once, above the list, that jobs and system events are shown only to
+  you, and draw a progress bar only for work that is unfinished. A row that leads
+  somewhere is itself the link, with the time on its title line, so the list is about
+  half as tall. A failed connection test now ends each failed row with what to check. The process table on
+  Settings → Health can be scrolled by keyboard.
+
+- Colour now means one thing everywhere: amber appears only where something waits on you, green
+  where something is confirmed, and the brand blue for everything else. Saved notes, model and
+  provider chips, the analysis overlays, the eBird, iNaturalist and video panels in the record, the
+  species page's section headings and the notification channel cards lost their amber, cyan,
+  indigo and sky tints, and the decorative washes and blurred blobs behind the analysis overlays
+  and the start-up screen are gone. Outlines drawn on photographs share one evidence colour. A
+  layout test keeps every other colour out unless a component states why it needs one.
+- Buttons, headings and labels read in sentence case across the app ("Clear history", "Keyboard
+  shortcuts", "Test AI connection") in English and in the translations whose grammar uses it. A
+  locale test now fails Title Case labels and em dashes in English fallbacks.
+- The detection and Garden records name the subject once, in the rail's heading. The photograph
+  no longer repeats it, the common-name card is now a "Change the common name" button, the species
+  details button is no longer a second primary action, and the record stops saying that a source
+  "was not recorded". The species dialog's sections are headed by words alone, without an icon
+  tile beside each heading.
+- The review queue offers "Confirm {species}" for every visit the model named, not only for new
+  species, so a visit just under the naming threshold is one tap. A decision taken in the queue
+  applies only while the visit still reads as it was shown: if another tab or person changed it
+  first, nothing is overwritten, the queue says "This visit was changed elsewhere. It now reads
+  …" and shows the visit as it is now. The API takes this as `expected_category_name` on
+  `PATCH /api/events/{event_id}` and answers `409` when it no longer holds (see `docs/api.md`).
+- Every dialog closes with the same round button, the video player is titled by the bird and the
+  time instead of the event id, and the keyboard shortcuts panel lists the Explorer's day keys in
+  place of the permanent hint on the page. The unexplained "Classification sources" line is gone.
+- Clearer words: the error screen says what happened and what to do instead of "Something went
+  wrong", empty states say what to do next, Audio history's filters show "Any species" and "Any
+  source" instead of sample values, notifications say "Only you see this" in place of a padlock
+  and "owner", and a model whose device is not known yet says so in plain words.
+- Small labels above headings and groups ("Identified as", the sidebar's "Observe" and "Manage",
+  "System status") are no longer spaced-out capitals. They read in sentence case like every other
+  label, and the sidebar's group headings now match the Settings rail. A test keeps CSS from forcing
+  capitals anywhere.
+- A picture that fails to load keeps its place and shows nothing broken: no alt text spilling over
+  the controls on it, no broken-image icon. The record's spectrogram keeps its size, says quietly
+  that there is no spectrogram for the call, and the call can still be played. On the Leaderboard
+  wall a missing picture keeps its cell and names the bird, so nothing on the wall moves.
+- The small dots between facts (in the footer, on Explorer cards and elsewhere) now take the colour
+  of the text around them, so they meet contrast in both themes, and screen readers no longer read
+  them out.
+
+- **The Leaderboard is readable at twice the text size.** The ranking is a table only where its
+  columns have room at your text size; with larger text or a narrower window it becomes stacked
+  rows, each with its rank, name, evidence, last visit and count shown whole. The summary
+  figures, the Seen / Heard / Both switch and the weather line wrap in the same way. Before, the
+  columns overlapped and names ran out of their rows.
+- **The Leaderboard's share bar has a key.** Every colour is named under the bar with its share
+  and count, all the time. Before, a narrow segment had no visible name until you hovered or
+  focused it, and a long name was cut with an ellipsis.
+- **Small print, secondary text and normal text stay three sizes at every text size.** At the
+  Smallest Appearance size they had all become 12px, and at Standard two of them were equal.
+  Normal text now stays a step above small print (13px over 12px at Smallest), and secondary text
+  sits between them.
+- **Sign-in tells you what to fix.** A missing username or password is named under its own field
+  in your language, in place of the browser's "fill out this field" bubble. A refused sign-in
+  says "That username or password is not right. Check both and try again. Passwords are case
+  sensitive." in place of "Invalid credentials", and too many attempts, a server fault and an
+  unreachable feeder each say their own cause and next step.
+  If you press Enter with the cursor already in the empty field, a screen reader is told what is
+  missing; when the cursor moves to the field at fault, its message is read with the field, once.
+- **Doubling the browser's text size doubles the text on a large display too.** Above 1280px wide
+  the extra size a large display gets was a fixed number of pixels, so text grew by 1.85 to 1.96
+  times; it is now a share of your own text size and grows by exactly two.
+- **Notifications no longer jumps as it loads.** The history is drawn once the background jobs
+  have been read, so job rows arriving a moment later do not push the list and its page controls
+  down a phone screen.
+- **A screen reader keeps the time and score while you select visits in the Explorer.** The
+  labels on a photograph pass clicks to the card during multi-select, as before, but are no
+  longer hidden from assistive technology.
+- The type scale is now checked in a real browser at every Appearance text size and at twice the
+  browser's text size, in place of a test that repeated the stylesheet's own arithmetic.
+
+- **Keyboard focus is easy to see in both themes.** Every shared control now draws one opaque
+  focus ring that stands out from whatever is beside it (3:1 or better against the page, a panel
+  and a tinted row, in the light and dark modes of both colour themes). The old ring was a
+  half-transparent tint that measured 1.6:1 on white. The ring appears for keyboard focus and no
+  longer flashes on a mouse click. Controls over a photograph or in the video player use a lighter
+  ring that reads on a dark ground.
+- **Small print is larger and darker.** No text is set under 12px any more: at the Standard text
+  size the smallest labels were 9.6px. The floor follows your browser's text size and your Appearance
+  text size, so small print grows with each step and doubles when the browser's size is doubled.
+  Page titles are no longer made smaller to fit a narrow screen at a large text size; a long
+  title breaks onto another line instead. Helper text, timestamps, captions and coloured small text
+  across the Dashboard, Explorer, Leaderboard, Audio history, Notifications, About and the record,
+  species and review dialogs now meet 4.5:1 on the ground they actually sit on, tinted rows and
+  the page background included.
+- **Buttons are a comfortable size by default.** A kit button is at least 44px tall with its own
+  padding, so a button can no longer shrink to a sliver.
+- **Screen readers hear what the screen shows.**
+  - The sidebar status is a real list inside a live region, and its **System health** link is
+    named by its own words; the status tiles keep their tooltips.
+  - Rows and buttons on the Dashboard, Leaderboard, Audio history, species page and video player
+    are named by the words on them instead of a hidden label that left those words out.
+  - The record's **Delete** and **Hide** actions are labelled buttons, not two unnamed icons
+    told apart by colour.
+  - Map pins, the setup and diagnostic progress bars and the video player's share fields have
+    names; map pins are 24px targets.
+  - The sign-in screen has a main landmark, the skip link always has a target, the phone header
+    is a page banner, and About and Audio history use valid definition lists and heading levels.
+  - The page declares the language you picked, so a screen reader pronounces it correctly.
+- **A check result states each outcome once.** Test dialogs no longer repeat a failed step's
+  sentence in the summary box; the summary names which checks did not pass (or that all passed).
+- **Nothing moves or changes by itself in the footer.** The bird fact is chosen once per page
+  load instead of turning over every eight seconds, and it is no longer amber, which is kept for
+  work that needs you.
+- **Words over photographs stay legible.** Time, score and camera labels on Explorer cards and
+  the Leaderboard wall sit on a darker, unblurred fill; share-bar labels on the Leaderboard pick
+  the ink that reaches 4.5:1 on every segment colour.
+- **Long labels are shown whole.** Sidebar navigation labels wrap instead of being cut off
+  (German "Beobachtung hinzufügen"), and the phone drawer no longer offers the desktop-only
+  "collapse sidebar" control.
+- **Nothing is cut off at twice the text size.** With the browser's text size doubled, species
+  names, captions and row details on the Dashboard, Explorer, Audio history, Notifications, About,
+  the record and its delete prompt, the connection test, the video player and the setup wizard now
+  wrap onto another line instead of ending in an ellipsis or running under the figure beside them.
+  The same names wrap at the normal size when they are too long for their row.
+- **Selecting visits in the Explorer always selects.** While choosing several cards, the time and
+  score labels on a photograph no longer take the click meant for the card.
+- **The "Chosen" mark stays inside its thumbnail** in the photo strip, so it can no longer stretch
+  the strip past its last frame.
+- The video player's controls use one neutral style in place of three unrelated colours, and its
+  playback state chip is no longer amber.
+- The shared kit gains `focus-ring-on-dark`, `btn-on-dark`, `input-on-dark`, `photo-chip`,
+  `switch-track` and `switch-thumb`; the rules are in
+  [the UI standard](docs/standards/ui-ux.md#kit-rules-that-keep-aa-true). The Chromium suite now
+  runs axe-core over the main routes with data on them in both themes and fails on any serious or
+  critical violation.
+
+### Faster pages
+
+- **Pages open with a handful of files, not dozens.** A cold load used to fetch 45 to 73 separate
+  script files; the app's code is now packed into a shell, one shared file and the page itself,
+  so a page needs a few. The code loaded before anything is drawn is slightly smaller than before.
+  Dialogs and the setup wizard keep their code apart and fetch it only when they open, and the
+  charts, video player and maps still load only on the pages that draw them.
+- **Pointing at a page in the sidebar starts loading it**, with a mouse or pen, or by reaching it with
+  the keyboard, so the click that follows shows the page without a wait. A finger scrolling past a
+  link loads nothing, and nothing is loaded ahead when the browser asks to save data.
+- **An update that changes one page leaves the rest cached**: the other pages, the shared code and
+  the languages keep their file names, so the browser does not fetch them again.
+
+- **Pages read only what they show.** Opening About, Notifications or a Settings tab no longer
+  reads the recent detection history; the Dashboard, which shows it, reads it when it opens, and
+  stops reading it when you leave.
+  Health builds its timeline from its own visit reading and no longer reads the history at all.
+  Each Settings tab reads its own helper data when it is first opened: the BirdNET-Go sources on
+  Integrations, the recording-clip check on Connection, and the backfill status on Data. Saving
+  reads again what the save may have changed, so a new Frigate address is checked at once, and
+  leaving a tab cancels a read it no longer needs. A
+  backfill that is running is still followed on every tab, so its end is announced wherever you
+  are, but the page learns that from the pushed status instead of asking on every tab.
+- **A visitor's sidebar CPU line samples once a minute**, down from four times; an owner's line
+  already follows the pushed status and makes no requests.
+
+- An open Dashboard now follows the live stream instead of polling while nothing happens. The
+  backend announces each newly stored BirdNET-Go call to the owner's open pages
+  (`audio_detected` over `GET /api/sse`, with no detection in it; see
+  [the API reference](docs/api.md)), so the Heard card, the day's call figures and the species
+  checks read when a call is heard, hidden or restored, no more often than they used to poll, and
+  the day's summary, visit log, species checks and review queue read when a visit, correction or
+  Garden review is announced, with one safety read every five minutes. A read that fails is tried
+  again at the old pace rather than trusted, and a stream that comes back after a drop is followed
+  by a fresh read at once. A guest, or an owner whose live stream is down, polls as before. An idle
+  Dashboard makes 9 requests a minute instead of 20.
+- Opening a page asks each status question once. The shell, the page and its cards each read the
+  same camera, version, update, classifier, analysis-queue and connection status, so most pages
+  sent two or three of the same request on every load; readers asking at the same moment now
+  share one answer, and only within one session and language. A failed read is never reused, a
+  change the server announces is read fresh, a model change or settings save drops the shared
+  reading of what names birds, and a view that has just changed something reads for itself and
+  hands that reading on. The Dashboard's first read of the
+  day waits for the owner's Garden switch instead of reading the day twice.
+- Settings reads Frigate's cameras, the storage figures, the cache measurement and the version
+  only on the tabs that show them. Settings › Appearance now makes 18 API requests on opening
+  instead of 24.
+- The Leaderboard opens on three rows of its photo wall (four on a phone), with every photograph
+  sized to its cell and the full wall one press of **Show more visits** away, so the rankings are
+  in reach and a cold load asks for 42 photographs instead of 84. The ranking is built once, as
+  rows or as a table, whichever fits, instead of both with one hidden; its large readings are no
+  longer wrapped in reactive proxies; and dates across the app are formatted with one reused
+  formatter per format. On a slow phone the page blocks for half as long while it opens.
+- The Health page and Settings › Models no longer jump as they load. Health shows the sections
+  beneath its verdict once the first health reading is in, since the verdict's length depends on
+  what it finds; Models shows what follows the model list once the list has its first answer, and
+  **Refresh** keeps the list in place while it reads again.
+
+- An open page now asks the backend for far less while nothing is happening. A quiet owner page
+  used to make 37 to 64 requests a minute (the sidebar's CPU line alone read 24 times a minute);
+  it now makes 7 to 13, and the Dashboard 20. Each background reading is taken at the
+  rate its source changes: the sidebar CPU line and the Heard card every 15 seconds, camera
+  reachability and idle job and analysis status once a minute, backend health every two
+  minutes, and the media-folder check every ten. Running work is still followed every five
+  seconds, and every reader stops while the tab is hidden and reads once when it is shown again.
+- Opening a page reads your settings once instead of two to four times: the shell, the camera
+  status control, the Heard card, Audio history and the Settings page share one response.
+- The Leaderboard opens with a fraction of the download. Its wall of visits now asks for a
+  tile-sized photograph for each small cell
+  (`GET /api/about/showcase/{event_id}.jpg?size=tile`, see [the API reference](docs/api.md))
+  instead of a card-sized one, a ranking row reads its reference picture when it comes near the
+  screen instead of all at once, and the charts below the fold are drawn when you scroll to
+  them.
+- Settings loads one tab at a time. The Connection, Detection, Notifications, Integrations,
+  Security, Data and Beta tabs are now separate files fetched when opened, like Health,
+  Enrichment, AI, Appearance and Accessibility already were, so opening Settings no longer
+  downloads every tab.
+- Pages no longer jump while they load. The footer used to show beneath a page that was still
+  reading its data and then leap away; the page area now holds a screen of height. On
+  **Settings → Health** the system chart, the status line and the "Updated" reading keep their
+  space before they arrive, and the Leaderboard's loading wall is the height of the wall that
+  replaces it.
+- The Explorer no longer waits on a slow Garden read. A first page with Garden animals on shows
+  its visits after at most 0.3 seconds; if the Garden captures are not in by then, one row above
+  the visits says they are being read, then offers them with **Show Garden captures**, says there
+  are none, or says the read failed with **Retry**. Captures that arrive late are not dropped in
+  between visits you are already looking at.
+- Settings that cannot be read are no longer shown as a form. If the backend does not answer when
+  you open **Settings**, the page says so and offers **Try again** instead of a form of defaults
+  or of an older copy that could be applied over the configuration the backend holds.
+
+### Platform and dependencies
+
+- Backend regression checks no longer wait indefinitely when a CPU recovery test's
+  request fails before reaching its worker. Checks name each running test, dump
+  Python thread stacks after 110 seconds, and stop a stalled test after 120 seconds.
+
+- The dashboard now needs a newer browser: Chrome or Edge 111, Firefox 128, or Safari 16.4
+  (iOS and iPadOS 16.4), or later. Nothing changes on screen in a supported browser. An older
+  one, such as an iPad that stopped at iPadOS 15, still loads the page but draws colours, borders
+  and focus rings wrongly; see [supported browsers](docs/setup/getting-started.md#supported-browsers).
+  The cause is the move of the UI's styling to Tailwind CSS 4, which builds through Vite with
+  its settings in `apps/ui/src/app.css` instead of `tailwind.config.js` and PostCSS. The stylesheet
+  is larger as a result, 238 kB against 186 kB before (34 kB against 29 kB compressed).
+
+- YA-WAMF's images now run on Python 3.13 instead of 3.12. Nothing changes in how it
+  identifies birds: on the same photos the 3.12 and 3.13 images gave identical species and
+  scores on CPU, an Intel GPU and an Intel NPU, with the same versions of TensorFlow, ONNX
+  Runtime and OpenVINO. Python 3.15 was proposed and is not possible yet, because those
+  runtimes publish no builds for it; 3.14 would have installed a pre-release TensorFlow. The
+  evidence is in
+  [the readiness review](docs/reviews/2026-11-13-python-upgrade-readiness.md). The CUDA image
+  was built and starts, but could not be tried on an NVIDIA GPU. If you develop YA-WAMF,
+  recreate your virtual environment with Python 3.13.
+
+- Updates the backend's patch releases (pydantic 2.14.3, python-multipart 0.0.33, google-auth
+  2.62.1), the UI build and test tools (Vite 8.3.6, Vitest 5.1.0, svelte-check, knip), the
+  telemetry worker's packages and the pinned GitHub Actions. The development tools coverage and
+  pytest-asyncio are updated too. Nothing changes in how YA-WAMF behaves.
+
 ## [2.23.2] - 2026-11-09
 
 - The Species page no longer fails to load when two birds share a translated name, such as
