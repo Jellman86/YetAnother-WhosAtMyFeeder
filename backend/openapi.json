@@ -1405,6 +1405,17 @@
             "title": "Max Confidence",
             "type": "number"
           },
+          "scientific_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scientific Name"
+          },
           "species": {
             "title": "Species",
             "type": "string"
@@ -25877,6 +25888,25 @@
                 }
               ],
               "title": "Min Confidence"
+            }
+          },
+          {
+            "description": "Limit the grid to one species exactly, by its scientific name",
+            "in": "query",
+            "name": "scientific_name",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Limit the grid to one species exactly, by its scientific name",
+              "title": "Scientific Name"
             }
           }
         ],

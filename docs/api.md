@@ -1649,13 +1649,17 @@ snapshot, not a destructive queue-control API.
     completed automatic video classification that agrees by species, time window, and source mapping
   - `GET /api/audio/summary`. Its `hourly_counts` is **deprecated**: it counts calls by UTC hour, the
     UI no longer reads it, and `GET /api/audio/activity-heatmap` gives calls by the viewer's local
-    weekday and hour instead. It stays in the response so existing clients keep working
+    weekday and hour instead. It stays in the response so existing clients keep working. Each
+    `top_species` row carries its `scientific_name` (null when the calls were stored without one):
+    `species` is translated, so the scientific name is what asks the activity grid for that species
   - `GET /api/audio/activity-heatmap` — calls heard by weekday and hour, in the zone the
     `X-Timezone` header names (UTC without it). It takes the summary's window (`days`, or
     `start_date`/`end_date`) and filters (`species`, `source`, `min_confidence`), so its
     `total_count` always equals the summary's `total`. Cells have the camera grid's shape
     (`day_of_week` 0 for Sunday, `hour`, `count`) with `max_cell_count`, and `window_start` and
-    `window_end` state the window counted. A guest gets the public window, and a `source` filter is
+    `window_end` state the window counted. Optional `scientific_name` limits it to one species exactly
+    (case-insensitive); `species` is a search over the stored common name and finds every name
+    containing the text. A guest gets the public window, and a `source` filter is
     ignored when camera names are private
   - `GET /api/audio/heard-groups?start_date=&end_date=` — BirdNET-Go calls in a window of at most
     93 days. A call that supports a visit the pipeline confirmed (same species, a microphone mapped

@@ -356,7 +356,8 @@ async def test_audio_summary_rolls_up_persisted_history(client: httpx.AsyncClien
     assert payload["source_count"] == 2
     assert payload["top_species"][0]["species"] == "Dunnock"
     assert payload["top_species"][0]["count"] == 2
-    assert "scientific_name" not in payload["top_species"][0]
+    # The grid's species choice asks for it by scientific name: the common name is translated.
+    assert payload["top_species"][0]["scientific_name"] == "Prunella modularis"
     assert {item["date"] for item in payload["daily_counts"]} == {
         now.strftime("%Y-%m-%d"),
         (now - timedelta(days=1)).strftime("%Y-%m-%d"),
