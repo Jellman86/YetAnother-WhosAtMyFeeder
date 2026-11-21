@@ -161,7 +161,7 @@ One form per language, in every string.
 - **Label an action by its effect.** "Download and set up", "Hide from history", "Delete 931 visits".
   Not "OK", "Submit" or "Apply".
 - **An error gives a cause and a next step.** "Frigate did not answer. Check its address in
-  Settings → Connection." Never "Something went wrong", never an error code alone, and never the
+  Settings → Cameras & connection." Never "Something went wrong", never an error code alone, and never the
   server's or the browser's own sentence. What the server said belongs in a details disclosure,
   quoted as it arrived, under copy that was written for the owner.
 - **A status is not a message.** "Health status: degraded" tells the owner nothing they can act on.

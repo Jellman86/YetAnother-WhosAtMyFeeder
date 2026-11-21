@@ -62,7 +62,7 @@ blocked by one offender. Consider whether background work is set too high:
   four). Raising it adds model copies and competing background work; it is not a database fix.
   The legacy `video_classification_max_concurrent` field is ignored. Start with one and compare
   queue waiting ages, memory and database holds before increasing it. See
-  [maintenance concurrency](../setup/configuration.md#maintenance-concurrency).
+  [maintenance settings](../setup/configuration.md#maintenance).
 - `DB_POOL_SIZE` raises the pool itself. Each connection carries its own 64 MB page cache, so five
   connections is roughly 320 MB of headroom; raising it costs memory in proportion, and SQLite does
   not write faster with more connections.

@@ -160,7 +160,12 @@ curl -N "http://localhost:9852/api/sse?ticket=$TICKET"
   `disconnected`, `not_configured` or `stopped`), and `frigate_api` carries `state`
   (`reachable`, `unreachable` or `unchecked`) and `last_failure` from the latest request made to
   Frigate. `status` is `degraded` while the broker is `disconnected` or `not_configured`, or while
-  Frigate's latest request went unanswered: no new detection can arrive or be saved then.
+  Frigate's latest request went unanswered: no new detection can arrive or be saved then. It is
+  also `degraded` while a startup phase has a warning, the classifier (`ml`) or its live image
+  runtime is unhealthy or recovering, the database pool is degraded, the media folder cannot be
+  written, the event pipeline is not `ok`, the notification dispatcher has dropped jobs, or MQTT
+  handling is backed up or recovering from a stall. A `degraded` report still answers HTTP `200`,
+  so read `status` from the body rather than the HTTP code.
 - `GET /ready`: startup readiness (returns `503` until ready, and while a startup warning stands).
   The `503` body is the same report, so `startup_started_at` is still readable from it. This exact
   public path is proxied through both monolithic and split frontend deployments and is not cacheable.
@@ -314,8 +319,8 @@ A header or `TZ` that does not name a real zone is ignored (and logged once), ne
 is resolved, so no header can widen it. A day runs from local midnight
 to the last instant before the next local midnight, so a capture at 23:30 local time belongs to
 that day even when it is already the next day in UTC, and a day that changes the clock is 23 or
-25 hours long. Both bounds are inclusive. The range may span at most 365 days. Any other word
-is rejected with `422`.
+25 hours long. Both bounds are inclusive. The range may span at most 365 days; a longer range
+is rejected with `400`. Any other word is rejected with `422`.
 
 ```bash
 # Everything from today, oldest first in pages of 500, then today's visits in one request.
@@ -532,8 +537,8 @@ can change their framing. Full-frame Frigate coordinates must not be reapplied t
 ### Garden animal review
 
 Garden routes use `private, no-store`. All of them require owner access except the read-only
-history and photo routes (`visits`, `visits/{visit_id}/captures`, `timeline`, `{capture_id}/snapshot`
-and `{capture_id}/crop`). With public access on, a guest reads those under the bird detection rules.
+history and photo routes (`visits`, `visits/{visit_id}/captures`, `timeline`, `captures/{capture_id}`,
+`{capture_id}/snapshot` and `{capture_id}/crop`). With public access on, a guest reads those under the bird detection rules.
 A guest sees confirmed captures only, within the public history window. Camera names read `Hidden`
 when they are not shared. `review_token` and `automatic_check` are null. Snapshot, crop and
 `clip_event` are null outside the public media window or when photographs or video are not shared.
@@ -972,8 +977,8 @@ other identifications for `needs_review`, and are excluded from personalization 
   the value currently being edited without saving it. Stored Frigate credentials are
   forwarded only when the normalized override matches the saved Frigate base URL. The
   returned `frigate_url` is reduced to `scheme://host[:port]`.
-- `GET /api/frigate/config`
-- `GET /api/frigate/recording-clip-capability`
+- `GET /api/frigate/config` (owner)
+- `GET /api/frigate/recording-clip-capability` (owner)
 - `POST /api/video-share`
 - `GET /api/video-share/{event_id}`
 - `GET /api/video-share/{event_id}/links`
@@ -1136,9 +1141,12 @@ stores it (parentheses included when the source writes them), or null when unrec
   window. These counts cover analyzed captures and may count the same bird in later captures.
   Visits for the same window use the leaderboard's rule (a frame opens a visit unless the
   same canonical species was on the same camera within the visit gap, `visit_gap_seconds`, of the running latest verified event end, or capture time when the end is unavailable): `visit_count`, `hourly_visits`
-  (24 local-hour buckets by when each visit began), `camera_visits` (visits and last sighting per
+  (24 hour buckets by when each visit began), `camera_visits` (visits and last sighting per
   camera; `null` for a guest who may not see camera names) and `visit_count` on each `top_species`
   entry, which is now ordered by visits. `total_count` and `hourly_distribution` still count frames.
+  The hour buckets of `hourly_visits` and `hourly_distribution` are hours in the zone the
+  `X-Timezone` header names, and UTC without it. Unlike the start of `window=today`, they do not
+  fall back to the container's `TZ`.
 - `GET /api/stats/detections/daily`
 - `GET /api/stats/detections/timeline` With day or month buckets, sealed days are counted from
   their daily totals (and compare lines from each species' totals, matched by catalogue
@@ -1329,8 +1337,8 @@ A detection set aside is dropped with reason `filter_out_of_range`, and `POST
 - `POST /api/settings` (owner)
 
 Settings writes are partial and use the flat API field names, rather than the nested
-`config.json` layout. `visit_gap_seconds` (stored as `visits.gap_seconds`, 5 to 300, default 60)
-sets the visit gap: captures of one species on one camera no further apart than this are one visit,
+`config.json` layout. `visit_gap_seconds` (stored as `visits.gap_seconds`, 5 to 300, default 60,
+environment override `VISITS__GAP_SECONDS`) sets the visit gap: captures of one species on one camera no further apart than this are one visit,
 for birds and Garden animals. It applies to the next query, with no restart. Days already sealed
 into daily totals keep the visit counts they were sealed with. Omitted fields stay unchanged. Empty or redacted secrets retain
 the saved value; they do not clear it. A provider or execution-mode change reloads
@@ -1501,7 +1509,11 @@ return 422. It does not reclassify saved detections or wait indefinitely for an 
   `preview_detections_to_cleanup` is how many detections that window would delete, counted with the
   cleanup's own rule (hidden detections count; favourites and the per-species floor are kept), and
   `preview_retention_days` echoes the window. Both are `null` without the parameter.
-- `POST /api/maintenance/cleanup` (owner)
+- `POST /api/maintenance/cleanup` (owner): runs the scheduled age cleanup now: deletes detections
+  older than `retention_days` (favourites and the per-species floor are kept) and BirdNET-Go audio
+  older than the same cutoff. Each day is sealed into daily totals before its captures are deleted,
+  so species stats and the detection timeline keep counting it. If sealing fails nothing is deleted and the answer is
+  `503`. With `retention_days` at 0 (unlimited) it answers `status: "skipped"`.
 - `POST /api/maintenance/favorites/clear` (owner)
 - `POST /api/maintenance/purge-missing-clips` (owner)
 - `POST /api/maintenance/purge-missing-snapshots` (owner)
@@ -1685,7 +1697,7 @@ snapshot, not a destructive queue-control API.
   - `GET /api/audio/clip/{birdnet_id}` — proxies the matched audio clip, forwarding the client's
     `Range` header so `<audio controls>` can seek.
 
-  Both honour **Share audio with visitors**: with it off, a guest gets no audio at all.
+  Both honour **Share audio with guests**: with it off, a guest gets no audio at all.
 
 `GET /api/events` accepts `event_id` for an exact Frigate event lookup. It retains the same guest
 history, hidden-event, and camera-privacy restrictions as the paginated event list.
@@ -1943,7 +1955,7 @@ length oracle.
   summaries and future correlation. This does not write to BirdNET-Go.
 
 
-### Saved Garden animal crops (owner)
+### Saved Garden animal crops
 
 Garden capture responses include nullable `crop_url` and `crop` evidence alongside
 `snapshot_url`. A crop is a separate saved preview, never a replacement for the full
@@ -1955,12 +1967,14 @@ and the saved JPEG checksum.
 - `GET /api/garden/{capture_id}/crop` returns the private JPEG, `404` when unavailable
   or no longer confirmed, and `409` if its checksum differs from the evidence.
   Signed-in browsers may use their owner media session cookie for this read-only
-  image request. Guest cookies are refused; storage statistics and review actions
-  still require API authentication.
-- `GET /api/garden/crops/storage` returns `count`, `bytes`, `limit` and
-  `max_bytes_per_crop` for the bounded preview store.
+  image request. With public access on, a guest reads it under the same rules as the
+  Garden snapshot (a confirmed capture inside the public history and media windows, with
+  photographs shared), rate-limited; anything else is `404`.
+- `GET /api/garden/crops/storage` (owner) returns `count`, `bytes`, `limit` and
+  `max_bytes_per_crop` for the bounded preview store. Storage statistics and review actions
+  require API authentication; the media cookie does not authorize them.
 
-Both endpoints require owner authentication and the Garden beta. Media responses
+Both endpoints require the Garden beta. Media responses
 use `Cache-Control: private, no-store` and `X-Content-Type-Options: nosniff`.
 Person revocation, dismissal and history cleanup remove saved pixels. Preview
 reclamation retains capture/name metadata; crops do not make expired originals

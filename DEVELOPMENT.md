@@ -92,7 +92,7 @@ monolith locally.
    endpoints or UI labels change. Pure documentation cleanup does not invent a new
    release version or date.
 5. Run the gates in [testing](docs/development/testing.md), including root-level
-   lint/format, backend regression coverage, frontend check/unit/dead-code/build,
+   lint/format, backend regression coverage, frontend check/unit/dead-code/design-token/build,
    telemetry tests and documentation consistency. Add browser interactions or
    trusted-host hardware checks where the change needs them.
 

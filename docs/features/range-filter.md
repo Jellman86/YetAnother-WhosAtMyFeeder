@@ -17,9 +17,10 @@ changes**.
 | BirdNET-Go only | Nothing on its own. Species BirdNET-Go hears count as present, but hearing can never show a species is absent, so it never rejects anything. |
 | An approximate location (coordinates to one decimal place) | Uses a state or province list, never a county. |
 | Only a country | Uses the country list. |
-| No location | Nothing. The switch is disabled and links to **Settings → Sharing & integrations → Location**. |
+| No location | Nothing. The switch is disabled and links to **Settings → Sharing & integrations → Your feeder’s location**. |
 
-The location and the eBird key are the ones already set under **Settings → Sharing & integrations**.
+The location and the eBird key are the ones already set under **Settings → Sharing & integrations**:
+the location in **Your feeder’s location**, and the key under **More options → eBird**.
 
 ## Where the list comes from
 

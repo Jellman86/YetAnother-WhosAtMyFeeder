@@ -169,7 +169,7 @@ AAC as the most compatible audio format, and `preset-record-generic-audio-copy` 
 unnecessary transcoding when the camera already emits AAC.
 
 ### 🎥 Record Mode (Frigate 0.17+)
-**Auto Video Analysis** needs a usable retained clip. Continuous recording with
+**Auto video analysis** needs a usable retained clip. Continuous recording with
 positive retention gives the broader coverage needed by **Full-visit clips** and
 recording-frame workflows. Keep `record.enabled: True`, a `record` FFmpeg role and
 positive `continuous.days` on every selected camera when enabling full visits.
@@ -178,7 +178,7 @@ alerts/detections retains their overlapping segments, rather than guaranteeing
 an uninterrupted timeline between those events. See
 [Frigate recording retention](https://docs.frigate.video/configuration/record/).
 
-The optional **Full-visit clips** feature uses the same recording store, but proxies a longer camera-level window around the detection time and persists that result locally in YA-WAMF. In YA-WAMF, this is gated in **Settings → Cameras & connection → Frigate** and only becomes switchable when **every selected camera** is enabled, has an FFmpeg input with the `record` role, has recording enabled, and inherits or declares a positive `record.continuous.days` value. The UI reports the guaranteed minimum continuous retention across those cameras and names each camera whose configuration is incomplete.
+The optional **Full-visit clips** feature uses the same recording store, but proxies a longer camera-level window around the detection time and persists that result locally in YA-WAMF. In YA-WAMF, this is gated in **Settings → Cameras & connection → More options → Frigate details → Full-visit clips** and only becomes switchable when **every selected camera** is enabled, has an FFmpeg input with the `record` role, has recording enabled, and inherits or declares a positive `record.continuous.days` value. The UI reports the guaranteed minimum continuous retention across those cameras and names each camera whose configuration is incomplete.
 
 Frigate treats continuous, motion, alert, and detection retention as separate tiers. Keeping alerts or detections for 30 days does **not** provide an uninterrupted 30-day timeline: with `continuous.days: 0`, only matching event segments survive. YA-WAMF may keep a playable partial event clip as a fallback, but it does not advertise that as reliable Full-visit coverage because the requested pre/post window can start late or end early. See Frigate's [recording retention documentation](https://docs.frigate.video/configuration/record/) for the upstream semantics.
 
